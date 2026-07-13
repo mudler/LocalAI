@@ -168,7 +168,7 @@ Clients can also manage history directly via the now-supported `conversation.ite
 
 ### Classifier mode (LocalAI extension)
 
-On hardware that can afford prompt processing but not token generation — a Raspberry Pi running a small LLM, for example — a realtime session can replace autoregressive generation with **prefill-only classification**: you register a fixed list of options, each user turn is scored against them with the Score primitive (a single forward pass, no decode), and the winning option's canned reply is spoken and/or its canned tool call is emitted. On llama-cpp, scoring runs through the same server slot the LLM uses, so the conversation prefix stays KV-cached across turns and each turn only pays for the new tokens.
+On hardware that can afford prompt processing but not token generation — a Raspberry Pi running a small LLM, for example — a realtime session can replace autoregressive generation with **prefill-only classification**: you register a fixed list of options, each user turn is scored against them with the Score primitive (a single forward pass, no decode), and the winning option's canned reply is spoken and/or its canned tool call is emitted. On llama-cpp, scoring runs through the same server slot the LLM uses, so the conversation prefix stays KV-cached across turns, and all options are scored together in one batched decode: the shared prefix (prompt plus the options' common token prefix) is processed once, then each option's unique tail rides a forked sequence in a single forward pass. A warm turn costs roughly one pass over the new words plus one small batch over the option tails, independent of the option count.
 
 Enable it in the pipeline config:
 
