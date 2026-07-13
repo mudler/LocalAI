@@ -1435,20 +1435,9 @@ func (c *ModelConfig) Validate() (bool, error) {
 			ProxyProviderOpenAI, ProxyProviderAnthropic)
 	}
 
-	// Score on llama-cpp bypasses the slot loop and races the
-	// llama_context against concurrent generation/embedding traffic
-	// (see backend/cpp/llama-cpp/grpc-server.cpp on Score). Reject the
-	// combination here so operators are forced to split the model.
-	// (token_classify is unaffected — it runs on the standalone
-	// privacy-filter backend, not llama-cpp.)
-	const scoreConflicts = FLAG_CHAT | FLAG_COMPLETION | FLAG_EMBEDDINGS
-	if (c.Backend == "llama-cpp" || c.Backend == "llama") &&
-		c.HasUsecases(FLAG_SCORE) && c.KnownUsecases != nil &&
-		*c.KnownUsecases&scoreConflicts != 0 {
-		return false, fmt.Errorf(
-			"known_usecases conflict on llama-cpp: score is incompatible " +
-				"with chat/completion/embeddings — split into separate model configs")
-	}
+	// Score on llama-cpp runs through the slot loop (SERVER_TASK_TYPE_SCORE,
+	// see backend/cpp/llama-cpp/patches/), so it is safe to combine with
+	// chat/completion/embeddings on one config — no conflict check needed.
 
 	// Pattern detector: validate built-in names and that each operator-defined
 	// pattern is a well-formed, anchored, bounded restricted-regex. Reject at
@@ -1576,9 +1565,10 @@ const (
 	// Marks a model as wired for the Score gRPC primitive (joint
 	// log-prob of candidate continuations under a shared prompt). Must
 	// be declared explicitly via `known_usecases: [score]` — there's
-	// no heuristic for it. On llama-cpp, Score bypasses the slot loop
-	// (direct llama_decode), so combining score with
-	// chat/completion/embeddings in one config is rejected at validation.
+	// no heuristic for it. On llama-cpp, Score runs through the slot
+	// loop (SERVER_TASK_TYPE_SCORE), so it may combine freely with
+	// chat/completion/embeddings on one config and shares the slot's
+	// prompt cache with generation.
 	FLAG_SCORE ModelConfigUsecase = 0b10000000000000000000
 
 	// Marks a model as wired for the Depth gRPC primitive (per-pixel
@@ -1691,9 +1681,9 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 // either, they reserved the model for an internal direct-decode primitive
 // (the router classifier, or the PII NER tier). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
-// was deliberately kept out of, and (on llama-cpp) reintroduce the slot
-// contention the conflict check exists to prevent. So a declared score or
-// token_classify list is authoritative.
+// was deliberately kept out of. So a declared score or token_classify
+// list is authoritative; declare the generation usecases explicitly
+// alongside score to serve both from one config.
 func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 	if c.KnownUsecases != nil {
 		if (u & *c.KnownUsecases) == u {
@@ -1883,8 +1873,8 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 
 	if (u & FLAG_SCORE) == FLAG_SCORE {
 		// No heuristic: Score-intent is a deliberate operator choice
-		// (it reserves the model from generation traffic on llama-cpp),
-		// so HasUsecases(FLAG_SCORE) is true only when KnownUsecases
+		// (it keeps the model out of pickers it wasn't meant for), so
+		// HasUsecases(FLAG_SCORE) is true only when KnownUsecases
 		// declares it explicitly.
 		return false
 	}
