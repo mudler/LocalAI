@@ -3131,6 +3131,21 @@ public:
         return grpc::Status::OK;
     }
 
+    grpc::Status Detokenize(ServerContext* context, const backend::DetokenizeRequest* request, backend::DetokenizeResponse* response) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+
+        std::string content;
+        for (const auto token : request->tokens()) {
+            content.append(common_token_to_piece(ctx_server.get_llama_context(), token));
+        }
+        response->set_content(content);
+        return grpc::Status::OK;
+    }
+
     grpc::Status GetMetrics(ServerContext* /*context*/, const backend::MetricsRequest* /*request*/, backend::MetricsResponse* response) override {
 
         conflict_guard guard("GetMetrics", slot_loop_inflight, score_inflight, "score_inflight");
