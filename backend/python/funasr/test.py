@@ -1,5 +1,6 @@
 import importlib
 import os
+import re
 import sys
 import types
 import unittest
@@ -45,11 +46,12 @@ class _FakeAutoModel:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.generate_calls = []
+        self.results = [{"text": "hello"}, {"text": " world"}]
         _FakeAutoModel.instances.append(self)
 
     def generate(self, **kwargs):
         self.generate_calls.append(kwargs)
-        return [{"text": "hello"}, {"text": " world"}]
+        return self.results
 
 
 def _install_stubs():
@@ -71,7 +73,18 @@ def _install_stubs():
         server=lambda *args, **kwargs: None,
     )
     sys.modules["torch"] = _FakeTorch
-    sys.modules["funasr"] = types.SimpleNamespace(AutoModel=_FakeAutoModel)
+    funasr = types.ModuleType("funasr")
+    funasr.__path__ = []
+    funasr.AutoModel = _FakeAutoModel
+    funasr_utils = types.ModuleType("funasr.utils")
+    funasr_utils.__path__ = []
+    postprocess_utils = types.ModuleType("funasr.utils.postprocess_utils")
+    postprocess_utils.rich_transcription_postprocess = lambda text: re.sub(
+        r"<\|.*?\|>", "", text
+    )
+    sys.modules["funasr"] = funasr
+    sys.modules["funasr.utils"] = funasr_utils
+    sys.modules["funasr.utils.postprocess_utils"] = postprocess_utils
 
 
 def _load_backend():
@@ -82,6 +95,23 @@ def _load_backend():
 
 
 class TestFunASRBackend(unittest.TestCase):
+    def test_torch_profiles_install_torchaudio(self):
+        backend_dir = os.path.dirname(__file__)
+
+        for profile in ("cpu", "cublas12", "cublas13", "hipblas", "intel", "mps"):
+            with self.subTest(profile=profile):
+                requirements_path = os.path.join(
+                    backend_dir, f"requirements-{profile}.txt"
+                )
+                with open(requirements_path, encoding="utf-8") as requirements_file:
+                    requirements = {
+                        line.strip().split("=", 1)[0]
+                        for line in requirements_file
+                        if line.strip() and not line.lstrip().startswith(("#", "--"))
+                    }
+
+                self.assertIn("torchaudio", requirements)
+
     def test_health_returns_ok(self):
         backend = _load_backend()
         servicer = backend.BackendServicer()
@@ -115,6 +145,22 @@ class TestFunASRBackend(unittest.TestCase):
         self.assertEqual(result.text, "hello world")
         self.assertEqual([segment.text for segment in result.segments], ["hello", " world"])
         self.assertEqual(servicer.model.generate_calls, [{"input": audio_path, "language": "zh"}])
+
+    def test_audio_transcription_cleans_sensevoice_tags(self):
+        backend = _load_backend()
+        servicer = backend.BackendServicer()
+        servicer.model = _FakeAutoModel()
+        servicer.model.results = [
+            {"text": "<|zh|><|NEUTRAL|><|Speech|><|woitn|>hello"}
+        ]
+
+        result = servicer.AudioTranscription(
+            types.SimpleNamespace(dst=os.path.abspath(__file__), language=""),
+            None,
+        )
+
+        self.assertEqual(result.text, "hello")
+        self.assertEqual([segment.text for segment in result.segments], ["hello"])
 
     def test_audio_transcription_missing_file_returns_empty_result(self):
         backend = _load_backend()

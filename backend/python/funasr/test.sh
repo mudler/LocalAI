@@ -8,6 +8,4 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
-ensureVenv
-
-python -m pytest -x -s test.py "$@"
+runUnittests "$@"

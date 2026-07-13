@@ -56,6 +56,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     def AudioTranscription(self, request, context):
+        from funasr.utils.postprocess_utils import rich_transcription_postprocess
+
         result_segments = []
         text = ""
         try:
@@ -79,6 +81,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             for idx, r in enumerate(results):
                 seg_text = r.get("text", "") if isinstance(r, dict) else str(r)
+                seg_text = rich_transcription_postprocess(seg_text)
                 text += seg_text
                 result_segments.append(backend_pb2.TranscriptSegment(
                     id=idx,
