@@ -1,3 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/cu131
 torch
+torchaudio
 funasr
