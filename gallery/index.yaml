@@ -1,4 +1,66 @@
 ---
+- name: "minicpm5-1b-agentic-tooluse"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ewinregirgojr/MiniCPM5-1B-Agentic-Tooluse-GGUF
+  description: |
+    # MiniCPM5-1B Agentic Tooluse Merged FP16
+
+    Standalone merged FP16 checkpoint of
+    `openbmb/MiniCPM5-1B`
+    and the latest
+    `MiniCPM5-1B-Agentic-Tooluse-QLoRA-v2`
+    adapter after the July 2026 Nemotron SFT+DPO repair.
+
+    This repository contains the complete model. It is **not** an adapter and does not require PEFT at inference time.
+
+    ## Repositories
+
+    ## Current Files
+
+    The current model weights are one indexed checkpoint:
+
+      - `model-00001-of-00002.safetensors`
+      - `model-00002-of-00002.safetensors`
+      - `model.safetensors.index.json`
+
+    The repository also includes the matching tokenizer, `chat_template.jinja`, model configuration, generation configuration and external evaluation artifacts. The previous single-file model remains recoverable from Hub history but is not part of the current branch.
+
+    ## Tool-Calling Behavior
+
+    MiniCPM5-1B natively emits XML-style calls:
+
+    ```xml
+    value
+    ```
+
+    The fine-tuning specializes first-call tool selection, function-name accuracy, argument selection, schema-copy avoidance and repeated-call suppression.
+
+    An application remains responsible for parsing and validating calls, executing tools externally, and returning tool results in a new turn.
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/minicpm5-1b-agentic-tooluse.Q4_K_M/minicpm5-1b-agentic-tooluse.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/minicpm5-1b-agentic-tooluse.Q4_K_M/minicpm5-1b-agentic-tooluse.Q4_K_M.gguf
+      sha256: d12a86af9c043001e01b9310f372846160a2e2f99ff2e26917cd2869da87eb83
+      uri: https://huggingface.co/ewinregirgojr/MiniCPM5-1B-Agentic-Tooluse-GGUF/resolve/main/legacy/minicpm5-1b-agentic-tooluse.Q4_K_M.gguf
 - name: "minicpm5-1b-claude-opus-fable5-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
