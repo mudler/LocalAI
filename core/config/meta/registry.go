@@ -623,6 +623,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       89,
 		},
+		"pipeline.turn_detection.vad_window_sec": {
+			Section:     "pipeline",
+			Label:       "VAD Window (s)",
+			Description: "Widen the slice of recent audio the VAD rescans each turn-detection tick. Sized automatically from the commit silence threshold (server_vad silence window, or the semantic eagerness fallback) plus a warm-up margin — set only to widen it; values below the automatic floor are ignored.",
+			Component:   "number",
+			Order:       90,
+		},
 		"pipeline.disable_warmup": {
 			Section:     "pipeline",
 			Label:       "Disable Warmup",
