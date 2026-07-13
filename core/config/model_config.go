@@ -669,6 +669,16 @@ type Pipeline struct {
 	// per session; retranscribe is server-side only. Unset keeps server_vad.
 	TurnDetection PipelineTurnDetection `yaml:"turn_detection,omitempty" json:"turn_detection,omitempty"`
 
+	// Classifier switches realtime responses to prefill-only option
+	// selection (LocalAI classifier mode): each user turn is scored
+	// against a fixed option list via the Score primitive and the winning
+	// option's canned reply / tool call is emitted, so weak hardware
+	// never pays for autoregressive decode. Nil means disabled; clients
+	// can still enable per session via session.update localai_classifier.
+	// Validated (and rejected loudly) at realtime session setup, like the
+	// pipeline model slots.
+	Classifier *PipelineClassifier `yaml:"classifier,omitempty" json:"classifier,omitempty"`
+
 	// DisableWarmup turns off eager pre-loading of the pipeline's sub-models at
 	// realtime session start. By default (false) LocalAI loads every configured
 	// sub-model backend (VAD, transcription, LLM, TTS, sound detection, voice
@@ -680,6 +690,53 @@ type Pipeline struct {
 	// load errors surface on first use instead (e.g. to keep idle sessions from
 	// holding model memory they may never use).
 	DisableWarmup bool `yaml:"disable_warmup,omitempty" json:"disable_warmup,omitempty"`
+}
+
+// PipelineClassifier is the YAML mirror of the realtime API's
+// localai_classifier extension (see
+// core/http/endpoints/openai/types/classifier.go, which documents the
+// field semantics and owns validation — the realtime session converts and
+// validates this block at setup).
+type PipelineClassifier struct {
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	// Model optionally names a different config to score on. Empty uses
+	// the pipeline's llm — with slot-based Score the same process serves
+	// both scoring and generation and shares its prompt cache.
+	Model         string                      `yaml:"model,omitempty" json:"model,omitempty"`
+	Threshold     float64                     `yaml:"threshold,omitempty" json:"threshold,omitempty"`
+	Normalization string                      `yaml:"normalization,omitempty" json:"normalization,omitempty"`
+	HistoryItems  int                         `yaml:"history_items,omitempty" json:"history_items,omitempty"`
+	Fallback      *PipelineClassifierFallback `yaml:"fallback,omitempty" json:"fallback,omitempty"`
+	Options       []PipelineClassifierOption  `yaml:"options,omitempty" json:"options,omitempty"`
+	// Address gates every turn on the assistant being addressed by one of
+	// these names (wake-word behavior); see types.ClassifierAddress.
+	Address *PipelineClassifierAddress `yaml:"address,omitempty" json:"address,omitempty"`
+}
+
+// PipelineClassifierAddress mirrors types.ClassifierAddress for YAML.
+type PipelineClassifierAddress struct {
+	Names []string `yaml:"names,omitempty" json:"names,omitempty"`
+	Mode  string   `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Reply string   `yaml:"reply,omitempty" json:"reply,omitempty"`
+}
+
+type PipelineClassifierOption struct {
+	ID          string                  `yaml:"id" json:"id"`
+	Description string                  `yaml:"description" json:"description"`
+	Reply       string                  `yaml:"reply,omitempty" json:"reply,omitempty"`
+	Tool        *PipelineClassifierTool `yaml:"tool,omitempty" json:"tool,omitempty"`
+}
+
+type PipelineClassifierTool struct {
+	Name string `yaml:"name" json:"name"`
+	// Arguments is a plain YAML map; the realtime session marshals it to
+	// the JSON arguments string of the emitted function call.
+	Arguments map[string]any `yaml:"arguments,omitempty" json:"arguments,omitempty"`
+}
+
+type PipelineClassifierFallback struct {
+	Mode  string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Reply string `yaml:"reply,omitempty" json:"reply,omitempty"`
 }
 
 // PipelineCompaction configures summarize-then-drop for a realtime pipeline.
