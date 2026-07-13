@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -69,7 +69,7 @@ else
 	GORELEASER=$(shell which goreleaser)
 endif
 
-TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/local-store/...
+TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/local-store/... ./backend/go/valkey-store/...
 
 ## Coverage output and the committed baseline that CI compares against.
 ## The gate is strict: total coverage must never decrease (no tolerance).
@@ -1221,6 +1221,7 @@ BACKEND_PRIVACY_FILTER = privacy-filter|privacy-filter|.|false|false
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
+BACKEND_VALKEY_STORE = valkey-store|golang|.|false|true
 BACKEND_CLOUD_PROXY = cloud-proxy|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
@@ -1315,6 +1316,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PRIVACY_FILTER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_VALKEY_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))

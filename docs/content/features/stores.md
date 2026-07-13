@@ -44,8 +44,21 @@ Keys are arrays of floating point numbers with a maximum width of 32bits. Values
 The key vectors must all be the same length and it's best for search performance if they are normalized. When
 addings keys it will be detected if they are not normalized and what length they are.
 
-All endpoints accept a `store` field which specifies which store to operate on. Presently they are created
-on the fly and there is only one store backend so no configuration is required.
+All endpoints accept a `store` field which specifies which store to operate on. Stores are created
+on the fly.
+
+All endpoints also accept an optional `backend` field selecting which store backend serves the
+request. The default is `local-store`, an in-memory exact-search store. Alternatively,
+`valkey-store` (alias `valkey`) stores the vectors in a Valkey server running the
+[Valkey Search](https://valkey.io/topics/search/) module (the `valkey/valkey-bundle` image), which
+makes them durable across restarts. `valkey-store` is configured through environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `VALKEY_ADDR` | `127.0.0.1:6379` | Valkey server address |
+| `VALKEY_USERNAME` | | Username, if the server requires AUTH |
+| `VALKEY_PASSWORD` | | Password, if the server requires AUTH |
+| `VALKEY_INDEX_ALGO` | `FLAT` | Vector index algorithm: `FLAT` (exact, matches `local-store` results) or `HNSW` (approximate, for large corpora) |
 
 ## Set
 

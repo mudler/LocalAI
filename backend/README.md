@@ -55,6 +55,7 @@ The backend system provides language-specific Dockerfiles that handle the build 
 - **stablediffusion-ggml**: Stable Diffusion in Go with GGML Cpp backend
 - **piper**: Text-to-speech synthesis Golang with C bindings using rhaspy/piper
 - **local-store**: Vector storage backend
+- **valkey-store**: Vector storage backend persisting to a Valkey server (Valkey Search module)
 
 #### C++ Backends (`cpp/`)
 - **llama-cpp**: Llama.cpp integration

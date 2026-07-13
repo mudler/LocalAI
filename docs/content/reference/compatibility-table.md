@@ -117,6 +117,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [rerankers](https://github.com/AnswerDotAI/rerankers) | Document reranking for RAG | CUDA 12, ROCm, Intel SYCL, Metal |
 | [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML engine for the openai-privacy-filter PII/NER token-classification model family (powers LocalAI's PII redaction tier) | CPU, CUDA 13, Vulkan |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings | CPU, Metal |
+| [valkey-store](https://github.com/mudler/LocalAI) | Durable vector store for embeddings backed by Valkey Search (FLAT or HNSW) | CPU, Metal |
 | [TRL](https://github.com/huggingface/trl) | Fine-tuning (SFT, DPO, GRPO, RLOO, KTO, ORPO) | CPU, CUDA 12/13 |
 | [llama.cpp quantization](https://github.com/ggml-org/llama.cpp) | HuggingFace → GGUF model conversion and quantization | CPU, Metal |
 

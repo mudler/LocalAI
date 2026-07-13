@@ -30,6 +30,7 @@ LocalAI
 # Go backend packages whose main lives under backend/go/.
 /cloud-proxy
 /local-store
+/valkey-store
 # prevent above rules from omitting the helm chart
 !charts/*
 # prevent above rules from omitting the api/localai folder
