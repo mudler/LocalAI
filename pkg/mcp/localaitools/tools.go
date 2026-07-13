@@ -23,21 +23,24 @@ const (
 	ToolGetPIIEvents        = "get_pii_events"
 	ToolGetMiddlewareStatus = "get_middleware_status"
 	ToolGetRouterDecisions  = "get_router_decisions"
+	ToolListVoiceProfiles   = "list_voice_profiles"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
-	ToolInstallModel      = "install_model"
-	ToolImportModelURI    = "import_model_uri"
-	ToolDeleteModel       = "delete_model"
-	ToolEditModelConfig   = "edit_model_config"
-	ToolReloadModels      = "reload_models"
-	ToolLoadModel         = "load_model"
-	ToolInstallBackend    = "install_backend"
-	ToolUpgradeBackend    = "upgrade_backend"
-	ToolToggleModelState  = "toggle_model_state"
-	ToolToggleModelPinned = "toggle_model_pinned"
-	ToolSetBranding       = "set_branding"
-	ToolSetAlias          = "set_alias"
+	ToolInstallModel       = "install_model"
+	ToolImportModelURI     = "import_model_uri"
+	ToolDeleteModel        = "delete_model"
+	ToolEditModelConfig    = "edit_model_config"
+	ToolReloadModels       = "reload_models"
+	ToolLoadModel          = "load_model"
+	ToolInstallBackend     = "install_backend"
+	ToolUpgradeBackend     = "upgrade_backend"
+	ToolToggleModelState   = "toggle_model_state"
+	ToolToggleModelPinned  = "toggle_model_pinned"
+	ToolSetBranding        = "set_branding"
+	ToolSetAlias           = "set_alias"
+	ToolCreateVoiceProfile = "create_voice_profile"
+	ToolDeleteVoiceProfile = "delete_voice_profile"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.

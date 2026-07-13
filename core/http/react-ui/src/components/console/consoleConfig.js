@@ -53,6 +53,7 @@ export const operateConsole = {
       titleKey: 'operate.inference',
       items: [
         { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true },
+        { path: '/app/voice-library', icon: 'fas fa-wave-square', labelKey: 'items.voiceLibrary', adminOnly: true },
       ],
     },
     {

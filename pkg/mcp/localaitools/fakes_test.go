@@ -47,6 +47,9 @@ type fakeClient struct {
 	toggleModelPinned   func(string, modeladmin.Action) error
 	getBranding         func() (*Branding, error)
 	setBranding         func(SetBrandingRequest) (*Branding, error)
+	listVoiceProfiles   func() ([]VoiceProfile, error)
+	createVoiceProfile  func(CreateVoiceProfileRequest) (*VoiceProfile, error)
+	deleteVoiceProfile  func(string) error
 	getUsageStats       func(UsageStatsQuery) (*UsageStats, error)
 	getPIIEvents        func(PIIEventsQuery) ([]PIIEvent, error)
 	getMiddlewareStatus func() (*MiddlewareStatus, error)
@@ -264,6 +267,30 @@ func (f *fakeClient) SetBranding(_ context.Context, req SetBrandingRequest) (*Br
 		return f.setBranding(req)
 	}
 	return &Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (f *fakeClient) ListVoiceProfiles(_ context.Context) ([]VoiceProfile, error) {
+	f.record("ListVoiceProfiles", nil)
+	if f.listVoiceProfiles != nil {
+		return f.listVoiceProfiles()
+	}
+	return []VoiceProfile{}, nil
+}
+
+func (f *fakeClient) CreateVoiceProfile(_ context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error) {
+	f.record("CreateVoiceProfile", req)
+	if f.createVoiceProfile != nil {
+		return f.createVoiceProfile(req)
+	}
+	return &VoiceProfile{ID: "00000000-0000-0000-0000-000000000001", Name: req.Name}, nil
+}
+
+func (f *fakeClient) DeleteVoiceProfile(_ context.Context, id string) error {
+	f.record("DeleteVoiceProfile", id)
+	if f.deleteVoiceProfile != nil {
+		return f.deleteVoiceProfile(id)
+	}
+	return nil
 }
 
 func (f *fakeClient) GetUsageStats(_ context.Context, q UsageStatsQuery) (*UsageStats, error) {

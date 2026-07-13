@@ -80,6 +80,11 @@ type LocalAIClient interface {
 	// exposed over MCP — admins use the Settings UI for binary files.
 	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
 
+	// ---- Voice profile library ----
+	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
+	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
+	DeleteVoiceProfile(ctx context.Context, id string) error
+
 	// ---- Usage / billing ----
 
 	// GetUsageStats returns aggregated token usage. In single-user

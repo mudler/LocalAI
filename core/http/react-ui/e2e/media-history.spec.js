@@ -21,9 +21,10 @@ function mockImageGeneration(page, images) {
   })
 }
 
-function mockVideoGeneration(page, videos) {
+function mockVideoGeneration(page, videos, onRequest) {
   return page.route('**/video', (route) => {
     if (route.request().method() !== 'POST') return route.continue()
+    onRequest?.(route.request().postDataJSON())
     route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -253,5 +254,23 @@ test.describe('Media History - Video Generation', () => {
 
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 10_000 })
     await expect(page.getByTestId('media-history-item')).toContainText('a running cat')
+  })
+
+  test('Avatar audio is forwarded to the video API', async ({ page }) => {
+    let requestBody
+    await mockVideoGeneration(page, [{ url: '/generated-videos/avatar.mp4' }], (body) => { requestBody = body })
+
+    await page.goto('/app/video')
+    await expect(page.getByRole('button', { name: 'test-video-model' })).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Reference media' }).click()
+    await page.getByLabel('Avatar audio', { exact: true }).setInputFiles({
+      name: 'speech.wav',
+      mimeType: 'audio/wav',
+      buffer: Buffer.from('avatar speech'),
+    })
+    await page.locator('.textarea').first().fill('a presenter speaking to camera')
+    await page.locator('button[type="submit"]').click()
+
+    await expect.poll(() => requestBody?.audio).toBe(Buffer.from('avatar speech').toString('base64'))
   })
 })

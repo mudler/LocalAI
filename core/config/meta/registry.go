@@ -66,6 +66,22 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Options:     UsecaseOptions,
 			Order:       6,
 		},
+		"known_input_modalities": {
+			Section:     "general",
+			Label:       "Known Input Modalities",
+			Description: "Explicit input types this model accepts when use cases alone are not specific enough",
+			Component:   "string-list",
+			Options:     ModalityOptions,
+			Order:       7,
+		},
+		"known_output_modalities": {
+			Section:     "general",
+			Label:       "Known Output Modalities",
+			Description: "Explicit output types this model produces when use cases alone are not specific enough",
+			Component:   "string-list",
+			Options:     ModalityOptions,
+			Order:       8,
+		},
 
 		// --- LLM ---
 		"context_size": {
@@ -629,12 +645,27 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		},
 
 		// --- TTS ---
+		"tts.voice_cloning": {
+			Section:     "tts",
+			Label:       "Voice Cloning",
+			Description: "Override automatic Voice Library profile support detection for this model. Leave unset to infer support from the backend and model variant.",
+			Component:   "toggle",
+			Advanced:    true,
+			Order:       89,
+		},
 		"tts.voice": {
 			Section:     "tts",
 			Label:       "Voice",
 			Description: "Default voice for TTS output",
 			Component:   "input",
 			Order:       90,
+		},
+		"tts.audio_path": {
+			Section:     "tts",
+			Label:       "Reference Audio Path",
+			Description: "Default reference audio for voice cloning. A per-request voice or saved Voice Library profile takes precedence.",
+			Component:   "input",
+			Order:       91,
 		},
 
 		// --- Diffusers ---

@@ -172,6 +172,32 @@ var _ = Describe("CrispASR", func() {
 	})
 
 	Context("TTS", func() {
+		It("applies a per-request reference WAV and transcript", func() {
+			refWAV := filepath.Join(GinkgoT().TempDir(), "reference.wav")
+			Expect(os.WriteFile(refWAV, []byte("fixture"), 0o600)).To(Succeed())
+
+			original := CppTTSSetVoiceFile
+			DeferCleanup(func() { CppTTSSetVoiceFile = original })
+			var gotPath, gotText string
+			CppTTSSetVoiceFile = func(path, refText string) int {
+				gotPath, gotText = path, refText
+				return 0
+			}
+
+			Expect(applyRequestVoice(&pb.TTSRequest{
+				Voice:  refWAV,
+				Params: map[string]string{"ref_text": "The exact words in the clip."},
+			})).To(Succeed())
+			Expect(gotPath).To(Equal(refWAV))
+			Expect(gotText).To(Equal("The exact words in the clip."))
+		})
+
+		It("rejects a reference WAV without a transcript", func() {
+			refWAV := filepath.Join(GinkgoT().TempDir(), "reference.wav")
+			Expect(os.WriteFile(refWAV, []byte("fixture"), 0o600)).To(Succeed())
+			Expect(applyRequestVoice(&pb.TTSRequest{Voice: refWAV})).To(MatchError(ContainSubstring("params.ref_text")))
+		})
+
 		It("synthesizes a non-empty WAV", func() {
 			ttsModel := ttsModelOrSkip()
 			ensureLibLoaded()

@@ -55,6 +55,7 @@ type VideoRequest struct {
 	NegativePrompt string  `json:"negative_prompt" yaml:"negative_prompt"`                   // things to avoid in the output
 	StartImage     string  `json:"start_image" yaml:"start_image"`                           // URL or base64 of the first frame
 	EndImage       string  `json:"end_image" yaml:"end_image"`                               // URL or base64 of the last frame
+	Audio          string  `json:"audio,omitempty" yaml:"audio,omitempty"`                   // URL or base64 audio for audio-conditioned generation
 	Width          int32   `json:"width" yaml:"width"`                                       // output width in pixels
 	Height         int32   `json:"height" yaml:"height"`                                     // output height in pixels
 	NumFrames      int32   `json:"num_frames" yaml:"num_frames"`                             // total number of frames to generate
@@ -66,6 +67,7 @@ type VideoRequest struct {
 	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`                               // classifier-free guidance scale
 	Step           int32   `json:"step" yaml:"step"`                                         // number of diffusion steps
 	ResponseFormat string  `json:"response_format" yaml:"response_format"`                   // output format (url or b64_json)
+	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`         // backend-specific generation parameters
 }
 
 // @Description TTS request body

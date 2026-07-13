@@ -674,8 +674,25 @@ For text-to-speech models:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tts.voice` | string | Voice file path or voice ID |
-| `tts.audio_path` | string | Path to audio files (for Vall-E) |
+| `tts.voice` | string | Default backend voice ID, speaker name, or reference path. A request `voice` takes precedence. |
+| `tts.audio_path` | string | Default reference-audio path for cloning backends. A request voice or saved Voice Library profile takes precedence. |
+| `tts.voice_cloning` | bool | Optional Voice Library capability override. Omit for automatic backend/variant detection; `true` opts in a verified custom-named variant and `false` rejects saved profile references. |
+
+For example, a custom-named model on a known cloning backend can declare support explicitly while retaining a model-wide reference fallback:
+
+```yaml
+name: private-voice-model
+backend: qwen3-tts-cpp
+parameters:
+  model: private/qwen-talker-base.gguf
+known_usecases:
+  - tts
+tts:
+  voice_cloning: true
+  audio_path: voices/default-reference.wav
+```
+
+`tts.voice_cloning: true` only overrides model-variant detection. It cannot enable cloning on a backend that does not implement LocalAI's reference-audio contract.
 
 ## Roles Configuration
 
@@ -874,6 +891,23 @@ known_usecases:
 Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
 
 `token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family — separate from `llama-cpp`, which no longer carries the token-classification path.
+
+### Known input and output modalities
+
+Use `known_input_modalities` and `known_output_modalities` when a use case does not fully describe a model's I/O. For example, both text-to-video and audio-driven avatar models use the `video` use case, but only the avatar model accepts audio:
+
+```yaml
+known_usecases:
+  - video
+known_input_modalities:
+  - text
+  - image
+  - audio
+known_output_modalities:
+  - video
+```
+
+Valid modality values are `text`, `image`, `audio`, and `video`. Explicit values are combined with modalities LocalAI can infer from the model use cases and configuration. The resulting canonical, de-duplicated lists are exposed by `GET /v1/models/capabilities`.
 
 ## PII filtering
 

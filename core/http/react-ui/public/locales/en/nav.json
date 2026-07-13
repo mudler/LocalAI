@@ -49,6 +49,7 @@
     "users": "Users",
     "middleware": "Middleware",
     "backends": "Backends",
+    "voiceLibrary": "Voice Library",
     "traces": "Traces",
     "nodes": "Nodes",
     "scheduling": "Scheduling",
@@ -65,6 +66,8 @@
   },
   "console": {
     "automation": "Automation",
-    "training": "Training"
+    "training": "Training",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   }
 }

@@ -824,6 +824,30 @@
     nvidia-cuda-12: "cuda12-vllm-omni"
     nvidia-cuda-13: "cuda13-vllm-omni"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vllm-omni"
+- &longcat-video
+  name: "longcat-video"
+  alias: "longcat-video"
+  license: mit
+  urls:
+    - https://github.com/meituan-longcat/LongCat-Video
+  tags:
+    - text-to-video
+    - image-to-video
+    - audio-to-video
+    - avatar-generation
+    - video-generation
+    - CUDA
+  icon: https://raw.githubusercontent.com/meituan-longcat/LongCat-Video/main/assets/longcat-video_logo.svg
+  description: |
+    LongCat-Video generation for text, image, and audio-conditioned avatars.
+    Supports LongCat-Video and LongCat-Video-Avatar-1.5, including multi-segment
+    talking-head continuation and an SDPA path for NVIDIA Blackwell ARM64 systems.
+    Requires Linux with an NVIDIA CUDA GPU; CPU, ROCm, and macOS are unsupported.
+  capabilities:
+    nvidia: "cuda12-longcat-video"
+    nvidia-cuda-12: "cuda12-longcat-video"
+    nvidia-cuda-13: "cuda13-longcat-video"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-longcat-video"
 - &mlx
   name: "mlx"
   icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
@@ -3652,6 +3676,44 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-vllm-omni"
   mirrors:
     - localai/localai-backends:master-gpu-rocm-hipblas-vllm-omni
+# longcat-video
+- !!merge <<: *longcat-video
+  name: "longcat-video-development"
+  capabilities:
+    nvidia: "cuda12-longcat-video-development"
+    nvidia-cuda-12: "cuda12-longcat-video-development"
+    nvidia-cuda-13: "cuda13-longcat-video-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-longcat-video-development"
+- !!merge <<: *longcat-video
+  name: "cuda12-longcat-video"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-longcat-video"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-longcat-video
+- !!merge <<: *longcat-video
+  name: "cuda13-longcat-video"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-longcat-video"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-longcat-video
+- !!merge <<: *longcat-video
+  name: "cuda13-nvidia-l4t-arm64-longcat-video"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-longcat-video"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-longcat-video
+- !!merge <<: *longcat-video
+  name: "cuda12-longcat-video-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-longcat-video"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-longcat-video
+- !!merge <<: *longcat-video
+  name: "cuda13-longcat-video-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-longcat-video"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-longcat-video
+- !!merge <<: *longcat-video
+  name: "cuda13-nvidia-l4t-arm64-longcat-video-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-longcat-video"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-longcat-video
 # rfdetr
 - !!merge <<: *rfdetr
   name: "rfdetr-development"

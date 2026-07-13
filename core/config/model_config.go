@@ -28,6 +28,11 @@ type TTSConfig struct {
 	Voice string `yaml:"voice,omitempty" json:"voice,omitempty"`
 
 	AudioPath string `yaml:"audio_path,omitempty" json:"audio_path,omitempty"`
+
+	// VoiceCloning overrides saved-profile capability detection for this model.
+	// A pointer preserves the distinction between an explicit false and the
+	// default automatic behavior.
+	VoiceCloning *bool `yaml:"voice_cloning,omitempty" json:"voice_cloning,omitempty"`
 }
 
 // @Description ModelConfig represents a model configuration
@@ -52,7 +57,11 @@ type ModelConfig struct {
 	TemplateConfig      TemplateConfig      `yaml:"template,omitempty" json:"template,omitempty"`
 	KnownUsecaseStrings []string            `yaml:"known_usecases,omitempty" json:"known_usecases,omitempty"`
 	KnownUsecases       *ModelConfigUsecase `yaml:"-" json:"-"`
-	Pipeline            Pipeline            `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
+	// KnownInputModalities and KnownOutputModalities describe model-specific I/O
+	// that usecases alone cannot express, such as image- or audio-conditioned video.
+	KnownInputModalities  []string `yaml:"known_input_modalities,omitempty" json:"known_input_modalities,omitempty"`
+	KnownOutputModalities []string `yaml:"known_output_modalities,omitempty" json:"known_output_modalities,omitempty"`
+	Pipeline              Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
 	InputToken                                 [][]int        `yaml:"-" json:"-"`
