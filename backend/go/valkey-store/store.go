@@ -107,13 +107,14 @@ func newWithClient(client valkey.Client, cfg Config, namespace string) *ValkeySt
 	}
 }
 
-// Load reads the VALKEY_* config, connects, and verifies the connection. The
-// mandatory ClientName is always set so the connection is identifiable via
-// CLIENT LIST. opts.Model is the namespace identifier (one process per
-// (backend, model) tuple upstream), so we derive an isolated key prefix and
-// index name from it.
+// Load reads the store config from the model config options, connects, and
+// verifies the connection. The mandatory ClientName is always set so the
+// connection is identifiable via CLIENT LIST. opts.Model is the namespace
+// identifier (one process per (backend, model) tuple upstream), so we derive
+// an isolated key prefix and index name from it, and opts.Options carries the
+// per-store connection/index configuration.
 func (s *ValkeyStore) Load(opts *pb.ModelOptions) error {
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(opts)
 	if err != nil {
 		return err
 	}
@@ -272,13 +273,13 @@ func (s *ValkeyStore) Free() error {
 	return nil
 }
 
-// buildTLSConfig assembles the tls.Config for a VALKEY_TLS=true connection.
+// buildTLSConfig assembles the tls.Config for a tls=true connection.
 // Go only auto-derives ServerName (SNI) from the dial address for hostnames;
 // for an IP-addressed endpoint (e.g. 10.0.0.5:6379) SNI is left empty and the
 // certificate's SANs won't match the raw IP, so verification fails. We set it
 // explicitly from the configured host so both hostname and IP endpoints verify.
-// A custom CA bundle (VALKEY_TLS_CA_CERT) and an explicit insecure-skip escape
-// hatch (VALKEY_TLS_SKIP_VERIFY) are supported for enterprise/self-signed setups.
+// A custom CA bundle (tls_ca_cert) and an explicit insecure-skip escape hatch
+// (tls_skip_verify) are supported for enterprise/self-signed setups.
 func buildTLSConfig(cfg Config) (*tls.Config, error) {
 	tlsCfg := &tls.Config{}
 	if host, _, err := net.SplitHostPort(cfg.Addr); err == nil && host != "" {
@@ -290,11 +291,11 @@ func buildTLSConfig(cfg Config) (*tls.Config, error) {
 	if cfg.TLSCACert != "" {
 		pem, err := os.ReadFile(cfg.TLSCACert)
 		if err != nil {
-			return nil, fmt.Errorf("valkey-store: read VALKEY_TLS_CA_CERT %q: %w", cfg.TLSCACert, err)
+			return nil, fmt.Errorf("valkey-store: read tls_ca_cert %q: %w", cfg.TLSCACert, err)
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("valkey-store: VALKEY_TLS_CA_CERT %q: no valid certificate found", cfg.TLSCACert)
+			return nil, fmt.Errorf("valkey-store: tls_ca_cert %q: no valid certificate found", cfg.TLSCACert)
 		}
 		tlsCfg.RootCAs = pool
 	}

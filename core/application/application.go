@@ -165,7 +165,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		voiceStoreName = "localai-voice-biometrics"
 	)
 	faceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
-		return corebackend.StoreBackend(ml, appConfig, storeName, "")
+		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}
 	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, faceStoreName, faceEmbeddingDim)
 
@@ -173,7 +173,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// namespace so embedding spaces stay isolated (a face vector and a
 	// speaker vector are not comparable and differ in dimensionality).
 	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
-		return corebackend.StoreBackend(ml, appConfig, storeName, "")
+		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}
 	app.voiceRegistry = voicerecognition.NewStoreRegistry(voiceStoreResolver, voiceStoreName, voiceEmbeddingDim)
 
