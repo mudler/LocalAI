@@ -1319,6 +1319,176 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/voice-profiles": {
+            "get": {
+                "description": "List saved voice-cloning references without exposing filesystem paths.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "List voice profiles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.VoiceProfileListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Create a voice profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Display name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional language tag",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact transcript of the reference clip",
+                        "name": "transcript",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Confirms authorization to clone the voice",
+                        "name": "consent_confirmed",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to 50 MiB",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/voiceprofile.Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles/{id}": {
+            "delete": {
+                "description": "Permanently remove a saved voice-cloning profile. Admin-only.",
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Delete a voice profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Voice profile UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles/{id}/audio": {
+            "get": {
+                "description": "Stream the saved reference WAV for an authenticated TTS user.",
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Preview voice profile audio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Voice profile UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/audio/transform": {
             "post": {
                 "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated ` + "`" + `params[\u003ckey\u003e]=\u003cvalue\u003e` + "`" + ` form fields.",
@@ -3781,6 +3951,17 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.VoiceProfileListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/voiceprofile.Profile"
+                    }
+                }
+            }
+        },
         "model.BackendLogLine": {
             "type": "object",
             "properties": {
@@ -3946,6 +4127,21 @@ const docTemplate = `{
                 },
                 "start": {
                     "type": "number"
+                }
+            }
+        },
+        "schema.APIError": {
+            "type": "object",
+            "properties": {
+                "code": {},
+                "message": {
+                    "type": "string"
+                },
+                "param": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -4486,6 +4682,14 @@ const docTemplate = `{
                 },
                 "vocal_language": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schema.APIError"
                 }
             }
         },
@@ -6927,6 +7131,64 @@ const docTemplate = `{
                 },
                 "url": {
                     "description": "Webhook endpoint URL",
+                    "type": "string"
+                }
+            }
+        },
+        "voiceprofile.AudioMetadata": {
+            "type": "object",
+            "properties": {
+                "bit_depth": {
+                    "type": "integer"
+                },
+                "channels": {
+                    "type": "integer"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "sample_rate": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "voiceprofile.Profile": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "consent_confirmed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "transcript": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "voice": {
                     "type": "string"
                 }
             }

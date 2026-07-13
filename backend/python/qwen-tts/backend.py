@@ -362,7 +362,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # model_type explicitly set
         if self.model_type == "CustomVoice":
             return "CustomVoice"
-        if self.model_type == "VoiceClone":
+        if self.model_type in ("VoiceClone", "Base"):
             return "VoiceClone"
         if self.model_type == "VoiceDesign":
             return "VoiceDesign"
@@ -380,6 +380,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def _get_ref_audio_path(self, request, voice_name=None):
         """Get reference audio path from stored AudioPath or from voices dict."""
+        if hasattr(request, "voice") and request.voice and os.path.isfile(request.voice):
+            return request.voice
         # If voice_name is provided and exists in voices dict, use that
         if voice_name and voice_name in self.voices:
             audio_path = self.voices[voice_name]["audio"]
@@ -735,6 +737,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # model receives the types it expects. These override YAML-derived kwargs.
             if hasattr(request, "params") and request.params:
                 for key, value in request.params.items():
+                    if key == "ref_text":
+                        continue
                     generation_kwargs[key] = coerce_param_value(value)
 
             # Generate audio based on mode
@@ -743,7 +747,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 # Check if multi-voice mode is active (voices dict is populated)
                 voice_name = None
-                if self.voices:
+                request_voice_path = request.voice if request.voice and os.path.isfile(request.voice) else None
+                if self.voices and request_voice_path is None:
                     # Get voice from request (priority) or options
                     voice_name = request.voice if request.voice else None
                     if not voice_name:
@@ -775,11 +780,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if voice_name and voice_name in self.voices:
                     ref_text_source = self.voices[voice_name]["ref_text"]
                 else:
-                    ref_text_source = self.options.get("ref_text", None)
+                    ref_text_source = request.params.get("ref_text") if hasattr(request, "params") else None
                     if not ref_text_source:
-                        # Try to get from request if available
-                        if hasattr(request, "ref_text") and request.ref_text:
-                            ref_text_source = request.ref_text
+                        ref_text_source = self.options.get("ref_text", None)
 
                 if not ref_text_source:
                     # x_vector_only_mode doesn't require ref_text

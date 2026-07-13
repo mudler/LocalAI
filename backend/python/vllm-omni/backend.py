@@ -700,10 +700,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 inputs["additional_information"]["non_streaming_mode"] = [True]
             elif task_type == "Base":
                 # Voice cloning requires ref_audio and ref_text
-                if "ref_audio" in self.options:
-                    inputs["additional_information"]["ref_audio"] = [self.options["ref_audio"]]
-                if "ref_text" in self.options:
-                    inputs["additional_information"]["ref_text"] = [self.options["ref_text"]]
+                ref_audio = voice if voice and os.path.isfile(voice) else self.options.get("ref_audio")
+                ref_text = request.params.get("ref_text") if hasattr(request, "params") else None
+                if not ref_text:
+                    ref_text = self.options.get("ref_text")
+                if not ref_audio or not ref_text:
+                    return backend_pb2.Result(
+                        success=False,
+                        message="Base TTS voice cloning requires request.voice/ref_audio and params.ref_text",
+                    )
+                inputs["additional_information"]["ref_audio"] = [ref_audio]
+                inputs["additional_information"]["ref_text"] = [ref_text]
                 if "x_vector_only_mode" in self.options:
                     inputs["additional_information"]["x_vector_only_mode"] = [self.options["x_vector_only_mode"]]
 

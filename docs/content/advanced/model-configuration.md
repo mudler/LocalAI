@@ -674,8 +674,25 @@ For text-to-speech models:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tts.voice` | string | Voice file path or voice ID |
-| `tts.audio_path` | string | Path to audio files (for Vall-E) |
+| `tts.voice` | string | Default backend voice ID, speaker name, or reference path. A request `voice` takes precedence. |
+| `tts.audio_path` | string | Default reference-audio path for cloning backends. A request voice or saved Voice Library profile takes precedence. |
+| `tts.voice_cloning` | bool | Optional Voice Library capability override. Omit for automatic backend/variant detection; `true` opts in a verified custom-named variant and `false` rejects saved profile references. |
+
+For example, a custom-named model on a known cloning backend can declare support explicitly while retaining a model-wide reference fallback:
+
+```yaml
+name: private-voice-model
+backend: qwen3-tts-cpp
+parameters:
+  model: private/qwen-talker-base.gguf
+known_usecases:
+  - tts
+tts:
+  voice_cloning: true
+  audio_path: voices/default-reference.wav
+```
+
+`tts.voice_cloning: true` only overrides model-variant detection. It cannot enable cloning on a backend that does not implement LocalAI's reference-audio contract.
 
 ## Roles Configuration
 
