@@ -30,9 +30,9 @@ import (
 	. "github.com/onsi/gomega"
 	valkey "github.com/valkey-io/valkey-go"
 
-	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/store"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -80,6 +80,15 @@ var _ = Describe("Integration tests for the valkey-store backend", Label("stores
 			storeOpts := []model.Option{
 				model.WithBackendString(model.ValkeyStoreBackend),
 				model.WithModel(ns),
+				// Configure the store the LocalAI-native way: the connection
+				// address is threaded to the backend's LoadModel via the model
+				// config options (ModelOptions.Options), exactly as core's
+				// StoreBackend() passes a store's `options:` list. The backend
+				// no longer reads any VALKEY_* env var. $VALKEY_ADDR here is
+				// only the integration harness locating the test server.
+				model.WithLoadGRPCLoadModelOpts(&pb.ModelOptions{
+					Options: []string{"addr:" + valkeyAddr},
+				}),
 			}
 			backend, err := sl.Load(storeOpts...)
 			Expect(err).ToNot(HaveOccurred())
@@ -118,9 +127,6 @@ var _ = Describe("Integration tests for the valkey-store backend", Label("stores
 			Expect(err).ToNot(HaveOccurred())
 
 			namespace = fmt.Sprintf("it-%d-%d", GinkgoRandomSeed(), namespaceCounter.Add(1))
-
-			debug := true
-			_ = config.ModelConfig{Name: "valkey store test", Debug: &debug, Backend: model.ValkeyStoreBackend}
 
 			initLoader()
 			sc = loadStore(namespace)

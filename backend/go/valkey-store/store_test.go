@@ -24,9 +24,16 @@ import (
 const testNamespace = "test"
 
 func testCfg() Config {
-	cfg, err := loadConfig() // reads defaults when no env is set
+	cfg, err := loadConfig(nil) // reads defaults when no options are set
 	Expect(err).NotTo(HaveOccurred())
 	return cfg
+}
+
+// opts builds a *pb.ModelOptions carrying the given key:value option strings,
+// mirroring how core threads a store's model-config `options:` list to the
+// backend's LoadModel.
+func opts(kv ...string) *pb.ModelOptions {
+	return &pb.ModelOptions{Options: kv}
 }
 
 func newMockStore(cfg Config) (*ValkeyStore, *mock.Client) {
@@ -41,24 +48,8 @@ func wrapSet(keys [][]float32, values [][]byte) *pb.StoresSetOptions {
 }
 
 var _ = Describe("loadConfig", func() {
-	// Clear any VALKEY_* the developer's shell may have set so the defaults are
-	// deterministic. GinkgoT().Setenv restores the previous value after each
-	// spec automatically, so no manual save/restore is needed (and it returns
-	// nothing, so there's no error to check).
-	envKeys := []string{
-		"VALKEY_ADDR", "VALKEY_CLIENT_NAME", "VALKEY_INDEX_ALGO", "VALKEY_DISTANCE_METRIC",
-		"VALKEY_REQUEST_TIMEOUT_MS", "VALKEY_TLS", "VALKEY_TLS_SKIP_VERIFY", "VALKEY_TLS_CA_CERT",
-		"VALKEY_DB", "VALKEY_HNSW_M", "VALKEY_HNSW_EF_CONSTRUCTION", "VALKEY_HNSW_EF_RUNTIME",
-	}
-
-	BeforeEach(func() {
-		for _, k := range envKeys {
-			GinkgoT().Setenv(k, "")
-		}
-	})
-
 	It("uses documented defaults", func() {
-		cfg, err := loadConfig()
+		cfg, err := loadConfig(nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cfg.Addr).To(Equal("localhost:6379"))
 		Expect(cfg.ClientName).To(Equal("localai-valkey-store"))
@@ -67,13 +58,15 @@ var _ = Describe("loadConfig", func() {
 		Expect(cfg.RequestTimeout.Milliseconds()).To(Equal(int64(5000)))
 	})
 
-	It("honours env overrides", func() {
-		GinkgoT().Setenv("VALKEY_ADDR", "valkey.example:6380")
-		GinkgoT().Setenv("VALKEY_INDEX_ALGO", "hnsw")
-		GinkgoT().Setenv("VALKEY_DISTANCE_METRIC", "l2")
-		GinkgoT().Setenv("VALKEY_REQUEST_TIMEOUT_MS", "1234")
-		cfg, err := loadConfig()
+	It("honours option overrides", func() {
+		cfg, err := loadConfig(opts(
+			"addr:valkey.example:6380",
+			"index_algo:hnsw",
+			"distance_metric:l2",
+			"request_timeout_ms:1234",
+		))
 		Expect(err).NotTo(HaveOccurred())
+		// addr keeps its embedded colon: strings.Cut splits on the first ':'.
 		Expect(cfg.Addr).To(Equal("valkey.example:6380"))
 		Expect(cfg.IndexAlgo).To(Equal("HNSW"))
 		Expect(cfg.DistanceMetric).To(Equal("L2"))
@@ -81,41 +74,41 @@ var _ = Describe("loadConfig", func() {
 	})
 
 	It("keeps the mandatory client name when blanked", func() {
-		GinkgoT().Setenv("VALKEY_CLIENT_NAME", "")
-		cfg, err := loadConfig()
+		cfg, err := loadConfig(opts("client_name:"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cfg.ClientName).To(Equal("localai-valkey-store"))
 	})
 
+	It("ignores a malformed option without a colon", func() {
+		cfg, err := loadConfig(opts("addr:valkey.example:6380", "not-a-kv-pair"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.Addr).To(Equal("valkey.example:6380"))
+	})
+
 	It("rejects an invalid index algo", func() {
-		GinkgoT().Setenv("VALKEY_INDEX_ALGO", "bogus")
-		_, err := loadConfig()
+		_, err := loadConfig(opts("index_algo:bogus"))
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("rejects an invalid distance metric", func() {
-		GinkgoT().Setenv("VALKEY_DISTANCE_METRIC", "bogus")
-		_, err := loadConfig()
+		_, err := loadConfig(opts("distance_metric:bogus"))
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("fails fast on a malformed HNSW integer instead of silently defaulting", func() {
-		GinkgoT().Setenv("VALKEY_HNSW_M", "1x6")
-		_, err := loadConfig()
+		_, err := loadConfig(opts("hnsw_m:1x6"))
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("VALKEY_HNSW_M"))
+		Expect(err.Error()).To(ContainSubstring("hnsw_m"))
 	})
 
-	It("honours a valid VALKEY_DB override", func() {
-		GinkgoT().Setenv("VALKEY_DB", "3")
-		cfg, err := loadConfig()
+	It("honours a valid db override", func() {
+		cfg, err := loadConfig(opts("db:3"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cfg.DB).To(Equal(3))
 	})
 
-	It("rejects a negative VALKEY_DB", func() {
-		GinkgoT().Setenv("VALKEY_DB", "-1")
-		_, err := loadConfig()
+	It("rejects a negative db", func() {
+		_, err := loadConfig(opts("db:-1"))
 		Expect(err).To(HaveOccurred())
 	})
 })

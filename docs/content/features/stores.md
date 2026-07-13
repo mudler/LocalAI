@@ -69,27 +69,44 @@ Select it by passing `"backend": "valkey-store"` (or the `"valkey"` alias) on an
 ```
 curl -X POST http://localhost:8080/stores/set \
      -H "Content-Type: application/json" \
-     -d '{"backend": "valkey-store", "keys": [[0.1, 0.2], [0.3, 0.4]], "values": ["foo", "bar"]}'
+     -d '{"backend": "valkey-store", "store": "my-vectors", "keys": [[0.1, 0.2], [0.3, 0.4]], "values": ["foo", "bar"]}'
 ```
 
-The connection and index are configured through environment variables read by the backend process:
+The connection and index are configured through a **model config** named after the store (the
+`store` field on the request, which is the store's model ID). Create a YAML in your models
+directory whose `name` matches the store, set `backend: valkey-store`, and put the connection /
+index settings in the `options:` list as `key:value` strings. Because each store resolves its own
+config, different stores can point at different Valkey servers or use different index settings
+within one LocalAI process:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VALKEY_ADDR` | `localhost:6379` | Valkey server address (`host:port`). |
-| `VALKEY_USERNAME` | *(empty)* | Optional ACL username. |
-| `VALKEY_PASSWORD` | *(empty)* | Optional password / ACL secret. |
-| `VALKEY_TLS` | `false` | Enable TLS (required by many managed deployments). |
-| `VALKEY_TLS_CA_CERT` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). |
-| `VALKEY_TLS_SKIP_VERIFY` | `false` | Skip TLS certificate verification. Insecure — for testing only. |
-| `VALKEY_CLIENT_NAME` | `localai-valkey-store` | Connection name reported by `CLIENT LIST`. Always set. |
-| `VALKEY_DB` | `0` | Logical Valkey DB index (`SELECT n`). Namespace prefixing already isolates keyspaces on a shared DB. |
-| `VALKEY_INDEX_ALGO` | `FLAT` | `FLAT` (exact, default) or `HNSW` (approximate ANN for large corpora). |
-| `VALKEY_HNSW_M` | `16` | HNSW graph degree (only when `VALKEY_INDEX_ALGO=HNSW`). |
-| `VALKEY_HNSW_EF_CONSTRUCTION` | `200` | HNSW build-time candidate list (HNSW only). |
-| `VALKEY_HNSW_EF_RUNTIME` | `10` | HNSW query-time candidate list (HNSW only). |
-| `VALKEY_DISTANCE_METRIC` | `COSINE` | `COSINE` (default), `L2` or `IP`. |
-| `VALKEY_REQUEST_TIMEOUT_MS` | `5000` | Per-command timeout in milliseconds. |
+```yaml
+name: my-vectors
+backend: valkey-store
+options:
+  - addr:valkey.internal:6379
+  - index_algo:HNSW
+  - distance_metric:COSINE
+```
+
+When no config exists for a store, the backend connects to `localhost:6379` with the defaults
+below (so the zero-config experience still works).
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `addr` | `localhost:6379` | Valkey server address (`host:port`). |
+| `username` | *(empty)* | Optional ACL username. |
+| `password` | *(empty)* | Optional password / ACL secret. |
+| `tls` | `false` | Enable TLS (required by many managed deployments). |
+| `tls_ca_cert` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). |
+| `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure — for testing only. |
+| `client_name` | `localai-valkey-store` | Connection name reported by `CLIENT LIST`. Always set. |
+| `db` | `0` | Logical Valkey DB index (`SELECT n`). Namespace prefixing already isolates keyspaces on a shared DB. |
+| `index_algo` | `FLAT` | `FLAT` (exact, default) or `HNSW` (approximate ANN for large corpora). |
+| `hnsw_m` | `16` | HNSW graph degree (only when `index_algo:HNSW`). |
+| `hnsw_ef_construction` | `200` | HNSW build-time candidate list (HNSW only). |
+| `hnsw_ef_runtime` | `10` | HNSW query-time candidate list (HNSW only). |
+| `distance_metric` | `COSINE` | `COSINE` (default), `L2` or `IP`. |
+| `request_timeout_ms` | `5000` | Per-command timeout in milliseconds. |
 
 For `COSINE` the returned `similarities` follow the same convention as the local store
 (`1.0` = identical, `-1.0` = opposite); internally Valkey returns a cosine *distance* which the
@@ -110,12 +127,12 @@ backend.
 {{% /notice %}}
 
 {{% notice warning %}}
-`VALKEY_TLS` defaults to `false` (plaintext). Set `VALKEY_TLS=true` whenever the Valkey server is
-not on `localhost` or a `VALKEY_PASSWORD`/`VALKEY_USERNAME` is configured, otherwise the credentials
+`tls` defaults to `false` (plaintext). Set `tls:true` whenever the Valkey server is
+not on `localhost` or a `password`/`username` is configured, otherwise the credentials
 and the stored vectors travel the network unencrypted. The TLS `ServerName` (SNI) is derived from
-the host portion of `VALKEY_ADDR`, so certificate verification works for both hostname and
-IP-addressed endpoints. For a self-signed / private CA, point `VALKEY_TLS_CA_CERT` at the PEM
-bundle; `VALKEY_TLS_SKIP_VERIFY=true` disables verification entirely and should only be used for
+the host portion of `addr`, so certificate verification works for both hostname and
+IP-addressed endpoints. For a self-signed / private CA, point `tls_ca_cert` at the PEM
+bundle; `tls_skip_verify:true` disables verification entirely and should only be used for
 local testing.
 {{% /notice %}}
 
