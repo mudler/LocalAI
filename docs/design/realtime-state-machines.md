@@ -88,6 +88,11 @@ cancelling → done(completed|cancelled) | failed.
 - Terminal events are **not exactly-once**: failed paths `return` with no
   `response.done`; cancelled paths emit `done{Cancelled}`; the completed terminal is
   unconditional at the tail of `emitToolCallItems`.
+- **Classifier mode** (`realtime_classifier.go`) is a response-*body* variant, not a
+  new machine: at turn 0 it may replace the Predict call with a prefill-only Score
+  and canned emission, but it runs inside the same respcoord-issued response, maps
+  onto the existing `outcomeCompleted/Cancelled/Failed`, and leaves terminal
+  emission with `triggerResponse`. No coordinator states or transitions were added.
 
 ### M4. Conversation / compaction
 
