@@ -1330,6 +1330,14 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         }
     }
 
+    // Score-task suffix forking: reserve seq ids (and recurrent-state cells)
+    // beyond the slots so one scoring call decodes all candidate tails in a
+    // single batch (SERVER_TASK_TYPE_SCORE, patches/). Requires the unified
+    // KV cache — with per-sequence streams the extra ids would shrink every
+    // sequence's context to n_ctx / n_seq_max. Decided after both option
+    // passes so an explicit kv_unified:false wins and disables forking.
+    params.n_seq_score_forks = params.kv_unified ? SERVER_SCORE_FORK_SEQS : 0;
+
     // Terminate/pad the override vectors only after BOTH the named-option loop
     // and the generic passthrough (common_params_parse above) have pushed their
     // real entries, so back() is the null sentinel the model loader asserts on.
@@ -2865,13 +2873,16 @@ public:
     // Score returns the model's joint log-probability of each candidate
     // continuation given a shared prompt.
     //
-    // Scoring runs as SERVER_TASK_TYPE_SCORE tasks through the slot loop
-    // (added by patches/ on top of upstream server-context), so it is safe
-    // to interleave with generation on the same process and it reuses any
-    // KV prefix the slot already holds: the shared prompt across
-    // candidates, and for chat workloads the conversation prefix across
-    // turns. Only the last shared-prompt token plus the candidate tokens
-    // are decoded per candidate once the prefix is cached.
+    // Scoring runs as a single SERVER_TASK_TYPE_SCORE task through the
+    // slot loop (added by patches/ on top of upstream server-context), so
+    // it is safe to interleave with generation on the same process and it
+    // reuses any KV prefix the slot already holds across turns. The task
+    // decodes the shared prefix (prompt + longest common candidate token
+    // prefix) once on the slot's sequence; every candidate's unique tail
+    // then rides its own forked sequence and all tails are decoded
+    // together in one batch, so a warm scoring call costs roughly one
+    // forward pass over the new prompt tokens plus one batched pass over
+    // the candidate tails.
     grpc::Status Score(ServerContext* context, const backend::ScoreRequest* request, backend::ScoreResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
@@ -2893,73 +2904,109 @@ public:
 
         // Per candidate: full prompt+candidate token list and the
         // divergence point, kept for piece rendering and empty-candidate
-        // handling after the tasks come back.
+        // handling after the task comes back.
         std::vector<std::vector<llama_token>> cand_tokens(request->candidates_size());
         std::vector<int32_t> cand_divergence(request->candidates_size(), 0);
 
-        auto rd = ctx_server.get_response_reader();
-        bool posted_tasks = false;
-        {
-            std::vector<server_task> tasks;
-            for (int ci = 0; ci < request->candidates_size(); ci++) {
-                const std::string & candidate_text = request->candidates(ci);
+        // candidates that actually have tokens to score
+        std::vector<int32_t> included;
 
-                // Re-tokenize prompt + candidate as a single string. BPE
-                // merges across the boundary can shift the tokenization
-                // versus tokenize(prompt) ++ tokenize(candidate), so we
-                // find the divergence point against prompt_tokens.
-                std::vector<llama_token> full_tokens = common_tokenize(vocab, prompt + candidate_text, /*add_special=*/true, /*parse_special=*/true);
-                int32_t divergence = prompt_len;
-                const int32_t min_len = std::min<int32_t>(prompt_len, (int32_t) full_tokens.size());
-                for (int32_t i = 0; i < min_len; i++) {
-                    if (prompt_tokens[i] != full_tokens[i]) {
-                        divergence = i;
-                        break;
-                    }
+        for (int ci = 0; ci < request->candidates_size(); ci++) {
+            const std::string & candidate_text = request->candidates(ci);
+
+            // Re-tokenize prompt + candidate as a single string. BPE
+            // merges across the boundary can shift the tokenization
+            // versus tokenize(prompt) ++ tokenize(candidate), so we
+            // find the divergence point against prompt_tokens.
+            std::vector<llama_token> full_tokens = common_tokenize(vocab, prompt + candidate_text, /*add_special=*/true, /*parse_special=*/true);
+            int32_t divergence = prompt_len;
+            const int32_t min_len = std::min<int32_t>(prompt_len, (int32_t) full_tokens.size());
+            for (int32_t i = 0; i < min_len; i++) {
+                if (prompt_tokens[i] != full_tokens[i]) {
+                    divergence = i;
+                    break;
                 }
-                divergence = std::min<int32_t>(divergence, (int32_t) full_tokens.size());
+            }
+            divergence = std::min<int32_t>(divergence, (int32_t) full_tokens.size());
 
-                const int32_t cand_len = (int32_t) full_tokens.size() - divergence;
-                if (cand_len > 0 && divergence < 1) {
-                    // Need at least one prior token (typically BOS) to
-                    // predict the first candidate token's logit. Tokeniser
-                    // models without BOS + an empty prompt fall in here.
-                    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                        "Score: prompt produced no leading tokens; need at least one (e.g. BOS) to predict candidate");
-                }
-                if (cand_len > SERVER_SCORE_MAX_CAND_TOKENS) {
-                    // The context reserves logits outputs for at most this many
-                    // candidate tokens per slot (server_n_outputs_max).
-                    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                        "Score: candidate " + std::to_string(ci) + " is " + std::to_string(cand_len) +
-                        " tokens; the maximum is " + std::to_string(SERVER_SCORE_MAX_CAND_TOKENS));
-                }
-
-                cand_divergence[ci] = divergence;
-                cand_tokens[ci] = std::move(full_tokens);
-
-                if (cand_len <= 0) {
-                    continue; // no tokens to score; reported as 0.0 below
-                }
-
-                server_task task(SERVER_TASK_TYPE_SCORE);
-                task.id             = rd.queue_tasks.get_new_id();
-                task.index          = (size_t) ci;
-                task.tokens         = server_tokens(cand_tokens[ci], false);
-                task.n_score_prompt = divergence;
-                tasks.push_back(std::move(task));
+            const int32_t cand_len = (int32_t) full_tokens.size() - divergence;
+            if (cand_len > 0 && divergence < 1) {
+                // Need at least one prior token (typically BOS) to
+                // predict the first candidate token's logit. Tokeniser
+                // models without BOS + an empty prompt fall in here.
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                    "Score: prompt produced no leading tokens; need at least one (e.g. BOS) to predict candidate");
+            }
+            if (cand_len > SERVER_SCORE_MAX_CAND_TOKENS) {
+                // The context reserves logits outputs for at most this many
+                // candidate tokens per slot (server_n_outputs_max).
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                    "Score: candidate " + std::to_string(ci) + " is " + std::to_string(cand_len) +
+                    " tokens; the maximum is " + std::to_string(SERVER_SCORE_MAX_CAND_TOKENS));
             }
 
-            if (!tasks.empty()) {
-                rd.post_tasks(std::move(tasks));
-                posted_tasks = true;
+            cand_divergence[ci] = divergence;
+            cand_tokens[ci] = std::move(full_tokens);
+
+            if (cand_len > 0) {
+                included.push_back(ci);
             }
         }
 
-        // Wait for the per-candidate logprob vectors. Context overflow and
-        // decode failures surface here as task errors.
-        std::vector<std::vector<float>> logprobs(request->candidates_size());
-        if (posted_tasks) {
+        auto rd = ctx_server.get_response_reader();
+        bool posted_task = false;
+
+        // Shared prefix bounds, needed again when stitching the results:
+        // n_shared is the longest common token prefix of the scored
+        // candidates, n_score_prompt the earliest divergence from the
+        // bare prompt (scored logprobs start there).
+        int32_t n_shared       = 0;
+        int32_t n_score_prompt = 0;
+
+        if (!included.empty()) {
+            const auto & first = cand_tokens[included[0]];
+
+            // the common prefix of a set is the shortest common prefix
+            // against any fixed member
+            n_shared = (int32_t) first.size();
+            for (int32_t ci : included) {
+                const auto & ft = cand_tokens[ci];
+                const int32_t lim = std::min<int32_t>(n_shared, (int32_t) ft.size());
+                int32_t match = 0;
+                while (match < lim && ft[match] == first[match]) {
+                    match++;
+                }
+                n_shared = match;
+            }
+
+            // below its divergence every candidate equals the prompt
+            // tokens, so n_score_prompt <= n_shared always holds
+            n_score_prompt = cand_divergence[included[0]];
+            for (int32_t ci : included) {
+                n_score_prompt = std::min(n_score_prompt, cand_divergence[ci]);
+            }
+
+            server_task task(SERVER_TASK_TYPE_SCORE);
+            task.id             = rd.queue_tasks.get_new_id();
+            task.index          = 0;
+            task.tokens         = server_tokens(llama_tokens(first.begin(), first.begin() + n_shared), false);
+            task.n_score_prompt = n_score_prompt;
+            task.score_suffixes.reserve(included.size());
+            for (int32_t ci : included) {
+                task.score_suffixes.emplace_back(cand_tokens[ci].begin() + n_shared, cand_tokens[ci].end());
+            }
+
+            std::vector<server_task> tasks;
+            tasks.push_back(std::move(task));
+            rd.post_tasks(std::move(tasks));
+            posted_task = true;
+        }
+
+        // Wait for the shared-prefix and per-candidate logprob vectors.
+        // Context overflow and decode failures surface here as task errors.
+        std::vector<float> shared_logprobs;
+        std::vector<std::vector<float>> cand_logprobs;
+        if (posted_task) {
             auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
             if (all_results.is_terminated) {
                 return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
@@ -2968,18 +3015,21 @@ public:
                 return grpc::Status(grpc::StatusCode::INTERNAL,
                     all_results.error->to_json().value("message", "Error in receiving score results"));
             }
-            for (auto & res : all_results.results) {
-                auto * score_res = dynamic_cast<server_task_result_score*>(res.get());
-                if (score_res == nullptr) {
-                    return grpc::Status(grpc::StatusCode::INTERNAL, "unexpected result type for score task");
-                }
-                if (score_res->index >= logprobs.size()) {
-                    return grpc::Status(grpc::StatusCode::INTERNAL, "score result index out of range");
-                }
-                logprobs[score_res->index] = std::move(score_res->logprobs);
+            if (all_results.results.size() != 1) {
+                return grpc::Status(grpc::StatusCode::INTERNAL, "expected a single score result");
+            }
+            auto * score_res = dynamic_cast<server_task_result_score*>(all_results.results[0].get());
+            if (score_res == nullptr) {
+                return grpc::Status(grpc::StatusCode::INTERNAL, "unexpected result type for score task");
+            }
+            shared_logprobs = std::move(score_res->shared_logprobs);
+            cand_logprobs   = std::move(score_res->cand_logprobs);
+            if (cand_logprobs.size() != included.size()) {
+                return grpc::Status(grpc::StatusCode::INTERNAL, "score result candidate count mismatch");
             }
         }
 
+        size_t inc = 0; // index into included / cand_logprobs
         for (int ci = 0; ci < request->candidates_size(); ci++) {
             const int32_t divergence = cand_divergence[ci];
             const int32_t cand_len   = (int32_t) cand_tokens[ci].size() - divergence;
@@ -2994,7 +3044,26 @@ public:
                 continue;
             }
 
-            const auto & lp = logprobs[ci];
+            // Stitch the candidate's scored logprobs back together: the
+            // stretch inside the shared prefix (identical for every
+            // candidate) followed by its forked suffix. Suffix entries
+            // before the candidate's own divergence are prompt tokens
+            // decoded only as context — not scored.
+            std::vector<float> lp;
+            lp.reserve(cand_len);
+            for (int32_t t = divergence; t < n_shared; t++) {
+                const int32_t idx = t - n_score_prompt;
+                if (idx < 0 || idx >= (int32_t) shared_logprobs.size()) {
+                    return grpc::Status(grpc::StatusCode::INTERNAL,
+                        "Score: shared logprob index out of range for candidate " + std::to_string(ci));
+                }
+                lp.push_back(shared_logprobs[idx]);
+            }
+            const auto & sfx_lp = cand_logprobs[inc++];
+            for (int32_t j = std::max(0, divergence - n_shared); j < (int32_t) sfx_lp.size(); j++) {
+                lp.push_back(sfx_lp[j]);
+            }
+
             if ((int32_t) lp.size() != cand_len) {
                 return grpc::Status(grpc::StatusCode::INTERNAL,
                     "Score: result for candidate " + std::to_string(ci) + " is missing token logprobs");
