@@ -30,6 +30,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/turncoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -137,6 +138,12 @@ type Session struct {
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
 
+	// Classifier holds the LocalAI classifier-mode config (prefill-scored
+	// option selection instead of generation), seeded from
+	// pipeline.classifier and replaced wholesale by session.update's
+	// localai_classifier field. nil means off.
+	Classifier *types.ClassifierConfig
+
 	// Compaction settings resolved from pipeline.compaction (see resolveCompaction).
 	CompactionEnabled bool
 	CompactionTrigger int
@@ -197,14 +204,15 @@ func (s *Session) ToServer() types.SessionUnion {
 	} else {
 		return types.SessionUnion{
 			Realtime: &types.RealtimeSession{
-				ID:               s.ID,
-				Object:           "realtime.session",
-				Model:            s.Model,
-				Instructions:     s.Instructions,
-				Tools:            s.Tools,
-				ToolChoice:       s.ToolChoice,
-				MaxOutputTokens:  s.MaxOutputTokens,
-				OutputModalities: s.OutputModalities,
+				ID:                s.ID,
+				Object:            "realtime.session",
+				Model:             s.Model,
+				Instructions:      s.Instructions,
+				Tools:             s.Tools,
+				ToolChoice:        s.ToolChoice,
+				MaxOutputTokens:   s.MaxOutputTokens,
+				OutputModalities:  s.OutputModalities,
+				LocalAIClassifier: s.Classifier,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -266,6 +274,12 @@ type Model interface {
 	// event. Backends without live support fail with an error satisfying
 	// grpcerrors.IsLiveTranscriptionUnsupported.
 	TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error)
+	// ClassifyTurn prefill-scores each classifier option as a candidate
+	// continuation of the conversation (LocalAI classifier-mode extension)
+	// and returns the softmax distribution in option order. Runs on the
+	// pipeline's scoring model (classifier.model, defaulting to the LLM) —
+	// no autoregressive decode happens.
+	ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error)
 	PredictConfig() *config.ModelConfig
 	// Warmup eagerly loads the pipeline's sub-model backends into memory so the
 	// first realtime turn doesn't pay each backend's cold-start load cost. Loads
@@ -540,6 +554,12 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
 	session.CompactionEnabled, session.CompactionTrigger, session.MaxSummaryTokens, session.SummaryModel = resolveCompaction(cfg, session.MaxHistoryItems)
+	classifier, err := classifierConfigFromPipeline(cfg.Pipeline.Classifier)
+	if err != nil {
+		sendError(t, "invalid_pipeline", "pipeline classifier: "+err.Error(), "", "")
+		return
+	}
+	session.Classifier = classifier
 
 	// Single-writer response coordinator (machine M3). All response starts and
 	// cancels go through this, so the read-loop and VAD goroutine can never race
@@ -751,7 +771,9 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ApplicationConfig(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
-					sendError(t, "session_update_error", "Failed to update session", "", "")
+					// The cause is validation feedback on the client's own
+					// payload — echo it so UIs can show something actionable.
+					sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
 					continue
 				}
 
@@ -777,7 +799,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					buildRealtimeRoutingContext(application, session.ID),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
-					sendError(t, "session_update_error", "Failed to update session", "", "")
+					sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
 					continue
 				}
 
@@ -1226,6 +1248,16 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 	if rt.ToolChoice != nil {
 		session.ToolChoice = rt.ToolChoice
+	}
+
+	if rt.LocalAIClassifier != nil {
+		// Replace-not-merge, like tools: the client owns the whole option
+		// list. Invalid configs reject the update without touching the
+		// session's current classifier.
+		if err := rt.LocalAIClassifier.Validate(); err != nil {
+			return err
+		}
+		session.Classifier = rt.LocalAIClassifier
 	}
 
 	if rt.MaxOutputTokens != 0 {
@@ -2203,9 +2235,18 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		images = append(images, m.StringImages...)
 	}
 
-	// response.created/done are emitted once per response.create by triggerResponse;
-	// every turn (including agentic recursion) shares this id.
-	responseID := r.id
+	// Classifier mode replaces autoregressive generation for the first turn
+	// of a response: prefill-only scoring picks a registered option and its
+	// canned reply/tool is emitted through the standard response protocol.
+	// Agentic follow-ups (toolTurn > 0) always generate — the option list
+	// describes user intents, not tool outputs. This branch must precede the
+	// streamed-LLM path below or streaming pipelines would bypass it.
+	if cc := resolveClassifier(session.Classifier, overrides); toolTurn == 0 && cc.Active() {
+		if classifierRespond(ctx, session, conv, t, r, cc, conversationHistory, overrides, toolTurn) {
+			return
+		}
+		// fallback.mode "generate": fall through to normal generation.
+	}
 
 	// Streamed LLM path: when the pipeline opts into LLM streaming, stream the
 	// transcript to the client as it is generated and synthesize the buffered
@@ -2358,6 +2399,30 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	}
 
 	if finalSpeech != "" {
+		if !emitAssistantMessage(ctx, session, conv, t, r, finalSpeech, overrides) {
+			return
+		}
+	}
+
+	// Emit the parsed tool calls and (for server-side assistant tools) the
+	// follow-up turn. Shared with the streamed path so both finalize tool calls
+	// identically. The single terminal is emitted by triggerResponse.
+	emitToolCallItems(ctx, session, conv, t, r, finalToolCalls, finalSpeech != "", toolTurn)
+}
+
+// emitAssistantMessage appends an assistant item carrying finalSpeech to the
+// conversation and emits the standard response events for it —
+// output_item.added, content_part.added, audio-transcript or output-text
+// deltas, TTS audio via emitSpeech (unless the resolved modalities are
+// text-only), content_part.done and output_item.done. Shared by the buffered
+// generation path and classifier mode. Returns false when the response was
+// cancelled (barge-in) or failed — r.outcome is already recorded and the
+// caller must emit no further items.
+func emitAssistantMessage(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, finalSpeech string, overrides *types.ResponseCreateParams) bool {
+	// response.created/done are emitted once per response.create by
+	// triggerResponse; every turn (including agentic recursion) shares this id.
+	responseID := r.id
+	{
 		// Create the assistant item now that we have content
 		item := types.MessageItemUnion{
 			Assistant: &types.MessageItemAssistant{
@@ -2425,7 +2490,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			if ctx.Err() != nil {
 				xlog.Debug("Response cancelled before TTS (barge-in)")
 				sendCancelledResponse()
-				return
+				return false
 			}
 
 			// Transcript of the spoken reply (the audio's text).
@@ -2455,12 +2520,12 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				if ctx.Err() != nil {
 					xlog.Debug("TTS cancelled (barge-in)")
 					sendCancelledResponse()
-					return
+					return false
 				}
 				xlog.Error("TTS failed", "error", err)
 				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
 				r.outcome = outcomeFailed
-				return
+				return false
 			}
 			if !isWebRTC {
 				audioString = base64.StdEncoding.EncodeToString(pcmAudio)
@@ -2519,11 +2584,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		})
 		r.addItem(item)
 	}
-
-	// Emit the parsed tool calls and (for server-side assistant tools) the
-	// follow-up turn. Shared with the streamed path so both finalize tool calls
-	// identically. The single terminal is emitted by triggerResponse.
-	emitToolCallItems(ctx, session, conv, t, r, finalToolCalls, finalSpeech != "", toolTurn)
+	return true
 }
 
 // emitToolCallItems emits the realtime function_call items for the parsed tool
