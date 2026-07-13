@@ -96,6 +96,17 @@ func newLiveTurnState(session *Session, transport Transport) *liveTurnState {
 
 func (l *liveTurnState) open() bool { return l.live != nil }
 
+// rebase shifts the turn's buffer-relative cursors after the retention trim
+// dropped trimmedSec seconds off the buffer head: fed16k indexes the
+// resampled (16 kHz) buffer, eouAtSec the buffer clock. Both floor at zero —
+// a position inside the dropped head is more than maxTurnBufferSec old, and
+// for eouAtSec zero already means "no EOU this turn", which is the right
+// reading for a token that stale.
+func (l *liveTurnState) rebase(trimmedSec float64) {
+	l.fed16k = max(0, l.fed16k-int(trimmedSec*localSampleRate))
+	l.eouAtSec = max(0, l.eouAtSec-trimmedSec)
+}
+
 // openTurn starts the turn's live stream under the caller-supplied item id. A
 // failure (most commonly the backend's typed "live transcription unsupported"
 // signal) degrades the whole session to silence-only detection — warned once,
