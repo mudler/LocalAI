@@ -96,25 +96,72 @@
       "model": "Model",
       "prompt": "Prompt",
       "promptPlaceholder": "Deskripsikan suara yang ingin Anda buat...",
+      "instrumental": "Instrumental",
+      "bpm": "Tempo",
       "duration": "Durasi (detik)",
       "language": "Bahasa",
+      "timesignature": "Tanda birama",
+      "keyscale": "Tangga nada",
       "vocalLanguage": "Bahasa vokal",
-      "lyrics": "Lirik (opsional)",
-      "lyricsPlaceholder": "Lirik untuk generasi vokal",
-      "advanced": "Pengaturan Tingkat Lanjutan",
+      "vocalLanguagePlaceholder": "cth. Bahasa Indonesia",
+      "caption": "Takarir",
+      "lyrics": "Lirik",
+      "lyricsPlaceholder": "Lirik untuk menghasilkan vokal",
+      "simple": "Sederhana",
+      "advanced": "Tingkat Lanjutan",
       "seed": "Seed",
-      "seedPlaceholder": "Acak"
+      "seedPlaceholder": "Acak",
+      "thinkMode": "Mode penalaran"
     },
     "actions": {
       "generate": "Hasilkan",
       "generating": "Menghasilkan..."
     },
-    "empty": "Audio yang dihasilkan akan muncul di sini",
+    "empty": "Suara yang dihasilkan akan muncul di sini",
     "toasts": {
       "noPrompt": "Silahkan masukkan prompt",
       "noModel": "Silahkan pilih model",
       "generateFailed": "Gagal menghasilkan"
     }
+  },
+  "audioTransform": {
+    "title": "Transformasi Audio",
+    "labels": {
+      "model": "Model",
+      "audio": "Audio (wajib)",
+      "reference": "Referensi (opsional)",
+      "referenceHelp": "Sinyal loopback / ujung jauh untuk pembatalan gema, atau pembicara target untuk konversi suara. Kosongkan untuk transformasi tanpa syarat.",
+      "advancedParameters": "Parameter tingkat lanjut",
+      "advancedParametersHelp": "Spesifik backend (satu key=value per baris, contoh: noise_gate=true)",
+      "advancedParametersPlaceholder": "# Opsional. Untuk LocalVQE:\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "Unggah",
+      "uploadDescription": "Tarik file di sini atau",
+      "uploadBrowse": "jelajahi",
+      "record": "Rekam",
+      "startRecording": "Mulai merekam",
+      "stop": "Selesai",
+      "encoding": "Pengenkodean...",
+      "clear": "Hapus",
+      "microphoneUnavailable": "Perekaman mikrofon tidak tersedia di peramban ini.",
+      "echoNotice": "Peramban sering kali menerapkan pembatalan gema dan penekanan derau WebRTC secara bawaan. Hal ini biasanya menghasilkan performa yang lebih buruk dibandingkan menjalankan LocalVQE pada audio mentah.",
+      "echoTest": "Tes gema (rekam mik saat memutar referensi)",
+      "stopEchoTest": "Hentikan tes gema"
+    },
+    "result": {
+      "audio": "Audio",
+      "reference": "Referensi",
+      "inputSpectrum": "Input spektrum",
+      "outputSpectrum": "Output spektrum",
+      "outputSpectrumHint": "Transformasi untuk membandingkan atenuasi",
+      "output": "Output"
+    },
+    "actions": {
+      "transform": "Transformasi",
+      "processing": "Memproses..."
+    },
+    "empty": "Pilih file audio (dan referensi opsional) untuk ditransformasikan"
   },
   "talk": {
     "title": "Percakapan",
