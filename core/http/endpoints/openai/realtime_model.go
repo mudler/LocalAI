@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
@@ -36,11 +38,25 @@ type wrappedModel struct {
 	LLMConfig            *config.ModelConfig
 	VADConfig            *config.ModelConfig
 	SoundDetectionConfig *config.ModelConfig
+	// ScoreConfig is the classifier-mode scoring model
+	// (pipeline.classifier.model). nil falls back to LLMConfig — with
+	// slot-based Score the same process serves scoring and generation
+	// and shares its prompt cache between them.
+	ScoreConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
 	evaluator   *templates.Evaluator
+
+	// Classifier-mode memo: constructing a ScoreClassifier parses the
+	// scoring model's chat template, so reuse it while the option set is
+	// unchanged. Guarded by a mutex only because session.update can swap
+	// options while a response is in flight.
+	classifierMu   sync.Mutex
+	classifier     *router.ScoreClassifier
+	classifierKey  string
+	classifierWarn sync.Once
 
 	// Routing — populated by newModel when the application wires routing
 	// deps in. nil-safe: with classifierRegistry == nil the per-turn
@@ -88,6 +104,10 @@ func (m *transcriptOnlyModel) SoundDetection(ctx context.Context, audio string, 
 
 func (m *transcriptOnlyModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
 	return nil, fmt.Errorf("predict operation not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error) {
+	return nil, fmt.Errorf("classifier mode not supported in transcript-only mode")
 }
 
 func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
@@ -369,14 +389,113 @@ func (m *wrappedModel) PredictConfig() *config.ModelConfig {
 	return m.LLMConfig
 }
 
+// scoreConfig resolves the classifier-mode scoring model: the explicit
+// pipeline.classifier.model when set, else the pipeline LLM.
+func (m *wrappedModel) scoreConfig() *config.ModelConfig {
+	if m.ScoreConfig != nil {
+		return m.ScoreConfig
+	}
+	return m.LLMConfig
+}
+
+// classifierFor returns a ScoreClassifier for the given option set,
+// reusing the previous one while options and normalization are unchanged
+// (construction parses the scoring model's chat template).
+func (m *wrappedModel) classifierFor(options []types.ClassifierOption, normalization string) (*router.ScoreClassifier, error) {
+	switch normalization {
+	case "", router.ScoreNormalizationRaw, router.ScoreNormalizationMean:
+	default:
+		// NewScoreClassifier panics on unknown modes; session.update
+		// validation should have rejected this — fail soft anyway.
+		return nil, fmt.Errorf("classifier: unknown normalization %q", normalization)
+	}
+	if len(options) == 0 {
+		return nil, fmt.Errorf("classifier: no options to score")
+	}
+
+	var key strings.Builder
+	key.WriteString(normalization)
+	for _, o := range options {
+		key.WriteString("\x1f")
+		key.WriteString(o.ID)
+		key.WriteString("\x1e")
+		key.WriteString(o.Description)
+	}
+
+	m.classifierMu.Lock()
+	defer m.classifierMu.Unlock()
+	if m.classifier != nil && m.classifierKey == key.String() {
+		return m.classifier, nil
+	}
+
+	cfg := m.scoreConfig()
+	policies := make([]router.ScorePolicy, 0, len(options))
+	for _, o := range options {
+		if o.ID == "" || o.Description == "" {
+			// NewScoreClassifier panics on these; validation upstream
+			// should have caught them.
+			return nil, fmt.Errorf("classifier: option with empty id or description")
+		}
+		policies = append(policies, router.ScorePolicy{Label: o.ID, Description: o.Description})
+	}
+
+	opts := router.ScoreClassifierOptions{
+		// The memo cache stores only label sets — a hit would return an
+		// empty distribution and blind the localai.classifier.result
+		// event, so keep it off.
+		CacheCap:      0,
+		Normalization: normalization,
+	}
+	if m.evaluator != nil {
+		if renderer := middleware.NewTemplateRenderer(m.evaluator, cfg); renderer != nil {
+			opts.PromptRenderer = renderer
+		} else {
+			m.classifierWarn.Do(func() {
+				xlog.Warn("realtime classifier: scoring model has no Go chat template; falling back to a generic ChatML envelope, which may be off-distribution",
+					"model", cfg.Name)
+			})
+		}
+	}
+	if st := middleware.PickAssistantTurnEnd(cfg.StopWords, cfg.TemplateConfig.ChatMessage); st != "" {
+		opts.StopToken = st
+	}
+
+	scorer := backend.NewScorer(m.modelLoader, *cfg, m.appConfig)
+	m.classifier = router.NewScoreClassifier(policies, scorer, opts)
+	m.classifierKey = key.String()
+	return m.classifier, nil
+}
+
+func (m *wrappedModel) ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error) {
+	classifier, err := m.classifierFor(options, normalization)
+	if err != nil {
+		return nil, err
+	}
+	decision, err := classifier.Classify(ctx, classifierProbe(messages))
+	if err != nil {
+		return nil, err
+	}
+	// LabelScores is in policy-declaration order, which mirrors option
+	// order by construction.
+	if len(decision.LabelScores) != len(options) {
+		return nil, fmt.Errorf("classifier: got %d scores for %d options", len(decision.LabelScores), len(options))
+	}
+	return decision.LabelScores, nil
+}
+
 func (m *wrappedModel) Warmup(ctx context.Context) error {
-	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
+	stages := []backend.PreloadStage{
 		{Role: "vad", Cfg: m.VADConfig},
 		{Role: "transcription", Cfg: m.TranscriptionConfig},
 		{Role: "llm", Cfg: m.LLMConfig},
 		{Role: "tts", Cfg: m.TTSConfig},
 		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
-	})
+	}
+	// The scoring model is a separate stage only when it isn't the LLM.
+	if m.ScoreConfig != nil && m.ScoreConfig != m.LLMConfig {
+		stages = append(stages, backend.PreloadStage{Role: "classifier", Cfg: m.ScoreConfig})
+	}
+	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, stages)
 	return err
 }
 
@@ -647,12 +766,34 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, err
 	}
 
+	// Classifier mode scores on its own model config when one is named;
+	// otherwise ClassifyTurn falls back to the LLM config at call time
+	// (so a client can enable classification via session.update even
+	// when the pipeline block is absent).
+	var cfgScore *config.ModelConfig
+	if pipeline.Classifier != nil && pipeline.Classifier.Model != "" {
+		cfgScore, err = cl.LoadResolvedModelConfig(pipeline.Classifier.Model, ml.ModelPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load classifier scoring config: %w", err)
+		}
+		if valid, err := cfgScore.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate classifier scoring config: %w", err)
+		}
+	}
+	if pipeline.Classifier != nil && pipeline.Classifier.Enabled && cfgScore == nil && cfgLLM.HasRouter() {
+		// A router model has no concrete backend to score on — the
+		// per-turn routing decision happens at Predict time, after
+		// classification would already have run.
+		return nil, fmt.Errorf("pipeline classifier: llm %q is a router model; set pipeline.classifier.model to a concrete scoring model", cfgLLM.Name)
+	}
+
 	wm := &wrappedModel{
 		TTSConfig:            cfgTTS,
 		TranscriptionConfig:  cfgSST,
 		LLMConfig:            cfgLLM,
 		VADConfig:            cfgVAD,
 		SoundDetectionConfig: cfgSound,
+		ScoreConfig:          cfgScore,
 
 		confLoader:  cl,
 		modelLoader: ml,

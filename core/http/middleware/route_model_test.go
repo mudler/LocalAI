@@ -301,7 +301,7 @@ var _ = Describe("RouteModel rendered classifier prompt", func() {
 		// <|im_end|> first even though the actual Llama-3 assistant
 		// turn-end is <|eot_id|>. The naive "stopwords[0]" pick would
 		// suffix candidates with <|im_end|> — a token Llama-3 never
-		// emits at turn end. pickAssistantTurnEnd should scan the
+		// emits at turn end. PickAssistantTurnEnd should scan the
 		// chat_message template and recognise <|eot_id|> as the real
 		// turn-end.
 		writeLlama3StyleClassifierModel(modelDir, "arch-router")
@@ -498,7 +498,7 @@ template:
 // writeLlama3StyleClassifierModel writes a classifier model mirroring
 // gallery/llama3-instruct.yaml — stopwords defensively list <|im_end|>
 // first even though the assistant turn-end is actually <|eot_id|>.
-// Exercises pickAssistantTurnEnd's template scan: the right token is
+// Exercises PickAssistantTurnEnd's template scan: the right token is
 // the one that appears in chat_message, not the one at position 0.
 func writeLlama3StyleClassifierModel(modelDir, name string) {
 	body := `name: ` + name + `
@@ -524,7 +524,7 @@ template:
 
 // writePartialClassifierModel writes a classifier model that has the
 // outer Chat template but no ChatMessage — exercises the
-// newTemplateRenderer "refuse partial templating" branch, which makes
+// NewTemplateRenderer "refuse partial templating" branch, which makes
 // buildClassifier reject the router with a missing-template error.
 func writePartialClassifierModel(modelDir, name string) {
 	body := `name: ` + name + `
