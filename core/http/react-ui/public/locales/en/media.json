@@ -264,14 +264,22 @@
       "model": "Model",
       "prompt": "Prompt",
       "promptPlaceholder": "Describe the sound you want to generate...",
+      "instrumental": "Instrumental",
+      "bpm": "BPM",
       "duration": "Duration (seconds)",
       "language": "Language",
+      "timesignature": "Time Signature",
+      "keyscale": "Key/Scale",
       "vocalLanguage": "Vocal language",
-      "lyrics": "Lyrics (optional)",
+      "vocalLanguagePlaceholder": "e.g. English",
+      "caption": "Caption",
+      "lyrics": "Lyrics",
       "lyricsPlaceholder": "Lyrics for vocal generation",
-      "advanced": "Advanced Settings",
+      "simple": "Simple",
+      "advanced": "Advanced",
       "seed": "Seed",
-      "seedPlaceholder": "Random"
+      "seedPlaceholder": "Random",
+      "thinkMode": "Think mode"
     },
     "actions": {
       "generate": "Generate",
@@ -283,6 +291,45 @@
       "noModel": "Please select a model",
       "generateFailed": "Generation failed"
     }
+  },
+  "audioTransform": {
+    "title": "Audio Transform",
+    "labels": {
+      "model": "Model",
+      "audio": "Audio (required)",
+      "reference": "Reference (optional)",
+      "referenceHelp": "Loopback / far-end signal for echo cancellation, target speaker for voice conversion. Leave empty for unconditional transform.",
+      "advancedParameters": "Advanced parameters",
+      "advancedParametersHelp": "backend-specific (one key=value per line, e.g. noise_gate=true)",
+      "advancedParametersPlaceholder": "# Optional. For LocalVQE:\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "Upload",
+      "uploadDescription": "Drop a file here or",
+      "uploadBrowse": "browse",
+      "record": "Record",
+      "startRecording": "Start recording",
+      "stop": "Stop",
+      "encoding": "Encoding...",
+      "clear": "Clear",
+      "microphoneUnavailable": "Microphone capture is unavailable in this browser.",
+      "echoNotice": "Browsers often apply their own WebRTC echo cancellation and noise suppression by default. This usually results in worse performance than running LocalVQE on the raw audio.",
+      "echoTest": "Echo test (record mic while playing reference)",
+      "stopEchoTest": "Stop echo test"
+    },
+    "result": {
+      "audio": "Audio",
+      "reference": "Reference",
+      "inputSpectrum": "Input spectrum",
+      "outputSpectrum": "Output spectrum",
+      "outputSpectrumHint": "Transform to compare attenuation",
+      "output": "Output"
+    },
+    "actions": {
+      "transform": "Transform",
+      "processing": "Processing..."
+    },
+    "empty": "Choose an audio file (and optional reference) to transform"
   },
   "talk": {
     "title": "Talk",
