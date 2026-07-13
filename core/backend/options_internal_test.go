@@ -314,3 +314,23 @@ var _ = Describe("EffectiveContextSize", func() {
 		})
 	})
 })
+
+var _ = Describe("effectiveThreads", func() {
+	It("lets a per-model threads value override the app-level --threads", func() {
+		one := 1
+		cfg := config.ModelConfig{Threads: &one}
+		Expect(effectiveThreads(cfg, 10)).To(Equal(1),
+			"per-model threads is a real knob, not dead config under --threads")
+	})
+
+	It("falls back to the app-level threads when the model sets none", func() {
+		Expect(effectiveThreads(config.ModelConfig{}, 10)).To(Equal(10))
+		zero := 0
+		Expect(effectiveThreads(config.ModelConfig{Threads: &zero}, 10)).To(Equal(10),
+			"an explicit threads: 0 means unset, not zero threads")
+	})
+
+	It("never resolves to a non-positive thread count", func() {
+		Expect(effectiveThreads(config.ModelConfig{}, 0)).To(Equal(1))
+	})
+})
