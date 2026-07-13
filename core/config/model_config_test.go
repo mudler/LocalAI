@@ -127,21 +127,19 @@ parameters:
 			Expect(err).To(BeNil())
 			Expect(valid).To(BeTrue())
 
-			// llama-cpp configs can't mix the score usecase with
-			// chat/completion/embeddings — Score bypasses the slot loop
-			// and would race the llama_context. (token_classify is exempt:
-			// it runs on the privacy-filter backend, not llama-cpp, so the
-			// token_classify combinations below stay valid.)
+			// Score runs through the llama-cpp slot loop, so mixing the
+			// score usecase with chat/completion/embeddings on one config
+			// is valid — the slot scheduler serializes score against
+			// generation and shares the prompt cache between them.
 			scoreFlag := FLAG_SCORE | FLAG_CHAT
-			conflicting := ModelConfig{
-				Name:          "router-but-also-chat",
+			scoringChat := ModelConfig{
+				Name:          "router-and-chat",
 				Backend:       "llama-cpp",
 				KnownUsecases: &scoreFlag,
 			}
-			valid, err = conflicting.Validate()
-			Expect(valid).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("score is incompatible"))
+			valid, err = scoringChat.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 
 			scoreOnly := FLAG_SCORE
 			dedicated := ModelConfig{
