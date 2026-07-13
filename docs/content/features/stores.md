@@ -51,14 +51,30 @@ All endpoints also accept an optional `backend` field selecting which store back
 request. The default is `local-store`, an in-memory exact-search store. Alternatively,
 `valkey-store` (alias `valkey`) stores the vectors in a Valkey server running the
 [Valkey Search](https://valkey.io/topics/search/) module (the `valkey/valkey-bundle` image), which
-makes them durable across restarts. `valkey-store` is configured through environment variables:
+makes them durable across restarts. `valkey-store` is configured through environment variables,
+or per-model via the model config's `options:` list, which takes priority over the env var:
 
-| Variable | Default | Description |
-|---|---|---|
-| `VALKEY_ADDR` | `127.0.0.1:6379` | Valkey server address |
-| `VALKEY_USERNAME` | | Username, if the server requires AUTH |
-| `VALKEY_PASSWORD` | | Password, if the server requires AUTH |
-| `VALKEY_INDEX_ALGO` | `FLAT` | Vector index algorithm: `FLAT` (exact, matches `local-store` results) or `HNSW` (approximate, for large corpora) |
+| Variable | Model option | Default | Description |
+|---|---|---|---|
+| `VALKEY_ADDR` | `valkey_addr` | `127.0.0.1:6379` | Valkey server address |
+| `VALKEY_USERNAME` | `valkey_username_env` | | Username, if the server requires AUTH |
+| `VALKEY_PASSWORD` | `valkey_password_env` | | Password, if the server requires AUTH |
+| `VALKEY_INDEX_ALGO` | `valkey_index_algo` | `FLAT` | Vector index algorithm: `FLAT` (exact, matches `local-store` results) or `HNSW` (approximate, for large corpora) |
+
+The username/password options name an environment variable to read the credential from, rather
+than taking the credential directly, so each model config can point at its own Valkey server with
+its own credentials without putting secrets in the YAML (the same pattern `cloud-proxy`'s
+`api_key_env` uses):
+
+```yaml
+name: my-valkey-store
+backend: valkey-store
+options:
+  - "valkey_addr:valkey.internal:6379"
+  - "valkey_username_env:MY_VALKEY_USERNAME"
+  - "valkey_password_env:MY_VALKEY_PASSWORD"
+  - "valkey_index_algo:HNSW"
+```
 
 ## Set
 

@@ -22,8 +22,15 @@ package main
 // Search parity: the index defaults to FLAT with COSINE distance, so
 // Find is an exact scan whose ranking matches local-store; Valkey
 // returns cosine *distance* and similarity is derived as
-// `1 - distance`. Set VALKEY_INDEX_ALGO=HNSW for approximate ANN on
-// large corpora.
+// `1 - distance`. Set VALKEY_INDEX_ALGO=HNSW (or the valkey_index_algo
+// model option) for approximate ANN on large corpora.
+//
+// Connection settings resolve per-model first, then fall back to the
+// process-wide env vars: `valkey_addr` / VALKEY_ADDR, `valkey_index_algo`
+// / VALKEY_INDEX_ALGO, and — mirroring cloud-proxy's api_key_env —
+// `valkey_username_env` / `valkey_password_env` name the env vars that
+// actually hold the credential, so distinct model configs can each
+// point at a different Valkey server with its own credentials.
 //
 // Concurrency: base.SingleThread serialises gRPC calls, matching
 // local-store; Valkey itself is the durable shared state.
@@ -71,10 +78,41 @@ type Store struct {
 	// index, so dimension mismatches fail loudly instead of
 	// producing bogus cosine matches.
 	keyLen int
+
+	// indexAlgo is resolved once at Load (model option, else env var,
+	// else FLAT) and reused by createIndex, which runs later from
+	// StoresSet and has no access to the ModelOptions that carried it.
+	indexAlgo string
 }
 
 func NewStore() *Store {
 	return &Store{keyLen: -1}
+}
+
+// optString reads a model option (key:value form) from ModelOptions,
+// returning def when absent. Mirrors optInt in sibling backends
+// (e.g. moss-transcribe-cpp) for the model YAML's `options:` list.
+func optString(opts *pb.ModelOptions, key, def string) string {
+	for _, o := range opts.GetOptions() {
+		k, v, ok := strings.Cut(o, ":")
+		if ok && strings.TrimSpace(k) == key {
+			return strings.TrimSpace(v)
+		}
+	}
+	return def
+}
+
+// optEnvIndirect resolves a credential the way cloud-proxy's
+// api_key_env does: the model option names an env var to read from,
+// so distinct model configs can each reference a different credential
+// pair without putting secrets in the YAML. Falls back to a single
+// process-wide env var when the model doesn't set the option, keeping
+// the single-Valkey-server default working unchanged.
+func optEnvIndirect(opts *pb.ModelOptions, optKey, fallbackEnvVar string) string {
+	if envVar := optString(opts, optKey, ""); envVar != "" {
+		return os.Getenv(envVar)
+	}
+	return os.Getenv(fallbackEnvVar)
 }
 
 // Load validates the namespace, connects to Valkey and, when the
@@ -93,14 +131,15 @@ func (s *Store) Load(opts *pb.ModelOptions) error {
 	s.prefix = keyspacePrefix + ns + ":"
 	s.index = s.prefix + "idx"
 
-	addr := os.Getenv("VALKEY_ADDR")
+	addr := optString(opts, "valkey_addr", os.Getenv("VALKEY_ADDR"))
 	if addr == "" {
 		addr = "127.0.0.1:6379"
 	}
+	s.indexAlgo = optString(opts, "valkey_index_algo", os.Getenv("VALKEY_INDEX_ALGO"))
 	client, err := valkey.NewClient(valkey.ClientOption{
 		InitAddress: []string{addr},
-		Username:    os.Getenv("VALKEY_USERNAME"),
-		Password:    os.Getenv("VALKEY_PASSWORD"),
+		Username:    optEnvIndirect(opts, "valkey_username_env", "VALKEY_USERNAME"),
+		Password:    optEnvIndirect(opts, "valkey_password_env", "VALKEY_PASSWORD"),
 		// The store contract is request/response; the client-side
 		// cache would only add invalidation traffic.
 		DisableCache: true,
@@ -170,12 +209,12 @@ func (s *Store) createIndex(dim int) error {
 	if dim == 0 {
 		return fmt.Errorf("valkey-store: Set: cannot index zero-length vectors")
 	}
-	algo := strings.ToUpper(os.Getenv("VALKEY_INDEX_ALGO"))
+	algo := strings.ToUpper(s.indexAlgo)
 	if algo == "" {
 		algo = "FLAT"
 	}
 	if algo != "FLAT" && algo != "HNSW" {
-		return fmt.Errorf("valkey-store: VALKEY_INDEX_ALGO %q not supported (FLAT or HNSW)", algo)
+		return fmt.Errorf("valkey-store: valkey_index_algo/VALKEY_INDEX_ALGO %q not supported (FLAT or HNSW)", algo)
 	}
 
 	ctx := context.Background()

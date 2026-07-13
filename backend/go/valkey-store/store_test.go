@@ -37,6 +37,41 @@ var _ = Describe("StoresLoad namespace gate", func() {
 	})
 })
 
+var _ = Describe("model-config option resolution", func() {
+	It("optString prefers the model option over the default", func() {
+		opts := &pb.ModelOptions{Options: []string{"valkey_addr:10.0.0.1:6379"}}
+		Expect(optString(opts, "valkey_addr", "127.0.0.1:6379")).To(Equal("10.0.0.1:6379"))
+	})
+
+	It("optString falls back to the default when the option is absent", func() {
+		Expect(optString(&pb.ModelOptions{}, "valkey_addr", "127.0.0.1:6379")).To(Equal("127.0.0.1:6379"))
+	})
+
+	It("optEnvIndirect reads the env var named by the model option", func() {
+		Expect(os.Setenv("VALKEY_STORE_TEST_CRED_A", "creds-a")).To(Succeed())
+		defer func() { _ = os.Unsetenv("VALKEY_STORE_TEST_CRED_A") }()
+		opts := &pb.ModelOptions{Options: []string{"valkey_password_env:VALKEY_STORE_TEST_CRED_A"}}
+		Expect(optEnvIndirect(opts, "valkey_password_env", "VALKEY_PASSWORD")).To(Equal("creds-a"))
+	})
+
+	It("optEnvIndirect falls back to the process-wide env var when unset", func() {
+		Expect(os.Setenv("VALKEY_PASSWORD", "fallback-cred")).To(Succeed())
+		defer func() { _ = os.Unsetenv("VALKEY_PASSWORD") }()
+		Expect(optEnvIndirect(&pb.ModelOptions{}, "valkey_password_env", "VALKEY_PASSWORD")).To(Equal("fallback-cred"))
+	})
+
+	It("lets two models pick different credential env vars against the same server", func() {
+		Expect(os.Setenv("VALKEY_STORE_TEST_CRED_A", "creds-a")).To(Succeed())
+		Expect(os.Setenv("VALKEY_STORE_TEST_CRED_B", "creds-b")).To(Succeed())
+		defer func() { _ = os.Unsetenv("VALKEY_STORE_TEST_CRED_A") }()
+		defer func() { _ = os.Unsetenv("VALKEY_STORE_TEST_CRED_B") }()
+		a := &pb.ModelOptions{Options: []string{"valkey_username_env:VALKEY_STORE_TEST_CRED_A"}}
+		b := &pb.ModelOptions{Options: []string{"valkey_username_env:VALKEY_STORE_TEST_CRED_B"}}
+		Expect(optEnvIndirect(a, "valkey_username_env", "VALKEY_USERNAME")).To(Equal("creds-a"))
+		Expect(optEnvIndirect(b, "valkey_username_env", "VALKEY_USERNAME")).To(Equal("creds-b"))
+	})
+})
+
 var _ = Describe("valkey-store against a live server", Ordered, func() {
 	var nsCounter int
 
@@ -98,6 +133,26 @@ var _ = Describe("valkey-store against a live server", Ordered, func() {
 			s := NewStore()
 			Expect(s.Load(&pb.ModelOptions{Model: store.NamespacePrefix})).To(Succeed())
 			DeferCleanup(func() { dropNamespace(s) })
+		})
+
+		It("takes the index algorithm from the model option over VALKEY_INDEX_ALGO", func() {
+			Expect(os.Setenv("VALKEY_INDEX_ALGO", "HNSW")).To(Succeed())
+			defer func() { _ = os.Unsetenv("VALKEY_INDEX_ALGO") }()
+
+			nsCounter++
+			ns := fmt.Sprintf("test-%d-%d", GinkgoRandomSeed(), nsCounter)
+			s := NewStore()
+			Expect(s.Load(&pb.ModelOptions{
+				Model:   store.NamespacePrefix + ns,
+				Options: []string{"valkey_index_algo:FLAT"},
+			})).To(Succeed())
+			DeferCleanup(func() { dropNamespace(s) })
+			Expect(s.indexAlgo).To(Equal("FLAT"), "model option should win over the env var")
+
+			mustSet(s, [][]float32{{1, 0, 0}}, [][]byte{[]byte("x")})
+			info, err := s.client.Do(context.Background(), s.client.B().Arbitrary("FT.INFO").Args(s.index).Build()).ToAny()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fmt.Sprintf("%v", info)).To(ContainSubstring("FLAT"), "index should have been created with the option's algorithm, not the env var's")
 		})
 	})
 
