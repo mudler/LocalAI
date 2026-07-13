@@ -1,4 +1,87 @@
 ---
+- name: "minicpm5-1b-claude-opus-fable5-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF
+  description: |
+    # MiniCPM5-1B-Claude-Opus-Fable5-Thinking
+
+    GGUF quantizations for local deployment: **MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF**
+
+    中文说明
+
+    **MiniCPM5-1B-Claude-Opus-Fable5-Thinking** is a compact 1B **Thinking** language model built on openbmb/MiniCPM5-1B. It is further fine-tuned on **Fable 5** data to improve **coding** and **instruction-following** while keeping MiniCPM5's native Thinking chat template and tool-call format.
+
+    For llama.cpp / Ollama / LM Studio deployment, see the **GGUF repository**.
+
+    ## Overview
+
+    ## Capabilities
+
+      - **Coding** — code generation, debugging, and software-engineering-style tasks
+      - **Instruction following** — more reliable adherence to user prompts and structured constraints
+      - **Thinking mode** — chain-of-thought reasoning via the MiniCPM5 chat template
+      - **Tool calling** — inherits MiniCPM5's XML tool-call format
+      - **Long context** — up to **128K tokens** (131,072 tokens per `config.json`)
+
+    ## Quick start
+
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+
+    model_id = "GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking"
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
+      uri: https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-GGUF/resolve/main/MiniCPM5-1B-Claude-Opus-Fable5-Thinking-Q4_K_M.gguf
+      sha256: b1c3bf2995e96cb792a0031e4e1497a500e9244c68ba17c24a7e6edf1fc59019
+- name: "deepseek-v4-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
+  description: "# DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence\n\nTechnical Report\U0001F441️\n\n## Introduction\n\nWe present a preview version of **DeepSeek-V4** series, including two strong Mixture-of-Experts (MoE) language models — **DeepSeek-V4-Pro** with 1.6T parameters (49B activated) and **DeepSeek-V4-Flash** with 284B parameters (13B activated) — both supporting a context length of **one million tokens**.\n\nDeepSeek-V4 series incorporate several key upgrades in architecture and optimization:\n\n1. **Hybrid Attention Architecture:** We design a hybrid attention mechanism combining Compressed Sparse Attention (CSA) and Heavily Compressed Attention (HCA) to dramatically improve long-context efficiency. In the 1M-token context setting, DeepSeek-V4-Pro requires only **27% of single-token inference FLOPs** and **10% of KV cache** compared with DeepSeek-V3.2.\n2. **Manifold-Constrained Hyper-Connections (mHC):** We incorporate mHC to strengthen conventional residual connections, enhancing stability of signal propagation across layers while preserving model expressivity.\n3. **Muon Optimizer:** We employ the Muon optimizer for faster convergence and greater training stability.\n\n...\n"
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  overrides:
+    backend: ds4
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    parameters:
+      model: ds4flash.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: ds4flash.gguf
+      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
+      sha256: 0fd657210e4773042c44fa185eba27dff4017cfc5dea0370685268957b0d3da9
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -293,6 +376,207 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/mmproj-F32.gguf
+# DFlash speculative-decoding pairs (upstream llama.cpp `draft-dflash`).
+# Each entry ships a full target model plus a small block-diffusion drafter
+# (z-lab DFlash, converted with upstream convert_hf_to_gguf.py, GGUF arch
+# `dflash`). Requires flash attention (enabled below). GPU recommended.
+- name: "qwen3-4b-dflash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-4B
+    - https://huggingface.co/unsloth/Qwen3-4B-GGUF
+    - https://huggingface.co/z-lab/Qwen3-4B-DFlash
+    - https://huggingface.co/lym00/Qwen3-4B-DFlash-GGUF-Test
+  description: |
+    Qwen3-4B paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend. This is the canonical DFlash pairing documented upstream (`z-lab/Qwen3-4B-DFlash` + `Qwen/Qwen3-4B`).
+
+    DFlash produces a whole block of draft tokens in a single forward pass and injects the target model's hidden states into the drafter's attention, which keeps the drafter tiny while making drafting GPU-friendly. The Q4_K_M file carries the full Qwen3-4B target; the ~0.5 GB Q8_0 drafter (`draft-dflash`) accelerates generation without changing the target's outputs. The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
+
+    Flash attention is required for DFlash and is enabled in this config. A GPU is recommended.
+
+    License: Apache 2.0 (Qwen3-4B target) / MIT (z-lab DFlash drafter).
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Qwen3-4B-DFlash-GGUF-Test/Qwen3-4B-DFlash-q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf
+      sha256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
+      uri: https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen3-4B-DFlash-GGUF-Test/Qwen3-4B-DFlash-q8_0.gguf
+      sha256: 5ecf02bb269fc42277f43961794387fea11ecc367ea2d99e86b2b71cc249aff6
+      uri: https://huggingface.co/lym00/Qwen3-4B-DFlash-GGUF-Test/resolve/main/Qwen3-4B-DFlash-q8_0.gguf
+- name: "qwen3.5-9b-dflash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-9B
+    - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+    - https://huggingface.co/z-lab/Qwen3.5-9B-DFlash
+    - https://huggingface.co/lym00/Qwen3.5-9B-DFlash-GGUF-Test
+  description: |
+    Qwen3.5-9B paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend.
+
+    DFlash produces a whole block of draft tokens in a single forward pass and injects the target model's hidden states into the drafter's attention, which keeps the drafter tiny while making drafting GPU-friendly. The Q4_K_M file carries the full Qwen3.5-9B target; the ~1 GB Q8_0 drafter (`draft-dflash`) accelerates generation without changing the target's outputs. The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
+
+    Flash attention is required for DFlash and is enabled in this config. A GPU is recommended.
+
+    License: Apache 2.0 (Qwen3.5-9B target) / MIT (z-lab DFlash drafter).
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Qwen3.5-9B-DFlash-GGUF-Test/Qwen3.5-9B-DFlash-q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen3.5-9B-DFlash-GGUF-Test/Qwen3.5-9B-DFlash-q8_0.gguf
+      sha256: 4f76ecff951dd371eea318be9ca60b4dd0800a677c11e14c092fab3358251dc1
+      uri: https://huggingface.co/lym00/Qwen3.5-9B-DFlash-GGUF-Test/resolve/main/Qwen3.5-9B-DFlash-q8_0.gguf
+- name: "qwen3.6-27b-dflash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-27B
+    - https://huggingface.co/unsloth/Qwen3.6-27B-GGUF
+    - https://huggingface.co/z-lab/Qwen3.6-27B-DFlash
+    - https://huggingface.co/Alittlehammmer/Qwen3.6-27B-DFlash-GGUF-llama.cpp
+  description: |
+    Qwen3.6-27B (dense) paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend. DFlash gives its largest speedups on dense targets like this one.
+
+    DFlash produces a whole block of draft tokens in a single forward pass and injects the target model's hidden states into the drafter's attention, which keeps the drafter tiny while making drafting GPU-friendly. The Q4_K_M file carries the full Qwen3.6-27B target; the ~1.8 GB Q8_0 drafter (`draft-dflash`) accelerates generation without changing the target's outputs. The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
+
+    Flash attention is required for DFlash and is enabled in this config. A GPU is recommended.
+
+    License: Apache 2.0.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Qwen3.6-27B-DFlash-GGUF-llama.cpp/Qwen3.6-27B-DFlash-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Qwen3.6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf
+      sha256: 5ed60d0af4650a854b1755bd392f9aef4872643dc25a254bc68043fa638392a0
+      uri: https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen3.6-27B-DFlash-GGUF-llama.cpp/Qwen3.6-27B-DFlash-Q8_0.gguf
+      sha256: 23b6c8ebcc51b3b4107709342fd2960167e88397af36e394923b8d5895ddf7ea
+      uri: https://huggingface.co/Alittlehammmer/Qwen3.6-27B-DFlash-GGUF-llama.cpp/resolve/main/Qwen3.6-27B-DFlash-Q8_0.gguf
+- name: "qwen3.6-35b-a3b-dflash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+    - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF
+    - https://huggingface.co/z-lab/Qwen3.6-35B-A3B-DFlash
+    - https://huggingface.co/Alittlehammmer/Qwen3.6-35B-A3B-DFlash-GGUF-llama.cpp
+  description: |
+    Qwen3.6-35B-A3B (Mixture-of-Experts, ~3B active per token) paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend. DFlash speedups on MoE targets are smaller than on dense models, but still useful.
+
+    DFlash produces a whole block of draft tokens in a single forward pass and injects the target model's hidden states into the drafter's attention, which keeps the drafter tiny while making drafting GPU-friendly. The UD-Q4_K_M file carries the full Qwen3.6-35B-A3B target; the ~0.4 GB Q8_0 drafter (`draft-dflash`) accelerates generation without changing the target's outputs. The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
+
+    Flash attention is required for DFlash and is enabled in this config. A GPU is recommended.
+
+    License: Apache 2.0.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - moe
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Qwen3.6-35B-A3B-DFlash-GGUF-llama.cpp/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+      sha256: ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61
+      uri: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen3.6-35B-A3B-DFlash-GGUF-llama.cpp/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf
+      sha256: 724ac8a102763e0d896cd49bf558fdf5bfdb146ec9f7097d18b035e4a95eac3f
+      uri: https://huggingface.co/Alittlehammmer/Qwen3.6-35B-A3B-DFlash-GGUF-llama.cpp/resolve/main/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf
 - name: "kimi-k2.7-code"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -4792,6 +5076,8 @@
     backend: voxcpm
     known_usecases:
       - tts
+    tts:
+      voice_cloning: true
     parameters:
       model: openbmb/VoxCPM1.5
 - name: neutts-air
@@ -4812,6 +5098,8 @@
     backend: neutts
     known_usecases:
       - tts
+    tts:
+      voice_cloning: true
     parameters:
       model: neuphonic/neutts-air
 - name: vllm-omni-z-image-turbo
@@ -4880,6 +5168,82 @@
       - video
     parameters:
       model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+- name: longcat-video
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/meituan-longcat/LongCat-Video
+    - https://github.com/meituan-longcat/LongCat-Video
+  description: |
+    LongCat-Video served by LocalAI's dedicated CUDA backend. Generates video
+    from a text prompt or a start image. The SDPA attention path works without
+    FlashAttention and is suitable for CUDA 13 ARM64 systems such as DGX Spark.
+
+    This is a very large checkpoint (roughly 83 GB in Hugging Face storage) and
+    requires Linux with an NVIDIA CUDA GPU plus substantial memory and disk.
+  license: mit
+  icon: https://raw.githubusercontent.com/meituan-longcat/LongCat-Video/main/assets/longcat-video_logo.svg
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - longcat-video
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-07-12"
+  overrides:
+    backend: longcat-video
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      - attention_backend:sdpa
+    parameters:
+      model: meituan-longcat/LongCat-Video
+- name: longcat-video-avatar-1.5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/meituan-longcat/LongCat-Video-Avatar-1.5
+    - https://github.com/meituan-longcat/LongCat-Video
+  description: |
+    LongCat-Video-Avatar-1.5 served by LocalAI's dedicated CUDA backend. Turns
+    speech plus a prompt into an avatar video, optionally conditioning on a
+    portrait, and continues across multiple segments for longer audio.
+
+    Avatar generation also loads tokenizer, text encoder, and VAE components
+    from LongCat-Video. Plan for very large downloads and substantial NVIDIA
+    GPU or unified memory; CPU and macOS execution are unsupported.
+  license: mit
+  icon: https://raw.githubusercontent.com/meituan-longcat/LongCat-Video/main/assets/longcat-video_logo.svg
+  tags:
+    - audio-to-video
+    - image-to-video
+    - avatar-generation
+    - talking-head
+    - longcat-video
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-07-12"
+  overrides:
+    backend: longcat-video
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      - attention_backend:sdpa
+      - use_distill:true
+    parameters:
+      model: meituan-longcat/LongCat-Video-Avatar-1.5
 - name: vllm-omni-qwen3-omni-30b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5068,8 +5432,9 @@
     - https://github.com/microsoft/VibeVoice
   description: |
     VibeVoice Realtime 0.5B (C++ / GGML, Q8_0) - native C++ port of Microsoft VibeVoice
-    via the vibevoice-cpp backend. 24kHz mono TTS with voice cloning from a single
-    reference voice prompt. Default voice prompt: en-Carter_man.
+    via the vibevoice-cpp backend. 24kHz mono TTS with a selectable precomputed
+    voice prompt. Default voice prompt: en-Carter_man. This realtime variant does
+    not accept raw Voice Library reference WAVs.
   license: mit
   icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
   tags:
@@ -5082,7 +5447,6 @@
     - gguf
     - ggml
     - 0.5b
-    - voice-cloning
     - quantized
   last_checked: "2026-04-30"
   overrides:
@@ -5431,6 +5795,8 @@
     known_usecases:
       - tts
     name: omnivoice-cpp
+    tts:
+      voice_cloning: true
     parameters:
       model: omnivoice-cpp/omnivoice-base-Q8_0.gguf
     options:
@@ -5464,6 +5830,8 @@
     known_usecases:
       - tts
     name: omnivoice-cpp-hq
+    tts:
+      voice_cloning: true
     parameters:
       model: omnivoice-cpp-hq/omnivoice-base-BF16.gguf
     options:
@@ -5781,6 +6149,8 @@
     backend: fish-speech
     known_usecases:
       - tts
+    tts:
+      voice_cloning: true
     parameters:
       model: fishaudio/s2-pro
 - name: qwen3-asr-1.7b
@@ -6804,6 +7174,7 @@
   tags:
     - text-to-speech
     - tts
+    - voice-cloning
   size: 236MB
 - name: qwen3-vl-30b-a3b-instruct
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
@@ -8669,7 +9040,7 @@
   urls:
     - https://github.com/resemble-ai/chatterbox
   description: |
-    Chatterbox, Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
+    Chatterbox, Resemble AI's first production-grade open source TTS model. Supports zero-shot voice cloning from a reference WAV, including saved LocalAI Voice Library profiles. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
   license: mit
   icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png
   tags:
@@ -8677,12 +9048,15 @@
     - dia
     - gpu
     - text-to-speech
+    - voice-cloning
   size: 3.2GB
   overrides:
     backend: chatterbox
     known_usecases:
       - tts
     name: chatterbox
+    tts:
+      voice_cloning: true
 - name: dia
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36173,6 +36547,37 @@
     - filename: parakeet-cpp/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       sha256: ba2f13eccd4a5245be728f77e6149bd6a4fdcdd133ff2e08ac6005bcef7a99f1
+- name: moss-transcribe-cpp-0.9b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/moss-transcribe.cpp-gguf
+    - https://github.com/mudler/moss-transcribe.cpp
+  description: |
+    MOSS-Transcribe-Diarize 0.9B, an end-to-end audio understanding model for joint multi-speaker transcription,
+    speaker diarization and timestamping in a single pass. Q5_K GGUF for the moss-transcribe-cpp backend (C++/ggml
+    port of OpenMOSS MOSS-Transcribe-Diarize), byte-identical to the reference at ~1/6 the size. Faster than the
+    reference PyTorch runtime on CPU (1.6 to 2.2x).
+  license: apache-2.0
+  tags:
+    - moss
+    - moss-transcribe-cpp
+    - asr
+    - diarization
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: moss-transcribe-cpp
+    known_usecases:
+      - transcript
+    name: moss-transcribe-cpp-0.9b
+    parameters:
+      model: moss-transcribe-cpp/moss-transcribe-q5_k.gguf
+  files:
+    - filename: moss-transcribe-cpp/moss-transcribe-q5_k.gguf
+      uri: huggingface://mudler/moss-transcribe.cpp-gguf/moss-transcribe-q5_k.gguf
+      sha256: 6fe985fd9a9cd043728f7be49659d10de6901872dad73b49e3c30e1340582e79
 - name: parakeet-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36195,7 +36600,7 @@
   files:
     - filename: parakeet-tdt-0.6b-v3-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-v3-GGUF/parakeet-tdt-0.6b-v3-q4_k.gguf
-      sha256: 1a60f6e53e5781240dde6e69a47a47a8a71995a3a106517b009225afcc514457
+      sha256: addef407ab841eef45739e78920fd8c00e63f78eaa823c490e600e0ab58080a1
 - name: parakeet-v2-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36218,7 +36623,7 @@
   files:
     - filename: parakeet-tdt-0.6b-v2-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-0.6b-v2-GGUF/parakeet-tdt-0.6b-v2-q4_k.gguf
-      sha256: f392cee3c2ba81b397b021e151e4588ded7fc985f8115cfaeb405ea42fc518a9
+      sha256: 287f8a46b64e7785bbd634c2d17fe178145b70266c33f7e7aa8acbf7854d8518
 - name: parakeet-ja-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36264,7 +36669,7 @@
   files:
     - filename: parakeet-tdt-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt-1.1b-GGUF/parakeet-tdt-1.1b-q4_k.gguf
-      sha256: db64b442d02430b76e664fa1fd5facc7866d2bdc071d64028dad55772cde252c
+      sha256: 70052698e0f27b53f8956c031576c009355a76808cef26ee13bc0f5098cf1017
 - name: parakeet-tdt_ctc-110m-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36287,7 +36692,7 @@
   files:
     - filename: parakeet-tdt_ctc-110m-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt_ctc-110m-GGUF/parakeet-tdt_ctc-110m-q4_k.gguf
-      sha256: c57f84d0826b6a10172c0b9696da472efb5e4c604987ef0d023214b29f38e929
+      sha256: 750992a0d26614e6a0819f8e6b6cf15732d741891f8d332ea706efc27e51c0de
 - name: parakeet-tdt_ctc-1.1b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36310,7 +36715,7 @@
   files:
     - filename: parakeet-tdt_ctc-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-tdt_ctc-1.1b-GGUF/parakeet-tdt_ctc-1.1b-q4_k.gguf
-      sha256: 52784c0ac7321a6e1d915a96837f6f508fc5bff240b37f5e58dea39feb302edd
+      sha256: b1c5f28a22aecf9f1385593199855ce5e22b805b3951e525507dc756e4cee910
 - name: parakeet-rnnt-0.6b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36333,7 +36738,7 @@
   files:
     - filename: parakeet-rnnt-0.6b-q4_k.gguf
       uri: huggingface://cstr/parakeet-rnnt-0.6b-GGUF/parakeet-rnnt-0.6b-q4_k.gguf
-      sha256: 84de2c556e30e87ef1fe5b0ac035b581c233ec017afe517082543b19eba8c73d
+      sha256: 081c18ebae6ea38f8409cf04e4a208e39071dcabf7dae533ad047dca471acc5e
 - name: parakeet-rnnt-1.1b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36356,7 +36761,7 @@
   files:
     - filename: parakeet-rnnt-1.1b-q4_k.gguf
       uri: huggingface://cstr/parakeet-rnnt-1.1b-GGUF/parakeet-rnnt-1.1b-q4_k.gguf
-      sha256: 9e6d6e5aba6dbe15853f93ad317b8017fe21df78fd854d334ca0c4144aefce08
+      sha256: ead08e3a71a2da63c6b4f501bf64171e8c89fa955211b6cf0ce8db15679edb19
 - name: fastconformer-ctc-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36379,7 +36784,7 @@
   files:
     - filename: stt-en-fastconformer-ctc-large-q4_k.gguf
       uri: huggingface://cstr/stt-en-fastconformer-ctc-large-GGUF/stt-en-fastconformer-ctc-large-q4_k.gguf
-      sha256: 5529d6762d1799a58b4fb806f766c2ce893f59d4d38d948d1177fcd3bfa28920
+      sha256: 834c5e6e85ebb4db5261e79788768fa117e955f722f4b4c22ef9db6da4afa467
 - name: canary-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36402,7 +36807,7 @@
   files:
     - filename: canary-1b-v2-q4_k.gguf
       uri: huggingface://cstr/canary-1b-v2-GGUF/canary-1b-v2-q4_k.gguf
-      sha256: 187668f4b7bb7faee0c02de55664c7cb13c792dd54e47da888e05815420e16f1
+      sha256: 5027f74ba0eb9bb707b14a11c7a68510a704748bb392e5f3af45115329ee501d
 - name: voxtral-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36563,7 +36968,7 @@
   files:
     - filename: qwen3-asr-0.6b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-0.6b-GGUF/qwen3-asr-0.6b-q4_k.gguf
-      sha256: 4c67426908a518c28c24bc780df27175fcf84ce4d6dbd678133a4531904bbcc9
+      sha256: f63771c02dfa486d9399d41ab6ab8cd2d8ca24e077cd32130ea1f67f4fd8dade
 - name: qwen3-1.7b-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36586,7 +36991,7 @@
   files:
     - filename: qwen3-asr-1.7b-q4_k.gguf
       uri: huggingface://cstr/qwen3-asr-1.7b-GGUF/qwen3-asr-1.7b-q4_k.gguf
-      sha256: 1f1d26ee044f0f041b0a7bfcf6d560996103c951acbde6eb48ccb24e7edfc69c
+      sha256: ec197cef7ccc589fdcae1becc3f4a3de119d0a41e790b898b519b1a048dad8d4
 - name: cohere-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -36785,6 +37190,36 @@
     - filename: snac-24khz.gguf
       uri: huggingface://cstr/snac-24khz-GGUF/snac-24khz.gguf
       sha256: b4b044631df62ececa86ab080516b3e619cd8f93caabd5f6758c7eae14981bd8
+- name: f5-tts-crispasr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/SWivid/F5-TTS
+    - https://huggingface.co/cstr/f5-tts-GGUF
+  description: |
+    F5-TTS v1 Base (SWivid, MIT) text-to-speech synthesized through the CrispASR backend. A 22-layer DiT flow-matching model with a built-in Vocos vocoder in a single self-contained GGUF (no separate codec). Auto-detected by CrispASR and runs end-to-end on CPU, producing 24 kHz mono audio.
+
+    F5-TTS is a voice-cloning model with no built-in speaker: you must supply a reference clip and its exact transcript. Select a saved LocalAI Voice Library profile per request, or configure `voice:<reference.wav>` plus `voice_text:<transcript>` in the model's `options` as a model-wide fallback; without a reference the model cannot generate audio.
+
+    Default GGUF size ~945 MB (f16). Quantization below f16 is not recommended for flow-matching models. Synthesis runs a 32-step ODE solver and is compute-heavy on CPU (expect long generation times without a GPU-enabled CrispASR build).
+  tags:
+    - crispasr
+    - tts
+    - text-to-speech
+    - gguf
+    - voice-cloning
+  overrides:
+    backend: crispasr
+    known_usecases:
+      - tts
+    name: f5-tts-crispasr
+    tts:
+      voice_cloning: true
+    parameters:
+      model: f5-tts-v1-base-f16.gguf
+  files:
+    - filename: f5-tts-v1-base-f16.gguf
+      uri: huggingface://cstr/f5-tts-GGUF/f5-tts-v1-base-f16.gguf
+      sha256: 25a4d273048dad072774ff139cf19b96fe442bebda8392c08009d73256cf1e81
 - name: piper-it_IT-riccardo-x_low-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -38722,7 +39157,7 @@
   files:
     - filename: glm-asr-nano-q4_k.gguf
       uri: huggingface://cstr/glm-asr-nano-GGUF/glm-asr-nano-q4_k.gguf
-      sha256: 2e4f3360f69e7f7dfd24127305583ea16629975c643a771f8603ca04c6ab50d4
+      sha256: 9e090376a77f82223f6264048884d0a6cb581e8ea191cb2e73b5b9974edb6e0d
 - name: kyutai-stt-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

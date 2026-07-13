@@ -68,6 +68,8 @@ const Quantize = page('quantize', () => import('./pages/Quantize'))
 const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
+const VoiceLibrary = page('voice-library', () => import('./pages/VoiceLibrary'))
+const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
@@ -149,6 +151,7 @@ const appChildren = [
     element: <ConsoleLayout config={operateConsole} />,
     children: [
       { path: 'backends', element: <Admin><Backends /></Admin> },
+      { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
@@ -166,6 +169,7 @@ const appChildren = [
 
   // Models management (Install Models) — top-level destination, full-width.
   { path: 'models', element: <Admin><Models /></Admin> },
+  { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },

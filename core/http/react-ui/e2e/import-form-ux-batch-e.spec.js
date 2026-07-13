@@ -23,6 +23,7 @@ const MOCK_BACKENDS = [
   { name: 'kokoro', modality: 'tts', auto_detect: true, installed: true },
   { name: 'whisper', modality: 'asr', auto_detect: true, installed: true },
   { name: 'diffusers', modality: 'image', auto_detect: true, installed: false },
+  { name: 'longcat-video', modality: 'video', auto_detect: true, installed: false },
   { name: 'sentencetransformers', modality: 'embeddings', auto_detect: true, installed: true },
   { name: 'rerankers', modality: 'reranker', auto_detect: true, installed: true },
   { name: 'rfdetr', modality: 'detection', auto_detect: true, installed: true },
@@ -78,7 +79,7 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     await page.locator('[data-testid="simple-options-toggle"]').click()
     await expect(chips(page)).toBeVisible()
     // Full set of chips renders.
-    for (const key of ['', 'text', 'asr', 'tts', 'image', 'embeddings', 'reranker', 'detection', 'vad']) {
+    for (const key of ['', 'text', 'asr', 'tts', 'image', 'video', 'embeddings', 'reranker', 'detection', 'vad']) {
       await expect(chip(page, key)).toBeVisible()
     }
     // "Any" is active by default.

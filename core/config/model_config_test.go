@@ -629,6 +629,25 @@ concurrency_groups:
 	})
 })
 
+var _ = Describe("TTS capability configuration", func() {
+	It("preserves an explicit voice-cloning opt-out from YAML", func() {
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: private-voice\ntts:\n  voice_cloning: false\n"), &cfg)).To(Succeed())
+		Expect(cfg.VoiceCloning).NotTo(BeNil())
+		Expect(*cfg.VoiceCloning).To(BeFalse())
+
+		raw, err := yaml.Marshal(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring("voice_cloning: false"))
+	})
+
+	It("leaves voice-cloning detection automatic when the field is omitted", func() {
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: automatic-voice\ntts:\n  audio_path: voices/default.wav\n"), &cfg)).To(Succeed())
+		Expect(cfg.VoiceCloning).To(BeNil())
+	})
+})
+
 var _ = Describe("PII config accessors", func() {
 	It("PIIDetectors returns a fresh copy of the consumer's detector list", func() {
 		cfg := &ModelConfig{PII: PIIConfig{Detectors: []string{"a", "b"}}}

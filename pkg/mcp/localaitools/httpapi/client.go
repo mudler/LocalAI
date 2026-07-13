@@ -552,6 +552,33 @@ func (c *Client) SetBranding(ctx context.Context, req localaitools.SetBrandingRe
 	return c.GetBranding(ctx)
 }
 
+// ---- Voice profile library ----
+
+func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoiceProfile, error) {
+	var response struct {
+		Data []localaitools.VoiceProfile `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeVoiceProfiles, nil, &response); err != nil {
+		return nil, err
+	}
+	return response.Data, nil
+}
+
+func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	var profile localaitools.VoiceProfile
+	if err := c.do(ctx, http.MethodPost, routeVoiceProfiles, req, &profile); err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("id is required")
+	}
+	return c.do(ctx, http.MethodDelete, routeVoiceProfileDelete(id), nil, nil)
+}
+
 // ---- Usage / billing ----
 
 func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {

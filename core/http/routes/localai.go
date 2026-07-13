@@ -151,7 +151,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// Forget does not load a voice model — it only needs the registry.
 	router.POST("/v1/voice/forget", localai.VoiceForgetEndpoint(app.VoiceRegistry()))
 
-	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig)
+	voiceProfiles := app.VoiceProfileStore()
+	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
+	router.GET("/api/voice-profiles/:id/audio", localai.ServeVoiceProfileAudioEndpoint(voiceProfiles))
+	router.POST("/api/voice-profiles", localai.CreateVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+	router.DELETE("/api/voice-profiles/:id", localai.DeleteVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+
+	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig, voiceProfiles)
 	router.POST("/tts",
 		ttsHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
@@ -283,6 +289,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
 				"vram_estimate":       "/api/models/vram-estimate",
 				"tts":                 "/tts",
+				"voice_profiles":      "/api/voice-profiles",
 				"transcription":       "/v1/audio/transcriptions",
 				"image_generation":    "/v1/images/generations",
 				"swagger":             "/swagger/index.html",
@@ -318,11 +325,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"list_aliases": "/api/aliases",
 				},
 				"ai_functions": map[string]string{
-					"tts":       "/tts",
-					"vad":       "/vad",
-					"video":     "/video",
-					"detection": "/v1/detection",
-					"tokenize":  "/v1/tokenize",
+					"tts":            "/tts",
+					"voice_profiles": "/api/voice-profiles",
+					"vad":            "/vad",
+					"video":          "/video",
+					"detection":      "/v1/detection",
+					"tokenize":       "/v1/tokenize",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -363,6 +371,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"agents":          appConfig.AgentPool.Enabled,
 				"p2p":             appConfig.P2PToken != "",
 				"tracing":         true,
+				"voice_profiles":  true,
 			},
 		})
 	})

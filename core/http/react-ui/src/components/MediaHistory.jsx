@@ -1,5 +1,6 @@
 import { memo, useState } from 'react'
 import { relativeTime } from '../utils/format'
+import { useTranslation } from 'react-i18next'
 
 const ICONS = {
   image: 'fa-image',
@@ -10,6 +11,7 @@ const ICONS = {
 }
 
 export default memo(function MediaHistory({ entries, selectedId, onSelect, onDelete, onClearAll, mediaType }) {
+  const { t } = useTranslation('media')
   const [expanded, setExpanded] = useState(true)
 
   return (
@@ -20,11 +22,11 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
         style={{ display: 'flex', alignItems: 'center' }}
       >
         <i className="fas fa-chevron-right" />
-        <span style={{ flex: 1 }}>History ({entries.length})</span>
+        <span style={{ flex: 1 }}>{t('history.title')} ({entries.length})</span>
         {entries.length > 0 && (
           <button
             className="media-history-clear-btn"
-            title="Clear all"
+            title={t('history.clearTitle')}
             onClick={(e) => { e.stopPropagation(); onClearAll() }}
           >
             <i className="fas fa-trash" />
@@ -34,7 +36,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
       {expanded && (
         <div className="media-history-list">
           {entries.length === 0 ? (
-            <div className="media-history-empty">No history yet</div>
+            <div className="media-history-empty">{t('history.empty')}</div>
           ) : (
             entries.map(entry => (
               <div
@@ -59,7 +61,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
                 </div>
                 <button
                   className="media-history-item-delete"
-                  title="Delete"
+                  title={t('history.deleteEntry')}
                   onClick={(e) => { e.stopPropagation(); onDelete(entry.id) }}
                   data-testid="media-history-delete"
                 >

@@ -1,21 +1,37 @@
 package backend
 
 import (
+	"maps"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
-
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, endImage, dst string, numFrames, fps, seed int32, cfgScale float32, step int32, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
+// VideoGenerationOptions is the backend-neutral request passed to video generators.
+// Media fields contain staged local paths by the time they reach this layer.
+type VideoGenerationOptions struct {
+	Height         int32
+	Width          int32
+	Prompt         string
+	NegativePrompt string
+	StartImage     string
+	EndImage       string
+	Audio          string
+	Destination    string
+	NumFrames      int32
+	FPS            int32
+	Seed           int32
+	CFGScale       float32
+	Step           int32
+	Params         map[string]string
+}
 
+func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
 	opts := ModelOptions(modelConfig, appConfig)
-	inferenceModel, err := loader.Load(
-		opts...,
-	)
+	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
 		return nil, err
@@ -25,19 +41,22 @@ func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, en
 		_, err := inferenceModel.GenerateVideo(
 			appConfig.Context,
 			&proto.GenerateVideoRequest{
-				Height:         height,
-				Width:          width,
-				Prompt:         prompt,
-				NegativePrompt: negativePrompt,
-				StartImage:     startImage,
-				EndImage:       endImage,
-				NumFrames:      numFrames,
-				Fps:            fps,
-				Seed:           seed,
-				CfgScale:       cfgScale,
-				Step:           step,
-				Dst:            dst,
-			})
+				Height:         options.Height,
+				Width:          options.Width,
+				Prompt:         options.Prompt,
+				NegativePrompt: options.NegativePrompt,
+				StartImage:     options.StartImage,
+				EndImage:       options.EndImage,
+				Audio:          options.Audio,
+				NumFrames:      options.NumFrames,
+				Fps:            options.FPS,
+				Seed:           options.Seed,
+				CfgScale:       options.CFGScale,
+				Step:           options.Step,
+				Dst:            options.Destination,
+				Params:         maps.Clone(options.Params),
+			},
+		)
 		return err
 	}
 
@@ -45,15 +64,18 @@ func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, en
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
-			"prompt":          prompt,
-			"negative_prompt": negativePrompt,
-			"height":          height,
-			"width":           width,
-			"num_frames":      numFrames,
-			"fps":             fps,
-			"seed":            seed,
-			"cfg_scale":       cfgScale,
-			"step":            step,
+			"prompt":          options.Prompt,
+			"negative_prompt": options.NegativePrompt,
+			"height":          options.Height,
+			"width":           options.Width,
+			"num_frames":      options.NumFrames,
+			"fps":             options.FPS,
+			"seed":            options.Seed,
+			"cfg_scale":       options.CFGScale,
+			"step":            options.Step,
+			"has_start_image": options.StartImage != "",
+			"has_end_image":   options.EndImage != "",
+			"has_audio":       options.Audio != "",
 		}
 
 		startTime := time.Now()
@@ -73,7 +95,7 @@ func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, en
 				Type:      trace.BackendTraceVideoGeneration,
 				ModelName: modelConfig.Name,
 				Backend:   modelConfig.Backend,
-				Summary:   trace.TruncateString(prompt, 200),
+				Summary:   trace.TruncateString(options.Prompt, 200),
 				Error:     errStr,
 				Data:      traceData,
 			})

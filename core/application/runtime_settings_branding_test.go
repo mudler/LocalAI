@@ -261,4 +261,35 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			Expect(cfg.AgentPool.AgentHubURL).To(Equal("https://hub.acme.io"))
 		})
 	})
+
+	// Backend logging capture. Worker/distributed mode force-enables it
+	// (core/services/worker.SetBackendLoggingEnabled(true)); single mode used
+	// to leave it off by default with no CLI flag, so the UI "Backend Logs"
+	// page was silently empty unless the operator found the Settings toggle.
+	// It now defaults on in single mode too. Because the default is on, the
+	// loader must let a persisted enable_backend_logging=false (the UI
+	// toggle-off) win over the default - the sticky "only flip false->true"
+	// merge used for env-backed flags would otherwise ignore it and revert
+	// the toggle on every restart.
+	Describe("backend logging capture", func() {
+		It("captures backend logs by default in single mode", func() {
+			cfg := config.NewApplicationConfig()
+			Expect(cfg.EnableBackendLogging).To(BeTrue(),
+				"single mode should capture backend logs out of the box, matching worker mode")
+		})
+
+		It("honors a persisted enable_backend_logging=false across restart (toggle-off wins over default-on)", func() {
+			cfg := config.NewApplicationConfig() // default-on boot state
+			cfg.DynamicConfigsDir = seedSettings(`{"enable_backend_logging": false}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.EnableBackendLogging).To(BeFalse(),
+				"a UI toggle-off persisted to runtime_settings.json must survive a restart")
+		})
+
+		It("loads a persisted enable_backend_logging=true", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"enable_backend_logging": true}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.EnableBackendLogging).To(BeTrue())
+		})
+	})
 })

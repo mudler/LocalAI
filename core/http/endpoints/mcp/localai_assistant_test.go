@@ -101,6 +101,18 @@ func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingReque
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
 }
 
+func (stubClient) ListVoiceProfiles(_ context.Context) ([]localaitools.VoiceProfile, error) {
+	return []localaitools.VoiceProfile{}, nil
+}
+
+func (stubClient) CreateVoiceProfile(_ context.Context, _ localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	return &localaitools.VoiceProfile{Name: "stub-voice"}, nil
+}
+
+func (stubClient) DeleteVoiceProfile(_ context.Context, _ string) error {
+	return nil
+}
+
 func (stubClient) GetUsageStats(_ context.Context, _ localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
 	return &localaitools.UsageStats{Viewer: localaitools.UsageViewer{ID: "stub", Name: "stub"}, Period: "month"}, nil
 }

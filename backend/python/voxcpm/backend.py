@@ -144,7 +144,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     if os.path.exists(potential_path):
                         prompt_wav_path = potential_path
 
-            if hasattr(request, 'AudioPath') and request.AudioPath:
+            if prompt_wav_path is None and hasattr(request, 'AudioPath') and request.AudioPath:
                 if os.path.isabs(request.AudioPath):
                     prompt_wav_path = request.AudioPath
                 elif hasattr(request, 'ModelFile') and request.ModelFile:
@@ -155,8 +155,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     prompt_wav_path = request.AudioPath
 
-            # Get prompt_text from options if available
-            if "prompt_text" in self.options:
+            # Per-request profile transcript takes precedence over YAML.
+            if hasattr(request, "params") and request.params.get("ref_text"):
+                prompt_text = request.params["ref_text"]
+            elif "prompt_text" in self.options:
                 prompt_text = self.options["prompt_text"]
 
             # Prepare text
@@ -241,7 +243,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     if os.path.exists(potential_path):
                         prompt_wav_path = potential_path
 
-            if hasattr(request, 'AudioPath') and request.AudioPath:
+            if prompt_wav_path is None and hasattr(request, 'AudioPath') and request.AudioPath:
                 if os.path.isabs(request.AudioPath):
                     prompt_wav_path = request.AudioPath
                 elif hasattr(request, 'ModelFile') and request.ModelFile:
@@ -252,8 +254,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     prompt_wav_path = request.AudioPath
 
-            # Get prompt_text from options if available
-            if "prompt_text" in self.options:
+            # Per-request profile transcript takes precedence over YAML.
+            if hasattr(request, "params") and request.params.get("ref_text"):
+                prompt_text = request.params["ref_text"]
+            elif "prompt_text" in self.options:
                 prompt_text = self.options["prompt_text"]
 
             # Prepare text

@@ -287,6 +287,21 @@ export const ttsApi = {
   generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
 }
 
+// Reusable voice-cloning profiles. The browser uploads multipart PCM-WAV;
+// list/preview are available to TTS-authorized users while mutations are
+// enforced as admin-only by the server.
+export const voiceProfilesApi = {
+  list: () => fetchJSON('/api/voice-profiles'),
+  create: (formData) => fetch(apiUrl('/api/voice-profiles'), {
+    method: 'POST',
+    body: formData,
+  }).then(handleResponse),
+  delete: (id) => fetch(apiUrl(`/api/voice-profiles/${enc(id)}`), {
+    method: 'DELETE',
+  }).then(handleResponse),
+  audioUrl: (id) => apiUrl(`/api/voice-profiles/${enc(id)}/audio`),
+}
+
 // Sound generation
 export const soundApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.soundGeneration, body),

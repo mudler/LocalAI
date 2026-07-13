@@ -199,7 +199,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             if "language" in self.options:
                 kwargs["language_id"] = self.options["language"]
-            if self.AudioPath is not None:
+            if request.voice and os.path.isfile(request.voice):
+                kwargs["audio_prompt_path"] = request.voice
+            elif self.AudioPath is not None:
                 kwargs["audio_prompt_path"] = self.AudioPath
 
             # add options to kwargs
@@ -211,6 +213,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # strings on the wire and are coerced to float/int/bool.
             if hasattr(request, "params") and request.params:
                 for key, value in request.params.items():
+                    if key == "ref_text":
+                        continue
                     kwargs[key] = coerce_param_value(value)
 
             # Check if text exceeds 250 characters
