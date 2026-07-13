@@ -9,4 +9,4 @@
 # memory architecture crash deterministically with an empty "Engine core init
 # failed" set (mudler/LocalAI#10722). Leaving this unpinned let the L4T image
 # drift onto whatever wheel was latest at build time.
-vllm==0.24.0
+vllm==0.25.0
