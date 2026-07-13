@@ -1039,6 +1039,12 @@ type PipelineTurnDetection struct {
 	// are compared in the logs — a diagnostic for streaming/batch alignment
 	// at the cost of one extra decode per turn.
 	Retranscribe *bool `yaml:"retranscribe,omitempty" json:"retranscribe,omitempty"`
+	// VadWindowSec widens the slice of recent audio the VAD rescans each
+	// tick. The pipeline sizes it automatically from the commit silence
+	// threshold (server_vad silence window, or the semantic eagerness
+	// fallback) plus a warm-up margin; set this only to widen it further —
+	// values below the automatic floor are ignored.
+	VadWindowSec float64 `yaml:"vad_window_sec,omitempty" json:"vad_window_sec,omitempty"`
 }
 
 // TurnDetectionSemantic reports whether this pipeline defaults sessions to
