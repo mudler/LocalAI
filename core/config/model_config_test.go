@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,6 +50,19 @@ parameters:
 		valid, err := cfg.Validate()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(valid).To(BeTrue())
+	})
+
+	It("derives a managed snapshot filename without replacing the logical model", func() {
+		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		cfg := ModelConfig{
+			Artifacts: []modelartifacts.Spec{{
+				Source:   modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"},
+				Resolved: &modelartifacts.Resolved{CacheKey: cacheKey},
+			}},
+		}
+		cfg.Model = "owner/repo"
+		Expect(cfg.Model).To(Equal("owner/repo"))
+		Expect(cfg.ModelFileName()).To(Equal(filepath.Join(".artifacts", "huggingface", cacheKey, "snapshot")))
 	})
 
 	Context("Test Read configuration functions", func() {

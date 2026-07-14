@@ -1212,9 +1212,15 @@ func (c ModelConfig) ModelID() string {
 	return c.Model
 }
 
-// ModelFileName returns the filename of the model
-// If the model is a URL, it will return the MD5 of the URL which is the filename
+// ModelFileName returns the controller-managed snapshot when the model has a
+// committed artifact, otherwise preserving the legacy URL/repository behavior.
 func (c *ModelConfig) ModelFileName() string {
+	if len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil {
+		relative, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey)
+		if err == nil {
+			return relative
+		}
+	}
 	uri := downloader.URI(c.Model)
 	if uri.LooksLikeURL() {
 		f, _ := uri.FilenameFromUrl()

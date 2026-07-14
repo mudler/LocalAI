@@ -9,6 +9,7 @@ import (
 type Options struct {
 	backendString string
 	model         string
+	modelFile     string
 	modelID       string
 	context       context.Context
 
@@ -70,6 +71,12 @@ func WithDefaultBackendString(backend string) Option {
 func WithModel(modelFile string) Option {
 	return func(o *Options) {
 		o.model = modelFile
+	}
+}
+
+func WithModelFile(modelFile string) Option {
+	return func(o *Options) {
+		o.modelFile = modelFile
 	}
 }
 
