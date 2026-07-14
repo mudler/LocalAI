@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	lconfig "github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
@@ -158,7 +160,9 @@ func InstallModelFromGallery(
 	return applyModel(model)
 }
 
-func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, config *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.ModelConfig, error) {
+func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool, options ...InstallOption) (*lconfig.ModelConfig, error) {
+	installOptions := applyInstallOptions(options...)
+	config := galleryConfig
 	basePath := systemState.Model.ModelsPath
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0750)
@@ -168,6 +172,110 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 
 	if len(configOverrides) > 0 {
 		xlog.Debug("Config overrides", "overrides", configOverrides)
+	}
+
+	name := config.Name
+	if nameOverride != "" {
+		name = nameOverride
+	}
+
+	if err := utils.VerifyPath(name+".yaml", basePath); err != nil {
+		return nil, err
+	}
+
+	modelConfig := lconfig.ModelConfig{}
+	configFilePath := filepath.Join(basePath, name+".yaml")
+	var updatedConfigYAML []byte
+	writeConfig := len(configOverrides) != 0 || len(config.ConfigFile) != 0
+
+	if writeConfig {
+		// Read and update config file as map[string]interface{}
+		configMap := make(map[string]any)
+		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal config YAML: %v", err)
+		}
+
+		configMap["name"] = name
+
+		if configOverrides != nil {
+			if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
+				return nil, err
+			}
+		}
+
+		// Marshal the merged map for typed validation and default application.
+		updatedConfigYAML, err = yaml.Marshal(configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal updated config YAML: %v", err)
+		}
+
+		err = yaml.Unmarshal(updatedConfigYAML, &modelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
+		}
+
+		// Apply model-family-specific inference defaults so they are persisted in the config YAML.
+		// Apply to the typed struct for validation, and merge into configMap for serialization
+		// (configMap preserves unknown fields that ModelConfig would drop).
+		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
+
+		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
+		if modelConfig.Temperature != nil {
+			if _, exists := configMap["temperature"]; !exists {
+				configMap["temperature"] = *modelConfig.Temperature
+			}
+		}
+		if modelConfig.TopP != nil {
+			if _, exists := configMap["top_p"]; !exists {
+				configMap["top_p"] = *modelConfig.TopP
+			}
+		}
+		if modelConfig.TopK != nil {
+			if _, exists := configMap["top_k"]; !exists {
+				configMap["top_k"] = *modelConfig.TopK
+			}
+		}
+		if modelConfig.MinP != nil {
+			if _, exists := configMap["min_p"]; !exists {
+				configMap["min_p"] = *modelConfig.MinP
+			}
+		}
+		if modelConfig.RepeatPenalty != 0 {
+			if _, exists := configMap["repeat_penalty"]; !exists {
+				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
+			}
+		}
+		if modelConfig.PresencePenalty != 0 {
+			if _, exists := configMap["presence_penalty"]; !exists {
+				configMap["presence_penalty"] = modelConfig.PresencePenalty
+			}
+		}
+
+		if valid, err := modelConfig.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
+		}
+
+		if enforceScan && len(modelConfig.Artifacts) > 0 {
+			artifact, err := modelConfig.Artifacts[0].Normalize()
+			if err != nil {
+				return nil, err
+			}
+			probe := downloader.URI(fmt.Sprintf("%s/%s/resolve/%s/.gitattributes", strings.TrimRight(downloader.HF_ENDPOINT, "/"), artifact.Source.Repo, url.PathEscape(artifact.Source.Revision)))
+			if _, err := downloader.HuggingFaceScan(probe); errors.Is(err, downloader.ErrUnsafeFilesFound) {
+				return nil, err
+			}
+		}
+
+		if err := bindPrimaryArtifact(ctx, basePath, &modelConfig, configMap, installOptions.materializer); err != nil {
+			return nil, err
+		}
+
+		// Re-marshal from configMap after artifact binding to preserve unknown fields.
+		updatedConfigYAML, err = yaml.Marshal(configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
+		}
 	}
 
 	// Download files and verify their SHA
@@ -223,97 +331,14 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		xlog.Debug("Prompt template written", "template", template.Name)
 	}
 
-	name := config.Name
-	if nameOverride != "" {
-		name = nameOverride
-	}
-
-	if err := utils.VerifyPath(name+".yaml", basePath); err != nil {
-		return nil, err
-	}
-
-	modelConfig := lconfig.ModelConfig{}
-
-	// write config file
-	if len(configOverrides) != 0 || len(config.ConfigFile) != 0 {
-		configFilePath := filepath.Join(basePath, name+".yaml")
-
-		// Read and update config file as map[string]interface{}
-		configMap := make(map[string]any)
-		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal config YAML: %v", err)
+	if writeConfig {
+		if len(modelConfig.Artifacts) > 0 {
+			modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
+				Phase: modelartifacts.PhasePersisting, Artifact: modelConfig.Artifacts[0].Name,
+			})
 		}
-
-		configMap["name"] = name
-
-		if configOverrides != nil {
-			if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
-				return nil, err
-			}
-		}
-
-		// Write updated config file
-		updatedConfigYAML, err := yaml.Marshal(configMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal updated config YAML: %v", err)
-		}
-
-		err = yaml.Unmarshal(updatedConfigYAML, &modelConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
-		}
-
-		// Apply model-family-specific inference defaults so they are persisted in the config YAML.
-		// Apply to the typed struct for validation, and merge into configMap for serialization
-		// (configMap preserves unknown fields that ModelConfig would drop).
-		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
-
-		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
-		if modelConfig.Temperature != nil {
-			if _, exists := configMap["temperature"]; !exists {
-				configMap["temperature"] = *modelConfig.Temperature
-			}
-		}
-		if modelConfig.TopP != nil {
-			if _, exists := configMap["top_p"]; !exists {
-				configMap["top_p"] = *modelConfig.TopP
-			}
-		}
-		if modelConfig.TopK != nil {
-			if _, exists := configMap["top_k"]; !exists {
-				configMap["top_k"] = *modelConfig.TopK
-			}
-		}
-		if modelConfig.MinP != nil {
-			if _, exists := configMap["min_p"]; !exists {
-				configMap["min_p"] = *modelConfig.MinP
-			}
-		}
-		if modelConfig.RepeatPenalty != 0 {
-			if _, exists := configMap["repeat_penalty"]; !exists {
-				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
-			}
-		}
-		if modelConfig.PresencePenalty != 0 {
-			if _, exists := configMap["presence_penalty"]; !exists {
-				configMap["presence_penalty"] = modelConfig.PresencePenalty
-			}
-		}
-
-		// Re-marshal from configMap to preserve unknown fields
-		updatedConfigYAML, err = yaml.Marshal(configMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
-		}
-
-		if valid, err := modelConfig.Validate(); !valid {
-			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
-		}
-
-		err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
-		if err != nil {
-			return nil, fmt.Errorf("failed to write updated config file: %v", err)
+		if err := writeModelConfigAtomic(configFilePath, updatedConfigYAML); err != nil {
+			return nil, fmt.Errorf("failed to atomically write updated config file: %w", err)
 		}
 
 		xlog.Debug("Written config file", "file", configFilePath)
