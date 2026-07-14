@@ -648,6 +648,27 @@ func UsesLlamaSamplerDefaults(backend string) bool {
 	return !isNonLlama
 }
 
+// UsesLlamaCppServingOptions reports whether a backend understands llama.cpp's
+// serving-tuning model options - the free-form option strings cache_reuse /
+// n_cache_reuse (cross-request KV-prefix reuse) and parallel / n_parallel
+// (concurrent slots). These are llama.cpp server flags; LocalAI injects them as
+// defaults, but a backend that strictly validates its options (e.g.
+// longcat-video) rejects an unknown one with "unknown model option(s)" at
+// LoadModel. Only the llama.cpp backend - and the empty/auto-detect case, which
+// resolves to llama.cpp from a GGUF file, mirroring how llamaCppDefaults is
+// registered - should receive them.
+//
+// This is an allow-list on purpose (unlike UsesLlamaSamplerDefaults's
+// deny-list): these options are meaningful to no other backend, so a new
+// backend defaults to NOT getting them rather than breaking the same way.
+func UsesLlamaCppServingOptions(backend string) bool {
+	switch NormalizeBackendName(backend) {
+	case "", "llama-cpp":
+		return true
+	}
+	return false
+}
+
 // GetBackendCapability returns the capability info for a backend, or nil if unknown.
 // Handles backend name normalization.
 func GetBackendCapability(backend string) *BackendCapability {

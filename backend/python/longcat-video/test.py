@@ -21,6 +21,7 @@ from longcat_utils import (  # noqa: E402
     normalize_model_source,
     normalize_num_frames,
     parse_options,
+    select_known_options,
     validate_dimensions,
 )
 
@@ -60,6 +61,26 @@ class LongCatUtilsTest(unittest.TestCase):
         self.assertEqual(options["audio_guidance_scale"], 3.5)
         self.assertEqual(options["source"], "https://example.com/model")
         self.assertEqual(options["flag"], True)
+
+    def test_select_known_options_keeps_known_and_reports_unknown(self):
+        # The server injects llama.cpp serving defaults (cache_reuse, parallel)
+        # onto every model config. longcat-video must ignore what it does not
+        # understand rather than refuse to load - matching every other backend.
+        options = {
+            "use_distill": True,
+            "max_segments": 4,
+            "cache_reuse": 256,
+            "parallel": 1,
+        }
+        kept, ignored = select_known_options(options, {"use_distill", "max_segments"})
+
+        self.assertEqual(kept, {"use_distill": True, "max_segments": 4})
+        self.assertEqual(ignored, ["cache_reuse", "parallel"])
+
+    def test_select_known_options_reports_nothing_when_all_known(self):
+        kept, ignored = select_known_options({"use_distill": True}, {"use_distill"})
+        self.assertEqual(kept, {"use_distill": True})
+        self.assertEqual(ignored, [])
 
     def test_classify_model_accepts_only_supported_longcat_models(self):
         cases = {
