@@ -19,6 +19,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 import torch
 import torch.cuda
@@ -61,11 +62,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
     def LoadModel(self, request, context):
-        model_name = request.Model
-
-        # Check to see if the Model exists in the filesystem already.
-        if os.path.exists(request.ModelFile):
-            model_name = request.ModelFile
+        model_name, local_only = resolve_model_reference(request)
 
         compute = torch.float16
         if request.F16Memory == True:
@@ -150,7 +147,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                   device_map=device_map,
                                                                   load_in_4bit=xpu_4bit,
                                                                   load_in_8bit=xpu_8bit,
-                                                                  torch_dtype=compute)
+                                                                  torch_dtype=compute,
+                                                                  local_files_only=local_only)
             elif request.Type == "OVModelForCausalLM":
                 from optimum.intel.openvino import OVModelForCausalLM
                 from openvino.runtime import Core
@@ -171,7 +169,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 compile=True,
                                                                 trust_remote_code=request.TrustRemoteCode,
                                                                 ov_config=ovconfig,
-                                                                device=device_map)
+                                                                device=device_map,
+                                                                local_files_only=local_only)
                 self.OV = True
             elif request.Type == "OVModelForFeatureExtraction":
                 from optimum.intel.openvino import OVModelForFeatureExtraction
@@ -194,11 +193,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 trust_remote_code=request.TrustRemoteCode,
                                                                 ov_config=ovconfig,
                                                                 export=True,
-                                                                device=device_map)
+                                                                device=device_map,
+                                                                local_files_only=local_only)
                 self.OV = True
             elif request.Type == "SentenceTransformer":
                 autoTokenizer = False
-                self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
+                self.model = SentenceTransformer(
+                    model_name,
+                    trust_remote_code=request.TrustRemoteCode,
+                    local_files_only=local_only,
+                )
                 self.SentenceTransformer = True
             elif request.Type == "TokenClassification":
                 # NER / PII tagging via HuggingFace's token-classification
@@ -213,6 +217,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     aggregation_strategy="simple",
                     device=0 if self.CUDA else -1,
                     trust_remote_code=request.TrustRemoteCode,
+                    model_kwargs={"local_files_only": local_only},
                 )
                 self.TokenClassification = True
             else:
@@ -231,6 +236,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     quantization_config=quantization,
                     device_map=device_map,
                     torch_dtype=compute,
+                    local_files_only=local_only,
                 )
 
                 # Try to load a processor (needed for TTS/audio models)
@@ -238,6 +244,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     self.processor = AutoProcessor.from_pretrained(
                         model_name,
                         trust_remote_code=request.TrustRemoteCode,
+                        local_files_only=local_only,
                     )
                     self.GenericTTS = True
                     print(f"Loaded processor for {model_name}", file=sys.stderr)
@@ -252,7 +259,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.max_tokens = self.options.get("max_new_tokens", 512)
 
             if autoTokenizer:
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    local_files_only=local_only,
+                )
                 self.XPU = False
 
                 if XPU and self.OV == False:
