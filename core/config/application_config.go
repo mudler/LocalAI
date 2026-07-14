@@ -125,6 +125,10 @@ type ApplicationConfig struct {
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
 	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
+	// VRAMBudget optionally caps how much VRAM this instance uses for model
+	// allocation, as "80%" or "12GB". Empty = use full detected VRAM.
+	VRAMBudget string
+
 	// Eviction settings
 	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
 	SizeAwareEviction        bool          // Evict largest models first rather than least-recently-used (default: false)
@@ -451,6 +455,13 @@ func SetMemoryReclaimerThreshold(threshold float64) AppOption {
 			o.MemoryReclaimerEnabled = true
 			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
 		}
+	}
+}
+
+// SetVRAMBudget sets the VRAM allocation cap ("80%" or "12GB", "" = no cap).
+func SetVRAMBudget(v string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.VRAMBudget = v
 	}
 }
 

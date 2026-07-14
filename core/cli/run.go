@@ -18,6 +18,8 @@ import (
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
 
@@ -92,6 +94,7 @@ type RunCMD struct {
 	WatchdogInterval                   string   `env:"LOCALAI_WATCHDOG_INTERVAL,WATCHDOG_INTERVAL" default:"500ms" help:"Interval between watchdog checks (e.g., 500ms, 5s, 1m) (default: 500ms)" group:"backends"`
 	EnableMemoryReclaimer              bool     `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
 	MemoryReclaimerThreshold           float64  `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
+	VRAMBudget                         string   `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty uses all detected VRAM." group:"backends"`
 	ForceEvictionWhenBusy              bool     `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
 	SizeAwareEviction                  bool     `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
 	LRUEvictionMaxRetries              int      `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
@@ -657,6 +660,20 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.PreferDevelopmentBackends {
 		opts = append(opts, config.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends))
+	}
+
+	// Per-node VRAM allocation budget. Record it on the ApplicationConfig and,
+	// fail-open, install it as the process-global xsysinfo default so allocation
+	// heuristics cap at it. A malformed value must never block startup: it is
+	// logged and treated as unset (full detected VRAM).
+	if r.VRAMBudget != "" {
+		opts = append(opts, config.SetVRAMBudget(r.VRAMBudget))
+		if b, err := vrambudget.Parse(r.VRAMBudget); err != nil {
+			xlog.Warn("Ignoring invalid LOCALAI_VRAM_BUDGET", "value", r.VRAMBudget, "error", err)
+		} else {
+			xsysinfo.SetDefaultVRAMBudget(b)
+			xlog.Info("VRAM allocation budget set", "budget", b.String())
+		}
 	}
 
 	if r.PreloadBackendOnly {
