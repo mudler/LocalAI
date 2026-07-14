@@ -23,6 +23,27 @@ var _ = Describe("artifact configuration", func() {
 		Expect(spec.Source.Revision).To(Equal("main"))
 	})
 
+	It("parses Hugging Face repo and file references into managed sources", func() {
+		repo, ok, err := modelartifacts.ParsePrimarySource("huggingface://Qwen/Qwen3-ASR-1.7B")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(repo.Type).To(Equal(modelartifacts.SourceTypeHuggingFace))
+		Expect(repo.Repo).To(Equal("Qwen/Qwen3-ASR-1.7B"))
+		Expect(repo.AllowPatterns).To(BeEmpty())
+
+		file, ok, err := modelartifacts.ParsePrimarySource("https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(file.Repo).To(Equal("nomic-ai/nomic-embed-text-v1.5-GGUF"))
+		Expect(file.AllowPatterns).To(Equal([]string{"nomic-embed-text-v1.5.f16.gguf"}))
+	})
+
+	It("ignores non-Hugging Face references", func() {
+		_, ok, err := modelartifacts.ParsePrimarySource("models/local-model.gguf")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+	})
+
 	DescribeTable("rejects unsafe or unsupported declarations",
 		func(spec modelartifacts.Spec, message string) {
 			Expect(spec.Validate()).To(MatchError(ContainSubstring(message)))

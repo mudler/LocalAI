@@ -58,7 +58,7 @@ parameters: {model: owner/repo}
 		fake := &preloadArtifactMaterializer{result: modelartifacts.Result{
 			Spec:         resolved,
 			RelativePath: ".artifacts/huggingface/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/snapshot",
-		}}
+		}, seen: make(chan modelartifacts.Spec, 1)}
 		loader := NewModelConfigLoader(modelsPath, WithArtifactMaterializer(fake))
 		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
 		Expect(loader.PreloadWithContext(context.Background(), modelsPath)).To(Succeed())
@@ -73,6 +73,64 @@ parameters: {model: owner/repo}
 		Expect(string(data)).To(ContainSubstring("revision: 0123456789abcdef0123456789abcdef01234567"))
 		Expect(string(data)).To(ContainSubstring("cache_key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
 		Expect(string(data)).To(ContainSubstring("model: owner/repo"))
+	})
+
+	It("materializes a direct Hugging Face file reference", func() {
+		modelsPath := GinkgoT().TempDir()
+		configPath := filepath.Join(modelsPath, "hf-file.yaml")
+		Expect(os.WriteFile(configPath, []byte(`
+name: hf-file
+backend: transformers
+parameters:
+  model: https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf
+`), 0644)).To(Succeed())
+		resolved := modelartifacts.Spec{
+			Name:   "model",
+			Target: "model",
+			Source: modelartifacts.Source{Type: "huggingface", Repo: "nomic-ai/nomic-embed-text-v1.5-GGUF", AllowPatterns: []string{"nomic-embed-text-v1.5.f16.gguf"}, Revision: "main"},
+			Resolved: &modelartifacts.Resolved{
+				Endpoint: "https://huggingface.co",
+				Revision: "0123456789abcdef0123456789abcdef01234567",
+				CacheKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			},
+		}
+		fake := &preloadArtifactMaterializer{result: modelartifacts.Result{
+			Spec:         resolved,
+			RelativePath: ".artifacts/huggingface/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/snapshot",
+		}, seen: make(chan modelartifacts.Spec, 1)}
+		loader := NewModelConfigLoader(modelsPath, WithArtifactMaterializer(fake))
+		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+		Expect(loader.PreloadWithContext(context.Background(), modelsPath)).To(Succeed())
+
+		loaded, found := loader.GetModelConfig("hf-file")
+		Expect(found).To(BeTrue())
+		Expect(loaded.Model).To(Equal("https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"))
+		Expect(loaded.ModelFileName()).To(Equal(fake.result.RelativePath))
+		Expect(fake.seen).To(Receive(SatisfyAll(
+			WithTransform(func(spec modelartifacts.Spec) string { return spec.Source.Repo }, Equal("nomic-ai/nomic-embed-text-v1.5-GGUF")),
+			WithTransform(func(spec modelartifacts.Spec) []string { return spec.Source.AllowPatterns }, Equal([]string{"nomic-embed-text-v1.5.f16.gguf"})),
+		)))
+	})
+
+	It("falls back to the legacy path when inferred materialization fails", func() {
+		modelsPath := GinkgoT().TempDir()
+		configPath := filepath.Join(modelsPath, "hf-legacy.yaml")
+		Expect(os.WriteFile(configPath, []byte(`
+name: hf-legacy
+backend: transformers
+parameters:
+  model: https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf
+`), 0644)).To(Succeed())
+		fake := &preloadArtifactMaterializer{err: context.Canceled, seen: make(chan modelartifacts.Spec, 1)}
+		loader := NewModelConfigLoader(modelsPath, WithArtifactMaterializer(fake))
+		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+		Expect(loader.PreloadWithContext(context.Background(), modelsPath)).To(Succeed())
+
+		loaded, found := loader.GetModelConfig("hf-legacy")
+		Expect(found).To(BeTrue())
+		Expect(loaded.Artifacts).To(BeEmpty())
+		Expect(loaded.Model).To(Equal("https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"))
+		Expect(fake.seen).To(Receive())
 	})
 
 	It("does not hold the loader lock while materialization blocks", func() {

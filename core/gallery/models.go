@@ -256,25 +256,35 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
 
-		if enforceScan && len(modelConfig.Artifacts) > 0 {
-			artifact, err := modelConfig.Artifacts[0].Normalize()
+		if len(config.Files) == 0 {
+			artifactSpec, inferred, hasArtifact, err := modelConfig.PrimaryArtifactSpec(basePath)
 			if err != nil {
 				return nil, err
 			}
-			probe := downloader.URI(fmt.Sprintf("%s/%s/resolve/%s/.gitattributes", strings.TrimRight(downloader.HF_ENDPOINT, "/"), artifact.Source.Repo, url.PathEscape(artifact.Source.Revision)))
-			if _, err := downloader.HuggingFaceScan(probe); errors.Is(err, downloader.ErrUnsafeFilesFound) {
-				return nil, err
+			if hasArtifact && enforceScan {
+				artifact, err := artifactSpec.Normalize()
+				if err != nil {
+					return nil, err
+				}
+				probe := downloader.URI(fmt.Sprintf("%s/%s/resolve/%s/.gitattributes", strings.TrimRight(downloader.HF_ENDPOINT, "/"), artifact.Source.Repo, url.PathEscape(artifact.Source.Revision)))
+				if _, err := downloader.HuggingFaceScan(probe); errors.Is(err, downloader.ErrUnsafeFilesFound) {
+					return nil, err
+				}
 			}
-		}
 
-		if err := bindPrimaryArtifact(ctx, basePath, &modelConfig, configMap, installOptions.materializer); err != nil {
-			return nil, err
-		}
-
-		// Re-marshal from configMap after artifact binding to preserve unknown fields.
-		updatedConfigYAML, err = yaml.Marshal(configMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
+			if hasArtifact {
+				applied, err := bindPrimaryArtifact(ctx, basePath, &modelConfig, configMap, installOptions.materializer, artifactSpec, inferred)
+				if err != nil {
+					return nil, err
+				}
+				if applied {
+					// Re-marshal from configMap after artifact binding to preserve unknown fields.
+					updatedConfigYAML, err = yaml.Marshal(configMap)
+					if err != nil {
+						return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
+					}
+				}
+			}
 		}
 	}
 

@@ -147,7 +147,7 @@ parameters: {model: owner/repo}
 		Expect(fake.seen).To(BeEmpty())
 	})
 
-	It("leaves a legacy file-only definition on the existing path", func() {
+	It("falls back to the legacy path when inferred materialization fails", func() {
 		modelsPath := GinkgoT().TempDir()
 		state, err := system.GetSystemState(system.WithModelPath(modelsPath))
 		Expect(err).NotTo(HaveOccurred())
@@ -162,8 +162,9 @@ parameters:
 			gallery.WithArtifactMaterializer(fake),
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(fake.seen).To(BeEmpty())
+		Expect(fake.seen).To(HaveLen(1))
 		Expect(installed.Model).To(Equal("owner/legacy"))
+		Expect(installed.Artifacts).To(BeEmpty())
 		Expect(filepath.Join(modelsPath, "legacy.yaml")).To(BeAnExistingFile())
 	})
 

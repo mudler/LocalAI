@@ -133,6 +133,11 @@ func normalizeRepo(raw string) (string, error) {
 	return repo, nil
 }
 
+// CanonicalRepo normalizes a Hugging Face repository reference to owner/repo.
+func CanonicalRepo(raw string) (string, error) {
+	return normalizeRepo(raw)
+}
+
 func validatePattern(pattern string) error {
 	if pattern == "" || path.IsAbs(pattern) || strings.ContainsAny(pattern, "\\\x00") {
 		return fmt.Errorf("invalid artifact pattern %q", pattern)

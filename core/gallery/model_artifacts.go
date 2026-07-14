@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/xlog"
 )
 
 type ArtifactMaterializer interface {
@@ -38,25 +39,30 @@ func applyInstallOptions(options ...InstallOption) installOptions {
 	return result
 }
 
-func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.ModelConfig, configMap map[string]any, materializer ArtifactMaterializer) error {
-	if len(typed.Artifacts) == 0 {
-		return nil
-	}
-	result, err := materializer.Ensure(ctx, modelsPath, typed.Artifacts[0])
+func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.ModelConfig, configMap map[string]any, materializer ArtifactMaterializer, artifactSpec modelartifacts.Spec, inferred bool) (bool, error) {
+	result, err := materializer.Ensure(ctx, modelsPath, artifactSpec)
 	if err != nil {
-		return fmt.Errorf("materialize primary model artifact: %w", err)
+		if inferred {
+			xlog.Warn("falling back to legacy model loading after artifact materialization failed", "model", typed.Name, "error", err)
+			return false, nil
+		}
+		return false, fmt.Errorf("materialize primary model artifact: %w", err)
 	}
-	typed.Artifacts[0] = result.Spec
+	next := []modelartifacts.Spec{result.Spec}
+	if len(typed.Artifacts) > 1 {
+		next = append(next, typed.Artifacts[1:]...)
+	}
+	typed.Artifacts = next
 	artifactYAML, err := yaml.Marshal(typed.Artifacts)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var artifactValue any
 	if err := yaml.Unmarshal(artifactYAML, &artifactValue); err != nil {
-		return err
+		return false, err
 	}
 	configMap["artifacts"] = artifactValue
-	return nil
+	return true, nil
 }
 
 func writeModelConfigAtomic(fileName string, data []byte) error {

@@ -474,15 +474,28 @@ func (bcl *ModelConfigLoader) preloadOne(
 		}
 	}
 
-	managedPrimary := len(updated.Artifacts) > 0
+	artifactSpec, inferred, managedPrimary, err := updated.PrimaryArtifactSpec(modelPath)
+	if err != nil {
+		return ModelConfig{}, nil, err
+	}
 	var artifactResult *modelartifacts.Result
 	if managedPrimary {
-		result, err := bcl.artifactMaterializer.Ensure(ctx, modelPath, updated.Artifacts[0])
+		result, err := bcl.artifactMaterializer.Ensure(ctx, modelPath, artifactSpec)
 		if err != nil {
-			return ModelConfig{}, nil, err
+			if inferred {
+				xlog.Warn("falling back to legacy model loading after artifact materialization failed", "model", updated.Name, "error", err)
+				managedPrimary = false
+			} else {
+				return ModelConfig{}, nil, err
+			}
+		} else {
+			next := []modelartifacts.Spec{result.Spec}
+			if len(updated.Artifacts) > 1 {
+				next = append(next, updated.Artifacts[1:]...)
+			}
+			updated.Artifacts = next
+			artifactResult = &result
 		}
-		updated.Artifacts[0] = result.Spec
-		artifactResult = &result
 	}
 
 	if !managedPrimary && updated.IsModelURL() {
