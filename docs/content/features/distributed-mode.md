@@ -203,6 +203,7 @@ local-ai worker \
 | `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | *(empty)* | Client private key for NATS mTLS |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
+| `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
 
 {{% notice tip %}}
 **Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
@@ -319,8 +320,40 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
+| `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
+| `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
 The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
+
+### Per-node VRAM budget
+
+Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
+
+There are two ways to set the cap:
+
+- **At the worker:** start it with `--vram-budget` / `LOCALAI_VRAM_BUDGET` (see [Worker Configuration](#worker-configuration)).
+- **From the frontend, live:** set it per node in the **node capacity editor** on the node detail page, or via the admin API:
+
+```bash
+# Cap node placement at 80% of its detected VRAM
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"value":"80%"}'
+
+# Or an absolute amount
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"value":"12GB"}'
+
+# Clear the budget (revert to all detected VRAM)
+curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>"
+```
+
+The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "advanced/vram-management#vram-budget-allocation-ceiling" %}}).
+
+The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 
 ## Node Approval
 
