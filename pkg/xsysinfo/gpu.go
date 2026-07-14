@@ -1010,22 +1010,15 @@ func GetResourceInfo() ResourceInfo {
 // GetResourceAggregateInfo returns aggregate memory info (GPU if available, otherwise RAM)
 // This is used by the memory reclaimer to check memory usage
 func GetResourceAggregateInfo() AggregateMemoryInfo {
-	resourceInfo := GetResourceInfo()
-	agg := resourceInfo.Aggregate
-
-	// Apply the process-wide allocation cap on the GPU branch only; the budget
-	// is VRAM-only, so a RAM-backed aggregate is returned untouched. The GPU
-	// aggregate is already sourced from the capped GetGPUAggregateInfo, so this
-	// keeps the cap explicit at this boundary and idempotent (hard ceiling).
-	if b := DefaultVRAMBudget(); b.IsSet() && resourceInfo.Type == "gpu" && agg.TotalMemory > 0 {
-		agg.TotalMemory, agg.FreeMemory = b.Apply(agg.TotalMemory, agg.FreeMemory)
-		agg.UsedMemory = agg.TotalMemory - agg.FreeMemory
-		if agg.TotalMemory > 0 {
-			agg.UsagePercent = float64(agg.UsedMemory) / float64(agg.TotalMemory) * 100
-		}
-	}
-
-	return agg
+	// The VRAM budget is applied exactly once, upstream: the GPU-branch
+	// Aggregate is sourced from GetGPUAggregateInfo, which already caps
+	// total/free/used against DefaultVRAMBudget. Re-applying b.Apply here would
+	// double-cap: Apply resolves a percentage budget as a fraction of its input
+	// total, so a second pass shrinks the already-shrunk total again (P*(P*T)
+	// instead of P*T) and corrupts UsagePercent read by the memory reclaimer.
+	// The RAM branch is never budgeted (the budget is VRAM-only). So this
+	// boundary must return the aggregate unchanged.
+	return GetResourceInfo().Aggregate
 }
 
 // getVulkanGPUMemory queries GPUs using vulkaninfo as a fallback.
