@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"gopkg.in/yaml.v3"
@@ -52,6 +53,16 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 
 	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing model: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
 
+	bridge := newArtifactProgressBridge(func(status *OpStatus) {
+		status.GalleryElementName = op.GalleryElementName
+		g.UpdateStatus(op.ID, status)
+	})
+	operationCtx := op.Context
+	if operationCtx == nil {
+		operationCtx = context.Background()
+	}
+	operationCtx = modelartifacts.WithProgressSink(operationCtx, bridge.Sink)
+
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
 		// Check for cancellation during progress updates
@@ -62,6 +73,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 			default:
 			}
 		}
+		percentage = bridge.ClampLegacy(percentage)
 		g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
 		utils.DisplayDownloadFunction(fileName, current, total, percentage)
 	}
@@ -70,7 +82,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 	if op.Delete {
 		err = g.modelManager.DeleteModel(op.GalleryElementName)
 	} else {
-		err = g.modelManager.InstallModel(op.Context, op, progressCallback)
+		err = g.modelManager.InstallModel(operationCtx, op, progressCallback)
 	}
 	if err != nil {
 		// Check if error is due to cancellation
@@ -107,11 +119,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		return err
 	}
 
-	preloadContext := op.Context
-	if preloadContext == nil {
-		preloadContext = context.Background()
-	}
-	err = cl.PreloadWithContext(preloadContext, systemState.Model.ModelsPath)
+	err = cl.PreloadWithContext(operationCtx, systemState.Model.ModelsPath)
 	if err != nil {
 		return err
 	}

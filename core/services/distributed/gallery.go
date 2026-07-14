@@ -25,6 +25,9 @@ type GalleryOperationRecord struct {
 	OpType             string    `gorm:"size:32" json:"op_type"`                    // "model_install", "model_delete", "backend_install"
 	Status             string    `gorm:"size:32;default:pending" json:"status"`     // pending, downloading, processing, completed, failed, cancelled
 	Progress           float64   `json:"progress"`                                  // 0.0 to 1.0
+	Phase              string    `gorm:"size:32" json:"phase,omitempty"`
+	CurrentBytes       int64     `json:"current_bytes,omitempty"`
+	TotalBytes         int64     `json:"total_bytes,omitempty"`
 	Message            string    `gorm:"type:text" json:"message,omitempty"`
 	Error              string    `gorm:"type:text" json:"error,omitempty"`
 	FileName           string    `gorm:"size:512" json:"file_name,omitempty"`
@@ -84,14 +87,26 @@ func (s *GalleryStore) Create(op *GalleryOperationRecord) error {
 // op as still cancellable — otherwise the column keeps its Create-time zero
 // value (false), the UI hides the cancel button, and the orphaned op can only
 // be dismissed by waiting for the 30-minute stale reaper.
-func (s *GalleryStore) UpdateProgress(id string, progress float64, message, downloadedSize string, cancellable bool) error {
-	return s.db.Model(&GalleryOperationRecord{}).Where("id = ?", id).Updates(map[string]any{
+type OperationProgressDetails struct {
+	Phase        string
+	CurrentBytes int64
+	TotalBytes   int64
+}
+
+func (s *GalleryStore) UpdateProgress(id string, progress float64, message, downloadedSize string, cancellable bool, details ...OperationProgressDetails) error {
+	updates := map[string]any{
 		"progress":             progress,
 		"message":              message,
 		"downloaded_file_size": downloadedSize,
 		"cancellable":          cancellable,
 		"updated_at":           time.Now(),
-	}).Error
+	}
+	if len(details) > 0 {
+		updates["phase"] = details[0].Phase
+		updates["current_bytes"] = details[0].CurrentBytes
+		updates["total_bytes"] = details[0].TotalBytes
+	}
+	return s.db.Model(&GalleryOperationRecord{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // UpdateStatus updates the status of an operation. A terminal status is never

@@ -176,7 +176,10 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
-			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable); err != nil {
+			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable,
+				distributed.OperationProgressDetails{
+					Phase: op.Phase, CurrentBytes: op.CurrentBytes, TotalBytes: op.TotalBytes,
+				}); err != nil {
 				xlog.Warn("Failed to persist gallery operation progress", "op_id", s, "error", err)
 			}
 		}
@@ -671,6 +674,9 @@ func (g *GalleryService) Hydrate() error {
 		st := &OpStatus{
 			Message:            op.Message,
 			Progress:           op.Progress,
+			Phase:              op.Phase,
+			CurrentBytes:       op.CurrentBytes,
+			TotalBytes:         op.TotalBytes,
 			FileName:           op.FileName,
 			TotalFileSize:      op.TotalFileSize,
 			DownloadedFileSize: op.DownloadedFileSize,
