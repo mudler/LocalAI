@@ -10,11 +10,36 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 )
+
+// defaultVRAMBudget is the process-wide allocation cap set by standalone
+// local-ai (LOCALAI_VRAM_BUDGET / the Settings page). nil pointer = no cap.
+// The aggregate getters below apply it before returning so every allocation
+// decision (hardware defaults, context-fit, watchdog) inherits the cap without
+// per-call-site changes. Distributed workers deliberately leave this unset and
+// report raw VRAM; the server applies per-node budgets instead.
+var defaultVRAMBudget atomic.Pointer[vrambudget.Budget]
+
+// SetDefaultVRAMBudget installs the process-wide VRAM allocation cap. Safe to
+// call at startup and again live when the Settings page changes it.
+func SetDefaultVRAMBudget(b vrambudget.Budget) {
+	bb := b
+	defaultVRAMBudget.Store(&bb)
+}
+
+// DefaultVRAMBudget returns the current process-wide cap (unset Budget = none).
+func DefaultVRAMBudget() vrambudget.Budget {
+	if p := defaultVRAMBudget.Load(); p != nil {
+		return *p
+	}
+	return vrambudget.Budget{}
+}
 
 // GPU vendor constants
 const (
@@ -107,7 +132,8 @@ func TotalAvailableVRAM() (uint64, error) {
 		}
 		// If we got valid VRAM from ghw, return it
 		if totalVRAM > 0 {
-			return totalVRAM, nil
+			capped, _ := DefaultVRAMBudget().Apply(totalVRAM, totalVRAM)
+			return capped, nil
 		}
 	}
 
@@ -121,7 +147,8 @@ func TotalAvailableVRAM() (uint64, error) {
 		}
 		if totalVRAM > 0 {
 			xlog.Debug("VRAM detected via binary tools", "total_vram", totalVRAM)
-			return totalVRAM, nil
+			capped, _ := DefaultVRAMBudget().Apply(totalVRAM, totalVRAM)
+			return capped, nil
 		}
 	}
 
@@ -144,7 +171,8 @@ func MinPerGPUVRAM() (uint64, error) {
 	// hosts, which is why TotalAvailableVRAM treats it as a sum.
 	if infos := GetGPUMemoryUsage(); len(infos) > 0 {
 		if v := minNonZeroVRAM(infos); v > 0 {
-			return v, nil
+			capped, _ := DefaultVRAMBudget().Apply(v, v)
+			return capped, nil
 		}
 	}
 
@@ -162,7 +190,8 @@ func MinPerGPUVRAM() (uint64, error) {
 			}
 		}
 		if min > 0 {
-			return min, nil
+			capped, _ := DefaultVRAMBudget().Apply(min, min)
+			return capped, nil
 		}
 	}
 
@@ -357,6 +386,16 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 
 	if aggregate.TotalVRAM > 0 {
 		aggregate.UsagePercent = float64(aggregate.UsedVRAM) / float64(aggregate.TotalVRAM) * 100
+	}
+
+	// Apply the process-wide allocation cap so scheduling/hardware-default
+	// consumers see budgeted capacity, not physical capacity.
+	if b := DefaultVRAMBudget(); b.IsSet() && aggregate.TotalVRAM > 0 {
+		aggregate.TotalVRAM, aggregate.FreeVRAM = b.Apply(aggregate.TotalVRAM, aggregate.FreeVRAM)
+		aggregate.UsedVRAM = aggregate.TotalVRAM - aggregate.FreeVRAM
+		if aggregate.TotalVRAM > 0 {
+			aggregate.UsagePercent = float64(aggregate.UsedVRAM) / float64(aggregate.TotalVRAM) * 100
+		}
 	}
 
 	return aggregate
@@ -972,7 +1011,21 @@ func GetResourceInfo() ResourceInfo {
 // This is used by the memory reclaimer to check memory usage
 func GetResourceAggregateInfo() AggregateMemoryInfo {
 	resourceInfo := GetResourceInfo()
-	return resourceInfo.Aggregate
+	agg := resourceInfo.Aggregate
+
+	// Apply the process-wide allocation cap on the GPU branch only; the budget
+	// is VRAM-only, so a RAM-backed aggregate is returned untouched. The GPU
+	// aggregate is already sourced from the capped GetGPUAggregateInfo, so this
+	// keeps the cap explicit at this boundary and idempotent (hard ceiling).
+	if b := DefaultVRAMBudget(); b.IsSet() && resourceInfo.Type == "gpu" && agg.TotalMemory > 0 {
+		agg.TotalMemory, agg.FreeMemory = b.Apply(agg.TotalMemory, agg.FreeMemory)
+		agg.UsedMemory = agg.TotalMemory - agg.FreeMemory
+		if agg.TotalMemory > 0 {
+			agg.UsagePercent = float64(agg.UsedMemory) / float64(agg.TotalMemory) * 100
+		}
+	}
+
+	return agg
 }
 
 // getVulkanGPUMemory queries GPUs using vulkaninfo as a fallback.
