@@ -397,14 +397,21 @@ func (ml *ModelLoader) ListLoadedModels() []*Model {
 }
 
 func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
-	return ml.loadModel(modelID, modelName, loader, true)
+	return ml.LoadModelWithFile(modelID, modelName, modelName, loader)
 }
 
-// loadModel is the implementation behind LoadModel. checkCooldown gates fresh,
+func (ml *ModelLoader) LoadModelWithFile(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
+	if modelFileName == "" {
+		modelFileName = modelName
+	}
+	return ml.loadModel(modelID, modelName, modelFileName, loader, true)
+}
+
+// loadModel is the implementation behind LoadModelWithFile. checkCooldown gates fresh,
 // independent load triggers behind the per-model failure cooldown; it is set to
 // false for the coalesced retry of an in-flight burst (a follower whose leader
 // just failed), which is not a new trigger and should still get its one retry.
-func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, string, string) (*Model, error), checkCooldown bool) (*Model, error) {
+func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error), checkCooldown bool) (*Model, error) {
 	ml.mu.Lock()
 	distributed := ml.modelRouter != nil
 	ml.mu.Unlock()
@@ -430,7 +437,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, 
 		// per inference. Trade-off: cross-frontend in-flight visibility
 		// becomes eventually consistent, acceptable for 1-3 frontend
 		// deployments.
-		modelFile := filepath.Join(ml.ModelPath, modelName)
+		modelFile := filepath.Join(ml.ModelPath, modelFileName)
 		model, err := loader(modelID, modelName, modelFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to route model with internal loader: %s", err)
@@ -484,7 +491,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, 
 		}
 		// If still not loaded, the other goroutine failed. Retry once as part of
 		// this burst, bypassing the cooldown gate (we are not a new trigger).
-		return ml.loadModel(modelID, modelName, loader, false)
+		return ml.loadModel(modelID, modelName, modelFileName, loader, false)
 	}
 
 	// Mark this model as loading (create a channel that will be closed when done)
@@ -501,7 +508,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, 
 	}()
 
 	// Load the model (this can take a long time, no lock held)
-	modelFile := filepath.Join(ml.ModelPath, modelName)
+	modelFile := filepath.Join(ml.ModelPath, modelFileName)
 	xlog.Debug("Loading model in memory from file", "file", modelFile)
 
 	model, err := loader(modelID, modelName, modelFile)

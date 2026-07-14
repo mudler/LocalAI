@@ -1,5 +1,14 @@
 import { useState } from 'react'
 import { useOperations } from '../hooks/useOperations'
+import { formatBytes } from '../utils/format'
+
+const artifactPhaseLabels = {
+  resolving: 'Resolving model files',
+  downloading: 'Downloading model files',
+  verifying: 'Verifying model files',
+  committing: 'Finalizing model installation',
+  persisting: 'Saving model configuration',
+}
 
 const nodeStatusLabels = {
   success: 'Done',
@@ -26,6 +35,10 @@ export default function OperationsBar() {
         const nodes = Array.isArray(op.nodes) ? op.nodes : []
         const canExpand = nodes.length > 1
         const isOpen = !!expanded[key]
+        const phaseLabel = artifactPhaseLabels[op.phase]
+        const byteLabel = Number.isFinite(op.currentBytes) && Number.isFinite(op.totalBytes) && op.totalBytes > 0
+          ? `${formatBytes(op.currentBytes)} / ${formatBytes(op.totalBytes)}`
+          : ''
         return (
         <div key={key} className="operation-item">
           <div className="operation-info">
@@ -68,7 +81,17 @@ export default function OperationsBar() {
                 Cancelling...
               </span>
             )}
-            {!op.error && op.message && !op.isQueued && !op.isCancelled && (
+            {!op.error && phaseLabel && !op.isCancelled && (
+              <span className="operation-phase" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
+                {phaseLabel}
+              </span>
+            )}
+            {!op.error && byteLabel && !op.isCancelled && (
+              <span className="operation-bytes" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
+                {byteLabel}
+              </span>
+            )}
+            {!op.error && op.message && !phaseLabel && !op.isQueued && !op.isCancelled && (
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
                 {op.message}
               </span>

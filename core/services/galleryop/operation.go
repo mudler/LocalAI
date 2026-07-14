@@ -61,6 +61,9 @@ type OpStatus struct {
 	Processed          bool    `json:"processed"`
 	Message            string  `json:"message"`
 	Progress           float64 `json:"progress"`
+	Phase              string  `json:"phase,omitempty"`
+	CurrentBytes       int64   `json:"current_bytes,omitempty"`
+	TotalBytes         int64   `json:"total_bytes,omitempty"`
 	TotalFileSize      string  `json:"file_size"`
 	DownloadedFileSize string  `json:"downloaded_size"`
 	GalleryElementName string  `json:"gallery_element_name"`
@@ -89,6 +92,9 @@ type opStatusWire struct {
 	Processed          bool           `json:"processed"`
 	Message            string         `json:"message"`
 	Progress           float64        `json:"progress"`
+	Phase              string         `json:"phase,omitempty"`
+	CurrentBytes       int64          `json:"current_bytes,omitempty"`
+	TotalBytes         int64          `json:"total_bytes,omitempty"`
 	TotalFileSize      string         `json:"file_size"`
 	DownloadedFileSize string         `json:"downloaded_size"`
 	GalleryElementName string         `json:"gallery_element_name"`
@@ -104,6 +110,9 @@ func (o OpStatus) MarshalJSON() ([]byte, error) {
 		Processed:          o.Processed,
 		Message:            o.Message,
 		Progress:           o.Progress,
+		Phase:              o.Phase,
+		CurrentBytes:       o.CurrentBytes,
+		TotalBytes:         o.TotalBytes,
 		TotalFileSize:      o.TotalFileSize,
 		DownloadedFileSize: o.DownloadedFileSize,
 		GalleryElementName: o.GalleryElementName,
@@ -127,6 +136,9 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 	o.Processed = w.Processed
 	o.Message = w.Message
 	o.Progress = w.Progress
+	o.Phase = w.Phase
+	o.CurrentBytes = w.CurrentBytes
+	o.TotalBytes = w.TotalBytes
 	o.TotalFileSize = w.TotalFileSize
 	o.DownloadedFileSize = w.DownloadedFileSize
 	o.GalleryElementName = w.GalleryElementName

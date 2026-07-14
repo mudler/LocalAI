@@ -89,6 +89,62 @@ download_files:
     sha256: abc123...
 ```
 
+## Model artifacts
+
+The `artifacts` section makes installation of a Hugging Face model eager and
+repeatable. LocalAI resolves the requested revision to an immutable commit,
+downloads the selected repository files, and commits the complete snapshot
+before the model installation succeeds.
+
+```yaml
+artifacts:
+  - name: model
+    target: model
+    source:
+      type: huggingface
+      repo: Qwen/Qwen3-ASR-1.7B
+      revision: main
+      token_env: HF_TOKEN
+    resolved:
+      endpoint: https://huggingface.co
+      revision: 0123456789abcdef0123456789abcdef01234567
+      cache_key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+parameters:
+  model: Qwen/Qwen3-ASR-1.7B
+```
+
+Declare `source` when authoring a configuration. LocalAI owns the `resolved`
+block and writes it after installation; do not choose its values manually.
+For a public repository, omit `token_env`. For a private or gated repository,
+set it to `HF_TOKEN` and provide that environment variable to the LocalAI
+controller.
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Logical artifact name; `model` for the initial primary artifact |
+| `target` | Binding target; only `model` is supported initially |
+| `source.type` | `huggingface` |
+| `source.repo` | `owner/repository` or `hf://owner/repository` |
+| `source.revision` | Branch, tag, or commit; defaults to `main` and resolves to a commit |
+| `source.token_env` | Empty or `HF_TOKEN`; the secret value is never persisted |
+| `source.allow_patterns` | Optional slash-separated glob allow-list |
+| `source.ignore_patterns` | Optional slash-separated glob deny-list |
+| `resolved` | Installer-owned immutable endpoint, revision, and cache key |
+
+Managed installation finishes only after every selected file is committed
+locally. `parameters.model` remains the logical repository ID. Once
+`resolved.cache_key` is present, LocalAI derives
+`.artifacts/huggingface/<cache-key>/snapshot` as the runtime `ModelFile`.
+Configurations without `artifacts` keep the existing lazy repository-ID
+behavior.
+
+The initially migrated backend families are `transformers` and its aliases,
+`diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
+`liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+artifact declarations only for this set. Compatible external backends may opt
+in by declaring the artifact explicitly.
+
 ## Parameters Section
 
 The `parameters` section contains all OpenAI-compatible request parameters and model-specific options.

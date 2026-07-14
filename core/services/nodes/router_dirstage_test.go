@@ -4,10 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/storage"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -60,5 +62,49 @@ var _ = Describe("stageModelFiles directory models", func() {
 		// is never handed to the stager (which would read a directory fd).
 		Expect(staged).To(ConsistOf(weights, tokenizer))
 		Expect(staged).ToNot(ContainElement(modelDir))
+	})
+
+	It("stages a content-addressed Hugging Face snapshot with its relative tree intact", func() {
+		cacheKey := strings.Repeat("a", 64)
+		logicalModel := "owner/repo"
+		relativeSnapshot := filepath.Join(".artifacts", "huggingface", cacheKey, "snapshot")
+		snapshot := filepath.Join(tmp, "models", relativeSnapshot)
+		files := map[string]string{
+			"config.json":                            "{}",
+			"model.safetensors.index.json":           "{}",
+			"model-00001-of-00002.safetensors":       "part-1",
+			"model-00002-of-00002.safetensors":       "part-2",
+			filepath.Join("tokenizer", "vocab.json"): "{}",
+		}
+		for relative, contents := range files {
+			path := filepath.Join(snapshot, relative)
+			Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+			Expect(os.WriteFile(path, []byte(contents), 0o644)).To(Succeed())
+		}
+
+		opts := &pb.ModelOptions{Model: logicalModel, ModelFile: snapshot}
+		stagedOpts, err := router.stageModelFiles(context.Background(), node, opts, "managed-model")
+		Expect(err).NotTo(HaveOccurred())
+
+		stagedPaths := make([]string, 0, len(stager.ensureCalls))
+		stagedKeys := make([]string, 0, len(stager.ensureCalls))
+		for _, call := range stager.ensureCalls {
+			stagedPaths = append(stagedPaths, call.localPath)
+			stagedKeys = append(stagedKeys, call.key)
+		}
+		expectedPaths := make([]string, 0, len(files))
+		expectedKeys := make([]string, 0, len(files))
+		for relative := range files {
+			expectedPaths = append(expectedPaths, filepath.Join(snapshot, relative))
+			expectedKeys = append(expectedKeys, storage.ModelKey(filepath.Join("managed-model", relative)))
+		}
+		Expect(stagedPaths).To(ConsistOf(expectedPaths))
+		Expect(stagedKeys).To(ConsistOf(expectedKeys))
+		remoteSnapshot := filepath.Join("/remote", storage.ModelKey("managed-model"))
+		Expect(stagedOpts.Model).To(Equal(logicalModel))
+		Expect(stagedOpts.ModelFile).To(Equal(remoteSnapshot))
+		Expect(stagedOpts.ModelPath).To(Equal(remoteSnapshot))
+		Expect(opts.Model).To(Equal(logicalModel))
+		Expect(opts.ModelFile).To(Equal(snapshot))
 	})
 })

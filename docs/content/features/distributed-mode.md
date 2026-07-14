@@ -142,6 +142,23 @@ Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) 
 
 This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
 
+### Model artifact staging
+
+For managed Hugging Face artifacts, the controller resolves the repository and
+downloads every selected file. Workers receive the committed snapshot through
+the existing directory stager. They never receive `HF_TOKEN` and do not contact
+Hugging Face for managed artifacts.
+
+With `LOCALAI_DISTRIBUTED_SHARED_MODELS` enabled, workers use the shared
+absolute snapshot path and skip transfer. Otherwise, the controller stages the
+complete snapshot tree to each worker before loading the backend.
+
+{{% notice warning %}}
+Every controller and worker must have enough disk space for its own snapshot
+copy unless shared-models mode is enabled. Account for temporary partial files
+during installation as well as the committed snapshot.
+{{% /notice %}}
+
 {{% notice warning %}}
 The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** — anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /notice %}}

@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
 	"gopkg.in/yaml.v3"
@@ -40,7 +41,8 @@ type ModelConfig struct {
 	modelConfigFile          string `yaml:"-" json:"-"`
 	modelTemplate            string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
+	Name                     string                `yaml:"name,omitempty" json:"name,omitempty"`
+	Artifacts                []modelartifacts.Spec `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
 
 	// Alias, when set, makes this config a pure redirect: every request for
 	// Name is served by the model named here. All other fields are ignored.
@@ -1210,9 +1212,15 @@ func (c ModelConfig) ModelID() string {
 	return c.Model
 }
 
-// ModelFileName returns the filename of the model
-// If the model is a URL, it will return the MD5 of the URL which is the filename
+// ModelFileName returns the controller-managed snapshot when the model has a
+// committed artifact, otherwise preserving the legacy URL/repository behavior.
 func (c *ModelConfig) ModelFileName() string {
+	if len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil {
+		relative, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey)
+		if err == nil {
+			return relative
+		}
+	}
 	uri := downloader.URI(c.Model)
 	if uri.LooksLikeURL() {
 		f, _ := uri.FilenameFromUrl()
@@ -1315,6 +1323,21 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	if c.IsAlias() && len(c.Artifacts) > 0 {
+		return false, fmt.Errorf("alias model %q cannot declare artifacts", c.Name)
+	}
+	seenArtifacts := make(map[string]struct{}, len(c.Artifacts))
+	for i, artifact := range c.Artifacts {
+		normalized, err := artifact.Normalize()
+		if err != nil {
+			return false, fmt.Errorf("artifact %d: %w", i, err)
+		}
+		if _, exists := seenArtifacts[normalized.Name]; exists {
+			return false, fmt.Errorf("duplicate artifact name %q", normalized.Name)
+		}
+		seenArtifacts[normalized.Name] = struct{}{}
+	}
+
 	// An alias is a pure redirect: validate only its own shape here. Target
 	// existence and the no-chain rule need the full config set, so the loader
 	// (load-time) and the create/swap endpoints enforce those.

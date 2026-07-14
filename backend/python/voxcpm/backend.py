@@ -21,6 +21,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 
 def is_float(s):
@@ -99,10 +100,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 value = value.lower() == "true"
             self.options[key] = value
 
-        # Get model path from request
-        model_path = request.Model
-        if not model_path:
-            model_path = "openbmb/VoxCPM1.5"
+        model_path, _local_only = resolve_model_reference(
+            request, "openbmb/VoxCPM1.5"
+        )
         
         try:
             print(f"Loading model from {model_path}", file=sys.stderr)

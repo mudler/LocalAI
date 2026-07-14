@@ -33,6 +33,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 from vllm_utils import parse_options, messages_to_dicts, setup_parsers
 
 
@@ -166,12 +167,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Parse options from request.Options using shared helper
             self.options = parse_options(request.Options)
             opts = self.options
+            model_ref, _local_only = resolve_model_reference(request)
+            detection_ref = request.Model or model_ref
 
             print(f"Options: {self.options}", file=sys.stderr)
 
             # Detect model type
-            self.model_name = request.Model
-            self.model_type = request.Type if request.Type else self._detect_model_type(request.Model)
+            self.model_name = model_ref
+            self.model_type = (
+                request.Type if request.Type else self._detect_model_type(detection_ref)
+            )
             print(f"Detected model type: {self.model_type}", file=sys.stderr)
 
             # Build DiffusionParallelConfig if diffusion model (image or video)
@@ -205,9 +210,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 }
 
             # Base Omni initialization parameters
-            omni_kwargs = {
-                "model": request.Model,
-            }
+            omni_kwargs = {"model": model_ref}
 
             # Add diffusion-specific parameters (image/video models)
             if self.model_type in ["image", "video"]:
@@ -251,7 +254,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 try:
                     from vllm.transformers_utils.tokenizer import get_tokenizer
                     self.tokenizer = get_tokenizer(
-                        request.Model,
+                        model_ref,
                         trust_remote_code=opts.get("trust_remote_code", False),
                     )
                 except Exception as e:

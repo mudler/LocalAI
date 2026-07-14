@@ -4,9 +4,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,6 +29,40 @@ var _ = Describe("Test cases for config related functions", func() {
 			c := ModelConfig{}
 			Expect(c.ModelID()).To(Equal(""))
 		})
+	})
+
+	It("round-trips and validates a managed model artifact", func() {
+		raw := []byte(`
+name: qwen-asr
+backend: qwen-asr
+artifacts:
+  - name: model
+    target: model
+    source:
+      type: huggingface
+      repo: Qwen/Qwen3-ASR-1.7B
+parameters:
+  model: Qwen/Qwen3-ASR-1.7B
+`)
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.Artifacts).To(HaveLen(1))
+		valid, err := cfg.Validate()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(valid).To(BeTrue())
+	})
+
+	It("derives a managed snapshot filename without replacing the logical model", func() {
+		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		cfg := ModelConfig{
+			Artifacts: []modelartifacts.Spec{{
+				Source:   modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"},
+				Resolved: &modelartifacts.Resolved{CacheKey: cacheKey},
+			}},
+		}
+		cfg.Model = "owner/repo"
+		Expect(cfg.Model).To(Equal("owner/repo"))
+		Expect(cfg.ModelFileName()).To(Equal(filepath.Join(".artifacts", "huggingface", cacheKey, "snapshot")))
 	})
 
 	Context("Test Read configuration functions", func() {
@@ -833,5 +870,18 @@ var _ = Describe("ModelConfig alias", func() {
 		ok, err := c.Validate()
 		Expect(ok).To(BeFalse())
 		Expect(err).To(MatchError(ContainSubstring("pure redirect")))
+	})
+
+	It("rejects artifacts on alias configurations", func() {
+		cfg := ModelConfig{
+			Name:  "alias-name",
+			Alias: "target-name",
+			Artifacts: []modelartifacts.Spec{{
+				Source: modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"},
+			}},
+		}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("alias")))
 	})
 })
