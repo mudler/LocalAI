@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -27,7 +30,9 @@ type GalleryService struct {
 	modelManager   ModelManager
 	backendManager BackendManager
 	statuses       map[string]*OpStatus
-	cancellations  map[string]context.CancelFunc
+	cancellations  map[string]context.CancelCauseFunc
+	pausedOps      map[string]*PausedModelOp
+	rateLimiters   map[string]*downloader.DynamicRateLimiter
 
 	// Distributed mode (nil when not in distributed mode).
 	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
@@ -66,7 +71,8 @@ func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 		modelManager:          NewLocalModelManager(appConfig, ml),
 		backendManager:        NewLocalBackendManager(appConfig, ml),
 		statuses:              make(map[string]*OpStatus),
-		cancellations:         make(map[string]context.CancelFunc),
+		cancellations:         make(map[string]context.CancelCauseFunc),
+		rateLimiters:          make(map[string]*downloader.DynamicRateLimiter),
 	}
 }
 
@@ -332,7 +338,7 @@ func (g *GalleryService) CancelOperation(id string) error {
 		return fmt.Errorf("operation %q is already cancelled", id)
 	}
 
-	cancelFunc, localExists := g.cancellations[id]
+	cancelCause, localExists := g.cancellations[id]
 	if localExists {
 		delete(g.cancellations, id)
 	}
@@ -373,8 +379,8 @@ func (g *GalleryService) CancelOperation(id string) error {
 	// I/O and user-provided callback after Unlock — the cancel-wildcard
 	// subscriber loops back into applyCancel on this same replica, which
 	// would otherwise deadlock on g.Mutex.
-	if cancelFunc != nil {
-		cancelFunc()
+	if cancelCause != nil {
+		cancelCause(downloader.ErrUserCancelled)
 	}
 	if nc != nil {
 		if err := nc.Publish(messaging.SubjectGalleryCancel(id), GalleryCancelEvent{JobID: id}); err != nil {
@@ -392,7 +398,7 @@ func (g *GalleryService) CancelOperation(id string) error {
 // already cancelled this op locally treats the inbound event as a no-op.
 func (g *GalleryService) applyCancel(id string) {
 	g.Lock()
-	cancelFunc, hasCancel := g.cancellations[id]
+	cancelCause, hasCancel := g.cancellations[id]
 	if hasCancel {
 		delete(g.cancellations, id)
 	}
@@ -417,22 +423,22 @@ func (g *GalleryService) applyCancel(id string) {
 	// Invoke the cancel func after Unlock so a callback that touches
 	// GalleryService doesn't re-enter the mutex.
 	if hasCancel {
-		cancelFunc()
+		cancelCause(downloader.ErrUserCancelled)
 	}
 }
 
-// newUserCancellableContext returns a child context whose CancelFunc cancels
-// with the downloader.ErrUserCancelled cause. This lets the download layer
-// distinguish a deliberate user cancel (discard the half-downloaded .partial)
-// from an incidental cancellation such as process shutdown (keep the .partial
-// so the next run resumes via Range instead of restarting from zero).
-func newUserCancellableContext(parent context.Context) (context.Context, context.CancelFunc) {
+// newUserCancellableContext returns a child context whose CancelCauseFunc
+// can be called with either downloader.ErrUserCancelled (discards .partial)
+// or downloader.ErrUserPaused (preserves .partial for later resume). This
+// lets the download layer distinguish deliberate user actions from incidental
+// cancellations such as process shutdown.
+func newUserCancellableContext(parent context.Context) (context.Context, context.CancelCauseFunc) {
 	ctx, cancelCause := context.WithCancelCause(parent)
-	return ctx, func() { cancelCause(downloader.ErrUserCancelled) }
+	return ctx, cancelCause
 }
 
 // storeCancellation stores a cancellation function for an operation
-func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelFunc) {
+func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelCauseFunc) {
 	g.Lock()
 	defer g.Unlock()
 	g.cancellations[id] = cancelFunc
@@ -441,7 +447,7 @@ func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelF
 // StoreCancellation is a public method to store a cancellation function for an operation
 // This allows cancellation functions to be stored immediately when operations are created,
 // enabling cancellation of queued operations that haven't started processing yet.
-func (g *GalleryService) StoreCancellation(id string, cancelFunc context.CancelFunc) {
+func (g *GalleryService) StoreCancellation(id string, cancelFunc context.CancelCauseFunc) {
 	g.storeCancellation(id, cancelFunc)
 }
 
@@ -452,7 +458,298 @@ func (g *GalleryService) removeCancellation(id string) {
 	delete(g.cancellations, id)
 }
 
+// storePausedOp saves the paused operation metadata for a later Resume call.
+func (g *GalleryService) storePausedOp(id string, op *PausedModelOp) {
+	g.Lock()
+	defer g.Unlock()
+	if g.pausedOps == nil {
+		g.pausedOps = make(map[string]*PausedModelOp)
+	}
+	g.pausedOps[id] = op
+}
+
+// removePausedOp deletes the stored paused operation metadata.
+func (g *GalleryService) removePausedOp(id string) {
+	g.Lock()
+	defer g.Unlock()
+	delete(g.pausedOps, id)
+}
+
+// getPausedOpLocked retrieves the paused operation metadata without locking.
+// Caller must hold g.Lock().
+func (g *GalleryService) getPausedOpLocked(id string) *PausedModelOp {
+	if g.pausedOps == nil {
+		return nil
+	}
+	return g.pausedOps[id]
+}
+
+// storeRateLimiter stores a rate limiter for an active download operation.
+func (g *GalleryService) storeRateLimiter(id string, rl *downloader.DynamicRateLimiter) {
+	g.Lock()
+	defer g.Unlock()
+	g.rateLimiters[id] = rl
+}
+
+// removeRateLimiter removes the rate limiter for a completed operation.
+func (g *GalleryService) removeRateLimiter(id string) {
+	g.Lock()
+	defer g.Unlock()
+	delete(g.rateLimiters, id)
+}
+
+// PauseAllOperations pauses every active (non-paused, non-cancelled) model
+// download. Each operation's context is cancelled with ErrUserPaused so the
+// download layer preserves the .partial file. Broadcast is NOT sent for
+// individual ops — the callers sees a single API response and the result is
+// the same set of paused statuses regardless of which replica it hits.
+func (g *GalleryService) PauseAllOperations() error {
+	g.Lock()
+	ids := make([]string, 0, len(g.cancellations))
+	for id := range g.cancellations {
+		if status, ok := g.statuses[id]; ok {
+			if status.Paused || (status.Processed && status.Cancelled) {
+				continue
+			}
+		}
+		ids = append(ids, id)
+	}
+	g.Unlock()
+
+	var errs []error
+	for _, id := range ids {
+		if err := g.PauseOperation(id); err != nil {
+			errs = append(errs, fmt.Errorf("op %q: %w", id, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to pause %d/%d operations: %v", len(errs), len(ids), errors.Join(errs...))
+	}
+	return nil
+}
+
+// ResumeAllOperations resumes every paused model download by re-queuing
+// each stored PausedModelOp. Operations that were paused before a restart
+// (recovered from sidecar files) are included.
+func (g *GalleryService) ResumeAllOperations() error {
+	g.Lock()
+	ids := make([]string, 0, len(g.pausedOps))
+	for id, p := range g.pausedOps {
+		if p == nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	g.Unlock()
+
+	var errs []error
+	for _, id := range ids {
+		if err := g.ResumeOperation(id); err != nil {
+			errs = append(errs, fmt.Errorf("op %q: %w", id, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to resume %d/%d operations: %v", len(errs), len(ids), errors.Join(errs...))
+	}
+	return nil
+}
+
+// SetOperationRateLimit overrides the download rate limit for an active
+// operation. A value <= 0 removes the limit (unlimited). The format
+// convenience (e.g. "2mb", "500kb") should be pre-parsed by the caller.
+func (g *GalleryService) SetOperationRateLimit(id string, bytesPerSec int64) error {
+	g.Lock()
+	defer g.Unlock()
+	rl, ok := g.rateLimiters[id]
+	if !ok {
+		return fmt.Errorf("operation %q not found or does not support rate limiting", id)
+	}
+	rl.SetRate(bytesPerSec)
+	return nil
+}
+
+// autoResumePausedDownloads scans the models directory for .partial.json
+// sidecar files (written when a download was paused) and re-queues the
+// corresponding model operations. This provides crash-resilience: even if
+// the process restarted, paused downloads are automatically resumed.
+func (g *GalleryService) autoResumePausedDownloads(systemState *system.SystemState) {
+	modelsPath := systemState.Model.ModelsPath
+	sidecarFiles, err := filepath.Glob(filepath.Join(modelsPath, "*.partial.json"))
+	if err != nil {
+		xlog.Warn("Failed to scan for download sidecar files", "path", modelsPath, "error", err)
+		return
+	}
+	for _, scPath := range sidecarFiles {
+		sc, err := downloader.ReadPartialSidecar(scPath)
+		if err != nil {
+			xlog.Warn("Failed to read download sidecar for auto-resume, removing", "file", scPath, "error", err)
+			_ = os.Remove(scPath)
+			continue
+		}
+		if sc.ModelID == "" {
+			xlog.Warn("Download sidecar missing model_id, removing", "file", scPath)
+			_ = os.Remove(scPath)
+			continue
+		}
+
+		opID := uuid.New().String()
+		// Reconstruct a minimal GalleryModel. The gallery layer will re-fetch
+		// the full model config from the configured galleries by name.
+		req := gallery.GalleryModel{
+			Metadata: gallery.Metadata{
+				Name: sc.ModelID,
+			},
+		}
+
+		g.ModelGalleryChannel <- ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 opID,
+			GalleryElementName: sc.ModelID,
+			Req:                req,
+			Galleries:          g.appConfig.Galleries,
+			BackendGalleries:   g.appConfig.BackendGalleries,
+		}
+		xlog.Info("Auto-resumed paused download", "model", sc.ModelID, "op_id", opID)
+	}
+}
+
+// PauseOperation pauses an in-progress model download. The download layer
+// preserves the .partial file so a subsequent ResumeOperation can continue
+// from the saved byte offset. In distributed mode the pause event is
+// broadcast so the peer replica holding the cancellation func can apply it.
+func (g *GalleryService) PauseOperation(id string) error {
+	g.Lock()
+
+	if status, ok := g.statuses[id]; ok && status.Paused {
+		g.Unlock()
+		return fmt.Errorf("operation %q is already paused", id)
+	}
+	if status, ok := g.statuses[id]; ok && status.Processed && status.Cancelled {
+		g.Unlock()
+		return fmt.Errorf("operation %q is already cancelled, cannot pause", id)
+	}
+
+	cancelCause, localExists := g.cancellations[id]
+	if !localExists {
+		// The cancel func may live on a different replica in distributed mode.
+		nc := g.natsClient
+		if nc == nil {
+			g.Unlock()
+			return fmt.Errorf("operation %q not found or already completed", id)
+		}
+		// Broadcast to the peer that holds the cancel func.
+		g.Unlock()
+		if err := nc.Publish(messaging.SubjectGalleryPause(id), GalleryPauseEvent{JobID: id}); err != nil {
+			return fmt.Errorf("failed to broadcast pause for operation %q: %w", id, err)
+		}
+		return nil
+	}
+
+	delete(g.cancellations, id)
+
+	if status, ok := g.statuses[id]; ok {
+		status.Paused = true
+		status.Message = "paused"
+	} else {
+		g.statuses[id] = &OpStatus{
+			Paused:      true,
+			Message:     "paused",
+			Cancellable: true,
+		}
+	}
+	g.Unlock()
+
+	// Cancel the context with ErrUserPaused so the download layer preserves
+	// the .partial file.
+	cancelCause(downloader.ErrUserPaused)
+
+	// Broadcast the pause event so peer replicas update their status maps.
+	nc := g.natsClient
+	if nc != nil {
+		if err := nc.Publish(messaging.SubjectGalleryPause(id), GalleryPauseEvent{JobID: id}); err != nil {
+			xlog.Warn("Failed to broadcast gallery pause", "op_id", id, "error", err)
+		}
+	}
+
+	return nil
+}
+
+// ResumeOperation resumes a previously paused model download. It re-creates
+// the download context and pushes a fresh ManagementOp to the model channel,
+// where the existing .partial file will be picked up automatically via Range.
+func (g *GalleryService) ResumeOperation(id string) error {
+	g.Lock()
+	status, statusExists := g.statuses[id]
+	if !statusExists || !status.Paused {
+		g.Unlock()
+		return fmt.Errorf("operation %q is not paused", id)
+	}
+
+	pausedOp := g.getPausedOpLocked(id)
+	if pausedOp == nil {
+		g.Unlock()
+		return fmt.Errorf("no paused operation metadata found for %q", id)
+	}
+
+	// Remove the paused op metadata so a second Resume fails cleanly.
+	delete(g.pausedOps, id)
+
+	// Reset the status: paused → downloading.
+	status.Paused = false
+	status.Processed = false
+	status.Message = "resuming download"
+	g.Unlock()
+
+	// Push a new ManagementOp to the model channel. Start() will create a
+	// fresh context with newUserCancellableContext so the user can still
+	// cancel the resumed download.
+	g.ModelGalleryChannel <- ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		ID:                 id,
+		GalleryElementName: pausedOp.GalleryElementName,
+		Req:                pausedOp.Req,
+		Galleries:          pausedOp.Galleries,
+		BackendGalleries:   pausedOp.BackendGalleries,
+		// Context and CancelFunc are nil — Start() creates them.
+	}
+
+	return nil
+}
+
+// applyPause is the broadcast-side counterpart to PauseOperation. The
+// wildcard subscriber calls it when a peer publishes a pause event:
+// run the local cancel func if we have one, and reflect the pause in the
+// local statuses map.
+func (g *GalleryService) applyPause(id string) {
+	g.Lock()
+	cancelCause, hasCancel := g.cancellations[id]
+	if hasCancel {
+		delete(g.cancellations, id)
+	}
+	if status, ok := g.statuses[id]; ok {
+		if status.Paused {
+			g.Unlock()
+			return
+		}
+		status.Paused = true
+		status.Message = "paused"
+	} else {
+		g.statuses[id] = &OpStatus{
+			Paused:      true,
+			Message:     "paused",
+			Cancellable: true,
+		}
+	}
+	g.Unlock()
+
+	if hasCancel {
+		cancelCause(downloader.ErrUserPaused)
+	}
+}
+
 func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, systemState *system.SystemState) error {
+	// Auto-resume downloads that were paused before a restart. Sidecar
+	// files persisted by the download layer survive process crashes.
+	g.autoResumePausedDownloads(systemState)
+
 	// updates the status with an error
 	var updateError func(id string, e error)
 	if !g.appConfig.OpaqueErrors {
@@ -473,10 +770,15 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case op := <-g.BackendGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
-					op.Context, op.CancelFunc = newUserCancellableContext(c)
-					g.storeCancellation(op.ID, op.CancelFunc)
+					op.Context, cancelCause := newUserCancellableContext(c)
+					op.CancelFunc = func() { cancelCause(downloader.ErrUserCancelled) }
+					g.storeCancellation(op.ID, cancelCause)
 				} else if op.CancelFunc != nil {
-					g.storeCancellation(op.ID, op.CancelFunc)
+					// The caller provided a CancelFunc; wrap it as a CancelCauseFunc
+					// that we can also use for pause. We store the wrapped version
+					// that always cancels with ErrUserCancelled.
+					cc := op.CancelFunc
+					g.storeCancellation(op.ID, func(error) { cc() })
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
@@ -502,11 +804,18 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case op := <-g.ModelGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
-					op.Context, op.CancelFunc = newUserCancellableContext(c)
-					g.storeCancellation(op.ID, op.CancelFunc)
+					op.Context, cancelCause := newUserCancellableContext(c)
+					op.CancelFunc = func() { cancelCause(downloader.ErrUserCancelled) }
+					g.storeCancellation(op.ID, cancelCause)
 				} else if op.CancelFunc != nil {
-					g.storeCancellation(op.ID, op.CancelFunc)
+					cc := op.CancelFunc
+					g.storeCancellation(op.ID, func(error) { cc() })
 				}
+				// Attach a dynamic rate limiter so the download can be throttled
+				// at runtime via SetOperationRateLimit.
+				rl := &downloader.DynamicRateLimiter{}
+				op.Context = downloader.ContextWithRateLimiter(op.Context, rl)
+				g.storeRateLimiter(op.ID, rl)
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
 					opType := "model_install"
@@ -527,6 +836,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 					updateError(op.ID, err)
 				}
 				g.removeCancellation(op.ID)
+				g.removeRateLimiter(op.ID)
 			}
 		}
 	}()
@@ -572,6 +882,22 @@ func (g *GalleryService) SubscribeBroadcasts() error {
 		return fmt.Errorf("subscribing to gallery cancel wildcard: %w", err)
 	}
 
+	pauseSub, err := messaging.SubscribeJSON(nc, messaging.SubjectGalleryPauseWildcard, func(evt GalleryPauseEvent) {
+		if evt.JobID == "" {
+			return
+		}
+		g.applyPause(evt.JobID)
+	})
+	if err != nil {
+		if uerr := progressSub.Unsubscribe(); uerr != nil {
+			xlog.Warn("failed to unsubscribe partial gallery progress sub", "error", uerr)
+		}
+		if uerr := cancelSub.Unsubscribe(); uerr != nil {
+			xlog.Warn("failed to unsubscribe partial gallery cancel sub", "error", uerr)
+		}
+		return fmt.Errorf("subscribing to gallery pause wildcard: %w", err)
+	}
+
 	modelsSub, err := messaging.SubscribeJSON(nc, messaging.SubjectCacheInvalidateModels, func(evt messaging.CacheInvalidateEvent) {
 		g.Lock()
 		cb := g.OnModelsChanged
@@ -586,6 +912,9 @@ func (g *GalleryService) SubscribeBroadcasts() error {
 		}
 		if uerr := cancelSub.Unsubscribe(); uerr != nil {
 			xlog.Warn("failed to unsubscribe partial gallery cancel sub", "error", uerr)
+		}
+		if uerr := pauseSub.Unsubscribe(); uerr != nil {
+			xlog.Warn("failed to unsubscribe partial gallery pause sub", "error", uerr)
 		}
 		return fmt.Errorf("subscribing to models invalidation: %w", err)
 	}
@@ -607,6 +936,9 @@ func (g *GalleryService) SubscribeBroadcasts() error {
 		if uerr := cancelSub.Unsubscribe(); uerr != nil {
 			xlog.Warn("failed to unsubscribe partial gallery cancel sub", "error", uerr)
 		}
+		if uerr := pauseSub.Unsubscribe(); uerr != nil {
+			xlog.Warn("failed to unsubscribe partial gallery pause sub", "error", uerr)
+		}
 		if uerr := modelsSub.Unsubscribe(); uerr != nil {
 			xlog.Warn("failed to unsubscribe partial models sub", "error", uerr)
 		}
@@ -614,7 +946,7 @@ func (g *GalleryService) SubscribeBroadcasts() error {
 	}
 
 	g.Lock()
-	g.broadcastSubs = append(g.broadcastSubs, progressSub, cancelSub, modelsSub, backendsSub)
+	g.broadcastSubs = append(g.broadcastSubs, progressSub, cancelSub, pauseSub, modelsSub, backendsSub)
 	g.Unlock()
 	return nil
 }

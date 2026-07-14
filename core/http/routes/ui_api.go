@@ -152,6 +152,47 @@ func getDirectorySize(path string) (int64, error) {
 	return totalSize, nil
 }
 
+// parseRateString converts a human-readable bandwidth string (e.g. "2mb",
+// "500kb", "10mb") to bytes per second. Returns ≤ 0 for unlimited.
+func parseRateString(s string) (int64, error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" || s == "0" || s == "unlimited" || s == "-1" {
+		return 0, nil
+	}
+	var multiplier int64 = 1
+	switch {
+	case strings.HasSuffix(s, "gb"):
+		multiplier = 1 << 30
+		s = strings.TrimSuffix(s, "gb")
+	case strings.HasSuffix(s, "g"):
+		multiplier = 1 << 30
+		s = strings.TrimSuffix(s, "g")
+	case strings.HasSuffix(s, "mb"):
+		multiplier = 1 << 20
+		s = strings.TrimSuffix(s, "mb")
+	case strings.HasSuffix(s, "m"):
+		multiplier = 1 << 20
+		s = strings.TrimSuffix(s, "m")
+	case strings.HasSuffix(s, "kb"):
+		multiplier = 1 << 10
+		s = strings.TrimSuffix(s, "kb")
+	case strings.HasSuffix(s, "k"):
+		multiplier = 1 << 10
+		s = strings.TrimSuffix(s, "k")
+	case strings.HasSuffix(s, "b"):
+		multiplier = 1
+		s = strings.TrimSuffix(s, "b")
+	}
+	val, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("cannot parse %q as a number", s)
+	}
+	if val <= 0 {
+		return 0, nil
+	}
+	return val * multiplier, nil
+}
+
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
@@ -363,6 +404,80 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
+	// Pause operation endpoint (admin only)
+	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to pause operation", "jobID", jobID)
+
+		err := galleryService.PauseOperation(jobID)
+		if err != nil {
+			xlog.Error("Failed to pause operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "Operation paused",
+		})
+	}, adminMiddleware)
+
+	// Resume operation endpoint (admin only)
+	app.POST("/api/operations/:jobID/resume", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to resume operation", "jobID", jobID)
+
+		err := galleryService.ResumeOperation(jobID)
+		if err != nil {
+			xlog.Error("Failed to resume operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "Operation resumed",
+		})
+	}, adminMiddleware)
+
+	// Pause all operations (admin only)
+	app.POST("/api/operations/pause-all", func(c echo.Context) error {
+		xlog.Debug("API request to pause all operations")
+
+		err := galleryService.PauseAllOperations()
+		if err != nil {
+			xlog.Error("Failed to pause all operations", "error", err)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "All operations paused",
+		})
+	}, adminMiddleware)
+
+	// Resume all operations (admin only)
+	app.POST("/api/operations/resume-all", func(c echo.Context) error {
+		xlog.Debug("API request to resume all operations")
+
+		err := galleryService.ResumeAllOperations()
+		if err != nil {
+			xlog.Error("Failed to resume all operations", "error", err)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "All operations resumed",
+		})
+	}, adminMiddleware)
+
 	// Dismiss a failed operation (acknowledge the error and remove it from the list)
 	app.POST("/api/operations/:jobID/dismiss", func(c echo.Context) error {
 		jobID := c.Param("jobID")
@@ -374,6 +489,37 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation dismissed",
+		})
+	}, adminMiddleware)
+
+	// Throttle (rate-limit) an active download (admin only)
+	// Query param: ?rate=2mb or ?rate=500kb. Use 0 or -1 to remove the limit.
+	app.POST("/api/operations/:jobID/throttle", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		rateStr := c.QueryParam("rate")
+		if rateStr == "" {
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": "query parameter 'rate' is required (e.g. rate=2mb, rate=500kb)",
+			})
+		}
+		bytesPerSec, err := parseRateString(rateStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": fmt.Sprintf("invalid rate %q: %v", rateStr, err),
+			})
+		}
+
+		xlog.Debug("API request to throttle operation", "jobID", jobID, "rate", bytesPerSec)
+		if err := galleryService.SetOperationRateLimit(jobID, bytesPerSec); err != nil {
+			xlog.Error("Failed to throttle operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": fmt.Sprintf("Operation throttled to %d bytes/sec", bytesPerSec),
 		})
 	}, adminMiddleware)
 

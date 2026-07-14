@@ -66,6 +66,7 @@ type OpStatus struct {
 	GalleryElementName string  `json:"gallery_element_name"`
 	Cancelled          bool    `json:"cancelled"`   // Cancelled is true if the operation was cancelled
 	Cancellable        bool    `json:"cancellable"` // Cancellable is true if the operation can be cancelled
+	Paused             bool    `json:"paused"`      // Paused is true if the operation was paused (resumable)
 
 	// Nodes is the per-node breakdown for a fanned-out backend install.
 	// Populated by DistributedBackendManager (per-node terminal status)
@@ -94,6 +95,7 @@ type opStatusWire struct {
 	GalleryElementName string         `json:"gallery_element_name"`
 	Cancelled          bool           `json:"cancelled"`
 	Cancellable        bool           `json:"cancellable"`
+	Paused             bool           `json:"paused"`
 	Nodes              []NodeProgress `json:"nodes,omitempty"`
 }
 
@@ -109,6 +111,7 @@ func (o OpStatus) MarshalJSON() ([]byte, error) {
 		GalleryElementName: o.GalleryElementName,
 		Cancelled:          o.Cancelled,
 		Cancellable:        o.Cancellable,
+		Paused:             o.Paused,
 		Nodes:              o.Nodes,
 	}
 	if o.Error != nil {
@@ -132,6 +135,7 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 	o.GalleryElementName = w.GalleryElementName
 	o.Cancelled = w.Cancelled
 	o.Cancellable = w.Cancellable
+	o.Paused = w.Paused
 	o.Nodes = w.Nodes
 	if w.ErrorMessage != "" {
 		o.Error = errors.New(w.ErrorMessage)
@@ -165,6 +169,14 @@ type GalleryProgressEvent struct {
 // one that received the UI cancel button click; the broadcast subscriber
 // runs the cancel func on whichever replica registered it.
 type GalleryCancelEvent struct {
+	JobID string `json:"id"`
+}
+
+// GalleryPauseEvent is the NATS payload for a gallery pause. Mirroring the
+// cancel pattern, the pause func may live on a different frontend replica;
+// the broadcast subscriber applies the pause locally. A paused operation can
+// be resumed later — the .partial file is preserved.
+type GalleryPauseEvent struct {
 	JobID string `json:"id"`
 }
 
