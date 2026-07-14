@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
 
 func strPtr(s string) *string { return &s }
@@ -98,6 +100,14 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 	// ApplyRuntimeSettings (POST /api/settings) so it lives past a save, and an
 	// empty value must clear the cap rather than being dropped.
 	Describe("VRAMBudget round trip", func() {
+		// ApplyRuntimeSettings live-applies the cap through the process-global
+		// xsysinfo.SetDefaultVRAMBudget. Reset it after each spec so a cap set
+		// here cannot bleed into other core/config specs under Ginkgo's
+		// randomized ordering.
+		AfterEach(func() {
+			xsysinfo.SetDefaultVRAMBudget(vrambudget.Budget{})
+		})
+
 		It("round-trips the VRAM budget", func() {
 			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
 			rs := o.ToRuntimeSettings()
