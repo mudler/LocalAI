@@ -181,10 +181,20 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 	if opts == nil || node == nil || config.HardwareDefaultsDisabled() {
 		return
 	}
+	// Gate the throughput heuristics on the node's BUDGETED ceiling, not its
+	// physical card. node.TotalVRAM is stored raw (so a percentage budget can be
+	// recomputed if capacity changes), but the batch/parallel boosts allocate a
+	// per-device compute buffer against real capacity: an operator who budgeted
+	// only a slice of the GPU to LocalAI must not get defaults sized for the full
+	// device, or the raised batch/slots would overflow the allocation (#10485).
+	usableVRAM := node.TotalVRAM
+	if node.VRAMBudgetBytes > 0 && node.VRAMBudgetBytes < usableVRAM {
+		usableVRAM = node.VRAMBudgetBytes
+	}
 	gpu := config.GPU{
 		Vendor:            node.GPUVendor,
 		ComputeCapability: node.GPUComputeCapability,
-		VRAM:              node.TotalVRAM,
+		VRAM:              usableVRAM,
 	}
 	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
 		// Gate the raised batch on the selected node's per-device VRAM at this
