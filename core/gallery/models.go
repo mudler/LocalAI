@@ -399,7 +399,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 		if err != nil {
 			return nil, err
 		}
-		if modelConfig.Model != "" {
+		if modelConfig.Model != "" && len(modelConfig.Artifacts) == 0 {
 			additionalFiles = append(additionalFiles, modelConfig.ModelFileName())
 		}
 

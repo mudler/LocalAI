@@ -206,3 +206,34 @@ parameters: {model: owner/repo}
 		Expect(fake.seen).To(HaveLen(1))
 	})
 })
+
+var _ = Describe("artifact cache deletion policy", func() {
+	It("deletes the installed config without treating its snapshot directory as a regular file", func() {
+		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		modelsPath := GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(modelsPath))
+		Expect(err).NotTo(HaveOccurred())
+		artifactRoot := filepath.Join(modelsPath, ".artifacts", "huggingface", cacheKey)
+		Expect(os.MkdirAll(filepath.Join(artifactRoot, "snapshot"), 0750)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(artifactRoot, "manifest.json"), []byte("{}"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(modelsPath, "managed.yaml"), []byte(`
+name: managed
+artifacts:
+  - name: model
+    target: model
+    source: {type: huggingface, repo: owner/repo}
+    resolved:
+      endpoint: https://huggingface.co
+      revision: 0123456789abcdef0123456789abcdef01234567
+      cache_key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+parameters:
+  model: owner/repo
+`), 0644)).To(Succeed())
+
+		Expect(gallery.DeleteModelFromSystem(state, "managed")).To(Succeed())
+		Expect(filepath.Join(modelsPath, "managed.yaml")).NotTo(BeAnExistingFile())
+		Expect(artifactRoot).To(BeADirectory())
+		Expect(filepath.Join(artifactRoot, "snapshot")).To(BeADirectory())
+		Expect(filepath.Join(artifactRoot, "manifest.json")).To(BeAnExistingFile())
+	})
+})
