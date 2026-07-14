@@ -32,6 +32,7 @@ from longcat_utils import (
     require_bool,
     require_float,
     require_int,
+    select_known_options,
     validate_dimensions,
 )
 
@@ -126,10 +127,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
 
         try:
-            options = parse_options(request.Options)
-            unknown = sorted(set(options) - LOAD_OPTIONS)
-            if unknown:
-                raise ValueError(f"unknown model option(s): {', '.join(unknown)}")
+            options, ignored = select_known_options(
+                parse_options(request.Options), LOAD_OPTIONS
+            )
+            if ignored:
+                # The server injects llama.cpp serving defaults (cache_reuse,
+                # parallel) onto every config; ignore what we don't understand
+                # rather than fail to load.
+                print(
+                    f"longcat-video ignoring unknown model option(s): {', '.join(ignored)}",
+                    file=sys.stderr,
+                )
 
             self._import_torch()
             if not self.torch.cuda.is_available():
@@ -240,10 +248,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipeline._interrupt = True
 
         try:
-            params = dict(request.params)
-            unknown = sorted(set(params) - REQUEST_PARAMS)
-            if unknown:
-                raise ValueError(f"unknown request param(s): {', '.join(unknown)}")
+            params, ignored_params = select_known_options(
+                dict(request.params), REQUEST_PARAMS
+            )
+            if ignored_params:
+                print(
+                    f"longcat-video ignoring unknown request param(s): {', '.join(ignored_params)}",
+                    file=sys.stderr,
+                )
 
             os.makedirs(os.path.dirname(request.dst) or ".", mode=0o750, exist_ok=True)
             if hasattr(context, "add_callback"):

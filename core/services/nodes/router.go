@@ -177,7 +177,7 @@ type scheduleLoadResult struct {
 // an upstream host (the GPU-less frontend in distributed mode) guessed higher.
 // Only values the heuristics themselves manage are touched, so an explicit user
 // batch (e.g. 1024) is never overridden.
-func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
+func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend string) {
 	if opts == nil || node == nil || config.HardwareDefaultsDisabled() {
 		return
 	}
@@ -196,8 +196,12 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode) {
 	// the options may have no GPU). Gated on the node's per-device VRAM at this
 	// model's context, so a large context that already fills the device can't
 	// tip it into OOM by adding slot scratch (issue #10485). Only adds when no
-	// parallel option is set.
-	opts.Options = config.EnsureParallelOptionForContext(opts.Options, gpu, int(opts.ContextSize))
+	// parallel option is set. parallel is a llama.cpp option string, so it is
+	// also gated by backend: a strict backend (e.g. longcat-video) rejects an
+	// unknown option at LoadModel. The typed NBatch above needs no such gate.
+	if config.UsesLlamaCppServingOptions(backend) {
+		opts.Options = config.EnsureParallelOptionForContext(opts.Options, gpu, int(opts.ContextSize))
+	}
 }
 
 // scheduleAndLoad is the shared core for loading a model on a new node.
@@ -218,7 +222,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// Tune node-agnostic options to the SELECTED node's GPU. Only now do we know
 	// which node (and its compute capability) will run the model — the frontend
 	// that built modelOpts may have no GPU at all in distributed mode.
-	applyNodeHardwareDefaults(modelOpts, node)
+	applyNodeHardwareDefaults(modelOpts, node, backendType)
 
 	// Pre-stage model files via FileStager before loading
 	loadOpts := modelOpts
