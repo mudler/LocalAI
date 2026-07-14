@@ -93,6 +93,30 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 		})
 	})
 
+	// VRAMBudget round trip pins the Settings-page persistence contract: the
+	// operator-set cap must survive ToRuntimeSettings (GET /api/settings) ->
+	// ApplyRuntimeSettings (POST /api/settings) so it lives past a save, and an
+	// empty value must clear the cap rather than being dropped.
+	Describe("VRAMBudget round trip", func() {
+		It("round-trips the VRAM budget", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			rs := o.ToRuntimeSettings()
+			Expect(rs.VRAMBudget).NotTo(BeNil())
+			Expect(*rs.VRAMBudget).To(Equal("80%"))
+
+			o2 := config.NewApplicationConfig()
+			o2.ApplyRuntimeSettings(&rs)
+			Expect(o2.VRAMBudget).To(Equal("80%"))
+		})
+
+		It("applies an empty VRAM budget as clearing the cap", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			empty := ""
+			o.ApplyRuntimeSettings(&config.RuntimeSettings{VRAMBudget: &empty})
+			Expect(o.VRAMBudget).To(Equal(""))
+		})
+	})
+
 	// MITM round trip pins the contract that loadRuntimeSettingsFromFile
 	// MITM listener address must survive a write/read round trip so the
 	// next process restart can bring the listener back up. (Intercept

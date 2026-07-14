@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -260,9 +261,9 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// toggle can still turn it off (a persisted false wins - see
 		// loadRuntimeSettingsFromFile).
 		EnableBackendLogging:     true,
-		AgentJobRetentionDays:    30,              // Default: 30 days
-		LRUEvictionMaxRetries:    30,              // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		AgentJobRetentionDays:    30,               // Default: 30 days
+		LRUEvictionMaxRetries:    30,               // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
 		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
 		// WatchDogInterval is intentionally left at the zero value here.
 		// The startup loader applies a persisted runtime_settings.json value
@@ -1106,6 +1107,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
 	threads := o.Threads
 	contextSize := o.ContextSize
+	vramBudget := o.VRAMBudget
 	f16 := o.F16
 	debug := o.Debug
 	tracingMaxItems := o.TracingMaxItems
@@ -1200,6 +1202,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
 		Threads:                   &threads,
 		ContextSize:               &contextSize,
+		VRAMBudget:                &vramBudget,
 		F16:                       &f16,
 		Debug:                     &debug,
 		TracingMaxItems:           &tracingMaxItems,
@@ -1339,6 +1342,15 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.ContextSize != nil {
 		o.ContextSize = *settings.ContextSize
+	}
+	if settings.VRAMBudget != nil {
+		o.VRAMBudget = *settings.VRAMBudget
+		// Live-apply so the cap takes effect without a restart. An empty string
+		// clears the cap; a malformed value is rejected by the settings endpoint,
+		// but stay fail-open here too so a bad persisted value cannot wedge apply.
+		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
+			xsysinfo.SetDefaultVRAMBudget(b)
+		}
 	}
 	if settings.F16 != nil {
 		o.F16 = *settings.F16
