@@ -460,6 +460,7 @@ func (bcl *ModelConfigLoader) preloadOne(
 ) (ModelConfig, *modelartifacts.Result, error) {
 	updated := config
 	updated.Artifacts = slices.Clone(config.Artifacts)
+	tasks := make([]downloader.FileTask, 0, len(updated.DownloadFiles))
 	for index, file := range updated.DownloadFiles {
 		if err := ctx.Err(); err != nil {
 			return ModelConfig{}, nil, err
@@ -468,10 +469,16 @@ func (bcl *ModelConfigLoader) preloadOne(
 		if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
 			return ModelConfig{}, nil, err
 		}
-		filePath := filepath.Join(modelPath, file.Filename)
-		if err := file.URI.DownloadFileWithContext(ctx, filePath, file.SHA256, index, len(updated.DownloadFiles), status); err != nil {
-			return ModelConfig{}, nil, err
-		}
+		tasks = append(tasks, downloader.FileTask{
+			URI:         file.URI,
+			Destination: filepath.Join(modelPath, file.Filename),
+			SHA256:      file.SHA256,
+			FileIndex:   index,
+			TotalFiles:  len(updated.DownloadFiles),
+		})
+	}
+	if err := downloader.DownloadFilesWithContext(ctx, tasks, status); err != nil {
+		return ModelConfig{}, nil, err
 	}
 
 	artifactSpec, inferred, managedPrimary, err := updated.PrimaryArtifactSpec(modelPath)

@@ -289,6 +289,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 	}
 
 	// Download files and verify their SHA
+	tasks := make([]downloader.FileTask, 0, len(config.Files))
 	for i, file := range config.Files {
 		// Check for cancellation before each file
 		select {
@@ -313,10 +314,16 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 				return nil, err
 			}
 		}
-		uri := downloader.URI(file.URI)
-		if err := uri.DownloadFileWithContext(ctx, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
-			return nil, err
-		}
+		tasks = append(tasks, downloader.FileTask{
+			URI:         downloader.URI(file.URI),
+			Destination: filePath,
+			SHA256:      file.SHA256,
+			FileIndex:   i,
+			TotalFiles:  len(config.Files),
+		})
+	}
+	if err := downloader.DownloadFilesWithContext(ctx, tasks, downloadStatus); err != nil {
+		return nil, err
 	}
 
 	// Write prompt template contents to separate files

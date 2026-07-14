@@ -221,6 +221,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 
 	manifest := Manifest{Version: ManifestVersion, Artifact: spec, Files: make([]ManifestFile, 0, len(snapshot.Files))}
 	completedBytes := int64(0)
+	tasks := make([]downloader.FileTask, 0, len(snapshot.Files))
 	for index, file := range snapshot.Files {
 		if err := ctx.Err(); err != nil {
 			return Result{}, err
@@ -228,32 +229,60 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 		nameSum := sha256.Sum256([]byte(file.Path))
 		blobRel := path.Join(".downloads", hex.EncodeToString(nameSum[:]))
 		blobAbs := filepath.Join(layout.Partial, filepath.FromSlash(blobRel))
-		ReportProgress(ctx, ProgressEvent{Phase: PhaseDownloading, Artifact: spec.Name, File: file.Path, CurrentBytes: completedBytes, TotalBytes: totalBytes, CompletedFiles: index, TotalFiles: len(snapshot.Files)})
-		err := downloader.URI(file.URL).DownloadFileWithContext(ctx, blobAbs, file.LFSOID, index, len(snapshot.Files), nil,
-			downloader.WithBearerToken(token),
-			downloader.WithTransferProgress(func(event downloader.TransferProgress) {
-				ReportProgress(ctx, ProgressEvent{Phase: PhaseDownloading, Artifact: spec.Name, File: file.Path, CurrentBytes: completedBytes + event.Written, TotalBytes: totalBytes, CompletedFiles: index, TotalFiles: len(snapshot.Files)})
-			}),
-		)
-		if err != nil {
-			return Result{}, err
+		file := file
+		taskIndex := index
+		task := downloader.FileTask{
+			URI:         downloader.URI(file.URL),
+			Destination: blobAbs,
+			SHA256:      file.LFSOID,
+			FileIndex:   taskIndex,
+			TotalFiles:  len(snapshot.Files),
+			Options: []downloader.DownloadOption{
+				downloader.WithBearerToken(token),
+				downloader.WithTransferProgress(func(event downloader.TransferProgress) {
+					ReportProgress(ctx, ProgressEvent{
+						Phase:          PhaseDownloading,
+						Artifact:       spec.Name,
+						File:           file.Path,
+						CurrentBytes:   completedBytes + event.Written,
+						TotalBytes:     totalBytes,
+						CompletedFiles: taskIndex,
+						TotalFiles:     len(snapshot.Files),
+					})
+				}),
+			},
+			AfterDownload: func(string) error {
+				ReportProgress(ctx, ProgressEvent{
+					Phase:          PhaseVerifying,
+					Artifact:       spec.Name,
+					File:           file.Path,
+					CurrentBytes:   completedBytes + file.Size,
+					TotalBytes:     totalBytes,
+					CompletedFiles: taskIndex,
+					TotalFiles:     len(snapshot.Files),
+				})
+				entry, err := verifyDownloadedFile(blobAbs, file)
+				if err != nil {
+					_ = root.Remove(blobRel)
+					return err
+				}
+				destination := path.Join("snapshot", file.Path)
+				if err := root.MkdirAll(path.Dir(destination), 0o750); err != nil {
+					return err
+				}
+				_ = root.Remove(destination)
+				if err := root.Rename(blobRel, destination); err != nil {
+					return err
+				}
+				manifest.Files = append(manifest.Files, entry)
+				completedBytes += file.Size
+				return nil
+			},
 		}
-		ReportProgress(ctx, ProgressEvent{Phase: PhaseVerifying, Artifact: spec.Name, File: file.Path, CurrentBytes: completedBytes + file.Size, TotalBytes: totalBytes, CompletedFiles: index, TotalFiles: len(snapshot.Files)})
-		entry, err := verifyDownloadedFile(blobAbs, file)
-		if err != nil {
-			_ = root.Remove(blobRel)
-			return Result{}, err
-		}
-		destination := path.Join("snapshot", file.Path)
-		if err := root.MkdirAll(path.Dir(destination), 0o750); err != nil {
-			return Result{}, err
-		}
-		_ = root.Remove(destination)
-		if err := root.Rename(blobRel, destination); err != nil {
-			return Result{}, err
-		}
-		manifest.Files = append(manifest.Files, entry)
-		completedBytes += file.Size
+		tasks = append(tasks, task)
+	}
+	if err := downloader.DownloadFilesWithContext(ctx, tasks, nil); err != nil {
+		return Result{}, err
 	}
 	if err := root.RemoveAll(".downloads"); err != nil {
 		return Result{}, err
