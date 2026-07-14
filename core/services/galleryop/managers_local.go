@@ -17,6 +17,7 @@ type LocalModelManager struct {
 	enforcePredownloadScans     bool
 	automaticallyInstallBackend bool
 	requireBackendIntegrity     bool
+	artifactMaterializer        config.ArtifactMaterializer
 }
 
 // NewLocalModelManager creates a LocalModelManager from the application config.
@@ -27,6 +28,7 @@ func NewLocalModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLo
 		enforcePredownloadScans:     appConfig.EnforcePredownloadScans,
 		automaticallyInstallBackend: appConfig.AutoloadBackendGalleries,
 		requireBackendIntegrity:     appConfig.RequireBackendIntegrity,
+		artifactMaterializer:        appConfig.ModelArtifactMaterializer,
 	}
 }
 
@@ -48,7 +50,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 	switch {
 	case op.GalleryElement != nil:
 		installedModel, err := gallery.InstallModel(ctx, m.systemState, op.GalleryElement.Name,
-			op.GalleryElement, op.Req.Overrides, progressCb, m.enforcePredownloadScans)
+			op.GalleryElement, op.Req.Overrides, progressCb, m.enforcePredownloadScans,
+			gallery.WithArtifactMaterializer(m.artifactMaterializer))
 		if err != nil {
 			return err
 		}
@@ -61,10 +64,12 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 	case op.GalleryElementName != "":
 		return gallery.InstallModelFromGallery(ctx, op.Galleries, op.BackendGalleries,
 			m.systemState, m.modelLoader, op.GalleryElementName, op.Req, progressCb,
-			m.enforcePredownloadScans, m.automaticallyInstallBackend, m.requireBackendIntegrity)
+			m.enforcePredownloadScans, m.automaticallyInstallBackend, m.requireBackendIntegrity,
+			gallery.WithArtifactMaterializer(m.artifactMaterializer))
 	default:
 		return installModelFromRemoteConfig(ctx, m.systemState, m.modelLoader, op.Req,
-			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity)
+			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity,
+			gallery.WithArtifactMaterializer(m.artifactMaterializer))
 	}
 }
 

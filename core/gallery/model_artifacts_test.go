@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -164,5 +165,44 @@ parameters:
 		Expect(fake.seen).To(BeEmpty())
 		Expect(installed.Model).To(Equal("owner/legacy"))
 		Expect(filepath.Join(modelsPath, "legacy.yaml")).To(BeAnExistingFile())
+	})
+
+	It("passes the controller materializer through named gallery installs", func() {
+		modelsPath := GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(modelsPath))
+		Expect(err).NotTo(HaveOccurred())
+		definitionPath := filepath.Join(modelsPath, "definition.yaml")
+		definition, err := yaml.Marshal(gallery.ModelConfig{Name: "managed", ConfigFile: `
+backend: transformers
+artifacts:
+  - source: {type: huggingface, repo: owner/repo}
+parameters: {model: owner/repo}
+`})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(definitionPath, definition, 0644)).To(Succeed())
+		galleryPath := filepath.Join(modelsPath, "index.yaml")
+		index, err := yaml.Marshal([]gallery.GalleryModel{{Metadata: gallery.Metadata{
+			Name: "managed",
+			URL:  "file://" + definitionPath,
+		}}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(galleryPath, index, 0644)).To(Succeed())
+		galleries := []config.Gallery{{Name: "test", URL: "file://" + galleryPath}}
+		fake := &fakeArtifactMaterializer{result: modelartifacts.Result{Spec: modelartifacts.Spec{
+			Name: "model", Target: "model",
+			Source: modelartifacts.Source{Type: "huggingface", Repo: "owner/repo", Revision: "main"},
+			Resolved: &modelartifacts.Resolved{
+				Endpoint: "https://huggingface.co",
+				Revision: "0123456789abcdef0123456789abcdef01234567",
+				CacheKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			},
+		}}}
+
+		Expect(gallery.InstallModelFromGallery(
+			context.Background(), galleries, nil, state, nil, "test@managed",
+			gallery.GalleryModel{}, nil, false, false, false,
+			gallery.WithArtifactMaterializer(fake),
+		)).To(Succeed())
+		Expect(fake.seen).To(HaveLen(1))
 	})
 })

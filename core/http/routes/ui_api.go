@@ -909,7 +909,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
+		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
+			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),

@@ -79,7 +79,7 @@ func InstallModelFromGallery(
 	modelGalleries, backendGalleries []lconfig.Gallery,
 	systemState *system.SystemState,
 	modelLoader *model.ModelLoader,
-	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend, requireBackendIntegrity bool) error {
+	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend, requireBackendIntegrity bool, options ...InstallOption) error {
 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -131,7 +131,7 @@ func InstallModelFromGallery(
 			}
 		}
 
-		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan)
+		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan, options...)
 		if err != nil {
 			return err
 		}

@@ -94,6 +94,15 @@ func (g *GalleryService) BackendManager() BackendManager {
 	return g.backendManager
 }
 
+// ModelArtifactMaterializer returns the controller-only acquisition capability
+// used by startup paths that install gallery entries outside the operation loop.
+func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer {
+	if g == nil || g.appConfig == nil {
+		return nil
+	}
+	return g.appConfig.ModelArtifactMaterializer
+}
+
 // SetNATSClient sets the NATS client for distributed progress publishing.
 // Accepting the wider MessagingClient (vs. plain Publisher) lets
 // SubscribeBroadcasts wire the wildcard subscriptions that keep peer

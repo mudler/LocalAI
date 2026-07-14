@@ -107,7 +107,11 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		return err
 	}
 
-	err = cl.Preload(systemState.Model.ModelsPath)
+	preloadContext := op.Context
+	if preloadContext == nil {
+		preloadContext = context.Background()
+	}
+	err = cl.PreloadWithContext(preloadContext, systemState.Model.ModelsPath)
 	if err != nil {
 		return err
 	}
@@ -137,7 +141,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 	return nil
 }
 
-func installModelFromRemoteConfig(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, req gallery.GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend bool, backendGalleries []config.Gallery, requireBackendIntegrity bool) error {
+func installModelFromRemoteConfig(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, req gallery.GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend bool, backendGalleries []config.Gallery, requireBackendIntegrity bool, options ...gallery.InstallOption) error {
 	config, err := gallery.GetGalleryConfigFromURLWithContext[gallery.ModelConfig](ctx, req.URL, systemState.Model.ModelsPath)
 	if err != nil {
 		return err
@@ -145,7 +149,7 @@ func installModelFromRemoteConfig(ctx context.Context, systemState *system.Syste
 
 	config.Files = append(config.Files, req.AdditionalFiles...)
 
-	installedModel, err := gallery.InstallModel(ctx, systemState, req.Name, &config, req.Overrides, downloadStatus, enforceScan)
+	installedModel, err := gallery.InstallModel(ctx, systemState, req.Name, &config, req.Overrides, downloadStatus, enforceScan, options...)
 	if err != nil {
 		return err
 	}
@@ -164,23 +168,23 @@ type galleryModel struct {
 	ID                   string           `json:"id"`
 }
 
-func processRequests(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, requests []galleryModel, requireBackendIntegrity bool) error {
+func processRequests(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, requests []galleryModel, requireBackendIntegrity bool, options ...gallery.InstallOption) error {
 	ctx := context.Background()
 	var err error
 	for _, r := range requests {
 		utils.ResetDownloadTimers()
 		if r.ID == "" {
-			err = installModelFromRemoteConfig(ctx, systemState, modelLoader, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, backendGalleries, requireBackendIntegrity)
+			err = installModelFromRemoteConfig(ctx, systemState, modelLoader, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, backendGalleries, requireBackendIntegrity, options...)
 
 		} else {
 			err = gallery.InstallModelFromGallery(
-				ctx, galleries, backendGalleries, systemState, modelLoader, r.ID, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, requireBackendIntegrity)
+				ctx, galleries, backendGalleries, systemState, modelLoader, r.ID, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, requireBackendIntegrity, options...)
 		}
 	}
 	return err
 }
 
-func ApplyGalleryFromFile(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, s string, requireBackendIntegrity bool) error {
+func ApplyGalleryFromFile(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, s string, requireBackendIntegrity bool, options ...gallery.InstallOption) error {
 	dat, err := os.ReadFile(s)
 	if err != nil {
 		return err
@@ -191,15 +195,15 @@ func ApplyGalleryFromFile(systemState *system.SystemState, modelLoader *model.Mo
 		return err
 	}
 
-	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests, requireBackendIntegrity)
+	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests, requireBackendIntegrity, options...)
 }
 
-func ApplyGalleryFromString(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, s string, requireBackendIntegrity bool) error {
+func ApplyGalleryFromString(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, s string, requireBackendIntegrity bool, options ...gallery.InstallOption) error {
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
 		return err
 	}
 
-	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests, requireBackendIntegrity)
+	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests, requireBackendIntegrity, options...)
 }

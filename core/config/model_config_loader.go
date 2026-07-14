@@ -2,11 +2,13 @@ package config
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -14,22 +16,59 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
+// ArtifactMaterializer resolves and commits a model artifact into local storage.
+type ArtifactMaterializer interface {
+	Ensure(context.Context, string, modelartifacts.Spec) (modelartifacts.Result, error)
+}
+
+// ModelConfigLoaderOption customizes a ModelConfigLoader at construction time.
+type ModelConfigLoaderOption func(*ModelConfigLoader)
+
+// WithArtifactMaterializer sets the controller-side artifact acquisition boundary.
+func WithArtifactMaterializer(materializer ArtifactMaterializer) ModelConfigLoaderOption {
+	return func(loader *ModelConfigLoader) {
+		if materializer != nil {
+			loader.artifactMaterializer = materializer
+		}
+	}
+}
+
+// WithPreloadDisplay configures terminal rendering without reading process state.
+func WithPreloadDisplay(renderMode string, disableColor bool) ModelConfigLoaderOption {
+	return func(loader *ModelConfigLoader) {
+		if renderMode != "" {
+			loader.preloadRenderMode = renderMode
+		}
+		loader.disablePreloadColor = disableColor
+	}
+}
+
 type ModelConfigLoader struct {
-	configs   map[string]ModelConfig
-	modelPath string
+	configs              map[string]ModelConfig
+	modelPath            string
+	artifactMaterializer ArtifactMaterializer
+	preloadRenderMode    string
+	disablePreloadColor  bool
 	sync.Mutex
 }
 
-func NewModelConfigLoader(modelPath string) *ModelConfigLoader {
-	return &ModelConfigLoader{
-		configs:   make(map[string]ModelConfig),
-		modelPath: modelPath,
+func NewModelConfigLoader(modelPath string, options ...ModelConfigLoaderOption) *ModelConfigLoader {
+	loader := &ModelConfigLoader{
+		configs:              make(map[string]ModelConfig),
+		modelPath:            modelPath,
+		artifactMaterializer: modelartifacts.NewDefaultManager(),
+		preloadRenderMode:    "dark",
 	}
+	for _, option := range options {
+		option(loader)
+	}
+	return loader
 }
 
 type LoadOptions struct {
@@ -351,98 +390,150 @@ func (bcl *ModelConfigLoader) ValidateAliasTarget(cfg *ModelConfig) error {
 	return nil
 }
 
-// Preload prepare models if they are not local but url or huggingface repositories
+type preloadWork struct {
+	key    string
+	config ModelConfig
+}
+
+// Preload prepares models if they are not local but URLs or Hugging Face repositories.
 func (bcl *ModelConfigLoader) Preload(modelPath string) error {
+	return bcl.PreloadWithContext(context.Background(), modelPath)
+}
+
+// PreloadWithContext prepares remote model inputs while honoring cancellation.
+func (bcl *ModelConfigLoader) PreloadWithContext(ctx context.Context, modelPath string) error {
 	bcl.Lock()
-	defer bcl.Unlock()
+	work := make([]preloadWork, 0, len(bcl.configs))
+	for key, config := range bcl.configs {
+		configCopy := config
+		configCopy.Artifacts = slices.Clone(config.Artifacts)
+		configCopy.DownloadFiles = slices.Clone(config.DownloadFiles)
+		work = append(work, preloadWork{key: key, config: configCopy})
+	}
+	bcl.Unlock()
 
 	status := func(fileName, current, total string, percent float64) {
 		utils.DisplayDownloadFunction(fileName, current, total, percent)
 	}
 
 	xlog.Info("Preloading models", "path", modelPath)
+	for _, item := range work {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		updated, artifactResult, err := bcl.preloadOne(ctx, modelPath, item.config, status)
+		if err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-	renderMode := "dark"
-	if os.Getenv("COLOR") != "" {
-		renderMode = os.Getenv("COLOR")
+		bcl.Lock()
+		current, exists := bcl.configs[item.key]
+		if !exists || !reflect.DeepEqual(current, item.config) {
+			bcl.Unlock()
+			continue
+		}
+		if artifactResult != nil && bindingNeedsPersistence(current, *artifactResult) && current.modelConfigFile != "" {
+			modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
+				Phase:    modelartifacts.PhasePersisting,
+				Artifact: artifactResult.Spec.Name,
+			})
+			if err := persistArtifactBinding(current.modelConfigFile, current.Name, *artifactResult); err != nil {
+				bcl.Unlock()
+				return err
+			}
+		}
+		bcl.configs[item.key] = updated
+		bcl.Unlock()
+		bcl.displayPreloadedModel(updated)
+	}
+	return nil
+}
+
+func (bcl *ModelConfigLoader) preloadOne(
+	ctx context.Context,
+	modelPath string,
+	config ModelConfig,
+	status func(string, string, string, float64),
+) (ModelConfig, *modelartifacts.Result, error) {
+	updated := config
+	updated.Artifacts = slices.Clone(config.Artifacts)
+	for index, file := range updated.DownloadFiles {
+		if err := ctx.Err(); err != nil {
+			return ModelConfig{}, nil, err
+		}
+		xlog.Debug("Checking file exists and matches SHA", "filename", file.Filename)
+		if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
+			return ModelConfig{}, nil, err
+		}
+		filePath := filepath.Join(modelPath, file.Filename)
+		if err := file.URI.DownloadFileWithContext(ctx, filePath, file.SHA256, index, len(updated.DownloadFiles), status); err != nil {
+			return ModelConfig{}, nil, err
+		}
 	}
 
+	managedPrimary := len(updated.Artifacts) > 0
+	var artifactResult *modelartifacts.Result
+	if managedPrimary {
+		result, err := bcl.artifactMaterializer.Ensure(ctx, modelPath, updated.Artifacts[0])
+		if err != nil {
+			return ModelConfig{}, nil, err
+		}
+		updated.Artifacts[0] = result.Spec
+		artifactResult = &result
+	}
+
+	if !managedPrimary && updated.IsModelURL() {
+		modelFileName := updated.ModelFileName()
+		uri := downloader.URI(updated.Model)
+		if uri.ResolveURL() != updated.Model {
+			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
+				if err := uri.DownloadFileWithContext(ctx, filepath.Join(modelPath, modelFileName), "", 0, 0, status); err != nil {
+					return ModelConfig{}, nil, err
+				}
+			}
+			updated.Model = modelFileName
+		}
+	}
+
+	if updated.IsMMProjURL() {
+		modelFileName := updated.MMProjFileName()
+		uri := downloader.URI(updated.MMProj)
+		if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
+			if err := uri.DownloadFileWithContext(ctx, filepath.Join(modelPath, modelFileName), "", 0, 0, status); err != nil {
+				return ModelConfig{}, nil, err
+			}
+		}
+		updated.MMProj = modelFileName
+	}
+	return updated, artifactResult, nil
+}
+
+func bindingNeedsPersistence(current ModelConfig, result modelartifacts.Result) bool {
+	return len(current.Artifacts) == 0 || !reflect.DeepEqual(current.Artifacts[0], result.Spec)
+}
+
+func (bcl *ModelConfigLoader) displayPreloadedModel(config ModelConfig) {
 	glamText := func(t string) {
-		out, err := glamour.Render(t, renderMode)
-		if err == nil && os.Getenv("NO_COLOR") == "" {
+		out, err := glamour.Render(t, bcl.preloadRenderMode)
+		if err == nil && !bcl.disablePreloadColor {
 			fmt.Println(out)
 		} else {
 			fmt.Println(t)
 		}
 	}
 
-	for i, config := range bcl.configs {
-
-		// Download files and verify their SHA
-		for i, file := range config.DownloadFiles {
-			xlog.Debug("Checking file exists and matches SHA", "filename", file.Filename)
-
-			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
-				return err
-			}
-			// Create file path
-			filePath := filepath.Join(modelPath, file.Filename)
-
-			if err := file.URI.DownloadFile(filePath, file.SHA256, i, len(config.DownloadFiles), status); err != nil {
-				return err
-			}
-		}
-
-		// If the model is an URL, expand it, and download the file
-		if config.IsModelURL() {
-			modelFileName := config.ModelFileName()
-			uri := downloader.URI(config.Model)
-			if uri.ResolveURL() != config.Model {
-				// check if file exists
-				if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
-					err := uri.DownloadFile(filepath.Join(modelPath, modelFileName), "", 0, 0, status)
-					if err != nil {
-						return err
-					}
-				}
-
-				cc := bcl.configs[i]
-				c := &cc
-				c.PredictionOptions.Model = modelFileName
-				bcl.configs[i] = *c
-			}
-		}
-
-		if config.IsMMProjURL() {
-			modelFileName := config.MMProjFileName()
-			uri := downloader.URI(config.MMProj)
-			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
-				err := uri.DownloadFile(filepath.Join(modelPath, modelFileName), "", 0, 0, status)
-				if err != nil {
-					return err
-				}
-			}
-
-			cc := bcl.configs[i]
-			c := &cc
-			c.MMProj = modelFileName
-			bcl.configs[i] = *c
-		}
-
-		if bcl.configs[i].Name != "" {
-			glamText(fmt.Sprintf("**Model name**: _%s_", bcl.configs[i].Name))
-		}
-		if bcl.configs[i].Description != "" {
-			//glamText("**Description**")
-			glamText(bcl.configs[i].Description)
-		}
-		if bcl.configs[i].Usage != "" {
-			//glamText("**Usage**")
-			glamText(bcl.configs[i].Usage)
-		}
+	if config.Name != "" {
+		glamText(fmt.Sprintf("**Model name**: _%s_", config.Name))
 	}
-	return nil
+	if config.Description != "" {
+		glamText(config.Description)
+	}
+	if config.Usage != "" {
+		glamText(config.Usage)
+	}
 }
 
 // MITMHostOwnership is the result of mapping intercept hosts to the

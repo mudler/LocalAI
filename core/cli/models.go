@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	"github.com/schollz/progressbar/v3"
@@ -24,6 +25,9 @@ type ModelsCMDFlags struct {
 	BackendGalleries string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	ModelsPath       string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	BackendsPath     string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
+	Color            string `env:"COLOR" hidden:""`
+	NoColor          string `env:"NO_COLOR" hidden:""`
+	HFToken          string `env:"HF_TOKEN" hidden:""`
 }
 
 type ModelsList struct {
@@ -80,10 +84,18 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	artifactMaterializer := modelartifacts.NewDefaultManager(
+		modelartifacts.WithHuggingFaceToken(mi.HFToken),
+	)
 	galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
-		SystemState: systemState,
+		SystemState:               systemState,
+		ModelArtifactMaterializer: artifactMaterializer,
+		ModelPreloadRenderMode:    mi.Color,
+		DisableModelPreloadColor:  mi.NoColor != "",
 	}, model.NewModelLoader(systemState))
-	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath), systemState)
+	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath,
+		config.WithArtifactMaterializer(artifactMaterializer),
+		config.WithPreloadDisplay(mi.Color, mi.NoColor != "")), systemState)
 	if err != nil {
 		return err
 	}
