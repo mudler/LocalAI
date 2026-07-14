@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.10.0
+torch==2.12.0+cpu
 trl
 peft
 datasets>=3.0.0
