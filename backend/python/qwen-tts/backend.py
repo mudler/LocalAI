@@ -26,6 +26,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 
 
@@ -190,19 +191,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 )
                 print(traceback.format_exc(), file=sys.stderr)
 
-        # Get model path from request
-        model_path = request.Model
-        if not model_path:
-            model_path = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+        model_path, _local_only = resolve_model_reference(
+            request, "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+        )
+        detection_ref = request.Model or model_path
 
         # Determine model type from model path or options
         self.model_type = self.options.get("model_type", None)
         if not self.model_type:
-            if "CustomVoice" in model_path:
+            if "CustomVoice" in detection_ref:
                 self.model_type = "CustomVoice"
-            elif "VoiceDesign" in model_path:
+            elif "VoiceDesign" in detection_ref:
                 self.model_type = "VoiceDesign"
-            elif "Base" in model_path or "0.6B" in model_path or "1.7B" in model_path:
+            elif (
+                "Base" in detection_ref
+                or "0.6B" in detection_ref
+                or "1.7B" in detection_ref
+            ):
                 self.model_type = "Base"  # VoiceClone model
             else:
                 # Default to CustomVoice

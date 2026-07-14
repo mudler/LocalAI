@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 
-from model_utils import resolve_model_reference
+from model_utils import require_snapshot_file, resolve_model_reference
 
 
 class ResolveModelReferenceTest(unittest.TestCase):
@@ -24,12 +24,35 @@ class ResolveModelReferenceTest(unittest.TestCase):
             ("default/repo", False),
         )
 
+    def test_requires_the_only_matching_snapshot_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint = os.path.join(directory, "model.nemo")
+            with open(checkpoint, "wb"):
+                pass
+            self.assertEqual(require_snapshot_file(directory, ".nemo"), checkpoint)
+
+    def test_rejects_ambiguous_packaged_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("first.nemo", "second.nemo"):
+                with open(os.path.join(directory, name), "wb"):
+                    pass
+            with self.assertRaisesRegex(ValueError, "exactly one"):
+                require_snapshot_file(directory, ".nemo")
+
 
 class MigratedBackendSourceTest(unittest.TestCase):
     def test_general_backends_use_shared_resolution(self):
         common_dir = os.path.dirname(__file__)
         python_root = os.path.dirname(common_dir)
-        for backend in ("transformers", "diffusers", "qwen-asr", "fish-speech"):
+        for backend in (
+            "transformers",
+            "diffusers",
+            "qwen-asr",
+            "fish-speech",
+            "nemo",
+            "voxcpm",
+            "qwen-tts",
+        ):
             with self.subTest(backend=backend):
                 with open(
                     os.path.join(python_root, backend, "backend.py"), encoding="utf-8"
