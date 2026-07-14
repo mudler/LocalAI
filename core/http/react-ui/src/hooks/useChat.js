@@ -218,8 +218,15 @@ export function useChat(initialModel = '') {
 
     // Build user message content
     let messageContent
-    const userFiles = []
-    if (files.length > 0) {
+    let userFiles = []
+    if (options.prebuiltContent) {
+      // Caller (e.g. regenerate) already has the fully-assembled content from
+      // the original send — reuse it verbatim instead of rebuilding from
+      // display-only file metadata, which doesn't carry the base64/text
+      // payload needed to re-embed attachments.
+      messageContent = content
+      userFiles = files
+    } else if (files.length > 0) {
       messageContent = [{ type: 'text', text: content }]
       for (const file of files) {
         if (file.type?.startsWith('image/')) {
