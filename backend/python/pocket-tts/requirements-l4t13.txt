@@ -1,0 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+pocket-tts
+scipy
+torch

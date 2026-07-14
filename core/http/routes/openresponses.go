@@ -1,0 +1,76 @@
+package routes
+
+import (
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/config"
+	localai "github.com/mudler/LocalAI/core/http/endpoints/localai"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
+	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/schema"
+)
+
+func RegisterOpenResponsesRoutes(app *echo.Echo,
+	re *middleware.RequestExtractor,
+	application *application.Application) {
+
+	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
+	var natsClient mcpTools.MCPNATSClient
+	if d := application.Distributed(); d != nil {
+		natsClient = d.Nats
+	}
+
+	// Open Responses API endpoint
+	responsesHandler := openresponses.ResponsesEndpoint(
+		application.ModelConfigLoader(),
+		application.ModelLoader(),
+		application.TemplatesEvaluator(),
+		application.ApplicationConfig(),
+		natsClient,
+	)
+
+	responsesMiddleware := []echo.MiddlewareFunc{
+		// Intercept requests where the model name matches an agent — route directly
+		// to the agent pool without going through the model config resolution pipeline.
+		localai.AgentResponsesInterceptor(application),
+		middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()),
+		middleware.TraceMiddleware(application),
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenResponsesRequest) }),
+		setOpenResponsesRequestContext(re),
+	}
+
+	// Main Open Responses endpoint
+	app.POST("/v1/responses", responsesHandler, responsesMiddleware...)
+
+	// Also support without version prefix for compatibility
+	app.POST("/responses", responsesHandler, responsesMiddleware...)
+
+	// WebSocket mode for Responses API
+	wsHandler := openresponses.WebSocketEndpoint(application)
+	app.GET("/v1/responses", wsHandler, middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()), middleware.TraceMiddleware(application))
+	app.GET("/responses", wsHandler, middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()), middleware.TraceMiddleware(application))
+
+	// GET /responses/:id - Retrieve a response (for polling background requests)
+	getResponseHandler := openresponses.GetResponseEndpoint()
+	app.GET("/v1/responses/:id", getResponseHandler, middleware.TraceMiddleware(application))
+	app.GET("/responses/:id", getResponseHandler, middleware.TraceMiddleware(application))
+
+	// POST /responses/:id/cancel - Cancel a background response
+	cancelResponseHandler := openresponses.CancelResponseEndpoint()
+	app.POST("/v1/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
+	app.POST("/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
+}
+
+// setOpenResponsesRequestContext sets up the context and cancel function for Open Responses requests
+func setOpenResponsesRequestContext(re *middleware.RequestExtractor) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if err := re.SetOpenResponsesRequest(c); err != nil {
+				return err
+			}
+			return next(c)
+		}
+	}
+}

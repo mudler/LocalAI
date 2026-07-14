@@ -1,0 +1,347 @@
+package downloader_test
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+
+	. "github.com/mudler/LocalAI/pkg/downloader"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Gallery API tests", func() {
+	Context("URI", func() {
+		It("parses github with a branch", func() {
+			uri := URI("github:go-skynet/model-gallery/gpt4all-j.yaml")
+			Expect(
+				uri.ReadWithCallback("", func(url string, i []byte) error {
+					Expect(url).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
+					return nil
+				}),
+			).ToNot(HaveOccurred())
+		})
+		It("parses github without a branch", func() {
+			uri := URI("github:go-skynet/model-gallery/gpt4all-j.yaml@main")
+
+			Expect(
+				uri.ReadWithCallback("", func(url string, i []byte) error {
+					Expect(url).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
+					return nil
+				}),
+			).ToNot(HaveOccurred())
+		})
+		It("parses github with urls", func() {
+			uri := URI("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml")
+			Expect(
+				uri.ReadWithCallback("", func(url string, i []byte) error {
+					Expect(url).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
+					return nil
+				}),
+			).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("HuggingFace mirror", func() {
+		var originalEndpoint string
+
+		BeforeEach(func() {
+			originalEndpoint = HF_ENDPOINT
+		})
+
+		AfterEach(func() {
+			HF_ENDPOINT = originalEndpoint
+		})
+
+		It("rewrites direct https://huggingface.co URLs when mirror is set", func() {
+			HF_ENDPOINT = "https://hf-mirror.com"
+			uri := URI("https://huggingface.co/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://hf-mirror.com/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf"))
+		})
+
+		It("does not rewrite direct https://huggingface.co URLs when no mirror is set", func() {
+			HF_ENDPOINT = "https://huggingface.co"
+			uri := URI("https://huggingface.co/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://huggingface.co/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf"))
+		})
+
+		It("rewrites hf:// URIs when mirror is set", func() {
+			HF_ENDPOINT = "https://hf-mirror.com"
+			uri := URI("hf://TheBloke/model-GGUF/model.Q4_K_M.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://hf-mirror.com/TheBloke/model-GGUF/resolve/main/model.Q4_K_M.gguf"))
+		})
+
+		It("does not rewrite non-huggingface URLs", func() {
+			HF_ENDPOINT = "https://hf-mirror.com"
+			uri := URI("https://example.com/some/file.gguf")
+			Expect(uri.ResolveURL()).To(Equal("https://example.com/some/file.gguf"))
+		})
+	})
+})
+
+var _ = Describe("ContentLength", func() {
+	Context("local file", func() {
+		It("returns file size for existing file", func() {
+			dir, err := os.MkdirTemp("", "contentlength-*")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(dir)
+			fpath := filepath.Join(dir, "model.gguf")
+			err = os.WriteFile(fpath, make([]byte, 1234), 0644)
+			Expect(err).ToNot(HaveOccurred())
+			uri := URI("file://" + fpath)
+			ctx := context.Background()
+			size, err := uri.ContentLength(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(size).To(Equal(int64(1234)))
+		})
+		It("returns error for missing file", func() {
+			uri := URI("file:///nonexistent/path/model.gguf")
+			ctx := context.Background()
+			_, err := uri.ContentLength(ctx)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Context("HTTP", func() {
+		It("returns Content-Length when present", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal("HEAD"))
+				w.Header().Set("Content-Length", "1000")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+			uri := URI(server.URL)
+			ctx := context.Background()
+			size, err := uri.ContentLength(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(size).To(Equal(int64(1000)))
+		})
+		It("returns error on 404", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer server.Close()
+			uri := URI(server.URL)
+			ctx := context.Background()
+			_, err := uri.ContentLength(ctx)
+			Expect(err).To(HaveOccurred())
+		})
+		It("uses Range when Content-Length missing and Accept-Ranges bytes", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "HEAD" {
+					w.Header().Set("Accept-Ranges", "bytes")
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				Expect(r.Header.Get("Range")).To(Equal("bytes=0-0"))
+				w.Header().Set("Content-Range", "bytes 0-0/5000")
+				w.WriteHeader(http.StatusPartialContent)
+			}))
+			defer server.Close()
+			uri := URI(server.URL)
+			ctx := context.Background()
+			size, err := uri.ContentLength(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(size).To(Equal(int64(5000)))
+		})
+		It("respects context cancellation", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Length", "1000")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			uri := URI(server.URL)
+			_, err := uri.ContentLength(ctx)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+		})
+	})
+})
+
+type RangeHeaderError struct {
+	msg string
+}
+
+func (e *RangeHeaderError) Error() string { return e.msg }
+
+var _ = Describe("Download Test", func() {
+	var mockData []byte
+	var mockDataSha string
+	var filePath string
+
+	extractRangeHeader := func(rangeString string) (int, int, error) {
+		regex := regexp.MustCompile(`^bytes=(\d+)-(\d+|)$`)
+		matches := regex.FindStringSubmatch(rangeString)
+		rangeErr := RangeHeaderError{msg: "invalid / ill-formatted range"}
+		if matches == nil {
+			return -1, -1, &rangeErr
+		}
+		startPos, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return -1, -1, err
+		}
+
+		endPos := -1
+		if matches[2] != "" {
+			endPos, err = strconv.Atoi(matches[2])
+			if err != nil {
+				return -1, -1, err
+			}
+			endPos += 1 // because range is inclusive in rangeString
+		}
+		return startPos, endPos, nil
+	}
+
+	getMockServer := func(supportsRangeHeader bool) *httptest.Server {
+		mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "HEAD" && r.Method != "GET" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			if r.Method == "HEAD" {
+				if supportsRangeHeader {
+					w.Header().Add("Accept-Ranges", "bytes")
+				}
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			// GET method
+			startPos := 0
+			endPos := len(mockData)
+			var err error
+			var respData []byte
+			rangeString := r.Header.Get("Range")
+			if rangeString != "" {
+				startPos, endPos, err = extractRangeHeader(rangeString)
+				if err != nil {
+					if _, ok := err.(*RangeHeaderError); ok {
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					Expect(err).ToNot(HaveOccurred())
+				}
+				if endPos == -1 {
+					endPos = len(mockData)
+				}
+				if startPos < 0 || startPos >= len(mockData) || endPos < 0 || endPos > len(mockData) || startPos > endPos {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+			}
+			respData = mockData[startPos:endPos]
+			w.WriteHeader(http.StatusOK)
+			w.Write(respData)
+		}))
+		mockServer.EnableHTTP2 = true
+		mockServer.Start()
+		return mockServer
+	}
+
+	BeforeEach(func() {
+		mockData = make([]byte, 20000)
+		_, err := rand.Read(mockData)
+		Expect(err).ToNot(HaveOccurred())
+		_mockDataSha := sha256.New()
+		_, err = _mockDataSha.Write(mockData)
+		Expect(err).ToNot(HaveOccurred())
+		mockDataSha = fmt.Sprintf("%x", _mockDataSha.Sum(nil))
+		dir, err := os.Getwd()
+		filePath = dir + "/my_supercool_model"
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	Context("URI DownloadFile", func() {
+		It("fetches files from mock server", func() {
+			mockServer := getMockServer(true)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+			err := uri.DownloadFile(filePath, mockDataSha, 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("resumes partially downloaded files", func() {
+			mockServer := getMockServer(true)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+			// Create a partial file
+			tmpFilePath := filePath + ".partial"
+			file, err := os.OpenFile(tmpFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = file.Write(mockData[0:10000])
+			Expect(err).ToNot(HaveOccurred())
+			err = uri.DownloadFile(filePath, mockDataSha, 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("restarts download from 0 if server doesn't support Range header", func() {
+			mockServer := getMockServer(false)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+			// Create a partial file
+			tmpFilePath := filePath + ".partial"
+			file, err := os.OpenFile(tmpFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = file.Write(mockData[0:10000])
+			Expect(err).ToNot(HaveOccurred())
+			err = uri.DownloadFile(filePath, mockDataSha, 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		// A file that fails its SHA check must not be usable. The historical
+		// implementation renamed the temp file to its final path *before*
+		// verifying the hash, so a mismatch returned an error but left a
+		// tampered file at the destination — the next caller (e.g. a backend
+		// launcher) could pick it up and run with it.
+		It("does not leave a corrupted file at the destination on SHA mismatch", func() {
+			mockServer := getMockServer(true)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+
+			// Use a clearly-wrong expected SHA; the server will return real
+			// data with a different hash.
+			wrongSHA := "0000000000000000000000000000000000000000000000000000000000000000"
+			err := uri.DownloadFile(filePath, wrongSHA, 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("SHA"))
+
+			// The file must not exist at the final destination.
+			_, statErr := os.Stat(filePath)
+			Expect(os.IsNotExist(statErr)).To(BeTrue(),
+				"download with wrong SHA left a file at %s — a subsequent caller could load tampered content", filePath)
+		})
+
+		// A download without an expected digest is a supply-chain footgun.
+		// The downloader allows it (backend installs pass through here
+		// today and don't yet ship a digest) but it is the caller's
+		// responsibility to know when integrity is required. The downloader
+		// emits a WARN log on every empty-digest download to make this
+		// visible at the default log level.
+		It("succeeds with empty SHA but emits an integrity warning", func() {
+			mockServer := getMockServer(true)
+			defer mockServer.Close()
+			uri := URI(mockServer.URL)
+
+			// No assertion on logs (we don't capture xlog output here),
+			// but the call must succeed so existing backend installs do
+			// not regress.
+			err := uri.DownloadFile(filePath, "", 1, 1, func(s1, s2, s3 string, f float64) {})
+			Expect(err).ToNot(HaveOccurred())
+			_, statErr := os.Stat(filePath)
+			Expect(statErr).ToNot(HaveOccurred())
+		})
+	})
+
+	AfterEach(func() {
+		os.Remove(filePath) // cleanup, also checks existence of filePath`
+		os.Remove(filePath + ".partial")
+	})
+})

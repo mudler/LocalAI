@@ -1,0 +1,1165 @@
+---
+name: 'Tests extras backends'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-tests-extra-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run-all: ${{ steps.detect.outputs.run-all }}
+      transformers: ${{ steps.detect.outputs.transformers }}
+      rerankers: ${{ steps.detect.outputs.rerankers }}
+      diffusers: ${{ steps.detect.outputs.diffusers }}
+      coqui: ${{ steps.detect.outputs.coqui }}
+      moonshine: ${{ steps.detect.outputs.moonshine }}
+      pocket-tts: ${{ steps.detect.outputs.pocket-tts }}
+      qwen-tts: ${{ steps.detect.outputs.qwen-tts }}
+      qwen-asr: ${{ steps.detect.outputs.qwen-asr }}
+      nemo: ${{ steps.detect.outputs.nemo }}
+      voxcpm: ${{ steps.detect.outputs.voxcpm }}
+      liquid-audio: ${{ steps.detect.outputs.liquid-audio }}
+      llama-cpp-quantization: ${{ steps.detect.outputs.llama-cpp-quantization }}
+      llama-cpp: ${{ steps.detect.outputs.llama-cpp }}
+      ik-llama-cpp: ${{ steps.detect.outputs.ik-llama-cpp }}
+      turboquant: ${{ steps.detect.outputs.turboquant }}
+      vllm: ${{ steps.detect.outputs.vllm }}
+      sglang: ${{ steps.detect.outputs.sglang }}
+      acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
+      qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
+      rfdetr-cpp: ${{ steps.detect.outputs.rfdetr-cpp }}
+      locate-anything-cpp: ${{ steps.detect.outputs.locate-anything-cpp }}
+      vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
+      localvqe: ${{ steps.detect.outputs.localvqe }}
+      voxtral: ${{ steps.detect.outputs.voxtral }}
+      kokoros: ${{ steps.detect.outputs.kokoros }}
+      insightface: ${{ steps.detect.outputs.insightface }}
+      speaker-recognition: ${{ steps.detect.outputs.speaker-recognition }}
+      sherpa-onnx: ${{ steps.detect.outputs.sherpa-onnx }}
+      whisper: ${{ steps.detect.outputs.whisper }}
+      parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun add js-yaml @octokit/core
+      - name: Detect changed backends
+        id: detect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bun run scripts/changed-backends.js
+
+  # Requires CUDA
+  # tests-chatterbox-tts:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+  #     - name: Test chatterbox-tts
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/chatterbox
+  #          make --jobs=5 --output-sync=target -C backend/python/chatterbox test
+  tests-transformers:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.transformers == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+      - name: Test transformers
+        run: |
+           make --jobs=5 --output-sync=target -C backend/python/transformers
+           make --jobs=5 --output-sync=target -C backend/python/transformers test
+  tests-rerankers:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rerankers == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+      - name: Test rerankers
+        run: |
+           make --jobs=5 --output-sync=target -C backend/python/rerankers
+           make --jobs=5 --output-sync=target -C backend/python/rerankers test
+
+  tests-diffusers:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.diffusers == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test diffusers
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/diffusers
+          make --jobs=5 --output-sync=target -C backend/python/diffusers test
+
+  #tests-vllm:
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - name: Clone
+  #      uses: actions/checkout@v7
+  #      with:
+  #        submodules: true
+  #    - name: Dependencies
+  #      run: |
+  #        sudo apt-get update
+  #        sudo apt-get install -y build-essential ffmpeg
+  #        sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #        sudo apt-get install -y libopencv-dev
+  #        # Install UV
+  #        curl -LsSf https://astral.sh/uv/install.sh | sh
+  #        pip install --user --no-cache-dir grpcio-tools==1.64.1
+  #    - name: Test vllm backend
+  #      run: |
+  #        make --jobs=5 --output-sync=target -C backend/python/vllm
+  #        make --jobs=5 --output-sync=target -C backend/python/vllm test
+  # tests-transformers-musicgen:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+  #     - name: Test transformers-musicgen
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen
+  #          make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen test
+
+  # tests-bark:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Release space from worker
+  #       run: |
+  #           echo "Listing top largest packages"
+  #           pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+  #           head -n 30 <<< "${pkgs}"
+  #           echo
+  #           df -h
+  #           echo
+  #           sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+  #           sudo apt-get remove --auto-remove android-sdk-platform-tools || true
+  #           sudo apt-get purge --auto-remove android-sdk-platform-tools || true
+  #           sudo rm -rf /usr/local/lib/android
+  #           sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+  #           sudo rm -rf /usr/share/dotnet
+  #           sudo apt-get remove -y '^mono-.*' || true
+  #           sudo apt-get remove -y '^ghc-.*' || true
+  #           sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+  #           sudo apt-get remove -y 'php.*' || true
+  #           sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+  #           sudo apt-get remove -y '^google-.*' || true
+  #           sudo apt-get remove -y azure-cli || true
+  #           sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+  #           sudo apt-get remove -y '^gfortran-.*' || true
+  #           sudo apt-get remove -y microsoft-edge-stable || true
+  #           sudo apt-get remove -y firefox || true
+  #           sudo apt-get remove -y powershell || true
+  #           sudo apt-get remove -y r-base-core || true
+  #           sudo apt-get autoremove -y
+  #           sudo apt-get clean
+  #           echo
+  #           echo "Listing top largest packages"
+  #           pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+  #           head -n 30 <<< "${pkgs}"
+  #           echo
+  #           sudo rm -rfv build || true
+  #           sudo rm -rf /usr/share/dotnet || true
+  #           sudo rm -rf /opt/ghc || true
+  #           sudo rm -rf "/usr/local/share/boost" || true
+  #           sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+  #           df -h
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+  #     - name: Test bark
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/bark
+  #          make --jobs=5 --output-sync=target -C backend/python/bark test
+
+
+  # Below tests needs GPU. Commented out for now
+  # TODO: Re-enable as soon as we have GPU nodes
+  # tests-vllm:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+  #     - name: Test vllm
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/vllm
+  #          make --jobs=5 --output-sync=target -C backend/python/vllm test
+
+  tests-coqui:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.coqui == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test coqui
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/coqui
+          make --jobs=5 --output-sync=target -C backend/python/coqui test
+  tests-moonshine:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.moonshine == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test moonshine
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/moonshine
+          make --jobs=5 --output-sync=target -C backend/python/moonshine test
+  tests-pocket-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.pocket-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test pocket-tts
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/pocket-tts
+          make --jobs=5 --output-sync=target -C backend/python/pocket-tts test
+  tests-qwen-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.qwen-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test qwen-tts
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/qwen-tts
+          make --jobs=5 --output-sync=target -C backend/python/qwen-tts test
+  # TODO: s2-pro model is too large to load on CPU-only CI runners — re-enable
+  # when we have GPU runners or a smaller test model.
+  # tests-fish-speech:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 45
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y build-essential ffmpeg portaudio19-dev
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+  #     - name: Test fish-speech
+  #       run: |
+  #         make --jobs=5 --output-sync=target -C backend/python/fish-speech
+  #         make --jobs=5 --output-sync=target -C backend/python/fish-speech test
+  tests-qwen-asr:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.qwen-asr == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg sox
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test qwen-asr
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/qwen-asr
+          make --jobs=5 --output-sync=target -C backend/python/qwen-asr test
+  tests-nemo:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.nemo == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg sox
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test nemo
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/nemo
+          make --jobs=5 --output-sync=target -C backend/python/nemo test
+  tests-voxcpm:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.voxcpm == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test voxcpm
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/voxcpm
+          make --jobs=5 --output-sync=target -C backend/python/voxcpm test
+  # liquid-audio: LFM2.5-Audio any-to-any backend. The CI smoke test
+  # exercises Health() and LoadModel(mode:finetune) — fine-tune mode
+  # short-circuits before pulling weights (backend.py:192), so no
+  # HuggingFace download or GPU is needed. The full-inference path is
+  # gated on LIQUID_AUDIO_MODEL_ID, which we don't set here.
+  tests-liquid-audio:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.liquid-audio == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test liquid-audio
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/liquid-audio
+          make --jobs=5 --output-sync=target -C backend/python/liquid-audio test
+  tests-llama-cpp-quantization:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp-quantization == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl git python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Build llama-quantize from llama.cpp
+        run: |
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
+          cmake -B /tmp/llama.cpp/build -S /tmp/llama.cpp -DGGML_NATIVE=OFF
+          cmake --build /tmp/llama.cpp/build --target llama-quantize -j$(nproc)
+          sudo cp /tmp/llama.cpp/build/bin/llama-quantize /usr/local/bin/
+      - name: Install backend
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization
+      - name: Test llama-cpp-quantization
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/llama-cpp-quantization test
+  tests-llama-cpp-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build llama-cpp backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-llama-cpp
+  tests-llama-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build llama-cpp backend image and run audio transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-llama-cpp-transcription
+  # PR-acceptance smoke gate: always runs on every PR (no detect-changes gate, no
+  # paths filter). Pulls the pre-built master CPU llama-cpp image from quay
+  # instead of building from source, so the cost is a docker pull (~30s) plus the
+  # short Qwen3-0.6B model download. Exercises the full gRPC surface — health,
+  # load, predict, stream — plus the logprobs/logit_bias specs that moved out of
+  # core/http/app_test.go. Anything heavier or per-backend is gated to the
+  # detect-changes path-filter above.
+  tests-llama-cpp-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Pull pre-built llama-cpp backend image
+        run: docker pull quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp
+      - name: Run e2e-backends smoke
+        env:
+          BACKEND_IMAGE: quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp
+          BACKEND_TEST_CAPS: health,load,predict,stream,logprobs,logit_bias,tokenize
+        run: |
+          make test-extra-backend
+  # Realtime e2e with sherpa-onnx driving VAD + STT + TTS against a mocked LLM.
+  # Builds the sherpa-onnx Docker image, extracts the rootfs so the e2e suite
+  # can discover the backend binary + shared libs, downloads the three model
+  # bundles (silero-vad, omnilingual-asr, vits-ljs) and drives the realtime
+  # websocket spec end-to-end.
+  tests-sherpa-onnx-realtime:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Build sherpa-onnx backend image and run realtime e2e tests
+        run: |
+          make test-extra-e2e-realtime-sherpa
+  # Streaming ASR via the sherpa-onnx online recognizer (zipformer
+  # transducer). Exercises both AudioTranscription (buffered) and
+  # AudioTranscriptionStream (real-time deltas) on the e2e-backends
+  # harness.
+  tests-sherpa-onnx-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build sherpa-onnx backend image and run streaming ASR gRPC e2e tests
+        run: |
+          make test-extra-backend-sherpa-onnx-transcription
+  # End-to-end transcription via the e2e-backends gRPC harness against
+  # the whisper.cpp backend. Drives AudioTranscription (offline) and
+  # AudioTranscriptionStream (real, segment-callback-driven deltas) on
+  # ggml-base.en + the JFK 11s clip.
+  tests-whisper-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.whisper == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build whisper backend image and run transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-whisper-transcription
+  # Parakeet ASR via the parakeet-cpp backend (C++/ggml port of NeMo
+  # Parakeet). Drives AudioTranscription (offline, with word timestamps) on
+  # tdt_ctc-110m + the JFK 11s clip.
+  tests-parakeet-cpp-grpc-transcription:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.parakeet-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build parakeet-cpp backend image and run transcription gRPC e2e tests
+        run: |
+          make test-extra-backend-parakeet-cpp-transcription
+  # VITS TTS via the sherpa-onnx backend. Drives both TTS (file write) and
+  # TTSStream (PCM chunks) on the e2e-backends harness.
+  tests-sherpa-onnx-grpc-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sherpa-onnx == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build sherpa-onnx backend image and run TTS gRPC e2e tests
+        run: |
+          make test-extra-backend-sherpa-onnx-tts
+  tests-ik-llama-cpp-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ik-llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build ik-llama-cpp backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-ik-llama-cpp
+  tests-turboquant-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.turboquant == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      # Exercises the turboquant (llama.cpp fork) backend with KV-cache
+      # quantization enabled. The convenience target sets
+      # BACKEND_TEST_CACHE_TYPE_K / _V=q8_0, which are plumbed into the
+      # ModelOptions.CacheTypeKey/Value gRPC fields. LoadModel-success +
+      # backend stdout/stderr (captured by the Ginkgo suite) prove the
+      # cache-type config path reaches the fork's KV-cache init.
+      - name: Build turboquant backend image and run gRPC e2e tests
+        run: |
+          make test-extra-backend-turboquant
+  # tests-vllm-grpc is currently disabled in CI.
+  #
+  # The prebuilt vllm CPU wheel is compiled with AVX-512 VNNI/BF16
+  # instructions, and neither ubuntu-latest nor the bigger-runner pool
+  # offers a stable CPU baseline that supports them — runners come
+  # back with different hardware between runs and SIGILL on import of
+  # vllm.model_executor.models.registry. Compiling vllm from source
+  # via FROM_SOURCE=true works on any CPU but takes 30-50 minutes per
+  # run, which is too slow for a smoke test.
+  #
+  # The test itself (tests/e2e-backends + make test-extra-backend-vllm)
+  # is fully working and validated locally on a host with the right
+  # SIMD baseline. Run it manually with:
+  #
+  #   make test-extra-backend-vllm
+  #
+  # Re-enable this job once we have a self-hosted runner label with
+  # guaranteed AVX-512 VNNI/BF16 support, or once the vllm project
+  # publishes a CPU wheel with a wider baseline.
+  #
+  # tests-vllm-grpc:
+  #   needs: detect-changes
+  #   if: needs.detect-changes.outputs.vllm == 'true' || needs.detect-changes.outputs.run-all == 'true'
+  #   runs-on: bigger-runner
+  #   timeout-minutes: 90
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y --no-install-recommends \
+  #             make build-essential curl unzip ca-certificates git tar
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.25.4'
+  #     - name: Free disk space
+  #       run: |
+  #         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+  #         df -h
+  #     - name: Build vllm (cpu) backend image and run gRPC e2e tests
+  #       run: |
+  #         make test-extra-backend-vllm
+  # tests-sglang-grpc is currently disabled in CI for the same reason as
+  # tests-vllm-grpc: sglang's CPU kernel (sgl-kernel) uses __m512 AVX-512
+  # intrinsics unconditionally in shm.cpp, so the from-source build
+  # requires `-march=sapphirerapids` (already set in install.sh) and the
+  # resulting binary SIGILLs at import on CPUs without AVX-512 VNNI/BF16.
+  # The ubuntu-latest runner pool does not guarantee that ISA baseline.
+  #
+  # The test itself (tests/e2e-backends + make test-extra-backend-sglang)
+  # is fully working and validated locally on a host with the right
+  # SIMD baseline. Run it manually with:
+  #
+  #   make test-extra-backend-sglang
+  #
+  # Re-enable this job once we have a self-hosted runner label with
+  # guaranteed AVX-512 VNNI/BF16 support.
+  #
+  # tests-sglang-grpc:
+  #   needs: detect-changes
+  #   if: needs.detect-changes.outputs.sglang == 'true' || needs.detect-changes.outputs.run-all == 'true'
+  #   runs-on: bigger-runner
+  #   timeout-minutes: 90
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v7
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y --no-install-recommends \
+  #             make build-essential curl unzip ca-certificates git tar
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.25.4'
+  #     - name: Free disk space
+  #       run: |
+  #         sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+  #         df -h
+  #     - name: Build sglang (cpu) backend image and run gRPC e2e tests
+  #       run: |
+  #         make test-extra-backend-sglang
+  tests-acestep-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.acestep-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build acestep-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/acestep-cpp
+      - name: Test acestep-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/acestep-cpp test
+  tests-qwen3-tts-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.qwen3-tts-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build qwen3-tts-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp
+      - name: Test qwen3-tts-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/qwen3-tts-cpp test
+  # Per-backend smoke for rfdetr-cpp: builds the .so + Go binary and runs
+  # `make -C backend/go/rfdetr-cpp test`. test.sh fetches the small (~20 MB)
+  # rfdetr-nano-q8_0 GGUF from the published mudler/rfdetr-cpp-nano HF repo
+  # via curl and synthesises a tiny PNG to exercise the wire protocol.
+  tests-rfdetr-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rfdetr-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build rfdetr-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp
+      - name: Test rfdetr-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp test
+  # Per-backend e2e for locate-anything-cpp: builds the .so + Go binary and
+  # runs `make -C backend/go/locate-anything-cpp test`. test.sh fetches the
+  # locate-anything-q8_0 GGUF (~6.3 GB, NVIDIA LocateAnything-3B) from the
+  # published mudler/locate-anything.cpp-gguf HF repo + a COCO image, then the
+  # Go wire test loads the model and runs an open-vocabulary Detect, asserting
+  # at least one labeled box. Heavier than the other Go backends (it is a 3B),
+  # so it is gated to changes under backend/go/locate-anything-cpp/.
+  tests-locate-anything-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.locate-anything-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build locate-anything-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/locate-anything-cpp
+      - name: Test locate-anything-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/locate-anything-cpp test
+  # Per-backend smoke for vibevoice-cpp: builds the .so + Go binary and
+  # runs `make -C backend/go/vibevoice-cpp test`. test.sh auto-downloads
+  # the published mudler/vibevoice.cpp-models bundle (TTS Q8_0 + ASR Q4_K
+  # + tokenizer + voice) and runs the closed-loop TTS → ASR Go test.
+  tests-vibevoice-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build vibevoice-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/vibevoice-cpp
+      - name: Test vibevoice-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/vibevoice-cpp test
+  # End-to-end TTS via the e2e-backends gRPC harness. Builds the
+  # vibevoice-cpp Docker image and drives Backend/TTS against it with a
+  # real LocalAI gRPC client.
+  tests-vibevoice-cpp-grpc-tts:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build vibevoice-cpp backend image and run TTS gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-tts
+  # End-to-end transcription via the e2e-backends gRPC harness. The
+  # vibevoice ASR is a 7B-param model (Q4_K weights ~10 GB on disk)
+  # and the JFK 30 s decode is too heavy for a free 4-core
+  # ubuntu-latest pool runner - two CI attempts got SIGTERM'd during
+  # LoadModel, before the test could even progress. Use the
+  # self-hosted 'bigger-runner' label (same one the GPU image builds
+  # in backend.yml use) and the documented dotnet/ghc/android cache
+  # purge to clear ~10-20 GB of headroom for the model + Docker
+  # image + working dir.
+  tests-vibevoice-cpp-grpc-transcription:
+    needs: detect-changes
+    # Skip on release tag pushes: the ASR Q4_K model is ~10 GB and cannot be
+    # pulled from HF within the inner `go test -timeout 30m` budget on a CI
+    # runner, so every tag build hung and timed out. Still runs on PRs/branch
+    # pushes that touch vibevoice-cpp so regressions are caught off the release path.
+    if: (needs.detect-changes.outputs.vibevoice-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true') && !startsWith(github.ref, 'refs/tags/')
+    runs-on: bigger-runner
+    timeout-minutes: 150
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl unzip ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build vibevoice-cpp backend image and run ASR gRPC e2e tests
+        run: |
+          make test-extra-backend-vibevoice-cpp-transcription
+  # End-to-end audio transform via the e2e-backends gRPC harness. The
+  # LocalVQE GGUF is small (~5 MB) and the model is real-time on CPU, so
+  # the default ubuntu-latest pool is plenty.
+  tests-localvqe-grpc-transform:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.localvqe == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+      - name: Build localvqe backend image and run audio_transform gRPC e2e tests
+        run: |
+          make test-extra-backend-localvqe-transform
+  tests-voxtral:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.voxtral == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build voxtral
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/voxtral
+      - name: Test voxtral
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/voxtral test
+  tests-kokoros:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.kokoros == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config protobuf-compiler clang libclang-dev
+          sudo apt-get install -y espeak-ng libespeak-ng-dev libsonic-dev libpcaudio-dev libopus-dev libssl-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Build kokoros
+        run: |
+          make -C backend/rust/kokoros kokoros-grpc
+      - name: Test kokoros
+        run: |
+          make -C backend/rust/kokoros test
+  tests-insightface-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.insightface == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl unzip ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build insightface backend image and run both model configurations
+        run: |
+          make test-extra-backend-insightface-all
+  tests-speaker-recognition-grpc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.speaker-recognition == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              make build-essential curl ca-certificates git tar
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          df -h
+      - name: Build speaker-recognition backend image and run the ECAPA-TDNN configuration
+        run: |
+          make test-extra-backend-speaker-recognition-all

@@ -1,0 +1,86 @@
+---
+name: 'tests-aio'
+
+# Runs the all-in-one (AIO) Docker image with real backends + real models.
+# Heavy: builds llama-cpp/whisper/piper/silero-vad/stablediffusion-ggml/local-store
+# and exercises end-to-end inference inside the container. Moved out of test.yml
+# (which used to run on every PR) so PR CI no longer pays this cost.
+#
+# Triggers:
+#   - schedule (nightly @ 04:00 UTC) — catches packaging/image regressions within 24h
+#   - workflow_dispatch — manual run on-demand
+#   - push to master/tags — sanity check after merge / before release
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-tests-aio-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests-aio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release space from worker
+        run: |
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          df -h
+          echo
+          sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+          sudo apt-get remove --auto-remove android-sdk-platform-tools || true
+          sudo apt-get purge --auto-remove android-sdk-platform-tools || true
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+          sudo rm -rf /usr/share/dotnet
+          sudo apt-get remove -y '^mono-.*' || true
+          sudo apt-get remove -y '^ghc-.*' || true
+          sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+          sudo apt-get remove -y 'php.*' || true
+          sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+          sudo apt-get remove -y '^google-.*' || true
+          sudo apt-get remove -y azure-cli || true
+          sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+          sudo apt-get remove -y '^gfortran-.*' || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          echo
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          sudo rm -rfv build || true
+          df -h
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Test
+        run: |
+            PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-e2e e2e-aio
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

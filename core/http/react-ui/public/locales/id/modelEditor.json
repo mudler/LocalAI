@@ -1,0 +1,38 @@
+{
+    "title": {
+        "add": "Tambah Model",
+        "edit": "Editor Model"
+    },
+    "subtitle": {
+        "chooseModelType": "Pilih tipe model untuk memulai",
+        "newModel": "Model baru"
+    },
+    "actions": {
+        "backTo": "Kembali ke {{page}}",
+        "system": "Sistem",
+        "templates": "Templat",
+        "createModel": "Buat Model",
+        "saveChanges": "Simpan Perubahan",
+        "saving": "Menyimpan...",
+        "saved": "Tersimpan",
+        "switchWarning": "Simpan atau buang perubahan sebelum beralih tab.",
+        "discardAndSwitch": "Buang & Beralih"
+    },
+    "tabs": {
+        "interactive": "Interaktif",
+        "yaml": "YAML",
+        "yamlDescription": "Edit YAML secara langsung. Nama model harus diatur di YAML agar pembuatan berhasil."
+    },
+    "forms": {
+        "modelName": {
+            "label": "Nama Model",
+            "placeholder": "nama-model-saya",
+            "hint": "Gunakan huruf, angka, tanda hubung, garis bawah, dan titik saja."
+        },
+        "empty": {
+            "nav": "Gunakan kolom pencarian di atas untuk menambahkan field",
+            "title": "Tidak ada field yang dikonfigurasi",
+            "text": "Gunakan kolom pencarian di atas untuk menemukan dan menambahkan field konfigurasi."
+        }
+    }
+}

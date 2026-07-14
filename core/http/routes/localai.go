@@ -1,0 +1,461 @@
+package routes
+
+import (
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/monitoring"
+	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/model"
+	echoswagger "github.com/swaggo/echo-swagger"
+)
+
+func RegisterLocalAIRoutes(router *echo.Echo,
+	requestExtractor *middleware.RequestExtractor,
+	cl *config.ModelConfigLoader,
+	ml *model.ModelLoader,
+	appConfig *config.ApplicationConfig,
+	galleryService *galleryop.GalleryService,
+	opcache *galleryop.OpCache,
+	evaluator *templates.Evaluator,
+	app *application.Application,
+	adminMiddleware echo.MiddlewareFunc,
+	mcpJobsMw echo.MiddlewareFunc,
+	mcpMw echo.MiddlewareFunc) {
+
+	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
+		c.URLs = []string{"doc.json"}
+	}))
+
+	// LocalAI API endpoints
+	if !appConfig.DisableGalleryEndpoint {
+		// Import model page
+		router.GET("/import-model", func(c echo.Context) error {
+			return c.Render(200, "views/model-editor", map[string]any{
+				"Title":                  "LocalAI - Import Model",
+				"BaseURL":                middleware.BaseURL(c),
+				"Version":                internal.PrintableVersion(),
+				"DisableRuntimeSettings": appConfig.DisableRuntimeSettings,
+			})
+		}, adminMiddleware)
+
+		// Edit model page
+		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig), adminMiddleware)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService, cl)
+		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint(), adminMiddleware)
+		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint(), adminMiddleware)
+
+		router.GET("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint(), adminMiddleware)
+		router.GET("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
+		router.GET("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint(), adminMiddleware)
+
+		backendGalleryEndpointService := localai.CreateBackendEndpointService(
+			appConfig.BackendGalleries,
+			appConfig.SystemState,
+			galleryService,
+			app.UpgradeChecker())
+		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware)
+		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
+		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
+		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends/known", backendGalleryEndpointService.ListKnownBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint(), adminMiddleware)
+		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
+		router.GET("/backends/upgrades", backendGalleryEndpointService.GetUpgradesEndpoint(), adminMiddleware)
+		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
+		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
+		// Custom model import endpoint
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig), adminMiddleware)
+
+		// URI model import endpoint
+		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
+
+		// Custom model edit endpoint
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
+
+		// List model aliases endpoint
+		router.GET("/api/aliases", localai.ListAliasesEndpoint(cl), adminMiddleware)
+
+		// Toggle model enable/disable endpoint
+		router.PUT("/models/toggle-state/:name/:action", localai.ToggleStateModelEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
+
+		// Toggle model pinned status endpoint
+		router.PUT("/models/toggle-pinned/:name/:action", localai.TogglePinnedModelEndpoint(cl, appConfig, func() {
+			app.SyncPinnedModelsToWatchdog()
+		}), adminMiddleware)
+
+		// Reload models endpoint
+		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig), adminMiddleware)
+	}
+
+	detectionHandler := localai.DetectionEndpoint(cl, ml, appConfig)
+	router.POST("/v1/detection",
+		detectionHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DETECTION)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetectionRequest) }))
+
+	depthHandler := localai.DepthEndpoint(cl, ml, appConfig)
+	router.POST("/v1/depth",
+		depthHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DEPTH)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DepthRequest) }))
+
+	// Face recognition endpoints
+	faceMw := []echo.MiddlewareFunc{
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_FACE_RECOGNITION)),
+	}
+	router.POST("/v1/face/verify",
+		localai.FaceVerifyEndpoint(cl, ml, appConfig),
+		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceVerifyRequest) }))...)
+	router.POST("/v1/face/analyze",
+		localai.FaceAnalyzeEndpoint(cl, ml, appConfig),
+		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceAnalyzeRequest) }))...)
+	router.POST("/v1/face/embed",
+		localai.FaceEmbedEndpoint(cl, ml, appConfig),
+		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceEmbedRequest) }))...)
+	router.POST("/v1/face/register",
+		localai.FaceRegisterEndpoint(cl, ml, appConfig, app.FaceRegistry()),
+		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceRegisterRequest) }))...)
+	router.POST("/v1/face/identify",
+		localai.FaceIdentifyEndpoint(cl, ml, appConfig, app.FaceRegistry()),
+		append(faceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.FaceIdentifyRequest) }))...)
+	// Forget does not load a face model — it only needs the registry.
+	router.POST("/v1/face/forget", localai.FaceForgetEndpoint(app.FaceRegistry()))
+
+	// Voice (speaker) recognition endpoints
+	voiceMw := []echo.MiddlewareFunc{
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_SPEAKER_RECOGNITION)),
+	}
+	router.POST("/v1/voice/verify",
+		localai.VoiceVerifyEndpoint(cl, ml, appConfig),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceVerifyRequest) }))...)
+	router.POST("/v1/voice/analyze",
+		localai.VoiceAnalyzeEndpoint(cl, ml, appConfig),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceAnalyzeRequest) }))...)
+	router.POST("/v1/voice/embed",
+		localai.VoiceEmbedEndpoint(cl, ml, appConfig),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceEmbedRequest) }))...)
+	router.POST("/v1/voice/register",
+		localai.VoiceRegisterEndpoint(cl, ml, appConfig, app.VoiceRegistry()),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceRegisterRequest) }))...)
+	router.POST("/v1/voice/identify",
+		localai.VoiceIdentifyEndpoint(cl, ml, appConfig, app.VoiceRegistry()),
+		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceIdentifyRequest) }))...)
+	// Forget does not load a voice model — it only needs the registry.
+	router.POST("/v1/voice/forget", localai.VoiceForgetEndpoint(app.VoiceRegistry()))
+
+	voiceProfiles := app.VoiceProfileStore()
+	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
+	router.GET("/api/voice-profiles/:id/audio", localai.ServeVoiceProfileAudioEndpoint(voiceProfiles))
+	router.POST("/api/voice-profiles", localai.CreateVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+	router.DELETE("/api/voice-profiles/:id", localai.DeleteVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+
+	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig, voiceProfiles)
+	router.POST("/tts",
+		ttsHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }))
+
+	// audio transform (echo cancellation, noise suppression, voice conversion, etc.)
+	audioTransformHandler := localai.AudioTransformEndpoint(cl, ml, appConfig)
+	audioTransformMiddleware := []echo.MiddlewareFunc{
+		middleware.TraceMiddleware(app),
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_AUDIO_TRANSFORM)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.AudioTransformRequest) }),
+	}
+	router.POST("/audio/transformations", audioTransformHandler, audioTransformMiddleware...)
+	router.POST("/audio/transform", audioTransformHandler, audioTransformMiddleware...)
+
+	// audio transform streaming WS (sits before the request-extractor pipeline —
+	// the upgrade is handled by the endpoint itself).
+	router.GET("/audio/transformations/stream",
+		localai.AudioTransformStreamEndpoint(app),
+		middleware.TraceMiddleware(app))
+
+	vadHandler := localai.VADEndpoint(cl, ml, appConfig)
+	vadNodeHeader := middleware.ExposeNodeHeader(appConfig)
+	router.POST("/vad",
+		vadHandler,
+		vadNodeHeader,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
+	router.POST("/v1/vad",
+		vadHandler,
+		vadNodeHeader,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
+
+	// Stores
+	router.POST("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
+	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
+	router.POST("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
+	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
+
+	if !appConfig.DisableMetrics {
+		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
+	}
+
+	videoHandler := localai.VideoEndpoint(cl, ml, appConfig)
+	router.POST("/video",
+		videoHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
+
+	// Backend Statistics Module
+	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
+	backendMonitorService := monitoring.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
+	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	// /backend/load is the inverse of /backend/shutdown: pre-load a model (or all
+	// of a realtime pipeline's sub-models) into memory so clients can drive
+	// warm-up explicitly instead of paying the cold-start cost on first use.
+	router.POST("/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
+	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
+	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/v1/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
+
+	// Traces and backend logs (monitoring)
+	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
+	router.POST("/api/traces/clear", localai.ClearAPITracesEndpoint(), adminMiddleware)
+	router.GET("/api/backend-traces", localai.GetBackendTracesEndpoint(), adminMiddleware)
+	router.POST("/api/backend-traces/clear", localai.ClearBackendTracesEndpoint(), adminMiddleware)
+	// Backend logs — standalone only (distributed mode uses node-proxied routes)
+	if !appConfig.Distributed.Enabled {
+		router.GET("/api/backend-logs", localai.ListBackendLogsEndpoint(ml), adminMiddleware)
+		router.GET("/api/backend-logs/:modelId", localai.GetBackendLogsEndpoint(ml), adminMiddleware)
+		router.POST("/api/backend-logs/:modelId/clear", localai.ClearBackendLogsEndpoint(ml), adminMiddleware)
+		router.GET("/ws/backend-logs/:modelId", localai.BackendLogsWebSocketEndpoint(ml), adminMiddleware)
+	}
+
+	// p2p
+	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
+	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
+
+	// Score (logprob over candidate continuations) — admin-only smoke-test
+	// surface for the gRPC Score primitive. Production consumers should
+	// use application.ScorerFactory() directly rather than HTTP.
+	router.POST("/api/score", localai.ScoreEndpoint(cl, ml, appConfig), adminMiddleware)
+
+	router.GET("/version", func(c echo.Context) error {
+		return c.JSON(200, struct {
+			Version string `json:"version"`
+		}{Version: internal.PrintableVersion()})
+	})
+
+	// Agent discovery endpoint
+	router.GET("/.well-known/localai.json", func(c echo.Context) error {
+		monitoringRoutes := map[string]string{
+			"metrics":              "/metrics",
+			"backend_monitor":      "/backend/monitor",
+			"backend_shutdown":     "/backend/shutdown",
+			"backend_load":         "/backend/load",
+			"system":               "/system",
+			"version":              "/version",
+			"traces":               "/api/traces",
+			"traces_clear":         "/api/traces/clear",
+			"backend_traces":       "/api/backend-traces",
+			"backend_traces_clear": "/api/backend-traces/clear",
+		}
+		if !appConfig.Distributed.Enabled {
+			monitoringRoutes["backend_logs"] = "/api/backend-logs"
+			monitoringRoutes["backend_logs_model"] = "/api/backend-logs/:modelId"
+			monitoringRoutes["backend_logs_clear"] = "/api/backend-logs/:modelId/clear"
+			monitoringRoutes["backend_logs_ws"] = "/ws/backend-logs/:modelId"
+		} else {
+			monitoringRoutes["node_backend_logs"] = "/api/nodes/:id/backend-logs"
+			monitoringRoutes["node_backend_logs_model"] = "/api/nodes/:id/backend-logs/:modelId"
+			monitoringRoutes["node_backend_logs_ws"] = "/ws/nodes/:id/backend-logs/:modelId"
+		}
+		return c.JSON(200, map[string]any{
+			"version": internal.PrintableVersion(),
+			// Flat endpoint list for backwards compatibility
+			"endpoints": map[string]any{
+				"models":              "/v1/models",
+				"models_capabilities": "/v1/models/capabilities",
+				"chat_completions":    "/v1/chat/completions",
+				"completions":         "/v1/completions",
+				"embeddings":          "/v1/embeddings",
+				"config_metadata":     "/api/models/config-metadata",
+				"config_json":         "/api/models/config-json/:name",
+				"config_patch":        "/api/models/config-json/:name",
+				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
+				"vram_estimate":       "/api/models/vram-estimate",
+				"tts":                 "/tts",
+				"voice_profiles":      "/api/voice-profiles",
+				"transcription":       "/v1/audio/transcriptions",
+				"image_generation":    "/v1/images/generations",
+				"swagger":             "/swagger/index.html",
+				"instructions":        "/api/instructions",
+			},
+			// Categorized endpoint groups for structured discovery
+			"endpoint_groups": map[string]any{
+				"openai_compatible": map[string]string{
+					"models":               "/v1/models",
+					"models_capabilities":  "/v1/models/capabilities",
+					"chat_completions":     "/v1/chat/completions",
+					"completions":          "/v1/completions",
+					"embeddings":           "/v1/embeddings",
+					"transcription":        "/v1/audio/transcriptions",
+					"diarization":          "/v1/audio/diarization",
+					"sound_classification": "/v1/audio/classification",
+					"image_generation":     "/v1/images/generations",
+				},
+				"config_management": map[string]string{
+					"config_metadata": "/api/models/config-metadata",
+					"config_json":     "/api/models/config-json/:name",
+					"config_patch":    "/api/models/config-json/:name",
+					"autocomplete":    "/api/models/config-metadata/autocomplete/:provider",
+					"vram_estimate":   "/api/models/vram-estimate",
+				},
+				"model_management": map[string]string{
+					"list_gallery": "/models/available",
+					"install":      "/models/apply",
+					"delete":       "/models/delete/:name",
+					"edit":         "/models/edit/:name",
+					"import":       "/models/import",
+					"reload":       "/models/reload",
+					"list_aliases": "/api/aliases",
+				},
+				"ai_functions": map[string]string{
+					"tts":            "/tts",
+					"voice_profiles": "/api/voice-profiles",
+					"vad":            "/vad",
+					"video":          "/video",
+					"detection":      "/v1/detection",
+					"tokenize":       "/v1/tokenize",
+				},
+				"monitoring": monitoringRoutes,
+				"mcp": map[string]string{
+					"chat_completions": "/v1/mcp/chat/completions",
+					"servers":          "/v1/mcp/servers/:model",
+					"prompts":          "/v1/mcp/prompts/:model",
+					"resources":        "/v1/mcp/resources/:model",
+				},
+				"p2p": map[string]string{
+					"nodes": "/api/p2p",
+					"token": "/api/p2p/token",
+				},
+				"agents": map[string]string{
+					"tasks":   "/api/agent/tasks",
+					"jobs":    "/api/agent/jobs",
+					"execute": "/api/agent/jobs/execute",
+				},
+				"settings": map[string]string{
+					"get":    "/api/settings",
+					"update": "/api/settings",
+				},
+				"stores": map[string]string{
+					"set":    "/stores/set",
+					"get":    "/stores/get",
+					"find":   "/stores/find",
+					"delete": "/stores/delete",
+				},
+				"docs": map[string]string{
+					"swagger":      "/swagger/index.html",
+					"instructions": "/api/instructions",
+				},
+			},
+			"capabilities": map[string]bool{
+				"config_metadata": true,
+				"config_patch":    true,
+				"vram_estimate":   true,
+				"mcp":             !appConfig.DisableMCP,
+				"agents":          appConfig.AgentPool.Enabled,
+				"p2p":             appConfig.P2PToken != "",
+				"tracing":         true,
+				"voice_profiles":  true,
+			},
+		})
+	})
+
+	// API instructions for agent discovery (no auth — agents should discover these without credentials)
+	router.GET("/api/instructions", localai.ListAPIInstructionsEndpoint())
+	router.GET("/api/instructions/:name", localai.GetAPIInstructionEndpoint())
+
+	router.GET("/api/features", func(c echo.Context) error {
+		return c.JSON(200, map[string]bool{
+			"agents":            appConfig.AgentPool.Enabled,
+			"mcp":               !appConfig.DisableMCP,
+			"fine_tuning":       true,
+			"quantization":      true,
+			"distributed":       appConfig.Distributed.Enabled,
+			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
+		})
+	})
+
+	router.GET("/system", localai.SystemInformations(ml, appConfig), adminMiddleware)
+
+	// misc
+	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)
+	router.POST("/v1/tokenize",
+		tokenizeHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
+
+	// MCP endpoint - supports both streaming and non-streaming modes
+	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
+	if evaluator != nil && !appConfig.DisableMCP {
+		var mcpNATS mcpTools.MCPNATSClient
+		if d := app.Distributed(); d != nil {
+			mcpNATS = d.Nats
+		}
+		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, mcpNATS)
+		mcpStreamMiddleware := []echo.MiddlewareFunc{
+			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := requestExtractor.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		}
+		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+
+		// MCP server listing endpoint
+		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig, mcpNATS), mcpMw)
+
+		// MCP prompts endpoints
+		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig), mcpMw)
+		router.POST("/v1/mcp/prompts/:model/:prompt", localai.MCPGetPromptEndpoint(cl, appConfig), mcpMw)
+
+		// MCP resources endpoints
+		router.GET("/v1/mcp/resources/:model", localai.MCPResourcesEndpoint(cl, appConfig), mcpMw)
+		router.POST("/v1/mcp/resources/:model/read", localai.MCPReadResourceEndpoint(cl, appConfig), mcpMw)
+
+		// CORS proxy for client-side MCP connections
+		router.GET("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
+		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
+		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
+	}
+
+	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)
+	if app != nil && app.AgentJobService() != nil && !appConfig.DisableMCP {
+		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app), mcpJobsMw)
+		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app), mcpJobsMw)
+		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/tasks", localai.ListTasksEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/tasks/:id", localai.GetTaskEndpoint(app), mcpJobsMw)
+
+		router.POST("/api/agent/jobs/execute", localai.ExecuteJobEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/jobs/:id", localai.GetJobEndpoint(app), mcpJobsMw)
+		router.GET("/api/agent/jobs", localai.ListJobsEndpoint(app), mcpJobsMw)
+		router.POST("/api/agent/jobs/:id/cancel", localai.CancelJobEndpoint(app), mcpJobsMw)
+		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app), mcpJobsMw)
+
+		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app), mcpJobsMw)
+	}
+
+}

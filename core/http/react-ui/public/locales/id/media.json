@@ -1,0 +1,208 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Gambar",
+      "video": "Video",
+      "tts": "TTS",
+      "sound": "Suara",
+      "transform": "Transformasi"
+    }
+  },
+  "image": {
+    "title": "Pembuatan Gambar",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Deskripsikan gambar yang ingin Anda buat...",
+      "negativePrompt": "Prompt Negatif",
+      "negativePromptPlaceholder": "Apa yang harus dihindari...",
+      "size": "Ukuran",
+      "count": "Jumlah (1-4)",
+      "advanced": "Pengaturan Tingkat Lanjutan",
+      "imageInputs": "Input Gambar",
+      "steps": "Steps",
+      "stepsPlaceholder": "20",
+      "seed": "Seed",
+      "seedPlaceholder": "Acak",
+      "sourceImage": "Gambar Sumber (img2img)",
+      "refImages": "Gambar Referensi",
+      "refImagesAdded_one": "{{count}} gambar ditambahkan",
+      "refImagesAdded_other": "{{count}} gambar ditambahkan"
+    },
+    "actions": {
+      "view": "Lihat",
+      "generate": "Hasilkan",
+      "generating": "Menghasilkan..."
+    },
+    "empty": "Gambar yang dihasilkan akan muncul di sini",
+    "toasts": {
+      "noPrompt": "Silahkan masukkan prompt",
+      "noModel": "Silahkan pilih model",
+      "noResults": "Tidak ada gambar yang dihasilkan"
+    }
+  },
+  "video": {
+    "title": "Pembuatan Video",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Deskripsikan video yang ingin Anda buat...",
+      "duration": "Durasi (detik)",
+      "fps": "FPS",
+      "size": "Ukuran",
+      "advanced": "Pengaturan Tingkat Lanjutan",
+      "seed": "Seed",
+      "seedPlaceholder": "Acak",
+      "frames": "Frame",
+      "referenceMedia": "Media referensi",
+      "startImage": "Gambar awal",
+      "endImage": "Gambar akhir",
+      "avatarAudio": "Audio avatar"
+    },
+    "actions": {
+      "generate": "Hasilkan",
+      "generating": "Menghasilkan..."
+    },
+    "empty": "Video yang dihasilkan akan muncul di sini",
+    "toasts": {
+      "noPrompt": "Silahkan masukkan prompt",
+      "noModel": "Silahkan pilih model",
+      "noResults": "Tidak ada video yang dihasilkan"
+    }
+  },
+  "tts": {
+    "title": "Teks ke Suara",
+    "labels": {
+      "model": "Model",
+      "voice": "Suara",
+      "voicePlaceholder": "ID suara opsional",
+      "input": "Teks",
+      "inputPlaceholder": "Masukkan teks untuk disintesis..."
+    },
+    "actions": {
+      "generate": "Hasilkan",
+      "generating": "Menghasilkan..."
+    },
+    "empty": "Audio yang dihasilkan akan muncul di sini",
+    "toasts": {
+      "noText": "Silahkan masukkan teks",
+      "noModel": "Silahkan pilih model",
+      "generateFailed": "Gagal menghasilkan"
+    }
+  },
+  "sound": {
+    "title": "Pembuatan Suara",
+    "labels": {
+      "model": "Model",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Deskripsikan suara yang ingin Anda buat...",
+      "instrumental": "Instrumental",
+      "bpm": "Tempo",
+      "duration": "Durasi (detik)",
+      "language": "Bahasa",
+      "timesignature": "Tanda birama",
+      "keyscale": "Tangga nada",
+      "vocalLanguage": "Bahasa vokal",
+      "vocalLanguagePlaceholder": "cth. Bahasa Indonesia",
+      "caption": "Takarir",
+      "lyrics": "Lirik",
+      "lyricsPlaceholder": "Lirik untuk menghasilkan vokal",
+      "simple": "Sederhana",
+      "advanced": "Tingkat Lanjutan",
+      "seed": "Seed",
+      "seedPlaceholder": "Acak",
+      "thinkMode": "Mode penalaran"
+    },
+    "actions": {
+      "generate": "Hasilkan",
+      "generating": "Menghasilkan..."
+    },
+    "empty": "Suara yang dihasilkan akan muncul di sini",
+    "toasts": {
+      "noPrompt": "Silahkan masukkan prompt",
+      "noModel": "Silahkan pilih model",
+      "generateFailed": "Gagal menghasilkan"
+    }
+  },
+  "audioTransform": {
+    "title": "Transformasi Audio",
+    "labels": {
+      "model": "Model",
+      "audio": "Audio (wajib)",
+      "reference": "Referensi (opsional)",
+      "referenceHelp": "Sinyal loopback / ujung jauh untuk pembatalan gema, atau pembicara target untuk konversi suara. Kosongkan untuk transformasi tanpa syarat.",
+      "advancedParameters": "Parameter tingkat lanjut",
+      "advancedParametersHelp": "Spesifik backend (satu key=value per baris, contoh: noise_gate=true)",
+      "advancedParametersPlaceholder": "# Opsional. Untuk LocalVQE:\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "Unggah",
+      "uploadDescription": "Tarik file di sini atau",
+      "uploadBrowse": "jelajahi",
+      "record": "Rekam",
+      "startRecording": "Mulai merekam",
+      "stop": "Selesai",
+      "encoding": "Pengenkodean...",
+      "clear": "Hapus",
+      "microphoneUnavailable": "Perekaman mikrofon tidak tersedia di peramban ini.",
+      "echoNotice": "Peramban sering kali menerapkan pembatalan gema dan penekanan derau WebRTC secara bawaan. Hal ini biasanya menghasilkan performa yang lebih buruk dibandingkan menjalankan LocalVQE pada audio mentah.",
+      "echoTest": "Tes gema (rekam mik saat memutar referensi)",
+      "stopEchoTest": "Hentikan tes gema"
+    },
+    "result": {
+      "audio": "Audio",
+      "reference": "Referensi",
+      "inputSpectrum": "Input spektrum",
+      "outputSpectrum": "Output spektrum",
+      "outputSpectrumHint": "Transformasi untuk membandingkan atenuasi",
+      "output": "Output"
+    },
+    "actions": {
+      "transform": "Transformasi",
+      "processing": "Memproses..."
+    },
+    "empty": "Pilih file audio (dan referensi opsional) untuk ditransformasikan"
+  },
+  "talk": {
+    "title": "Percakapan",
+    "subtitle": "Percakapan suara realtime",
+    "actions": {
+      "start": "Mulai sesi",
+      "stop": "Akhiri sesi",
+      "connecting": "Menghubungkan...",
+      "muted": "Disenyapkan",
+      "mute": "Senyapkan",
+      "unmute": "Aktifkan Suara"
+    },
+    "labels": {
+      "model": "Model",
+      "voice": "Suara",
+      "voicePlaceholder": "alloy",
+      "language": "Bahasa",
+      "languagePlaceholder": "en",
+      "instructions": "Instruksi",
+      "instructionsPlaceholder": "Atur persona asisten..."
+    },
+    "status": {
+      "idle": "Idle",
+      "connecting": "Menghubungkan...",
+      "listening": "Mendengarkan...",
+      "speaking": "Berbicara...",
+      "ended": "Sesi berakhir"
+    },
+    "toasts": {
+      "noModel": "Silahkan pilih model terlebih dahulu",
+      "connectFailed": "Gagal terhubung: {{message}}"
+    }
+  },
+  "history": {
+    "title": "Riwayat",
+    "empty": "Tidak ada riwayat",
+    "deleteEntry": "Hapus entri",
+    "clear": "Hapus riwayat",
+    "clearTitle": "Hapus semua riwayat",
+    "clearMessage": "Hapus semua entri riwayat? Tindakan ini tidak dapat dibatalkan.",
+    "clearConfirm": "Hapus",
+    "cleared": "Riwayat dihapus"
+  }
+}

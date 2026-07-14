@@ -1,0 +1,2 @@
+# sglang is installed per-acceleration in requirements-{profile}-after.txt
+# (cublas12, hipblas, intel, cpu)

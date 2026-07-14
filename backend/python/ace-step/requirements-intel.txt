@@ -1,0 +1,26 @@
+--extra-index-url https://download.pytorch.org/whl/xpu
+torch
+torchaudio
+torchvision
+
+# Core dependencies
+transformers>=4.51.0,<4.58.0
+diffusers
+gradio
+matplotlib>=3.7.5
+scipy>=1.10.1
+soundfile>=0.13.1
+loguru>=0.7.3
+einops>=0.8.1
+accelerate>=1.12.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+numba>=0.63.1
+vector-quantize-pytorch>=1.27.15
+torchcodec>=0.9.1
+torchao
+modelscope
+
+# LoRA Training dependencies (optional)
+peft>=0.7.0
+lightning>=2.0.0

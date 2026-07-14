@@ -1,0 +1,113 @@
+set(TARGET grpc-server)
+set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.15)
+set(TARGET grpc-server)
+set(_PROTOBUF_LIBPROTOBUF libprotobuf)
+set(_REFLECTION grpc++_reflection)
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # Set correct Homebrew install folder for Apple Silicon and Intel Macs
+    if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64")
+        set(HOMEBREW_DEFAULT_PREFIX "/opt/homebrew")
+    else()
+        set(HOMEBREW_DEFAULT_PREFIX "/usr/local")
+    endif()
+
+    link_directories("${HOMEBREW_DEFAULT_PREFIX}/lib")
+    include_directories("${HOMEBREW_DEFAULT_PREFIX}/include")
+endif()
+
+find_package(absl CONFIG REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+
+find_program(_PROTOBUF_PROTOC protoc)
+set(_GRPC_GRPCPP grpc++)
+find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(${Protobuf_INCLUDE_DIRS})
+
+message(STATUS "Using protobuf version ${Protobuf_VERSION} | Protobuf_INCLUDE_DIRS: ${Protobuf_INCLUDE_DIRS} | CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
+# Proto file
+get_filename_component(hw_proto "../../../../../../backend/backend.proto" ABSOLUTE)
+get_filename_component(hw_proto_path "${hw_proto}" PATH)
+
+# Generated sources
+set(hw_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/backend.pb.cc")
+set(hw_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/backend.pb.h")
+set(hw_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/backend.grpc.pb.cc")
+set(hw_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/backend.grpc.pb.h")
+
+add_custom_command(
+      OUTPUT "${hw_proto_srcs}" "${hw_proto_hdrs}" "${hw_grpc_srcs}" "${hw_grpc_hdrs}"
+      COMMAND ${_PROTOBUF_PROTOC}
+      ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}"
+        --cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+        -I "${hw_proto_path}"
+        --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
+        "${hw_proto}"
+      DEPENDS "${hw_proto}")
+
+# hw_grpc_proto: force STATIC. Under the CPU_ALL_VARIANTS build BUILD_SHARED_LIBS=ON
+# (ggml/llama become shared), which would otherwise make this glue library a DSO. As a
+# DSO it references the hidden-visibility symbols in the static libprotobuf.a, which the
+# linker cannot satisfy ("hidden symbol ... in libprotobuf.a is referenced by DSO").
+# Keeping it STATIC links protobuf/gRPC directly into the grpc-server executable while
+# only ggml/llama stay shared. No effect on the static variants (already BUILD_SHARED_LIBS=OFF).
+add_library(hw_grpc_proto STATIC
+  ${hw_grpc_srcs}
+  ${hw_grpc_hdrs}
+  ${hw_proto_srcs}
+  ${hw_proto_hdrs} )
+
+add_executable(${TARGET} grpc-server.cpp json.hpp httplib.h)
+
+target_include_directories(${TARGET} PRIVATE ../llava)
+target_include_directories(${TARGET} PRIVATE ${CMAKE_SOURCE_DIR})
+
+# Upstream llama.cpp renamed the `common` helpers library to `llama-common`.
+# Forks that branched before the rename (e.g. llama-cpp-turboquant) still
+# expose it as `common`. Detect which one is present so the same CMakeLists
+# drives both builds — otherwise an unresolved name silently degrades to a
+# plain `-l` flag and the PUBLIC include dir (where common.h lives) is lost.
+if (TARGET llama-common)
+    set(_LLAMA_COMMON_TARGET llama-common)
+else()
+    set(_LLAMA_COMMON_TARGET common)
+endif()
+
+target_link_libraries(${TARGET} PRIVATE ${_LLAMA_COMMON_TARGET} llama mtmd ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
+  absl::flags_parse
+  gRPC::${_REFLECTION}
+  gRPC::${_GRPC_GRPCPP}
+  protobuf::${_PROTOBUF_LIBPROTOBUF})
+target_compile_features(${TARGET} PRIVATE cxx_std_11)
+if(TARGET BUILD_INFO)
+  add_dependencies(${TARGET} BUILD_INFO)
+endif()
+
+# Unit test for the message-content normalization helper (message_content.h).
+# Off by default so the normal backend build is untouched; enable with
+# -DLLAMA_GRPC_BUILD_TESTS=ON and run via ctest. It reuses llama.cpp's vendored
+# <nlohmann/json.hpp> (propagated by the common helpers library) so it has no
+# extra dependency beyond what the backend already builds against.
+option(LLAMA_GRPC_BUILD_TESTS "Build grpc-server unit tests" OFF)
+if(LLAMA_GRPC_BUILD_TESTS)
+    enable_testing()
+    add_executable(message_content_test message_content_test.cpp message_content.h)
+    target_include_directories(message_content_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(message_content_test PRIVATE ${_LLAMA_COMMON_TARGET})
+    target_compile_features(message_content_test PRIVATE cxx_std_17)
+    add_test(NAME message_content_test COMMAND message_content_test)
+
+    # Parent-death watcher test (parent_watch.h) — standard library only, but
+    # needs a threading runtime for std::thread.
+    find_package(Threads REQUIRED)
+    add_executable(parent_watch_test parent_watch_test.cpp parent_watch.h)
+    target_include_directories(parent_watch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(parent_watch_test PRIVATE Threads::Threads)
+    target_compile_features(parent_watch_test PRIVATE cxx_std_17)
+    add_test(NAME parent_watch_test COMMAND parent_watch_test)
+endif()

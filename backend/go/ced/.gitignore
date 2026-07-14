@@ -1,0 +1,11 @@
+.cache/
+sources/
+build/
+package/
+ced-grpc
+# build artifacts staged in-tree by the Makefile (cp from sources/) or
+# symlinked for local dev; the real sources live in ced.cpp upstream.
+*.so
+*.so.*
+ced_capi.h
+compile_commands.json

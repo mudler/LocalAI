@@ -1,0 +1,91 @@
+services:
+  api:
+    # See https://localai.io/basics/getting_started/#container-images for
+    # a list of available container images (or build your own with the provided Dockerfile)
+    # Available images with CUDA, ROCm, SYCL
+    # Image list (quay.io): https://quay.io/repository/go-skynet/local-ai?tab=tags
+    # Image list (dockerhub): https://hub.docker.com/r/localai/localai
+    image: quay.io/go-skynet/local-ai:master
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+      - IMAGE_TYPE=core
+      - BASE_IMAGE=ubuntu:24.04
+    ports:
+      - 8080:8080
+    env_file:
+      - .env
+    environment:
+      - MODELS_PATH=/models
+    #  - DEBUG=true
+    ## Agents (LocalAGI) - https://localai.io/features/agents/
+    #  - LOCALAI_DISABLE_AGENTS=false
+    #  - LOCALAI_AGENT_POOL_DEFAULT_MODEL=hermes-3-llama3.1-8b
+    #  - LOCALAI_AGENT_POOL_ENABLE_SKILLS=true
+    #  - LOCALAI_AGENT_POOL_ENABLE_LOGS=true
+    #  - LOCALAI_AGENT_HUB_URL=https://agenthub.localai.io
+    ## Uncomment to use PostgreSQL for the knowledge base (requires the postgres service below)
+    #  - LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
+    #  - LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
+    volumes:
+      - models:/models
+      - images:/tmp/generated/images/
+      - data:/data
+      - backends:/backends
+      - configuration:/configuration
+    command:
+    # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
+    # or an URL pointing to a YAML configuration file, for example:
+    # - https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
+    - phi-2
+    # For NVIDIA GPU support with CDI (recommended for NVIDIA Container Toolkit 1.14+):
+    # Uncomment the following deploy section and use driver: nvidia.com/gpu.
+    # Include `utility` in capabilities so nvidia-smi / NVML are available —
+    # without it, free-VRAM reporting on discrete GPUs is unavailable and the
+    # Nodes UI will misreport memory usage.
+    # environment:
+    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+    # init: true   # avoids zombie-reap races that can make nvidia-smi flaky
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia.com/gpu
+    #           count: all
+    #           capabilities: [gpu, utility]
+    #
+    # For legacy NVIDIA driver (for older NVIDIA Container Toolkit):
+    # environment:
+    #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+    # init: true
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu, utility]
+
+  ## Uncomment for PostgreSQL-backed knowledge base (see Agents docs)
+  # postgres:
+  #   image: quay.io/mudler/localrecall:v0.5.2-postgresql
+  #   environment:
+  #     - POSTGRES_DB=localrecall
+  #     - POSTGRES_USER=localrecall
+  #     - POSTGRES_PASSWORD=localrecall
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U localrecall"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  models:
+  images:
+  data:
+  configuration:
+  backends:
+  # postgres_data:

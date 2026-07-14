@@ -1,0 +1,117 @@
+package schema
+
+import (
+	"encoding/json"
+
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
+)
+
+type Message struct {
+	// The message role
+	Role string `json:"role,omitempty" yaml:"role"`
+
+	// The message name (used for tools calls)
+	Name string `json:"name,omitempty" yaml:"name"`
+
+	// The message content
+	Content any `json:"content" yaml:"content"`
+
+	// Staging buffers populated by the request middleware while
+	// decoding multimodal Content. Never serialised — strict
+	// providers (Anthropic) 400 on unknown message fields when the
+	// cloud-proxy passthrough re-marshals Message verbatim.
+	StringContent string   `json:"-" yaml:"-"`
+	StringImages  []string `json:"-" yaml:"-"`
+	StringVideos  []string `json:"-" yaml:"-"`
+	StringAudios  []string `json:"-" yaml:"-"`
+
+	// A result of a function call
+	FunctionCall any `json:"function_call,omitempty" yaml:"function_call,omitempty"`
+
+	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
+
+	ToolCallID string `json:"tool_call_id,omitempty" yaml:"tool_call_id,omitempty"`
+
+	// Reasoning content extracted from <thinking>...</thinking> tags
+	Reasoning *string `json:"reasoning,omitempty" yaml:"reasoning,omitempty"`
+}
+
+// UnmarshalJSON decodes Message, accepting reasoning_content as an inbound
+// alias for reasoning so vLLM/DeepSeek/OpenAI-SDK style clients that emit
+// reasoning_content on assistant turns round-trip through the interleaved
+// thinking loop. Canonical reasoning wins when both are present.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	type messageAlias Message
+	aux := struct {
+		*messageAlias
+		ReasoningContent *string `json:"reasoning_content,omitempty"`
+	}{messageAlias: (*messageAlias)(m)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if m.Reasoning == nil && aux.ReasoningContent != nil {
+		m.Reasoning = aux.ReasoningContent
+	}
+	return nil
+}
+
+type ToolCall struct {
+	Index        int          `json:"index"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type"`
+	FunctionCall FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments"`
+}
+
+type Messages []Message
+
+// MessagesToProto converts schema.Message slice to proto.Message slice
+// It handles content conversion, tool_calls serialization, and optional fields
+func (messages Messages) ToProto() []*proto.Message {
+	protoMessages := make([]*proto.Message, len(messages))
+	for i, message := range messages {
+		protoMessages[i] = &proto.Message{
+			Role: message.Role,
+			Name: message.Name, // needed by function calls
+		}
+
+		switch ct := message.Content.(type) {
+		case string:
+			protoMessages[i].Content = ct
+		case []any:
+			// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
+			data, _ := json.Marshal(ct)
+			resultData := []struct {
+				Text string `json:"text"`
+			}{}
+			json.Unmarshal(data, &resultData)
+			for _, r := range resultData {
+				protoMessages[i].Content += r.Text
+			}
+		}
+
+		// Serialize tool_calls to JSON string if present
+		if len(message.ToolCalls) > 0 {
+			toolCallsJSON, err := json.Marshal(message.ToolCalls)
+			if err != nil {
+				xlog.Warn("failed to marshal tool_calls to JSON", "error", err)
+			} else {
+				protoMessages[i].ToolCalls = string(toolCallsJSON)
+			}
+		}
+
+		if message.ToolCallID != "" {
+			protoMessages[i].ToolCallId = message.ToolCallID
+		}
+		if message.Reasoning != nil {
+			protoMessages[i].ReasoningContent = *message.Reasoning
+		}
+	}
+	return protoMessages
+}

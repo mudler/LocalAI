@@ -1,0 +1,5 @@
+torch==2.7.1
+transformers
+accelerate
+kokoro
+soundfile

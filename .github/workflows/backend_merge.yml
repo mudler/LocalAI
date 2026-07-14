@@ -1,0 +1,217 @@
+---
+name: 'merge backend manifest list (reusable)'
+
+# Reusable workflow that joins per-arch digest artifacts (uploaded by
+# backend_build.yml when called with platform-tag) into a single tagged
+# multi-arch manifest list. Called once per backend by backend.yml after
+# both per-arch build jobs succeed.
+
+on:
+  workflow_call:
+    inputs:
+      tag-latest:
+        description: 'Whether the manifest list should also be tagged latest (auto/false/true)'
+        required: false
+        type: string
+        default: ''
+      tag-suffix:
+        description: 'Backend tag suffix (e.g. -cpu-faster-whisper). Used to compute the artifact pattern and the final tag suffix.'
+        required: true
+        type: string
+    secrets:
+      dockerUsername:
+        required: false
+      dockerPassword:
+        required: false
+      quayUsername:
+        required: true
+      quayPassword:
+        required: true
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    # id-token: write is required for keyless cosign — the workflow
+    # exchanges the GitHub OIDC token for a short-lived Fulcio cert that
+    # signs each pushed manifest. Without this permission the runner
+    # cannot mint the token, and `cosign sign` fails with "no token".
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      quay_username: ${{ secrets.quayUsername }}
+      # cosign v2.4.x still gates --registry-referrers-mode=oci-1-1 behind
+      # this flag. Without it, signing fails with:
+      #   invalid argument "oci-1-1" for "--registry-referrers-mode" flag:
+      #   in order to use mode "oci-1-1", you must set COSIGN_EXPERIMENTAL=1
+      COSIGN_EXPERIMENTAL: '1'
+    steps:
+      # Sparse checkout: the merge job needs `.github/scripts/` (for the
+      # keepalive cleanup script) but none of the source tree.
+      - name: Checkout (.github/scripts only)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      # `--` separator anchors the glob so we don't over-match sibling
+      # backends whose tag-suffix happens to be a prefix of ours
+      # (e.g. -cpu-vllm vs -cpu-vllm-omni). Must stay in sync with the
+      # upload-artifact name in backend_build.yml.
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          pattern: digests${{ inputs.tag-suffix }}--*
+          merge-multiple: true
+          path: /tmp/digests
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@master
+
+      # cosign signs each pushed manifest list with --recursive so the
+      # index and every per-arch entry get an attached Sigstore bundle.
+      # Recent cosign releases always emit the new bundle format, so
+      # there's no extra CLI flag to opt into it.
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.dockerUsername }}
+          password: ${{ secrets.dockerPassword }}
+
+      - name: Login to Quay.io
+        if: ${{ env.quay_username != '' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
+
+      - name: Docker meta
+        id: meta
+        if: github.event_name != 'pull_request'
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            quay.io/go-skynet/local-ai-backends
+            localai/localai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+
+      # Source from ci-cache, not local-ai-backends.
+      #
+      # The build job pushes per-arch manifests to local-ai-backends with
+      # push-by-digest=true (no tag), then anchors a tagged copy into
+      # ci-cache so the manifest can be retrieved hours later when this
+      # merge runs. Quay's manifest GC, however, is per-repository: the
+      # anchor tag in ci-cache protects the manifest there, but the same
+      # digest in local-ai-backends has no tag in *that* repo and gets
+      # reaped independently. Sourcing local-ai-backends@<digest> here
+      # then fails with "manifest not found" — exactly the regression
+      # we hit on v4.2.2 (19/37 multiarch merges failed).
+      #
+      # ci-cache@<digest> resolves because we anchored it there. buildx
+      # imagetools create copies the manifest into local-ai-backends
+      # (cross-repo within the same registry, blobs already cross-mounted
+      # from the original push so no transfer needed) and publishes the
+      # manifest list with the user-facing tags. The resulting manifest
+      # list is fully self-contained in local-ai-backends — child digests
+      # only, no embedded references to ci-cache.
+      - name: Create manifest list and push (quay)
+        if: github.event_name != 'pull_request'
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          tags=$(jq -cr '
+            .tags
+            | map(select(startswith("quay.io/")))
+            | map("-t " + .)
+            | join(" ")
+          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          if [ -z "$tags" ]; then
+            echo "No quay.io tags from docker/metadata-action; skipping quay merge"
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $tags \
+            $(printf 'quay.io/go-skynet/ci-cache@sha256:%s ' *)
+          # Resolve the manifest-list digest (any tag points at it) so
+          # cosign can sign by digest. Signing by tag would leave the
+          # signature orphaned the next time the tag moves.
+          first_tag=$(jq -cr '
+            .tags | map(select(startswith("quay.io/"))) | .[0]
+          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
+          # --recursive walks the list and signs every per-arch entry
+          # too — clients that resolve a tag to a platform-specific
+          # manifest before checking signatures need the per-arch
+          # signatures, not just the list-level one.
+          cosign sign --yes --recursive \
+            --registry-referrers-mode=oci-1-1 \
+            "quay.io/go-skynet/local-ai-backends@${digest}"
+
+      - name: Create manifest list and push (dockerhub)
+        if: github.event_name != 'pull_request'
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          tags=$(jq -cr '
+            .tags
+            | map(select(startswith("localai/")))
+            | map("-t " + .)
+            | join(" ")
+          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          if [ -z "$tags" ]; then
+            echo "No dockerhub tags from docker/metadata-action; skipping dockerhub merge"
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $tags \
+            $(printf 'localai/localai-backends@sha256:%s ' *)
+          first_tag=$(jq -cr '
+            .tags | map(select(startswith("localai/"))) | .[0]
+          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
+          cosign sign --yes --recursive \
+            --registry-referrers-mode=oci-1-1 \
+            "localai/localai-backends@${digest}"
+
+      - name: Inspect manifest
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          first_tag=$(jq -cr '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          if [ -n "$first_tag" ] && [ "$first_tag" != "null" ]; then
+            docker buildx imagetools inspect "$first_tag"
+          fi
+
+      # See .github/scripts/cleanup-keepalive-tags.sh for why this is
+      # best-effort and what the failure modes are.
+      - name: Cleanup keepalive tags in ci-cache
+        if: github.event_name != 'pull_request' && success()
+        env:
+          TAG_SUFFIX: ${{ inputs.tag-suffix }}
+          QUAY_TOKEN: ${{ secrets.quayPassword }}
+        run: .github/scripts/cleanup-keepalive-tags.sh
+
+      - name: Job summary
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          echo "Merged manifest tags:" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Per-arch digests:" >> "$GITHUB_STEP_SUMMARY"
+          ls -1 /tmp/digests | sed 's/^/- sha256:/' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,100 @@
+@import url("./localai-home.css");
+
+/* The homepage deliberately fits Relearn's documentation content column. */
+#R-body-inner.home article.home > h1#localai {
+  display: none;
+}
+
+#R-body-inner.home > .flex-block-wrapper {
+  max-width: 960px;
+}
+
+/* Relearn scrolls the content pane; keep that behavior without a rail beside the hero. */
+#R-body-inner.home {
+  overflow-x: clip;
+  scrollbar-width: none;
+}
+
+#R-body-inner.home::-webkit-scrollbar {
+  display: none;
+}
+
+.lai-home,
+.lai-home > section,
+.lai-home header,
+.lai-home figure,
+.lai-home [class*="__copy"] {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lai-home h1,
+.lai-home h2,
+.lai-home h3,
+.lai-home p {
+  overflow-wrap: anywhere;
+}
+
+.lai-home img {
+  max-width: 100%;
+}
+
+.lai-home * {
+  scrollbar-width: none;
+}
+
+.lai-home *::-webkit-scrollbar {
+  display: none;
+}
+
+.lai-start pre {
+  overflow: visible !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.lai-hero {
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-height: auto;
+  padding-block: clamp(3rem, 6vw, 5rem);
+}
+
+.lai-hero__copy {
+  max-width: 48rem;
+}
+
+.lai-hero h1 {
+  max-width: 12ch;
+  font-size: clamp(3rem, 5.5vw, 4.65rem);
+  text-align: left;
+}
+
+.lai-hero__lede {
+  max-width: 43rem;
+}
+
+.lai-product-shot {
+  width: 100%;
+  max-width: 54rem;
+  transform: none;
+}
+
+@media (max-width: 47.99rem) {
+  .lai-home,
+  .lai-home > section,
+  .lai-hero,
+  .lai-hero__copy,
+  .lai-product-shot {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .lai-hero h1 {
+    max-width: 10ch;
+    font-size: clamp(2.4rem, 11vw, 3.5rem);
+  }
+}

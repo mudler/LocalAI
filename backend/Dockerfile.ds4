@@ -1,0 +1,41 @@
+ARG BASE_IMAGE=ubuntu:24.04
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+# BASE_IMAGE is either ubuntu:24.04 (for cpu builds) or nvidia/cuda:13.0.0-devel-ubuntu24.04
+# (for cublas builds). Both ship apt + Ubuntu Noble packages; the nvidia/cuda base
+# additionally provides /usr/local/cuda. Darwin (Metal) builds bypass this Dockerfile
+# entirely via scripts/build/ds4-darwin.sh.
+FROM ${BASE_IMAGE} AS builder
+ARG BUILD_TYPE
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    DEBIAN_FRONTEND=noninteractive \
+    PATH=/usr/local/cuda/bin:${PATH}
+
+WORKDIR /build
+
+# Install build-time deps via plain apt - install-base-deps.sh's full pipeline
+# (CUDA keyring + from-source gRPC) is unnecessary here:
+#   - CUDA: when BASE_IMAGE=nvidia/cuda:*, /usr/local/cuda is already populated;
+#     for the cpu build we don't need CUDA at all.
+#   - gRPC/Protobuf: system apt packages are sufficient; ds4's wrapper only links
+#     against them, it doesn't ship the gRPC source tree.
+#   - nlohmann-json: dsml_renderer's only third-party dep.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git cmake build-essential pkg-config ca-certificates \
+        libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
+        nlohmann-json3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY . /LocalAI
+
+RUN --mount=type=cache,target=/root/.ccache,id=ds4-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    make -C /LocalAI/backend/cpp/ds4 BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+
+FROM scratch
+COPY --from=builder /LocalAI/backend/cpp/ds4/package/. ./

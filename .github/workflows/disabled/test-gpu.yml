@@ -1,0 +1,63 @@
+---
+name: 'GPU tests'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-gpu-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu-latest:
+    runs-on: gpu
+    strategy:
+      matrix:
+        go-version: ['1.21.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with: 
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y make wget
+      - name: Build
+        run: |
+          if [ ! -e /run/systemd/system ]; then
+            sudo mkdir /run/systemd/system
+          fi
+          sudo mkdir -p /host/tests/${{ github.head_ref || github.ref }}
+          sudo chmod -R 777 /host/tests/${{ github.head_ref || github.ref }}
+          make \
+            TEST_DIR="/host/tests/${{ github.head_ref || github.ref }}" \
+            BUILD_TYPE=cublas \
+            prepare-e2e run-e2e-image test-e2e
+      - name: Release space from worker ♻
+        if: always()
+        run: |
+          sudo rm -rf build || true
+          sudo rm -rf bin || true
+          sudo rm -rf dist || true
+          sudo docker logs $(sudo docker ps -q --filter ancestor=localai-tests) > logs.txt
+          sudo cat logs.txt || true
+          sudo rm -rf logs.txt
+          make clean || true
+          make \
+            TEST_DIR="/host/tests/${{ github.head_ref || github.ref }}" \
+            teardown-e2e || true
+          sudo rm -rf /host/tests/${{ github.head_ref || github.ref }} || true
+          docker system prune -f -a --volumes || true

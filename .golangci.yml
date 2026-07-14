@@ -1,0 +1,128 @@
+version: "2"
+
+# Only issues introduced relative to master are reported. Pre-existing issues
+# in the codebase do not fail the lint job; they're treated as a baseline that
+# can be cleaned up incrementally. New code (added lines on a branch) is held
+# to the full linter set. Locally, `make lint-all` overrides this and reports
+# every issue.
+issues:
+  # origin/master because in shallow CI checkouts only the remote-tracking
+  # branch exists; a bare 'master' ref isn't reachable locally.
+  new-from-merge-base: origin/master
+
+linters:
+  default: standard
+  # staticcheck is noisy on this codebase (mostly QF style suggestions like
+  # "could use tagged switch" or "unnecessary fmt.Sprintf"). Re-enable
+  # selectively if a high-signal subset is identified.
+  disable:
+    - staticcheck
+  enable:
+    - forbidigo
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: '^t\.Errorf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(...) instead of t.Errorf. See .agents/coding-style.md.'
+        - pattern: '^t\.Error$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(...) instead of t.Error. See .agents/coding-style.md.'
+        - pattern: '^t\.Fatalf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(Succeed()) / Fail(...) instead of t.Fatalf. See .agents/coding-style.md.'
+        - pattern: '^t\.Fatal$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Expect(...).To(Succeed()) / Fail(...) instead of t.Fatal. See .agents/coding-style.md.'
+        - pattern: '^t\.Run$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Describe/Context/It instead of t.Run. See .agents/coding-style.md.'
+        - pattern: '^t\.Skip$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Skip(...) instead of t.Skip. See .agents/coding-style.md.'
+        - pattern: '^t\.Skipf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Skip(...) instead of t.Skipf. See .agents/coding-style.md.'
+        - pattern: '^t\.SkipNow$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Skip(...) instead of t.SkipNow. See .agents/coding-style.md.'
+        - pattern: '^t\.Logf$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use GinkgoWriter / fmt.Fprintf(GinkgoWriter, ...) instead of t.Logf. See .agents/coding-style.md.'
+        - pattern: '^t\.Log$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use GinkgoWriter / fmt.Fprintln(GinkgoWriter, ...) instead of t.Log. See .agents/coding-style.md.'
+        - pattern: '^t\.Fail$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Fail(...) instead of t.Fail. See .agents/coding-style.md.'
+        - pattern: '^t\.FailNow$'
+          msg: 'LocalAI tests must use Ginkgo/Gomega; use Fail(...) instead of t.FailNow. See .agents/coding-style.md.'
+        # In-process config should flow through ApplicationConfig / kong-bound
+        # CLI flags, not via os.Getenv. The CLI layer is the legitimate
+        # env→struct boundary (kong's `env:"..."` tag); anything deeper that
+        # reads env directly leaks process state into business logic and
+        # makes flags impossible to test or override per-request. Backend
+        # subprocesses, the system/capabilities probe, and a few places that
+        # read non-LocalAI env vars (HOME, PATH, AUTH_TOKEN passed by parent)
+        # are exempt — see linters.exclusions.rules below.
+        - pattern: '^os\.(Getenv|LookupEnv|Environ)$'
+          msg: 'Plumb config through ApplicationConfig (or the relevant CLI struct) instead of reading env directly. CLI entry points (core/cli/) bind env vars via kong''s `env:` tag — that is the only sanctioned env→struct boundary. See .agents/coding-style.md.'
+        # Outbound HTTP must go through pkg/httpclient, which refuses redirects
+        # by default and sets a TLS floor. The std-library default client and
+        # the http.Get/Post/... convenience helpers follow redirects (up to 10)
+        # and, on a cross-host redirect, forward custom credential headers such
+        # as Anthropic's x-api-key to the redirect target — leaking the secret
+        # (GHSA-3mj3-57v2-4636). forbidigo can't precisely match the
+        # `&http.Client{}` composite literal without also flagging legitimate
+        # `*http.Client` type references, so that form is enforced by
+        # convention + review; these two patterns catch the implicit-default
+        # client, which is the common footgun.
+        - pattern: '^http\.DefaultClient$'
+          msg: 'Use pkg/httpclient (httpclient.New / NewWithTimeout) instead of http.DefaultClient — the std client follows redirects and leaks credential headers cross-host (GHSA-3mj3-57v2-4636). See .agents/coding-style.md.'
+        - pattern: '^http\.(Get|Post|PostForm|Head)$'
+          msg: 'Use pkg/httpclient (httpclient.New / NewWithTimeout) instead of http.Get/Post/PostForm/Head — these use http.DefaultClient, which follows redirects and leaks credential headers cross-host (GHSA-3mj3-57v2-4636). See .agents/coding-style.md.'
+  exclusions:
+    paths:
+      # Upstream whisper.cpp source tree fetched by the whisper backend Makefile.
+      - 'backend/go/whisper/sources'
+      # Vendored upstream supertonic pipeline (supertone-inc/supertonic go/helper.go).
+      - 'backend/go/supertonic/helper.go'
+      - 'docs/'
+    rules:
+      # CLI entry points: kong's `env:"..."` tag is the legitimate env→struct
+      # boundary, and a handful of subcommands legitimately propagate values
+      # to spawned subprocesses (LLAMACPP_GRPC_SERVERS, MLX hostfile, ...).
+      - path: ^core/cli/
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # Backend subprocesses are independent binaries with their own env
+      # surface; they're not "in-process config" of the LocalAI server.
+      - path: ^backend/
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # System capability probe reads HOME, PATH-style vars to discover
+      # GPUs, default paths, etc. — not LocalAI config.
+      - path: ^pkg/system/
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # gRPC server reads AUTH_TOKEN passed in by the parent process at spawn
+      # time; model.Loader sets/inherits env to communicate with subprocesses.
+      - path: ^pkg/grpc/
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      - path: ^pkg/model/
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # Top-level main binaries (local-ai, launcher) are entry points.
+      - path: ^cmd/
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # Tests legitimately read $HOME, $TMPDIR, and gating env vars
+      # (LOCALAI_COSIGN_LIVE, etc.) to skip live-network specs.
+      - path: _test\.go$
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
+      # pkg/httpclient is the sanctioned home for outbound HTTP clients; it
+      # necessarily references net/http directly.
+      - path: ^pkg/httpclient/
+        text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
+        linters: [forbidigo]
+      # Tests drive local httptest servers where redirect/TLS hardening is
+      # irrelevant; the std client is fine there.
+      - path: _test\.go$
+        text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
+        linters: [forbidigo]
+      # Vendored upstream whisper.cpp Go bindings are a separate module and
+      # cannot import pkg/httpclient.
+      - path: ^backend/go/whisper/sources/
+        text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
+        linters: [forbidigo]

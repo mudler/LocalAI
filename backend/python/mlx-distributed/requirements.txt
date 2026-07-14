@@ -1,0 +1,4 @@
+grpcio==1.71.0
+protobuf
+certifi
+setuptools

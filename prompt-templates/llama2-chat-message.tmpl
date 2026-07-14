@@ -1,0 +1,7 @@
+{{if eq .RoleName "assistant"}}{{.Content}}{{else}}
+[INST]
+{{if .SystemPrompt}}{{.SystemPrompt}}{{else if eq .RoleName "system"}}<<SYS>>{{.Content}}<</SYS>>
+
+{{else if .Content}}{{.Content}}{{end}}
+[/INST] 
+{{end}}

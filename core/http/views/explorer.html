@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+{{template "views/partials/head" .}}
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="app-layout no-sidebar">
+  {{template "views/partials/navbar_explorer" .}}
+
+  <main class="main-content">
+    <div class="main-content-inner" x-data="networkClusters()" x-init="init()">
+        <div class="animation-container">
+            <canvas id="networkCanvas"></canvas>
+            <div class="text-overlay">
+                <header class="text-center py-12">
+                    <h1 class="hero-title" style="background: var(--gradient-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        <i class="fa-solid fa-circle-nodes mr-2" style="-webkit-text-fill-color: var(--color-primary);"></i> Network Explorer
+                    </h1>
+                    <p class="hero-subtitle mt-2">
+                        Explore clusters and workers across the federated network
+                        <a href="https://localai.io/features/distribute/" target="_blank" class="inline-flex items-center ml-1 text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition-colors">
+                            <i class="fas fa-circle-info"></i>
+                        </a>
+                    </p>
+                </header>
+            </div>
+        </div>
+
+        <div class="container mx-auto px-4 py-6 flex-grow" style="max-width: 900px;">
+            <!-- Warning Box -->
+            <div class="card p-4 mb-6 border-l-4 border-l-[var(--color-warning)]">
+                <div class="flex items-start gap-3">
+                    <div class="flex items-center gap-1 text-[var(--color-warning)] flex-shrink-0 mt-0.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <i class="fa-solid fa-flask text-xs"></i>
+                    </div>
+                    <p class="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                        The explorer is a community-driven tool to share network tokens and view available clusters.
+                        Anyone can use tokens to offload computation or share resources.
+                        <strong class="text-[var(--color-text-primary)]">Use at your own risk.</strong>
+                        Sharing tokens globally allows anyone to use your instances. This is experimental software.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Add Network Button -->
+            <div class="flex justify-end mb-4">
+                <button type="button"
+                    class="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-primary-light)] border border-[var(--color-border-subtle)] hover:border-[var(--color-primary-border)] rounded-lg py-2 px-3 transition-colors"
+                    @click="toggleForm()">
+                    <i :class="showForm ? 'fa-solid fa-times' : 'fa-solid fa-plus'"></i>
+                    <span x-text="showForm ? 'Close' : 'Add Network'"></span>
+                </button>
+            </div>
+
+            <!-- Form for adding a new network -->
+            <div x-show="showForm" x-transition @click.outside="showForm = false"
+                 class="card p-5 mb-6">
+                <h2 class="text-sm font-semibold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-[var(--color-primary)]"></i> Add New Network
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="name" class="text-xs font-medium text-[var(--color-text-secondary)] mb-1 block">Network Name</label>
+                        <input type="text" id="name" x-model="newNetwork.name" placeholder="Enter network name"
+                               class="input w-full text-sm" />
+                    </div>
+                    <div>
+                        <label for="description" class="text-xs font-medium text-[var(--color-text-secondary)] mb-1 block">Description</label>
+                        <textarea id="description" x-model="newNetwork.description" placeholder="Enter description"
+                                  class="input w-full text-sm" rows="2"></textarea>
+                    </div>
+                    <div>
+                        <label for="token" class="text-xs font-medium text-[var(--color-text-secondary)] mb-1 block">Token</label>
+                        <textarea id="token" x-model="newNetwork.token" placeholder="Enter token"
+                                  class="input w-full text-sm font-mono" rows="2"></textarea>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button" @click="addNetwork"
+                            class="inline-flex items-center gap-1.5 text-xs text-white bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] rounded-lg py-2 px-4 transition-colors">
+                            <i class="fa-solid fa-plus"></i> Add Network
+                        </button>
+                        <p x-show="errorMessage" class="text-xs text-[var(--color-error)]" x-text="errorMessage"></p>
+                        <p x-show="successMessage" class="text-xs text-[var(--color-success)]" x-text="successMessage"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <template x-if="networks.length === 0 && !loadingComplete">
+                <div class="text-center py-16">
+                    <svg class="animate-spin h-8 w-8 text-[var(--color-primary)] mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-sm text-[var(--color-text-secondary)]">Loading networks...</p>
+                </div>
+            </template>
+
+            <template x-if="networks.length === 0 && loadingComplete">
+                <div class="text-center py-16">
+                    <i class="fa-solid fa-circle-nodes text-3xl text-[var(--color-text-muted)] mb-3"></i>
+                    <p class="text-sm text-[var(--color-text-secondary)]">No networks available with online workers</p>
+                </div>
+            </template>
+
+            <!-- Display Networks -->
+            <div class="space-y-4">
+                <template x-for="network in networks" :key="network.name">
+                    <div class="card overflow-hidden">
+                        <!-- Network Header -->
+                        <div class="p-4 border-b border-[var(--color-border-subtle)]">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i class="fa-solid fa-circle-nodes text-[var(--color-primary)]"></i>
+                                <span class="text-base font-semibold text-[var(--color-text-primary)]" x-text="network.name"></span>
+                            </div>
+
+                            <!-- Token -->
+                            <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 cursor-pointer border border-[var(--color-border-subtle)] hover:border-[var(--color-primary-border)] transition-colors group"
+                                 @click="copyToken(network.token)">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
+                                        <i class="fa-solid fa-key mr-1"></i>Token (click to copy)
+                                    </span>
+                                    <i class="fa-solid fa-copy text-xs text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] transition-colors"></i>
+                                </div>
+                                <code class="text-xs text-[var(--color-text-secondary)] break-all font-mono leading-relaxed" x-text="network.token"></code>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="px-4 py-3 border-b border-[var(--color-border-subtle)]">
+                            <p class="text-xs text-[var(--color-text-secondary)]" x-text="network.description"></p>
+                        </div>
+
+                        <!-- Clusters -->
+                        <div class="p-4">
+                            <h3 class="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3">
+                                Available Clusters
+                            </h3>
+                            <div class="space-y-3">
+                                <template x-for="cluster in network.Clusters" :key="cluster.NetworkID + cluster.Type">
+                                    <div class="bg-[var(--color-bg-primary)] rounded-lg p-3 border border-[var(--color-border-subtle)]">
+                                        <!-- Cluster badges -->
+                                        <div class="flex flex-wrap gap-1.5 mb-3">
+                                            <span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] border border-[var(--color-warning)]/20"
+                                                  x-text="'Type: ' + cluster.Type"></span>
+                                            <span x-show="cluster.NetworkID"
+                                                  class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-accent-light)] text-[var(--color-accent)] border border-[var(--color-accent)]/20"
+                                                  x-text="'ID: ' + (cluster.NetworkID || 'N/A')"></span>
+                                            <span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] border border-[var(--color-primary)]/20"
+                                                  x-text="cluster.Workers.length + ' workers'"></span>
+                                        </div>
+
+                                        <!-- Federated connect commands -->
+                                        <div x-show="cluster.Type == 'federated'" class="space-y-2">
+                                            <p class="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Connect via Docker:</p>
+                                            <div class="relative group/cmd">
+                                                <code class="block bg-[var(--color-bg-secondary)] text-[var(--color-warning)] p-3 rounded-lg text-xs break-all border border-[var(--color-border-subtle)] font-mono leading-relaxed cursor-pointer"
+                                                      @click="copyToken($el.textContent)">docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span x-text="network.token"></span>" --net host -ti localai/localai:master federated --debug</code>
+                                                <i class="fa-solid fa-copy absolute top-2 right-2 text-[10px] text-[var(--color-text-muted)] group-hover/cmd:text-[var(--color-primary)] transition-colors"></i>
+                                            </div>
+                                            <p class="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mt-2">Connect via CLI:</p>
+                                            <div class="relative group/cmd">
+                                                <code class="block bg-[var(--color-bg-secondary)] text-[var(--color-warning)] p-3 rounded-lg text-xs break-all border border-[var(--color-border-subtle)] font-mono leading-relaxed cursor-pointer"
+                                                      @click="copyToken($el.textContent)">ADDRESS=":80" LOCALAI_P2P_NETWORK_ID=<span x-text="cluster.NetworkID"></span> LOCALAI_P2P_LOGLEVEL=debug TOKEN="<span x-text="network.token"></span>" local-ai federated --debug</code>
+                                                <i class="fa-solid fa-copy absolute top-2 right-2 text-[10px] text-[var(--color-text-muted)] group-hover/cmd:text-[var(--color-primary)] transition-colors"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <script>
+            function networkClusters() {
+                return {
+                    networks: [],
+                    newNetwork: {
+                        name: '',
+                        description: '',
+                        token: ''
+                    },
+                    errorMessage: '',
+                    successMessage: '',
+                    showForm: false,
+                    loadingComplete: false,
+                    toggleForm() {
+                        this.showForm = !this.showForm;
+                    },
+                    fetchNetworks() {
+                        fetch('/networks')
+                            .then(response => response.json())
+                            .then(data => {
+                                this.networks = data;
+                                this.loadingComplete = true;
+                            })
+                            .catch(error => {
+                                console.error('Error fetching networks:', error);
+                                this.loadingComplete = true;
+                            });
+                    },
+                    addNetwork() {
+                        this.errorMessage = '';
+                        this.successMessage = '';
+
+                        if (!this.newNetwork.name || !this.newNetwork.description || !this.newNetwork.token) {
+                            this.errorMessage = 'All fields are required.';
+                            return;
+                        }
+
+                        fetch('/network/add', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newNetwork)
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    return response.json().then(err => { throw err; });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                this.successMessage = 'Network added successfully!';
+                                this.fetchNetworks();
+                                this.newNetwork = { name: '', description: '', token: '' };
+                            })
+                            .catch(error => {
+                                console.error('Error adding network:', error);
+                                this.errorMessage = 'Failed to add network. Please try again.'
+                                if (error.error) {
+                                    this.errorMessage += " Error: " + error.error;
+                                }
+                            });
+                    },
+                    copyToken(token) {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            navigator.clipboard.writeText(token)
+                                .then(() => alert('Copied to clipboard!'))
+                                .catch(() => fallbackCopy(token));
+                        } else {
+                            fallbackCopy(token);
+                        }
+                    },
+                    init() {
+                        this.fetchNetworks();
+                        setInterval(() => {
+                            this.fetchNetworks();
+                        }, 5000);
+                    }
+                }
+            }
+        </script>
+        <script src="static/p2panimation.js"></script>
+
+        {{template "views/partials/footer" .}}
+    </div>
+  </main>
+</div>
+
+</body>
+
+</html>

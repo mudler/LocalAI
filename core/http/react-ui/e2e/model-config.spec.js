@@ -1,0 +1,380 @@
+import { test, expect } from './coverage-fixtures.js'
+
+const MOCK_METADATA = {
+  sections: [
+    { id: 'general', label: 'General', icon: 'settings', order: 0 },
+    { id: 'parameters', label: 'Parameters', icon: 'sliders', order: 20 },
+  ],
+  fields: [
+    { path: 'name', yaml_key: 'name', go_type: 'string', ui_type: 'string', section: 'general', label: 'Model Name', description: 'Unique identifier for this model', component: 'input', order: 0 },
+    { path: 'backend', yaml_key: 'backend', go_type: 'string', ui_type: 'string', section: 'general', label: 'Backend', description: 'Inference backend to use', component: 'select', autocomplete_provider: 'backends', order: 10 },
+    { path: 'context_size', yaml_key: 'context_size', go_type: '*int', ui_type: 'int', section: 'general', label: 'Context Size', description: 'Maximum context window in tokens', component: 'number', vram_impact: true, order: 20 },
+    { path: 'cuda', yaml_key: 'cuda', go_type: 'bool', ui_type: 'bool', section: 'general', label: 'CUDA', description: 'Enable CUDA GPU acceleration', component: 'toggle', order: 30 },
+    { path: 'parameters.temperature', yaml_key: 'temperature', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Temperature', description: 'Sampling temperature', component: 'slider', min: 0, max: 2, step: 0.1, order: 0 },
+    { path: 'parameters.top_p', yaml_key: 'top_p', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Top P', description: 'Nucleus sampling threshold', component: 'slider', min: 0, max: 1, step: 0.05, order: 10 },
+    { path: 'pii_detection.builtins', yaml_key: 'builtins', go_type: '[]string', ui_type: '[]string', section: 'general', label: 'Built-in Secret Patterns', description: 'Built-in credential patterns', component: 'pii-builtins-select', options: [{ value: 'anthropic_api_key', label: 'anthropic_api_key — Anthropic API key' }, { value: 'github_token', label: 'github_token — GitHub token' }], order: 213 },
+    { path: 'pii_detection.patterns', yaml_key: 'patterns', go_type: '[]config.PIIPattern', ui_type: 'object', section: 'general', label: 'Custom Secret Patterns', description: 'Operator-defined restricted-regex patterns', component: 'pii-pattern-list', order: 214 },
+    { path: 'pii_detection.entity_actions', yaml_key: 'entity_actions', go_type: 'map[string]string', ui_type: 'map', section: 'general', label: 'Detector Entity Actions', description: 'Per-entity-group action policy', component: 'entity-action-list', order: 212 },
+  ],
+}
+
+// Mock raw YAML (what the edit endpoint returns) — only fields actually in the file
+const MOCK_YAML = `name: mock-model
+backend: mock-backend
+parameters:
+  model: mock-model.bin
+`
+
+const MOCK_AUTOCOMPLETE_BACKENDS = { values: ['mock-backend', 'llama-cpp', 'vllm'] }
+
+test.describe('Model Editor - Interactive Tab', () => {
+  test.beforeEach(async ({ page }) => {
+    // Mock config metadata
+    await page.route('**/api/models/config-metadata*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_METADATA),
+      })
+    })
+
+    // Mock raw YAML edit endpoint (GET for loading, POST for saving)
+    await page.route('**/api/models/edit/mock-model', (route) => {
+      if (route.request().method() === 'POST') {
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Configuration file saved' }),
+        })
+      } else {
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ config: MOCK_YAML, name: 'mock-model' }),
+        })
+      }
+    })
+
+    // Mock PATCH config-json for interactive save
+    await page.route('**/api/models/config-json/mock-model', (route) => {
+      if (route.request().method() === 'PATCH') {
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, message: "Model 'mock-model' updated successfully" }),
+        })
+      } else {
+        route.fulfill({ contentType: 'application/json', body: '{}' })
+      }
+    })
+
+    // Mock autocomplete for backends
+    await page.route('**/api/models/config-metadata/autocomplete/backends', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_AUTOCOMPLETE_BACKENDS),
+      })
+    })
+
+    await page.goto('/app/model-editor/mock-model')
+    // Wait for the page to load
+    await expect(page.locator('h1', { hasText: 'Model Editor' })).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('page loads and shows model name in header', async ({ page }) => {
+    await expect(page.locator('text=mock-model')).toBeVisible()
+    await expect(page.locator('h1', { hasText: 'Model Editor' })).toBeVisible()
+  })
+
+  test('interactive tab is active by default', async ({ page }) => {
+    // The field browser should be visible (interactive tab content)
+    await expect(page.locator('input[placeholder="Search fields to add..."]')).toBeVisible()
+  })
+
+  test('existing config fields from YAML are populated', async ({ page }) => {
+    // The mock YAML has name and backend — they should be active fields
+    await expect(page.locator('text=Model Name')).toBeVisible()
+    await expect(page.locator('span', { hasText: /^Backend$/ }).first()).toBeVisible()
+  })
+
+  test('section sidebar shows sections with active fields', async ({ page }) => {
+    const sidebar = page.locator('nav')
+    await expect(sidebar.locator('text=General')).toBeVisible()
+  })
+
+  test('typing in field browser shows matching fields', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    await expect(page.locator('text=Temperature').first()).toBeVisible()
+  })
+
+  test('clicking a field result adds it to the config', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Temperature' }).first().click()
+    await expect(page.locator('h3', { hasText: 'Parameters' })).toBeVisible()
+  })
+
+  test('toggle field renders a toggle switch', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('CUDA')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'CUDA' }).first().click()
+    await expect(page.locator('text=CUDA').first()).toBeVisible()
+    const cudaSection = page.locator('div', { has: page.locator('span', { hasText: /^CUDA$/ }) }).first()
+    await expect(cudaSection.locator('input[type="checkbox"]')).toHaveCount(1)
+  })
+
+  test('number field renders a numeric input', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Context Size')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Context Size' }).first().click()
+    await expect(page.locator('input[type="number"]')).toBeVisible()
+  })
+
+  test('changing a field value enables the Save button', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Context Size')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Context Size' }).first().click()
+    const numberInput = page.locator('input[type="number"]')
+    await numberInput.fill('4096')
+    await expect(page.locator('button', { hasText: 'Save Changes' })).toBeVisible()
+  })
+
+  test('removing a field with X button removes it from the form', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Temperature' }).first().click()
+    const paramsHeader = page.locator('h3', { hasText: 'Parameters' })
+    await expect(paramsHeader).toBeVisible()
+    const paramsSection = paramsHeader.locator('..')
+    await paramsSection.locator('button[title="Remove field"]').first().click()
+    await expect(paramsHeader).not.toBeVisible()
+  })
+
+  test('save sends PATCH and shows success toast', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Context Size')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Context Size' }).first().click()
+    const numberInput = page.locator('input[type="number"]')
+    await numberInput.fill('8192')
+    await page.locator('button', { hasText: 'Save Changes' }).click()
+    await expect(page.locator('text=Configuration saved')).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('added field is no longer shown in field browser results', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Temperature' }).first().click()
+    await searchInput.fill('Temperature')
+    await page.waitForTimeout(200)
+    const results = dropdown.locator('div[style*="cursor: pointer"]', { hasText: 'Temperature' })
+    await expect(results).toHaveCount(0)
+  })
+
+  test('switching to YAML tab shows code editor', async ({ page }) => {
+    await page.locator('button', { hasText: 'YAML' }).click()
+    // The CodeMirror editor should be visible
+    await expect(page.locator('.cm-editor').first()).toBeVisible()
+    // The field browser should NOT be visible
+    await expect(page.locator('input[placeholder="Search fields to add..."]')).not.toBeVisible()
+  })
+
+  test('switching back to Interactive tab restores fields', async ({ page }) => {
+    // Go to YAML tab
+    await page.locator('button', { hasText: 'YAML' }).click()
+    await expect(page.locator('input[placeholder="Search fields to add..."]')).not.toBeVisible()
+    // Go back to Interactive tab
+    await page.locator('button', { hasText: 'Interactive' }).click()
+    await expect(page.locator('input[placeholder="Search fields to add..."]')).toBeVisible()
+    await expect(page.locator('text=Model Name')).toBeVisible()
+  })
+
+  test('shows the estimated VRAM annotation when the model has a context size', async ({ page }) => {
+    // Regression: the editor reads the /api/models/vram-estimate response,
+    // whose shape is snake_case (vram_display). The hook previously read
+    // camelCase (vramDisplay) and silently showed nothing.
+    await page.route('**/api/models/edit/mock-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          config: 'name: mock-model\nbackend: mock-backend\ncontext_size: 4096\nparameters:\n  model: mock-model.bin\n',
+          name: 'mock-model',
+        }),
+      })
+    })
+    let estimateCalled = false
+    await page.route('**/api/models/vram-estimate', (route) => {
+      estimateCalled = true
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          size_bytes: 4294967296,
+          size_display: '4 GiB',
+          vram_bytes: 5583457484,
+          vram_display: '5.2 GiB',
+          context_length: 4096,
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/mock-model')
+    await expect(page.locator('h1', { hasText: 'Model Editor' })).toBeVisible({ timeout: 10_000 })
+
+    await expect(page.getByText(/~\s*5\.2 GiB VRAM/)).toBeVisible({ timeout: 10_000 })
+    expect(estimateCalled).toBe(true)
+  })
+
+  test('interactive tab scrolls at body height (no inner overflow pane) and tracks the active section', async ({ page }) => {
+    // Regression: the form sections used to live inside an overflow:auto pane
+    // with maxHeight: calc(100vh - 340px), which kept the global footer in
+    // view on every screen and ate ~50px of editing room on short windows.
+    // Pin two pieces of the fix:
+    //  1. The two-column container (sticky nav + content) has no scrollable
+    //     inner element on its content side — body-scroll handles overflow.
+    //  2. The active-section tracker now listens to window scroll. Scrolling
+    //     the window should run the tracker without throwing, and the
+    //     `<nav>` sidebar must still render.
+    const contentOverflowY = await page.evaluate(() => {
+      const sidebar = document.querySelector('nav')
+      // The content column is the next sibling of the sticky sidebar.
+      const content = sidebar?.nextElementSibling
+      return content ? getComputedStyle(content).overflowY : 'no-content'
+    })
+    expect(['visible', 'normal', 'auto', 'scroll', 'no-content']).toContain(contentOverflowY)
+    expect(contentOverflowY).not.toBe('scroll')
+    // 'auto' could exist on some browsers but should NOT — the fix removes it.
+    // We assert the strong invariant separately.
+    expect(['auto']).not.toContain(contentOverflowY)
+
+    // Add a couple of fields to give the page a touch more height, then
+    // force a window scroll. The tracker should run; the sidebar should
+    // remain visible.
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Temperature' }).first().click()
+    await page.evaluate(() => window.scrollTo(0, 200))
+    await page.waitForTimeout(50)
+    await expect(page.locator('nav').first()).toBeVisible()
+  })
+
+  test('built-in secret patterns render as a checklist from field options', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Built-in Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Built-in Secret Patterns' }).first().click()
+
+    // One checkbox per catalogue option; toggling one enables Save.
+    const anthropic = page.locator('label', { hasText: 'Anthropic API key' }).locator('input[type="checkbox"]')
+    await expect(anthropic).toHaveCount(1)
+    await anthropic.check()
+    await expect(anthropic).toBeChecked()
+  })
+
+  test('custom secret patterns render the pattern-list editor', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Custom Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Custom Secret Patterns' }).first().click()
+
+    // Empty state + an Add button; adding a row shows the name + match inputs.
+    const addBtn = page.locator('button', { hasText: 'Add pattern' })
+    await expect(addBtn).toBeVisible()
+    await addBtn.click()
+    await expect(page.locator('input[placeholder^="Name (group)"]')).toBeVisible()
+    await expect(page.locator('input[placeholder^="match,"]')).toBeVisible()
+  })
+
+  test('pattern min_len clamps a directly-typed negative to 0', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Custom Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Custom Secret Patterns' }).first().click()
+
+    await page.locator('button', { hasText: 'Add pattern' }).click()
+    // The number input's min={0} only limits the spinner arrows, not keyboard
+    // entry; the editor must sanitise a typed negative so a meaningless
+    // negative length floor never reaches the saved config.
+    const minLen = page.locator('input[aria-label="Minimum length"]')
+    await minLen.fill('-5')
+    await expect(minLen).toHaveValue('0')
+  })
+
+  // Regression: a map-typed field (entity_actions) present in the loaded YAML
+  // must render WITH its values. flattenConfig used to recurse into the map,
+  // scattering it across pii_detection.entity_actions.<GROUP> paths that match
+  // no registered field, so the editor showed neither the field nor the
+  // per-entity policy (e.g. SSN -> block) the operator had configured.
+  test('entity_actions map field present in YAML renders with its values', async ({ page }) => {
+    // Override the edit endpoint for this test: YAML that carries a populated
+    // entity_actions map alongside a scalar sibling (default_action).
+    await page.route('**/api/models/edit/ner-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'ner-model',
+          config: [
+            'name: ner-model',
+            'backend: llama-cpp',
+            'pii_detection:',
+            '    default_action: mask',
+            '    entity_actions:',
+            '        SSN: block',
+            '        EMAIL: mask',
+            '',
+          ].join('\n'),
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/ner-model')
+
+    // The entity-action-list editor is rendered (field label visible)…
+    await expect(page.getByText('Detector Entity Actions').first()).toBeVisible()
+    // …and bound to the existing map: one row per configured group, in order.
+    const groupInputs = page.locator('input[aria-label="Entity group"]')
+    await expect(groupInputs).toHaveCount(2)
+    await expect(groupInputs.nth(0)).toHaveValue('SSN')
+    await expect(groupInputs.nth(1)).toHaveValue('EMAIL')
+    // The action select shows the bound action label (block), proving the map
+    // values bound, not just an empty editor.
+    await expect(page.getByText(/block —/i).first()).toBeVisible()
+  })
+
+  // A map cannot hold two values for one key, so renaming a row to an existing
+  // group must collapse to a single row (Object.fromEntries, last write wins)
+  // rather than rendering two conflicting rows that silently lose one on save.
+  test('entity_actions collapses a duplicate group to a single row', async ({ page }) => {
+    await page.route('**/api/models/edit/ner-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'ner-model',
+          config: [
+            'name: ner-model',
+            'backend: llama-cpp',
+            'pii_detection:',
+            '    entity_actions:',
+            '        SSN: block',
+            '        EMAIL: mask',
+            '',
+          ].join('\n'),
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/ner-model')
+
+    const groupInputs = page.locator('input[aria-label="Entity group"]')
+    await expect(groupInputs).toHaveCount(2)
+
+    // Rename the EMAIL row to duplicate SSN; the editor collapses to one SSN row.
+    await groupInputs.nth(1).fill('SSN')
+    await expect(groupInputs).toHaveCount(1)
+    await expect(groupInputs.nth(0)).toHaveValue('SSN')
+  })
+
+})

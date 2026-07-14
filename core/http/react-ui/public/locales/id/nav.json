@@ -1,0 +1,70 @@
+{
+  "appName": "LocalAI",
+  "openMenu": "Buka menu",
+  "closeMenu": "Tutup menu",
+  "primaryNavigation": "Navigasi utama",
+  "switchToLightMode": "Ganti ke mode terang",
+  "switchToDarkMode": "Ganti ke mode gelap",
+  "expandSidebar": "Perluas sidebar",
+  "collapseSidebar": "Ciutkan sidebar",
+  "changeLanguage": "Ubah bahasa",
+  "logout": "Keluar",
+  "accountSettings": "Pengaturan akun",
+  "account": "Akun",
+  "accountFor": "Akun: {{name}}",
+  "sections": {
+    "create": "Buat",
+    "recognition": "Pengenalan",
+    "build": "Bangun",
+    "operate": "Operasikan"
+  },
+  "operate": {
+    "inference": "Inferensi",
+    "cluster": "Kluster",
+    "observability": "Observabilitas",
+    "access": "Akses",
+    "system": "Sistem"
+  },
+  "items": {
+    "home": "Beranda",
+    "installModels": "Instal Model",
+    "chat": "Obrolan",
+    "studio": "Studio",
+    "talk": "Bicara",
+    "fineTune": "Fine-Tune (Eksperimental)",
+    "quantize": "Kuantisasi (Eksperimental)",
+    "faces": "Wajah",
+    "voices": "Suara",
+    "jobs": "Pekerjaan",
+    "operate": "Admin",
+    "host": "Host",
+    "audioTransform": "Transformasi Audio",
+    "faceRecognition": "Pengenalan Wajah",
+    "voiceRecognition": "Pengenalan Suara",
+    "agents": "Agen",
+    "skills": "Skill",
+    "memory": "Memori",
+    "mcpJobs": "MCP CI Jobs",
+    "usage": "Penggunaan",
+    "users": "Pengguna",
+    "middleware": "Middleware",
+    "backends": "Backend",
+    "traces": "Trace",
+    "nodes": "Node",
+    "scheduling": "Penjadwalan",
+    "swarm": "Swarm",
+    "system": "Sistem",
+    "settings": "Pengaturan",
+    "api": "API"
+  },
+  "footer": {
+    "github": "GitHub",
+    "documentation": "Dokumentasi",
+    "author": "Penulis",
+    "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Automasi",
+    "training": "Pelatihan"
+  }
+}

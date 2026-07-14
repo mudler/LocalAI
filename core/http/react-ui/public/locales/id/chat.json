@@ -1,0 +1,118 @@
+{
+  "activity": {
+    "thought": "Penalaran",
+    "tool": "Alat",
+    "result": "Hasil",
+    "toolResult": "Hasil {{name}}",
+    "thinking": "Berpikir..."
+  },
+  "header": {
+    "manageModeTooltip": "Obrolan ini dapat menginstal model, mengedit konfigurasi, dan mengelola backend dengan berbicara melalui LocalAI.",
+    "modelInfo": "Info model",
+    "chatSettings": "Pengaturan Obrolan",
+    "modelInfoTitle": "Info model: {{model}}",
+    "editConfig": "Edit konfigurasi",
+    "close": "Tutup"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "File model",
+    "contextSize": "Ukuran konteks",
+    "threads": "Thread",
+    "mcp": "MCP",
+    "configured": "Dikonfigurasi",
+    "chatTemplate": "Templat Obrolan",
+    "yes": "Ya",
+    "gpuLayers": "Layer GPU"
+  },
+  "context": {
+    "label": "Konteks: {{percent}}%",
+    "labelWithTokens": "Konteks: {{percent}}% ({{tokens}} tokens)"
+  },
+  "settings": {
+    "title": "Pengaturan Obrolan",
+    "manageMode": "Mode Manajemen",
+    "manageModeDesc": "Izinkan obrolan ini menginstal model, mengganti backend, dan mengedit konfigurasi dengan berbicara melalui LocalAI.",
+    "systemPrompt": "System Prompt",
+    "systemPromptPlaceholder": "Anda adalah asisten yang membantu...",
+    "temperature": "Temperatur",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Ukuran Konteks",
+    "contextSizePlaceholder": "2048",
+    "clearHistory": "Hapus riwayat obrolan"
+  },
+  "empty": {
+    "manageTitle": "Kelola LocalAI dengan obrolan",
+    "manageText": "Izinkan untuk menginstal model, mengganti backend, mengedit konfigurasi, atau memeriksa status. Asisten akan merangkum tindakan dan menunggu konfirmasi Anda sebelum mengubah apa pun.",
+    "startTitle": "Mulai percakapan",
+    "readyText": "Siap untuk mengobrol dengan {{model}}",
+    "selectModelText": "Pilih model di atas untuk memulai",
+    "suggestionsManage": [
+      "Apa saja yang terinstal?",
+      "Instal model obrolan",
+      "Tampilkan status sistem",
+      "Perbarui backend"
+    ],
+    "suggestionsChat": [
+      "Jelaskan cara kerjanya",
+      "Bantu saya menulis kode",
+      "Rangkum dokumen",
+      "Gali ide"
+    ],
+    "recent": "Terbaru",
+    "noMessages": "Belum ada pesan",
+    "hintEnter": "Enter untuk mengirim",
+    "hintShiftEnter": "Shift+Enter untuk baris baru",
+    "hintAttach": "Lampirkan file"
+  },
+  "errors": {
+    "viewTraces": "Lihat trace untuk detailnya"
+  },
+  "actions": {
+    "copy": "Salin",
+    "regenerate": "Hasilkan ulang",
+    "jumpToLatest": "Lompat ke terbaru"
+  },
+  "streaming": {
+    "transferring": "Mentransfer model...",
+    "transferringTo": "Mentransfer model ke {{node}}..."
+  },
+  "tokens": {
+    "perSec": "{{count}} tok/s",
+    "peak": "Puncak: {{count}} tok/s",
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+  },
+  "input": {
+    "placeholder": "Pesan...",
+    "attachFile": "Lampirkan file",
+    "stopGenerating": "Hentikan pembuatan",
+    "canvasTitle": "Canvas — ekstrak blok kode dan media ke panel samping untuk pratinjau, salin, dan unduh",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Buka panel canvas"
+  },
+  "deleteAllDialog": {
+    "title": "Hapus Semua Obrolan",
+    "message": "Hapus semua obrolan? Tindakan ini tidak dapat dibatalkan.",
+    "confirm": "Hapus semua"
+  },
+  "toasts": {
+    "selectModel": "Silahkan pilih model",
+    "copied": "Berhasil disalin ke papan klip",
+    "copyFailed": "Gagal menyalin ke papan klip"
+  },
+  "menu": {
+    "trigger": "Obrolan",
+    "triggerTitle": "Percakapan (Ctrl/Cmd+K)",
+    "search": "Cari percakapan...",
+    "clearSearch": "Hapus pencarian",
+    "noMatch": "Tidak ada percakapan yang cocok dengan pencarian Anda",
+    "noConversations": "Belum ada percakapan",
+    "rename": "Ubah nama",
+    "exportMarkdown": "Ekspor sebagai Markdown",
+    "deleteChat": "Hapus obrolan",
+    "newChat": "Obrolan baru",
+    "clearAll": "Hapus semua",
+    "deleteAllTitle": "Hapus semua percakapan"
+  }
+}

@@ -1,0 +1,677 @@
+package gallery_test
+
+import (
+	"os"
+	"path/filepath"
+
+	"dario.cat/mergo"
+	"github.com/mudler/LocalAI/core/config"
+	. "github.com/mudler/LocalAI/core/gallery"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
+)
+
+var _ = Describe("Gallery", func() {
+	var tempDir string
+
+	BeforeEach(func() {
+		var err error
+		tempDir, err = os.MkdirTemp("", "gallery-test-*")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	Describe("ReadConfigFile", func() {
+		It("should read and unmarshal a valid YAML file", func() {
+			testConfig := map[string]any{
+				"name":        "test-model",
+				"description": "A test model",
+				"license":     "MIT",
+			}
+			yamlData, err := yaml.Marshal(testConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			filePath := filepath.Join(tempDir, "test.yaml")
+			err = os.WriteFile(filePath, yamlData, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			var result map[string]any
+			config, err := ReadConfigFile[map[string]any](filePath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config).NotTo(BeNil())
+			result = *config
+			Expect(result["name"]).To(Equal("test-model"))
+			Expect(result["description"]).To(Equal("A test model"))
+			Expect(result["license"]).To(Equal("MIT"))
+		})
+
+		It("should return error when file does not exist", func() {
+			_, err := ReadConfigFile[map[string]any]("nonexistent.yaml")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return error when YAML is invalid", func() {
+			filePath := filepath.Join(tempDir, "invalid.yaml")
+			err := os.WriteFile(filePath, []byte("invalid: yaml: content: [unclosed"), 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = ReadConfigFile[map[string]any](filePath)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("GalleryElements Search", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{
+					Metadata: Metadata{
+						Name:        "bert-embeddings",
+						Description: "BERT model for embeddings",
+						Tags:        []string{"embeddings", "bert", "nlp"},
+						License:     "Apache-2.0",
+						Gallery: config.Gallery{
+							Name: "huggingface",
+						},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name:        "gpt-2",
+						Description: "GPT-2 language model",
+						Tags:        []string{"gpt", "language-model"},
+						License:     "MIT",
+						Gallery: config.Gallery{
+							Name: "openai",
+						},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name:        "llama-7b",
+						Description: "LLaMA 7B model",
+						Tags:        []string{"llama", "llm"},
+						License:     "LLaMA",
+						Gallery: config.Gallery{
+							Name: "meta",
+						},
+					},
+				},
+			}
+		})
+
+		It("should find elements by exact name match", func() {
+			results := elements.Search("bert-embeddings")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should find elements by partial name match", func() {
+			results := elements.Search("bert")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should find elements by description", func() {
+			results := elements.Search("embeddings")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should find elements by gallery name", func() {
+			results := elements.Search("huggingface")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetGallery().Name).To(Equal("huggingface"))
+		})
+
+		It("should find elements by tags", func() {
+			results := elements.Search("nlp")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should be case insensitive", func() {
+			results := elements.Search("BERT")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should find multiple elements", func() {
+			results := elements.Search("gpt")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("gpt-2"))
+		})
+
+		It("should return empty results for no matches", func() {
+			results := elements.Search("nonexistent")
+			Expect(results).To(HaveLen(0))
+		})
+
+		It("should use fuzzy matching", func() {
+			results := elements.Search("bert-emb")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("bert-embeddings"))
+		})
+	})
+
+	Describe("GalleryElements FilterByTag", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{
+					Metadata: Metadata{
+						Name: "whisper-asr",
+						Tags: []string{"asr", "stt"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "image-diffusers",
+						Tags: []string{"sd", "image"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "another-stt-model",
+						Tags: []string{"stt", "audio"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "no-tags-model",
+						Tags: []string{},
+					},
+				},
+			}
+		})
+
+		It("should return exact tag matches only", func() {
+			results := elements.FilterByTag("asr")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("whisper-asr"))
+		})
+
+		It("should not match substrings (image-diffusers must NOT match 'asr')", func() {
+			results := elements.FilterByTag("asr")
+			for _, r := range results {
+				Expect(r.GetName()).NotTo(Equal("image-diffusers"))
+			}
+		})
+
+		It("should be case insensitive", func() {
+			results := elements.FilterByTag("ASR")
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].GetName()).To(Equal("whisper-asr"))
+		})
+
+		It("should return multiple models with the same tag", func() {
+			results := elements.FilterByTag("stt")
+			Expect(results).To(HaveLen(2))
+		})
+
+		It("should return empty when no models have the tag", func() {
+			results := elements.FilterByTag("nonexistent")
+			Expect(results).To(HaveLen(0))
+		})
+	})
+
+	Describe("GalleryElements SortByName", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{Name: "zebra"}},
+				{Metadata: Metadata{Name: "alpha"}},
+				{Metadata: Metadata{Name: "beta"}},
+			}
+		})
+
+		It("should sort ascending", func() {
+			sorted := elements.SortByName("asc")
+			Expect(sorted).To(HaveLen(3))
+			Expect(sorted[0].GetName()).To(Equal("alpha"))
+			Expect(sorted[1].GetName()).To(Equal("beta"))
+			Expect(sorted[2].GetName()).To(Equal("zebra"))
+		})
+
+		It("should sort descending", func() {
+			sorted := elements.SortByName("desc")
+			Expect(sorted).To(HaveLen(3))
+			Expect(sorted[0].GetName()).To(Equal("zebra"))
+			Expect(sorted[1].GetName()).To(Equal("beta"))
+			Expect(sorted[2].GetName()).To(Equal("alpha"))
+		})
+
+		It("should be case insensitive", func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{Name: "Zebra"}},
+				{Metadata: Metadata{Name: "alpha"}},
+				{Metadata: Metadata{Name: "Beta"}},
+			}
+			sorted := elements.SortByName("asc")
+			Expect(sorted[0].GetName()).To(Equal("alpha"))
+			Expect(sorted[1].GetName()).To(Equal("Beta"))
+			Expect(sorted[2].GetName()).To(Equal("Zebra"))
+		})
+	})
+
+	Describe("GalleryElements SortByRepository", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{
+					Metadata: Metadata{
+						Gallery: config.Gallery{Name: "zebra-repo"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Gallery: config.Gallery{Name: "alpha-repo"},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Gallery: config.Gallery{Name: "beta-repo"},
+					},
+				},
+			}
+		})
+
+		It("should sort ascending", func() {
+			sorted := elements.SortByRepository("asc")
+			Expect(sorted).To(HaveLen(3))
+			Expect(sorted[0].GetGallery().Name).To(Equal("alpha-repo"))
+			Expect(sorted[1].GetGallery().Name).To(Equal("beta-repo"))
+			Expect(sorted[2].GetGallery().Name).To(Equal("zebra-repo"))
+		})
+
+		It("should sort descending", func() {
+			sorted := elements.SortByRepository("desc")
+			Expect(sorted).To(HaveLen(3))
+			Expect(sorted[0].GetGallery().Name).To(Equal("zebra-repo"))
+			Expect(sorted[1].GetGallery().Name).To(Equal("beta-repo"))
+			Expect(sorted[2].GetGallery().Name).To(Equal("alpha-repo"))
+		})
+	})
+
+	Describe("GalleryElements SortByLicense", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{License: "MIT"}},
+				{Metadata: Metadata{License: "Apache-2.0"}},
+				{Metadata: Metadata{License: ""}},
+				{Metadata: Metadata{License: "GPL-3.0"}},
+			}
+		})
+
+		It("should sort ascending with empty licenses at end", func() {
+			sorted := elements.SortByLicense("asc")
+			Expect(sorted).To(HaveLen(4))
+			Expect(sorted[0].GetLicense()).To(Equal("Apache-2.0"))
+			Expect(sorted[1].GetLicense()).To(Equal("GPL-3.0"))
+			Expect(sorted[2].GetLicense()).To(Equal("MIT"))
+			Expect(sorted[3].GetLicense()).To(Equal(""))
+		})
+
+		It("should sort descending with empty licenses at beginning", func() {
+			sorted := elements.SortByLicense("desc")
+			Expect(sorted).To(HaveLen(4))
+			Expect(sorted[0].GetLicense()).To(Equal(""))
+			Expect(sorted[1].GetLicense()).To(Equal("MIT"))
+			Expect(sorted[2].GetLicense()).To(Equal("GPL-3.0"))
+			Expect(sorted[3].GetLicense()).To(Equal("Apache-2.0"))
+		})
+
+		It("should handle all empty licenses", func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{License: ""}},
+				{Metadata: Metadata{License: ""}},
+			}
+			sorted := elements.SortByLicense("asc")
+			Expect(sorted).To(HaveLen(2))
+		})
+	})
+
+	Describe("GalleryElements SortByInstalled", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{Name: "installed-2", Installed: true}},
+				{Metadata: Metadata{Name: "not-installed-1", Installed: false}},
+				{Metadata: Metadata{Name: "installed-1", Installed: true}},
+				{Metadata: Metadata{Name: "not-installed-2", Installed: false}},
+			}
+		})
+
+		It("should sort ascending with installed first, then by name", func() {
+			sorted := elements.SortByInstalled("asc")
+			Expect(sorted).To(HaveLen(4))
+			Expect(sorted[0].GetInstalled()).To(BeTrue())
+			Expect(sorted[0].GetName()).To(Equal("installed-1"))
+			Expect(sorted[1].GetInstalled()).To(BeTrue())
+			Expect(sorted[1].GetName()).To(Equal("installed-2"))
+			Expect(sorted[2].GetInstalled()).To(BeFalse())
+			Expect(sorted[2].GetName()).To(Equal("not-installed-1"))
+			Expect(sorted[3].GetInstalled()).To(BeFalse())
+			Expect(sorted[3].GetName()).To(Equal("not-installed-2"))
+		})
+
+		It("should sort descending with not-installed first, then by name", func() {
+			sorted := elements.SortByInstalled("desc")
+			Expect(sorted).To(HaveLen(4))
+			Expect(sorted[0].GetInstalled()).To(BeFalse())
+			Expect(sorted[0].GetName()).To(Equal("not-installed-2"))
+			Expect(sorted[1].GetInstalled()).To(BeFalse())
+			Expect(sorted[1].GetName()).To(Equal("not-installed-1"))
+			Expect(sorted[2].GetInstalled()).To(BeTrue())
+			Expect(sorted[2].GetName()).To(Equal("installed-2"))
+			Expect(sorted[3].GetInstalled()).To(BeTrue())
+			Expect(sorted[3].GetName()).To(Equal("installed-1"))
+		})
+	})
+
+	Describe("GalleryElements FindByName", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{Name: "bert-embeddings"}},
+				{Metadata: Metadata{Name: "gpt-2"}},
+				{Metadata: Metadata{Name: "llama-7b"}},
+			}
+		})
+
+		It("should find element by exact name", func() {
+			result := elements.FindByName("bert-embeddings")
+			Expect(result).NotTo(BeNil())
+			Expect(result.GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should be case insensitive", func() {
+			result := elements.FindByName("BERT-EMBEDDINGS")
+			Expect(result).NotTo(BeNil())
+			Expect(result.GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should return zero value when not found", func() {
+			result := elements.FindByName("nonexistent")
+			Expect(result).To(BeNil())
+		})
+	})
+
+	Describe("GalleryElements Paginate", func() {
+		var elements GalleryElements[*GalleryModel]
+
+		BeforeEach(func() {
+			elements = GalleryElements[*GalleryModel]{
+				{Metadata: Metadata{Name: "model-1"}},
+				{Metadata: Metadata{Name: "model-2"}},
+				{Metadata: Metadata{Name: "model-3"}},
+				{Metadata: Metadata{Name: "model-4"}},
+				{Metadata: Metadata{Name: "model-5"}},
+			}
+		})
+
+		It("should return first page", func() {
+			page := elements.Paginate(1, 2)
+			Expect(page).To(HaveLen(2))
+			Expect(page[0].GetName()).To(Equal("model-1"))
+			Expect(page[1].GetName()).To(Equal("model-2"))
+		})
+
+		It("should return second page", func() {
+			page := elements.Paginate(2, 2)
+			Expect(page).To(HaveLen(2))
+			Expect(page[0].GetName()).To(Equal("model-3"))
+			Expect(page[1].GetName()).To(Equal("model-4"))
+		})
+
+		It("should return partial last page", func() {
+			page := elements.Paginate(3, 2)
+			Expect(page).To(HaveLen(1))
+			Expect(page[0].GetName()).To(Equal("model-5"))
+		})
+
+		It("should handle page beyond range", func() {
+			page := elements.Paginate(10, 2)
+			Expect(page).To(HaveLen(0))
+		})
+
+		It("should handle empty elements", func() {
+			empty := GalleryElements[*GalleryModel]{}
+			page := empty.Paginate(1, 10)
+			Expect(page).To(HaveLen(0))
+		})
+	})
+
+	Describe("FindGalleryElement", func() {
+		var models []*GalleryModel
+
+		BeforeEach(func() {
+			models = []*GalleryModel{
+				{
+					Metadata: Metadata{
+						Name: "bert-embeddings",
+						Gallery: config.Gallery{
+							Name: "huggingface",
+						},
+					},
+				},
+				{
+					Metadata: Metadata{
+						Name: "gpt-2",
+						Gallery: config.Gallery{
+							Name: "openai",
+						},
+					},
+				},
+			}
+		})
+
+		It("should find element by name without @ notation", func() {
+			result := FindGalleryElement(models, "bert-embeddings")
+			Expect(result).NotTo(BeNil())
+			Expect(result.GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should find element by name with @ notation", func() {
+			result := FindGalleryElement(models, "huggingface@bert-embeddings")
+			Expect(result).NotTo(BeNil())
+			Expect(result.GetName()).To(Equal("bert-embeddings"))
+			Expect(result.GetGallery().Name).To(Equal("huggingface"))
+		})
+
+		It("should be case insensitive", func() {
+			result := FindGalleryElement(models, "BERT-EMBEDDINGS")
+			Expect(result).NotTo(BeNil())
+			Expect(result.GetName()).To(Equal("bert-embeddings"))
+		})
+
+		It("should handle path separators in name", func() {
+			// Path separators are replaced with __, so bert/embeddings becomes bert__embeddings
+			// This test verifies the replacement happens, but won't match unless model name has __
+			modelsWithPath := []*GalleryModel{
+				{
+					Metadata: Metadata{
+						Name: "bert__embeddings",
+						Gallery: config.Gallery{
+							Name: "huggingface",
+						},
+					},
+				},
+			}
+			result := FindGalleryElement(modelsWithPath, "bert/embeddings")
+			Expect(result).NotTo(BeNil())
+			Expect(result.GetName()).To(Equal("bert__embeddings"))
+		})
+
+		It("should return zero value when not found", func() {
+			result := FindGalleryElement(models, "nonexistent")
+			Expect(result).To(BeNil())
+		})
+
+		It("should return zero value when gallery@name not found", func() {
+			result := FindGalleryElement(models, "nonexistent@model")
+			Expect(result).To(BeNil())
+		})
+	})
+
+	Describe("YAML merge with nested maps", func() {
+		It("should handle YAML anchors and merges with nested overrides (regression test for nanbeige4.1)", func() {
+			// This tests the fix for the panic that occurred with yaml.v2:
+			// yaml.v2 produces map[interface{}]interface{} for nested maps
+			// which caused mergo.Merge to panic with "value of type interface {} is not assignable to type string"
+			// The exact YAML structure from gallery/index.yaml nanbeige4.1 entries
+			yamlContent := `---
+- &nanbeige4
+  name: "nanbeige4.1-3b-q8"
+  overrides:
+    parameters:
+      model: nanbeige4.1-3b-q8_0.gguf
+- !!merge <<: *nanbeige4
+  name: "nanbeige4.1-3b-q4"
+  overrides:
+    parameters:
+      model: nanbeige4.1-3b-q4_k_m.gguf
+`
+			var models []GalleryModel
+			err := yaml.Unmarshal([]byte(yamlContent), &models)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(models).To(HaveLen(2))
+
+			// Verify first model
+			Expect(models[0].Name).To(Equal("nanbeige4.1-3b-q8"))
+			Expect(models[0].Overrides).NotTo(BeNil())
+			Expect(models[0].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]any{}))
+			params := models[0].Overrides["parameters"].(map[string]any)
+			Expect(params["model"]).To(Equal("nanbeige4.1-3b-q8_0.gguf"))
+
+			// Verify second model (merged)
+			Expect(models[1].Name).To(Equal("nanbeige4.1-3b-q4"))
+			Expect(models[1].Overrides).NotTo(BeNil())
+			Expect(models[1].Overrides["parameters"]).To(BeAssignableToTypeOf(map[string]any{}))
+			params = models[1].Overrides["parameters"].(map[string]any)
+			Expect(params["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
+
+			// Simulate the mergo.Merge call that was failing in models.go:251
+			// This should not panic with yaml.v3
+			configMap := make(map[string]any)
+			configMap["name"] = "test"
+			configMap["backend"] = "llama-cpp"
+			configMap["parameters"] = map[string]any{
+				"model": "original.gguf",
+			}
+
+			err = mergo.Merge(&configMap, models[1].Overrides, mergo.WithOverride)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap["parameters"]).NotTo(BeNil())
+
+			// Verify the merge worked correctly
+			mergedParams := configMap["parameters"].(map[string]any)
+			Expect(mergedParams["model"]).To(Equal("nanbeige4.1-3b-q4_k_m.gguf"))
+		})
+	})
+
+	Describe("GetKnownUsecases", func() {
+		It("uses explicit known_usecases from overrides when present", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Backend: "stablediffusion-ggml"},
+				Overrides: map[string]any{
+					"known_usecases": []any{"chat"},
+				},
+			}
+			u := m.GetKnownUsecases()
+			Expect(u).NotTo(BeNil())
+			// Override wins over the backend's image default.
+			Expect(*u & config.FLAG_CHAT).To(Equal(config.FLAG_CHAT))
+			Expect(*u & config.FLAG_IMAGE).To(Equal(config.ModelConfigUsecase(0)))
+		})
+
+		It("falls back to backend defaults when no override is set", func() {
+			m := &GalleryModel{Metadata: Metadata{Backend: "stablediffusion-ggml"}}
+			u := m.GetKnownUsecases()
+			Expect(u).NotTo(BeNil())
+			Expect(*u & config.FLAG_IMAGE).To(Equal(config.FLAG_IMAGE))
+		})
+
+		It("returns nil when neither overrides nor a known backend provide usecases", func() {
+			m := &GalleryModel{}
+			Expect(m.GetKnownUsecases()).To(BeNil())
+		})
+
+		It("filters models without explicit known_usecases via backend defaults", func() {
+			models := GalleryElements[*GalleryModel]{
+				&GalleryModel{Metadata: Metadata{Name: "sd-model", Backend: "stablediffusion-ggml"}},
+				&GalleryModel{Metadata: Metadata{Name: "whisper-model", Backend: "whisper"}},
+			}
+			filtered := FilterGalleryModelsByUsecase(models, config.FLAG_IMAGE)
+			Expect(filtered).To(HaveLen(1))
+			Expect(filtered[0].Name).To(Equal("sd-model"))
+		})
+	})
+
+	Describe("VoiceCloningCapability", func() {
+		It("derives support from an inline Base model configuration", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "qwen-base", Backend: "qwen3-tts-cpp"},
+				ConfigFile: map[string]any{
+					"parameters": map[string]any{"model": "Qwen3-TTS-12Hz-0.6B-Base"},
+				},
+			}
+
+			capability := m.VoiceCloningCapability(tempDir)
+			Expect(capability).NotTo(BeNil())
+			Expect(capability.AcceptedAudioFormats).To(Equal([]string{"audio/wav"}))
+		})
+
+		It("uses gallery overrides when deciding between model variants", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "qwen-custom", Backend: "qwen3-tts-cpp"},
+				ConfigFile: map[string]any{
+					"parameters": map[string]any{"model": "Qwen3-TTS-12Hz-0.6B-Base"},
+				},
+				Overrides: map[string]any{
+					"parameters": map[string]any{"model": "Qwen3-TTS-12Hz-0.6B-CustomVoice"},
+				},
+			}
+
+			Expect(m.VoiceCloningCapability(tempDir)).To(BeNil())
+		})
+
+		It("honors the typed capability override for custom gallery entries", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "private-voice-model", Backend: "qwen-tts"},
+				Overrides: map[string]any{
+					"parameters": map[string]any{"model": "private-checkpoint"},
+					"tts":        map[string]any{"voice_cloning": true},
+				},
+			}
+
+			Expect(m.VoiceCloningCapability(tempDir)).NotTo(BeNil())
+		})
+
+		It("honors an explicit gallery opt-out", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "voxcpm-1.5", Backend: "voxcpm"},
+				ConfigFile: map[string]any{
+					"tts": map[string]any{"voice_cloning": true},
+				},
+				Overrides: map[string]any{
+					"tts": map[string]any{"voice_cloning": false},
+				},
+			}
+
+			Expect(m.VoiceCloningCapability(tempDir)).To(BeNil())
+		})
+	})
+})

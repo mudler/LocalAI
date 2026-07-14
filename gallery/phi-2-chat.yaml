@@ -1,0 +1,19 @@
+---
+name: "phi-2-chatml"
+
+config_file: |
+  backend: "llama-cpp"
+  mmap: true
+  template:
+    chat_message: |
+      <|im_start|>{{ .RoleName }}
+      {{.Content}}<|im_end|>
+    chat: |
+      {{.Input}}
+      <|im_start|>assistant
+    completion: |
+      {{.Input}}
+  context_size: 4096
+  f16: true
+  stopwords:
+  - <|im_end|>

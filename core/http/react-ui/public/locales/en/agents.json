@@ -1,0 +1,55 @@
+{
+  "title": "Agents",
+  "subtitle": "Manage autonomous AI agents",
+  "actions": {
+    "agentHub": "Agent Hub",
+    "import": "Import",
+    "createAgent": "Create Agent",
+    "edit": "Edit",
+    "chat": "Chat",
+    "export": "Export",
+    "delete": "Delete",
+    "pause": "Pause",
+    "resume": "Resume"
+  },
+  "table": {
+    "name": "Name",
+    "status": "Status",
+    "events": "Events",
+    "actions": "Actions",
+    "eventsTooltip": "{{count}} events - Click to view"
+  },
+  "search": {
+    "placeholder": "Search agents...",
+    "summary_one": "{{shown}} of {{total}} agent",
+    "summary_other": "{{shown}} of {{total}} agents"
+  },
+  "empty": {
+    "noConfigured": "No agents configured",
+    "noConfiguredText": "Create an agent to get started with autonomous AI workflows.",
+    "browseHub": "Don't know where to start? Browse the <1>Agent Hub</1> to find ready-made agent configurations you can import.",
+    "noMatching": "No matching agents",
+    "noMatchingText": "No agents match \"{{query}}\""
+  },
+  "sections": {
+    "yourAgents": "Your Agents",
+    "otherUsersAgents": "Other Users' Agents"
+  },
+  "deleteDialog": {
+    "title": "Delete Agent",
+    "message": "Delete agent \"{{name}}\"? This action cannot be undone.",
+    "confirm": "Delete"
+  },
+  "toasts": {
+    "loadFailed": "Failed to load agents: {{message}}",
+    "deleted": "Agent \"{{name}}\" deleted",
+    "deleteFailed": "Failed to delete agent: {{message}}",
+    "paused": "Agent \"{{name}}\" paused",
+    "resumed": "Agent \"{{name}}\" resumed",
+    "pauseFailed": "Failed to pause agent: {{message}}",
+    "resumeFailed": "Failed to resume agent: {{message}}",
+    "exported": "Agent \"{{name}}\" exported",
+    "exportFailed": "Failed to export agent: {{message}}",
+    "parseFailed": "Failed to parse agent file: {{message}}"
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "title": "Instal Model",
+  "subtitle": "Telusuri dan instal model AI dari galeri",
+  "models": "Model",
+  "stats": {
+    "available": "Tersedia",
+    "installed": "Terinstal"
+  },
+  "actions": {
+    "addModel": "Tambah Model",
+    "importModel": "Impor Model",
+    "install": "Instal",
+    "reinstall": "Instal Ulang",
+    "delete": "Hapus"
+  },
+  "filters": {
+    "all": "Semua",
+    "llm": "Obrolan",
+    "image": "Gambar",
+    "video": "Video",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarization",
+    "soundGen": "Suara",
+    "audioTransform": "Efek Audio",
+    "realtimeAudio": "Audio Realtime",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "detection": "Deteksi",
+    "vad": "VAD",
+    "fitsGpu": "Muat di GPU",
+    "allBackends": "Semua Backend",
+    "searchBackends": "Cari backends..."
+  },
+  "search": {
+    "placeholder": "Cari model...",
+    "clearFilters": "Hapus filter"
+  },
+  "table": {
+    "modelName": "Nama Model",
+    "description": "Deskripsi",
+    "backend": "Backend",
+    "sizeVram": "Ukuran / VRAM",
+    "status": "Status",
+    "actions": "Aksi",
+    "size": "Ukuran: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Muat",
+    "mayNotFit": "Mungkin tidak muat",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Menginstal",
+    "installingPct": "Menginstal · {{percent}}%",
+    "installed": "Terinstal",
+    "notInstalled": "Belum Terinstal"
+  },
+  "detail": {
+    "description": "Deskripsi",
+    "gallery": "Galeri",
+    "backend": "Backend",
+    "size": "Ukuran",
+    "vram": "VRAM",
+    "license": "Lisensi",
+    "tags": "Tag",
+    "links": "Tautan",
+    "warning": "Peringatan",
+    "files": "File",
+    "fitsGpu": "Muat di GPU",
+    "mayNotFitGpu": "Mungkin tidak muat di GPU",
+    "requiresTrustRemoteCode": "Memerlukan Trust Remote Code",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} file",
+    "filename": "Nama file",
+    "uri": "URI",
+    "sha256": "SHA256"
+  },
+  "empty": {
+    "title": "Model tidak ditemukan",
+    "withFilters": "Tidak ada model yang cocok dengan pencarian atau filter Anda.",
+    "noFilters": "Galeri model kosong."
+  },
+  "deleteDialog": {
+    "title": "Hapus Model",
+    "message": "Hapus model {{model}}?",
+    "confirm": "Hapus {{model}}",
+    "deletingToast": "Menghapus {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Gagal memuat model: {{message}}",
+    "installFailed": "Gagal menginstal: {{message}}",
+    "deleteFailed": "Gagal menghapus: {{message}}"
+  },
+  "selector": {
+    "loading": "Memuat model...",
+    "selectModel": "Pilih model...",
+    "searchPlaceholder": "Cari model...",
+    "noModels": "Model tidak tersedia"
+  }
+}

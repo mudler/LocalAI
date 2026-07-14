@@ -1,0 +1,55 @@
+hip: port the turboquant CUDA additions that ggml's HIP shim doesn't cover
+
+The turboquant fork adds/modifies a few ggml-cuda.cu spots with CUDA APIs
+that ggml's HIP (and MUSA) compatibility layer does not provide, breaking
+the -gpu-rocm-hipblas-turboquant build:
+
+  1. ggml_cuda_copy2d_across_devices() (host-staged cross-device copy for
+     split mul_mat output) uses the CUDA 3D-peer copy APIs
+     cudaMemcpy3DPeerParms / make_cudaPitchedPtr / make_cudaExtent /
+     cudaMemcpy3DPeerAsync. HIP genuinely does not support these (see the
+     fork's own comment "HIP does not support cudaMemcpy3DPeerAsync"), so
+     guard the peer fast path with #if !defined(GGML_USE_HIP) &&
+     !defined(GGML_USE_MUSA) -- matching how the fork already guards the
+     same API for the sibling 2D copy -- and fall through to the existing
+     cudaMemcpyAsync staging fallback below (functionally identical,
+     slightly slower on multi-GPU ROCm).
+
+  2. ggml_backend_cuda_device_event_new() creates its event with plain
+     cudaEventCreate, which ggml's HIP shim does not alias (it only aliases
+     cudaEventCreateWithFlags). Use cudaEventCreateWithFlags(..., 
+     cudaEventDisableTiming) -- exactly what the rest of this file already
+     does (cf. lines ~1034, ~3461) and HIP-safe.
+
+CUDA builds are unaffected. Drop the relevant hunk once the fork HIP-ports
+these; apply-patches.sh fails fast if an anchor goes stale.
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 0427e6b..6352e6a 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -1933,6 +1933,7 @@ static cudaError_t ggml_cuda_copy2d_across_devices(
+     size_t width, size_t height, cudaStream_t dst_stream, cudaStream_t src_stream) {
+ 
+     const auto & info = ggml_cuda_info();
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)  // 3D-peer copy types unmapped by ggml's HIP/MUSA shim; use staging fallback below
+     if (info.peer_access[src_device][dst_device]) {
+         cudaMemcpy3DPeerParms p = {};
+         p.dstDevice = dst_device;
+@@ -1942,6 +1943,7 @@ static cudaError_t ggml_cuda_copy2d_across_devices(
+         p.extent = make_cudaExtent(width, height, 1);
+         return cudaMemcpy3DPeerAsync(&p, dst_stream);
+     }
++#endif // !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
+ 
+     // Fallback: stage all rows through a single contiguous pinned buffer
+     int prev_device = ggml_cuda_get_device();
+@@ -5714,7 +5716,7 @@ static ggml_backend_event_t ggml_backend_cuda_device_event_new(ggml_backend_dev_
+     ggml_cuda_set_device(dev_ctx->device);
+ 
+     cudaEvent_t event;
+-    CUDA_CHECK(cudaEventCreate(&event));
++    CUDA_CHECK(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+ 
+     return new ggml_backend_event {
+         /* .device  = */ dev,

@@ -1,0 +1,4938 @@
+basePath: /
+definitions:
+  config.Gallery:
+    properties:
+      name:
+        type: string
+      url:
+        type: string
+      verification:
+        $ref: '#/definitions/config.GalleryVerification'
+    type: object
+  config.GalleryVerification:
+    properties:
+      identity:
+        type: string
+      identity_regex:
+        type: string
+      issuer:
+        type: string
+      issuer_regex:
+        type: string
+      not_before:
+        description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
+        type: string
+    type: object
+  functions.Function:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parameters:
+        additionalProperties: {}
+        type: object
+      strict:
+        type: boolean
+    type: object
+  functions.Item:
+    properties:
+      properties:
+        additionalProperties: {}
+        type: object
+      type:
+        type: string
+    type: object
+  functions.JSONFunctionStructure:
+    properties:
+      $defs:
+        additionalProperties: {}
+        type: object
+      anyOf:
+        items:
+          $ref: '#/definitions/functions.Item'
+        type: array
+      oneOf:
+        items:
+          $ref: '#/definitions/functions.Item'
+        type: array
+    type: object
+  functions.Tool:
+    properties:
+      function:
+        $ref: '#/definitions/functions.Function'
+      type:
+        type: string
+    type: object
+  gallery.File:
+    properties:
+      filename:
+        type: string
+      sha256:
+        type: string
+      uri:
+        type: string
+    type: object
+  gallery.GalleryBackend:
+    properties:
+      alias:
+        type: string
+      backend:
+        description: |-
+          Backend is the resolved backend engine for this model (e.g. "llama-cpp").
+          Populated at load time from overrides, inline config, or the URL-referenced config file.
+        type: string
+      capabilities:
+        additionalProperties:
+          type: string
+        type: object
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      mirrors:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      sha256:
+        description: |-
+          SHA256 is the expected sha256 of the backend tarball at URI / Mirrors.
+          Empty disables the integrity check; OCI URIs carry their own digest.
+        type: string
+      size:
+        description: |-
+          Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+          Used when the size cannot be estimated automatically.
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      uri:
+        type: string
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+      version:
+        type: string
+    type: object
+  gallery.Metadata:
+    properties:
+      backend:
+        description: |-
+          Backend is the resolved backend engine for this model (e.g. "llama-cpp").
+          Populated at load time from overrides, inline config, or the URL-referenced config file.
+        type: string
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      name:
+        type: string
+      size:
+        description: |-
+          Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+          Used when the size cannot be estimated automatically.
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
+  gallery.NodeDriftInfo:
+    properties:
+      digest:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+      version:
+        type: string
+    type: object
+  gallery.UpgradeInfo:
+    properties:
+      available_digest:
+        type: string
+      available_version:
+        type: string
+      backend_name:
+        type: string
+      installed_digest:
+        type: string
+      installed_version:
+        type: string
+      node_drift:
+        description: |-
+          NodeDrift lists nodes whose installed version or digest differs from
+          the cluster majority. Non-empty means the cluster has diverged and an
+          upgrade will realign it. Empty in single-node mode.
+        items:
+          $ref: '#/definitions/gallery.NodeDriftInfo'
+        type: array
+    type: object
+  galleryop.NodeProgress:
+    properties:
+      current:
+        type: string
+      error:
+        type: string
+      file_name:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+      percentage:
+        type: number
+      phase:
+        type: string
+      status:
+        type: string
+      total:
+        type: string
+    type: object
+  galleryop.OpStatus:
+    properties:
+      cancellable:
+        description: Cancellable is true if the operation can be cancelled
+        type: boolean
+      cancelled:
+        description: Cancelled is true if the operation was cancelled
+        type: boolean
+      deletion:
+        description: Deletion is true if the operation is a deletion
+        type: boolean
+      downloaded_size:
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: string
+      gallery_element_name:
+        type: string
+      message:
+        type: string
+      nodes:
+        description: |-
+          Nodes is the per-node breakdown for a fanned-out backend install.
+          Populated by DistributedBackendManager (per-node terminal status)
+          and by the Phase 2 progress bridge (per-byte ticks). The
+          /api/operations handler surfaces this so the UI can render an
+          expandable per-node view of an in-flight install.
+        items:
+          $ref: '#/definitions/galleryop.NodeProgress'
+        type: array
+      processed:
+        type: boolean
+      progress:
+        type: number
+    type: object
+  localai.APIInstructionResponse:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      swagger_fragment:
+        additionalProperties: {}
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  localai.AliasInfo:
+    properties:
+      name:
+        type: string
+      target:
+        type: string
+    type: object
+  localai.BrandingResponse:
+    properties:
+      favicon_url:
+        type: string
+      instance_name:
+        type: string
+      instance_tagline:
+        type: string
+      logo_horizontal_url:
+        type: string
+      logo_url:
+        type: string
+    type: object
+  localai.GalleryBackend:
+    properties:
+      force:
+        description: |-
+          Force reinstalls the backend even when it is already installed and
+          runnable. Off by default so apply stays idempotent for supervising
+          apps that ensure their backend on every boot.
+        type: boolean
+      id:
+        type: string
+    type: object
+  localai.GalleryModel:
+    properties:
+      backend:
+        description: |-
+          Backend is the resolved backend engine for this model (e.g. "llama-cpp").
+          Populated at load time from overrides, inline config, or the URL-referenced config file.
+        type: string
+      config_file:
+        additionalProperties: {}
+        description: config_file is read in the situation where URL is blank - and
+          therefore this is a base config.
+        type: object
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      id:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      name:
+        type: string
+      overrides:
+        additionalProperties: {}
+        description: Overrides are used to override the configuration of the model
+          located at URL
+        type: object
+      size:
+        description: |-
+          Size is an optional hardcoded model size string (e.g. "500MB", "14.5GB").
+          Used when the size cannot be estimated automatically.
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
+  localai.ModelResponse:
+    properties:
+      config: {}
+      details:
+        items:
+          type: string
+        type: array
+      error:
+        type: string
+      filename:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  localai.UpdateMaxReplicasPerModelRequest:
+    properties:
+      value:
+        description: Value is the new per-model replica cap on this node. Must be
+          >= 1.
+        type: integer
+    type: object
+  localai.VoiceProfileListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/voiceprofile.Profile'
+        type: array
+    type: object
+  model.BackendLogLine:
+    properties:
+      stream:
+        description: '"stdout" or "stderr"'
+        type: string
+      text:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  modeladmin.VRAMRequest:
+    properties:
+      context_size:
+        type: integer
+      gpu_layers:
+        type: integer
+      kv_quant_bits:
+        type: integer
+      model:
+        type: string
+    type: object
+  modeladmin.VRAMResponse:
+    properties:
+      context_length:
+        type: integer
+      context_note:
+        type: string
+      model_max_context:
+        type: integer
+      size_bytes:
+        type: integer
+      size_display:
+        type: string
+      vram_bytes:
+        type: integer
+      vram_display:
+        type: string
+    type: object
+  nodes.NodeModel:
+    properties:
+      address:
+        description: gRPC address for this replica's backend process
+        type: string
+      backend_type:
+        description: e.g. "llama-cpp"; used by reconciler to replicate loads
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      in_flight:
+        description: number of active requests on this replica
+        type: integer
+      last_used:
+        type: string
+      loading_by:
+        description: frontend ID that triggered loading
+        type: string
+      model_name:
+        type: string
+      node_id:
+        type: string
+      replica_index:
+        type: integer
+      state:
+        description: loading, loaded, unloading, idle
+        type: string
+      updated_at:
+        type: string
+    type: object
+  proto.MemoryUsageData:
+    properties:
+      breakdown:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      total:
+        type: integer
+    type: object
+  proto.StatusResponse:
+    properties:
+      memory:
+        $ref: '#/definitions/proto.MemoryUsageData'
+      state:
+        $ref: '#/definitions/proto.StatusResponse_State'
+    type: object
+  proto.StatusResponse_State:
+    enum:
+    - 0
+    - 1
+    - 2
+    - -1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - StatusResponse_UNINITIALIZED
+    - StatusResponse_BUSY
+    - StatusResponse_READY
+    - StatusResponse_ERROR
+  proto.VADResponse:
+    properties:
+      segments:
+        items:
+          $ref: '#/definitions/proto.VADSegment'
+        type: array
+    type: object
+  proto.VADSegment:
+    properties:
+      end:
+        type: number
+      start:
+        type: number
+    type: object
+  schema.APIError:
+    properties:
+      code: {}
+      message:
+        type: string
+      param:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.AnthropicContentBlock:
+    properties:
+      content: {}
+      id:
+        type: string
+      input:
+        additionalProperties: {}
+        type: object
+      is_error:
+        type: boolean
+      name:
+        type: string
+      signature:
+        type: string
+      source:
+        $ref: '#/definitions/schema.AnthropicImageSource'
+      text:
+        type: string
+      thinking:
+        type: string
+      tool_use_id:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.AnthropicImageSource:
+    properties:
+      data:
+        type: string
+      media_type:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.AnthropicMessage:
+    properties:
+      content: {}
+      role:
+        type: string
+    type: object
+  schema.AnthropicRequest:
+    properties:
+      max_tokens:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/schema.AnthropicMessage'
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      stop_sequences:
+        items:
+          type: string
+        type: array
+      stream:
+        type: boolean
+      system:
+        type: string
+      temperature:
+        type: number
+      thinking:
+        allOf:
+        - $ref: '#/definitions/schema.AnthropicThinkingParam'
+        description: |-
+          Thinking gates extended-thinking output. We only surface thinking
+          content blocks when the client explicitly opts in, matching Anthropic's
+          API where thinking is off unless requested.
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/schema.AnthropicTool'
+        type: array
+      top_k:
+        type: integer
+      top_p:
+        type: number
+    type: object
+  schema.AnthropicResponse:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/schema.AnthropicContentBlock'
+        type: array
+      id:
+        type: string
+      model:
+        type: string
+      role:
+        type: string
+      stop_reason:
+        type: string
+      stop_sequence:
+        type: string
+      type:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.AnthropicUsage'
+    type: object
+  schema.AnthropicThinkingParam:
+    properties:
+      budget_tokens:
+        type: integer
+      type:
+        description: '"enabled" | "disabled"'
+        type: string
+    type: object
+  schema.AnthropicTool:
+    properties:
+      description:
+        type: string
+      input_schema:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+    type: object
+  schema.AnthropicUsage:
+    properties:
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
+    type: object
+  schema.BackendMonitorRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  schema.BackendResponse:
+    properties:
+      id:
+        type: string
+      status_url:
+        type: string
+    type: object
+  schema.Choice:
+    properties:
+      delta:
+        $ref: '#/definitions/schema.Message'
+      finish_reason:
+        type: string
+      index:
+        type: integer
+      logprobs:
+        $ref: '#/definitions/schema.Logprobs'
+      message:
+        $ref: '#/definitions/schema.Message'
+      text:
+        type: string
+    type: object
+  schema.DepthRequest:
+    properties:
+      dst:
+        description: optional output directory for exports (glb/colmap)
+        type: string
+      exports:
+        description: 'requested exports: "glb", "colmap"'
+        items:
+          type: string
+        type: array
+      image:
+        description: URL or base64-encoded image to analyze
+        type: string
+      include_confidence:
+        description: return the per-pixel confidence map (DualDPT)
+        type: boolean
+      include_depth:
+        description: return the per-pixel depth map
+        type: boolean
+      include_points:
+        description: back-project to a 3D point cloud (DualDPT)
+        type: boolean
+      include_pose:
+        description: return camera extrinsics/intrinsics (DualDPT)
+        type: boolean
+      include_sky:
+        description: return the per-pixel sky map (mono models)
+        type: boolean
+      model:
+        type: string
+      points_conf_thresh:
+        description: keep points with confidence >= this threshold
+        type: number
+    type: object
+  schema.DepthResponse:
+    properties:
+      confidence:
+        description: width*height row-major confidence (DualDPT)
+        items:
+          type: number
+        type: array
+      depth:
+        description: width*height row-major metric depth
+        items:
+          type: number
+        type: array
+      export_paths:
+        description: paths written for the requested exports
+        items:
+          type: string
+        type: array
+      extrinsics:
+        description: 12 floats, 3x4 row-major (world-to-camera)
+        items:
+          type: number
+        type: array
+      height:
+        type: integer
+      intrinsics:
+        description: 9 floats, 3x3 row-major
+        items:
+          type: number
+        type: array
+      is_metric:
+        description: depth is in metric units
+        type: boolean
+      num_points:
+        description: number of 3D points
+        type: integer
+      point_colors:
+        description: base64-encoded num_points*3 uint8 rgb
+        type: string
+      points:
+        description: num_points*3 xyz, world space
+        items:
+          type: number
+        type: array
+      sky:
+        description: width*height row-major sky map (mono)
+        items:
+          type: number
+        type: array
+      width:
+        type: integer
+    type: object
+  schema.Detection:
+    properties:
+      class_name:
+        type: string
+      confidence:
+        type: number
+      height:
+        type: number
+      mask:
+        description: base64-encoded PNG segmentation mask
+        type: string
+      width:
+        type: number
+      x:
+        type: number
+      "y":
+        type: number
+    type: object
+  schema.DetectionRequest:
+    properties:
+      boxes:
+        description: Box coordinates as [x1,y1,x2,y2,...] quads
+        items:
+          type: number
+        type: array
+      image:
+        description: URL or base64-encoded image to analyze
+        type: string
+      model:
+        type: string
+      points:
+        description: 'Point coordinates as [x,y,label,...] triples (label: 1=pos,
+          0=neg)'
+        items:
+          type: number
+        type: array
+      prompt:
+        description: Text prompt (for SAM 3 PCS mode)
+        type: string
+      threshold:
+        description: Detection confidence threshold
+        type: number
+    type: object
+  schema.DetectionResponse:
+    properties:
+      detections:
+        items:
+          $ref: '#/definitions/schema.Detection'
+        type: array
+    type: object
+  schema.DiarizationResult:
+    properties:
+      duration:
+        type: number
+      language:
+        type: string
+      num_speakers:
+        type: integer
+      segments:
+        items:
+          $ref: '#/definitions/schema.DiarizationSegment'
+        type: array
+      speakers:
+        items:
+          $ref: '#/definitions/schema.DiarizationSpeaker'
+        type: array
+      task:
+        type: string
+    type: object
+  schema.DiarizationSegment:
+    properties:
+      end:
+        type: number
+      id:
+        type: integer
+      label:
+        type: string
+      speaker:
+        type: string
+      start:
+        type: number
+      text:
+        type: string
+    type: object
+  schema.DiarizationSpeaker:
+    properties:
+      id:
+        type: string
+      label:
+        type: string
+      segment_count:
+        type: integer
+      total_speech_duration:
+        type: number
+    type: object
+  schema.ElevenLabsSoundGenerationRequest:
+    properties:
+      bpm:
+        type: integer
+      caption:
+        type: string
+      do_sample:
+        type: boolean
+      duration_seconds:
+        type: number
+      instrumental:
+        description: 'Simple mode: use text as description; optional instrumental
+          / vocal_language'
+        type: boolean
+      keyscale:
+        type: string
+      language:
+        type: string
+      lyrics:
+        type: string
+      model_id:
+        type: string
+      prompt_influence:
+        type: number
+      text:
+        type: string
+      think:
+        description: Advanced mode
+        type: boolean
+      timesignature:
+        type: string
+      vocal_language:
+        type: string
+    type: object
+  schema.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/schema.APIError'
+    type: object
+  schema.FaceAnalysis:
+    properties:
+      age:
+        type: number
+      antispoof_score:
+        type: number
+      dominant_emotion:
+        type: string
+      dominant_gender:
+        type: string
+      dominant_race:
+        type: string
+      emotion:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      face_confidence:
+        type: number
+      gender:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      is_real:
+        description: Liveness fields — see FaceVerifyResponse for why these are pointers.
+        type: boolean
+      race:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      region:
+        $ref: '#/definitions/schema.FacialArea'
+    type: object
+  schema.FaceAnalyzeRequest:
+    properties:
+      actions:
+        description: subset of {"age","gender","emotion","race"}
+        items:
+          type: string
+        type: array
+      anti_spoofing:
+        type: boolean
+      img:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.FaceAnalyzeResponse:
+    properties:
+      faces:
+        items:
+          $ref: '#/definitions/schema.FaceAnalysis'
+        type: array
+    type: object
+  schema.FaceEmbedRequest:
+    properties:
+      img:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.FaceEmbedResponse:
+    properties:
+      dim:
+        type: integer
+      embedding:
+        items:
+          type: number
+        type: array
+      model:
+        type: string
+    type: object
+  schema.FaceForgetRequest:
+    properties:
+      id:
+        type: string
+      model:
+        type: string
+      store:
+        type: string
+    type: object
+  schema.FaceIdentifyMatch:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      id:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      match:
+        description: true when distance <= threshold
+        type: boolean
+      name:
+        type: string
+    type: object
+  schema.FaceIdentifyRequest:
+    properties:
+      img:
+        type: string
+      model:
+        type: string
+      store:
+        type: string
+      threshold:
+        description: optional cutoff on distance
+        type: number
+      top_k:
+        type: integer
+    type: object
+  schema.FaceIdentifyResponse:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/schema.FaceIdentifyMatch'
+        type: array
+    type: object
+  schema.FaceRegisterRequest:
+    properties:
+      img:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      name:
+        type: string
+      store:
+        description: vector store model; empty = local-store default
+        type: string
+    type: object
+  schema.FaceRegisterResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      registered_at:
+        type: string
+    type: object
+  schema.FaceVerifyRequest:
+    properties:
+      anti_spoofing:
+        type: boolean
+      img1:
+        type: string
+      img2:
+        type: string
+      model:
+        type: string
+      threshold:
+        type: number
+    type: object
+  schema.FaceVerifyResponse:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      img1_antispoof_score:
+        type: number
+      img1_area:
+        $ref: '#/definitions/schema.FacialArea'
+      img1_is_real:
+        description: |-
+          Liveness fields are only populated when the request set
+          anti_spoofing=true. Pointers keep them fully absent from the
+          JSON response otherwise, so callers can tell "not checked"
+          apart from "checked and fake" (which would collapse to zero
+          values with plain bool+omitempty).
+        type: boolean
+      img2_antispoof_score:
+        type: number
+      img2_area:
+        $ref: '#/definitions/schema.FacialArea'
+      img2_is_real:
+        type: boolean
+      model:
+        type: string
+      processing_time_ms:
+        type: number
+      threshold:
+        type: number
+      verified:
+        type: boolean
+    type: object
+  schema.FacialArea:
+    properties:
+      h:
+        type: number
+      w:
+        type: number
+      x:
+        type: number
+      "y":
+        type: number
+    type: object
+  schema.FunctionCall:
+    properties:
+      arguments:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.GalleryResponse:
+    properties:
+      estimated_size_bytes:
+        type: integer
+      estimated_size_display:
+        type: string
+      estimated_vram_bytes:
+        type: integer
+      estimated_vram_display:
+        type: string
+      status:
+        type: string
+      uuid:
+        type: string
+    type: object
+  schema.InputTokensDetails:
+    properties:
+      image_tokens:
+        type: integer
+      text_tokens:
+        type: integer
+    type: object
+  schema.Item:
+    properties:
+      b64_json:
+        type: string
+      index:
+        type: integer
+      object:
+        type: string
+      url:
+        description: Images
+        type: string
+    type: object
+  schema.JINADocumentResult:
+    properties:
+      document:
+        $ref: '#/definitions/schema.JINAText'
+      index:
+        type: integer
+      relevance_score:
+        type: number
+    type: object
+  schema.JINARerankRequest:
+    properties:
+      backend:
+        type: string
+      documents:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      query:
+        type: string
+      top_n:
+        type: integer
+    type: object
+  schema.JINARerankResponse:
+    properties:
+      model:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/schema.JINADocumentResult'
+        type: array
+      usage:
+        $ref: '#/definitions/schema.JINAUsageInfo'
+    type: object
+  schema.JINAText:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.JINAUsageInfo:
+    properties:
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  schema.Job:
+    properties:
+      audios:
+        description: List of audio URLs or base64 strings
+        items:
+          type: string
+        type: array
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      error:
+        description: Error message if failed
+        type: string
+      files:
+        description: List of file URLs or base64 strings
+        items:
+          type: string
+        type: array
+      id:
+        description: UUID
+        type: string
+      images:
+        description: |-
+          Multimedia content (for manual execution)
+          Can contain URLs or base64-encoded data URIs
+        items:
+          type: string
+        type: array
+      parameters:
+        additionalProperties:
+          type: string
+        description: Template parameters
+        type: object
+      result:
+        description: Agent response
+        type: string
+      started_at:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/schema.JobStatus'
+        description: pending, running, completed, failed, cancelled
+      task_id:
+        description: Reference to Task
+        type: string
+      traces:
+        description: Execution traces (reasoning, tool calls, tool results)
+        items:
+          $ref: '#/definitions/schema.JobTrace'
+        type: array
+      triggered_by:
+        description: '"manual", "cron", "api"'
+        type: string
+      videos:
+        description: List of video URLs or base64 strings
+        items:
+          type: string
+        type: array
+      webhook_error:
+        description: Error if webhook failed
+        type: string
+      webhook_sent:
+        description: Webhook delivery tracking
+        type: boolean
+      webhook_sent_at:
+        type: string
+    type: object
+  schema.JobExecutionRequest:
+    properties:
+      audios:
+        description: List of audio URLs or base64 strings
+        items:
+          type: string
+        type: array
+      files:
+        description: List of file URLs or base64 strings
+        items:
+          type: string
+        type: array
+      images:
+        description: |-
+          Multimedia content (optional, for manual execution)
+          Can contain URLs or base64-encoded data URIs
+        items:
+          type: string
+        type: array
+      parameters:
+        additionalProperties:
+          type: string
+        description: Optional, for templating
+        type: object
+      task_id:
+        description: Required
+        type: string
+      videos:
+        description: List of video URLs or base64 strings
+        items:
+          type: string
+        type: array
+    type: object
+  schema.JobExecutionResponse:
+    properties:
+      job_id:
+        description: unique job identifier
+        type: string
+      status:
+        description: initial status (pending)
+        type: string
+      url:
+        description: URL to poll for job status
+        type: string
+    type: object
+  schema.JobStatus:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - JobStatusPending
+    - JobStatusRunning
+    - JobStatusCompleted
+    - JobStatusFailed
+    - JobStatusCancelled
+  schema.JobTrace:
+    properties:
+      arguments:
+        additionalProperties: {}
+        description: Tool arguments or result data
+        type: object
+      content:
+        description: The actual trace content
+        type: string
+      timestamp:
+        description: When this trace occurred
+        type: string
+      tool_name:
+        description: Tool name (for tool_call/tool_result)
+        type: string
+      type:
+        description: '"reasoning", "tool_call", "tool_result", "status"'
+        type: string
+    type: object
+  schema.KnownBackend:
+    properties:
+      auto_detect:
+        type: boolean
+      description:
+        type: string
+      installed:
+        description: |-
+          Installed is true when the backend is currently present on disk — i.e. it
+          appears in gallery.ListSystemBackends(systemState). Importer-registered or
+          curated pref-only backends default to false unless they also show up on
+          disk. The import form uses this to warn users that submitting an import
+          may trigger an automatic backend download.
+        type: boolean
+      modality:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.LogprobContent:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      id:
+        type: integer
+      logprob:
+        type: number
+      token:
+        type: string
+      top_logprobs:
+        items:
+          $ref: '#/definitions/schema.LogprobContent'
+        type: array
+    type: object
+  schema.Logprobs:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/schema.LogprobContent'
+        type: array
+    type: object
+  schema.LogprobsValue:
+    properties:
+      enabled:
+        description: true if logprobs should be returned
+        type: boolean
+    type: object
+  schema.Message:
+    properties:
+      content:
+        description: The message content
+      function_call:
+        description: A result of a function call
+      name:
+        description: The message name (used for tools calls)
+        type: string
+      reasoning:
+        description: Reasoning content extracted from <thinking>...</thinking> tags
+        type: string
+      role:
+        description: The message role
+        type: string
+      tool_call_id:
+        type: string
+      tool_calls:
+        items:
+          $ref: '#/definitions/schema.ToolCall'
+        type: array
+    type: object
+  schema.ModelCapabilities:
+    properties:
+      capabilities:
+        description: |-
+          Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
+          tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      input_modalities:
+        description: InputModalities is the subset of {text,image,audio,video} the
+          model accepts.
+        items:
+          type: string
+        type: array
+      object:
+        type: string
+      output_modalities:
+        description: OutputModalities is the subset of {text,image,audio,video} the
+          model produces.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelCapabilitiesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.ModelCapabilities'
+        type: array
+      object:
+        type: string
+    type: object
+  schema.ModelLoadRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  schema.ModelLoadResponse:
+    properties:
+      loaded:
+        description: |-
+          Loaded lists the model names actually resident in memory after the call.
+          For a pipeline model these are its sub-models, not the pipeline name.
+        items:
+          type: string
+        type: array
+      message:
+        description: Message is a short human-readable status ("model loaded", or
+          an error).
+        type: string
+    type: object
+  schema.ModelsDataResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.OpenAIModel'
+        type: array
+      object:
+        type: string
+    type: object
+  schema.MultimediaSourceConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers for HTTP request (e.g., Authorization)
+        type: object
+      type:
+        description: '"image", "video", "audio", "file"'
+        type: string
+      url:
+        description: URL to fetch from
+        type: string
+    type: object
+  schema.NodeData:
+    properties:
+      id:
+        type: string
+      lastSeen:
+        type: string
+      name:
+        type: string
+      serviceID:
+        type: string
+      tunnelAddress:
+        type: string
+    type: object
+  schema.ORAnnotation:
+    properties:
+      end_index:
+        type: integer
+      start_index:
+        type: integer
+      title:
+        type: string
+      type:
+        description: url_citation
+        type: string
+      url:
+        type: string
+    type: object
+  schema.ORContentPart:
+    properties:
+      annotations:
+        description: REQUIRED for output_text - must always be present (use [])
+        items:
+          $ref: '#/definitions/schema.ORAnnotation'
+        type: array
+      detail:
+        description: low|high|auto for images
+        type: string
+      file_data:
+        type: string
+      file_url:
+        type: string
+      filename:
+        type: string
+      image_url:
+        type: string
+      logprobs:
+        description: REQUIRED for output_text - must always be present (use [])
+        items:
+          $ref: '#/definitions/schema.ORLogProb'
+        type: array
+      refusal:
+        type: string
+      text:
+        description: REQUIRED for output_text - must always be present (even if empty)
+        type: string
+      type:
+        description: input_text|input_image|input_file|output_text|refusal
+        type: string
+    type: object
+  schema.ORError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+      param:
+        type: string
+      type:
+        description: invalid_request|not_found|server_error|model_error|too_many_requests
+        type: string
+    type: object
+  schema.ORFunctionTool:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parameters:
+        additionalProperties: {}
+        type: object
+      strict:
+        description: Always include in response
+        type: boolean
+      type:
+        description: always "function"
+        type: string
+    type: object
+  schema.ORIncompleteDetails:
+    properties:
+      reason:
+        type: string
+    type: object
+  schema.ORInputTokensDetails:
+    properties:
+      cached_tokens:
+        description: Always include, even if 0
+        type: integer
+    type: object
+  schema.ORItemField:
+    properties:
+      arguments:
+        type: string
+      call_id:
+        description: Function call fields
+        type: string
+      content:
+        description: string or []ORContentPart for messages
+      encrypted_content:
+        description: Provider-specific encrypted content
+        type: string
+      id:
+        description: Present for all output items
+        type: string
+      name:
+        type: string
+      output:
+        description: Function call output fields
+      role:
+        description: Message fields
+        type: string
+      status:
+        description: in_progress|completed|incomplete
+        type: string
+      summary:
+        description: Reasoning fields (for type == "reasoning")
+        items:
+          $ref: '#/definitions/schema.ORContentPart'
+        type: array
+      type:
+        description: message|function_call|function_call_output|reasoning|item_reference
+        type: string
+    type: object
+  schema.ORLogProb:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      logprob:
+        type: number
+      token:
+        type: string
+      top_logprobs:
+        items:
+          $ref: '#/definitions/schema.ORTopLogProb'
+        type: array
+    type: object
+  schema.OROutputTokensDetails:
+    properties:
+      reasoning_tokens:
+        description: Always include, even if 0
+        type: integer
+    type: object
+  schema.ORReasoning:
+    properties:
+      effort:
+        type: string
+      summary:
+        type: string
+    type: object
+  schema.ORReasoningParam:
+    properties:
+      effort:
+        description: '"none"|"low"|"medium"|"high"|"xhigh"'
+        type: string
+      summary:
+        description: '"auto"|"concise"|"detailed"'
+        type: string
+    type: object
+  schema.ORResponseResource:
+    properties:
+      background:
+        type: boolean
+      completed_at:
+        description: 'Required: present as number or null'
+        type: integer
+      created_at:
+        type: integer
+      error:
+        allOf:
+        - $ref: '#/definitions/schema.ORError'
+        description: Always present, null if no error
+      frequency_penalty:
+        type: number
+      id:
+        type: string
+      incomplete_details:
+        allOf:
+        - $ref: '#/definitions/schema.ORIncompleteDetails'
+        description: Always present, null if complete
+      instructions:
+        type: string
+      max_output_tokens:
+        type: integer
+      max_tool_calls:
+        description: nullable
+        type: integer
+      metadata:
+        additionalProperties:
+          type: string
+        description: Metadata and operational flags
+        type: object
+      model:
+        type: string
+      object:
+        description: always "response"
+        type: string
+      output:
+        items:
+          $ref: '#/definitions/schema.ORItemField'
+        type: array
+      parallel_tool_calls:
+        type: boolean
+      presence_penalty:
+        type: number
+      previous_response_id:
+        type: string
+      prompt_cache_key:
+        description: nullable
+        type: string
+      reasoning:
+        allOf:
+        - $ref: '#/definitions/schema.ORReasoning'
+        description: nullable
+      safety_identifier:
+        description: Safety and caching
+        type: string
+      service_tier:
+        type: string
+      status:
+        description: in_progress|completed|failed|incomplete
+        type: string
+      store:
+        type: boolean
+      temperature:
+        description: Sampling parameters (always required)
+        type: number
+      text:
+        allOf:
+        - $ref: '#/definitions/schema.ORTextConfig'
+        description: Text format configuration
+      tool_choice: {}
+      tools:
+        description: Tool-related fields
+        items:
+          $ref: '#/definitions/schema.ORFunctionTool'
+        type: array
+      top_logprobs:
+        description: Default to 0
+        type: integer
+      top_p:
+        type: number
+      truncation:
+        description: Truncation and reasoning
+        type: string
+      usage:
+        allOf:
+        - $ref: '#/definitions/schema.ORUsage'
+        description: Usage statistics
+    type: object
+  schema.ORTextConfig:
+    properties:
+      format:
+        $ref: '#/definitions/schema.ORTextFormat'
+    type: object
+  schema.ORTextFormat:
+    properties:
+      type:
+        description: '"text" or "json_schema"'
+        type: string
+    type: object
+  schema.ORTopLogProb:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      logprob:
+        type: number
+      token:
+        type: string
+    type: object
+  schema.ORUsage:
+    properties:
+      input_tokens:
+        type: integer
+      input_tokens_details:
+        allOf:
+        - $ref: '#/definitions/schema.ORInputTokensDetails'
+        description: Always present
+      output_tokens:
+        type: integer
+      output_tokens_details:
+        allOf:
+        - $ref: '#/definitions/schema.OROutputTokensDetails'
+        description: Always present
+      total_tokens:
+        type: integer
+    type: object
+  schema.OpenAIModel:
+    properties:
+      id:
+        type: string
+      object:
+        type: string
+    type: object
+  schema.OpenAIRequest:
+    properties:
+      backend:
+        type: string
+      batch:
+        description: Custom parameters - not present in the OpenAI API
+        type: integer
+      clip_skip:
+        description: Diffusers
+        type: integer
+      echo:
+        type: boolean
+      encoding_format:
+        description: 'Embedding encoding format: "float" (default) or "base64" (OpenAI
+          Node.js SDK default)'
+        type: string
+      file:
+        description: whisper
+        type: string
+      files:
+        description: Multiple input images for img2img or inpainting
+        items:
+          type: string
+        type: array
+      frequency_penalty:
+        type: number
+      function_call:
+        description: might be a string or an object
+      functions:
+        description: A list of available functions to call
+        items:
+          $ref: '#/definitions/functions.Function'
+        type: array
+      grammar:
+        description: A grammar to constrain the LLM output
+        type: string
+      grammar_json_functions:
+        $ref: '#/definitions/functions.JSONFunctionStructure'
+      ignore_eos:
+        type: boolean
+      input: {}
+      instruction:
+        description: Edit endpoint
+        type: string
+      language:
+        description: Also part of the OpenAI official spec
+        type: string
+      logit_bias:
+        additionalProperties:
+          format: float64
+          type: number
+        description: Map of token IDs to bias values (-100 to 100)
+        type: object
+      logprobs:
+        allOf:
+        - $ref: '#/definitions/schema.LogprobsValue'
+        description: |-
+          OpenAI API logprobs parameters
+          logprobs: boolean - if true, returns log probabilities of each output token
+          top_logprobs: integer 0-20 - number of most likely tokens to return at each token position
+      max_completion_tokens:
+        description: |-
+          MaxCompletionTokens is the modern alias for max_tokens
+          (OpenAI deprecated max_tokens; gpt-5 / o-series reject it).
+          Accepted on the wire so up-to-date clients can use the new
+          name; the request middleware collapses it into Maxtokens so
+          internal code reads exactly one field.
+        type: integer
+      max_tokens:
+        type: integer
+      messages:
+        description: Messages is read only by chat/completion API calls
+        items:
+          $ref: '#/definitions/schema.Message'
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      min_p:
+        type: number
+      model:
+        type: string
+      model_base_name:
+        type: string
+      "n":
+        description: Also part of the OpenAI official spec. use it for returning multiple
+          results
+        type: integer
+      n_keep:
+        type: integer
+      negative_prompt:
+        type: string
+      negative_prompt_scale:
+        type: number
+      presence_penalty:
+        type: number
+      prompt:
+        description: Prompt is read only by completion/image API calls
+      quality:
+        description: Image (not supported by OpenAI)
+        type: string
+      reasoning_effort:
+        type: string
+      ref_images:
+        description: Reference images for models that support them (e.g., Flux Kontext)
+        items:
+          type: string
+        type: array
+      repeat_last_n:
+        type: integer
+      repeat_penalty:
+        type: number
+      response_format:
+        description: whisper/image
+      rope_freq_base:
+        type: number
+      rope_freq_scale:
+        type: number
+      seed:
+        type: integer
+      size:
+        description: image
+        type: string
+      step:
+        type: integer
+      stop: {}
+      stream:
+        type: boolean
+      stream_options:
+        allOf:
+        - $ref: '#/definitions/schema.StreamOptions'
+        description: StreamOptions opts into OpenAI streaming extensions, e.g. include_usage.
+      temperature:
+        type: number
+      tfz:
+        type: number
+      tokenizer:
+        description: RWKV (?)
+        type: string
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/functions.Tool'
+        type: array
+      top_k:
+        type: integer
+      top_logprobs:
+        description: Number of top logprobs per token (0-20)
+        type: integer
+      top_p:
+        description: Common options between all the API calls, part of the OpenAI
+          spec
+        type: number
+      translate:
+        description: Only for audio transcription
+        type: boolean
+      typical_p:
+        type: number
+    required:
+    - file
+    type: object
+  schema.OpenAIResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/schema.Choice'
+        type: array
+      created:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/schema.Item'
+        type: array
+      id:
+        type: string
+      model:
+        type: string
+      object:
+        type: string
+      usage:
+        allOf:
+        - $ref: '#/definitions/schema.OpenAIUsage'
+        description: |-
+          Usage is intentionally a pointer with omitempty: per the OpenAI
+          chat-completion streaming spec, intermediate chunks must not carry
+          a `usage` field. Marshalling a value-typed usage would emit
+          `"usage":{"prompt_tokens":0,...}` on every chunk and break
+          OpenAI-SDK consumers that filter on a truthy `result.usage`
+          (continuedev/continue, Kilo Code, Roo Code, etc.).
+    type: object
+  schema.OpenAIUsage:
+    properties:
+      completion_tokens:
+        type: integer
+      input_tokens:
+        description: Fields for image generation API compatibility
+        type: integer
+      input_tokens_details:
+        $ref: '#/definitions/schema.InputTokensDetails'
+      output_tokens:
+        type: integer
+      prompt_tokens:
+        type: integer
+      timing_prompt_processing:
+        description: Extra timing data, disabled by default as is't not a part of
+          OpenAI specification
+        type: number
+      timing_token_generation:
+        type: number
+      total_tokens:
+        type: integer
+    type: object
+  schema.OpenResponsesRequest:
+    properties:
+      allowed_tools:
+        description: Restrict which tools can be invoked
+        items:
+          type: string
+        type: array
+      background:
+        description: Run request in background
+        type: boolean
+      frequency_penalty:
+        description: Frequency penalty (-2.0 to 2.0)
+        type: number
+      include:
+        description: What to include in response
+        items:
+          type: string
+        type: array
+      input:
+        description: string or []ORItemParam
+      instructions:
+        type: string
+      logit_bias:
+        additionalProperties:
+          format: float64
+          type: number
+        description: OpenAI-compatible extensions (not in Open Responses spec)
+        type: object
+      max_output_tokens:
+        type: integer
+      max_tool_calls:
+        description: Maximum number of tool calls
+        type: integer
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      parallel_tool_calls:
+        description: Allow parallel tool calls
+        type: boolean
+      presence_penalty:
+        description: Presence penalty (-2.0 to 2.0)
+        type: number
+      previous_response_id:
+        type: string
+      reasoning:
+        $ref: '#/definitions/schema.ORReasoningParam'
+      service_tier:
+        description: '"auto"|"default"|priority hint'
+        type: string
+      store:
+        description: Whether to store the response
+        type: boolean
+      stream:
+        type: boolean
+      temperature:
+        type: number
+      text_format:
+        description: Additional parameters from spec
+      tool_choice:
+        description: '"auto"|"required"|"none"|{type:"function",name:"..."}'
+      tools:
+        items:
+          $ref: '#/definitions/schema.ORFunctionTool'
+        type: array
+      top_logprobs:
+        description: Number of top logprobs to return
+        type: integer
+      top_p:
+        type: number
+      truncation:
+        description: '"auto"|"disabled"'
+        type: string
+    type: object
+  schema.P2PNodesResponse:
+    properties:
+      federated_nodes:
+        items:
+          $ref: '#/definitions/schema.NodeData'
+        type: array
+      llama_cpp_nodes:
+        items:
+          $ref: '#/definitions/schema.NodeData'
+        type: array
+      mlx_nodes:
+        items:
+          $ref: '#/definitions/schema.NodeData'
+        type: array
+    type: object
+  schema.PIIAnalyzeRequest:
+    properties:
+      detectors:
+        description: |-
+          Detectors names the detector models to run (NER and/or pattern). Takes
+          precedence over Model.
+        items:
+          type: string
+        type: array
+      model:
+        description: |-
+          Model is a consuming model whose effective PII policy (own
+          pii.detectors, else the instance default detectors; PII must be
+          enabled) is used when Detectors is empty.
+        type: string
+      reveal:
+        description: |-
+          Reveal includes the per-entity hash_prefix in the response. Honoured
+          only for admin callers; ignored otherwise. The raw matched value is
+          never returned regardless.
+        type: boolean
+      text:
+        description: |-
+          Text is the string to scan. Bounded only by the server's global HTTP
+          body limit.
+        type: string
+    type: object
+  schema.PIIAnalyzeResponse:
+    properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+    type: object
+  schema.PIIEntity:
+    properties:
+      action:
+        type: string
+      end:
+        type: integer
+      entity_type:
+        type: string
+      hash_prefix:
+        type: string
+      score:
+        type: number
+      source:
+        type: string
+      start:
+        type: integer
+    type: object
+  schema.PIIRedactResponse:
+    properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+      masked:
+        type: boolean
+      redacted_text:
+        type: string
+    type: object
+  schema.RouterDecideRequest:
+    properties:
+      input:
+        description: |-
+          Input is the user-visible prompt text to classify. Required.
+          Schema-shape extraction (chat-message concatenation, etc.) is
+          the caller's responsibility — matches the Probe contract used
+          by the in-band middleware.
+        type: string
+      router:
+        description: |-
+          Router is the name of the router model (a ModelConfig with a
+          `router:` block). Required.
+        type: string
+    type: object
+  schema.RouterDecideResponse:
+    properties:
+      cache_similarity:
+        description: |-
+          CacheSimilarity carries the cosine similarity of the cache hit
+          (0 when not cached).
+        type: number
+      cached:
+        description: |-
+          Cached is true when the decision came from the L2 embedding
+          cache rather than a fresh classifier run.
+        type: boolean
+      candidate:
+        description: |-
+          Candidate is the model that would be routed to. Empty when no
+          candidate covers Labels AND no fallback is configured.
+        type: string
+      classifier:
+        description: |-
+          Classifier is the classifier name that produced the decision
+          (e.g. "score").
+        type: string
+      fallback:
+        description: |-
+          Fallback is true when Candidate is the router's configured
+          fallback because no candidate covered Labels. Lets callers
+          distinguish "matched" from "fell back" without comparing names.
+        type: boolean
+      labels:
+        description: Labels is the set of active policy labels.
+        items:
+          type: string
+        type: array
+      latency_ms:
+        description: LatencyMs is the classifier's wall-clock cost.
+        type: integer
+      router:
+        description: Router echoes the requested router model.
+        type: string
+      score:
+        description: |-
+          Score is the top label's softmax probability (the
+          classifier-side confidence signal).
+        type: number
+    type: object
+  schema.SoundClassification:
+    properties:
+      index:
+        type: integer
+      label:
+        type: string
+      score:
+        type: number
+    type: object
+  schema.SoundClassificationResult:
+    properties:
+      detections:
+        items:
+          $ref: '#/definitions/schema.SoundClassification'
+        type: array
+      model:
+        type: string
+    type: object
+  schema.StreamOptions:
+    properties:
+      include_usage:
+        type: boolean
+    type: object
+  schema.SysInfoModel:
+    properties:
+      id:
+        type: string
+    type: object
+  schema.SystemInformationResponse:
+    properties:
+      backends:
+        description: available backend engines
+        items:
+          type: string
+        type: array
+      loaded_models:
+        description: currently loaded models
+        items:
+          $ref: '#/definitions/schema.SysInfoModel'
+        type: array
+    type: object
+  schema.TTSRequest:
+    description: TTS request body
+    properties:
+      backend:
+        description: backend engine override
+        type: string
+      input:
+        description: text input
+        type: string
+      instructions:
+        description: |-
+          Instructions is a free-form, per-request style/voice description. It maps to
+          the OpenAI `instructions` field and is forwarded to the backend so expressive
+          TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+          voice per request instead of only via the static YAML option.
+        type: string
+      language:
+        description: (optional) language to use with TTS model
+        type: string
+      model:
+        type: string
+      params:
+        additionalProperties:
+          type: string
+        description: |-
+          Params carries optional, backend-specific per-request generation parameters
+          (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+        type: object
+      response_format:
+        description: (optional) output format
+        type: string
+      sample_rate:
+        description: (optional) desired output sample rate
+        type: integer
+      stream:
+        description: (optional) enable streaming TTS
+        type: boolean
+      voice:
+        description: voice audio file or speaker id
+        type: string
+    type: object
+  schema.Task:
+    properties:
+      created_at:
+        type: string
+      cron:
+        description: Optional cron expression
+        type: string
+      cron_parameters:
+        additionalProperties:
+          type: string
+        description: Parameters to use when executing cron jobs
+        type: object
+      description:
+        description: Optional description
+        type: string
+      enabled:
+        description: Can be disabled without deletion
+        type: boolean
+      id:
+        description: UUID
+        type: string
+      model:
+        description: Model name (must have MCP config)
+        type: string
+      multimedia_sources:
+        description: |-
+          Multimedia sources (for cron jobs)
+          URLs to fetch multimedia content from when cron job executes
+          Each source can have custom headers for authentication/authorization
+        items:
+          $ref: '#/definitions/schema.MultimediaSourceConfig'
+        type: array
+      name:
+        description: User-friendly name
+        type: string
+      prompt:
+        description: Template prompt (supports Go template .param syntax)
+        type: string
+      updated_at:
+        type: string
+      webhooks:
+        description: |-
+          Webhook configuration (for notifications).
+          Supports multiple webhook endpoints.
+          Webhooks can handle both success and failure cases using template variables:
+          .Job (Job object), .Task (Task object), .Result (if successful),
+          .Error (if failed), .Status (job status string).
+        items:
+          $ref: '#/definitions/schema.WebhookConfig'
+        type: array
+    type: object
+  schema.TokenizeRequest:
+    properties:
+      content:
+        description: text to tokenize
+        type: string
+      model:
+        type: string
+    type: object
+  schema.TokenizeResponse:
+    properties:
+      tokens:
+        description: token IDs
+        items:
+          type: integer
+        type: array
+    type: object
+  schema.ToolCall:
+    properties:
+      function:
+        $ref: '#/definitions/schema.FunctionCall'
+      id:
+        type: string
+      index:
+        type: integer
+      type:
+        type: string
+    type: object
+  schema.VADRequest:
+    description: VAD request body
+    properties:
+      audio:
+        description: raw audio samples as float32 PCM
+        items:
+          type: number
+        type: array
+      model:
+        type: string
+    type: object
+  schema.VideoRequest:
+    properties:
+      audio:
+        description: URL or base64 audio for audio-conditioned generation
+        type: string
+      cfg_scale:
+        description: classifier-free guidance scale
+        type: number
+      end_image:
+        description: URL or base64 of the last frame
+        type: string
+      fps:
+        description: frames per second
+        type: integer
+      height:
+        description: output height in pixels
+        type: integer
+      input_reference:
+        description: reference image or video URL
+        type: string
+      model:
+        type: string
+      negative_prompt:
+        description: things to avoid in the output
+        type: string
+      num_frames:
+        description: total number of frames to generate
+        type: integer
+      params:
+        additionalProperties:
+          type: string
+        description: backend-specific generation parameters
+        type: object
+      prompt:
+        description: text description of the video to generate
+        type: string
+      response_format:
+        description: output format (url or b64_json)
+        type: string
+      seconds:
+        description: duration in seconds (alternative to num_frames)
+        type: string
+      seed:
+        description: random seed for reproducibility
+        type: integer
+      size:
+        description: WxH shorthand (e.g. "512x512")
+        type: string
+      start_image:
+        description: URL or base64 of the first frame
+        type: string
+      step:
+        description: number of diffusion steps
+        type: integer
+      width:
+        description: output width in pixels
+        type: integer
+    type: object
+  schema.VoiceAnalysis:
+    properties:
+      age:
+        type: number
+      dominant_emotion:
+        type: string
+      dominant_gender:
+        type: string
+      emotion:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      end:
+        type: number
+      gender:
+        additionalProperties:
+          format: float32
+          type: number
+        type: object
+      start:
+        type: number
+    type: object
+  schema.VoiceAnalyzeRequest:
+    properties:
+      actions:
+        description: subset of {"age","gender","emotion"}
+        items:
+          type: string
+        type: array
+      audio:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.VoiceAnalyzeResponse:
+    properties:
+      segments:
+        items:
+          $ref: '#/definitions/schema.VoiceAnalysis'
+        type: array
+    type: object
+  schema.VoiceEmbedRequest:
+    properties:
+      audio:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.VoiceEmbedResponse:
+    properties:
+      dim:
+        type: integer
+      embedding:
+        items:
+          type: number
+        type: array
+      model:
+        type: string
+    type: object
+  schema.VoiceForgetRequest:
+    properties:
+      id:
+        type: string
+      model:
+        type: string
+      store:
+        type: string
+    type: object
+  schema.VoiceIdentifyMatch:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      id:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      match:
+        type: boolean
+      name:
+        type: string
+    type: object
+  schema.VoiceIdentifyRequest:
+    properties:
+      audio:
+        type: string
+      model:
+        type: string
+      store:
+        type: string
+      threshold:
+        type: number
+      top_k:
+        type: integer
+    type: object
+  schema.VoiceIdentifyResponse:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/schema.VoiceIdentifyMatch'
+        type: array
+    type: object
+  schema.VoiceRegisterRequest:
+    properties:
+      audio:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      name:
+        type: string
+      store:
+        type: string
+    type: object
+  schema.VoiceRegisterResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      registered_at:
+        type: string
+    type: object
+  schema.VoiceVerifyRequest:
+    properties:
+      anti_spoofing:
+        type: boolean
+      audio1:
+        type: string
+      audio2:
+        type: string
+      model:
+        type: string
+      threshold:
+        type: number
+    type: object
+  schema.VoiceVerifyResponse:
+    properties:
+      confidence:
+        type: number
+      distance:
+        type: number
+      model:
+        type: string
+      processing_time_ms:
+        type: number
+      threshold:
+        type: number
+      verified:
+        type: boolean
+    type: object
+  schema.WebhookConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers (e.g., Authorization)
+        type: object
+      method:
+        description: 'HTTP method (POST, PUT, PATCH) - default: POST'
+        type: string
+      payload_template:
+        description: Optional template for payload
+        type: string
+      url:
+        description: Webhook endpoint URL
+        type: string
+    type: object
+  voiceprofile.AudioMetadata:
+    properties:
+      bit_depth:
+        type: integer
+      channels:
+        type: integer
+      duration_ms:
+        type: integer
+      mime_type:
+        type: string
+      sample_rate:
+        type: integer
+      size_bytes:
+        type: integer
+    type: object
+  voiceprofile.Profile:
+    properties:
+      audio:
+        $ref: '#/definitions/voiceprofile.AudioMetadata'
+      consent_confirmed_at:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      language:
+        type: string
+      name:
+        type: string
+      transcript:
+        type: string
+      updated_at:
+        type: string
+      voice:
+        type: string
+    type: object
+info:
+  contact:
+    name: LocalAI
+    url: https://localai.io
+  description: The LocalAI Rest API.
+  license:
+    name: MIT
+    url: https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
+  title: LocalAI API
+  version: 2.0.0
+paths:
+  /api/agent/jobs:
+    get:
+      parameters:
+      - description: Filter by task ID
+        in: query
+        name: task_id
+        type: string
+      - description: Filter by status (pending, running, completed, failed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Max number of jobs to return
+        in: query
+        name: limit
+        type: integer
+      - description: Set to 'true' for admin cross-user listing
+        in: query
+        name: all_users
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: jobs
+          schema:
+            items:
+              $ref: '#/definitions/schema.Job'
+            type: array
+      summary: List agent jobs
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}:
+    delete:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent job
+      tags:
+      - agent-jobs
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: job
+          schema:
+            $ref: '#/definitions/schema.Job'
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent job
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}/cancel:
+    post:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel an agent job
+      tags:
+      - agent-jobs
+  /api/agent/jobs/execute:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Job execution request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JobExecutionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: job created
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute an agent job
+      tags:
+      - agent-jobs
+  /api/agent/tasks:
+    get:
+      parameters:
+      - description: Set to 'true' for admin cross-user listing
+        in: query
+        name: all_users
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: tasks
+          schema:
+            items:
+              $ref: '#/definitions/schema.Task'
+            type: array
+      summary: List agent tasks
+      tags:
+      - agent-jobs
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Task definition
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: id
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new agent task
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{id}:
+    delete:
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent task
+      tags:
+      - agent-jobs
+    get:
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: task
+          schema:
+            $ref: '#/definitions/schema.Task'
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent task
+      tags:
+      - agent-jobs
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated task definition
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an agent task
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{name}/execute:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Task name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Optional template parameters
+        in: body
+        name: parameters
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: job created
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute an agent task by name
+      tags:
+      - agent-jobs
+  /api/aliases:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/localai.AliasInfo'
+            type: array
+      summary: List model aliases
+      tags:
+      - models
+  /api/backend-logs:
+    get:
+      description: Returns a sorted list of model IDs that have captured backend process
+        output
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Model IDs with logs
+          schema:
+            items:
+              type: string
+            type: array
+      summary: List models with backend logs
+      tags:
+      - monitoring
+  /api/backend-logs/{modelId}:
+    get:
+      description: Returns all captured log lines (stdout/stderr) for the specified
+        model's backend process
+      parameters:
+      - description: Model ID
+        in: path
+        name: modelId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Log lines
+          schema:
+            items:
+              $ref: '#/definitions/model.BackendLogLine'
+            type: array
+      summary: Get backend logs for a model
+      tags:
+      - monitoring
+  /api/backend-logs/{modelId}/clear:
+    post:
+      description: Removes all captured log lines for the specified model's backend
+        process
+      parameters:
+      - description: Model ID
+        in: path
+        name: modelId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Logs cleared
+      summary: Clear backend logs for a model
+      tags:
+      - monitoring
+  /api/backend-traces:
+    get:
+      description: Returns captured backend traces (LLM calls, embeddings, TTS, etc.)
+        in reverse chronological order
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Backend operation traces
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List backend operation traces
+      tags:
+      - monitoring
+  /api/backend-traces/clear:
+    post:
+      description: Removes all captured backend operation traces from the buffer
+      responses:
+        "204":
+          description: Traces cleared
+      summary: Clear backend traces
+      tags:
+      - monitoring
+  /api/branding:
+    get:
+      description: Returns the configured instance name, tagline, and asset URLs.
+        Public — no authentication required.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+      summary: Get instance branding
+      tags:
+      - branding
+  /api/branding/asset/{kind}:
+    delete:
+      description: Remove a custom branding asset; the UI falls back to the bundled
+        LocalAI default.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+      summary: Reset a branding asset to default
+      tags:
+      - branding
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a custom logo, horizontal logo, or favicon. The file replaces
+        any previous override for that kind.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Image file (png, jpeg, svg, webp, ico — up to 5MiB)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.BrandingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload a branding asset
+      tags:
+      - branding
+  /api/instructions:
+    get:
+      description: Returns a compact list of instruction areas with descriptions and
+        URLs for detailed guides
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: instructions list with hint
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List available API instruction areas
+      tags:
+      - instructions
+  /api/instructions/{name}:
+    get:
+      description: Returns a markdown guide (default) or filtered OpenAPI fragment
+        (format=json) for a named instruction
+      parameters:
+      - description: Instruction name (e.g. chat-inference, config-management)
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 'Response format: json for OpenAPI fragment, omit for markdown'
+        in: query
+        name: format
+        type: string
+      produces:
+      - application/json
+      - text/markdown
+      responses:
+        "200":
+          description: instruction documentation
+          schema:
+            $ref: '#/definitions/localai.APIInstructionResponse'
+        "404":
+          description: instruction not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an instruction's API guide or OpenAPI fragment
+      tags:
+      - instructions
+  /api/models/{name}/{action}:
+    put:
+      description: Enable or disable a model from being loaded on demand. Disabled
+        models remain installed but cannot be loaded.
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 'Action: ''enable'' or ''disable'''
+        in: path
+        name: action
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Toggle model enabled/disabled status
+      tags:
+      - config
+  /api/models/config-json/{name}:
+    patch:
+      consumes:
+      - application/json
+      description: Deep-merges the JSON patch body into the existing model config
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success message
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Partially update a model configuration
+      tags:
+      - config
+  /api/models/config-metadata:
+    get:
+      description: Returns config field metadata. Use ?section=<id> to filter by section,
+        or omit for a section index.
+      parameters:
+      - description: Section ID to filter (e.g. 'general', 'llm', 'parameters') or
+          'all' for everything
+        in: query
+        name: section
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Section index or filtered field metadata
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List model configuration field metadata
+      tags:
+      - config
+  /api/models/config-metadata/autocomplete/{provider}:
+    get:
+      description: Returns runtime-resolved values for dynamic providers (backends,
+        models)
+      parameters:
+      - description: Provider name (backends, models, models:chat, models:tts, models:transcript,
+          models:vad)
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: values array
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get dynamic autocomplete values for a config field
+      tags:
+      - config
+  /api/models/toggle-pinned/{name}/{action}:
+    put:
+      description: Pin or unpin a model. Pinned models stay loaded and are excluded
+        from automatic eviction.
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: 'Action: ''pin'' or ''unpin'''
+        in: path
+        name: action
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Toggle model pinned status
+      tags:
+      - config
+  /api/models/vram-estimate:
+    post:
+      consumes:
+      - application/json
+      description: Estimates VRAM based on model weight files at multiple context
+        sizes
+      parameters:
+      - description: VRAM estimation parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/modeladmin.VRAMRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: VRAM estimate
+          schema:
+            $ref: '#/definitions/modeladmin.VRAMResponse'
+      summary: Estimate VRAM usage for a model
+      tags:
+      - config
+  /api/nodes/{id}/max-replicas-per-model:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset a node's max replicas per model to the worker default
+      tags:
+      - Nodes
+    put:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New value
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.UpdateMaxReplicasPerModelRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: value must be >= 1
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update a node's max replicas per model
+      tags:
+      - Nodes
+  /api/nodes/models:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/nodes.NodeModel'
+            type: array
+      summary: List all loaded models cluster-wide
+      tags:
+      - Nodes
+  /api/p2p:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/schema.P2PNodesResponse'
+            type: array
+      summary: Returns available P2P nodes
+      tags:
+      - p2p
+  /api/p2p/token:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Show the P2P token
+      tags:
+      - p2p
+  /api/pii/analyze:
+    post:
+      description: 'Runs the configured PII detectors (NER and/or pattern tiers) over
+        the supplied text and returns the matched entity spans with the policy action
+        that would fire. Detection only — the text is not modified and no block is
+        enforced. Select detectors explicitly via `detectors`, or pass a consuming
+        `model` to use its effective policy: the model''s own `pii.detectors`, else
+        the instance-wide `pii_default_detectors`. A model with PII disabled, or enabled
+        with nothing to scan with, is a 400. The raw matched value is never returned;
+        admins may set `reveal:true` for the audit hash prefix.'
+      parameters:
+      - description: text + detector selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
+      responses:
+        "200":
+          description: Detected entities
+          schema:
+            $ref: '#/definitions/schema.PIIAnalyzeResponse'
+      summary: Detect PII entities in a string (no mutation).
+      tags:
+      - pii
+  /api/pii/redact:
+    post:
+      description: 'Runs the configured PII detectors over the text and applies each
+        detector model''s policy: masked spans are replaced with `[REDACTED:<id>]`,
+        allow spans pass through, and a single block action causes a 400 (type `pii_blocked`)
+        carrying the offending entities — the text is never returned in that case.
+        Select detectors via `detectors`, or a consuming `model`''s effective policy
+        (its own `pii.detectors`, else the instance-wide `pii_default_detectors`;
+        PII must be enabled on the model). Records audit events (origin `pii_redact`)
+        visible at /api/pii/events.'
+      parameters:
+      - description: text + detector selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
+      responses:
+        "200":
+          description: Redacted text + entities
+          schema:
+            $ref: '#/definitions/schema.PIIRedactResponse'
+      summary: Redact PII in a string by applying the configured policy.
+      tags:
+      - pii
+  /api/router/decide:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: decide params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.RouterDecideRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.RouterDecideResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Classify a prompt against a router model's policies (decision oracle)
+      tags:
+      - router
+  /api/traces:
+    get:
+      description: Returns captured API exchange traces (request/response pairs) in
+        reverse chronological order
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Traced API exchanges
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List API request/response traces
+      tags:
+      - monitoring
+  /api/traces/clear:
+    post:
+      description: Removes all captured API request/response traces from the buffer
+      responses:
+        "204":
+          description: Traces cleared
+      summary: Clear API traces
+      tags:
+      - monitoring
+  /api/voice-profiles:
+    get:
+      description: List saved voice-cloning references without exposing filesystem
+        paths.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.VoiceProfileListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List voice profiles
+      tags:
+      - audio
+      - voice-profiles
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Save a consent-confirmed PCM WAV reference clip and exact transcript
+        for voice cloning. Admin-only.
+      parameters:
+      - description: Display name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Optional description
+        in: formData
+        name: description
+        type: string
+      - description: Optional language tag
+        in: formData
+        name: language
+        type: string
+      - description: Exact transcript of the reference clip
+        in: formData
+        name: transcript
+        required: true
+        type: string
+      - description: Confirms authorization to clone the voice
+        in: formData
+        name: consent_confirmed
+        required: true
+        type: boolean
+      - description: 16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to
+          50 MiB
+        in: formData
+        name: audio
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/voiceprofile.Profile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a voice profile
+      tags:
+      - audio
+      - voice-profiles
+  /api/voice-profiles/{id}:
+    delete:
+      description: Permanently remove a saved voice-cloning profile. Admin-only.
+      parameters:
+      - description: Voice profile UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a voice profile
+      tags:
+      - audio
+      - voice-profiles
+  /api/voice-profiles/{id}/audio:
+    get:
+      description: Stream the saved reference WAV for an authenticated TTS user.
+      parameters:
+      - description: Voice profile UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview voice profile audio
+      tags:
+      - audio
+      - voice-profiles
+  /audio/transform:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Runs an audio-in / audio-out transform conditioned on an optional
+        auxiliary reference signal. Concrete transforms include AEC + noise suppression
+        + dereverberation (LocalVQE), voice conversion (reference = target speaker),
+        and pitch shifting. The backend determines the operation; pass model-specific
+        tuning via repeated `params[<key>]=<value>` form fields.
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: primary input audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: auxiliary reference audio (loopback for AEC, target voice for
+          conversion, etc.)
+        in: formData
+        name: reference
+        type: file
+      - description: wav | mp3 | ogg | flac
+        in: formData
+        name: response_format
+        type: string
+      - description: desired output sample rate
+        in: formData
+        name: sample_rate
+        type: integer
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: transformed audio file
+          schema:
+            type: string
+      summary: Transform audio (echo cancellation, noise suppression, voice conversion,
+        etc.)
+      tags:
+      - audio
+  /audio/transformations:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Runs an audio-in / audio-out transform conditioned on an optional
+        auxiliary reference signal. Concrete transforms include AEC + noise suppression
+        + dereverberation (LocalVQE), voice conversion (reference = target speaker),
+        and pitch shifting. The backend determines the operation; pass model-specific
+        tuning via repeated `params[<key>]=<value>` form fields.
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: primary input audio file
+        in: formData
+        name: audio
+        required: true
+        type: file
+      - description: auxiliary reference audio (loopback for AEC, target voice for
+          conversion, etc.)
+        in: formData
+        name: reference
+        type: file
+      - description: wav | mp3 | ogg | flac
+        in: formData
+        name: response_format
+        type: string
+      - description: desired output sample rate
+        in: formData
+        name: sample_rate
+        type: integer
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: transformed audio file
+          schema:
+            type: string
+      summary: Transform audio (echo cancellation, noise suppression, voice conversion,
+        etc.)
+      tags:
+      - audio
+  /audio/transformations/stream:
+    get:
+      description: 'Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference)
+        and out (mono). The first message must be a JSON `session.update` envelope
+        describing model + sample format + frame size + backend params. Server emits
+        binary PCM on the same cadence.'
+      responses: {}
+      summary: Bidirectional realtime audio transform over WebSocket.
+      tags:
+      - audio
+  /backend/load:
+    post:
+      consumes:
+      - application/json
+      description: Loads the named model (or, for a realtime pipeline, all of its
+        sub-models) into memory so subsequent requests pay no cold-start cost. The
+        inverse of /backend/shutdown.
+      parameters:
+      - description: Model to load
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Model loaded
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "400":
+          description: Missing model name
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "500":
+          description: Load failed (Loaded lists any sub-models that did load)
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+      summary: Pre-load a model into memory
+      tags:
+      - monitoring
+  /backend/monitor:
+    get:
+      parameters:
+      - description: Name of the model to monitor
+        in: query
+        name: model
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.StatusResponse'
+      summary: Backend monitor endpoint
+      tags:
+      - monitoring
+  /backend/shutdown:
+    post:
+      parameters:
+      - description: Backend statistics request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.BackendMonitorRequest'
+      responses: {}
+      summary: Backend shutdown endpoint
+      tags:
+      - monitoring
+  /backends:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.GalleryBackend'
+            type: array
+      summary: List all Backends
+      tags:
+      - backends
+  /backends/apply:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.GalleryBackend'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.BackendResponse'
+      summary: Install backends to LocalAI.
+      tags:
+      - backends
+  /backends/available:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.GalleryBackend'
+            type: array
+      summary: List all available Backends
+      tags:
+      - backends
+  /backends/delete/{name}:
+    post:
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.BackendResponse'
+      summary: delete backends from LocalAI.
+      tags:
+      - backends
+  /backends/galleries:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: List all Galleries
+      tags:
+      - backends
+  /backends/jobs:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/galleryop.OpStatus'
+            type: object
+      summary: Returns all the jobs status progress
+      tags:
+      - backends
+  /backends/jobs/{uuid}:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/galleryop.OpStatus'
+      summary: Returns the job status
+      tags:
+      - backends
+  /backends/known:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/schema.KnownBackend'
+            type: array
+      summary: List all known Backends (importer registry + curated pref-only + installed-on-disk)
+      tags:
+      - backends
+  /backends/upgrade/{name}:
+    post:
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.BackendResponse'
+      summary: Upgrade a backend
+      tags:
+      - backends
+  /backends/upgrades:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/gallery.UpgradeInfo'
+            type: object
+      summary: Get available backend upgrades
+      tags:
+      - backends
+  /backends/upgrades/check:
+    post:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/gallery.UpgradeInfo'
+            type: object
+      summary: Force backend upgrade check
+      tags:
+      - backends
+  /branding/asset/{kind}:
+    get:
+      description: Serves the admin-uploaded logo, horizontal logo, or favicon. 404
+        when no override is set.
+      parameters:
+      - description: 'Asset kind: logo, logo_horizontal, or favicon'
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - image/*
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+      summary: Serve a custom branding asset
+      tags:
+      - branding
+  /metrics:
+    get:
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Prometheus metrics
+          schema:
+            type: string
+      summary: Prometheus metrics endpoint
+      tags:
+      - monitoring
+  /models/apply:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.GalleryModel'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+      summary: Install models to LocalAI.
+      tags:
+      - models
+  /models/available:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.Metadata'
+            type: array
+      summary: List installable models.
+      tags:
+      - models
+  /models/delete/{name}:
+    post:
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+      summary: delete models to LocalAI.
+      tags:
+      - models
+  /models/galleries:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: List all Galleries
+      tags:
+      - models
+  /models/jobs:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/galleryop.OpStatus'
+            type: object
+      summary: Returns all the jobs status progress
+      tags:
+      - models
+  /models/jobs/{uuid}:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/galleryop.OpStatus'
+      summary: Returns the job status
+      tags:
+      - models
+  /system:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SystemInformationResponse'
+      summary: Show the LocalAI instance information
+      tags:
+      - monitoring
+  /tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
+      tags:
+      - tokenize
+  /tts:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/audio/classification:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: number of top tags to return (0 = backend default)
+        in: formData
+        name: top_k
+        type: integer
+      - description: drop tags scoring below this value
+        in: formData
+        name: threshold
+        type: number
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SoundClassificationResult'
+      summary: Classify sound events in audio (audio tagging).
+      tags:
+      - audio
+  /v1/audio/diarization:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: exact speaker count (>0 forces; 0 = auto)
+        in: formData
+        name: num_speakers
+        type: integer
+      - description: lower bound when auto-detecting
+        in: formData
+        name: min_speakers
+        type: integer
+      - description: upper bound when auto-detecting
+        in: formData
+        name: max_speakers
+        type: integer
+      - description: clustering distance threshold when num_speakers is unknown
+        in: formData
+        name: clustering_threshold
+        type: number
+      - description: discard segments shorter than this (seconds)
+        in: formData
+        name: min_duration_on
+        type: number
+      - description: merge gaps shorter than this (seconds)
+        in: formData
+        name: min_duration_off
+        type: number
+      - description: audio language hint (only meaningful for backends that bundle
+          ASR)
+        in: formData
+        name: language
+        type: string
+      - description: include per-segment transcript when the backend supports it
+        in: formData
+        name: include_text
+        type: boolean
+      - description: json (default), verbose_json, or rttm
+        in: formData
+        name: response_format
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.DiarizationResult'
+      summary: Identify speakers in audio (who spoke when).
+      tags:
+      - audio
+  /v1/audio/speech:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/audio/transcriptions:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: sampling temperature
+        in: formData
+        name: temperature
+        type: number
+      - collectionFormat: csv
+        description: timestamp granularities (word, segment)
+        in: formData
+        items:
+          type: string
+        name: timestamp_granularities
+        type: array
+      - description: stream partial results as SSE
+        in: formData
+        name: stream
+        type: boolean
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Transcribes audio into the input language.
+      tags:
+      - audio
+  /v1/chat/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate a chat completions for a given prompt and model.
+      tags:
+      - inference
+  /v1/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate completions for a given prompt and model.
+      tags:
+      - inference
+  /v1/depth:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DepthRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DepthResponse'
+      summary: Estimates per-pixel depth (and optionally pose/points) from an image.
+      tags:
+      - depth
+  /v1/detection:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DetectionRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DetectionResponse'
+      summary: Detects objects in the input image.
+      tags:
+      - detection
+  /v1/edits:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: OpenAI edit endpoint
+      tags:
+      - inference
+  /v1/embeddings:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Get a vector representation of a given input that can be easily consumed
+        by machine learning models and algorithms.
+      tags:
+      - embeddings
+  /v1/face/analyze:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceAnalyzeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceAnalyzeResponse'
+      summary: Analyze demographic attributes (age, gender, ...) of faces.
+      tags:
+      - face-recognition
+  /v1/face/embed:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceEmbedRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceEmbedResponse'
+      summary: Extract a face embedding from an image.
+      tags:
+      - face-recognition
+  /v1/face/forget:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceForgetRequest'
+      responses:
+        "204":
+          description: No Content
+      summary: Remove a previously-registered face by ID.
+      tags:
+      - face-recognition
+  /v1/face/identify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceIdentifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceIdentifyResponse'
+      summary: Identify a face against the registered database (1:N recognition).
+      tags:
+      - face-recognition
+  /v1/face/register:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceRegisterRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceRegisterResponse'
+      summary: Register a face for 1:N identification.
+      tags:
+      - face-recognition
+  /v1/face/verify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FaceVerifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.FaceVerifyResponse'
+      summary: Verify that two images depict the same person.
+      tags:
+      - face-recognition
+  /v1/images/generations:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates an image given a prompt.
+      tags:
+      - images
+  /v1/images/inpainting:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Perform image inpainting. Accepts multipart/form-data with `image`
+        and `mask` files.
+      parameters:
+      - description: Model identifier
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: Text prompt guiding the generation
+        in: formData
+        name: prompt
+        required: true
+        type: string
+      - description: Number of inference steps (default 25)
+        in: formData
+        name: steps
+        type: integer
+      - description: Original image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: Mask image file (white = area to inpaint)
+        in: formData
+        name: mask
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Image inpainting
+      tags:
+      - images
+  /v1/mcp/chat/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: MCP chat completions with automatic tool execution
+      tags:
+      - mcp
+  /v1/messages:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.AnthropicRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.AnthropicResponse'
+      summary: Generate a message response for the given messages and model.
+      tags:
+      - inference
+  /v1/models:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelsDataResponse'
+      summary: List and describe the various models available in the API.
+      tags:
+      - models
+  /v1/models/capabilities:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelCapabilitiesResponse'
+      summary: List available models enriched with capabilities and input/output modalities.
+      tags:
+      - models
+  /v1/rerank:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JINARerankRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.JINARerankResponse'
+      summary: Reranks a list of phrases by relevance to a given text query.
+      tags:
+      - rerank
+  /v1/responses:
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenResponsesRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ORResponseResource'
+      summary: Create a response using the Open Responses API
+      tags:
+      - inference
+  /v1/responses/{id}:
+    get:
+      description: Retrieve a response by ID. Can be used for polling background responses
+        or resuming streaming responses.
+      parameters:
+      - description: Response ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Set to 'true' to resume streaming
+        in: query
+        name: stream
+        type: string
+      - description: Sequence number to resume from (for streaming)
+        in: query
+        name: starting_after
+        type: integer
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ORResponseResource'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get a response by ID
+      tags:
+      - inference
+  /v1/responses/{id}/cancel:
+    post:
+      description: Cancel a background response if it's still in progress
+      parameters:
+      - description: Response ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ORResponseResource'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cancel a response
+      tags:
+      - inference
+  /v1/sound-generation:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ElevenLabsSoundGenerationRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/text-to-speech/{voice-id}:
+    post:
+      parameters:
+      - description: Account ID
+        in: path
+        name: voice-id
+        required: true
+        type: string
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+      tags:
+      - audio
+  /v1/tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
+      tags:
+      - tokenize
+  /v1/tokenize:
+    post:
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TokenizeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.TokenizeResponse'
+      summary: Tokenize the input.
+      tags:
+      - tokenize
+  /v1/voice/analyze:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceAnalyzeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceAnalyzeResponse'
+      summary: Analyze demographic attributes (age, gender, emotion) from a voice
+        clip.
+      tags:
+      - voice-recognition
+  /v1/voice/embed:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceEmbedRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceEmbedResponse'
+      summary: Extract a speaker embedding from an audio clip.
+      tags:
+      - voice-recognition
+  /v1/voice/forget:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceForgetRequest'
+      responses:
+        "204":
+          description: No Content
+      summary: Remove a previously-registered speaker by ID.
+      tags:
+      - voice-recognition
+  /v1/voice/identify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceIdentifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceIdentifyResponse'
+      summary: Identify a speaker against the registered database (1:N recognition).
+      tags:
+      - voice-recognition
+  /v1/voice/register:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceRegisterRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceRegisterResponse'
+      summary: Register a speaker for 1:N identification.
+      tags:
+      - voice-recognition
+  /v1/voice/verify:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VoiceVerifyRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.VoiceVerifyResponse'
+      summary: Verify that two audio clips were spoken by the same person.
+      tags:
+      - voice-recognition
+  /vad:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VADRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.VADResponse'
+      summary: Detect voice fragments in an audio stream
+      tags:
+      - audio
+  /video:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VideoRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates a video from a prompt and optional image or audio conditioning.
+      tags:
+      - video
+  /ws/backend-logs/{modelId}:
+    get:
+      description: Opens a WebSocket connection for real-time backend log streaming.
+        Sends an initial batch of existing lines (type "initial"), then streams new
+        lines as they appear (type "line"). Supports ping/pong keepalive.
+      parameters:
+      - description: Model ID
+        in: path
+        name: modelId
+        required: true
+        type: string
+      responses: {}
+      summary: Stream backend logs via WebSocket
+      tags:
+      - monitoring
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
