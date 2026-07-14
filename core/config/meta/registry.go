@@ -82,6 +82,14 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Options:     ModalityOptions,
 			Order:       8,
 		},
+		"artifacts": {
+			Section:     "general",
+			Label:       "Managed Model Artifacts",
+			Description: "Controller-managed model sources. LocalAI resolves, downloads, verifies, and binds these sources before a backend loads.",
+			Component:   "json-editor",
+			Advanced:    true,
+			Order:       9,
+		},
 
 		// --- LLM ---
 		"context_size": {
