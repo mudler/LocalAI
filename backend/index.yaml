@@ -72,6 +72,40 @@
     nvidia-cuda-12: "cuda12-turboquant"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant"
+- &bonsai
+  name: "bonsai"
+  alias: "bonsai"
+  license: apache-2.0
+  description: |
+    Fork of llama.cpp (PrismML) adding the Q1_0 (1-bit) and Q2_0 (ternary, 1.58-bit)
+    weight-quantization kernels used by the Bonsai and Ternary-Bonsai models. Reuses
+    the LocalAI llama.cpp gRPC server sources against the fork's libllama, so it drives
+    these sub-2-bit models with the same OpenAI-compatible API as the stock llama.cpp
+    backend.
+  urls:
+    - https://github.com/PrismML-Eng/llama.cpp
+    - https://huggingface.co/prism-ml
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+    - bonsai
+    - 1-bit
+    - ternary
+  capabilities:
+    default: "cpu-bonsai"
+    nvidia: "cuda12-bonsai"
+    intel: "intel-sycl-f16-bonsai"
+    amd: "rocm-bonsai"
+    vulkan: "vulkan-bonsai"
+    nvidia-l4t: "nvidia-l4t-arm64-bonsai"
+    nvidia-cuda-13: "cuda13-bonsai"
+    nvidia-cuda-12: "cuda12-bonsai"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-bonsai"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-bonsai"
 - &ds4
   name: "ds4"
   alias: "ds4"
@@ -1763,6 +1797,19 @@
     nvidia-cuda-12: "cuda12-turboquant-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant-development"
+- !!merge <<: *bonsai
+  name: "bonsai-development"
+  capabilities:
+    default: "cpu-bonsai-development"
+    nvidia: "cuda12-bonsai-development"
+    intel: "intel-sycl-f16-bonsai-development"
+    amd: "rocm-bonsai-development"
+    vulkan: "vulkan-bonsai-development"
+    nvidia-l4t: "nvidia-l4t-arm64-bonsai-development"
+    nvidia-cuda-13: "cuda13-bonsai-development"
+    nvidia-cuda-12: "cuda12-bonsai-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-bonsai-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-bonsai-development"
 - !!merge <<: *ds4
   name: "ds4-development"
   capabilities:
@@ -2431,6 +2478,97 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
+## bonsai
+- !!merge <<: *bonsai
+  name: "cpu-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-cpu-bonsai
+- !!merge <<: *bonsai
+  name: "cpu-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-bonsai"
+  mirrors:
+    - localai/localai-backends:master-cpu-bonsai
+- !!merge <<: *bonsai
+  name: "cuda12-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-bonsai
+- !!merge <<: *bonsai
+  name: "cuda12-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bonsai"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-bonsai
+- !!merge <<: *bonsai
+  name: "cuda13-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-bonsai
+- !!merge <<: *bonsai
+  name: "cuda13-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-bonsai"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-bonsai
+- !!merge <<: *bonsai
+  name: "rocm-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-bonsai
+- !!merge <<: *bonsai
+  name: "rocm-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-bonsai"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-bonsai
+- !!merge <<: *bonsai
+  name: "intel-sycl-f32-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-bonsai
+- !!merge <<: *bonsai
+  name: "intel-sycl-f32-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-bonsai"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-bonsai
+- !!merge <<: *bonsai
+  name: "intel-sycl-f16-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-bonsai
+- !!merge <<: *bonsai
+  name: "intel-sycl-f16-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-bonsai"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-bonsai
+- !!merge <<: *bonsai
+  name: "vulkan-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-bonsai
+- !!merge <<: *bonsai
+  name: "vulkan-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-bonsai"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-bonsai
+- !!merge <<: *bonsai
+  name: "nvidia-l4t-arm64-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-bonsai
+- !!merge <<: *bonsai
+  name: "nvidia-l4t-arm64-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-bonsai"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-bonsai
+- !!merge <<: *bonsai
+  name: "cuda13-nvidia-l4t-arm64-bonsai"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-bonsai"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-bonsai
+- !!merge <<: *bonsai
+  name: "cuda13-nvidia-l4t-arm64-bonsai-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-bonsai"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-bonsai
 ## ds4
 - !!merge <<: *ds4
   name: "cpu-ds4"

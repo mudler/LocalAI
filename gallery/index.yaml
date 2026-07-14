@@ -1,4 +1,238 @@
 ---
+- &bonsai-8b
+  name: "bonsai-8b-1bit"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Bonsai-8B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Bonsai 8B (PrismML) is an end-to-end 1-bit language model built on the Qwen3-8B dense
+    architecture (GQA, SwiGLU, RoPE, RMSNorm, 36 layers, 65,536 context). Every weight is a
+    single sign bit (`-scale` / `+scale`) with one FP16 scale per group of 128 weights, for
+    an effective 1.125 bits/weight and a ~1.15 GB footprint (14.2x smaller than FP16) while
+    matching full-precision 8B instruct models at ~70.5 average across 6 benchmark
+    categories.
+
+    The Q1_0 quantization is only decodable by the PrismML llama.cpp fork, so this entry
+    runs on LocalAI's `bonsai` backend (that fork), not the stock `llama-cpp` backend.
+    License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - qwen
+    - bonsai
+    - 1-bit
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Bonsai-8B-gguf/Bonsai-8B-Q1_0.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Bonsai-8B-gguf/Bonsai-8B-Q1_0.gguf
+      sha256: 284a335aa3fb2ced3b1b01fcb40b08aa783e3b70832767f0dd2e3fdfa134bd54
+      uri: huggingface://prism-ml/Bonsai-8B-gguf/Bonsai-8B-Q1_0.gguf
+- &ternary-bonsai-8b
+  name: "ternary-bonsai-8b"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Ternary Bonsai 8B (PrismML) is a 1.58-bit ternary language model on the Qwen3-8B dense
+    architecture. Each weight takes a value from {-1, 0, +1} with one shared FP16 scale per
+    group of 128 weights (GGUF Q2_0, ~2.18 GB deployed, 7.5x smaller than FP16). The extra
+    zero state recovers more of the full-precision model than the 1-bit build: it ranks 2nd
+    among compared 6-9B models at 75.5 average despite being ~1/8th their size.
+
+    Q2_0 is the recommended, ternary-lossless variant. The Q2_0 kernels are only in the
+    PrismML llama.cpp fork, so this runs on LocalAI's `bonsai` backend. License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - qwen
+    - bonsai
+    - ternary
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0.gguf
+      sha256: 3c8d70470a5d97e5a2b9410ddd899cb740116591462626c60cb2fead6448f60b
+      uri: huggingface://prism-ml/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0.gguf
+- !!merge <<: *ternary-bonsai-8b
+  name: "ternary-bonsai-8b-q2-g64"
+  description: |
+    Ternary Bonsai 8B (PrismML), GGUF Q2_0 with group-64 packing (each FP16 scale shared
+    across 64 weights instead of 128). Slightly larger (~2.31 GB) but matches llama.cpp's
+    native 64-value Q2_0 block layout. Runs on LocalAI's `bonsai` backend. License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0_g64.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0_g64.gguf
+      sha256: e17b298d84ee78797916ae5c2ecc8211469cc65cccfe3080cd9a9bb503fbc55e
+      uri: huggingface://prism-ml/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0_g64.gguf
+- !!merge <<: *ternary-bonsai-8b
+  name: "ternary-bonsai-8b-pq2"
+  description: |
+    Ternary Bonsai 8B (PrismML), GGUF PQ2_0 (packed Q2_0) ternary variant (~2.18 GB).
+    Same {-1, 0, +1} weight alphabet as Q2_0. Runs on LocalAI's `bonsai` backend.
+    License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-PQ2_0.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-PQ2_0.gguf
+      sha256: 1376f942aa90e60f7b570c1d81b3916fea1315ff85aa1c4d19006af68fb4b922
+      uri: huggingface://prism-ml/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-PQ2_0.gguf
+- &bonsai-27b
+  name: "bonsai-27b-1bit"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Bonsai-27B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Bonsai 27B (PrismML) is a full 27B-class reasoning model in end-to-end 1-bit weights,
+    derived from the Qwen3.6-27B hybrid-attention backbone (~75% linear attention, 262K
+    context). At a true 1.125 bits/weight it deploys in ~3.9 GB (~14.2x smaller than FP16)
+    while retaining 89.5% of FP16 intelligence across 15 thinking-mode benchmarks (math
+    91.66, coding 81.88). Ships an optional 4-bit vision tower (mmproj) for image input,
+    included here.
+
+    The Q1_0_g128 weights and hybrid-attention kernels are only in the PrismML llama.cpp
+    fork, so this runs on LocalAI's `bonsai` backend. A GPU is recommended. License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - bonsai
+    - 1-bit
+    - vision
+    - multimodal
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Bonsai-27B-gguf/Bonsai-27B-Q1_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Bonsai-27B-gguf/Bonsai-27B-Q1_0.gguf
+      sha256: 17ef842e47450caeb8eaa3ebfbbab5d2f2278b62b79be107985fb69a2f819aa0
+      uri: huggingface://prism-ml/Bonsai-27B-gguf/Bonsai-27B-Q1_0.gguf
+    - filename: bonsai/mmproj/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+- &ternary-bonsai-27b
+  name: "ternary-bonsai-27b"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Ternary Bonsai 27B (PrismML) is the quality-oriented operating point of the Bonsai 27B
+    family: full 27B-class reasoning in ternary {-1, 0, +1} weights on the Qwen3.6-27B
+    hybrid-attention backbone (262K context). At a true 1.71 bits/weight it deploys in
+    ~7.2 GB (GGUF Q2_0_g128) and retains 95% of FP16 intelligence (80.49 average across 15
+    thinking-mode benchmarks) - a higher score than a conventional IQ2_XXS build at less
+    than two-thirds its footprint. Ships an optional 4-bit vision tower (mmproj), included.
+
+    The Q2_0 weights and hybrid-attention kernels are only in the PrismML llama.cpp fork,
+    so this runs on LocalAI's `bonsai` backend. A GPU is recommended. License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - bonsai
+    - ternary
+    - vision
+    - multimodal
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_0.gguf
+      sha256: 868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_0.gguf
+    - filename: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+- !!merge <<: *ternary-bonsai-27b
+  name: "ternary-bonsai-27b-pq2"
+  description: |
+    Ternary Bonsai 27B (PrismML), GGUF PQ2_0 (packed Q2_0) ternary variant (~7.17 GB) with
+    the 4-bit vision tower (mmproj) included. Runs on LocalAI's `bonsai` backend.
+    License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-PQ2_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-PQ2_0.gguf
+      sha256: e4781999f1997ef97ce0c58d05750835acc999d18d83ee6489ba7ac7b14cb5f6
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-PQ2_0.gguf
+    - filename: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+- !!merge <<: *ternary-bonsai-27b
+  name: "ternary-bonsai-27b-q2-g64"
+  description: |
+    Ternary Bonsai 27B (PrismML), GGUF Q2_0 with group-64 packing (~7.59 GB), matching
+    llama.cpp's native 64-value Q2_0 block layout, with the 4-bit vision tower (mmproj)
+    included. Runs on LocalAI's `bonsai` backend. License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_g64.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_g64.gguf
+      sha256: 59a45d1ecef702b14531b06d22949f33b25c1897da31a8c0b298e01e4d9138eb
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_g64.gguf
+    - filename: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
 - name: "minicpm5-1b-claude-opus-fable5-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
