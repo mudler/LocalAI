@@ -92,6 +92,9 @@ type RegisterNodeRequest struct {
 	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
 	// historical single-replica behavior.
 	MaxReplicasPerModel int `json:"max_replicas_per_model,omitempty"`
+	// VRAMBudget is the worker's operator-set VRAM cap ("80%" or "12GB"). The
+	// registry resolves and enforces it against the raw reported VRAM.
+	VRAMBudget string `json:"vram_budget,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -171,6 +174,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			GPUVendor:            req.GPUVendor,
 			GPUComputeCapability: req.GPUComputeCapability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
+			VRAMBudget:           req.VRAMBudget,
 		}
 
 		ctx := c.Request().Context()

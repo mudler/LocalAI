@@ -397,6 +397,23 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		if err := updateDB.Updates(node).Error; err != nil {
 			return fmt.Errorf("updating node %s: %w", node.Name, err)
 		}
+		// The struct Updates above zero-skips fields, so a worker that dropped
+		// LOCALAI_VRAM_BUDGET (now reporting an empty budget / 0 ceiling) would
+		// leave the previously-stored cap in place — the operator's env removal
+		// would never take effect. For a node whose budget is NOT an admin
+		// override, force-write the worker-authoritative budget columns even
+		// when empty/zero so removing the budget actually clears the cap.
+		// Manual overrides are handled above and keep the admin value untouched.
+		if !existing.VRAMBudgetManuallySet {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Updates(map[string]any{
+					ColVRAMBudget:      node.VRAMBudget,
+					ColVRAMBudgetBytes: node.VRAMBudgetBytes,
+					ColAvailableVRAM:   node.AvailableVRAM,
+				}).Error; err != nil {
+				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
+			}
+		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
 		// the old auth_user_id/api_key_id but the caller's struct is empty.

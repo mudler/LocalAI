@@ -93,6 +93,14 @@ func (cfg *Config) registrationBody() map[string]any {
 		"max_replicas_per_model": maxReplicas,
 	}
 
+	// Report the operator-set budget as a STRING so the server resolves and
+	// enforces it against the raw VRAM above. The worker never caps its own
+	// total_vram/available_vram, and never touches the xsysinfo process-global
+	// budget (that is standalone-only). Omit when unset.
+	if cfg.VRAMBudget != "" {
+		body["vram_budget"] = cfg.VRAMBudget
+	}
+
 	// If no GPU detected, report system RAM so the scheduler/UI has capacity info
 	if totalVRAM == 0 {
 		if ramInfo, err := xsysinfo.GetSystemRAMInfo(); err == nil {
