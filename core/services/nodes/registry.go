@@ -399,7 +399,7 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		}
 		// The struct Updates above zero-skips fields, so a worker that dropped
 		// LOCALAI_VRAM_BUDGET (now reporting an empty budget / 0 ceiling) would
-		// leave the previously-stored cap in place — the operator's env removal
+		// leave the previously-stored cap in place, so the operator's env removal
 		// would never take effect. For a node whose budget is NOT an admin
 		// override, force-write the worker-authoritative budget columns even
 		// when empty/zero so removing the budget actually clears the cap.
