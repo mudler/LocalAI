@@ -429,6 +429,55 @@
     - filename: llama-cpp/models/Qwen3-4B-DFlash-GGUF-Test/Qwen3-4B-DFlash-q8_0.gguf
       sha256: 5ecf02bb269fc42277f43961794387fea11ecc367ea2d99e86b2b71cc249aff6
       uri: https://huggingface.co/lym00/Qwen3-4B-DFlash-GGUF-Test/resolve/main/Qwen3-4B-DFlash-q8_0.gguf
+- name: "qwen3.5-4b-dflash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
+    - https://huggingface.co/z-lab/Qwen3.5-4B-DFlash
+    - https://huggingface.co/AtomicChat/Qwen3.5-4B-DFlash-GGUF
+  description: |
+    Qwen3.5-4B paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend.
+
+    DFlash produces a whole block of draft tokens in a single forward pass and injects the target model's hidden states into the drafter's attention, which keeps the drafter tiny while making drafting GPU-friendly. The Q4_K_M file carries the full Qwen3.5-4B target; the ~0.6 GB Q8_0 drafter (`draft-dflash`) accelerates generation without changing the target's outputs. The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
+
+    Flash attention is required for DFlash and is enabled in this config. A GPU is recommended.
+
+    License: Apache 2.0 (Qwen3.5-4B target) / MIT (z-lab DFlash drafter).
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Qwen3.5-4B-DFlash-GGUF/Qwen3.5-4B-DFlash.Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q4_K_M.gguf
+      sha256: 00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4
+      uri: https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen3.5-4B-DFlash-GGUF/Qwen3.5-4B-DFlash.Q8_0.gguf
+      sha256: f0689eadab0d46468bc2629bb2706f4aba7f794b63e1c9f6eb291269d572a52b
+      uri: https://huggingface.co/AtomicChat/Qwen3.5-4B-DFlash-GGUF/resolve/main/Qwen3.5-4B-DFlash.Q8_0.gguf
 - name: "qwen3.5-9b-dflash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
