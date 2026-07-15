@@ -133,7 +133,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/engines/:model/completions", completionHandler, completionMiddleware...)
 
 	// embeddings
-	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,

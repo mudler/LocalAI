@@ -132,6 +132,36 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			Expect(len(resp.Data)).To(Equal(1))
 			Expect(len(resp.Data[0].Embedding)).To(Equal(768))
 		})
+
+		// LocalAI extension: a chat conversation can be embedded by sending
+		// messages[] instead of input — raw http.Post because the OpenAI SDK
+		// has no such parameter.
+		It("should embed a chat conversation sent via messages[]", func() {
+			body := `{"model":"mock-model","messages":[{"role":"system","content":"be brief"},{"role":"user","content":"hello"}]}`
+			resp, err := http.Post(apiURL+"/embeddings", "application/json", strings.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			Expect(resp.StatusCode).To(Equal(200))
+			var decoded struct {
+				Data []struct {
+					Embedding []float64 `json:"embedding"`
+				} `json:"data"`
+			}
+			payload, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(json.Unmarshal(payload, &decoded)).To(Succeed())
+			// One conversation per request -> exactly one data item.
+			Expect(decoded.Data).To(HaveLen(1))
+			Expect(decoded.Data[0].Embedding).To(HaveLen(768))
+		})
+
+		It("should reject input combined with messages", func() {
+			body := `{"model":"mock-model","input":"x","messages":[{"role":"user","content":"hello"}]}`
+			resp, err := http.Post(apiURL+"/embeddings", "application/json", strings.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			Expect(resp.StatusCode).To(Equal(400))
+		})
 	})
 
 	Describe("TTS APIs", func() {
