@@ -596,6 +596,15 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	// handling above; the embeddings endpoint validates the merged values.
 	if input.Pooling != "" {
 		config.Pooling = input.Pooling
+		// The config's default half-life belongs to its own decayed_mean
+		// default. A request that overrides the scheme without sending its
+		// own half-life must not inherit it, or the merged pair (e.g.
+		// "mean" + 256) fails validation through no fault of the client.
+		// (literal because the `config` parameter shadows the package;
+		// this is config.PoolingDecayedMean)
+		if input.PoolingHalfLifeTokens == 0 && input.Pooling != "decayed_mean" {
+			config.PoolingHalfLifeTokens = 0
+		}
 	}
 	if input.PoolingHalfLifeTokens != 0 {
 		config.PoolingHalfLifeTokens = input.PoolingHalfLifeTokens
