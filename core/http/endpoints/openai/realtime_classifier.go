@@ -85,6 +85,39 @@ func resolveClassifier(sessionCfg *types.ClassifierConfig, overrides *types.Resp
 	return sessionCfg
 }
 
+// validateClassifierActivation verifies both the wire config and the concrete
+// backend selected to score it. Scoring capacity is reserved at model load
+// only for configs that explicitly declare the score usecase, so accepting an
+// active classifier on any other model would defer a deterministic failure to
+// the first response.
+func validateClassifierActivation(m Model, cc *types.ClassifierConfig) error {
+	if cc == nil {
+		return nil
+	}
+	if err := cc.Validate(); err != nil {
+		return err
+	}
+	if !cc.Active() {
+		return nil
+	}
+	wm, ok := m.(*wrappedModel)
+	if !ok {
+		return fmt.Errorf("classifier: the session model does not support scoring")
+	}
+	cfg := wm.scoreConfig()
+	if cfg == nil || !cfg.HasUsecases(config.FLAG_SCORE) {
+		name := ""
+		if cfg != nil {
+			name = cfg.Name
+		}
+		return fmt.Errorf("classifier: scoring model %q must declare known_usecases: [score]", name)
+	}
+	if cfg.HasRouter() {
+		return fmt.Errorf("classifier: scoring model %q is a router; configure a concrete pipeline.classifier.model", cfg.Name)
+	}
+	return nil
+}
+
 // trimClassifierHistory drops system messages (the classifier builds its
 // own option-list system prompt) and selects what gets scored.
 // historyItems <= 0 (the default): only the latest user message. Positive

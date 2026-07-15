@@ -17,11 +17,12 @@ diff --git a/common/common.h b/common/common.h
 index 1535317..8cdd664 100644
 --- a/common/common.h
 +++ b/common/common.h
-@@ -454,6 +454,7 @@ struct common_params {
+@@ -454,6 +454,8 @@ struct common_params {
      int32_t n_keep                =     0; // number of tokens to keep from initial prompt
      int32_t n_chunks              =    -1; // max number of chunks to process (-1 = unlimited)
      int32_t n_parallel            =     1; // number of parallel sequences to decode
 +    int32_t n_seq_score_forks     =     0; // extra seq ids beyond n_parallel, reserved for server score-task forks
++    bool    score_enabled          = false; // reserve server resources for the Score task type
      int32_t n_sequences           =     1; // number of sequences to decode
      int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
      int32_t grp_attn_n            =     1; // group-attention factor
@@ -29,13 +30,18 @@ diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 index 98d0cca..ac9bcac 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -49,7 +49,11 @@ static uint32_t server_n_outputs_max(const common_params & params) {
+@@ -49,7 +49,16 @@ static uint32_t server_n_outputs_max(const common_params & params) {
  
      const uint32_t n_outputs_per_seq = 1 + common_speculative_n_max(&params.speculative);
  
 -    const uint64_t n_outputs = (uint64_t) params.n_parallel * n_outputs_per_seq;
 +    // score tasks (SERVER_TASK_TYPE_SCORE) output logits for every candidate
 +    // token, so reserve room for a bounded candidate tail per parallel slot
++    if (!params.score_enabled) {
++        return std::max<uint32_t>(1, std::min<uint64_t>(n_batch,
++            (uint64_t) params.n_parallel * n_outputs_per_seq));
++    }
++
 +    const uint32_t n_outputs_score_seq = 1 + SERVER_SCORE_MAX_CAND_TOKENS;
 +
 +    const uint64_t n_outputs = (uint64_t) params.n_parallel * std::max(n_outputs_per_seq, n_outputs_score_seq);

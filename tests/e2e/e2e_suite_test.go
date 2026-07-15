@@ -180,6 +180,11 @@ var _ = BeforeSuite(func() {
 				"model": name + ".bin",
 			},
 		}
+		if name == "mock-llm" {
+			// Realtime classifier tests exercise concurrent generation and
+			// scoring on the same model, matching the production slot setup.
+			cfg["known_usecases"] = []string{"chat", "score"}
+		}
 		data, err := yaml.Marshal(cfg)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), data, 0644)).To(Succeed())

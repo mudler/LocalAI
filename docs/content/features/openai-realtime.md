@@ -221,6 +221,8 @@ How a classified response behaves:
 
 Knobs that matter for latency and accuracy: keep option `description`s short (they all go into the scoring system prompt) and the option count small. By default only the latest user message is scored — earlier turns echo option names (the canned replies especially) and empirically make small scoring models re-choose the previous option regardless of the new command. `history_items: N` opts the trailing N conversation messages back in (role-labeled); only do that with a scorer large enough to weigh the context. `normalization: mean` divides each option's joint log-prob by its token count — useful when option ids have very different lengths. The scoring model needs a Go-side chat template (`template.chat` / `template.chat_message`); without one the scoring prompt falls back to a generic ChatML envelope, which may be off-distribution for the model. Use `classifier.model` to score on a different config than the pipeline LLM (rarely needed).
 
+The concrete scoring model must declare `score` in `known_usecases`. A single llama.cpp model can serve ordinary inference and classification concurrently by declaring multiple use cases, for example `known_usecases: [chat, completion, score]`; LocalAI reserves the scoring slots only when `score` is present. Scoring also requires the unified KV cache, which is enabled by default, so a score-enabled model cannot set `kv_unified:false`.
+
 ## Transports
 
 The Realtime API supports two transports: **WebSocket** and **WebRTC**.
