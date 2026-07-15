@@ -221,6 +221,29 @@ How a classified response behaves:
 
 Knobs that matter for latency and accuracy: keep option `description`s short (they all go into the scoring system prompt) and the option count small. By default only the latest user message is scored — earlier turns echo option names (the canned replies especially) and empirically make small scoring models re-choose the previous option regardless of the new command. `history_items: N` opts the trailing N conversation messages back in (role-labeled); only do that with a scorer large enough to weigh the context. `normalization: mean` divides each option's joint log-prob by its token count — useful when option ids have very different lengths. The scoring model needs a Go-side chat template (`template.chat` / `template.chat_message`); without one the scoring prompt falls back to a generic ChatML envelope, which may be off-distribution for the model. Use `classifier.model` to score on a different config than the pipeline LLM (rarely needed).
 
+### Argument slots (hybrid classify-then-complete)
+
+A canned tool call can leave holes for the model to fill: declare `slots` on the option's tool and reference them as `"{{name}}"` in the arguments template. When the option wins, LocalAI runs a short **grammar-constrained completion** that continues the exact scoring prompt (so the llama.cpp prompt cache is already warm) with the chosen route JSON re-opened at the first slot — only the value tokens are free; everything else is pinned by the grammar. Number slots substitute unquoted, enum/string slots inside their quotes.
+
+```yaml
+tool:
+  name: move_drone
+  arguments:
+    direction: forward
+    distance: "{{distance}}"
+    units: "{{units}}"
+  slots:
+    - name: distance
+      type: number            # number | enum | string
+    - name: units
+      type: enum
+      values: [m, meters, ft, feet]
+      default: m              # used if inference fails outright
+      hint: assume m when the user gives no units
+```
+
+Slot declarations (and hints) are appended to the option's description in the shared system prompt, so they also inform scoring and cost no extra per-turn tokens. The `localai.classifier.result` event carries the final `arguments` and a `fill_latency_ms`. On an inference failure the slots' defaults apply; if any slot lacks a default the response fails (or falls through to generation with `fallback.mode: generate`). Slot filling requires `completion` in the scoring model's `known_usecases` alongside `score`.
+
 The concrete scoring model must declare `score` in `known_usecases`. A single llama.cpp model can serve ordinary inference and classification concurrently by declaring multiple use cases, for example `known_usecases: [chat, completion, score]`; LocalAI reserves the scoring slots only when `score` is present. Scoring also requires the unified KV cache, which is enabled by default, so a score-enabled model cannot set `kv_unified:false`.
 
 ## Transports

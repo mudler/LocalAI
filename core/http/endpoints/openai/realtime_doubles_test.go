@@ -109,6 +109,14 @@ type fakeModel struct {
 	classifyCalls       int
 	lastClassifyOptions []types.ClassifierOption
 
+	// FillToolArguments scripting: fillArgs is returned verbatim; fillErr
+	// fails the call. fillCalls counts invocations and lastFillChosen
+	// records which option's slots the handler asked to fill.
+	fillArgs       string
+	fillErr        error
+	fillCalls      int
+	lastFillChosen *types.ClassifierOption
+
 	// VAD scripting: vadFn, when set, decides per call (specs vary the
 	// answer across ticks or record the request); otherwise
 	// vadSegments/vadErr answer every call.
@@ -117,6 +125,15 @@ type fakeModel struct {
 	vadErr      error
 
 	lastMessages schema.Messages
+}
+
+func (m *fakeModel) FillToolArguments(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string, chosen *types.ClassifierOption) (string, error) {
+	m.fillCalls++
+	m.lastFillChosen = chosen
+	if m.fillErr != nil {
+		return "", m.fillErr
+	}
+	return m.fillArgs, nil
 }
 
 func (m *fakeModel) ClassifyTurn(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string) ([]router.LabelScore, error) {

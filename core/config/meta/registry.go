@@ -647,7 +647,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"pipeline.classifier.options": {
 			Section:     "pipeline",
 			Label:       "Classifier Options",
-			Description: "The intents the classifier scores each turn against. Each option has an id (also the scored route label — keep it short), a description of when it applies, an optional canned spoken reply, and an optional canned tool call {name, arguments}. Clients can replace the list per session via session.update localai_classifier.",
+			Description: "The intents the classifier scores each turn against. Each option has an id (also the scored route label — keep it short), a description of when it applies, an optional canned spoken reply, and an optional canned tool call {name, arguments}. A tool may also declare slots ([{name, type: number|enum|string, values, default, hint}]) whose \"{{name}}\" placeholders in arguments are filled by a short grammar-constrained completion when the option wins — the hybrid between prefill-only classification and full generation (requires completion in the scoring model's known_usecases). Clients can replace the list per session via session.update localai_classifier.",
 			Component:   "json-editor",
 			Order:       92,
 		},

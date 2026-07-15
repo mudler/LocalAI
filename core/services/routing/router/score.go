@@ -228,23 +228,48 @@ func renderSystemPrompt(tmpl string, policies []ScorePolicy) (string, error) {
 
 func (c *ScoreClassifier) Name() string { return ClassifierScore }
 
-func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
-	start := time.Now()
-
+// renderProbe returns the exact prompt Classify scores for p (system
+// prompt + trimmed user turns through the model's chat template), plus the
+// trimmed user text used as the memo-cache key.
+func (c *ScoreClassifier) renderProbe(p Probe) (prompt, userText string, err error) {
 	// Trim oldest turns until the rendered prompt fits the classifier's
 	// context. Cache-keyed on the trimmed text so conversations that
 	// trim to the same tail share an entry.
-	userText := trimmedProbeText(p, c.budget, func(joined string) (string, error) {
+	userText = trimmedProbeText(p, c.budget, func(joined string) (string, error) {
 		return c.renderer(c.systemPrompt, joined)
 	})
+	prompt, err = c.renderer(c.systemPrompt, userText)
+	return prompt, userText, err
+}
 
+// SlotFillPrompt returns the completion prompt for filling a chosen
+// label's argument slots: the identical prompt Classify scored — so the
+// backend's prompt cache is already warm with it — continued by the
+// label's route JSON re-opened at its first slot field:
+//
+//	…<prompt>{"route": "up", "distance":
+//
+// The caller constrains the remaining tokens with a grammar and closes
+// the object; keeping the field style byte-identical to the scored
+// candidates keeps the continuation on-distribution.
+func (c *ScoreClassifier) SlotFillPrompt(p Probe, label, firstSlot string) (string, error) {
+	prompt, _, err := c.renderProbe(p)
+	if err != nil {
+		return "", fmt.Errorf("score slot fill: render prompt: %w", err)
+	}
+	return prompt + `{"route": "` + escapeJSONString(label) + `", "` + escapeJSONString(firstSlot) + `": `, nil
+}
+
+func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
+	start := time.Now()
+
+	prompt, userText, err := c.renderProbe(p)
+	if err != nil {
+		return errDecision(start, fmt.Errorf("score classify: render prompt: %w", err))
+	}
 	key := cacheKey(userText)
 	if hit, ok := c.cache.get(key); ok {
 		return Decision{Labels: hit, Score: 1.0, Latency: time.Since(start)}, nil
-	}
-	prompt, err := c.renderer(c.systemPrompt, userText)
-	if err != nil {
-		return errDecision(start, fmt.Errorf("score classify: render prompt: %w", err))
 	}
 	results, err := c.scorer.Score(ctx, prompt, c.candidates)
 	if err != nil {
