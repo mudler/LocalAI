@@ -419,6 +419,9 @@ export default function Settings() {
               <SettingRow label="Default Context Size" description="Default context window size for models">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.context_size ?? ''} onChange={(e) => update('context_size', parseInt(e.target.value) || 0)} placeholder="2048" />
               </SettingRow>
+              <SettingRow label="VRAM Budget" description="Cap VRAM used for model allocation on this node. Percentage (e.g. 80%) or absolute (e.g. 12GB). Empty uses all detected VRAM.">
+                <input className="input" type="text" style={{ width: 120 }} value={settings.vram_budget ?? ''} onChange={(e) => update('vram_budget', e.target.value)} placeholder="e.g. 80% or 12GB" />
+              </SettingRow>
               <SettingRow label="F16 Precision" description="Use 16-bit floating point for reduced memory usage">
                 <Toggle checked={settings.f16} onChange={(v) => update('f16', v)} />
               </SettingRow>

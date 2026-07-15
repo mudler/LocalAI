@@ -41,6 +41,7 @@ const (
 	ToolSetAlias           = "set_alias"
 	ToolCreateVoiceProfile = "create_voice_profile"
 	ToolDeleteVoiceProfile = "delete_voice_profile"
+	ToolSetNodeVRAMBudget  = "set_node_vram_budget"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.

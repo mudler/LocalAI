@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
 
 func strPtr(s string) *string { return &s }
@@ -90,6 +92,38 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 			base.MergeNonNil(config.RuntimeSettings{PIIDefaultDetectors: &[]string{}})
 			Expect(base.PIIDefaultDetectors).ToNot(BeNil())
 			Expect(*base.PIIDefaultDetectors).To(BeEmpty(), "an explicit empty slice should clear, not preserve")
+		})
+	})
+
+	// VRAMBudget round trip pins the Settings-page persistence contract: the
+	// operator-set cap must survive ToRuntimeSettings (GET /api/settings) ->
+	// ApplyRuntimeSettings (POST /api/settings) so it lives past a save, and an
+	// empty value must clear the cap rather than being dropped.
+	Describe("VRAMBudget round trip", func() {
+		// ApplyRuntimeSettings live-applies the cap through the process-global
+		// xsysinfo.SetDefaultVRAMBudget. Reset it after each spec so a cap set
+		// here cannot bleed into other core/config specs under Ginkgo's
+		// randomized ordering.
+		AfterEach(func() {
+			xsysinfo.SetDefaultVRAMBudget(vrambudget.Budget{})
+		})
+
+		It("round-trips the VRAM budget", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			rs := o.ToRuntimeSettings()
+			Expect(rs.VRAMBudget).NotTo(BeNil())
+			Expect(*rs.VRAMBudget).To(Equal("80%"))
+
+			o2 := config.NewApplicationConfig()
+			o2.ApplyRuntimeSettings(&rs)
+			Expect(o2.VRAMBudget).To(Equal("80%"))
+		})
+
+		It("applies an empty VRAM budget as clearing the cap", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			empty := ""
+			o.ApplyRuntimeSettings(&config.RuntimeSettings{VRAMBudget: &empty})
+			Expect(o.VRAMBudget).To(Equal(""))
 		})
 	})
 

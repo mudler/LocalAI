@@ -590,6 +590,17 @@ export const nodesApi = {
   resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
     method: 'DELETE',
   }),
+  // Set a sticky admin override for the per-node VRAM allocation budget. The
+  // value is a string ("80%" or "12GB"); resolution to a byte ceiling happens
+  // server-side. Call resetVramBudget to clear the override entirely.
+  updateVramBudget: (id, value) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }),
+  resetVramBudget: (id) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
+    method: 'DELETE',
+  }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
   allModels: () => fetchJSON(API_CONFIG.endpoints.nodesModels),
   setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),
