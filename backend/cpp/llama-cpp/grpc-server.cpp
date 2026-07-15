@@ -1336,7 +1336,8 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // KV cache — with per-sequence streams the extra ids would shrink every
     // sequence's context to n_ctx / n_seq_max. Decided after both option
     // passes so an explicit kv_unified:false wins and disables forking.
-    params.n_seq_score_forks = params.kv_unified ? SERVER_SCORE_FORK_SEQS : 0;
+    params.score_enabled = request->enablescore();
+    params.n_seq_score_forks = params.score_enabled && params.kv_unified ? SERVER_SCORE_FORK_SEQS : 0;
 
     // Terminate/pad the override vectors only after BOTH the named-option loop
     // and the generic passthrough (common_params_parse above) have pushed their
@@ -1423,6 +1424,14 @@ public:
         // Implement LoadModel RPC
         common_params params;
         params_parse(ctx_server, request, params);
+
+        if (params.score_enabled && !params.kv_unified) {
+            const std::string error_msg =
+                "Score requires the unified KV cache; remove kv_unified:false or remove score from known_usecases";
+            result->set_message(error_msg);
+            result->set_success(false);
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, error_msg);
+        }
 
         common_init();
         // Ensure debug logs are enabled after common_init() sets up logging
@@ -2929,6 +2938,10 @@ public:
         if (!identity.ok()) return identity;
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        if (!params_base.score_enabled) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+                "Score was not enabled when the model was loaded; add score to known_usecases");
         }
         if (request->candidates_size() == 0) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "candidates must be non-empty");

@@ -120,6 +120,7 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
 		opts := grpcModelOpts(cfg, "/tmp/models")
 		Expect(opts.NBatch).To(BeEquivalentTo(512))
+		Expect(opts.EnableScore).To(BeFalse())
 	})
 
 	It("sizes the batch to the context window for score models", func() {
@@ -128,6 +129,14 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &scoreUsecase}
 		opts := grpcModelOpts(cfg, "/tmp/models")
 		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+		Expect(opts.EnableScore).To(BeTrue())
+	})
+
+	It("enables score resources for a model with multiple usecases", func() {
+		usecases := config.FLAG_CHAT | config.FLAG_SCORE
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &usecases}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.EnableScore).To(BeTrue())
 	})
 
 	It("keeps an explicit batch over the score default", func() {
