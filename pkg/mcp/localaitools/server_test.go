@@ -70,46 +70,6 @@ func resultText(res *mcp.CallToolResult) string {
 	return b.String()
 }
 
-// expectedFullCatalog is the tool set when DisableMutating=false. Sorted.
-// References the Tool* constants so a rename can't drift code from tests.
-var expectedFullCatalog = sortedStrings(
-	ToolDeleteModel,
-	ToolEditModelConfig,
-	ToolGallerySearch,
-	ToolGetBranding,
-	ToolGetJobStatus,
-	ToolGetMiddlewareStatus,
-	ToolGetModelConfig,
-	ToolGetPIIEvents,
-	ToolGetRouterCorpusStats,
-	ToolGetRouterDecisions,
-	ToolGetUsageStats,
-	ToolImportModelURI,
-	ToolInstallBackend,
-	ToolInstallModel,
-	ToolListBackends,
-	ToolListGalleries,
-	ToolListAliases,
-	ToolListInstalledModels,
-	ToolListKnownBackends,
-	ToolListNodes,
-	ToolListVoiceProfiles,
-	ToolLoadModel,
-	ToolReloadModels,
-	ToolSeedRouterCorpus,
-	ToolClearRouterCorpus,
-	ToolSetAlias,
-	ToolSetBranding,
-	ToolSystemInfo,
-	ToolToggleModelPinned,
-	ToolToggleModelState,
-	ToolUpgradeBackend,
-	ToolVRAMEstimate,
-	ToolCreateVoiceProfile,
-	ToolDeleteVoiceProfile,
-	ToolSetNodeVRAMBudget,
-)
-
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
 var expectedReadOnlyCatalog = sortedStrings(
 	ToolGallerySearch,
@@ -121,9 +81,9 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolGetRouterCorpusStats,
 	ToolGetRouterDecisions,
 	ToolGetUsageStats,
-	ToolListAliases,
 	ToolListBackends,
 	ToolListGalleries,
+	ToolListAliases,
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
@@ -131,6 +91,11 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolSystemInfo,
 	ToolVRAMEstimate,
 )
+
+// expectedFullCatalog derives from the read-only catalog plus the canonical
+// mutating list used by the safety-prompt coverage test. Registering a new
+// mutator now fails both catalog and prompt coverage until that list is updated.
+var expectedFullCatalog = sortedStrings(append(append([]string(nil), expectedReadOnlyCatalog...), mutatingToolNames...)...)
 
 func sortedStrings(in ...string) []string {
 	out := append([]string(nil), in...)

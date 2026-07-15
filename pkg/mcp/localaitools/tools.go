@@ -4,8 +4,8 @@ package localaitools
 // constants — never bare strings — when registering tools, asserting the
 // catalog in tests, or referencing tool names from other packages. The
 // embedded skill prompts under prompts/ keep the bare strings because
-// go:embed-ed markdown can't reference Go constants; TestPromptsContain
-// SafetyAnchors guards that those strings stay aligned.
+// go:embed-ed markdown can't reference Go constants; prompts_test.go guards
+// that the mutating names stay aligned with the confirmation rule.
 const (
 	// Read-only tools.
 	ToolGallerySearch        = "gallery_search"
@@ -55,3 +55,26 @@ const (
 // Options.ServerName is empty. Use the constant when you want a stable
 // reference across packages (e.g. test fixtures, CLI defaults).
 const DefaultServerName = "localai-admin"
+
+// mutatingToolNames is the canonical safety-prompt coverage list. Registration
+// remains grouped by feature, while prompts_test.go mechanically ensures every
+// state-changing tool is named in the confirmation rule.
+var mutatingToolNames = []string{
+	ToolInstallModel,
+	ToolImportModelURI,
+	ToolDeleteModel,
+	ToolEditModelConfig,
+	ToolReloadModels,
+	ToolLoadModel,
+	ToolInstallBackend,
+	ToolUpgradeBackend,
+	ToolToggleModelState,
+	ToolToggleModelPinned,
+	ToolSetBranding,
+	ToolSetAlias,
+	ToolSeedRouterCorpus,
+	ToolClearRouterCorpus,
+	ToolCreateVoiceProfile,
+	ToolDeleteVoiceProfile,
+	ToolSetNodeVRAMBudget,
+}

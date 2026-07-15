@@ -49,9 +49,21 @@ var _ = Describe("SystemPrompt assembler", func() {
 			"Skill: Upgrade a backend",
 			"Skill: System status",
 			"Skill: Safely edit a model config",
+			"Skill: Manage a router corpus",
+			"get_router_corpus_stats",
 		}
 		for _, s := range mustContain {
 			Expect(out).To(ContainSubstring(s), "system prompt missing required anchor %q", s)
+		}
+	})
+
+	It("names every mutating tool in the confirmation safety rule", func() {
+		raw, err := promptsFS.ReadFile("prompts/10_safety.md")
+		Expect(err).NotTo(HaveOccurred())
+		out := string(raw)
+		for _, name := range mutatingToolNames {
+			Expect(out).To(ContainSubstring("`"+name+"`"),
+				"system prompt confirmation rule is missing mutating tool %q", name)
 		}
 	})
 })
