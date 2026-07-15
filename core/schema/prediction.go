@@ -142,4 +142,17 @@ type PredictionOptions struct {
 
 	// Embedding encoding format: "float" (default) or "base64" (OpenAI Node.js SDK default)
 	EncodingFormat string `json:"encoding_format,omitempty" yaml:"encoding_format,omitempty"`
+
+	// Pooling is a LocalAI extension for /v1/embeddings: how the backend's
+	// per-token vectors are reduced to a single embedding. "" or "backend"
+	// leaves pooling to the inference backend (the pre-existing behavior);
+	// "mean", "last" and "decayed_mean" pool Go-side from raw per-token
+	// vectors (the backend must run with the "pooling:none" option, which
+	// model configs get automatically when this is set).
+	Pooling string `json:"pooling,omitempty" yaml:"pooling,omitempty"`
+	// PoolingHalfLifeTokens is a LocalAI extension for /v1/embeddings: the
+	// half-life (in tokens) of the "decayed_mean" pooling scheme — a token's
+	// weight halves every this-many positions counting back from the end of
+	// the conversation. Defaults to 256 when unset.
+	PoolingHalfLifeTokens int `json:"pooling_half_life_tokens,omitempty" yaml:"pooling_half_life_tokens,omitempty"`
 }

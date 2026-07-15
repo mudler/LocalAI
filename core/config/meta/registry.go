@@ -257,6 +257,30 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Advanced:    true,
 			Order:       35,
 		},
+		"parameters.pooling": {
+			Section:     "parameters",
+			Label:       "Embedding Pooling",
+			Description: "How per-token embedding vectors are reduced to one embedding: the backend pools itself (default), or LocalAI pools Go-side (mean, last, decayed_mean) from raw per-token vectors",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Backend (default)"},
+				{Value: "backend", Label: "Backend"},
+				{Value: "mean", Label: "Mean"},
+				{Value: "last", Label: "Last token"},
+				{Value: "decayed_mean", Label: "Decayed mean"},
+			},
+			Advanced: true,
+			Order:    36,
+		},
+		"parameters.pooling_half_life_tokens": {
+			Section:     "parameters",
+			Label:       "Pooling Half-Life (tokens)",
+			Description: "Half-life in tokens for decayed_mean pooling: a token's weight halves every this many positions counting back from the end of the conversation (default 256)",
+			Component:   "number",
+			Min:         f64(0),
+			Advanced:    true,
+			Order:       37,
+		},
 
 		// --- Templates ---
 		"template.chat": {

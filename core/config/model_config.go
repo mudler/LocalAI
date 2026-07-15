@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1394,6 +1395,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 	runBackendHooks(cfg, lo.modelPath)
 
+	// Go-side pooling schemes need the backend to hand back raw per-token
+	// vectors: unless the operator already pinned a pooling backend option
+	// explicitly, add "pooling:none" so llama.cpp skips server-side pooling.
+	if IsGoSidePooling(cfg.Pooling) && !hasBackendOption(cfg.Options, "pooling") {
+		cfg.Options = append(cfg.Options, "pooling:none")
+		xlog.Debug("Go-side pooling requested: auto-appending backend option",
+			"model", cfg.Name, "pooling", cfg.Pooling, "option", "pooling:none")
+	}
+
 	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell)
 	// LAST, after the context size is fully resolved (explicit config, LoadOptions,
 	// then the GGUF guess inside runBackendHooks): the Blackwell batch guard sizes
@@ -1570,6 +1580,24 @@ func (c *ModelConfig) Validate() (bool, error) {
 		}
 	}
 
+	// Go-side embedding pooling: reject unknown schemes and half-life
+	// misconfigurations at load time, and refuse contradictory setups where
+	// a Go-side scheme (which needs raw per-token vectors) is combined with
+	// a backend pooling option other than "none" — the backend would return
+	// a single pooled vector and the Go pooling would silently degenerate.
+	if err := ValidatePooling(c.Pooling, c.PoolingHalfLifeTokens); err != nil {
+		return false, fmt.Errorf("parameters: %w", err)
+	}
+	if IsGoSidePooling(c.Pooling) {
+		for _, o := range c.Options {
+			if name, val, ok := strings.Cut(o, ":"); ok && name == "pooling" && val != "none" {
+				return false, fmt.Errorf(
+					"parameters.pooling %q needs raw per-token vectors but backend option %q pools server-side: drop the option or set \"pooling:none\"",
+					c.Pooling, o)
+			}
+		}
+	}
+
 	return true, nil
 }
 
@@ -1581,6 +1609,66 @@ const (
 	ScoreNormalizationRaw  = "raw"
 	ScoreNormalizationMean = "mean"
 )
+
+// Embedding pooling schemes (parameters.pooling). Defined here so
+// ModelConfig.Validate can reject unknown values without depending on
+// core/backend (which already depends on config); core/backend/pooling.go
+// aliases these for the pooling implementation.
+const (
+	// PoolingBackend (or the empty string) leaves pooling to the inference
+	// backend — the pre-existing behavior of the embeddings path.
+	PoolingBackend = "backend"
+	// PoolingMean averages the backend's raw per-token vectors Go-side.
+	PoolingMean = "mean"
+	// PoolingLast selects the last token's vector Go-side.
+	PoolingLast = "last"
+	// PoolingDecayedMean is a Go-side mean weighted toward the most recent
+	// tokens: w_i = 2^(-(T-1-i)/H) with half-life H tokens
+	// (parameters.pooling_half_life_tokens, default 256).
+	PoolingDecayedMean = "decayed_mean"
+)
+
+// IsGoSidePooling reports whether scheme pools in LocalAI's Go layer,
+// which requires raw per-token vectors from the backend (the "pooling:none"
+// backend option) rather than a backend-pooled single vector.
+func IsGoSidePooling(scheme string) bool {
+	switch scheme {
+	case PoolingMean, PoolingLast, PoolingDecayedMean:
+		return true
+	}
+	return false
+}
+
+// ValidatePooling checks a pooling scheme + half-life pair. Shared by
+// ModelConfig.Validate (model YAML) and the embeddings endpoint
+// (per-request override) so both paths reject exactly the same shapes.
+func ValidatePooling(scheme string, halfLifeTokens int) error {
+	switch scheme {
+	case "", PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean:
+	default:
+		return fmt.Errorf("unknown pooling %q (expected %q, %q, %q or %q)",
+			scheme, PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean)
+	}
+	if halfLifeTokens < 0 {
+		return fmt.Errorf("pooling_half_life_tokens must be non-negative, got %d", halfLifeTokens)
+	}
+	if halfLifeTokens > 0 && scheme != PoolingDecayedMean {
+		return fmt.Errorf("pooling_half_life_tokens only applies to pooling %q, not %q",
+			PoolingDecayedMean, scheme)
+	}
+	return nil
+}
+
+// hasBackendOption reports whether options carries a "name:value" entry
+// for the given option name.
+func hasBackendOption(options []string, name string) bool {
+	for _, o := range options {
+		if n, _, ok := strings.Cut(o, ":"); ok && n == name {
+			return true
+		}
+	}
+	return false
+}
 
 func (c *ModelConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != "" || c.TemplateConfig.UseTokenizerTemplate
