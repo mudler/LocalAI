@@ -67,7 +67,7 @@ func registerMiddlewareTools(s *mcp.Server, client LocalAIClient, opts Options) 
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolSeedRouterCorpus,
-		Description: "Add labelled example prompts to a knn router's corpus. Entries are embedded server-side with the router's knn.embedding_model, persisted, and indexed immediately — routing behaviour changes right away, so confirm with the user first (safety rule 1). Labels must be declared in the router's policies; duplicate texts are skipped.",
+		Description: "Add labelled example prompts to a knn router's corpus. Entries are embedded server-side with the router's knn.embedding_model, persisted, and indexed immediately — routing behaviour changes right away, so confirm with the user first (safety rule 1). Labels must be declared in the router's policies and unique per entry; duplicate texts are skipped.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args RouterCorpusSeedRequest) (*mcp.CallToolResult, any, error) {
 		if args.Router == "" {
 			return errorResultf("router is required"), nil, nil
