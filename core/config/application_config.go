@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
@@ -17,6 +18,13 @@ type ApplicationConfig struct {
 	ConfigFile       string
 	SystemState      *system.SystemState
 	ExternalBackends []string
+
+	// ModelArtifactMaterializer is a controller-only acquisition capability.
+	// It is excluded from serialization so credentials captured by its concrete
+	// implementation cannot enter persisted settings or distributed payloads.
+	ModelArtifactMaterializer ArtifactMaterializer `json:"-" yaml:"-"`
+	ModelPreloadRenderMode    string               `json:"-" yaml:"-"`
+	DisableModelPreloadColor  bool                 `json:"-" yaml:"-"`
 
 	// WebRTCNAT1To1IPs, when set, are advertised as the host ICE candidates for
 	// /v1/realtime WebRTC instead of every local interface address. Needed when
@@ -246,9 +254,11 @@ type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:       context.Background(),
-		UploadLimitMB: 15,
-		Debug:         true,
+		Context:                   context.Background(),
+		UploadLimitMB:             15,
+		Debug:                     true,
+		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		ModelPreloadRenderMode:    "dark",
 		// Capture backend process stdout/stderr into the per-model
 		// BackendLogStore by default so the UI "Backend Logs" page works out
 		// of the box in single mode, matching worker/distributed mode (which
@@ -256,9 +266,9 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// toggle can still turn it off (a persisted false wins - see
 		// loadRuntimeSettingsFromFile).
 		EnableBackendLogging:     true,
-		AgentJobRetentionDays:    30,              // Default: 30 days
-		LRUEvictionMaxRetries:    30,              // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		AgentJobRetentionDays:    30,               // Default: 30 days
+		LRUEvictionMaxRetries:    30,               // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
 		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
 		// WatchDogInterval is intentionally left at the zero value here.
 		// The startup loader applies a persisted runtime_settings.json value
@@ -633,6 +643,25 @@ func WithGalleries(galleries []Gallery) AppOption {
 func WithContext(ctx context.Context) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Context = ctx
+	}
+}
+
+// WithModelArtifactMaterializer injects the controller-only model acquisition capability.
+func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption {
+	return func(o *ApplicationConfig) {
+		if materializer != nil {
+			o.ModelArtifactMaterializer = materializer
+		}
+	}
+}
+
+// WithModelPreloadDisplay configures terminal rendering for model preload output.
+func WithModelPreloadDisplay(renderMode string, disableColor bool) AppOption {
+	return func(o *ApplicationConfig) {
+		if renderMode != "" {
+			o.ModelPreloadRenderMode = renderMode
+		}
+		o.DisableModelPreloadColor = disableColor
 	}
 }
 

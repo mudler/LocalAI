@@ -65,6 +65,23 @@ def parse_options(values):
     return options
 
 
+def select_known_options(options, known):
+    """Split parsed options into the subset this backend understands and the
+    unknown keys to ignore.
+
+    LocalAI injects serving defaults (e.g. the llama.cpp cache_reuse / parallel
+    options) onto every model config regardless of backend. A backend should
+    tolerate options it does not understand rather than refuse to load, matching
+    the other LocalAI Python backends; the caller logs the ignored keys.
+
+    Returns (kept, ignored) where kept preserves the known entries and ignored is
+    the sorted list of dropped keys.
+    """
+    ignored = sorted(key for key in options if key not in known)
+    kept = {key: value for key, value in options.items() if key in known}
+    return kept, ignored
+
+
 def require_bool(value, name):
     if isinstance(value, bool):
         return value

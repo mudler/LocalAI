@@ -336,7 +336,12 @@ func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
 	// context budget, but a context large enough to fill a single device leaves
 	// no room for the per-slot scratch, so the slot count is gated on per-device
 	// headroom too (issue #10485). Explicit parallel/n_parallel always wins.
-	if before := len(cfg.Options); true {
+	//
+	// parallel is a llama.cpp option string; skip it for backends that would
+	// reject an unknown option (e.g. longcat-video). The typed batch above is a
+	// proto field every backend simply ignores, so it needs no such gate.
+	if UsesLlamaCppServingOptions(cfg.Backend) {
+		before := len(cfg.Options)
 		cfg.Options = EnsureParallelOptionForContext(cfg.Options, gpu, ctx)
 		if len(cfg.Options) > before {
 			xlog.Debug("[hardware_defaults] defaulting parallel slots for concurrent serving",

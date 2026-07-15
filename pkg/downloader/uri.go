@@ -52,8 +52,21 @@ type ImageVerifier interface {
 	VerifyImage(ctx context.Context, imageRef string) error
 }
 
+// TransferProgress reports the raw byte counts for an HTTP download.
+// Total is negative when the server does not advertise a response length.
+type TransferProgress struct {
+	FileName string
+	Written  int64
+	Total    int64
+}
+
+// TransferProgressSink receives raw byte progress updates for an HTTP download.
+type TransferProgressSink func(TransferProgress)
+
 type downloadOptions struct {
-	verifier ImageVerifier
+	verifier         ImageVerifier
+	bearerToken      string
+	transferProgress TransferProgressSink
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -68,6 +81,17 @@ type DownloadOption func(*downloadOptions)
 // those paths use SHA256 integrity instead.
 func WithImageVerifier(v ImageVerifier) DownloadOption {
 	return func(o *downloadOptions) { o.verifier = v }
+}
+
+// WithBearerToken authenticates HTTP download requests with a bearer token.
+// The token is stripped if a request redirects to a different origin.
+func WithBearerToken(token string) DownloadOption {
+	return func(o *downloadOptions) { o.bearerToken = token }
+}
+
+// WithTransferProgress attaches a sink for raw HTTP download byte progress.
+func WithTransferProgress(sink TransferProgressSink) DownloadOption {
+	return func(o *downloadOptions) { o.transferProgress = sink }
 }
 
 func applyDownloadOptions(opts []DownloadOption) downloadOptions {
@@ -367,9 +391,28 @@ func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
 // deadline so large downloads are not truncated.
 var downloadClient = httpclient.New(httpclient.WithFollowRedirects())
 
-func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
-	url := uri.ResolveURL()
-	resp, err := downloadClient.Head(url)
+func newDownloadRequest(
+	ctx context.Context,
+	method string,
+	rawURL string,
+	bearerToken string,
+) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+bearerToken)
+	}
+	return req, nil
+}
+
+func (uri URI) checkServerSupportsRangeHeader(ctx context.Context, bearerToken string) (bool, error) {
+	req, err := newDownloadRequest(ctx, http.MethodHead, uri.ResolveURL(), bearerToken)
+	if err != nil {
+		return false, err
+	}
+	resp, err := downloadClient.Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -563,21 +606,22 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	xlog.Info("Downloading", "url", url)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := newDownloadRequest(ctx, http.MethodGet, url, dopts.bearerToken)
 	if err != nil {
 		return fmt.Errorf("failed to create request for %q: %v", filePath, err)
 	}
 
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
+	var startPos int64
 	tmpFileInfo, err := os.Stat(tmpFilePath)
 	if err == nil && uri.LooksLikeHTTPURL() {
-		support, err := uri.checkSeverSupportsRangeHeader()
+		support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
 		if err != nil {
 			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
 		}
 		if support {
-			startPos := tmpFileInfo.Size()
+			startPos = tmpFileInfo.Size()
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
 		} else {
 			err := removePartialFile(tmpFilePath)
@@ -622,6 +666,15 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		}
 		//defer resp.Body.Close()
 
+		if startPos > 0 && resp.StatusCode != http.StatusPartialContent {
+			_ = resp.Body.Close()
+			_ = removePartialFile(tmpFilePath)
+			return fmt.Errorf(
+				"resume request for %q returned status %d instead of 206",
+				filePath,
+				resp.StatusCode,
+			)
+		}
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
 		}
@@ -633,7 +686,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		if DownloadStallTimeout > 0 {
 			source = newIdleTimeoutReader(resp.Body, DownloadStallTimeout)
 		}
-		contentLength = resp.ContentLength
+		contentLength = resp.ContentLength + startPos
 	}
 	defer source.Close()
 
@@ -644,11 +697,14 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	}
 
 	// Create and write file
-	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
 	}
 	defer outFile.Close()
+	if err := outFile.Chmod(0600); err != nil {
+		return fmt.Errorf("failed to restrict partial file %q permissions: %v", tmpFilePath, err)
+	}
 	hash, err := calculateHashForPartialFile(outFile)
 	if err != nil {
 		return fmt.Errorf("failed to calculate hash for partial file")
@@ -659,7 +715,9 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		hash:           hash,
 		fileNo:         fileN,
 		totalFiles:     total,
+		written:        startPos,
 		downloadStatus: downloadStatus,
+		transferSink:   dopts.transferProgress,
 		ctx:            ctx,
 	}
 

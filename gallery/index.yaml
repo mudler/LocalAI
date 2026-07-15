@@ -81,7 +81,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 0fd657210e4773042c44fa185eba27dff4017cfc5dea0370685268957b0d3da9
+      sha256: 693c90c4ad251d194aadd7bfb3779ec01965b62d5d4b661b0aeea4e6ee865aeb
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -752,7 +752,7 @@
   files:
     - filename: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
-      sha256: 671c430bf18c961251338d639a3c02aac7451c39eed25874cad74287ac6cd38a
+      sha256: 318caed45110f5e3c60bff1142e0d1e658e046e670830d9be643df33940f4f98
     - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
       sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
@@ -2424,6 +2424,12 @@
       - torch_dtype:bf16
     parameters:
       model: lodestones/Chroma1-HD
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: lodestones/Chroma1-HD
     step: 40
 - name: nemotron-3-nano-omni-30b-a3b-reasoning-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -2473,6 +2479,12 @@
       temperature: 1
       top_k: -1
       top_p: 1
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF
     template:
       use_tokenizer_template: true
 - name: carnice-v2-27b
@@ -3890,6 +3902,14 @@
       - transcript
     parameters:
       model: nvidia/parakeet-tdt-0.6b-v3
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: nvidia/parakeet-tdt-0.6b-v3
+          allow_patterns:
+            - "*.nemo"
 - name: voxtral-mini-4b-realtime
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5080,6 +5100,12 @@
       voice_cloning: true
     parameters:
       model: openbmb/VoxCPM1.5
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: openbmb/VoxCPM1.5
 - name: neutts-air
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5124,6 +5150,12 @@
       - image
     parameters:
       model: Tongyi-MAI/Z-Image-Turbo
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Tongyi-MAI/Z-Image-Turbo
 - name: vllm-omni-wan2.2-t2v
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5146,6 +5178,12 @@
       - video
     parameters:
       model: Wan-AI/Wan2.2-T2V-A14B-Diffusers
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Wan-AI/Wan2.2-T2V-A14B-Diffusers
 - name: vllm-omni-wan2.2-i2v
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5168,6 +5206,12 @@
       - video
     parameters:
       model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Wan-AI/Wan2.2-I2V-A14B-Diffusers
 - name: longcat-video
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5273,6 +5317,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-Omni-30B-A3B-Instruct
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-Omni-30B-A3B-Instruct
 - name: vllm-omni-qwen3-tts-custom-voice
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5296,6 +5346,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
 - name: ace-step-turbo
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6027,6 +6083,12 @@
       - torch_dtype:bf16
     parameters:
       model: Tongyi-MAI/Z-Image
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Tongyi-MAI/Z-Image
     step: 35
 - name: z-image-turbo-diffusers
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -6052,6 +6114,12 @@
       - torch_dtype:bf16
     parameters:
       model: Tongyi-MAI/Z-Image-Turbo
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Tongyi-MAI/Z-Image-Turbo
     step: 9
 - name: glm-4.7-flash-derestricted
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -6110,6 +6178,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
     tts:
       voice: Aiden
 - name: qwen3-tts-0.6b-custom-voice
@@ -6130,6 +6204,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
     tts:
       voice: Aiden
 - name: fish-speech-s2-pro
@@ -6153,6 +6233,12 @@
       voice_cloning: true
     parameters:
       model: fishaudio/s2-pro
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: fishaudio/s2-pro
 - name: qwen3-asr-1.7b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6171,6 +6257,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-1.7B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-1.7B
 - name: qwen3-asr-0.6b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6189,6 +6281,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-0.6B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-0.6B
 - name: huihui-glm-4.7-flash-abliterated-i1
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -7635,6 +7733,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-0.6B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-0.6B
 - name: qwen3-asr-1.7b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -7653,6 +7757,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-1.7B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-1.7B
 - name: glm-ocr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -8830,6 +8940,12 @@
       - torch_dtype:bf16
     parameters:
       model: Lightricks/LTX-2
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Lightricks/LTX-2
 - name: gpt-oss-20b
   url: github:mudler/LocalAI/gallery/harmony.yaml@master
   urls:
@@ -9078,6 +9194,12 @@
     name: dia
     parameters:
       model: nari-labs/Dia-1.6B-0626
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: nari-labs/Dia-1.6B-0626
     type: DiaForConditionalGeneration
 - name: outetts
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -35853,6 +35975,12 @@
       - torch_dtype:bf16
     parameters:
       model: Lightricks/LTX-2.3
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Lightricks/LTX-2.3
 - &ltx-2-3-dev-ggml
   name: ltx-2.3-22b-dev-ggml
   url: github:mudler/LocalAI/gallery/ltx-ggml.yaml@master

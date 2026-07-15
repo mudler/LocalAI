@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -28,6 +29,9 @@ import (
 
 type RunCMD struct {
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	Color     string   `env:"COLOR" hidden:""`
+	NoColor   string   `env:"NO_COLOR" hidden:""`
+	HFToken   string   `env:"HF_TOKEN" hidden:""`
 
 	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
 	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
@@ -238,6 +242,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	opts := []config.AppOption{
 		config.WithContext(context.Background()),
+		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
+			modelartifacts.WithHuggingFaceToken(r.HFToken),
+		)),
+		config.WithModelPreloadDisplay(r.Color, r.NoColor != ""),
 		config.WithConfigFile(r.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
