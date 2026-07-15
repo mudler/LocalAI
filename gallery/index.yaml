@@ -1,4 +1,59 @@
 ---
+- name: "ternary-bonsai-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf
+  description: |
+    # Qwen3.6-27B
+
+    [](https://chat.qwen.ai)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, KTransformers, etc.
+
+    Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
+    ## Qwen3.6 Highlights
+
+    This release delivers substantial upgrades, particularly in
+
+      - **Agentic Coding:** the model now handles frontend workflows and repository-level reasoning with greater fluency and precision.
+      - **Thinking Preservation:** we've introduced a new option to retain reasoning context from historical messages, streamlining iterative development and reducing overhead.
+
+    For more details, please refer to our blog post Qwen3.6-27B.
+
+    ## Model Overview
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Ternary-Bonsai-27B-dspark-bf16/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Ternary-Bonsai-27B-dspark-bf16/Ternary-Bonsai-27B-dspark-bf16.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ternary-Bonsai-27B-dspark-bf16/Ternary-Bonsai-27B-dspark-bf16.gguf
+      sha256: d5ce05b0e7e23804279fb0b451e330e71c06d977657802a0e22d71433f30dbad
+      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/Ternary-Bonsai-27B-dspark-bf16.gguf
+    - filename: llama-cpp/mmproj/Ternary-Bonsai-27B-dspark-bf16/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
 - name: "minicpm5-1b-claude-opus-fable5-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
