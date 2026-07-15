@@ -3,6 +3,10 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
 )
 
 // ClassifierConfig is a LocalAI extension to the Realtime API
@@ -110,12 +114,116 @@ type ClassifierOption struct {
 	Tool *ClassifierTool `json:"tool,omitempty"`
 }
 
-// ClassifierTool is a canned function call. Arguments stays a raw JSON
-// object so future slot-filling (templated arguments) is an additive
-// change.
+// ClassifierTool is a canned function call. Arguments is a raw JSON
+// object; with Slots it becomes a template whose "{{name}}" placeholders
+// are filled by a short constrained completion after classification —
+// the hybrid between prefill-only classification and full generation.
 type ClassifierTool struct {
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments,omitempty"`
+
+	// Slots declares the argument holes to fill by inference when the
+	// option wins. Number slots substitute the quoted placeholder
+	// ("{{name}}" -> 3.5) so YAML/JSON templates stay well-formed; enum
+	// and string slots substitute inside their quotes.
+	Slots []ClassifierSlot `json:"slots,omitempty"`
+}
+
+// Classifier slot types.
+const (
+	ClassifierSlotNumber = "number"
+	ClassifierSlotEnum   = "enum"
+	ClassifierSlotString = "string"
+)
+
+// ClassifierSlot is one inferred argument of a classifier tool call.
+type ClassifierSlot struct {
+	// Name of the slot; "{{name}}" in the arguments template marks where
+	// its value lands, and the model sees it as a JSON field name.
+	Name string `json:"name"`
+
+	// Type constrains the completion grammar: "number", "enum" or
+	// "string".
+	Type string `json:"type"`
+
+	// Values enumerates the admissible values for enum slots.
+	Values []string `json:"values,omitempty"`
+
+	// Default applies when inference fails outright. Enum defaults must
+	// be one of Values; number defaults must parse as a number. A slot
+	// without a default makes the whole response fall back on failure.
+	Default string `json:"default,omitempty"`
+
+	// Hint is appended to the option's description in the scoring/fill
+	// system prompt (e.g. "assume meters when the user gives no units").
+	Hint string `json:"hint,omitempty"`
+}
+
+// slotPlaceholder returns the template marker for a slot.
+func slotPlaceholder(name string) string { return "{{" + name + "}}" }
+
+// SampleValue returns a syntactically valid stand-in for template
+// validation: the default when set, otherwise a type-appropriate value.
+func (s *ClassifierSlot) SampleValue() string {
+	if s.Default != "" {
+		return s.Default
+	}
+	switch s.Type {
+	case ClassifierSlotNumber:
+		return "0"
+	case ClassifierSlotEnum:
+		if len(s.Values) > 0 {
+			return s.Values[0]
+		}
+	}
+	return "sample"
+}
+
+// SpliceArguments fills the tool's argument template with the given slot
+// values and returns the final JSON arguments string. Number values
+// replace the quoted placeholder so they land unquoted; other types are
+// JSON-string-escaped in place. The result must parse as a JSON object.
+func (t *ClassifierTool) SpliceArguments(values map[string]string) (string, error) {
+	args := "{}"
+	if len(t.Arguments) > 0 {
+		args = string(t.Arguments)
+	}
+	for i := range t.Slots {
+		s := &t.Slots[i]
+		v, ok := values[s.Name]
+		if !ok || v == "" {
+			return "", fmt.Errorf("classifier: no value for slot %q", s.Name)
+		}
+		ph := slotPlaceholder(s.Name)
+		if s.Type == ClassifierSlotNumber {
+			args = strings.ReplaceAll(args, `"`+ph+`"`, v)
+		} else {
+			esc, err := json.Marshal(v)
+			if err != nil {
+				return "", err
+			}
+			args = strings.ReplaceAll(args, ph, string(esc[1:len(esc)-1]))
+		}
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(args), &obj); err != nil {
+		return "", fmt.Errorf("classifier: spliced tool arguments are not a JSON object: %w", err)
+	}
+	return args, nil
+}
+
+// SlotDefaults returns every slot's default value, or an error naming the
+// first slot without one — the fill-failure path either recovers with a
+// complete default set or not at all.
+func (t *ClassifierTool) SlotDefaults() (map[string]string, error) {
+	values := make(map[string]string, len(t.Slots))
+	for i := range t.Slots {
+		if t.Slots[i].Default == "" {
+			return nil, fmt.Errorf("classifier: slot %q has no default", t.Slots[i].Name)
+		}
+		values[t.Slots[i].Name] = t.Slots[i].Default
+	}
+	return values, nil
 }
 
 // Classifier fallback modes.
@@ -217,13 +325,67 @@ func (c *ClassifierConfig) Validate() error {
 			if opt.Tool.Name == "" {
 				return fmt.Errorf("classifier: option %q has a tool with an empty name", opt.ID)
 			}
-			if len(opt.Tool.Arguments) > 0 {
+			if len(opt.Tool.Arguments) > 0 && len(opt.Tool.Slots) == 0 {
 				var obj map[string]any
 				if err := json.Unmarshal(opt.Tool.Arguments, &obj); err != nil {
 					return fmt.Errorf("classifier: option %q tool arguments must be a JSON object: %w", opt.ID, err)
 				}
 			}
+			if err := validateSlots(opt.Tool); err != nil {
+				return fmt.Errorf("classifier: option %q: %w", opt.ID, err)
+			}
 		}
+	}
+	return nil
+}
+
+// slotNamePattern keeps slot names safe to embed as JSON field names and
+// template placeholders without escaping.
+var slotNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+func validateSlots(t *ClassifierTool) error {
+	if len(t.Slots) == 0 {
+		return nil
+	}
+	args := string(t.Arguments)
+	seen := make(map[string]struct{}, len(t.Slots))
+	sample := make(map[string]string, len(t.Slots))
+	for i := range t.Slots {
+		s := &t.Slots[i]
+		if !slotNamePattern.MatchString(s.Name) {
+			return fmt.Errorf("slot %d has invalid name %q", i, s.Name)
+		}
+		if _, dup := seen[s.Name]; dup {
+			return fmt.Errorf("duplicate slot %q", s.Name)
+		}
+		seen[s.Name] = struct{}{}
+		switch s.Type {
+		case ClassifierSlotNumber:
+			if s.Default != "" {
+				if _, err := strconv.ParseFloat(s.Default, 64); err != nil {
+					return fmt.Errorf("slot %q: number default %q does not parse", s.Name, s.Default)
+				}
+			}
+		case ClassifierSlotEnum:
+			if len(s.Values) == 0 {
+				return fmt.Errorf("slot %q: enum slots need values", s.Name)
+			}
+			if s.Default != "" && !slices.Contains(s.Values, s.Default) {
+				return fmt.Errorf("slot %q: default %q is not one of its values", s.Name, s.Default)
+			}
+		case ClassifierSlotString:
+		default:
+			return fmt.Errorf("slot %q: type must be one of number|enum|string, got %q", s.Name, s.Type)
+		}
+		if !strings.Contains(args, slotPlaceholder(s.Name)) {
+			return fmt.Errorf("slot %q: arguments template does not reference {{%s}}", s.Name, s.Name)
+		}
+		sample[s.Name] = s.SampleValue()
+	}
+	// The template with type-appropriate values must produce a JSON
+	// object, catching e.g. an unquoted string placeholder up front.
+	if _, err := t.SpliceArguments(sample); err != nil {
+		return fmt.Errorf("arguments template does not splice: %w", err)
 	}
 	return nil
 }
@@ -258,6 +420,13 @@ type ClassifierResultEvent struct {
 
 	// Wall-clock scoring latency.
 	LatencyMs int64 `json:"latency_ms"`
+
+	// The chosen option's final tool arguments when its slots were filled
+	// by inference (the hybrid classify-then-complete path).
+	Arguments string `json:"arguments,omitempty"`
+
+	// Wall-clock slot-fill latency; zero when the option has no slots.
+	FillLatencyMs int64 `json:"fill_latency_ms,omitempty"`
 }
 
 func (m ClassifierResultEvent) ServerEventType() ServerEventType {

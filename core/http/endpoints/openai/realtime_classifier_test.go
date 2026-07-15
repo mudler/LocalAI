@@ -484,3 +484,180 @@ var _ = Describe("classifierRespond", func() {
 		Expect(m.classifyCalls).To(BeZero())
 	})
 })
+
+// slottedTestConfig is classifierTestConfig with the winning option's tool
+// carrying argument slots (the hybrid classify-then-complete path).
+func slottedTestConfig(threshold float64, fallback *types.ClassifierFallback, defaults bool) *types.ClassifierConfig {
+	slots := []types.ClassifierSlot{
+		{Name: "distance", Type: types.ClassifierSlotNumber},
+		{Name: "units", Type: types.ClassifierSlotEnum, Values: []string{"m", "meters", "ft", "feet"}, Hint: "assume m when the user gives no units"},
+	}
+	if defaults {
+		slots[0].Default = "1"
+		slots[1].Default = "m"
+	}
+	return &types.ClassifierConfig{
+		Threshold: threshold,
+		Fallback:  fallback,
+		Options: []types.ClassifierOption{
+			{
+				ID:          "up",
+				Description: "the user asks the drone to fly up",
+				Reply:       "Going up.",
+				Tool: &types.ClassifierTool{
+					Name:      "move",
+					Arguments: json.RawMessage(`{"direction":"up","distance":"{{distance}}","units":"{{units}}"}`),
+					Slots:     slots,
+				},
+			},
+			{ID: "greeting", Description: "the user greets the assistant", Reply: "Hello."},
+		},
+	}
+}
+
+var _ = Describe("slotFillGrammar", func() {
+	It("pins the field skeleton and frees only the slot values", func() {
+		g := slotFillGrammar([]types.ClassifierSlot{
+			{Name: "distance", Type: types.ClassifierSlotNumber},
+			{Name: "units", Type: types.ClassifierSlotEnum, Values: []string{"m", "ft"}},
+		})
+		Expect(g).To(ContainSubstring(`root ::= slot0 ", \"units\": " slot1 "}"`))
+		Expect(g).To(ContainSubstring("slot0 ::= num"))
+		Expect(g).To(ContainSubstring(`slot1 ::= "\"m\"" | "\"ft\""`))
+		Expect(g).To(ContainSubstring("num ::="))
+	})
+
+	It("emits a string rule only when needed", func() {
+		g := slotFillGrammar([]types.ClassifierSlot{{Name: "what", Type: types.ClassifierSlotString}})
+		Expect(g).To(ContainSubstring("slot0 ::= str"))
+		Expect(g).To(ContainSubstring("str ::="))
+		Expect(g).ToNot(ContainSubstring("num ::="))
+	})
+})
+
+var _ = Describe("parseSlotValues", func() {
+	slots := []types.ClassifierSlot{
+		{Name: "distance", Type: types.ClassifierSlotNumber},
+		{Name: "units", Type: types.ClassifierSlotEnum, Values: []string{"m", "ft"}},
+	}
+
+	It("extracts values from a grammar-shaped completion", func() {
+		values, err := parseSlotValues("up", "distance", `3.5, "units": "m"}`, slots)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(values).To(Equal(map[string]string{"distance": "3.5", "units": "m"}))
+	})
+
+	It("tolerates a completion missing the closing brace", func() {
+		values, err := parseSlotValues("up", "distance", `2, "units": "ft"`, slots)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(values["distance"]).To(Equal("2"))
+	})
+
+	It("rejects completions missing a slot", func() {
+		_, err := parseSlotValues("up", "distance", `3}`, slots)
+		Expect(err).To(MatchError(ContainSubstring(`missing "units"`)))
+	})
+})
+
+var _ = Describe("classifierPolicyDescription", func() {
+	It("passes plain options through", func() {
+		o := &types.ClassifierOption{Description: "plain"}
+		Expect(classifierPolicyDescription(o)).To(Equal("plain"))
+	})
+
+	It("appends slot declarations and hints", func() {
+		cc := slottedTestConfig(0, nil, false)
+		d := classifierPolicyDescription(&cc.Options[0])
+		Expect(d).To(ContainSubstring("route parameters:"))
+		Expect(d).To(ContainSubstring("distance (number)"))
+		Expect(d).To(ContainSubstring("units (one of: m, meters, ft, feet)"))
+		Expect(d).To(ContainSubstring("assume m when the user gives no units"))
+	})
+})
+
+var _ = Describe("classifierRespond slot filling", func() {
+	It("emits the filled tool arguments and reports them in the result event", func() {
+		m := &fakeModel{
+			classifyScores: []router.LabelScore{{Label: "up", Score: 0.9}, {Label: "greeting", Score: 0.1}},
+			fillArgs:       `{"direction":"up","distance":3,"units":"m"}`,
+		}
+		session := classifierTestSession(m)
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		r := &liveResponse{id: "resp-slots"}
+
+		handled := classifierRespond(context.Background(), session, conv, t, r, slottedTestConfig(0.35, nil, false), classifierTestHistory, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		Expect(m.fillCalls).To(Equal(1))
+		Expect(m.lastFillChosen.ID).To(Equal("up"))
+
+		results := classifierResultEvents(t)
+		Expect(results).To(HaveLen(1))
+		Expect(results[0].ChosenID).To(Equal("up"))
+		Expect(results[0].Arguments).To(MatchJSON(`{"direction":"up","distance":3,"units":"m"}`))
+
+		var fcArgs string
+		for _, e := range t.events {
+			if done, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
+				fcArgs = done.Arguments
+			}
+		}
+		Expect(fcArgs).To(MatchJSON(`{"direction":"up","distance":3,"units":"m"}`))
+	})
+
+	It("recovers with slot defaults when filling fails", func() {
+		m := &fakeModel{
+			classifyScores: []router.LabelScore{{Label: "up", Score: 0.9}, {Label: "greeting", Score: 0.1}},
+			fillErr:        fmt.Errorf("backend unavailable"),
+		}
+		session := classifierTestSession(m)
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		r := &liveResponse{id: "resp-slot-defaults"}
+
+		handled := classifierRespond(context.Background(), session, conv, t, r, slottedTestConfig(0.35, nil, true), classifierTestHistory, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		var fcArgs string
+		for _, e := range t.events {
+			if done, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
+				fcArgs = done.Arguments
+			}
+		}
+		Expect(fcArgs).To(MatchJSON(`{"direction":"up","distance":1,"units":"m"}`))
+	})
+
+	It("fails the response when filling fails and a slot has no default", func() {
+		m := &fakeModel{
+			classifyScores: []router.LabelScore{{Label: "up", Score: 0.9}, {Label: "greeting", Score: 0.1}},
+			fillErr:        fmt.Errorf("backend unavailable"),
+		}
+		session := classifierTestSession(m)
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		r := &liveResponse{id: "resp-slot-fail"}
+
+		handled := classifierRespond(context.Background(), session, conv, t, r, slottedTestConfig(0.35, nil, false), classifierTestHistory, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		Expect(r.outcome).To(Equal(outcomeFailed))
+		Expect(classifierResultEvents(t)).To(BeEmpty(), "no result event for a failed fill")
+	})
+
+	It("falls back to generation on fill failure in generate mode", func() {
+		m := &fakeModel{
+			classifyScores: []router.LabelScore{{Label: "up", Score: 0.9}, {Label: "greeting", Score: 0.1}},
+			fillErr:        fmt.Errorf("backend unavailable"),
+		}
+		session := classifierTestSession(m)
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		r := &liveResponse{id: "resp-slot-genfb"}
+		cc := slottedTestConfig(0.35, &types.ClassifierFallback{Mode: types.ClassifierFallbackGenerate}, false)
+
+		handled := classifierRespond(context.Background(), session, conv, t, r, cc, classifierTestHistory, nil, 0)
+
+		Expect(handled).To(BeFalse(), "generate fallback lets the caller run generation")
+	})
+})
