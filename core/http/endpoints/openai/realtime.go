@@ -280,6 +280,12 @@ type Model interface {
 	// pipeline's scoring model (classifier.model, defaulting to the LLM) —
 	// no autoregressive decode happens.
 	ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error)
+	// FillToolArguments completes the chosen option's argument slots with a
+	// short grammar-constrained completion that continues the exact scoring
+	// prompt (so the backend's prompt cache stays warm) and returns the
+	// spliced tool-arguments JSON — the hybrid between prefill-only
+	// classification and full generation.
+	FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, error)
 	PredictConfig() *config.ModelConfig
 	// Warmup eagerly loads the pipeline's sub-model backends into memory so the
 	// first realtime turn doesn't pay each backend's cold-start load cost. Loads
