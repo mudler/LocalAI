@@ -959,13 +959,20 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			AutocompleteProvider: ProviderModels,
 			Order:                241,
 		},
+		"router.knn.embedding_revision": {
+			Section:     "router",
+			Label:       "KNN: Embedding Revision",
+			Description: "Optional identity suffix for embedding services or remote models whose weights may change without their LocalAI model name/config changing. Bump this value after replacing such a model so the persisted corpus is re-embedded.",
+			Component:   "input",
+			Order:       242,
+		},
 		"router.knn.k": {
 			Section:     "router",
 			Label:       "KNN: Neighbours (K)",
 			Description: "How many nearest corpus entries vote on a prompt. 0 picks the default (3). K=1 routes on the single nearest example; larger K tolerates a mislabelled exemplar but needs denser corpus coverage per label.",
 			Component:   "number",
 			Min:         f64(0),
-			Order:       242,
+			Order:       243,
 		},
 		"router.knn.similarity_threshold": {
 			Section:     "router",
@@ -975,7 +982,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Min:         f64(0),
 			Max:         f64(1),
 			Step:        f64(0.01),
-			Order:       243,
+			Order:       244,
 		},
 		"router.knn.vote_threshold": {
 			Section:     "router",
@@ -985,14 +992,14 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Min:         f64(0),
 			Max:         f64(1),
 			Step:        f64(0.05),
-			Order:       244,
+			Order:       245,
 		},
 		"router.knn.store_name": {
 			Section:     "router",
 			Label:       "KNN: Store Name",
 			Description: "Optional override for the local-store collection holding the corpus vectors. Empty defaults to \"router-corpus-<router-model-name>\".",
 			Component:   "input",
-			Order:       245,
+			Order:       246,
 		},
 	}
 }

@@ -581,6 +581,12 @@ var (
 	errTestKNNInsert = errors.New("knn classifier must never insert into the corpus")
 )
 
+type failingCorpusLoader struct{ err error }
+
+func (f failingCorpusLoader) EnsureLoaded(context.Context, string, string, string, backend.Embedder, backend.VectorStore) (int, error) {
+	return 0, f.err
+}
+
 func corpusPayload(labels ...string) []byte {
 	b, err := router.EncodeCorpusEntry(router.EntryID(strings.Join(labels, "+")), labels)
 	Expect(err).NotTo(HaveOccurred())
@@ -702,6 +708,39 @@ var _ = Describe("RouteModel middleware (knn classifier)", func() {
 			openAIChat("hello"), knnDeps())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("knn"))
+	})
+
+	It("fails closed when the persisted corpus cannot sync into the live index", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		deps := knnDeps()
+		deps.EmbedderFingerprint = func(string) (string, error) { return "fp", nil }
+		deps.Corpus = failingCorpusLoader{err: errors.New("incompatible persisted vectors")}
+
+		_, err := runRouterWithDeps(loader, appConfig, store, routerCfg,
+			openAIChat("hello"), deps)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("incompatible persisted vectors"))
+	})
+
+	It("invalidates the classifier cache when the embedding fingerprint changes", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		fingerprint := "v1"
+		deps := knnDeps()
+		deps.EmbedderFingerprint = func(string) (string, error) { return fingerprint, nil }
+		registry := router.NewRegistry()
+
+		first, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		cached, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cached).To(BeIdenticalTo(first))
+
+		fingerprint = "v2"
+		rebuilt, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rebuilt).NotTo(BeIdenticalTo(first))
 	})
 
 	It("ignores an embedding_cache block instead of double-embedding", func() {

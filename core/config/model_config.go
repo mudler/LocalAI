@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -406,6 +408,12 @@ type RouterKNNConfig struct {
 	// entries recorded under a different embedder fingerprint.
 	EmbeddingModel string `yaml:"embedding_model" json:"embedding_model"`
 
+	// EmbeddingRevision is an operator-controlled identity suffix for
+	// embedding backends whose underlying weights can change without a
+	// stable local checksum or config change. Bump it when replacing such
+	// a model in place so persisted corpus vectors are re-embedded.
+	EmbeddingRevision string `yaml:"embedding_revision,omitempty" json:"embedding_revision,omitempty"`
+
 	// K is how many nearest corpus entries vote on a probe. 0 picks
 	// the package default (3). K=1 reproduces exact nearest-entry
 	// routing; larger K tolerates mislabelled exemplars at the cost
@@ -441,6 +449,15 @@ func (k *RouterKNNConfig) ResolvedStoreName(routerName string) string {
 		return k.StoreName
 	}
 	return "router-corpus-" + routerName
+}
+
+// ResolvedEmbeddingFingerprint binds the resolved embedding-model
+// fingerprint to the optional operator revision. Keeping this combination
+// in config makes the classifier build path and corpus management surfaces
+// derive exactly the same persisted identity.
+func (k *RouterKNNConfig) ResolvedEmbeddingFingerprint(modelFingerprint string) string {
+	sum := sha256.Sum256([]byte(modelFingerprint + "\x00" + k.EmbeddingRevision))
+	return hex.EncodeToString(sum[:])
 }
 
 // RouterPolicy is one entry in the label vocabulary. The label string

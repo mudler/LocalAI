@@ -101,8 +101,9 @@ var _ = Describe("Router corpus endpoints", func() {
 		store = &corpusTestStore{}
 
 		deps := middleware.ClassifierDeps{
-			Embedder:    func(string) backend.Embedder { return corpusTestEmbedder{} },
-			VectorStore: func(string) backend.VectorStore { return store },
+			Embedder:            func(string) backend.Embedder { return corpusTestEmbedder{} },
+			EmbedderFingerprint: func(string) (string, error) { return "test-embedding-fingerprint", nil },
+			VectorStore:         func(string) backend.VectorStore { return store },
 		}
 		e = echo.New()
 		e.POST("/api/router/:name/corpus", localai.RouterCorpusAddEndpoint(loader, appConfig, mgr, deps))
@@ -145,6 +146,31 @@ var _ = Describe("Router corpus endpoints", func() {
 			`{"entries":[{"text":"hello","labels":["not-a-policy"]}]}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 		Expect(rec.Body.String()).To(ContainSubstring("not declared"))
+	})
+
+	It("rejects duplicate labels before they can inflate KNN votes", func() {
+		writeKNNRouter(modelDir, "knn-router")
+		rec := do(http.MethodPost, "/api/router/knn-router/corpus",
+			`{"entries":[{"text":"hello","labels":["casual-chat","casual-chat"]}]}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("duplicate label"))
+	})
+
+	It("rejects a score router that merely has a stray knn block", func() {
+		writeScoreRouter(modelDir, "score-router")
+		path := filepath.Join(modelDir, "score-router.yaml")
+		raw, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		var cfg config.ModelConfig
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		cfg.Router.KNN = &config.RouterKNNConfig{EmbeddingModel: "embed-model"}
+		raw, err = yaml.Marshal(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(path, raw, 0o644)).To(Succeed())
+
+		rec := do(http.MethodPost, "/api/router/score-router/corpus", seedBody)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("classifier: knn"))
 	})
 
 	It("rejects an empty entries list", func() {

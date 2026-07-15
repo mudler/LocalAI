@@ -2,6 +2,7 @@ package corpus_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,10 +34,11 @@ func (e *countingEmbedder) Embed(_ context.Context, text string) ([]float32, err
 // capturingStore records index mutations. Search/SearchK are
 // irrelevant to the manager and return clean misses.
 type capturingStore struct {
-	mu       sync.Mutex
-	payloads [][]byte
-	batches  int
-	deleted  [][]float32
+	mu          sync.Mutex
+	payloads    [][]byte
+	batches     int
+	deleted     [][]float32
+	failBatches int
 }
 
 func (s *capturingStore) Search(_ context.Context, _ []float32) (float64, []byte, bool, error) {
@@ -58,9 +60,20 @@ func (s *capturingStore) InsertBatch(_ context.Context, vecs [][]float32, payloa
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.batches++
+	if s.failBatches > 0 {
+		s.failBatches--
+		return errors.New("transient batch failure")
+	}
 	s.payloads = append(s.payloads, payloads...)
 	_ = vecs
 	return nil
+}
+
+func onlyCorpusPath(dir string) string {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.jsonl"))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(matches).To(HaveLen(1))
+	return matches[0]
 }
 
 func (s *capturingStore) Delete(_ context.Context, vecs [][]float32) error {
@@ -79,7 +92,10 @@ var _ = Describe("corpus.Manager", func() {
 		ctx      context.Context
 	)
 
-	const storeName = "router-corpus-smart-router"
+	const (
+		storeName   = "router-corpus-smart-router"
+		fingerprint = "embed-1-fingerprint"
+	)
 
 	seed := []corpus.Entry{
 		{Text: "debug this Go null pointer", Labels: []string{"code-generation"}},
@@ -102,7 +118,7 @@ var _ = Describe("corpus.Manager", func() {
 	})
 
 	It("adds entries: embeds, persists, and indexes them", func() {
-		added, skipped, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		added, skipped, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(added).To(Equal(3))
 		Expect(skipped).To(BeZero())
@@ -114,54 +130,56 @@ var _ = Describe("corpus.Manager", func() {
 		Expect(string(store.payloads[0])).To(ContainSubstring("code-generation"))
 
 		// Persisted on disk under a sanitised name.
-		_, err = os.Stat(filepath.Join(dir, storeName+".jsonl"))
+		_, err = os.Stat(onlyCorpusPath(dir))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("skips duplicate texts instead of double-weighting them", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
-		added, skipped, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[:2])
+		added, skipped, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed[:2])
 		Expect(err).NotTo(HaveOccurred())
 		Expect(added).To(BeZero())
 		Expect(skipped).To(Equal(2))
 	})
 
 	It("rejects empty text and label-less entries", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, []corpus.Entry{{Text: " ", Labels: []string{"x"}}})
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, []corpus.Entry{{Text: " ", Labels: []string{"x"}}})
 		Expect(err).To(HaveOccurred())
-		_, _, err = mgr.Add(ctx, storeName, "embed-1", embedder, store, []corpus.Entry{{Text: "hello", Labels: nil}})
+		_, _, err = mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, []corpus.Entry{{Text: "hello", Labels: nil}})
 		Expect(err).To(HaveOccurred())
+		_, _, err = mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, []corpus.Entry{{Text: "hello", Labels: []string{"x", "x"}}})
+		Expect(err).To(MatchError(ContainSubstring("duplicate label")))
 	})
 
 	It("reloads a persisted corpus into a fresh index without re-embedding", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Simulate restart: fresh manager over the same dir, empty index.
 		mgr2 := corpus.NewManager(dir)
 		store2 := &capturingStore{}
 		embedder2 := &countingEmbedder{model: 1}
-		n, err := mgr2.EnsureLoaded(ctx, storeName, "embed-1", embedder2, store2)
+		n, err := mgr2.EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder2, store2)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(3))
 		Expect(store2.payloads).To(HaveLen(3))
 		Expect(embedder2.calls).To(BeZero(), "cached vectors must be reused")
 
 		// Second call is a no-op — already synced this process.
-		n, err = mgr2.EnsureLoaded(ctx, storeName, "embed-1", embedder2, store2)
+		n, err = mgr2.EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder2, store2)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(BeZero())
 	})
 
 	It("re-embeds entries recorded under a different embedding model", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
 
 		mgr2 := corpus.NewManager(dir)
 		newEmbedder := &countingEmbedder{model: 2}
 		store2 := &capturingStore{}
-		n, err := mgr2.EnsureLoaded(ctx, storeName, "embed-2", newEmbedder, store2)
+		n, err := mgr2.EnsureLoaded(ctx, storeName, "embed-2", "embed-2-fingerprint", newEmbedder, store2)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(3))
 		Expect(newEmbedder.calls).To(Equal(3), "fingerprint mismatch must re-embed")
@@ -170,25 +188,25 @@ var _ = Describe("corpus.Manager", func() {
 		// without touching the embedder again.
 		mgr3 := corpus.NewManager(dir)
 		embedder3 := &countingEmbedder{model: 2}
-		n, err = mgr3.EnsureLoaded(ctx, storeName, "embed-2", embedder3, &capturingStore{})
+		n, err = mgr3.EnsureLoaded(ctx, storeName, "embed-2", "embed-2-fingerprint", embedder3, &capturingStore{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(3))
 		Expect(embedder3.calls).To(BeZero())
 	})
 
 	It("refuses to mix embedding models in a live index", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = mgr.EnsureLoaded(ctx, storeName, "embed-1", embedder, store)
+		_, err = mgr.EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder, store)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = mgr.EnsureLoaded(ctx, storeName, "embed-2", &countingEmbedder{model: 2}, store)
+		_, err = mgr.EnsureLoaded(ctx, storeName, "embed-2", "embed-2-fingerprint", &countingEmbedder{model: 2}, store)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("restart"))
 	})
 
 	It("reports label counts and never texts", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
 		st, err := mgr.Stats(storeName)
 		Expect(err).NotTo(HaveOccurred())
@@ -201,7 +219,7 @@ var _ = Describe("corpus.Manager", func() {
 	})
 
 	It("clears the file and the live index", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed)
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
 		Expect(err).NotTo(HaveOccurred())
 
 		n, err := mgr.Clear(ctx, storeName, store)
@@ -214,13 +232,13 @@ var _ = Describe("corpus.Manager", func() {
 		Expect(st.Total).To(BeZero())
 
 		// And a load after clear indexes nothing.
-		loaded, err := corpus.NewManager(dir).EnsureLoaded(ctx, storeName, "embed-1", embedder, &capturingStore{})
+		loaded, err := corpus.NewManager(dir).EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder, &capturingStore{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(loaded).To(BeZero())
 	})
 
 	It("treats a missing file as an empty corpus", func() {
-		n, err := mgr.EnsureLoaded(ctx, "never-seeded", "embed-1", embedder, store)
+		n, err := mgr.EnsureLoaded(ctx, "never-seeded", "embed-1", fingerprint, embedder, store)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(BeZero())
 		st, err := mgr.Stats("never-seeded")
@@ -229,11 +247,11 @@ var _ = Describe("corpus.Manager", func() {
 	})
 
 	It("tolerates a torn final line and repairs it on the next add", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[:2])
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed[:2])
 		Expect(err).NotTo(HaveOccurred())
 
 		// Simulate a crash mid-append: an unparseable tail.
-		path := filepath.Join(dir, storeName+".jsonl")
+		path := onlyCorpusPath(dir)
 		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o640)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = f.WriteString(`{"text":"torn`)
@@ -246,7 +264,7 @@ var _ = Describe("corpus.Manager", func() {
 		Expect(st.Total).To(Equal(2))
 
 		// The next add rewrites the file whole, clearing the damage.
-		added, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[2:])
+		added, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed[2:])
 		Expect(err).NotTo(HaveOccurred())
 		Expect(added).To(Equal(1))
 		raw, err := os.ReadFile(path)
@@ -259,12 +277,12 @@ var _ = Describe("corpus.Manager", func() {
 	})
 
 	It("fails on corruption that is not a torn tail", func() {
-		_, _, err := mgr.Add(ctx, storeName, "embed-1", embedder, store, seed[:1])
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed[:1])
 		Expect(err).NotTo(HaveOccurred())
 
 		// Garbage with a valid successor line is real corruption, not
 		// an interrupted append — reads must refuse to guess.
-		path := filepath.Join(dir, storeName+".jsonl")
+		path := onlyCorpusPath(dir)
 		raw, err := os.ReadFile(path)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(os.WriteFile(path, append([]byte("garbage\n"), raw...), 0o640)).To(Succeed())
@@ -276,11 +294,54 @@ var _ = Describe("corpus.Manager", func() {
 
 	It("sanitises hostile store names into the corpus dir", func() {
 		hostile := "../../etc/passwd"
-		_, _, err := mgr.Add(ctx, hostile, "embed-1", embedder, store, seed[:1])
+		_, _, err := mgr.Add(ctx, hostile, "embed-1", fingerprint, embedder, store, seed[:1])
 		Expect(err).NotTo(HaveOccurred())
 		entries, err := os.ReadDir(dir)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(entries).To(HaveLen(1))
 		Expect(strings.Contains(entries[0].Name(), "/")).To(BeFalse())
+	})
+
+	It("keeps store names distinct when their readable sanitised prefixes collide", func() {
+		_, _, err := mgr.Add(ctx, "team/a", "embed-1", fingerprint, embedder, store, seed[:1])
+		Expect(err).NotTo(HaveOccurred())
+		_, _, err = mgr.Add(ctx, "team?a", "embed-1", fingerprint, embedder, store, seed[1:2])
+		Expect(err).NotTo(HaveOccurred())
+
+		files, err := filepath.Glob(filepath.Join(dir, "*.jsonl"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(files).To(HaveLen(2))
+		first, err := mgr.Stats("team/a")
+		Expect(err).NotTo(HaveOccurred())
+		second, err := mgr.Stats("team?a")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(first.LabelCounts).To(HaveKey("code-generation"))
+		Expect(second.LabelCounts).To(HaveKey("math-reasoning"))
+	})
+
+	It("re-embeds after the fingerprint changes even when the model name does not", func() {
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
+		Expect(err).NotTo(HaveOccurred())
+
+		fresh := corpus.NewManager(dir)
+		changed := &countingEmbedder{model: 9}
+		n, err := fresh.EnsureLoaded(ctx, storeName, "embed-1", "embed-1-upgraded", changed, &capturingStore{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(3))
+		Expect(changed.calls).To(Equal(3))
+	})
+
+	It("repairs a durable-file/live-index split on an exact retry", func() {
+		flaky := &capturingStore{failBatches: 1}
+		added, skipped, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, flaky, seed[:1])
+		Expect(err).To(MatchError(ContainSubstring("retry the same seed request")))
+		Expect(added).To(Equal(1))
+		Expect(skipped).To(BeZero())
+
+		added, skipped, err = mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, flaky, seed[:1])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(added).To(BeZero())
+		Expect(skipped).To(Equal(1))
+		Expect(flaky.payloads).To(HaveLen(1))
 	})
 })

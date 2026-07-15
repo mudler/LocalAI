@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -79,11 +80,11 @@ func RouterCorpusAddEndpoint(loader *config.ModelConfigLoader, appConfig *config
 		}
 
 		added, skipped, stats, err := corpus.Seed(c.Request().Context(), mgr, cfg, storeName,
-			deps.Embedder, deps.VectorStore, entries)
+			deps.Embedder, deps.EmbedderFingerprint, deps.VectorStore, entries)
 		if err != nil {
 			// Undeclared labels and an unloadable embedding model are
 			// request/config mistakes, not server faults.
-			if errors.Is(err, corpus.ErrUndeclaredLabel) || errors.Is(err, corpus.ErrEmbedderUnavailable) {
+			if errors.Is(err, corpus.ErrUndeclaredLabel) || errors.Is(err, corpus.ErrInvalidEntry) || errors.Is(err, corpus.ErrEmbedderUnavailable) {
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -151,7 +152,11 @@ func RouterCorpusClearEndpoint(loader *config.ModelConfigLoader, appConfig *conf
 		if err != nil {
 			return err
 		}
-		cleared, err := mgr.Clear(c.Request().Context(), storeName, deps.VectorStore(storeName))
+		var store backend.VectorStore
+		if deps.VectorStore != nil {
+			store = deps.VectorStore(storeName)
+		}
+		cleared, err := mgr.Clear(c.Request().Context(), storeName, store)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}

@@ -33,6 +33,11 @@ type ScorerFactory func(modelName string) backend.Scorer
 // classifier so routing still happens.
 type EmbedderFactory func(modelName string) backend.Embedder
 
+// EmbedderFingerprintFactory returns the identity of the embedding space a
+// named model currently produces. Persisted KNN vectors are only reusable
+// while this identity is unchanged.
+type EmbedderFingerprintFactory func(modelName string) (string, error)
+
 // VectorStoreFactory returns a backend.VectorStore bound to a named
 // collection. Each router model's cache lives in its own collection
 // so two routers can't poison each other's hits.
@@ -57,7 +62,7 @@ type ModelConfigLookup func(modelName string) *config.ModelConfig
 // classifier serves whatever the index already holds (tests, embedded
 // callers).
 type CorpusLoader interface {
-	EnsureLoaded(ctx context.Context, storeName, embeddingModel string, embedder backend.Embedder, store backend.VectorStore) (int, error)
+	EnsureLoaded(ctx context.Context, storeName, embeddingModel, embeddingFingerprint string, embedder backend.Embedder, store backend.VectorStore) (int, error)
 }
 
 // ClassifierDeps bundles the backend factories the router middleware
@@ -72,10 +77,13 @@ type CorpusLoader interface {
 // score classifier runs unwrapped and the embedding-cache YAML is
 // ignored with a warning.
 type ClassifierDeps struct {
-	Scorer      ScorerFactory
-	Embedder    EmbedderFactory
-	VectorStore VectorStoreFactory
-	Reranker    RerankerFactory
+	Scorer   ScorerFactory
+	Embedder EmbedderFactory
+	// EmbedderFingerprint identifies the weights/config behind Embedder so
+	// KNN corpus vectors cannot be queried across embedding spaces.
+	EmbedderFingerprint EmbedderFingerprintFactory
+	VectorStore         VectorStoreFactory
+	Reranker            RerankerFactory
 
 	// Corpus loads the persisted KNN corpus into the vector index when
 	// a knn classifier is built. Optional; nil skips the load.
@@ -118,15 +126,16 @@ type ClassifierDeps struct {
 // silently degrades that path rather than failing).
 func NewClassifierDeps(app *application.Application) ClassifierDeps {
 	return ClassifierDeps{
-		Scorer:       app.Scorer,
-		Corpus:       app.RouterCorpus(),
-		TokenCounter: app.TokenCounter,
-		Embedder:     app.Embedder,
-		VectorStore:  app.VectorStore,
-		Reranker:     app.Reranker,
-		ModelLookup:  app.ModelConfigLookup(),
-		Registry:     app.RouterClassifierRegistry(),
-		Evaluator:    app.TemplatesEvaluator(),
+		Scorer:              app.Scorer,
+		Corpus:              app.RouterCorpus(),
+		TokenCounter:        app.TokenCounter,
+		Embedder:            app.Embedder,
+		EmbedderFingerprint: app.EmbedderFingerprint,
+		VectorStore:         app.VectorStore,
+		Reranker:            app.Reranker,
+		ModelLookup:         app.ModelConfigLookup(),
+		Registry:            app.RouterClassifierRegistry(),
+		Evaluator:           app.TemplatesEvaluator(),
 	}
 }
 
@@ -276,7 +285,11 @@ func GetOrBuildClassifier(registry *router.Registry, cfg *config.ModelConfig, de
 	if deps.ModelLookup != nil {
 		classifierCfg = deps.ModelLookup(cfg.Router.ClassifierModel)
 	}
-	fp := routerConfigFingerprint(cfg.Router, classifierCfg)
+	embeddingFingerprint, err := resolvedKNNEmbeddingFingerprint(cfg, deps)
+	if err != nil {
+		return nil, err
+	}
+	fp := routerConfigFingerprint(cfg.Router, classifierCfg, embeddingFingerprint)
 	if cached, ok := registry.Get(cfg.Name, fp); ok {
 		return cached, nil
 	}
@@ -297,7 +310,7 @@ func GetOrBuildClassifier(registry *router.Registry, cfg *config.ModelConfig, de
 // unrelated changes (parameters, files, ...) don't burst the cache.
 // Pass classifierCfg=nil when no lookup is wired — the fingerprint
 // degenerates to the router-only form, matching pre-refactor behaviour.
-func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.ModelConfig) uint64 {
+func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.ModelConfig, additionalFingerprints ...string) uint64 {
 	bytes, err := yaml.Marshal(rc)
 	if err != nil {
 		// Marshalling a value type can't fail in practice; fall
@@ -326,7 +339,29 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 			h.Write([]byte(strconv.Itoa(*classifierCfg.ContextSize)))
 		}
 	}
+	for _, fingerprint := range additionalFingerprints {
+		h.Write([]byte{0})
+		h.Write([]byte(fingerprint))
+	}
 	return h.Sum64()
+}
+
+func resolvedKNNEmbeddingFingerprint(cfg *config.ModelConfig, deps ClassifierDeps) (string, error) {
+	name := cfg.Router.Classifier
+	if name == "" {
+		name = router.ClassifierScore
+	}
+	if name != router.ClassifierKNN || cfg.Router.KNN == nil || deps.EmbedderFingerprint == nil {
+		return "", nil
+	}
+	modelFingerprint, err := deps.EmbedderFingerprint(cfg.Router.KNN.EmbeddingModel)
+	if err != nil {
+		return "", fmt.Errorf("router classifier knn: fingerprint embedding_model %q: %w", cfg.Router.KNN.EmbeddingModel, err)
+	}
+	if modelFingerprint == "" {
+		return "", fmt.Errorf("router classifier knn: embedding_model %q returned an empty fingerprint", cfg.Router.KNN.EmbeddingModel)
+	}
+	return cfg.Router.KNN.ResolvedEmbeddingFingerprint(modelFingerprint), nil
 }
 
 func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Classifier, error) {
@@ -423,6 +458,13 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		if deps.Embedder == nil || deps.VectorStore == nil {
 			return nil, fmt.Errorf("router classifier knn unavailable: embedder/vector-store factories not wired")
 		}
+		embeddingFingerprint, err := resolvedKNNEmbeddingFingerprint(cfg, deps)
+		if err != nil {
+			return nil, err
+		}
+		if deps.Corpus != nil && embeddingFingerprint == "" {
+			return nil, fmt.Errorf("router classifier knn unavailable: embedder fingerprint factory not wired")
+		}
 		embedder := deps.Embedder(rc.KNN.EmbeddingModel)
 		if embedder == nil {
 			return nil, fmt.Errorf("router classifier knn: embedding_model %q not loadable", rc.KNN.EmbeddingModel)
@@ -433,12 +475,11 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 			return nil, fmt.Errorf("router classifier knn: vector store %q not loadable", storeName)
 		}
 		if deps.Corpus != nil {
-			// A failed load must not break routing — the classifier
-			// still works against whatever the index holds, and the
-			// epistemic gate falls back safely on an empty index.
-			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embedder, vstore); err != nil {
-				xlog.Warn("router: knn corpus load failed; routing continues on the live index",
-					"router_model", cfg.Name, "store", storeName, "error", err)
+			// Loading fails closed: a live index from a different embedding
+			// space may have the same vector width and return plausible but
+			// incorrect routes.
+			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, vstore); err != nil {
+				return nil, fmt.Errorf("router classifier knn: load corpus %q: %w", storeName, err)
 			} else if n > 0 {
 				xlog.Info("router: knn corpus loaded",
 					"router_model", cfg.Name, "store", storeName, "entries", n)

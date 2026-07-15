@@ -583,6 +583,7 @@ func (a *Application) start() error {
 		// namespaces and model resolution.
 		assistantClient.RouterCorpus = a.RouterCorpus()
 		assistantClient.RouterEmbedder = a.Embedder
+		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
 		assistantClient.RouterVectorStore = a.VectorStore
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional

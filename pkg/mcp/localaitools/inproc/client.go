@@ -75,9 +75,10 @@ type Client struct {
 	// "unavailable" error. The factories mirror the middleware's
 	// ClassifierDeps so the tools and the request path resolve models
 	// and store namespaces identically.
-	RouterCorpus      *corpus.Manager
-	RouterEmbedder    func(modelName string) backend.Embedder
-	RouterVectorStore func(storeName string) backend.VectorStore
+	RouterCorpus              *corpus.Manager
+	RouterEmbedder            func(modelName string) backend.Embedder
+	RouterEmbedderFingerprint func(modelName string) (string, error)
+	RouterVectorStore         func(storeName string) backend.VectorStore
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -920,7 +921,7 @@ func (c *Client) GetRouterCorpusStats(_ context.Context, routerModel string) (*l
 }
 
 func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
-	if c.RouterCorpus == nil || c.RouterEmbedder == nil || c.RouterVectorStore == nil {
+	if c.RouterCorpus == nil || c.RouterEmbedder == nil || c.RouterEmbedderFingerprint == nil || c.RouterVectorStore == nil {
 		return nil, errors.New("router corpus manager unavailable")
 	}
 	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, req.Router)
@@ -932,7 +933,7 @@ func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCo
 		entries = append(entries, corpus.Entry{Text: e.Text, Labels: e.Labels})
 	}
 	added, skipped, stats, err := corpus.Seed(ctx, c.RouterCorpus, cfg, storeName,
-		c.RouterEmbedder, c.RouterVectorStore, entries)
+		c.RouterEmbedder, c.RouterEmbedderFingerprint, c.RouterVectorStore, entries)
 	if err != nil {
 		return nil, err
 	}

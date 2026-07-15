@@ -2,11 +2,18 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
+	"gopkg.in/yaml.v3"
 )
 
 // adapterConfig resolves a model name to its runtime ModelConfig, or nil when
@@ -99,6 +106,59 @@ func (a *Application) Embedder(modelName string) backend.Embedder {
 		return nil
 	}
 	return &lazyEmbedder{app: a, modelName: modelName}
+}
+
+// EmbedderFingerprint returns a stable identity for the embedding space a
+// named model currently produces. The effective config covers backend and
+// embedding-affecting options; declared download checksums are part of that
+// config, while local artifact stat data detects the common in-place file
+// replacement case. Remote services without a stable artifact identity can
+// use router.knn.embedding_revision to force invalidation explicitly.
+func (a *Application) EmbedderFingerprint(modelName string) (string, error) {
+	cfg := a.adapterConfig(modelName)
+	if cfg == nil {
+		return "", fmt.Errorf("embedding model %q not available", modelName)
+	}
+	raw, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("fingerprint embedding model %q config: %w", modelName, err)
+	}
+	h := sha256.New()
+	_, _ = h.Write(raw)
+
+	paths := map[string]struct{}{}
+	for _, name := range append([]string{cfg.Model, cfg.MMProj}, downloadFileNames(cfg)...) {
+		if name == "" || strings.Contains(name, "://") {
+			continue
+		}
+		if !filepath.IsAbs(name) {
+			name = filepath.Join(a.applicationConfig.SystemState.Model.ModelsPath, name)
+		}
+		paths[filepath.Clean(name)] = struct{}{}
+	}
+	ordered := make([]string, 0, len(paths))
+	for path := range paths {
+		ordered = append(ordered, path)
+	}
+	sort.Strings(ordered)
+	for _, path := range ordered {
+		_, _ = h.Write([]byte("\x00" + path))
+		fi, statErr := os.Stat(path)
+		if statErr != nil {
+			_, _ = h.Write([]byte("\x00missing"))
+			continue
+		}
+		_, _ = fmt.Fprintf(h, "\x00%d\x00%d\x00%s", fi.Size(), fi.ModTime().UnixNano(), fi.Mode().String())
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func downloadFileNames(cfg *config.ModelConfig) []string {
+	out := make([]string, 0, len(cfg.DownloadFiles))
+	for _, f := range cfg.DownloadFiles {
+		out = append(out, f.Filename)
+	}
+	return out
 }
 
 type lazyEmbedder struct {
