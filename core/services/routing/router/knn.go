@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -226,16 +227,33 @@ func EncodeCorpusEntry(id string, labels []string) ([]byte, error) {
 	if id == "" {
 		return nil, fmt.Errorf("corpus entry needs an id (EntryID of its text)")
 	}
-	if len(labels) == 0 {
-		return nil, fmt.Errorf("corpus entry needs at least one label")
+	if err := validateCorpusLabels(labels); err != nil {
+		return nil, err
 	}
 	return json.Marshal(corpusEntry{ID: id, Labels: labels})
 }
 
 func decodeCorpusEntry(b []byte) (corpusEntry, bool) {
 	var e corpusEntry
-	if err := json.Unmarshal(b, &e); err != nil || len(e.Labels) == 0 {
+	if err := json.Unmarshal(b, &e); err != nil || e.ID == "" || validateCorpusLabels(e.Labels) != nil {
 		return corpusEntry{}, false
 	}
 	return e, true
+}
+
+func validateCorpusLabels(labels []string) error {
+	if len(labels) == 0 {
+		return fmt.Errorf("corpus entry needs at least one label")
+	}
+	seen := make(map[string]struct{}, len(labels))
+	for _, label := range labels {
+		if strings.TrimSpace(label) == "" {
+			return fmt.Errorf("corpus entry labels must not be empty")
+		}
+		if _, duplicate := seen[label]; duplicate {
+			return fmt.Errorf("corpus entry has duplicate label %q", label)
+		}
+		seen[label] = struct{}{}
+	}
+	return nil
 }

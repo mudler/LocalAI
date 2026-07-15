@@ -185,6 +185,21 @@ var _ = Describe("KNNClassifier", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("rejects duplicate labels at encode time", func() {
+		_, err := router.EncodeCorpusEntry("e1", []string{"code", "code"})
+		Expect(err).To(MatchError(ContainSubstring("duplicate label")))
+	})
+
+	It("does not let duplicate labels in a corrupt payload inflate votes", func() {
+		store := &scriptedKNNStore{neighbors: []backend.Neighbor{
+			{Similarity: 0.99, Payload: []byte(`{"id":"e1","labels":["code","code"]}`)},
+		}}
+		c := router.NewKNNClassifier(embedder, store, router.KNNClassifierOptions{})
+		d, err := c.Classify(ctx, probe)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.Labels).To(BeEmpty())
+	})
+
 	It("rejects corpus entries without an id at encode time", func() {
 		_, err := router.EncodeCorpusEntry("", []string{"code"})
 		Expect(err).To(HaveOccurred())

@@ -3,13 +3,13 @@
 //
 // The corpus FILE is the source of truth: one JSONL file per store
 // name under <dir>, each line an Entry {text, labels, vector,
-// embedding_model}. The local-store vector backend is a pure in-memory
-// index rebuilt from the file — it has no persistence of its own (its
-// Load is an explicit no-op), and keeping it that way preserves the
+// embedding_model, embedding_fingerprint}. The local-store vector backend is
+// a pure in-memory index rebuilt from the file — it has no persistence of its
+// own (its Load is an explicit no-op), and keeping it that way preserves the
 // documented swap point for external vector backends. Vectors are
 // cached in the file alongside the text so a restart re-indexes
 // without re-embedding; entries recorded under a different embedding
-// model are re-embedded on load.
+// fingerprint are re-embedded on load.
 //
 // Texts in the corpus file never leave the server: Stats exposes label
 // counts only, and there is deliberately no API that returns entries.
@@ -18,7 +18,10 @@ package corpus
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,15 +35,22 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// Entry is one labelled exemplar. Vector and EmbeddingModel are the
-// embedding cache — absent (or stale) entries are re-embedded when the
-// corpus is loaded or added to.
+// Entry is one labelled exemplar. Vector, EmbeddingModel, and
+// EmbeddingFingerprint are the embedding cache — absent (or stale) entries
+// are re-embedded when the corpus is loaded or added to.
 type Entry struct {
-	Text           string    `json:"text"`
-	Labels         []string  `json:"labels"`
-	Vector         []float32 `json:"vector,omitempty"`
-	EmbeddingModel string    `json:"embedding_model,omitempty"`
+	Text                 string    `json:"text"`
+	Labels               []string  `json:"labels"`
+	Vector               []float32 `json:"vector,omitempty"`
+	EmbeddingModel       string    `json:"embedding_model,omitempty"`
+	EmbeddingFingerprint string    `json:"embedding_fingerprint,omitempty"`
 }
+
+// ErrLiveEmbeddingMismatch means a store already contains vectors from a
+// different embedding space. Querying it with the new embedder can silently
+// misroute when the dimensions happen to match, so callers must fail closed
+// until LocalAI restarts with an empty live index.
+var ErrLiveEmbeddingMismatch = errors.New("live corpus index uses a different embedding fingerprint")
 
 // Stats is the inspection surface — counts only, never texts. The
 // router corpus API and the Routing tab render this.
@@ -48,7 +58,7 @@ type Stats struct {
 	StoreName   string         `json:"store_name"`
 	Total       int            `json:"total"`
 	LabelCounts map[string]int `json:"label_counts"`
-	// EmbeddingModels lists the distinct embedder fingerprints present
+	// EmbeddingModels lists the distinct embedding model names present
 	// in the file. More than one entry means a re-embed is pending for
 	// part of the corpus (it happens lazily on the next load).
 	EmbeddingModels []string `json:"embedding_models,omitempty"`
@@ -73,11 +83,11 @@ type Manager struct {
 	dir string
 
 	mu sync.Mutex
-	// loadedModel records which embedding model a store name was synced
-	// into the live index under. Guards double-loading and detects the
-	// embedding-model-changed-on-a-live-index case, which local-store
-	// cannot serve (it enforces one key length per store).
-	loadedModel map[string]string
+	// states records both embedding-space identity and which persisted
+	// file version reached the live index. needsSync survives a durable
+	// file write followed by a transient index failure, making an exact
+	// retry repair the index instead of skipping every duplicate entry.
+	states map[string]storeState
 
 	// statsCache memoises Stats per store, keyed by the corpus file's
 	// stat fingerprint — the file is the source of truth, so a matching
@@ -87,6 +97,13 @@ type Manager struct {
 	// that is busy embedding under m.mu.
 	statsMu    sync.Mutex
 	statsCache map[string]cachedStats
+}
+
+type storeState struct {
+	embeddingFingerprint string
+	syncedFile           fileFingerprint
+	needsSync            bool
+	indexedEntries       int
 }
 
 type cachedStats struct {
@@ -107,9 +124,9 @@ type fileFingerprint struct {
 // write).
 func NewManager(dir string) *Manager {
 	return &Manager{
-		dir:         dir,
-		loadedModel: map[string]string{},
-		statsCache:  map[string]cachedStats{},
+		dir:        dir,
+		states:     map[string]storeState{},
+		statsCache: map[string]cachedStats{},
 	}
 }
 
@@ -124,27 +141,39 @@ func (m *Manager) path(storeName string) string {
 		}
 		return '_'
 	}, storeName)
-	return filepath.Join(m.dir, safe+".jsonl")
+	safe = strings.Trim(safe, ".")
+	if safe == "" {
+		safe = "store"
+	}
+	if len(safe) > 80 {
+		safe = safe[:80]
+	}
+	sum := sha256.Sum256([]byte(storeName))
+	return filepath.Join(m.dir, safe+"-"+hex.EncodeToString(sum[:16])+".jsonl")
 }
 
 // EnsureLoaded syncs the persisted corpus for storeName into the live
-// vector index, once per (store, embedding model) per process. Entries
-// recorded under a different embedding model are re-embedded and the
+// vector index, once per persisted file version and embedding fingerprint.
+// Entries recorded under a different fingerprint are re-embedded and the
 // file rewritten. Returns the number of entries now indexed. A missing
 // file is an empty corpus, not an error.
-func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel string, embedder backend.Embedder, store backend.VectorStore) (int, error) {
+func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel, embeddingFingerprint string, embedder backend.Embedder, store backend.VectorStore) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if prev, ok := m.loadedModel[storeName]; ok {
-		if prev == embeddingModel {
+	if embeddingFingerprint == "" {
+		return 0, fmt.Errorf("corpus %q: empty embedding fingerprint", storeName)
+	}
+	fileKey := m.fingerprint(storeName)
+	if state, ok := m.states[storeName]; ok {
+		if state.embeddingFingerprint != embeddingFingerprint {
+			if state.indexedEntries > 0 || state.needsSync {
+				return 0, fmt.Errorf("corpus %q %w; restart LocalAI to rebuild it", storeName, ErrLiveEmbeddingMismatch)
+			}
+			delete(m.states, storeName)
+		} else if !state.needsSync && state.syncedFile.equal(fileKey) {
 			return 0, nil
 		}
-		// The in-memory index already holds vectors from another
-		// embedder; local-store enforces a single key length, so mixing
-		// would fail on insert (or silently corrupt neighbourhoods when
-		// dimensions happen to match). A restart re-indexes cleanly.
-		return 0, fmt.Errorf("corpus %q was indexed with embedding model %q this process; restart LocalAI to re-index it with %q", storeName, prev, embeddingModel)
 	}
 
 	entries, _, err := m.readAll(storeName)
@@ -152,13 +181,16 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel st
 		return 0, err
 	}
 	if len(entries) == 0 {
-		m.loadedModel[storeName] = embeddingModel
+		m.states[storeName] = storeState{
+			embeddingFingerprint: embeddingFingerprint,
+			syncedFile:           fileKey,
+		}
 		return 0, nil
 	}
 
 	dirty := false
 	for i := range entries {
-		if len(entries[i].Vector) > 0 && entries[i].EmbeddingModel == embeddingModel {
+		if len(entries[i].Vector) > 0 && entries[i].EmbeddingFingerprint == embeddingFingerprint {
 			continue
 		}
 		if embedder == nil {
@@ -170,18 +202,29 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel st
 		}
 		entries[i].Vector = vec
 		entries[i].EmbeddingModel = embeddingModel
+		entries[i].EmbeddingFingerprint = embeddingFingerprint
 		dirty = true
 	}
 	if dirty {
 		if err := m.write(storeName, entries); err != nil {
 			return 0, err
 		}
+		fileKey = m.fingerprint(storeName)
 	}
 
+	if store == nil {
+		m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: len(entries)}
+		return 0, fmt.Errorf("corpus %q: no vector store available", storeName)
+	}
 	if err := insertAll(ctx, store, entries); err != nil {
+		m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: len(entries)}
 		return 0, err
 	}
-	m.loadedModel[storeName] = embeddingModel
+	m.states[storeName] = storeState{
+		embeddingFingerprint: embeddingFingerprint,
+		syncedFile:           fileKey,
+		indexedEntries:       len(entries),
+	}
 	return len(entries), nil
 }
 
@@ -197,16 +240,16 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel st
 // corpus operations for its whole duration. The commit re-checks for
 // duplicates under the lock, so a racing Add can at worst turn an
 // entry into a skip, never a double insert.
-func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, embedder backend.Embedder, store backend.VectorStore, entries []Entry) (int, int, error) {
+func (m *Manager) Add(ctx context.Context, storeName, embeddingModel, embeddingFingerprint string, embedder backend.Embedder, store backend.VectorStore, entries []Entry) (int, int, error) {
 	if embedder == nil {
 		return 0, 0, fmt.Errorf("corpus %q: no embedder available", storeName)
 	}
+	if embeddingFingerprint == "" {
+		return 0, 0, fmt.Errorf("corpus %q: empty embedding fingerprint", storeName)
+	}
 	for i, e := range entries {
-		if strings.TrimSpace(e.Text) == "" {
-			return 0, 0, fmt.Errorf("corpus entry %d: empty text", i)
-		}
-		if len(e.Labels) == 0 {
-			return 0, 0, fmt.Errorf("corpus entry %d: at least one label required", i)
+		if err := validateEntry(e); err != nil {
+			return 0, 0, fmt.Errorf("corpus entry %d: %w", i, err)
 		}
 	}
 
@@ -218,12 +261,39 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 		m.mu.Unlock()
 		return 0, 0, err
 	}
+	if state, ok := m.states[storeName]; ok && state.embeddingFingerprint != embeddingFingerprint && (state.indexedEntries > 0 || state.needsSync) {
+		m.mu.Unlock()
+		return 0, 0, fmt.Errorf("corpus %q %w; restart LocalAI to rebuild it", storeName, ErrLiveEmbeddingMismatch)
+	}
+	for _, e := range existing {
+		if e.EmbeddingFingerprint != embeddingFingerprint {
+			m.mu.Unlock()
+			return 0, 0, fmt.Errorf("corpus %q contains stale embedding vectors; load it before adding entries", storeName)
+		}
+	}
+	state, stateOK := m.states[storeName]
+	needsSync := len(existing) > 0 && (!stateOK || state.needsSync || !state.syncedFile.equal(m.fingerprint(storeName)))
+	if needsSync {
+		if store == nil {
+			m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: len(existing)}
+			m.mu.Unlock()
+			return 0, 0, fmt.Errorf("corpus %q: entries persisted but no vector store is available", storeName)
+		}
+		if err := insertAll(ctx, store, existing); err != nil {
+			m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: len(existing)}
+			m.mu.Unlock()
+			return 0, 0, fmt.Errorf("corpus %q: retrying live index sync: %w", storeName, err)
+		}
+		m.states[storeName] = storeState{
+			embeddingFingerprint: embeddingFingerprint,
+			syncedFile:           m.fingerprint(storeName),
+			indexedEntries:       len(existing),
+		}
+	}
 	seen := make(map[string]struct{}, len(existing))
 	for _, e := range existing {
 		seen[e.Text] = struct{}{}
 	}
-	m.mu.Unlock()
-
 	candidates := make([]Entry, 0, len(entries))
 	skipped := 0
 	for _, e := range entries {
@@ -235,8 +305,10 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 		candidates = append(candidates, e)
 	}
 	if len(candidates) == 0 {
+		m.mu.Unlock()
 		return 0, skipped, nil
 	}
+	m.mu.Unlock()
 
 	for i := range candidates {
 		vec, err := embedder.Embed(ctx, candidates[i].Text)
@@ -245,6 +317,7 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 		}
 		candidates[i].Vector = vec
 		candidates[i].EmbeddingModel = embeddingModel
+		candidates[i].EmbeddingFingerprint = embeddingFingerprint
 	}
 
 	m.mu.Lock()
@@ -256,6 +329,14 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 	current, torn, err := m.readAll(storeName)
 	if err != nil {
 		return 0, skipped, err
+	}
+	if state, ok := m.states[storeName]; ok && state.embeddingFingerprint != embeddingFingerprint && (state.indexedEntries > 0 || state.needsSync) {
+		return 0, skipped, fmt.Errorf("corpus %q %w; restart LocalAI to rebuild it", storeName, ErrLiveEmbeddingMismatch)
+	}
+	for _, e := range current {
+		if e.EmbeddingFingerprint != embeddingFingerprint {
+			return 0, skipped, fmt.Errorf("corpus %q contains stale embedding vectors; load it before adding entries", storeName)
+		}
 	}
 	seen = make(map[string]struct{}, len(current))
 	for _, e := range current {
@@ -284,12 +365,21 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel string, emb
 	if err != nil {
 		return 0, skipped, err
 	}
+	entryCount := len(current) + len(added)
 	if store != nil {
 		if err := insertAll(ctx, store, added); err != nil {
 			// Durable but not indexed — routing won't see the new
 			// entries until the next successful load. Surface loudly.
-			return len(added), skipped, fmt.Errorf("corpus %q: entries persisted but indexing failed (they will index on next load/restart): %w", storeName, err)
+			m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: entryCount}
+			return len(added), skipped, fmt.Errorf("corpus %q: entries persisted but indexing failed (retry the same seed request or restart): %w", storeName, err)
 		}
+		m.states[storeName] = storeState{
+			embeddingFingerprint: embeddingFingerprint,
+			syncedFile:           m.fingerprint(storeName),
+			indexedEntries:       entryCount,
+		}
+	} else {
+		m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: entryCount}
 	}
 	return len(added), skipped, nil
 }
@@ -377,7 +467,7 @@ func (m *Manager) Clear(ctx context.Context, storeName string, store backend.Vec
 	if err := os.Remove(m.path(storeName)); err != nil && !os.IsNotExist(err) {
 		return 0, err
 	}
-	delete(m.loadedModel, storeName)
+	delete(m.states, storeName)
 	if len(entries) == 0 || store == nil {
 		return len(entries), nil
 	}
@@ -398,6 +488,26 @@ func (m *Manager) Clear(ctx context.Context, storeName string, store backend.Vec
 			"store", storeName, "entries", len(entries))
 	}
 	return len(entries), nil
+}
+
+func validateEntry(e Entry) error {
+	if strings.TrimSpace(e.Text) == "" {
+		return errors.New("empty text")
+	}
+	if len(e.Labels) == 0 {
+		return errors.New("at least one label required")
+	}
+	seen := make(map[string]struct{}, len(e.Labels))
+	for _, label := range e.Labels {
+		if strings.TrimSpace(label) == "" {
+			return errors.New("labels must not be empty")
+		}
+		if _, ok := seen[label]; ok {
+			return fmt.Errorf("duplicate label %q", label)
+		}
+		seen[label] = struct{}{}
+	}
+	return nil
 }
 
 func insertAll(ctx context.Context, store backend.VectorStore, entries []Entry) error {
