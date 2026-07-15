@@ -2809,42 +2809,36 @@ public:
             return grpc::Status(grpc::StatusCode::INTERNAL, all_results.error->to_json().value("message", "Error in receiving results"));
         }
 
-        // Collect responses
-        json responses = json::array();
+        // Extract the embeddings typed, straight from the task results (no
+        // JSON round-trip), and report the payload shape alongside the same
+        // flat float array as before: dim is the embedding width, tokens the
+        // number of vectors packed into `embeddings` (1 per prompt when the
+        // server pooled, one per token with pooling:none; summed across
+        // prompts if the request carried several), prompt_tokens the prompt
+        // tokens evaluated, for usage accounting. Consumers seeing 0/0 know
+        // the backend predates shape reporting.
+        int32_t n_vectors = 0;
+        int32_t dim = 0;
+        int32_t prompt_tokens = 0;
         for (auto & res : all_results.results) {
-            GGML_ASSERT(dynamic_cast<server_task_result_embd*>(res.get()) != nullptr);
-            responses.push_back(res->to_json());
-        }
-
-        std::cout << "[DEBUG] Responses size: " << responses.size() << std::endl;
-
-        // Process the responses and extract embeddings
-        for (const auto & response_elem : responses) {
-            // Check if the response has an "embedding" field
-            if (response_elem.contains("embedding")) {
-                json embedding_data = json_value(response_elem, "embedding", json::array());
-
-                if (embedding_data.is_array() && !embedding_data.empty()) {
-                    for (const auto & embedding_vector : embedding_data) {
-                        if (embedding_vector.is_array()) {
-                            for (const auto & embedding_value : embedding_vector) {
-                                embeddingResult->add_embeddings(embedding_value.get<float>());
-                            }
-                        }
-                    }
+            auto * embd_res = dynamic_cast<server_task_result_embd*>(res.get());
+            GGML_ASSERT(embd_res != nullptr);
+            prompt_tokens += embd_res->n_tokens;
+            for (const auto & vec : embd_res->embedding) {
+                for (const float value : vec) {
+                    embeddingResult->add_embeddings(value);
                 }
-            } else {
-                // Check if the response itself contains the embedding data directly
-                if (response_elem.is_array()) {
-                    for (const auto & embedding_value : response_elem) {
-                        embeddingResult->add_embeddings(embedding_value.get<float>());
-                    }
+                if (!vec.empty()) {
+                    n_vectors++;
+                    dim = (int32_t) vec.size();
                 }
             }
         }
+        embeddingResult->set_tokens(n_vectors);
+        embeddingResult->set_dim(dim);
+        embeddingResult->set_prompt_tokens(prompt_tokens);
 
-
-
+        std::cout << "[DEBUG] Embedding vectors: " << n_vectors << " x " << dim << std::endl;
 
         return grpc::Status::OK;
     }
