@@ -5,12 +5,14 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"math"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/google/uuid"
@@ -41,29 +43,58 @@ func embeddingItem(embeddings []float32, index int, encodingFormat string) schem
 }
 
 // EmbeddingsEndpoint is the OpenAI Embeddings API endpoint https://platform.openai.com/docs/api-reference/embeddings
+// LocalAI extensions: a chat conversation can be embedded by sending
+// `messages` (mutually exclusive with `input`; one conversation per request,
+// one data item in the response), and `pooling`/`pooling_half_life_tokens`
+// select a Go-side pooling scheme over the backend's per-token vectors.
 // @Summary Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.
 // @Tags embeddings
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/embeddings [post]
-func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
 			return echo.ErrBadRequest
 		}
 
-		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
-		if !ok || config == nil {
+		modelConfig, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		if !ok || modelConfig == nil {
 			return echo.ErrBadRequest
 		}
 
-		xlog.Debug("Parameter Config", "config", config)
+		// The middleware merged any per-request pooling override onto the
+		// per-request config copy; reject bad values before touching the
+		// model so the client gets a 400, not a load-time failure.
+		if err := config.ValidatePooling(modelConfig.Pooling, modelConfig.PoolingHalfLifeTokens); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		if len(input.Messages) > 0 {
+			// One conversation per request: messages[] renders to a single
+			// input string, so it cannot be combined with input.
+			if len(modelConfig.InputStrings) > 0 || len(modelConfig.InputToken) > 0 {
+				return echo.NewHTTPError(http.StatusBadRequest, "input and messages are mutually exclusive: send the conversation via messages, or plain text/tokens via input")
+			}
+			// Non-text parts were parked in StringImages/StringVideos/
+			// StringAudios by the request middleware; only text embeds.
+			for _, m := range input.Messages {
+				if len(m.StringImages) > 0 || len(m.StringVideos) > 0 || len(m.StringAudios) > 0 {
+					xlog.Debug("embeddings: ignoring non-text content parts in messages", "model", modelConfig.Name)
+					break
+				}
+			}
+			rendered := evaluator.RenderConversationForEmbedding(*input, input.Messages, modelConfig)
+			modelConfig.InputStrings = append(modelConfig.InputStrings, rendered)
+		}
+
+		xlog.Debug("Parameter Config", "config", modelConfig)
 		items := []schema.Item{}
 
-		for i, s := range config.InputToken {
+		for i, s := range modelConfig.InputToken {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding(input.Context, "", s, ml, *config, appConfig)
+			embedFn, err := backend.ModelEmbedding(input.Context, "", s, ml, *modelConfig, appConfig)
 			if err != nil {
 				return err
 			}
@@ -75,9 +106,9 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			items = append(items, embeddingItem(embeddings, i, input.EncodingFormat))
 		}
 
-		for i, s := range config.InputStrings {
+		for i, s := range modelConfig.InputStrings {
 			// get the model function to call for the result
-			embedFn, err := backend.ModelEmbedding(input.Context, s, []int{}, ml, *config, appConfig)
+			embedFn, err := backend.ModelEmbedding(input.Context, s, []int{}, ml, *modelConfig, appConfig)
 			if err != nil {
 				return err
 			}

@@ -420,15 +420,22 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
-	xlog.Debug("Embedding called", "prompt", in.Prompt)
+	// The embeddings path ships the text in PredictOptions.Embeddings
+	// (see core/backend/embeddings.go), not Prompt; check both so the
+	// markers below work however the caller packed the request.
+	text := in.Embeddings
+	if text == "" {
+		text = in.Prompt
+	}
+	xlog.Debug("Embedding called", "text", text)
 	// Deterministic per-token mode for Go-side pooling tests: a prompt
 	// carrying the "per-token:" marker yields len(fields) vectors of dim 8
 	// with vec[i][j] = (i+1)/(j+2), so endpoint tests can assert exact
 	// pooled goldens. The marker may sit mid-prompt (the embeddings
 	// messages[] path renders conversations as "<role>: <content>" lines),
 	// so match anywhere and tokenize what follows the first occurrence.
-	if idx := strings.Index(in.Prompt, "per-token:"); idx >= 0 {
-		fields := strings.Fields(in.Prompt[idx+len("per-token:"):])
+	if idx := strings.Index(text, "per-token:"); idx >= 0 {
+		fields := strings.Fields(text[idx+len("per-token:"):])
 		tokens := len(fields)
 		const dim = 8
 		flat := make([]float32, 0, tokens*dim)
@@ -448,7 +455,7 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 	// before EmbeddingResult carried shape fields (tokens/dim left 0), so
 	// tests can assert the fail-closed error when Go-side pooling is
 	// requested against such a backend.
-	legacyShape := strings.Contains(in.Prompt, "no-shape:")
+	legacyShape := strings.Contains(text, "no-shape:")
 	// Return a mock embedding vector of 768 dimensions
 	embeddings := make([]float32, 768)
 	for i := range embeddings {

@@ -591,6 +591,16 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		}
 	}
 
+	// Per-request Go-side pooling override for /v1/embeddings (LocalAI
+	// extension) — copy-if-set onto the per-request config like the Input
+	// handling above; the embeddings endpoint validates the merged values.
+	if input.Pooling != "" {
+		config.Pooling = input.Pooling
+	}
+	if input.PoolingHalfLifeTokens != 0 {
+		config.PoolingHalfLifeTokens = input.PoolingHalfLifeTokens
+	}
+
 	// Can be either a string or an object
 	switch fnc := input.FunctionCall.(type) {
 	case string:
@@ -628,10 +638,13 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		}
 	}
 
-	if valid, _ := config.Validate(); valid {
-		return nil
+	if valid, err := config.Validate(); !valid {
+		// The base config validated at load time, so a post-merge failure
+		// can only come from request-supplied fields: surface it as a 400
+		// with the underlying cause rather than an opaque 500.
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unable to validate configuration after merging: %v", err))
 	}
-	return fmt.Errorf("unable to validate configuration after merging")
+	return nil
 }
 
 func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
@@ -753,8 +766,11 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 		}
 	}
 
-	if valid, _ := config.Validate(); valid {
-		return nil
+	if valid, err := config.Validate(); !valid {
+		// The base config validated at load time, so a post-merge failure
+		// can only come from request-supplied fields: surface it as a 400
+		// with the underlying cause rather than an opaque 500.
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unable to validate configuration after merging: %v", err))
 	}
-	return fmt.Errorf("unable to validate configuration after merging")
+	return nil
 }
