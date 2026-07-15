@@ -444,6 +444,7 @@ router:
   fallback: gpt-4o-proxy          # used whenever the prompt is unlike all corpus entries
   knn:
     embedding_model: nomic-embed-text-v1.5
+    # embedding_revision: "2026-07" # bump for remote/in-place weight changes LocalAI cannot identify
     k: 3                          # neighbours that vote (default 3)
     similarity_threshold: 0.80    # the epistemic gate (default 0.80)
     vote_threshold: 0.5           # weighted vote share a label needs (default 0.5)
@@ -510,8 +511,9 @@ curl -X DELETE http://localhost:8080/api/router/smart-router/corpus
 ```
 
 Entry labels must be declared in `policies` (same invariant as
-candidate labels), and duplicate texts are skipped rather than
-double-weighted. Label your exemplars with *outcomes*, not topics,
+candidate labels). Empty and duplicate labels are rejected, and
+duplicate texts are skipped rather than double-weighted. Label your exemplars
+with *outcomes*, not topics,
 when routing for difficulty: an entry recording "the small model
 handled prompts like this" is exactly as useful as one recording that
 it failed — grade a sample of production traffic against your
@@ -520,12 +522,19 @@ candidates and seed both.
 #### Persistence
 
 The corpus is persisted as one JSONL file per router under
-`<data path>/router-corpus/` (text, labels, vector, embedding-model
-fingerprint) — **the file is the source of truth** and survives
-restarts; the local-store index is rebuilt from it at classifier build
-time without re-embedding. Changing `knn.embedding_model` re-embeds
-the corpus on the next load (restart LocalAI if the old index was
-already live — mixed embedding spaces cannot be served).
+`<data path>/router-corpus/` (text, labels, vector, embedding-model name,
+and embedding fingerprint) — **the file is the source of truth** and
+survives restarts; the local-store index is rebuilt from it at classifier
+build time without re-embedding. The fingerprint follows the effective
+embedding-model config and local artifact identity, so changing the model or
+replacing its local weights re-embeds the corpus on the next process load.
+For remote embedding services whose weights can change invisibly, bump
+`knn.embedding_revision` explicitly.
+
+If an embedding fingerprint changes after that corpus is already present in
+the live in-memory index, LocalAI fails the classifier build instead of
+querying mixed embedding spaces. Restart LocalAI to rebuild the empty live
+index and re-embed the persisted entries.
 
 #### Tuning notes
 

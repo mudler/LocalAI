@@ -94,6 +94,37 @@ var _ = Describe("router_factories lazy config resolution", func() {
 		})
 	})
 
+	Context("EmbedderFingerprint", func() {
+		It("changes when the effective config or local artifact changes", func() {
+			writeCfg("emb-test", "llama-cpp")
+			artifact := filepath.Join(tmpDir, "emb-test.bin")
+			Expect(os.WriteFile(artifact, []byte("first"), 0o644)).To(Succeed())
+
+			first, err := app.EmbedderFingerprint("emb-test")
+			Expect(err).NotTo(HaveOccurred())
+			again, err := app.EmbedderFingerprint("emb-test")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(again).To(Equal(first))
+
+			Expect(os.WriteFile(artifact, []byte("replacement-with-different-size"), 0o644)).To(Succeed())
+			replaced, err := app.EmbedderFingerprint("emb-test")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(replaced).NotTo(Equal(first))
+
+			app.backendLoader.UpdateModelConfig("emb-test", func(c *config.ModelConfig) {
+				c.Backend = "rerankers"
+			})
+			updated, err := app.EmbedderFingerprint("emb-test")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated).NotTo(Equal(replaced))
+		})
+
+		It("rejects an unknown model", func() {
+			_, err := app.EmbedderFingerprint("missing")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Context("Scorer", func() {
 		It("returns nil at construction for an unknown model", func() {
 			Expect(app.Scorer("missing")).To(BeNil())
