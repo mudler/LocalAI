@@ -137,6 +137,7 @@ export const API_CONFIG = {
     nodeHeartbeat: (id) => `/api/nodes/${id}/heartbeat`,
     nodeBackends: (id) => `/api/nodes/${id}/backends`,
     nodeBackendsInstall: (id) => `/api/nodes/${id}/backends/install`,
+    nodeBackendsUpgrade: (id) => `/api/nodes/${id}/backends/upgrade`,
     nodeBackendsDelete: (id) => `/api/nodes/${id}/backends/delete`,
     nodeBackendLogs: (id) => `/api/nodes/${id}/backend-logs`,
     nodeBackendLogsModel: (id, modelId) => `/api/nodes/${id}/backend-logs/${encodeURIComponent(modelId)}`,

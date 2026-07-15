@@ -90,6 +90,10 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	// Backend management on workers
 	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))
 	admin.POST("/:id/backends/install", localai.InstallBackendOnNodeEndpoint(unloader, galleryService, opcache, appConfig))
+	// Upgrade is a distinct route (not install) because the worker's
+	// backend.install handler short-circuits when the backend already exists
+	// on disk; only the Upgrade op path force-reinstalls.
+	admin.POST("/:id/backends/upgrade", localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 
 	// Model management on workers

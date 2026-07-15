@@ -524,6 +524,71 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 	}
 }
 
+// UpgradeBackendOnNodeEndpoint triggers a backend upgrade (force-reinstall)
+// on a single worker node. Async like InstallBackendOnNodeEndpoint: enqueues
+// a ManagementOp with Upgrade=true and TargetNodeID set, returns 202 + jobID.
+// The gallery service routes Upgrade ops to
+// DistributedBackendManager.UpgradeBackend, which fires the NATS
+// backend.upgrade subject: the worker stops running processes for the
+// backend and reinstalls from the gallery even when the artifact already
+// exists on disk. Reusing the install path here would no-op: the worker's
+// backend.install handler is "ensure installed" and short-circuits on an
+// already-present binary (the "backend upgraded but nothing happens" bug).
+//
+// Only gallery-name upgrades are supported: the distributed upgrade path
+// resolves galleries from server config, so unlike install there is no
+// URI/name/alias or galleries-override surface.
+func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if galleryService == nil {
+			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "gallery service not configured"))
+		}
+		nodeID := c.Param("id")
+		var req struct {
+			Backend string `json:"backend"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		if req.Backend == "" {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name required"))
+		}
+
+		jobUUID, err := uuid.NewUUID()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to generate job id"))
+		}
+		jobID := jobUUID.String()
+
+		// Node-scoped cache key so a concurrent upgrade of the same backend on
+		// another node doesn't stomp this job in opcache.
+		cacheKey := galleryop.NodeScopedKey(nodeID, req.Backend)
+		opcache.SetBackend(cacheKey, jobID)
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 jobID,
+			GalleryElementName: req.Backend,
+			Galleries:          appConfig.BackendGalleries,
+			TargetNodeID:       nodeID,
+			Upgrade:            true,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+		}
+		galleryService.StoreCancellation(jobID, cancelFunc)
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		xlog.Info("Node-scoped backend upgrade dispatched", "node", nodeID, "backend", req.Backend, "jobID", jobID)
+		return c.JSON(http.StatusAccepted, map[string]string{
+			"jobID":     jobID,
+			"statusUrl": "/api/backends/job/" + jobID,
+			"message":   "backend upgrade started",
+		})
+	}
+}
+
 // DeleteBackendOnNodeEndpoint deletes a backend from a worker node via NATS.
 func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
