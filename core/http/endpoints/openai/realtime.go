@@ -975,6 +975,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 		case types.ResponseCreateEvent:
 			xlog.Debug("recv", "message", string(msg))
+			if err := validateClassifierActivation(session.ModelInterface, e.Response.LocalAIClassifier); err != nil {
+				sendError(t, "invalid_request_error", "Invalid response classifier: "+err.Error(), "", e.EventID)
+				continue
+			}
 
 			// Handle optional items to add to context
 			if len(e.Response.Input) > 0 {
@@ -1254,7 +1258,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		// Replace-not-merge, like tools: the client owns the whole option
 		// list. Invalid configs reject the update without touching the
 		// session's current classifier.
-		if err := rt.LocalAIClassifier.Validate(); err != nil {
+		if err := validateClassifierActivation(session.ModelInterface, rt.LocalAIClassifier); err != nil {
 			return err
 		}
 		session.Classifier = rt.LocalAIClassifier

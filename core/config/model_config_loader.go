@@ -201,8 +201,8 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByNameDefaultOptions(modelName 
 // survives unresolved into model loading and fails downstream — notably in
 // distributed mode with "backend name is empty". Mirrors the top-level alias
 // resolution in core/http/middleware/request.go.
-func (bcl *ModelConfigLoader) LoadResolvedModelConfig(modelName, modelPath string) (*ModelConfig, error) {
-	cfg, err := bcl.LoadModelConfigFileByName(modelName, modelPath)
+func (bcl *ModelConfigLoader) LoadResolvedModelConfig(modelName, modelPath string, opts ...ConfigLoaderOption) (*ModelConfig, error) {
+	cfg, err := bcl.LoadModelConfigFileByName(modelName, modelPath, opts...)
 	if err != nil {
 		return nil, err
 	}

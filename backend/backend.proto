@@ -448,6 +448,11 @@ message ModelOptions {
   // Proxy carries the cloud-proxy backend's per-model configuration.
   // Empty for non-proxy backends.
   ProxyOptions Proxy = 74;
+
+  // EnableScore reserves backend resources for the Score RPC. It is derived
+  // from the model's explicit `known_usecases: [score]` declaration so models
+  // that never score retain their ordinary serving footprint.
+  bool EnableScore = 75;
 }
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and
