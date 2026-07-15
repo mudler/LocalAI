@@ -81,7 +81,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 693c90c4ad251d194aadd7bfb3779ec01965b62d5d4b661b0aeea4e6ee865aeb
+      sha256: bd9c933cc364d7e9e3538b4545af32c65f62535210fc19d3adf068a09f19b428
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1502,8 +1502,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-12B-it-qat-q4_0-gguf/gemma-4-12b-it-qat-q4_0.gguf
-      sha256: faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1
       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf
+      sha256: 1e76e46623deaa4db97d4ef272ceab0dfb767c0f34c2c76524837edf2b57a510
     - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
       sha256: e70b0e5cd80323d5d588b4ed06780356b7b1ba03995a4b8164c6ae9db0ff5989
       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/mmproj-gemma-4-12b-it-qat-q4_0.gguf
@@ -1544,8 +1544,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-qat-q4_0-gguf/gemma-4-E2B_q4_0-it.gguf
-      sha256: 3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B_q4_0-it.gguf
+      sha256: 25194efbf8a53268241e5ffa6d5490edc08b3faaa6ead24478c8b025a986d556
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-q4_0-gguf/gemma-4-E2B-it-mmproj.gguf
       sha256: 58c187648007cab392bd5678b87e862c3e8794017deb945feea2cf256195e96a
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B-it-mmproj.gguf
@@ -1586,8 +1586,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B_q4_0-it.gguf
-      sha256: e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B_q4_0-it.gguf
+      sha256: 09f6f2a1d9ff4a1b7db9cc1aad9c55a9df2f5ec133327a92eab593fcf4360ed0
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf
       sha256: c6398448d84a4836fdedf58f9775979e69ae0cc4dfdf4d697b5597693a555b12
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B-it-mmproj.gguf
@@ -1629,8 +1629,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B_q4_0-it.gguf
-      sha256: 4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5
       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B_q4_0-it.gguf
+      sha256: 17e6bd3ade3c6bfc57165bf6790a5d27166961d5d663fdb20decd0bd357883c8
     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B-it-mmproj.gguf
       sha256: d8e2de16e17515d9061b23c9a002715f996f9e0c87b93a9354264611bfab9239
       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B-it-mmproj.gguf
@@ -1671,8 +1671,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B_q4_0-it.gguf
-      sha256: 0374ce7b0124db9ba96fc649e835c531223ee224a497ce88a374baaea10932ec
       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B_q4_0-it.gguf
+      sha256: 561b08eeb83b5fa9fc2d39e3330270cf1d94979fb82af4a8822a76367d471564
     - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
       sha256: 8e239c9c592541c9f537fff75677ea30d8af1e14ba63d27cf245423b7d0a688b
       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B-it-mmproj.gguf
