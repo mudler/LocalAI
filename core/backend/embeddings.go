@@ -9,8 +9,43 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+// finishEmbeddingResult applies the model's Go-side pooling scheme to a raw
+// per-token EmbeddingResult, or passes the backend's vector through
+// untouched when pooling is delegated to the backend ("" / "backend" —
+// today's exact behavior). Fails closed when a Go-side scheme is requested
+// but the backend didn't report the payload shape (a build predating
+// EmbeddingResult.tokens/dim), since silently treating a backend-pooled
+// vector as per-token data would corrupt the embedding space.
+func finishEmbeddingResult(res *proto.EmbeddingResult, modelConfig config.ModelConfig) ([]float32, error) {
+	scheme := modelConfig.Pooling
+	if scheme == "" || scheme == PoolingBackend {
+		return res.Embeddings, nil
+	}
+	if res.GetDim() == 0 {
+		return nil, fmt.Errorf(
+			"pooling %q needs per-token embeddings but the backend returned no shape: rebuild/update the backend so EmbeddingResult reports tokens/dim, and set options [\"pooling:none\"] on the model",
+			scheme)
+	}
+	return PoolEmbeddingResult(res, scheme,
+		float64(modelConfig.PoolingHalfLifeTokens),
+		embdNormalizeFromOptions(modelConfig.Options))
+}
+
+// mapEmbeddingGRPCError turns a gRPC ResourceExhausted — the per-token
+// payload of a very long conversation exceeding the 50MB message cap —
+// into an actionable message; everything else passes through unchanged.
+func mapEmbeddingGRPCError(err error) error {
+	if status.Code(err) == codes.ResourceExhausted {
+		return fmt.Errorf("conversation too long for per-token embeddings (gRPC message limit exceeded): %w", err)
+	}
+	return err
+}
 
 // Embedder produces a fixed-dimension vector from a prompt. The
 // router's L2 embedding cache uses it to look up semantically-similar
@@ -66,19 +101,19 @@ func ModelEmbedding(ctx context.Context, s string, tokens []int, loader *model.M
 
 				res, err := model.Embeddings(appConfig.Context, predictOptions)
 				if err != nil {
-					return nil, err
+					return nil, mapEmbeddingGRPCError(err)
 				}
 
-				return res.Embeddings, nil
+				return finishEmbeddingResult(res, modelConfig)
 			}
 			predictOptions.Embeddings = s
 
 			res, err := model.Embeddings(appConfig.Context, predictOptions)
 			if err != nil {
-				return nil, err
+				return nil, mapEmbeddingGRPCError(err)
 			}
 
-			return res.Embeddings, nil
+			return finishEmbeddingResult(res, modelConfig)
 		}
 	default:
 		fn = func() ([]float32, error) {
