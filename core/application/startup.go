@@ -675,6 +675,36 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.AgentJobRetentionDays = *settings.AgentJobRetentionDays
 		}
 	}
+
+	// Performance settings (threads / context size / f16). ApplyRuntimeSettings
+	// already persists these on the live /api/settings path, but the startup
+	// loader dropped them, so a value saved via the Middleware UI was silently
+	// ignored on restart (the model booted with the CLI/physical-core default).
+	//
+	// Threads is special: unlike ContextSize/F16, WithThreads eagerly resolves
+	// an unset (0) value to xsysinfo.CPUPhysicalCores() at option-apply time
+	// (see application_config.go), so options.Threads is never 0 here and the
+	// usual "== default" heuristic can't distinguish an env/CLI value from the
+	// physical-core fallback. Detect the env/CLI explicitly so
+	// LOCALAI_THREADS/THREADS still win over the persisted file value.
+	if settings.Threads != nil {
+		if os.Getenv("LOCALAI_THREADS") == "" && os.Getenv("THREADS") == "" {
+			options.Threads = *settings.Threads
+		}
+	}
+	if settings.ContextSize != nil {
+		// Only apply if current value is default (0), suggesting it wasn't set from env var
+		if options.ContextSize == 0 {
+			options.ContextSize = *settings.ContextSize
+		}
+	}
+	if settings.F16 != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.F16 {
+			options.F16 = *settings.F16
+		}
+	}
+
 	if !options.WatchDogIdle && !options.WatchDogBusy {
 		if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
 			options.WatchDog = true
