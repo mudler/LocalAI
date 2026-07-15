@@ -642,6 +642,10 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		// The base config validated at load time, so a post-merge failure
 		// can only come from request-supplied fields: surface it as a 400
 		// with the underlying cause rather than an opaque 500.
+		xlog.Warn("post-merge validation failed",
+			"model", config.Name, "err", err,
+			"inputPooling", input.Pooling, "cfgPooling", config.Pooling,
+			"cfgHalfLife", config.PoolingHalfLifeTokens, "options", config.Options)
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unable to validate configuration after merging: %v", err))
 	}
 	return nil
