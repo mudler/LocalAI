@@ -111,6 +111,10 @@ RUN make -BC /LocalAI/backend/cpp/llama-cpp package
 # ============================================================================
 FROM ${BUILDER_BASE_IMAGE} AS builder-prebuilt
 
+ARG APT_MIRROR
+ENV APT_MIRROR=${APT_MIRROR}
+ARG APT_PORTS_MIRROR
+ENV APT_PORTS_MIRROR=${APT_PORTS_MIRROR}
 ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
 ARG CUDA_DOCKER_ARCH
