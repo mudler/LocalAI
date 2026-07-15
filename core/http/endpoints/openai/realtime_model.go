@@ -402,6 +402,10 @@ func (m *wrappedModel) scoreConfig() *config.ModelConfig {
 // reusing the previous one while options and normalization are unchanged
 // (construction parses the scoring model's chat template).
 func (m *wrappedModel) classifierFor(options []types.ClassifierOption, normalization string) (*router.ScoreClassifier, error) {
+	scoreCfg := m.scoreConfig()
+	if scoreCfg == nil || !scoreCfg.HasUsecases(config.FLAG_SCORE) {
+		return nil, fmt.Errorf("classifier: scoring model must include score in known_usecases")
+	}
 	switch normalization {
 	case "", router.ScoreNormalizationRaw, router.ScoreNormalizationMean:
 	default:
@@ -575,11 +579,11 @@ func modelSoundDetection(ctx context.Context, ml *model.ModelLoader, appConfig *
 // config named by pipeline.sound_detection. Returns (nil, nil) when no model
 // is configured so sound detection stays additive and never blocks session
 // setup.
-func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader) (*config.ModelConfig, error) {
+func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*config.ModelConfig, error) {
 	if pipeline.SoundDetection == "" {
 		return nil, nil
 	}
-	cfg, err := cl.LoadResolvedModelConfig(pipeline.SoundDetection, ml.ModelPath)
+	cfg, err := cl.LoadResolvedModelConfig(pipeline.SoundDetection, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load sound detection config: %w", err)
 	}
@@ -590,7 +594,7 @@ func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigL
 }
 
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
-	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -600,7 +604,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -610,7 +614,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -632,7 +636,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 // speech) and is driven by client-side windowing (turn_detection none +
 // input_audio_buffer.commit) rather than the voice VAD loop.
 func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
-	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +697,7 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) (Model, error) {
 	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
-	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -704,7 +708,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -736,7 +740,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	xlog.Debug("Loading a wrapped model")
 
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
-	cfgLLM, err := cl.LoadResolvedModelConfig(pipeline.LLM, ml.ModelPath)
+	cfgLLM, err := cl.LoadResolvedModelConfig(pipeline.LLM, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -751,7 +755,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	applyPipelineReasoning(cfgLLM, *pipeline)
 	applyPipelineThinking(cfgLLM, *pipeline)
 
-	cfgTTS, err := cl.LoadResolvedModelConfig(pipeline.TTS, ml.ModelPath)
+	cfgTTS, err := cl.LoadResolvedModelConfig(pipeline.TTS, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -761,7 +765,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -772,19 +776,31 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	// when the pipeline block is absent).
 	var cfgScore *config.ModelConfig
 	if pipeline.Classifier != nil && pipeline.Classifier.Model != "" {
-		cfgScore, err = cl.LoadResolvedModelConfig(pipeline.Classifier.Model, ml.ModelPath)
+		cfgScore, err = cl.LoadResolvedModelConfig(pipeline.Classifier.Model, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load classifier scoring config: %w", err)
 		}
 		if valid, err := cfgScore.Validate(); !valid {
 			return nil, fmt.Errorf("failed to validate classifier scoring config: %w", err)
 		}
+		if !cfgScore.HasUsecases(config.FLAG_SCORE) {
+			return nil, fmt.Errorf("pipeline classifier: scoring model %q must declare known_usecases: [score]", cfgScore.Name)
+		}
 	}
-	if pipeline.Classifier != nil && pipeline.Classifier.Enabled && cfgScore == nil && cfgLLM.HasRouter() {
-		// A router model has no concrete backend to score on — the
-		// per-turn routing decision happens at Predict time, after
-		// classification would already have run.
-		return nil, fmt.Errorf("pipeline classifier: llm %q is a router model; set pipeline.classifier.model to a concrete scoring model", cfgLLM.Name)
+	if pipeline.Classifier != nil && pipeline.Classifier.Enabled {
+		effectiveScore := cfgScore
+		if effectiveScore == nil {
+			effectiveScore = cfgLLM
+		}
+		if effectiveScore.HasRouter() {
+			// A router model has no concrete backend to score on — the
+			// per-turn routing decision happens at Predict time, after
+			// classification would already have run.
+			return nil, fmt.Errorf("pipeline classifier: llm %q is a router model; set pipeline.classifier.model to a concrete scoring model", cfgLLM.Name)
+		}
+		if !effectiveScore.HasUsecases(config.FLAG_SCORE) {
+			return nil, fmt.Errorf("pipeline classifier: scoring model %q must declare known_usecases: [score]", effectiveScore.Name)
+		}
 	}
 
 	wm := &wrappedModel{

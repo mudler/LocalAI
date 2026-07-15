@@ -93,6 +93,35 @@ var _ = Describe("classifierConfigFromPipeline", func() {
 	})
 })
 
+var _ = Describe("validateClassifierActivation", func() {
+	It("accepts a combined inference and score model", func() {
+		usecases := config.FLAG_CHAT | config.FLAG_SCORE
+		m := &wrappedModel{LLMConfig: &config.ModelConfig{KnownUsecases: &usecases}}
+		Expect(validateClassifierActivation(m, classifierTestConfig(0.4, nil))).To(Succeed())
+	})
+
+	It("rejects an active classifier when the model does not declare score", func() {
+		usecases := config.FLAG_CHAT
+		m := &wrappedModel{LLMConfig: &config.ModelConfig{KnownUsecases: &usecases}}
+		Expect(validateClassifierActivation(m, classifierTestConfig(0.4, nil))).To(MatchError(ContainSubstring("known_usecases")))
+	})
+
+	It("rejects a router config as the concrete scoring model", func() {
+		usecases := config.FLAG_SCORE
+		m := &wrappedModel{LLMConfig: &config.ModelConfig{
+			KnownUsecases: &usecases,
+			Router:        config.RouterConfig{Candidates: []config.RouterCandidate{{Model: "target"}}},
+		}}
+		Expect(validateClassifierActivation(m, classifierTestConfig(0.4, nil))).To(MatchError(ContainSubstring("concrete")))
+	})
+
+	It("allows disabling classification without score support", func() {
+		disabled := false
+		m := &wrappedModel{LLMConfig: &config.ModelConfig{}}
+		Expect(validateClassifierActivation(m, &types.ClassifierConfig{Enabled: &disabled})).To(Succeed())
+	})
+})
+
 var _ = Describe("resolveClassifier", func() {
 	It("uses the session config when no override is present", func() {
 		sess := classifierTestConfig(0, nil)
