@@ -65,6 +65,15 @@ func classifierConfigFromPipeline(p *config.PipelineClassifier) (*types.Classifi
 				args = data
 			}
 			opt.Tool = &types.ClassifierTool{Name: o.Tool.Name, Arguments: args}
+			for _, s := range o.Tool.Slots {
+				opt.Tool.Slots = append(opt.Tool.Slots, types.ClassifierSlot{
+					Name:    s.Name,
+					Type:    s.Type,
+					Values:  s.Values,
+					Default: s.Default,
+					Hint:    s.Hint,
+				})
+			}
 		}
 		cc.Options = append(cc.Options, opt)
 	}
@@ -291,17 +300,44 @@ func classifierRespond(ctx context.Context, session *Session, conv *Conversation
 		fallbackApplied = cc.FallbackMode()
 	}
 
+	// Hybrid path: a winning option with argument slots gets them filled by
+	// a constrained completion before anything is emitted, so the result
+	// event carries the final arguments. An unrecoverable fill failure
+	// (error and no complete default set) is handled like a scoring
+	// failure.
+	filledArgs := ""
+	var fillLatency time.Duration
+	if chosen != nil {
+		var ferr error
+		filledArgs, fillLatency, ferr = fillChosenArguments(ctx, session, cc, msgs, chosen)
+		if ferr != nil {
+			if cc.FallbackMode() == types.ClassifierFallbackGenerate {
+				xlog.Warn("realtime classifier: slot fill failed; falling back to generation", "error", ferr)
+				return false
+			}
+			sendError(t, "classifier_failed", fmt.Sprintf("classifier slot fill failed: %v", ferr), "", "")
+			r.outcome = outcomeFailed
+			return true
+		}
+	}
+
 	evScores := make([]types.ClassifierScore, len(scores))
 	for i, s := range scores {
 		evScores[i] = types.ClassifierScore{ID: s.Label, Score: s.Score}
 	}
+	evArgs := ""
+	if chosen != nil && chosen.Tool != nil && len(chosen.Tool.Slots) > 0 {
+		evArgs = filledArgs
+	}
 	sendEvent(t, types.ClassifierResultEvent{
-		ResponseID: r.id,
-		Scores:     evScores,
-		ChosenID:   chosenID,
-		Threshold:  cc.Threshold,
-		Fallback:   fallbackApplied,
-		LatencyMs:  latency.Milliseconds(),
+		ResponseID:    r.id,
+		Scores:        evScores,
+		ChosenID:      chosenID,
+		Threshold:     cc.Threshold,
+		Fallback:      fallbackApplied,
+		LatencyMs:     latency.Milliseconds(),
+		Arguments:     evArgs,
+		FillLatencyMs: fillLatency.Milliseconds(),
 	})
 	topScore := 0.0
 	if best >= 0 {
@@ -310,7 +346,8 @@ func classifierRespond(ctx context.Context, session *Session, conv *Conversation
 	xlog.Debug("realtime classifier: scored turn",
 		"chosen", chosenID, "top_score", topScore,
 		"threshold", cc.Threshold, "fallback", fallbackApplied,
-		"latency_ms", latency.Milliseconds())
+		"latency_ms", latency.Milliseconds(),
+		"arguments", evArgs, "fill_latency_ms", fillLatency.Milliseconds())
 
 	if fallbackApplied == types.ClassifierFallbackGenerate {
 		return false
@@ -328,11 +365,7 @@ func classifierRespond(ctx context.Context, session *Session, conv *Conversation
 	case chosen != nil:
 		reply = chosen.Reply
 		if chosen.Tool != nil {
-			args := "{}"
-			if len(chosen.Tool.Arguments) > 0 {
-				args = string(chosen.Tool.Arguments)
-			}
-			toolCalls = []functions.FuncCallResults{{Name: chosen.Tool.Name, Arguments: args}}
+			toolCalls = []functions.FuncCallResults{{Name: chosen.Tool.Name, Arguments: filledArgs}}
 		}
 	case fallbackApplied == types.ClassifierFallbackReply:
 		reply = cc.Fallback.Reply
@@ -352,4 +385,154 @@ func classifierRespond(ctx context.Context, session *Session, conv *Conversation
 	// assistant tools inproc.
 	emitToolCallItems(ctx, session, conv, t, r, toolCalls, reply != "", toolTurn)
 	return true
+}
+
+// ---- slot filling (hybrid classify-then-complete) --------------------------
+//
+// A winning option whose tool declares slots gets its argument values from a
+// short constrained completion: the prompt is the exact scoring prompt (warm
+// in the backend's cache) continued by the chosen route JSON re-opened at the
+// first slot field, and a GBNF grammar pins everything except the slot
+// values. The generated tail is parsed back through the JSON object it
+// completes, and the values are spliced into the tool's argument template.
+
+// gbnfLiteral renders s as a GBNF quoted literal.
+func gbnfLiteral(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`)
+	return `"` + r.Replace(s) + `"`
+}
+
+// slotFillGrammar builds the grammar for the completion tail: first slot
+// value, then each further slot as a forced `, "<name>": ` literal plus its
+// value, then the closing brace.
+func slotFillGrammar(slots []types.ClassifierSlot) string {
+	var root strings.Builder
+	var rules strings.Builder
+	needNum, needStr := false, false
+	root.WriteString("root ::= ")
+	for i := range slots {
+		if i > 0 {
+			root.WriteString(" " + gbnfLiteral(`, "`+slots[i].Name+`": `) + " ")
+		}
+		fmt.Fprintf(&root, "slot%d", i)
+		fmt.Fprintf(&rules, "\nslot%d ::= ", i)
+		switch slots[i].Type {
+		case types.ClassifierSlotNumber:
+			rules.WriteString("num")
+			needNum = true
+		case types.ClassifierSlotEnum:
+			for vi, v := range slots[i].Values {
+				if vi > 0 {
+					rules.WriteString(" | ")
+				}
+				rules.WriteString(gbnfLiteral(`"` + v + `"`))
+			}
+		default: // string
+			rules.WriteString("str")
+			needStr = true
+		}
+	}
+	root.WriteString(` "}"`)
+	if needNum {
+		rules.WriteString("\nnum ::= \"-\"? [0-9] [0-9]* (\".\" [0-9] [0-9]*)?")
+	}
+	if needStr {
+		rules.WriteString("\nstr ::= \"\\\"\" [^\"\\\\\\n]* \"\\\"\"")
+	}
+	return root.String() + rules.String()
+}
+
+// parseSlotValues closes the completed route JSON and extracts each slot's
+// value as the string form SpliceArguments expects.
+func parseSlotValues(chosenID, firstSlot, generated string, slots []types.ClassifierSlot) (map[string]string, error) {
+	idJSON, _ := json.Marshal(chosenID)
+	full := `{"route": ` + string(idJSON) + `, "` + firstSlot + `": ` + strings.TrimSpace(generated)
+	if !strings.HasSuffix(strings.TrimSpace(generated), "}") {
+		full += "}"
+	}
+	dec := json.NewDecoder(strings.NewReader(full))
+	dec.UseNumber()
+	var obj map[string]any
+	if err := dec.Decode(&obj); err != nil {
+		return nil, fmt.Errorf("classifier: slot completion %q does not parse: %w", generated, err)
+	}
+	values := make(map[string]string, len(slots))
+	for i := range slots {
+		v, ok := obj[slots[i].Name]
+		if !ok {
+			return nil, fmt.Errorf("classifier: slot completion missing %q", slots[i].Name)
+		}
+		switch tv := v.(type) {
+		case json.Number:
+			values[slots[i].Name] = tv.String()
+		case string:
+			values[slots[i].Name] = tv
+		default:
+			return nil, fmt.Errorf("classifier: slot %q has unexpected value type %T", slots[i].Name, v)
+		}
+	}
+	return values, nil
+}
+
+// fillChosenArguments resolves a winning option's tool arguments: canned
+// options pass through, slotted options run the fill completion with a
+// default-value recovery when inference fails. The error return is reserved
+// for unrecoverable failures (no complete default set).
+func fillChosenArguments(ctx context.Context, session *Session, cc *types.ClassifierConfig, msgs schema.Messages, chosen *types.ClassifierOption) (args string, latency time.Duration, err error) {
+	if chosen.Tool == nil {
+		return "", 0, nil
+	}
+	if len(chosen.Tool.Slots) == 0 {
+		if len(chosen.Tool.Arguments) > 0 {
+			return string(chosen.Tool.Arguments), 0, nil
+		}
+		return "{}", 0, nil
+	}
+	start := time.Now()
+	args, err = session.ModelInterface.FillToolArguments(ctx, msgs, cc.Options, cc.Normalization, chosen)
+	latency = time.Since(start)
+	if err == nil {
+		return args, latency, nil
+	}
+	xlog.Warn("realtime classifier: slot fill failed; trying slot defaults", "option", chosen.ID, "error", err)
+	defaults, derr := chosen.Tool.SlotDefaults()
+	if derr != nil {
+		return "", latency, err
+	}
+	args, derr = chosen.Tool.SpliceArguments(defaults)
+	if derr != nil {
+		return "", latency, err
+	}
+	return args, latency, nil
+}
+
+// classifierPolicyDescription renders an option's scoring description,
+// appending any slot declarations so the model both weighs the parameters
+// during scoring and knows how to fill them ("assume meters…") during the
+// slot completion — the hints ride the shared system prompt, costing no
+// extra per-turn tokens.
+func classifierPolicyDescription(o *types.ClassifierOption) string {
+	if o.Tool == nil || len(o.Tool.Slots) == 0 {
+		return o.Description
+	}
+	var b strings.Builder
+	b.WriteString(o.Description)
+	b.WriteString(" — route parameters:")
+	for i := range o.Tool.Slots {
+		s := &o.Tool.Slots[i]
+		if i > 0 {
+			b.WriteString(";")
+		}
+		b.WriteString(" " + s.Name)
+		switch s.Type {
+		case types.ClassifierSlotEnum:
+			b.WriteString(" (one of: " + strings.Join(s.Values, ", ") + ")")
+		default:
+			b.WriteString(" (" + s.Type + ")")
+		}
+		if s.Hint != "" {
+			b.WriteString(", " + s.Hint)
+		}
+	}
+	return b.String()
 }

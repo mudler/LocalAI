@@ -182,3 +182,89 @@ var _ = Describe("ClassifierConfig", func() {
 		})
 	})
 })
+
+var _ = Describe("ClassifierTool slots", func() {
+	tool := func(slots ...types.ClassifierSlot) *types.ClassifierTool {
+		return &types.ClassifierTool{
+			Name:      "move",
+			Arguments: json.RawMessage(`{"direction":"up","distance":"{{distance}}","units":"{{units}}"}`),
+			Slots:     slots,
+		}
+	}
+	numberSlot := types.ClassifierSlot{Name: "distance", Type: types.ClassifierSlotNumber, Default: "1"}
+	enumSlot := types.ClassifierSlot{Name: "units", Type: types.ClassifierSlotEnum, Values: []string{"m", "ft"}, Default: "m"}
+
+	cfgWith := func(t *types.ClassifierTool) *types.ClassifierConfig {
+		return &types.ClassifierConfig{Options: []types.ClassifierOption{{ID: "up", Description: "d", Tool: t}}}
+	}
+
+	Describe("Validate", func() {
+		It("accepts a well-formed slotted tool", func() {
+			Expect(cfgWith(tool(numberSlot, enumSlot)).Validate()).To(Succeed())
+		})
+
+		It("rejects unknown slot types", func() {
+			bad := numberSlot
+			bad.Type = "float"
+			Expect(cfgWith(tool(bad, enumSlot)).Validate()).To(MatchError(ContainSubstring("number|enum|string")))
+		})
+
+		It("rejects enum slots without values", func() {
+			bad := enumSlot
+			bad.Values = nil
+			bad.Default = ""
+			Expect(cfgWith(tool(numberSlot, bad)).Validate()).To(MatchError(ContainSubstring("need values")))
+		})
+
+		It("rejects enum defaults outside the value set", func() {
+			bad := enumSlot
+			bad.Default = "yards"
+			Expect(cfgWith(tool(numberSlot, bad)).Validate()).To(MatchError(ContainSubstring("not one of")))
+		})
+
+		It("rejects number defaults that do not parse", func() {
+			bad := numberSlot
+			bad.Default = "three"
+			Expect(cfgWith(tool(bad, enumSlot)).Validate()).To(MatchError(ContainSubstring("does not parse")))
+		})
+
+		It("rejects slots the template never references", func() {
+			t := tool(numberSlot, enumSlot, types.ClassifierSlot{Name: "speed", Type: types.ClassifierSlotNumber})
+			Expect(cfgWith(t).Validate()).To(MatchError(ContainSubstring("{{speed}}")))
+		})
+
+		It("rejects invalid slot names", func() {
+			bad := numberSlot
+			bad.Name = "dis tance"
+			Expect(cfgWith(tool(bad, enumSlot)).Validate()).To(MatchError(ContainSubstring("invalid name")))
+		})
+	})
+
+	Describe("SpliceArguments", func() {
+		It("substitutes numbers unquoted and strings escaped", func() {
+			args, err := tool(numberSlot, enumSlot).SpliceArguments(map[string]string{"distance": "3.5", "units": `m"eters`})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(args).To(MatchJSON(`{"direction":"up","distance":3.5,"units":"m\"eters"}`))
+		})
+
+		It("fails on missing values", func() {
+			_, err := tool(numberSlot, enumSlot).SpliceArguments(map[string]string{"distance": "3.5"})
+			Expect(err).To(MatchError(ContainSubstring(`no value for slot "units"`)))
+		})
+	})
+
+	Describe("SlotDefaults", func() {
+		It("returns every default", func() {
+			values, err := tool(numberSlot, enumSlot).SlotDefaults()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(values).To(Equal(map[string]string{"distance": "1", "units": "m"}))
+		})
+
+		It("names the slot lacking a default", func() {
+			bare := numberSlot
+			bare.Default = ""
+			_, err := tool(bare, enumSlot).SlotDefaults()
+			Expect(err).To(MatchError(ContainSubstring(`"distance"`)))
+		})
+	})
+})

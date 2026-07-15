@@ -730,8 +730,20 @@ type PipelineClassifierOption struct {
 type PipelineClassifierTool struct {
 	Name string `yaml:"name" json:"name"`
 	// Arguments is a plain YAML map; the realtime session marshals it to
-	// the JSON arguments string of the emitted function call.
+	// the JSON arguments string of the emitted function call. With Slots
+	// it is a template: "{{name}}" values are filled by a constrained
+	// completion when the option wins.
 	Arguments map[string]any `yaml:"arguments,omitempty" json:"arguments,omitempty"`
+	// Slots declares the inferred arguments; see types.ClassifierSlot.
+	Slots []PipelineClassifierSlot `yaml:"slots,omitempty" json:"slots,omitempty"`
+}
+
+type PipelineClassifierSlot struct {
+	Name    string   `yaml:"name" json:"name"`
+	Type    string   `yaml:"type" json:"type"` // number | enum | string
+	Values  []string `yaml:"values,omitempty" json:"values,omitempty"`
+	Default string   `yaml:"default,omitempty" json:"default,omitempty"`
+	Hint    string   `yaml:"hint,omitempty" json:"hint,omitempty"`
 }
 
 type PipelineClassifierFallback struct {
