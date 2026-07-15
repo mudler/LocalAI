@@ -889,3 +889,89 @@ var _ = Describe("SetModelAndConfig metadata passthrough (chat completions)", fu
 		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
 	})
 })
+
+// A model config may default to decayed_mean pooling with a half-life
+// (parameters: pooling / pooling_half_life_tokens). A request that
+// overrides the scheme WITHOUT sending its own half-life must not inherit
+// the config's half-life into an invalid pair — the middleware re-validates
+// the merged config, and e.g. ("mean", 256) would 400 through no fault of
+// the client. Found live: the first conv+mean A/B request against a
+// decayed-default embedder config.
+var _ = Describe("SetModelAndConfig per-request pooling override (embeddings)", func() {
+	var modelDir string
+
+	BeforeEach(func() {
+		var err error
+		modelDir, err = os.MkdirTemp("", "localai-test-pooling-models-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	buildApp := func(cfgYAML string) (*echo.Echo, **config.ModelConfig) {
+		Expect(os.WriteFile(filepath.Join(modelDir, "test-model.yaml"), []byte(cfgYAML), 0644)).To(Succeed())
+
+		ss := &system.SystemState{Model: system.Model{ModelsPath: modelDir}}
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = ss
+		mcl := config.NewModelConfigLoader(modelDir)
+		ml := model.NewModelLoader(ss)
+		re := NewRequestExtractor(mcl, ml, appConfig)
+
+		captured := new(*config.ModelConfig)
+		app := echo.New()
+		app.POST("/v1/embeddings",
+			func(c echo.Context) error {
+				if cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig); ok {
+					*captured = cfg
+				}
+				return c.String(http.StatusOK, "ok")
+			},
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := re.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		)
+		return app, captured
+	}
+
+	decayedCfg := "name: test-model\nbackend: llama-cpp\nembeddings: true\n" +
+		"parameters:\n  pooling: decayed_mean\n  pooling_half_life_tokens: 256\n"
+
+	embedReq := func(extra string) string {
+		return `{"model":"test-model","messages":[{"role":"user","content":"hi"}]` + extra + `}`
+	}
+
+	It("drops the config half-life when the scheme override is not decayed_mean", func() {
+		app, captured := buildApp(decayedCfg)
+		rec := postJSON(app, "/v1/embeddings", embedReq(`,"pooling":"mean"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).Pooling).To(Equal(config.PoolingMean))
+		Expect((*captured).PoolingHalfLifeTokens).To(Equal(0))
+	})
+
+	It("keeps the config half-life when overriding to decayed_mean explicitly", func() {
+		app, captured := buildApp(decayedCfg)
+		rec := postJSON(app, "/v1/embeddings", embedReq(`,"pooling":"decayed_mean"`))
+
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).PoolingHalfLifeTokens).To(Equal(256))
+	})
+
+	It("still rejects a request pairing its own half-life with a non-decayed scheme", func() {
+		app, _ := buildApp(decayedCfg)
+		rec := postJSON(app, "/v1/embeddings", embedReq(`,"pooling":"mean","pooling_half_life_tokens":64`))
+
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+	})
+})
