@@ -421,12 +421,43 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 		return nil, err
 	}
 	xlog.Debug("Embedding called", "prompt", in.Prompt)
+	// Deterministic per-token mode for Go-side pooling tests: a prompt
+	// carrying the "per-token:" marker yields len(fields) vectors of dim 8
+	// with vec[i][j] = (i+1)/(j+2), so endpoint tests can assert exact
+	// pooled goldens. The marker may sit mid-prompt (the embeddings
+	// messages[] path renders conversations as "<role>: <content>" lines),
+	// so match anywhere and tokenize what follows the first occurrence.
+	if idx := strings.Index(in.Prompt, "per-token:"); idx >= 0 {
+		fields := strings.Fields(in.Prompt[idx+len("per-token:"):])
+		tokens := len(fields)
+		const dim = 8
+		flat := make([]float32, 0, tokens*dim)
+		for i := 0; i < tokens; i++ {
+			for j := 0; j < dim; j++ {
+				flat = append(flat, float32(i+1)/float32(j+2))
+			}
+		}
+		return &pb.EmbeddingResult{
+			Embeddings:   flat,
+			Tokens:       int32(tokens),
+			Dim:          dim,
+			PromptTokens: int32(tokens),
+		}, nil
+	}
+	// Legacy mode: a prompt carrying "no-shape:" simulates a backend built
+	// before EmbeddingResult carried shape fields (tokens/dim left 0), so
+	// tests can assert the fail-closed error when Go-side pooling is
+	// requested against such a backend.
+	legacyShape := strings.Contains(in.Prompt, "no-shape:")
 	// Return a mock embedding vector of 768 dimensions
 	embeddings := make([]float32, 768)
 	for i := range embeddings {
 		embeddings[i] = float32(i%100) / 100.0 // Pattern: 0.0, 0.01, 0.02, ..., 0.99, 0.0, ...
 	}
-	return &pb.EmbeddingResult{Embeddings: embeddings}, nil
+	if legacyShape {
+		return &pb.EmbeddingResult{Embeddings: embeddings}, nil
+	}
+	return &pb.EmbeddingResult{Embeddings: embeddings, Tokens: 1, Dim: 768, PromptTokens: 1}, nil
 }
 
 func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
