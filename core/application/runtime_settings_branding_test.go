@@ -157,18 +157,30 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 		})
 	})
 
-	// The live file watcher applies pii_default_detectors on a runtime change
-	// the same way it handles galleries/threads/etc.: env-set values (current
-	// == startup snapshot) are left alone, otherwise the file value is applied
-	// to the live config so request-side default redaction picks it up without
-	// a restart.
+	// The live file watcher delegates to ApplyRuntimeSettingsAtStartup, so a
+	// manual edit of runtime_settings.json behaves exactly like a boot-time
+	// load: env/CLI-claimed values win, the file supplies the rest, and the
+	// applied value reaches request-side default redaction without a restart.
 	Describe("file watcher: pii_default_detectors", func() {
-		It("applies a changed file value to the live config", func() {
+		It("applies a file value when the live config is still at its default", func() {
 			startup := config.ApplicationConfig{} // no env baseline
-			live := &config.ApplicationConfig{PIIDefaultDetectors: []string{"old"}}
+			live := config.NewApplicationConfig() // detectors at default (empty)
 			handler := readRuntimeSettingsJson(startup)
 			Expect(handler([]byte(`{"pii_default_detectors":["new-a","new-b"]}`), live)).To(Succeed())
 			Expect(live.PIIDefaultDetectors).To(Equal([]string{"new-a", "new-b"}))
+		})
+
+		It("defers a file edit of an already-customized value to the next restart", func() {
+			// The baseline comparison cannot tell an API-set value from an
+			// env-set one, so the watcher leaves it alone; the boot loader
+			// applies it on restart. Documented trade-off of the unified
+			// merge semantics (design doc 2026-07-16).
+			startup := config.ApplicationConfig{}
+			live := config.NewApplicationConfig()
+			live.PIIDefaultDetectors = []string{"old"}
+			handler := readRuntimeSettingsJson(startup)
+			Expect(handler([]byte(`{"pii_default_detectors":["from-file"]}`), live)).To(Succeed())
+			Expect(live.PIIDefaultDetectors).To(Equal([]string{"old"}))
 		})
 
 		It("leaves an env-controlled value untouched", func() {

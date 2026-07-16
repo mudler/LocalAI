@@ -533,6 +533,13 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	if options.DynamicConfigsDir == "" {
 		return
 	}
+	// ReadPersistedSettings treats a missing file as zero settings, so probe
+	// for it here only to keep the log honest: "loaded" must mean a file was
+	// actually read, not that we merged an all-nil struct.
+	if _, err := os.Stat(filepath.Join(options.DynamicConfigsDir, "runtime_settings.json")); os.IsNotExist(err) {
+		xlog.Debug("runtime_settings.json not found, using defaults")
+		return
+	}
 	settings, err := options.ReadPersistedSettings()
 	if err != nil {
 		xlog.Warn("failed to read runtime_settings.json", "error", err)
