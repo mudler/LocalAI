@@ -40,6 +40,11 @@ func DefaultRuntimeBaseline() *ApplicationConfig {
 	o.BackendGalleries = mustGalleries(DefaultBackendGalleriesJSON)
 	o.AutoloadGalleries = true
 	o.AutoloadBackendGalleries = true
+	// core/cli/run.go injects WithMemoryReclaimer(enabled, threshold)
+	// unconditionally, so the kong threshold default (0.95) reaches the
+	// config even when the reclaimer flag is off - this overlay must match
+	// that contract or a UI-persisted threshold looks env-set and is
+	// skipped at boot.
 	o.MemoryReclaimerThreshold = 0.95
 	return o
 }

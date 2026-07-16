@@ -700,11 +700,12 @@ func WithUploadLimitMB(limit int) AppOption {
 	}
 }
 
+// WithThreads sets the thread-count hint. 0 means "unset": the effective
+// physical-core default is resolved in application.New() only after
+// persisted runtime settings merge, so a file-saved value is not masked by
+// an eager fallback (#10845).
 func WithThreads(threads int) AppOption {
 	return func(o *ApplicationConfig) {
-		if threads == 0 { // 0 is not allowed
-			threads = xsysinfo.CPUPhysicalCores()
-		}
 		o.Threads = threads
 	}
 }

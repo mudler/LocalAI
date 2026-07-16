@@ -262,6 +262,79 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 		})
 	})
 
+	// Issue #10845 root cause class: fields with non-zero boot defaults
+	// whose == 0 guards never fired, so the persisted value was ignored on
+	// every restart. The registry's baseline comparison fixes them; these
+	// specs pin that.
+	Describe("fields with non-zero defaults (silent restart loss)", func() {
+		It("loads a persisted lru_eviction_max_retries over the default 30", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"lru_eviction_max_retries": 99}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.LRUEvictionMaxRetries).To(Equal(99))
+		})
+
+		It("loads a persisted tracing_max_items over the default 1024", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"tracing_max_items": 4096}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.TracingMaxItems).To(Equal(4096))
+		})
+
+		It("loads a persisted agent_job_retention_days over the default 30", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"agent_job_retention_days": 7}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.AgentJobRetentionDays).To(Equal(7))
+		})
+	})
+
+	// #10845: threads saved via the UI must survive a restart, while
+	// LOCALAI_THREADS/CLI still wins. WithThreads no longer eagerly
+	// resolves 0 to the physical-core count; application.New() does that
+	// after this loader has run.
+	Describe("performance fields", func() {
+		It("loads persisted threads when env/CLI left them unset", func() {
+			cfg := config.NewApplicationConfig(config.WithThreads(0))
+			cfg.DynamicConfigsDir = seedSettings(`{"threads": 4}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.Threads).To(Equal(4))
+		})
+
+		It("keeps an env/CLI thread count over the file", func() {
+			cfg := config.NewApplicationConfig(config.WithThreads(8))
+			cfg.DynamicConfigsDir = seedSettings(`{"threads": 4}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.Threads).To(Equal(8))
+		})
+
+		It("loads persisted context_size and f16", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"context_size": 4096, "f16": true}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.ContextSize).To(Equal(4096))
+			Expect(cfg.F16).To(BeTrue())
+		})
+	})
+
+	// Option-less boot contract with core/cli/run.go: the kong threshold
+	// default (0.95) is injected unconditionally even when the reclaimer is
+	// disabled, so DefaultRuntimeBaseline's 0.95 overlay matches reality and
+	// a UI-persisted threshold is not mistaken for an env-set one. Both
+	// persisted fields must apply, and enabling the reclaimer must force the
+	// watchdog master flag (startup invariant).
+	Describe("memory reclaimer", func() {
+		It("applies a persisted enable + threshold on an option-less boot", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.MemoryReclaimerThreshold = 0.95 // what run.go injects when no flag is passed
+			cfg.DynamicConfigsDir = seedSettings(`{"memory_reclaimer_enabled": true, "memory_reclaimer_threshold": 0.5}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.MemoryReclaimerEnabled).To(BeTrue())
+			Expect(cfg.MemoryReclaimerThreshold).To(Equal(0.5))
+			Expect(cfg.WatchDog).To(BeTrue(), "an enabled reclaimer must force the watchdog on")
+		})
+	})
+
 	// Backend logging capture. Worker/distributed mode force-enables it
 	// (core/services/worker.SetBackendLoggingEnabled(true)); single mode used
 	// to leave it off by default with no CLI flag, so the UI "Backend Logs"
