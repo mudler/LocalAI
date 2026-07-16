@@ -239,6 +239,8 @@ definitions:
       cancelled:
         description: Cancelled is true if the operation was cancelled
         type: boolean
+      current_bytes:
+        type: integer
       deletion:
         description: Deletion is true if the operation is a deletion
         type: boolean
@@ -262,10 +264,14 @@ definitions:
         items:
           $ref: '#/definitions/galleryop.NodeProgress'
         type: array
+      phase:
+        type: string
       processed:
         type: boolean
       progress:
         type: number
+      total_bytes:
+        type: integer
     type: object
   localai.APIInstructionResponse:
     properties:
@@ -389,6 +395,13 @@ definitions:
         description: Value is the new per-model replica cap on this node. Must be
           >= 1.
         type: integer
+    type: object
+  localai.UpdateVRAMBudgetRequest:
+    properties:
+      value:
+        description: Value is the VRAM cap ("80%" or "12GB"). Empty string clears
+          the cap.
+        type: string
     type: object
   localai.VoiceProfileListResponse:
     properties:
@@ -3398,6 +3411,62 @@ paths:
             additionalProperties: true
             type: object
       summary: Update a node's max replicas per model
+      tags:
+      - Nodes
+  /api/nodes/{id}/vram-budget:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset a node's VRAM budget to the worker default
+      tags:
+      - Nodes
+    put:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New value (\
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.UpdateVRAMBudgetRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: invalid budget
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update a node's VRAM allocation budget
       tags:
       - Nodes
   /api/nodes/models:
