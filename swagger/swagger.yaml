@@ -1444,6 +1444,41 @@ definitions:
           $ref: '#/definitions/schema.ToolCall'
         type: array
     type: object
+  schema.Model3DRequest:
+    description: 3D asset generation request body. Generation is image-conditioned
+    properties:
+      background:
+        description: 'background handling: auto|keep|black|white'
+        type: string
+      cfg_scale:
+        description: classifier-free guidance scale (backend default 7.5)
+        type: number
+      image:
+        description: 'conditioning image: URL, base64, or data URI (required)'
+        type: string
+      model:
+        type: string
+      params:
+        additionalProperties:
+          type: string
+        description: backend-specific generation parameters
+        type: object
+      quality:
+        description: 'mesh pipeline: auto|coarse|512|1024'
+        type: string
+      response_format:
+        description: output format (url or b64_json)
+        type: string
+      seed:
+        description: random seed; <=0 picks a random seed
+        type: integer
+      step:
+        description: flow sampling steps (backend default 12)
+        type: integer
+      texture_steps:
+        description: texture flow sampling steps (backend default 12)
+        type: integer
+    type: object
   schema.ModelCapabilities:
     properties:
       capabilities:
@@ -4307,6 +4342,23 @@ paths:
       summary: Generates audio from the input text.
       tags:
       - audio
+  /v1/3d/generations:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Model3DRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates a 3D asset (binary glTF / GLB) from a conditioning image.
+      tags:
+      - 3d
   /v1/audio/classification:
     post:
       consumes:

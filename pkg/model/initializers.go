@@ -43,6 +43,7 @@ var TypeAlias = map[string]string{
 const (
 	WhisperBackend             = "whisper"
 	StableDiffusionGGMLBackend = "stablediffusion-ggml"
+	Trellis2CppBackend         = "trellis2cpp"
 
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"

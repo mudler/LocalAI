@@ -144,6 +144,12 @@ func (c *InFlightTrackingClient) GenerateVideo(ctx context.Context, in *pb.Gener
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.Generate3D(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	defer c.track(ctx)()
 	res, err := c.inner.TTS(ctx, in, opts...)

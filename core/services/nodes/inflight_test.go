@@ -87,6 +87,10 @@ func (f *fakeGRPCBackend) GenerateVideo(_ context.Context, _ *pb.GenerateVideoRe
 	return &pb.Result{}, nil
 }
 
+func (f *fakeGRPCBackend) Generate3D(_ context.Context, _ *pb.Generate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{}, nil
+}
+
 func (f *fakeGRPCBackend) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return &pb.Result{}, nil
 }

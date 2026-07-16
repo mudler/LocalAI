@@ -70,6 +70,21 @@ type VideoRequest struct {
 	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`         // backend-specific generation parameters
 }
 
+// @Description 3D asset generation request body. Generation is image-conditioned
+// (TRELLIS.2 has no text-prompt path); the response is a binary glTF (.glb).
+type Model3DRequest struct {
+	BasicModelRequest
+	Image          string            `json:"image" yaml:"image"`                                           // conditioning image: URL, base64, or data URI (required)
+	Seed           int32             `json:"seed,omitempty" yaml:"seed,omitempty"`                         // random seed; <=0 picks a random seed
+	Step           int32             `json:"step,omitempty" yaml:"step,omitempty"`                         // flow sampling steps (backend default 12)
+	CFGScale       float32           `json:"cfg_scale,omitempty" yaml:"cfg_scale,omitempty"`               // classifier-free guidance scale (backend default 7.5)
+	TextureSteps   int32             `json:"texture_steps,omitempty" yaml:"texture_steps,omitempty"`       // texture flow sampling steps (backend default 12)
+	Quality        string            `json:"quality,omitempty" yaml:"quality,omitempty"`                   // mesh pipeline: auto|coarse|512|1024
+	Background     string            `json:"background,omitempty" yaml:"background,omitempty"`             // background handling: auto|keep|black|white
+	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"`   // output format (url or b64_json)
+	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                     // backend-specific generation parameters
+}
+
 // @Description TTS request body
 type TTSRequest struct {
 	BasicModelRequest

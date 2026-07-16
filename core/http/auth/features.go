@@ -91,6 +91,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Video
 	{"POST", "/video", FeatureVideo},
 
+	// 3D generation
+	{"POST", "/v1/3d/generations", Feature3D},
+	{"POST", "/3d/generations", Feature3D},
+
 	// Sound generation
 	{"POST", "/v1/sound-generation", FeatureSound},
 
@@ -182,6 +186,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVAD, "Voice Activity Detection", true},
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
+		{Feature3D, "3D Generation", true},
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
 		{FeatureRealtime, "Realtime", true},
