@@ -387,6 +387,32 @@
     nvidia-cuda-12: "cuda12-stablediffusion-ggml"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
+- &trellis2cpp
+  name: "trellis2cpp"
+  alias: "trellis2cpp"
+  license: mit
+  description: |
+     TRELLIS.2 image-to-3D generation (GLB meshes with PBR textures) in C++/ggml
+  urls:
+    - https://github.com/localai-org/trellis2cpp
+    - https://github.com/microsoft/TRELLIS.2
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Metal
+  capabilities:
+    default: "cpu-trellis2cpp"
+    nvidia: "cuda12-trellis2cpp"
+    vulkan: "vulkan-trellis2cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-trellis2cpp"
+    metal: "metal-trellis2cpp"
+    nvidia-cuda-13: "cuda13-trellis2cpp"
+    nvidia-cuda-12: "cuda12-trellis2cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-trellis2cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-trellis2cpp"
 - &rfdetr
   name: "rfdetr"
   alias: "rfdetr"
@@ -1891,6 +1917,18 @@
     nvidia-cuda-12: "cuda12-stablediffusion-ggml-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml-development"
+- !!merge <<: *trellis2cpp
+  name: "trellis2cpp-development"
+  capabilities:
+    default: "cpu-trellis2cpp-development"
+    nvidia: "cuda12-trellis2cpp-development"
+    vulkan: "vulkan-trellis2cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-trellis2cpp-development"
+    metal: "metal-trellis2cpp-development"
+    nvidia-cuda-13: "cuda13-trellis2cpp-development"
+    nvidia-cuda-12: "cuda12-trellis2cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-trellis2cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-trellis2cpp-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
@@ -3607,6 +3645,77 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml
+## trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cpu-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cpu-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "metal-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "metal-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "vulkan-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "vulkan-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda12-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda12-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "nvidia-l4t-arm64-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "nvidia-l4t-arm64-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-nvidia-l4t-arm64-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-nvidia-l4t-arm64-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-trellis2cpp
 ## privacy-filter
 - !!merge <<: *privacyfilter
   name: "cpu-privacy-filter"

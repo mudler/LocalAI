@@ -8,7 +8,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { filterMatrix } from "./backend-filter.mjs";
+import { filterMatrix, inferBackendPath } from "./backend-filter.mjs";
+
+test("trellis2cpp maps to its Go backend source directory", () => {
+  assert.equal(
+    inferBackendPath({
+      backend: "trellis2cpp",
+      dockerfile: "./backend/Dockerfile.golang",
+    }),
+    "backend/go/trellis2cpp/"
+  );
+});
 
 // A representative slice of .github/backend-matrix.yml: one entry per build
 // path that the filter treats differently. Kept inline rather than parsed from
