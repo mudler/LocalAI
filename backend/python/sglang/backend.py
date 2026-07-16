@@ -173,6 +173,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
+
+    def Status(self, request, context):
+        # Minimal shim: LocalAI polls /backend.Backend/Status on registered
+        # backends; without this method the default NotImplementedError from
+        # backend_pb2_grpc bubbles up as HTTP 500 on /backend/monitor and blocks
+        # inference requests to a healthy loaded model. Returning READY
+        # unconditionally mirrors the existing Health method's behavior.
+        return backend_pb2.StatusResponse(state=backend_pb2.StatusResponse.State.READY)
     async def LoadModel(self, request, context):
         model_ref, local_only = resolve_model_reference(request)
         engine_kwargs = {"model_path": model_ref}
