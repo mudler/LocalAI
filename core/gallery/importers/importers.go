@@ -318,6 +318,10 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 			if err != nil {
 				continue
 			}
+			modelConfig, err = AttachPrimaryArtifact(modelConfig, details)
+			if err != nil {
+				return gallery.ModelConfig{}, fmt.Errorf("attach managed artifact: %w", err)
+			}
 			break
 		}
 	}

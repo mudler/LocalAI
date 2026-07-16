@@ -414,18 +414,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	if err := application.ModelConfigLoader().Preload(options.SystemState.Model.ModelsPath); err != nil {
+	if err := application.ModelConfigLoader().PreloadWithContext(options.Context, options.SystemState.Model.ModelsPath); err != nil {
 		xlog.Error("error downloading models", "error", err)
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
 			return nil, err
 		}
 	}
@@ -675,6 +675,36 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.AgentJobRetentionDays = *settings.AgentJobRetentionDays
 		}
 	}
+
+	// Performance settings (threads / context size / f16). ApplyRuntimeSettings
+	// already persists these on the live /api/settings path, but the startup
+	// loader dropped them, so a value saved via the Middleware UI was silently
+	// ignored on restart (the model booted with the CLI/physical-core default).
+	//
+	// Threads is special: unlike ContextSize/F16, WithThreads eagerly resolves
+	// an unset (0) value to xsysinfo.CPUPhysicalCores() at option-apply time
+	// (see application_config.go), so options.Threads is never 0 here and the
+	// usual "== default" heuristic can't distinguish an env/CLI value from the
+	// physical-core fallback. Detect the env/CLI explicitly so
+	// LOCALAI_THREADS/THREADS still win over the persisted file value.
+	if settings.Threads != nil {
+		if os.Getenv("LOCALAI_THREADS") == "" && os.Getenv("THREADS") == "" { //nolint:forbidigo // deliberate env probe, see comment above
+			options.Threads = *settings.Threads
+		}
+	}
+	if settings.ContextSize != nil {
+		// Only apply if current value is default (0), suggesting it wasn't set from env var
+		if options.ContextSize == 0 {
+			options.ContextSize = *settings.ContextSize
+		}
+	}
+	if settings.F16 != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.F16 {
+			options.F16 = *settings.F16
+		}
+	}
+
 	if !options.WatchDogIdle && !options.WatchDogBusy {
 		if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
 			options.WatchDog = true

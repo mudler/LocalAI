@@ -500,6 +500,14 @@ func (c *Client) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
+	// The node registry is a distributed-mode concern owned by the Application
+	// layer and is not wired into the in-process client (which also returns an
+	// empty node list from ListNodes). Report it as unavailable rather than
+	// silently succeeding so the assistant tells the admin the truth.
+	return errors.New("per-node VRAM budgets are only available in distributed mode")
+}
+
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	resp, err := modeladmin.EstimateVRAM(ctx, modeladmin.VRAMRequest{
 		Model:       req.ModelName,

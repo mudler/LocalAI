@@ -42,6 +42,7 @@ type fakeClient struct {
 	upgradeBackend      func(string) (string, error)
 	systemInfo          func() (*SystemInfo, error)
 	listNodes           func() ([]Node, error)
+	setNodeVRAMBudget   func(string, string) error
 	vramEstimate        func(VRAMEstimateRequest) (*vram.EstimateResult, error)
 	toggleModelState    func(string, modeladmin.Action) error
 	toggleModelPinned   func(string, modeladmin.Action) error
@@ -227,6 +228,14 @@ func (f *fakeClient) ListNodes(_ context.Context) ([]Node, error) {
 		return f.listNodes()
 	}
 	return nil, nil
+}
+
+func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string) error {
+	f.record("SetNodeVRAMBudget", []any{nodeID, budget})
+	if f.setNodeVRAMBudget != nil {
+		return f.setNodeVRAMBudget(nodeID, budget)
+	}
+	return nil
 }
 
 func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {

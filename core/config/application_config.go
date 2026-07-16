@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -17,6 +19,13 @@ type ApplicationConfig struct {
 	ConfigFile       string
 	SystemState      *system.SystemState
 	ExternalBackends []string
+
+	// ModelArtifactMaterializer is a controller-only acquisition capability.
+	// It is excluded from serialization so credentials captured by its concrete
+	// implementation cannot enter persisted settings or distributed payloads.
+	ModelArtifactMaterializer ArtifactMaterializer `json:"-" yaml:"-"`
+	ModelPreloadRenderMode    string               `json:"-" yaml:"-"`
+	DisableModelPreloadColor  bool                 `json:"-" yaml:"-"`
 
 	// WebRTCNAT1To1IPs, when set, are advertised as the host ICE candidates for
 	// /v1/realtime WebRTC instead of every local interface address. Needed when
@@ -124,6 +133,10 @@ type ApplicationConfig struct {
 	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
 	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+
+	// VRAMBudget optionally caps how much VRAM this instance uses for model
+	// allocation, as "80%" or "12GB". Empty = use full detected VRAM.
+	VRAMBudget string
 
 	// Eviction settings
 	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
@@ -246,9 +259,11 @@ type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:       context.Background(),
-		UploadLimitMB: 15,
-		Debug:         true,
+		Context:                   context.Background(),
+		UploadLimitMB:             15,
+		Debug:                     true,
+		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		ModelPreloadRenderMode:    "dark",
 		// Capture backend process stdout/stderr into the per-model
 		// BackendLogStore by default so the UI "Backend Logs" page works out
 		// of the box in single mode, matching worker/distributed mode (which
@@ -256,9 +271,9 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// toggle can still turn it off (a persisted false wins - see
 		// loadRuntimeSettingsFromFile).
 		EnableBackendLogging:     true,
-		AgentJobRetentionDays:    30,              // Default: 30 days
-		LRUEvictionMaxRetries:    30,              // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		AgentJobRetentionDays:    30,               // Default: 30 days
+		LRUEvictionMaxRetries:    30,               // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
 		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
 		// WatchDogInterval is intentionally left at the zero value here.
 		// The startup loader applies a persisted runtime_settings.json value
@@ -454,6 +469,13 @@ func SetMemoryReclaimerThreshold(threshold float64) AppOption {
 	}
 }
 
+// SetVRAMBudget sets the VRAM allocation cap ("80%" or "12GB", "" = no cap).
+func SetVRAMBudget(v string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.VRAMBudget = v
+	}
+}
+
 // WithMemoryReclaimer configures the memory reclaimer with the given settings
 func WithMemoryReclaimer(enabled bool, threshold float64) AppOption {
 	return func(o *ApplicationConfig) {
@@ -633,6 +655,25 @@ func WithGalleries(galleries []Gallery) AppOption {
 func WithContext(ctx context.Context) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Context = ctx
+	}
+}
+
+// WithModelArtifactMaterializer injects the controller-only model acquisition capability.
+func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption {
+	return func(o *ApplicationConfig) {
+		if materializer != nil {
+			o.ModelArtifactMaterializer = materializer
+		}
+	}
+}
+
+// WithModelPreloadDisplay configures terminal rendering for model preload output.
+func WithModelPreloadDisplay(renderMode string, disableColor bool) AppOption {
+	return func(o *ApplicationConfig) {
+		if renderMode != "" {
+			o.ModelPreloadRenderMode = renderMode
+		}
+		o.DisableModelPreloadColor = disableColor
 	}
 }
 
@@ -1095,6 +1136,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
 	threads := o.Threads
 	contextSize := o.ContextSize
+	vramBudget := o.VRAMBudget
 	f16 := o.F16
 	debug := o.Debug
 	tracingMaxItems := o.TracingMaxItems
@@ -1189,6 +1231,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
 		Threads:                   &threads,
 		ContextSize:               &contextSize,
+		VRAMBudget:                &vramBudget,
 		F16:                       &f16,
 		Debug:                     &debug,
 		TracingMaxItems:           &tracingMaxItems,
@@ -1328,6 +1371,15 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.ContextSize != nil {
 		o.ContextSize = *settings.ContextSize
+	}
+	if settings.VRAMBudget != nil {
+		o.VRAMBudget = *settings.VRAMBudget
+		// Live-apply so the cap takes effect without a restart. An empty string
+		// clears the cap; a malformed value is rejected by the settings endpoint,
+		// but stay fail-open here too so a bad persisted value cannot wedge apply.
+		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
+			xsysinfo.SetDefaultVRAMBudget(b)
+		}
 	}
 	if settings.F16 != nil {
 		o.F16 = *settings.F16

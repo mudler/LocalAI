@@ -567,6 +567,11 @@ export const nodesApi = {
     ...(opts.alias ? { alias: opts.alias } : {}),
     ...(opts.backend_galleries ? { backend_galleries: opts.backend_galleries } : {}),
   }),
+  // upgradeBackend force-reinstalls a gallery backend on a single node. This
+  // is a distinct endpoint from installBackend: the worker treats install as
+  // "ensure installed" and no-ops when the backend already exists on disk,
+  // so an upgrade dispatched through install would silently do nothing.
+  upgradeBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsUpgrade(id), { backend }),
   deleteBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsDelete(id), { backend }),
   getBackendLogs: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogs(id)),
   getBackendLogLines: (id, modelId) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogsModel(id, modelId)),
@@ -583,6 +588,17 @@ export const nodesApi = {
     body: JSON.stringify({ value }),
   }),
   resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
+    method: 'DELETE',
+  }),
+  // Set a sticky admin override for the per-node VRAM allocation budget. The
+  // value is a string ("80%" or "12GB"); resolution to a byte ceiling happens
+  // server-side. Call resetVramBudget to clear the override entirely.
+  updateVramBudget: (id, value) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }),
+  resetVramBudget: (id) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
     method: 'DELETE',
   }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),

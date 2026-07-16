@@ -77,4 +77,30 @@ var _ = Describe("ApplyRemoteChange", func() {
 		Expect(ok1).To(BeTrue())
 		Expect(ok2).To(BeTrue())
 	})
+
+	It("loads a peer-persisted artifact binding without materializing", func() {
+		const relative = ".artifacts/huggingface/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/snapshot"
+		writeYAML("peer-managed", map[string]any{
+			"backend": "transformers",
+			"artifacts": []map[string]any{{
+				"name": "model", "target": "model",
+				"source": map[string]any{"type": "huggingface", "repo": "owner/repo", "revision": "main"},
+				"resolved": map[string]any{
+					"endpoint":  "https://huggingface.co",
+					"revision":  "0123456789abcdef0123456789abcdef01234567",
+					"cache_key": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				},
+			}},
+			"parameters": map[string]any{"model": "owner/repo"},
+		})
+		Expect(ApplyRemoteChange(loader, nil, dir, messaging.CacheInvalidateEvent{
+			Element: "peer-managed", Op: "install",
+		})).To(Succeed())
+		loaded, found := loader.GetModelConfig("peer-managed")
+		Expect(found).To(BeTrue())
+		Expect(loaded.Model).To(Equal("owner/repo"))
+		Expect(loaded.ModelFileName()).To(Equal(relative))
+		Expect(loaded.Artifacts).To(HaveLen(1))
+		Expect(loaded.Artifacts[0].Resolved.CacheKey).To(HaveLen(64))
+	})
 })

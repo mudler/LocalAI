@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # omnivoice.cpp version
 OMNIVOICE_REPO?=https://github.com/ServeurpersoCom/omnivoice.cpp
-OMNIVOICE_VERSION?=bbdf4be03aa5bc3c188b5db778b6f3fd63ceff6c
+OMNIVOICE_VERSION?=11c67198db58f75bf1bafc9051c2b018aaf1a3da
 SO_TARGET?=libgomnivoicecpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF

@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 )
 
@@ -91,6 +92,18 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 						Error:   "Invalid open_responses_store_ttl format: " + err.Error(),
 					})
 				}
+			}
+		}
+
+		// Reject a malformed VRAM budget up front so a bad value never reaches
+		// the config (ApplyRuntimeSettings is fail-open and would silently skip
+		// installing the cap). An empty string is allowed: it clears the cap.
+		if settings.VRAMBudget != nil && *settings.VRAMBudget != "" {
+			if _, err := vrambudget.Parse(*settings.VRAMBudget); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid vram_budget format: " + err.Error(),
+				})
 			}
 		}
 

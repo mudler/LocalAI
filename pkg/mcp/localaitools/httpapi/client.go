@@ -480,6 +480,13 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	return out, nil
 }
 
+func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error {
+	// PUT with an empty value clears the override server-side (Task 9), so we
+	// use PUT uniformly rather than switching to DELETE for the clear case.
+	body := map[string]any{"value": budget}
+	return c.do(ctx, http.MethodPut, routeNodeVRAMBudget(nodeID), body, nil)
+}
+
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	body := map[string]any{"model": req.ModelName}
 	if req.ContextSize > 0 {

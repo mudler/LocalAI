@@ -17,6 +17,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 
 
@@ -70,7 +71,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 value = value.lower() == "true"
             self.options[key] = value
 
-        model_path = request.Model or "Qwen/Qwen3-ASR-1.7B"
+        model_path, local_only = resolve_model_reference(
+            request, "Qwen/Qwen3-ASR-1.7B"
+        )
         default_dtype = torch.bfloat16 if self.device == "cuda" else torch.float32
         load_dtype = default_dtype
         if "torch_dtype" in self.options:
@@ -117,6 +120,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if attn_implementation:
                 forced_aligner_kwargs["attn_implementation"] = attn_implementation
             load_kwargs["forced_aligner_kwargs"] = forced_aligner_kwargs
+        load_kwargs["local_files_only"] = local_only
 
         try:
             print(f"Loading Qwen3-ASR from {model_path}", file=sys.stderr)
