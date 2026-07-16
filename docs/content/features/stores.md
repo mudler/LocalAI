@@ -84,9 +84,17 @@ name: my-vectors
 backend: valkey-store
 options:
   - addr:valkey.internal:6379
+  - username_env:MY_VALKEY_USER
+  - password_env:MY_VALKEY_PASSWORD
   - index_algo:HNSW
   - distance_metric:COSINE
 ```
+
+The `username_env` / `password_env` options name an environment variable that holds the actual
+credential rather than putting the secret directly in the YAML. This mirrors `cloud-proxy`'s
+`api_key_env` pattern and lets distinct store configs each reference their own credentials.
+The direct `username` / `password` options still work for backward compatibility, and take
+precedence when both are set.
 
 When no config exists for a store, the backend connects to `localhost:6379` with the defaults
 below (so the zero-config experience still works).
@@ -94,8 +102,10 @@ below (so the zero-config experience still works).
 | Option | Default | Description |
 |--------|---------|-------------|
 | `addr` | `localhost:6379` | Valkey server address (`host:port`). |
-| `username` | *(empty)* | Optional ACL username. |
-| `password` | *(empty)* | Optional password / ACL secret. |
+| `username` | *(empty)* | Optional ACL username (plaintext in config). |
+| `password` | *(empty)* | Optional password / ACL secret (plaintext in config). |
+| `username_env` | *(empty)* | Name of an env var that holds the username. Preferred over `username` for secrets — keeps credentials out of the model YAML. |
+| `password_env` | *(empty)* | Name of an env var that holds the password. Preferred over `password` for secrets. |
 | `tls` | `false` | Enable TLS (required by many managed deployments). |
 | `tls_ca_cert` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). |
 | `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure — for testing only. |
