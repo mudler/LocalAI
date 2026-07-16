@@ -109,6 +109,25 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.OutputModalities()).To(Equal([]string{"image"}))
 		})
 
+		It("guesses the 3d usecase from the trellis2cpp backend and only that backend", func() {
+			cfg := &ModelConfig{Backend: "trellis2cpp"}
+			Expect(cfg.HasUsecases(FLAG_3D)).To(BeTrue())
+			Expect(cfg.Capabilities()).To(ContainElement(Usecase3D))
+
+			other := &ModelConfig{Backend: "llama-cpp"}
+			Expect(other.HasUsecases(FLAG_3D)).To(BeFalse())
+		})
+
+		It("a 3D-generation model reads an image and writes a 3D asset", func() {
+			// Pins the wire strings the UI depends on: capability "3d",
+			// input modality "image" (no text prompt — TRELLIS.2 is
+			// image-conditioned only), output modality "3d".
+			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_3D), Backend: "trellis2cpp"}
+			Expect(cfg.Capabilities()).To(Equal([]string{Usecase3D}))
+			Expect(cfg.InputModalities()).To(Equal([]string{ModalityImage}))
+			Expect(cfg.OutputModalities()).To(Equal([]string{Modality3D}))
+		})
+
 		It("conditioned video uses declared modalities without backend-specific inference", func() {
 			cfg := &ModelConfig{
 				KnownUsecases:         usecaseBits(FLAG_VIDEO),

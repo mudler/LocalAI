@@ -305,14 +305,22 @@ func API(application *application.Application) (*echo.Echo, error) {
 		audioPath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "audio")
 		imagePath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "images")
 		videoPath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "videos")
+		threeDPath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "3d")
 
 		os.MkdirAll(audioPath, 0750)
 		os.MkdirAll(imagePath, 0750)
 		os.MkdirAll(videoPath, 0750)
+		_ = os.MkdirAll(threeDPath, 0750)
+
+		// Go's built-in MIME table has no .glb entry and minimal containers
+		// ship no /etc/mime.types, so generated GLBs would otherwise be
+		// served as application/octet-stream.
+		_ = mime.AddExtensionType(".glb", "model/gltf-binary")
 
 		e.Static("/generated-audio", audioPath)
 		e.Static("/generated-images", imagePath)
 		e.Static("/generated-videos", videoPath)
+		e.Static("/generated-3d", threeDPath)
 	}
 
 	// Usage recording is initialised in application/startup.go and
