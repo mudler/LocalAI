@@ -113,6 +113,41 @@ var _ = Describe("loadConfig", func() {
 	})
 })
 
+var _ = Describe("Load namespace gate", func() {
+	It("accepts prefixed store namespaces", func() {
+		s := NewValkeyStore()
+		// Load will fail at the Valkey connect step (no server), but only after
+		// passing the namespace gate. A network error is acceptable here — it
+		// means the prefix check passed.
+		err := s.Load(&pb.ModelOptions{Model: store.NamespacePrefix + "any-namespace", Options: []string{"addr:localhost:1"}})
+		Expect(err).NotTo(MatchError(ContainSubstring("not a store namespace")))
+	})
+
+	It("accepts the prefix alone (default store)", func() {
+		s := NewValkeyStore()
+		err := s.Load(&pb.ModelOptions{Model: store.NamespacePrefix, Options: []string{"addr:localhost:1"}})
+		Expect(err).NotTo(MatchError(ContainSubstring("not a store namespace")))
+	})
+
+	It("refuses model names without the namespace prefix", func() {
+		s := NewValkeyStore()
+		err := s.Load(&pb.ModelOptions{Model: "some-llm.gguf"})
+		Expect(err).To(MatchError(ContainSubstring("not a store namespace")))
+	})
+
+	It("refuses an empty model name", func() {
+		s := NewValkeyStore()
+		err := s.Load(&pb.ModelOptions{})
+		Expect(err).To(MatchError(ContainSubstring("not a store namespace")))
+	})
+
+	It("refuses nil opts", func() {
+		s := NewValkeyStore()
+		err := s.Load(nil)
+		Expect(err).To(HaveOccurred())
+	})
+})
+
 var _ = Describe("StoresSet", func() {
 	It("rejects empty input", func() {
 		s, _ := newMockStore(testCfg())

@@ -113,17 +113,26 @@ func newWithClient(client valkey.Client, cfg Config, namespace string) *ValkeySt
 // identifier (one process per (backend, model) tuple upstream), so we derive
 // an isolated key prefix and index name from it, and opts.Options carries the
 // per-store connection/index configuration.
+//
+// The NamespacePrefix gate mirrors local-store: core's StoreBackend always
+// sends the model name with store.NamespacePrefix; anything else is the model
+// loader's greedy autoload probing with a real model name, which must be
+// refused or the LLM binds to the vector store (the #9287 failure mode).
 func (s *ValkeyStore) Load(opts *pb.ModelOptions) error {
+	if opts == nil {
+		return fmt.Errorf("valkey-store: refusing to load: nil model options (expected %q prefix)", store.NamespacePrefix)
+	}
+	if !strings.HasPrefix(opts.GetModel(), store.NamespacePrefix) {
+		return fmt.Errorf("valkey-store: refusing to load %q: not a store namespace (expected %q prefix)", opts.GetModel(), store.NamespacePrefix)
+	}
+
 	cfg, err := loadConfig(opts)
 	if err != nil {
 		return err
 	}
 	s.cfg = cfg
 
-	namespace := ""
-	if opts != nil {
-		namespace = opts.Model
-	}
+	namespace := opts.Model
 	s.prefix = keyPrefix(namespace)
 	s.indexName = indexName(namespace)
 
