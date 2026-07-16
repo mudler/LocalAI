@@ -306,10 +306,11 @@ func classifierRespond(ctx context.Context, session *Session, conv *Conversation
 	// (error and no complete default set) is handled like a scoring
 	// failure.
 	filledArgs := ""
+	var fillValues map[string]string
 	var fillLatency time.Duration
 	if chosen != nil {
 		var ferr error
-		filledArgs, fillLatency, ferr = fillChosenArguments(ctx, session, cc, msgs, chosen)
+		filledArgs, fillValues, fillLatency, ferr = fillChosenArguments(ctx, session, cc, msgs, chosen)
 		if ferr != nil {
 			if cc.FallbackMode() == types.ClassifierFallbackGenerate {
 				xlog.Warn("realtime classifier: slot fill failed; falling back to generation", "error", ferr)
@@ -363,7 +364,10 @@ func classifierRespond(ctx context.Context, session *Session, conv *Conversation
 	var toolCalls []functions.FuncCallResults
 	switch {
 	case chosen != nil:
-		reply = chosen.Reply
+		// The reply may template the filled slot values ("Going forward
+		// {{distance}} {{units}}.") so what is spoken confirms what was
+		// actually inferred.
+		reply = chosen.SpliceReply(fillValues)
 		if chosen.Tool != nil {
 			toolCalls = []functions.FuncCallResults{{Name: chosen.Tool.Name, Arguments: filledArgs}}
 		}
@@ -476,34 +480,35 @@ func parseSlotValues(chosenID, firstSlot, generated string, slots []types.Classi
 
 // fillChosenArguments resolves a winning option's tool arguments: canned
 // options pass through, slotted options run the fill completion with a
-// default-value recovery when inference fails. The error return is reserved
-// for unrecoverable failures (no complete default set).
-func fillChosenArguments(ctx context.Context, session *Session, cc *types.ClassifierConfig, msgs schema.Messages, chosen *types.ClassifierOption) (args string, latency time.Duration, err error) {
+// default-value recovery when inference fails. The slot values ride along
+// so the caller can splice them into the spoken reply too. The error return
+// is reserved for unrecoverable failures (no complete default set).
+func fillChosenArguments(ctx context.Context, session *Session, cc *types.ClassifierConfig, msgs schema.Messages, chosen *types.ClassifierOption) (args string, values map[string]string, latency time.Duration, err error) {
 	if chosen.Tool == nil {
-		return "", 0, nil
+		return "", nil, 0, nil
 	}
 	if len(chosen.Tool.Slots) == 0 {
 		if len(chosen.Tool.Arguments) > 0 {
-			return string(chosen.Tool.Arguments), 0, nil
+			return string(chosen.Tool.Arguments), nil, 0, nil
 		}
-		return "{}", 0, nil
+		return "{}", nil, 0, nil
 	}
 	start := time.Now()
-	args, err = session.ModelInterface.FillToolArguments(ctx, msgs, cc.Options, cc.Normalization, chosen)
+	args, values, err = session.ModelInterface.FillToolArguments(ctx, msgs, cc.Options, cc.Normalization, chosen)
 	latency = time.Since(start)
 	if err == nil {
-		return args, latency, nil
+		return args, values, latency, nil
 	}
 	xlog.Warn("realtime classifier: slot fill failed; trying slot defaults", "option", chosen.ID, "error", err)
 	defaults, derr := chosen.Tool.SlotDefaults()
 	if derr != nil {
-		return "", latency, err
+		return "", nil, latency, err
 	}
 	args, derr = chosen.Tool.SpliceArguments(defaults)
 	if derr != nil {
-		return "", latency, err
+		return "", nil, latency, err
 	}
-	return args, latency, nil
+	return args, defaults, latency, nil
 }
 
 // classifierPolicyDescription renders an option's scoring description,
