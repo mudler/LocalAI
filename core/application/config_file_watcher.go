@@ -205,6 +205,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		if settings.ApiKeys != nil {
 			appConfig.ApiKeys = config.MergeAPIKeys(startupAppConfig.ApiKeys, *settings.ApiKeys)
 		}
+		xlog.Debug("runtime settings applied from runtime_settings.json")
 		return nil
 	}
 }
