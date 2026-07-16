@@ -55,7 +55,10 @@ export default function NodeDetail() {
   const resume = async () => { try { await nodesApi.resume(id); addToast('Node resumed', 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
   const remove = async () => { try { await nodesApi.delete(id); addToast('Node removed', 'success'); navigate('/app/nodes') } catch (e) { addToast(e.message, 'error') } }
   const unload = async (name) => { try { await nodesApi.unloadModel(id, name); addToast(`Model "${name}" unloaded`, 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
-  const upgradeBackend = async (name) => { try { await nodesApi.installBackend(id, name); addToast(`Backend "${name}" upgraded`, 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
+  // The upgrade runs async via the gallery job queue (202 + jobID); the
+  // global Operations panel tracks progress, so the toast only reports the
+  // dispatch, not completion.
+  const upgradeBackend = async (name) => { try { await nodesApi.upgradeBackend(id, name); addToast(`Upgrading "${name}" on this node...`, 'info'); setTimeout(refresh, 1200) } catch (e) { addToast(e.message, 'error') } }
   const deleteBackend = async (name) => { try { await nodesApi.deleteBackend(id, name); addToast(`Backend "${name}" deleted`, 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
   const addLabel = async (k, v) => { try { await nodesApi.mergeLabels(id, { [k]: v }); refresh() } catch (e) { addToast(e.message, 'error') } }
   const delLabel = async (k) => { try { await nodesApi.deleteLabel(id, k); refresh() } catch (e) { addToast(e.message, 'error') } }

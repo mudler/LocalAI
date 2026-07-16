@@ -1124,6 +1124,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/nodes/{id}/vram-budget": {
+            "put": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Update a node's VRAM allocation budget",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New value (\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpdateVRAMBudgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid budget",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Reset a node's VRAM budget to the worker default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
                 "tags": [
@@ -3748,6 +3832,9 @@ const docTemplate = `{
                     "description": "Cancelled is true if the operation was cancelled",
                     "type": "boolean"
                 },
+                "current_bytes": {
+                    "type": "integer"
+                },
                 "deletion": {
                     "description": "Deletion is true if the operation is a deletion",
                     "type": "boolean"
@@ -3774,11 +3861,17 @@ const docTemplate = `{
                         "$ref": "#/definitions/galleryop.NodeProgress"
                     }
                 },
+                "phase": {
+                    "type": "string"
+                },
                 "processed": {
                     "type": "boolean"
                 },
                 "progress": {
                     "type": "number"
+                },
+                "total_bytes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3948,6 +4041,15 @@ const docTemplate = `{
                 "value": {
                     "description": "Value is the new per-model replica cap on this node. Must be \u003e= 1.",
                     "type": "integer"
+                }
+            }
+        },
+        "localai.UpdateVRAMBudgetRequest": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "Value is the VRAM cap (\"80%\" or \"12GB\"). Empty string clears the cap.",
+                    "type": "string"
                 }
             }
         },

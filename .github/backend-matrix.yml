@@ -4917,7 +4917,6 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
-  # rfdetr
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -4929,6 +4928,35 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "local-store"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # cloud-proxy
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-cloud-proxy'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "cloud-proxy"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-cloud-proxy'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "cloud-proxy"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -5663,6 +5691,10 @@ includeDarwin:
     lang: "go"
   - backend: "local-store"
     tag-suffix: "-metal-darwin-arm64-local-store"
+    build-type: "metal"
+    lang: "go"
+  - backend: "cloud-proxy"
+    tag-suffix: "-metal-darwin-arm64-cloud-proxy"
     build-type: "metal"
     lang: "go"
   - backend: "llama-cpp-quantization"

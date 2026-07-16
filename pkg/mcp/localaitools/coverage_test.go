@@ -59,6 +59,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolSetAlias:           "PATCH /api/models/config-json/:name (swap) or POST /models/import (create)",
 	ToolCreateVoiceProfile: "POST /api/voice-profiles",
 	ToolDeleteVoiceProfile: "DELETE /api/voice-profiles/:id",
+	ToolSetNodeVRAMBudget:  "PUT /api/nodes/:id/vram-budget",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in
