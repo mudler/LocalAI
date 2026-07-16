@@ -188,9 +188,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 
 		// Handle API keys specially (merge with startup keys)
 		if settings.ApiKeys != nil {
-			envKeys := startupConfig.ApiKeys
-			runtimeKeys := *settings.ApiKeys
-			appConfig.ApiKeys = append(envKeys, runtimeKeys...)
+			appConfig.ApiKeys = config.MergeAPIKeys(startupConfig.ApiKeys, *settings.ApiKeys)
 		}
 
 		// Update backend logging dynamically

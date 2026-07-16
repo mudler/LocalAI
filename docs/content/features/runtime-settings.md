@@ -50,6 +50,7 @@ You can configure these settings via the web UI or through environment variables
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
 - **Context Size**: Default context size for models (default: `512`)
 - **F16**: Enable GPU acceleration using 16-bit floating point
+- **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "advanced/vram-management" %}})
 
 ### Debug and Logging
 
@@ -101,14 +102,24 @@ Configure the built-in agent platform (see [Agents]({{%relref "features/agents" 
 
 All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
 
-## Environment Variable Precedence
+## Settings Precedence
 
-Environment variables take precedence over settings configured via the web UI or configuration files. If a setting is controlled by an environment variable, it cannot be modified through the web interface. The settings page will indicate when a setting is controlled by an environment variable.
+Every runtime setting follows a single precedence rule:
 
-The precedence order is:
-1. **Environment variables** (highest priority)
+1. **Environment variables and CLI flags** (highest priority)
 2. **Configuration files** (`runtime_settings.json`, `api_keys.json`)
 3. **Default values** (lowest priority)
+
+The same rule is applied identically in all three places where settings can change:
+
+- **At boot**: values persisted in `runtime_settings.json` fill in every setting that was not explicitly set via an environment variable or CLI flag.
+- **On `POST /api/settings`** (the web UI Settings page): if a setting is controlled by an environment variable, it cannot be modified through the web interface. The settings page will indicate when a setting is controlled by an environment variable.
+- **On manual file edits**: the configuration watcher hot-applies edits to `runtime_settings.json` with the same env-over-file semantics as boot, so editing the file by hand behaves like restarting with that file. For example, hand-editing `vram_budget` installs the new VRAM allocation cap live, without a restart.
+
+### Known Limitations
+
+- An environment variable explicitly set to its default value is indistinguishable from an unset one, so the value from `runtime_settings.json` wins in that case. In particular, an explicit `LOCALAI_THREADS=0` behaves like an unset `LOCALAI_THREADS`.
+- A field previously changed via the API (or the web UI) looks environment-set to the file watcher, so a manual file edit of that same field is not hot-applied: it takes effect on the next restart.
 
 ## Example Configuration
 
@@ -171,7 +182,7 @@ The runtime settings system supports dynamic configuration file watching. When `
 - `api_keys.json` - API keys (for backward compatibility)
 - `external_backends.json` - External backend configurations
 
-Changes to these files are automatically detected and applied without requiring a restart.
+Changes to these files are automatically detected and applied without requiring a restart, using the same precedence rule described in [Settings Precedence](#settings-precedence).
 
 ## Best Practices
 
