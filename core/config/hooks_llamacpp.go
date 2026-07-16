@@ -31,10 +31,12 @@ func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
 		}
 	}()
 
-	// Default context size if not set, regardless of whether GGUF parsing succeeds
+	// Default context size if not set, or if a context_size=-1 auto-max was
+	// requested but the GGUF could not be parsed, so guessGGUFFromFile never ran
+	// to resolve it. A negative value must never reach the backend.
 	defer func() {
-		if cfg.ContextSize == nil {
-			ctx := defaultContextSize
+		if cfg.ContextSize == nil || *cfg.ContextSize < 0 {
+			ctx := DefaultContextSize
 			cfg.ContextSize = &ctx
 		}
 	}()

@@ -10,11 +10,36 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 )
+
+// defaultVRAMBudget is the process-wide allocation cap set by standalone
+// local-ai (LOCALAI_VRAM_BUDGET / the Settings page). nil pointer = no cap.
+// The aggregate getters below apply it before returning so every allocation
+// decision (hardware defaults, context-fit, watchdog) inherits the cap without
+// per-call-site changes. Distributed workers deliberately leave this unset and
+// report raw VRAM; the server applies per-node budgets instead.
+var defaultVRAMBudget atomic.Pointer[vrambudget.Budget]
+
+// SetDefaultVRAMBudget installs the process-wide VRAM allocation cap. Safe to
+// call at startup and again live when the Settings page changes it.
+func SetDefaultVRAMBudget(b vrambudget.Budget) {
+	bb := b
+	defaultVRAMBudget.Store(&bb)
+}
+
+// DefaultVRAMBudget returns the current process-wide cap (unset Budget = none).
+func DefaultVRAMBudget() vrambudget.Budget {
+	if p := defaultVRAMBudget.Load(); p != nil {
+		return *p
+	}
+	return vrambudget.Budget{}
+}
 
 // GPU vendor constants
 const (
@@ -38,9 +63,9 @@ var UnifiedMemoryDevices = []string{
 
 // GPUMemoryInfo contains real-time GPU memory usage information
 type GPUMemoryInfo struct {
-	Index        int     `json:"index"`
-	Name         string  `json:"name"`
-	Vendor       string  `json:"vendor"`
+	Index  int    `json:"index"`
+	Name   string `json:"name"`
+	Vendor string `json:"vendor"`
 	// BDF is the canonical PCI bus address (dddd:bb:dd.f) when known.
 	// Populated by detection paths that can attribute the device to a
 	// PCI location (clinfo, future amdgpu/nvidia paths); empty for
@@ -107,7 +132,8 @@ func TotalAvailableVRAM() (uint64, error) {
 		}
 		// If we got valid VRAM from ghw, return it
 		if totalVRAM > 0 {
-			return totalVRAM, nil
+			capped, _ := DefaultVRAMBudget().Apply(totalVRAM, totalVRAM)
+			return capped, nil
 		}
 	}
 
@@ -121,12 +147,70 @@ func TotalAvailableVRAM() (uint64, error) {
 		}
 		if totalVRAM > 0 {
 			xlog.Debug("VRAM detected via binary tools", "total_vram", totalVRAM)
-			return totalVRAM, nil
+			capped, _ := DefaultVRAMBudget().Apply(totalVRAM, totalVRAM)
+			return capped, nil
 		}
 	}
 
 	// No VRAM detected
 	return 0, nil
+}
+
+// MinPerGPUVRAM returns the total VRAM of the SMALLEST GPU on the host (in
+// bytes), or 0 when no per-device VRAM is known. Unlike TotalAvailableVRAM
+// (which sums across devices) this reports a single device's ceiling, which is
+// the right figure for decisions about what must fit on one card: the compute
+// buffer (sized by n_ubatch) and the parallel-slot tier. Summing a multi-GPU
+// host's VRAM over-provisions those into a per-device OOM (issue #10485).
+//
+// Unified-memory devices (GB10, Apple) report system RAM as their single
+// device's VRAM, so they are unaffected.
+func MinPerGPUVRAM() (uint64, error) {
+	// Prefer per-device binary detection (nvidia-smi/rocm-smi report true
+	// per-card VRAM); ghw's per-card memory can reflect NUMA node RAM on some
+	// hosts, which is why TotalAvailableVRAM treats it as a sum.
+	if infos := GetGPUMemoryUsage(); len(infos) > 0 {
+		if v := minNonZeroVRAM(infos); v > 0 {
+			capped, _ := DefaultVRAMBudget().Apply(v, v)
+			return capped, nil
+		}
+	}
+
+	// Fallback: ghw per-card memory, taking the minimum non-zero card.
+	if gpus, err := GPUs(); err == nil {
+		var min uint64
+		for _, gpu := range gpus {
+			if gpu == nil || gpu.Node == nil || gpu.Node.Memory == nil {
+				continue
+			}
+			if b := gpu.Node.Memory.TotalUsableBytes; b > 0 {
+				if u := uint64(b); min == 0 || u < min {
+					min = u
+				}
+			}
+		}
+		if min > 0 {
+			capped, _ := DefaultVRAMBudget().Apply(min, min)
+			return capped, nil
+		}
+	}
+
+	return 0, nil
+}
+
+// minNonZeroVRAM returns the smallest non-zero TotalVRAM across the given GPUs,
+// or 0 when none report VRAM.
+func minNonZeroVRAM(infos []GPUMemoryInfo) uint64 {
+	var min uint64
+	for _, g := range infos {
+		if g.TotalVRAM == 0 {
+			continue
+		}
+		if min == 0 || g.TotalVRAM < min {
+			min = g.TotalVRAM
+		}
+	}
+	return min
 }
 
 func HasGPU(vendor string) bool {
@@ -304,7 +388,95 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 		aggregate.UsagePercent = float64(aggregate.UsedVRAM) / float64(aggregate.TotalVRAM) * 100
 	}
 
+	// Apply the process-wide allocation cap so scheduling/hardware-default
+	// consumers see budgeted capacity, not physical capacity.
+	if b := DefaultVRAMBudget(); b.IsSet() && aggregate.TotalVRAM > 0 {
+		aggregate.TotalVRAM, aggregate.FreeVRAM = b.Apply(aggregate.TotalVRAM, aggregate.FreeVRAM)
+		aggregate.UsedVRAM = aggregate.TotalVRAM - aggregate.FreeVRAM
+		if aggregate.TotalVRAM > 0 {
+			aggregate.UsagePercent = float64(aggregate.UsedVRAM) / float64(aggregate.TotalVRAM) * 100
+		}
+	}
+
 	return aggregate
+}
+
+var (
+	computeCapOnce   sync.Once
+	computeCapResult string
+)
+
+// NVIDIAComputeCapability returns the highest NVIDIA GPU compute capability on
+// this host as a "major.minor" string (e.g. "12.1" for GB10 / DGX Spark), or ""
+// when nvidia-smi is unavailable or reports none. Detected once and cached.
+//
+// This runs where the GPU actually is. In distributed mode it is reported by
+// each worker on registration so the router can make per-node decisions rather
+// than guessing from the (possibly GPU-less) frontend host.
+func NVIDIAComputeCapability() string {
+	computeCapOnce.Do(func() {
+		computeCapResult = detectNVIDIAComputeCapability()
+	})
+	return computeCapResult
+}
+
+func detectNVIDIAComputeCapability() string {
+	if _, err := exec.LookPath("nvidia-smi"); err != nil {
+		return ""
+	}
+
+	cmd := exec.Command("nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		xlog.Debug("nvidia-smi compute_cap query failed", "error", err, "stderr", stderr.String())
+		return ""
+	}
+
+	best := ""
+	bestMajor, bestMinor := -1, -1
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		maj, min := parseComputeCap(line)
+		if maj < 0 {
+			continue
+		}
+		if maj > bestMajor || (maj == bestMajor && min > bestMinor) {
+			bestMajor, bestMinor, best = maj, min, line
+		}
+	}
+	if best != "" {
+		xlog.Debug("NVIDIA compute capability detected", "compute_cap", best)
+	}
+	return best
+}
+
+// parseComputeCap splits a "major.minor" compute-capability string into its
+// integer parts. Returns (-1, -1) if it can't be parsed.
+func parseComputeCap(cc string) (int, int) {
+	cc = strings.TrimSpace(cc)
+	if cc == "" {
+		return -1, -1
+	}
+	majStr, minStr := cc, "0"
+	if dot := strings.IndexByte(cc, '.'); dot >= 0 {
+		majStr, minStr = cc[:dot], cc[dot+1:]
+	}
+	maj, err := strconv.Atoi(strings.TrimSpace(majStr))
+	if err != nil {
+		return -1, -1
+	}
+	min, err := strconv.Atoi(strings.TrimSpace(minStr))
+	if err != nil {
+		min = 0
+	}
+	return maj, min
 }
 
 // getNVIDIAGPUMemory queries NVIDIA GPUs using nvidia-smi
@@ -838,8 +1010,15 @@ func GetResourceInfo() ResourceInfo {
 // GetResourceAggregateInfo returns aggregate memory info (GPU if available, otherwise RAM)
 // This is used by the memory reclaimer to check memory usage
 func GetResourceAggregateInfo() AggregateMemoryInfo {
-	resourceInfo := GetResourceInfo()
-	return resourceInfo.Aggregate
+	// The VRAM budget is applied exactly once, upstream: the GPU-branch
+	// Aggregate is sourced from GetGPUAggregateInfo, which already caps
+	// total/free/used against DefaultVRAMBudget. Re-applying b.Apply here would
+	// double-cap: Apply resolves a percentage budget as a fraction of its input
+	// total, so a second pass shrinks the already-shrunk total again (P*(P*T)
+	// instead of P*T) and corrupts UsagePercent read by the memory reclaimer.
+	// The RAM branch is never budgeted (the budget is VRAM-only). So this
+	// boundary must return the aggregate unchanged.
+	return GetResourceInfo().Aggregate
 }
 
 // getVulkanGPUMemory queries GPUs using vulkaninfo as a fallback.
@@ -866,12 +1045,12 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 }
 
 type vulkanGPUTextInfo struct {
-	index        int
-	name         string
-	deviceType   string
-	totalVRAM    uint64
-	budgetVRAM   uint64
-	usageVRAM    uint64
+	index      int
+	name       string
+	deviceType string
+	totalVRAM  uint64
+	budgetVRAM uint64
+	usageVRAM  uint64
 }
 
 func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
@@ -909,7 +1088,7 @@ func parseVulkanGPUMemoryText(r io.Reader) []GPUMemoryInfo {
 		} else if current.usageVRAM != 0 && current.budgetVRAM == 0 {
 			current.budgetVRAM = current.totalVRAM - current.usageVRAM
 		} else if current.usageVRAM == 0 && current.budgetVRAM == 0 {
-			current.usageVRAM  = 0
+			current.usageVRAM = 0
 			current.budgetVRAM = current.totalVRAM
 		}
 

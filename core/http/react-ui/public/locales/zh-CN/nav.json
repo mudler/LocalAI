@@ -13,11 +13,17 @@
   "account": "账户",
   "accountFor": "账户：{{name}}",
   "sections": {
-    "tools": "工具",
-    "enhance": "增强",
-    "biometrics": "生物识别",
-    "agents": "智能体",
-    "system": "系统"
+    "create": "创建",
+    "recognition": "识别",
+    "build": "构建",
+    "operate": "运维"
+  },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
   },
   "items": {
     "home": "首页",
@@ -27,6 +33,11 @@
     "talk": "通话",
     "fineTune": "微调（实验性）",
     "quantize": "量化（实验性）",
+    "faces": "人脸",
+    "voices": "声音",
+    "jobs": "任务",
+    "operate": "管理",
+    "host": "主机",
     "audioTransform": "音频变换",
     "faceRecognition": "人脸识别",
     "voiceRecognition": "语音识别",
@@ -39,15 +50,21 @@
     "backends": "后端",
     "traces": "追踪",
     "nodes": "节点",
+    "scheduling": "调度",
     "swarm": "Swarm",
     "system": "系统",
     "settings": "设置",
-    "api": "API"
+    "api": "API",
+    "middleware": "Middleware"
   },
   "footer": {
     "github": "GitHub",
     "documentation": "文档",
     "author": "作者",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "自动化",
+    "training": "训练"
   }
 }

@@ -14,20 +14,49 @@ import (
 	"github.com/gpustack/gguf-parser-go/util/ptr"
 )
 
-const (
-	defaultContextSize = 1024
-	defaultNGPULayers  = 99999999
-)
+// reservedNonChatModel reports whether the operator reserved this model for an
+// internal primitive — the router score classifier or the PII NER
+// token_classify tier. Such a model has no chat template and must not be
+// given the generative-chat defaults the GGUF importer otherwise applies
+// (FLAG_CHAT, jinja templating): surfacing it in chat pickers defeats the
+// reservation. Operators who do want a combined model declare both usecases
+// explicitly — the combination is valid.
+func reservedNonChatModel(cfg *ModelConfig) bool {
+	return cfg.KnownUsecases != nil &&
+		(*cfg.KnownUsecases&(FLAG_SCORE|FLAG_TOKEN_CLASSIFY)) != 0
+}
 
 func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
+	// Explicit opt-in: a negative context_size (canonically -1) means "use the
+	// model's full trained context (n_ctx_train) from GGUF metadata". Unlike the
+	// silent unset path below, this overrides an already-present value and warns
+	// when the resolved window will not fit detected VRAM.
+	if cfg.ContextSize != nil && *cfg.ContextSize < 0 {
+		if maxCtx := int(f.Architecture().MaximumContextLength); maxCtx > 0 {
+			cfg.ContextSize = &maxCtx
+			warnIfContextExceedsVRAM(f, maxCtx, f.Metadata().Name)
+		} else {
+			// No usable trained max in metadata: degrade to the safe default
+			// rather than leak a negative n_ctx downstream.
+			d := DefaultContextSize
+			cfg.ContextSize = &d
+			xlog.Warn("[gguf] context_size=-1 requested but GGUF exposes no trained max; using default",
+				"default", d, "model", f.Metadata().Name)
+		}
+	}
 
 	if defaultCtx == 0 && cfg.ContextSize == nil {
-		ctxSize := f.EstimateLLaMACppRun().ContextSize
-		if ctxSize > 0 {
-			cSize := int(ctxSize)
+		// trainedMax is the model's full trained context window (n_ctx_train).
+		// Defaulting a model to it unbounded is what OOMs long-context models at
+		// load: a 128k / 256k / 1M KV cache cannot fit a consumer GPU and the
+		// backend aborts (exitCode=-1). autoContextSize instead caps to a modest
+		// default and only steps below it when detected per-device VRAM demands.
+		trainedMax := int(f.EstimateLLaMACppRun().ContextSize)
+		if trainedMax > 0 {
+			cSize := autoContextSize(f, trainedMax)
 			cfg.ContextSize = &cSize
 		} else {
-			defaultCtx = defaultContextSize
+			defaultCtx = DefaultContextSize
 			cfg.ContextSize = &defaultCtx
 		}
 	}
@@ -41,7 +70,7 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 
 	if cfg.NGPULayers == nil {
 		// we assume we want to offload all layers
-		defaultHigh := defaultNGPULayers
+		defaultHigh := DefaultNGPULayers
 		cfg.NGPULayers = &defaultHigh
 	}
 
@@ -77,11 +106,19 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.Name = f.Metadata().Name
 	}
 
-	// Instruct to use template from llama.cpp
-	cfg.TemplateConfig.UseTokenizerTemplate = true
-	cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
-	cfg.Options = append(cfg.Options, "use_jinja:true")
-	cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
+	// A model the operator reserved for an internal primitive (the router
+	// score classifier, or the PII NER token_classify tier) is not a chat
+	// model: it carries no chat template and must not be painted with the
+	// generative-chat defaults — appending FLAG_CHAT here would fold chat
+	// into KnownUsecases on the next sync and surface the model in every
+	// chat picker. Respect the declaration.
+	if !reservedNonChatModel(cfg) {
+		// Instruct to use template from llama.cpp
+		cfg.TemplateConfig.UseTokenizerTemplate = true
+		cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
+		cfg.Options = append(cfg.Options, "use_jinja:true")
+		cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
+	}
 
 	// Apply per-model-family inference parameter defaults (temperature, top_p, etc.)
 	ApplyInferenceDefaults(cfg, f.Metadata().Name)
@@ -205,4 +242,36 @@ func applyDetectedThinkingConfig(cfg *ModelConfig, metadata *pb.ModelMetadataRes
 	}
 
 	xlog.Debug("[gguf] DetectThinkingSupportFromBackend: preserving explicit reasoning config", "supports_thinking", metadata.SupportsThinking, "disable_reasoning", *cfg.ReasoningConfig.DisableReasoning, "disable_reasoning_tag_prefill", *cfg.ReasoningConfig.DisableReasoningTagPrefill)
+}
+
+// warnIfContextExceedsVRAM logs a best-effort warning when running the model at
+// the given context would not fit detected VRAM. It never blocks load: any
+// detection or estimation gap (no GPU, unknown VRAM, estimate failure) silently
+// skips the warning. Used by the context_size=-1 auto-max path, where the raw
+// trained max can be far larger than a consumer card holds.
+func warnIfContextExceedsVRAM(f *gguf.GGUFFile, ctx int, name string) {
+	defer func() { _ = recover() }() // the run estimate can panic on unusual headers
+
+	if !xsysinfo.HasGPU("nvidia") && !xsysinfo.HasGPU("amd") {
+		return // no VRAM to compare against
+	}
+	vram, err := xsysinfo.TotalAvailableVRAM()
+	if err != nil || vram == 0 {
+		return
+	}
+
+	sum := f.EstimateLLaMACppRun(gguf.WithLLaMACppContextSize(int32(ctx))).Summarize(true, 0, 0)
+	if len(sum.Items) == 0 {
+		return
+	}
+	var used uint64
+	for _, v := range sum.Items[0].VRAMs {
+		used += uint64(v.NonUMA)
+	}
+	if used == 0 || used <= vram {
+		return
+	}
+	xlog.Warn("[gguf] context_size=-1 resolved to the model's trained max; estimated VRAM may exceed available - expect OOM, or set an explicit context_size",
+		"model", name, "context", ctx,
+		"estimated_vram_gib", used>>30, "available_vram_gib", vram>>30)
 }

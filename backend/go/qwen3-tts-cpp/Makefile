@@ -6,9 +6,9 @@ GOCMD?=go
 GO_TAGS?=
 JOBS?=$(shell nproc --ignore=1)
 
-# qwen3-tts.cpp version
-QWEN3TTS_REPO?=https://github.com/predict-woo/qwen3-tts.cpp
-QWEN3TTS_CPP_VERSION?=136e5d36c17083da0321fd96512dc7b263f94a44
+# qwentts.cpp version
+QWEN3TTS_REPO?=https://github.com/ServeurpersoCom/qwentts.cpp
+QWEN3TTS_CPP_VERSION?=9e11ce41b90a2238ca1ec09e0c71fcc913544f2a
 SO_TARGET?=libgoqwen3ttscpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -24,7 +24,14 @@ else ifeq ($(BUILD_TYPE),openblas)
 else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DGGML_HIPBLAS=ON
+	# This ggml only understands GGML_HIP (GGML_HIPBLAS was removed upstream),
+	# so passing GGML_HIPBLAS silently produced a CPU-only build (see #10666).
+	ROCM_HOME ?= /opt/rocm
+	ROCM_PATH ?= /opt/rocm
+	export CXX=$(ROCM_HOME)/llvm/bin/clang++
+	export CC=$(ROCM_HOME)/llvm/bin/clang
+	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
@@ -49,9 +56,9 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DCMAKE_CXX_COMPILER=icpx
 endif
 
-sources/qwen3-tts.cpp:
-	mkdir -p sources/qwen3-tts.cpp
-	cd sources/qwen3-tts.cpp && \
+sources/qwentts.cpp:
+	mkdir -p sources/qwentts.cpp
+	cd sources/qwentts.cpp && \
 	git init && \
 	git remote add origin $(QWEN3TTS_REPO) && \
 	git fetch origin && \
@@ -65,8 +72,8 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libgoqwen3ttscpp-avx.so libgoqwen3ttscpp-avx2.so libgoqwen3ttscpp-avx512.so libgoqwen3ttscpp-fallback.so
 else
-	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = libgoqwen3ttscpp-fallback.so
+	# On non-Linux (e.g., Darwin), build only fallback variant (as a dylib)
+	VARIANT_TARGETS = libgoqwen3ttscpp-fallback.dylib
 endif
 
 qwen3-tts-cpp: main.go goqwen3ttscpp.go $(VARIANT_TARGETS)
@@ -78,7 +85,7 @@ package: qwen3-tts-cpp
 build: package
 
 clean: purge
-	rm -rf libgoqwen3ttscpp*.so package sources/qwen3-tts.cpp qwen3-tts-cpp
+	rm -rf libgoqwen3ttscpp*.so libgoqwen3ttscpp*.dylib package sources/qwentts.cpp qwen3-tts-cpp
 
 purge:
 	rm -rf build*
@@ -88,27 +95,33 @@ purge:
 
 # Build all variants (Linux only)
 ifeq ($(UNAME_S),Linux)
-libgoqwen3ttscpp-avx.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-avx.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:avx${RESET})
 	SO_TARGET=libgoqwen3ttscpp-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-avx.so
 
-libgoqwen3ttscpp-avx2.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-avx2.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:avx2${RESET})
 	SO_TARGET=libgoqwen3ttscpp-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-avx2.so
 
-libgoqwen3ttscpp-avx512.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-avx512.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:avx512${RESET})
 	SO_TARGET=libgoqwen3ttscpp-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-avx512.so
 endif
 
 # Build fallback variant (all platforms)
-libgoqwen3ttscpp-fallback.so: sources/qwen3-tts.cpp
+libgoqwen3ttscpp-fallback.so: sources/qwentts.cpp
 	$(info ${GREEN}I qwen3-tts-cpp build info:fallback${RESET})
 	SO_TARGET=libgoqwen3ttscpp-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgoqwen3ttscpp-custom
 	rm -rf build-libgoqwen3ttscpp-fallback.so
+
+# Build fallback variant as a dylib (Darwin)
+libgoqwen3ttscpp-fallback.dylib: sources/qwentts.cpp
+	$(info ${GREEN}I qwen3-tts-cpp build info:fallback (dylib)${RESET})
+	SO_TARGET=libgoqwen3ttscpp-fallback.dylib CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgoqwen3ttscpp-custom
+	rm -rf build-libgoqwen3ttscpp-fallback.dylib
 
 libgoqwen3ttscpp-custom: CMakeLists.txt cpp/goqwen3ttscpp.cpp cpp/goqwen3ttscpp.h
 	mkdir -p build-$(SO_TARGET) && \
@@ -116,7 +129,8 @@ libgoqwen3ttscpp-custom: CMakeLists.txt cpp/goqwen3ttscpp.cpp cpp/goqwen3ttscpp.
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) --target goqwen3ttscpp && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgoqwen3ttscpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgoqwen3ttscpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgoqwen3ttscpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: qwen3-tts-cpp
 	@echo "Running qwen3-tts-cpp tests..."

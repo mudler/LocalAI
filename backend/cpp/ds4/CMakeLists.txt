@@ -9,6 +9,22 @@ option(DS4_NATIVE "Compile with -march=native / -mcpu=native" ON)
 set(DS4_GPU "cpu" CACHE STRING "GPU backend: cpu, cuda, or metal")
 set(DS4_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ds4" CACHE PATH "Path to cloned ds4 source")
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # Homebrew installs protobuf/grpc under a non-default prefix. The generated
+    # backend.pb.cc / backend.grpc.pb.cc pull in google/protobuf and grpcpp
+    # headers, but the hw_grpc_proto library links neither target, so on macOS
+    # the headers (e.g. google/protobuf/runtime_version.h) are never on the
+    # compiler's include path. Add the Homebrew prefix globally, matching the
+    # llama-cpp backend which builds on Darwin CI.
+    if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64")
+        set(HOMEBREW_DEFAULT_PREFIX "/opt/homebrew")
+    else()
+        set(HOMEBREW_DEFAULT_PREFIX "/usr/local")
+    endif()
+    link_directories("${HOMEBREW_DEFAULT_PREFIX}/lib")
+    include_directories("${HOMEBREW_DEFAULT_PREFIX}/include")
+endif()
+
 find_package(Threads REQUIRED)
 find_package(Protobuf CONFIG QUIET)
 if(NOT Protobuf_FOUND)

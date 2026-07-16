@@ -2,15 +2,17 @@ package main
 
 // Started internally by LocalAI - one gRPC server per loaded model.
 //
-// Loads libparakeet.so via purego and registers the flat C-API entry
-// points declared in parakeet_capi.h. The library name can be overridden
-// with PARAKEET_LIBRARY (mirrors the WHISPER_LIBRARY / VIBEVOICECPP_LIBRARY
-// convention in the sibling backends); the default looks for the .so next
-// to this binary.
+// Loads the parakeet shared library via purego and registers the flat
+// C-API entry points declared in parakeet_capi.h. The library name can be
+// overridden with PARAKEET_LIBRARY (mirrors the WHISPER_LIBRARY /
+// VIBEVOICECPP_LIBRARY convention in the sibling backends); the default
+// looks next to this binary for libparakeet.so on Linux and
+// libparakeet.dylib on macOS.
 import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -28,7 +30,11 @@ type LibFuncs struct {
 func main() {
 	libName := os.Getenv("PARAKEET_LIBRARY")
 	if libName == "" {
-		libName = "libparakeet.so"
+		if runtime.GOOS == "darwin" {
+			libName = "libparakeet.dylib"
+		} else {
+			libName = "libparakeet.so"
+		}
 	}
 
 	lib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)

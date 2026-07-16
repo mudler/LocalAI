@@ -36,7 +36,7 @@ jobs:
       # Sparse checkout: needed for .github/scripts/ (the keepalive cleanup
       # script). Skips the rest of the source tree.
       - name: Checkout (.github/scripts only)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts

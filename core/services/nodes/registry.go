@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -36,6 +37,11 @@ type BackendNode struct {
 	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
 	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
 	GPUVendor    string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	// GPUComputeCapability is the worker GPU's compute capability as
+	// "major.minor" (e.g. "12.1" for GB10 / DGX Spark). Reported by the worker
+	// on registration; used by the router to pick per-arch options (e.g. a
+	// larger physical batch on Blackwell). Empty when unknown / non-NVIDIA.
+	GPUComputeCapability string `gorm:"column:gpu_compute_capability;size:16" json:"gpu_compute_capability"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this node concurrently. Default 1 preserves the historical "one
 	// (node, model)" assumption; set higher (via worker --max-replicas-per-model)
@@ -45,12 +51,24 @@ type BackendNode struct {
 	// admin override. When true, the worker's CLI value is ignored on
 	// re-registration so the override survives worker restarts. Cleared
 	// by an explicit "reset to worker default" action.
-	MaxReplicasPerModelManuallySet bool      `gorm:"column:max_replicas_per_model_manually_set;default:false" json:"max_replicas_per_model_manually_set"`
-	APIKeyID                       string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID                     string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat                  time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt                      time.Time `json:"created_at"`
-	UpdatedAt                      time.Time `json:"updated_at"`
+	MaxReplicasPerModelManuallySet bool `gorm:"column:max_replicas_per_model_manually_set;default:false" json:"max_replicas_per_model_manually_set"`
+	// VRAMBudget is the operator-set allocation cap for this node ("80%" or
+	// "12GB"; empty = no cap). VRAMBudgetBytes is that budget resolved to an
+	// absolute ceiling against the node's raw TotalVRAM (0 = none) and is the
+	// value actually enforced: available_vram is written as min(reported,
+	// ceiling) so the SQL scheduler places against budgeted capacity. TotalVRAM
+	// stays raw so a percentage budget can be recomputed if capacity changes.
+	VRAMBudget      string `gorm:"column:vram_budget;size:32" json:"vram_budget,omitempty"`
+	VRAMBudgetBytes uint64 `gorm:"column:vram_budget_bytes;default:0" json:"vram_budget_bytes,omitempty"`
+	// VRAMBudgetManuallySet marks the budget as a UI-set admin override so the
+	// worker's re-registration value does not clobber it (mirrors
+	// MaxReplicasPerModelManuallySet).
+	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 const (
@@ -69,8 +87,11 @@ const (
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
 	ColGPUVendor           = "gpu_vendor"
+	ColGPUComputeCap       = "gpu_compute_capability"
 	ColLastHeartbeat       = "last_heartbeat"
 	ColMaxReplicasPerModel = "max_replicas_per_model"
+	ColVRAMBudget          = "vram_budget"
+	ColVRAMBudgetBytes     = "vram_budget_bytes"
 )
 
 // NodeModel tracks which models are loaded on which nodes.
@@ -135,13 +156,18 @@ type NodeLabel struct {
 //   - Both → auto-scale on matching nodes
 //   - Neither → no-op (default behavior)
 //
-// Auto-scaling is enabled when MinReplicas > 0 or MaxReplicas > 0.
+// Auto-scaling is enabled when MinReplicas > 0, MaxReplicas > 0, or SpreadAll is set.
 type ModelSchedulingConfig struct {
 	ID           string `gorm:"primaryKey;size:36" json:"id"`
 	ModelName    string `gorm:"uniqueIndex;size:255" json:"model_name"`
 	NodeSelector string `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
 	MinReplicas  int    `gorm:"default:0" json:"min_replicas"`
 	MaxReplicas  int    `gorm:"default:0" json:"max_replicas"`
+	// SpreadAll requests one replica on every node matching NodeSelector
+	// (every healthy backend node when the selector is empty), tracked as
+	// nodes join and leave. Mutually exclusive with MinReplicas/MaxReplicas.
+	// The reconciler turns this into a dynamic Min==Max target each tick.
+	SpreadAll bool `gorm:"column:spread_all;default:false" json:"spread_all,omitempty"`
 	// Prefix-cache-aware routing (epic #10063). RoutePolicy "" means inherit
 	// the cluster-wide default. Thresholds are per-model overrides; 0 means
 	// inherit the global default.
@@ -294,6 +320,36 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	return &NodeRegistry{db: db}, nil
 }
 
+// resolveVRAMBudgetBytes turns a budget string into an absolute byte ceiling
+// against the node's raw total VRAM, clamped to that total. 0 means no cap or
+// unparseable (fail-open at this layer; the endpoint validates input).
+func (r *NodeRegistry) resolveVRAMBudgetBytes(budget string, totalVRAM uint64) uint64 {
+	if budget == "" {
+		return 0
+	}
+	b, err := vrambudget.Parse(budget)
+	if err != nil {
+		xlog.Warn("Ignoring invalid node VRAM budget", "budget", budget, "error", err)
+		return 0
+	}
+	return b.Ceiling(totalVRAM)
+}
+
+// ResolveVRAMBudgetBytesForTest exposes resolveVRAMBudgetBytes for tests.
+func (r *NodeRegistry) ResolveVRAMBudgetBytesForTest(budget string, totalVRAM uint64) uint64 {
+	return r.resolveVRAMBudgetBytes(budget, totalVRAM)
+}
+
+// capAvailable applies a node's resolved budget ceiling to a reported available
+// figure. ceilingBytes == 0 means no cap; otherwise the result is the smaller
+// of the two so the SQL scheduler never sees more free VRAM than the budget.
+func capAvailable(reported, ceilingBytes uint64) uint64 {
+	if ceilingBytes == 0 || reported <= ceilingBytes {
+		return reported
+	}
+	return ceilingBytes
+}
+
 // Register adds or updates a backend node.
 // If autoApprove is true, the node goes directly to "healthy" status.
 // If false, new nodes start in "pending" status and must be approved by an admin.
@@ -327,8 +383,36 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			node.MaxReplicasPerModel = existing.MaxReplicasPerModel
 			node.MaxReplicasPerModelManuallySet = true
 		}
+		// Preserve an admin-set VRAM budget across worker re-registration;
+		// otherwise the worker-reported budget (wired in a later task) wins.
+		if existing.VRAMBudgetManuallySet {
+			node.VRAMBudget = existing.VRAMBudget
+			node.VRAMBudgetManuallySet = true
+		}
+		// Resolve the effective budget against the (possibly updated) raw total
+		// VRAM and cap the reported available so the SQL scheduler places against
+		// budgeted capacity. TotalVRAM is written raw.
+		node.VRAMBudgetBytes = r.resolveVRAMBudgetBytes(node.VRAMBudget, node.TotalVRAM)
+		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes)
 		if err := updateDB.Updates(node).Error; err != nil {
 			return fmt.Errorf("updating node %s: %w", node.Name, err)
+		}
+		// The struct Updates above zero-skips fields, so a worker that dropped
+		// LOCALAI_VRAM_BUDGET (now reporting an empty budget / 0 ceiling) would
+		// leave the previously-stored cap in place, so the operator's env removal
+		// would never take effect. For a node whose budget is NOT an admin
+		// override, force-write the worker-authoritative budget columns even
+		// when empty/zero so removing the budget actually clears the cap.
+		// Manual overrides are handled above and keep the admin value untouched.
+		if !existing.VRAMBudgetManuallySet {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Updates(map[string]any{
+					ColVRAMBudget:      node.VRAMBudget,
+					ColVRAMBudgetBytes: node.VRAMBudgetBytes,
+					ColAvailableVRAM:   node.AvailableVRAM,
+				}).Error; err != nil {
+				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
+			}
 		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
@@ -369,6 +453,10 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		} else {
 			node.Status = StatusPending
 		}
+		// Resolve a worker-reported budget (wired in a later task) against the
+		// node's raw total VRAM and cap the reported available accordingly.
+		node.VRAMBudgetBytes = r.resolveVRAMBudgetBytes(node.VRAMBudget, node.TotalVRAM)
+		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes)
 		if err := r.db.WithContext(ctx).Create(node).Error; err != nil {
 			return fmt.Errorf("creating node %s: %w", node.Name, err)
 		}
@@ -606,7 +694,13 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 
 	if update != nil {
 		if update.AvailableVRAM != nil {
-			updates[ColAvailableVRAM] = *update.AvailableVRAM
+			// Cap the reported available against the node's resolved budget
+			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
+			// capacity. TotalVRAM stays raw (written below).
+			var ceiling uint64
+			db.Model(&BackendNode{}).
+				Select(ColVRAMBudgetBytes).Where("id = ?", nodeID).Scan(&ceiling)
+			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling)
 			// The worker is the source of truth for actual free VRAM.
 			// Whenever it sends us a fresh reading, the in-tick soft
 			// reservation is no longer needed — clear it. (See ReserveVRAM.)
@@ -660,6 +754,49 @@ func (r *NodeRegistry) Get(ctx context.Context, nodeID string) (*BackendNode, er
 		return nil, fmt.Errorf("getting node %s: %w", nodeID, err)
 	}
 	return &node, nil
+}
+
+// GetWithExtras returns a single node enriched with the same computed fields as
+// ListWithExtras (labels, loaded-model count, in-flight total). The plain Get
+// returns a bare BackendNode whose Labels live in a separate table, so the node
+// detail view needs this to show a node's existing labels and live counts.
+func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeWithExtras, error) {
+	node, err := r.Get(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := make(map[string]string)
+	nodeLabels, err := r.GetNodeLabels(ctx, nodeID)
+	if err != nil {
+		xlog.Warn("GetWithExtras: failed to get labels", "node", nodeID, "error", err)
+	} else {
+		for _, l := range nodeLabels {
+			labels[l.Key] = l.Value
+		}
+	}
+
+	var modelCount int64
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND state = ?", nodeID, "loaded").
+		Count(&modelCount).Error; err != nil {
+		xlog.Warn("GetWithExtras: failed to get model count", "node", nodeID, "error", err)
+	}
+
+	var inFlight struct{ Total int }
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Select("COALESCE(SUM(in_flight), 0) as total").
+		Where("node_id = ? AND state IN ?", nodeID, []string{"loaded", "unloading"}).
+		Scan(&inFlight).Error; err != nil {
+		xlog.Warn("GetWithExtras: failed to get in-flight count", "node", nodeID, "error", err)
+	}
+
+	return &NodeWithExtras{
+		BackendNode:   *node,
+		ModelCount:    int(modelCount),
+		InFlightCount: inFlight.Total,
+		Labels:        labels,
+	}, nil
 }
 
 // GetByName returns a single node by name.
@@ -1392,12 +1529,26 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "model_name"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"node_selector", "min_replicas", "max_replicas",
+				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
 				"updated_at",
 			}),
 		}).
 		Create(config).Error
+}
+
+// SeedModelScheduling authoritatively applies a batch of scheduling configs at
+// startup. Each config is upserted (full-replace on model_name), overwriting any
+// prior row for that model. Models not present in configs are left untouched.
+func (r *NodeRegistry) SeedModelScheduling(ctx context.Context, configs []ModelSchedulingConfig) error {
+	for i := range configs {
+		if err := r.SetModelScheduling(ctx, &configs[i]); err != nil {
+			return fmt.Errorf("seeding scheduling config for model %q: %w", configs[i].ModelName, err)
+		}
+		xlog.Info("Seeded model scheduling config", "model", configs[i].ModelName,
+			"spread_all", configs[i].SpreadAll, "min", configs[i].MinReplicas, "max", configs[i].MaxReplicas)
+	}
+	return nil
 }
 
 // GetModelScheduling returns the scheduling config for a model, or nil if none exists.
@@ -1423,7 +1574,7 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
-	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0").Find(&configs).Error
+	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	return configs, err
 }
 
@@ -1595,6 +1746,57 @@ func (r *NodeRegistry) ResetMaxReplicasPerModel(ctx context.Context, nodeID stri
 		Update("max_replicas_per_model_manually_set", false)
 	if res.Error != nil {
 		return fmt.Errorf("clearing max_replicas_per_model override on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// UpdateVRAMBudget sets a node's VRAM allocation cap as a sticky admin override.
+// It resolves the budget against the node's raw TotalVRAM, stores the ceiling,
+// and immediately re-caps available_vram so the scheduler reflects the change
+// before the next heartbeat. Empty budget clears the cap. The override survives
+// worker re-registration (see Register); to hand control back to the worker,
+// call ResetVRAMBudget.
+func (r *NodeRegistry) UpdateVRAMBudget(ctx context.Context, nodeID, budget string) error {
+	node, err := r.Get(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	ceiling := r.resolveVRAMBudgetBytes(budget, node.TotalVRAM)
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{
+			ColVRAMBudget:              budget,
+			ColVRAMBudgetBytes:         ceiling,
+			"vram_budget_manually_set": true,
+			ColAvailableVRAM:           capAvailable(node.AvailableVRAM, ceiling),
+		})
+	if res.Error != nil {
+		return fmt.Errorf("updating vram_budget on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	// Capping available_vram may have freed or constrained capacity; wake any
+	// configs the reconciler put in cooldown so the next tick re-evaluates.
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable flags after vram budget change", "error", err)
+	}
+	return nil
+}
+
+// ResetVRAMBudget clears the admin override and the resolved ceiling, handing
+// budget control back to the worker's reported budget on next register.
+func (r *NodeRegistry) ResetVRAMBudget(ctx context.Context, nodeID string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{
+			ColVRAMBudget:              "",
+			ColVRAMBudgetBytes:         0,
+			"vram_budget_manually_set": false,
+		})
+	if res.Error != nil {
+		return fmt.Errorf("clearing vram_budget on %s: %w", nodeID, res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("node %s not found", nodeID)

@@ -1,5 +1,7 @@
 package localaitools
 
+import "github.com/mudler/LocalAI/core/services/voiceprofile"
+
 // DTOs for the LocalAIClient interface. Where the same shape already exists
 // elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
 // vram.EstimateResult) we surface that type directly via the interface
@@ -52,6 +54,14 @@ type ModelConfigView struct {
 	JSON map[string]any `json:"json,omitempty"  jsonschema:"Parsed JSON view of the same config (convenience for diffing)."`
 }
 
+// AliasInfo is one alias -> target pair, the shape list_aliases returns and
+// GET /api/aliases emits. Kept aligned with localai.AliasInfo so the
+// MCP wire output matches the REST endpoint by construction.
+type AliasInfo struct {
+	Name   string `json:"name"`
+	Target string `json:"target"`
+}
+
 // InstallModelRequest is the input for install_model.
 type InstallModelRequest struct {
 	GalleryName string         `json:"gallery_name,omitempty" jsonschema:"The gallery the model lives in (from gallery_search). Optional when ModelName is unique across galleries."`
@@ -77,11 +87,11 @@ type Backend struct {
 
 // SystemInfo summarises the LocalAI deployment.
 type SystemInfo struct {
-	Version          string   `json:"version"`
-	Distributed      bool     `json:"distributed"`
-	BackendsPath     string   `json:"backends_path,omitempty"`
-	ModelsPath       string   `json:"models_path,omitempty"`
-	LoadedModels     []string `json:"loaded_models,omitempty"`
+	Version           string   `json:"version"`
+	Distributed       bool     `json:"distributed"`
+	BackendsPath      string   `json:"backends_path,omitempty"`
+	ModelsPath        string   `json:"models_path,omitempty"`
+	LoadedModels      []string `json:"loaded_models,omitempty"`
 	InstalledBackends []string `json:"installed_backends,omitempty"`
 }
 
@@ -93,6 +103,15 @@ type Node struct {
 	TotalVRAM   uint64 `json:"total_vram,omitempty"`
 	Healthy     bool   `json:"healthy"`
 	LastSeen    string `json:"last_seen,omitempty"`
+}
+
+// SetNodeVRAMBudgetRequest is the input for set_node_vram_budget. It PUTs
+// the value to /api/nodes/{node_id}/vram-budget, where the server validates
+// and resolves the budget against the node's total VRAM. An empty Budget
+// clears the admin override so the worker's own default takes over again.
+type SetNodeVRAMBudgetRequest struct {
+	NodeID string `json:"node_id"          jsonschema:"The federated node id (from list_nodes) whose VRAM budget to set."`
+	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
 }
 
 // ImportModelURIRequest is the input for import_model_uri. It mirrors the
@@ -135,6 +154,28 @@ type Branding struct {
 type SetBrandingRequest struct {
 	InstanceName    *string `json:"instance_name,omitempty"    jsonschema:"New instance display name (replaces \"LocalAI\" in headers, footers, and the browser tab). Pass an empty string to reset to default."`
 	InstanceTagline *string `json:"instance_tagline,omitempty" jsonschema:"Optional short subtitle shown beneath the instance name. Pass an empty string to clear."`
+}
+
+// VoiceProfile is the same path-free shape returned by the REST library.
+// Keeping the service type avoids REST/MCP field drift.
+type VoiceProfile = voiceprofile.Profile
+
+// CreateVoiceProfileRequest is the MCP/JSON form of profile creation. Audio
+// must be a base64-encoded 16-bit PCM WAV (mono 24 kHz is recommended for
+// portability); the service enforces the same 50 MiB and duration limits as
+// the browser upload route.
+type CreateVoiceProfileRequest struct {
+	Name             string `json:"name"              jsonschema:"Display name for the reusable voice profile."`
+	Description      string `json:"description,omitempty" jsonschema:"Optional note describing tone, source, or intended use."`
+	Language         string `json:"language,omitempty" jsonschema:"Optional BCP-47-style language tag such as en-US."`
+	Transcript       string `json:"transcript"        jsonschema:"Exact transcript of the words spoken in the reference clip."`
+	AudioBase64      string `json:"audio_base64"      jsonschema:"Base64-encoded 16-bit PCM WAV reference, preferably mono 24 kHz, 1-120 seconds and at most 50 MiB decoded."`
+	ConsentConfirmed bool   `json:"consent_confirmed" jsonschema:"Must be true to confirm authorization to clone this voice."`
+}
+
+// DeleteVoiceProfileRequest identifies the profile to remove.
+type DeleteVoiceProfileRequest struct {
+	ID string `json:"id" jsonschema:"Opaque voice profile UUID returned by list_voice_profiles."`
 }
 
 // UsageStatsQuery is the input for get_usage_stats. UserID is optional;
@@ -184,19 +225,11 @@ type UsageBucket struct {
 
 // ---- PII / sensitive data tools ----
 
-// PIIPattern is one row in the list_pii_patterns response.
-type PIIPattern struct {
-	ID             string `json:"id"`
-	Description    string `json:"description"`
-	Action         string `json:"action"` // mask | block | allow
-	MaxMatchLength int    `json:"max_match_length"`
-}
-
 // PIIEventsQuery filters get_pii_events.
 type PIIEventsQuery struct {
 	CorrelationID string `json:"correlation_id,omitempty" jsonschema:"Optional X-Correlation-ID join key (binds events to the request and usage record)."`
 	UserID        string `json:"user_id,omitempty"        jsonschema:"Optional user id to scope the query."`
-	PatternID     string `json:"pattern_id,omitempty"     jsonschema:"Optional pattern id (e.g. email, ssn)."`
+	PatternID     string `json:"pattern_id,omitempty"     jsonschema:"Optional detector group id (e.g. ner:EMAIL)."`
 	Limit         int    `json:"limit,omitempty"          jsonschema:"Maximum events. Defaults to 100."`
 }
 
@@ -215,38 +248,6 @@ type PIIEvent struct {
 	CreatedAt     string `json:"created_at"`
 }
 
-// PIIRedactTestRequest is the input for test_pii_redaction.
-type PIIRedactTestRequest struct {
-	Text string `json:"text" jsonschema:"The candidate text. Will be run through the redactor without recording an event."`
-}
-
-// PIIRedactTestResult is the output for test_pii_redaction. spans
-// describes where the redactor matched; redacted is the text after
-// applying mask actions; blocked / masked flag what was done.
-type PIIRedactTestResult struct {
-	Redacted string         `json:"redacted"`
-	Spans    []PIIEventSpan `json:"spans"`
-	Blocked  bool           `json:"blocked"`
-	Masked   bool           `json:"masked"`
-}
-
-type PIIEventSpan struct {
-	Start      int    `json:"start"`
-	End        int    `json:"end"`
-	Pattern    string `json:"pattern"`
-	HashPrefix string `json:"hash_prefix"`
-}
-
-// PIIPatternActionUpdate is the input for set_pii_pattern_action.
-// At least one of Action or Disabled must be set. Mutations are
-// transient by default — call persist_pii_patterns to flush them
-// to runtime_settings.json so the next start re-applies them.
-type PIIPatternActionUpdate struct {
-	ID       string `json:"id" jsonschema:"Pattern id to mutate (e.g. email, ssn, credit_card, api_key_prefix)."`
-	Action   string `json:"action,omitempty" jsonschema:"New action: mask, block, or allow. Optional — omit to leave the action unchanged."`
-	Disabled *bool  `json:"disabled,omitempty" jsonschema:"Set true to skip this pattern entirely; false to re-enable. Optional — omit to leave enabled-state unchanged."`
-}
-
 // MiddlewareStatus is the aggregated /api/middleware/status payload —
 // the React Middleware page renders this in one go. Routing is a
 // placeholder until subsystem 2 lands.
@@ -255,25 +256,25 @@ type MiddlewareStatus struct {
 	Router MiddlewareRouterStatus `json:"router"`
 }
 
-// MiddlewarePIIStatus shows what the redactor is doing right now and
-// which models opt in. enabled_globally=false means --disable-pii.
+// MiddlewarePIIStatus shows which models opt in to PII redaction and the
+// NER detector models they reference. The detection policy itself lives
+// on each detector model's pii_detection block.
 type MiddlewarePIIStatus struct {
-	EnabledGlobally           bool                  `json:"enabled_globally"`
-	Reason                    string                `json:"reason,omitempty"`
-	DefaultEnabledForBackends []string              `json:"default_enabled_for_backends,omitempty"`
-	Patterns                  []PIIPattern          `json:"patterns"`
-	Models                    []MiddlewarePIIModel  `json:"models"`
-	RecentEventCount          int                   `json:"recent_event_count"`
+	EnabledGlobally           bool                 `json:"enabled_globally"`
+	Reason                    string               `json:"reason,omitempty"`
+	DefaultEnabledForBackends []string             `json:"default_enabled_for_backends,omitempty"`
+	Models                    []MiddlewarePIIModel `json:"models"`
+	RecentEventCount          int                  `json:"recent_event_count"`
 }
 
 // MiddlewarePIIModel is one model row in the per-model PII table.
 type MiddlewarePIIModel struct {
-	Name              string            `json:"name"`
-	Backend           string            `json:"backend"`
-	Enabled           bool              `json:"enabled"`
-	Explicit          bool              `json:"explicit"`             // Did YAML set Enabled, or did the backend prefix decide?
-	DefaultForBackend bool              `json:"default_for_backend"`  // Backend matches the auto-on rule (proxy-*).
-	Overrides         map[string]string `json:"overrides,omitempty"`
+	Name              string   `json:"name"`
+	Backend           string   `json:"backend"`
+	Enabled           bool     `json:"enabled"`
+	Explicit          bool     `json:"explicit"`            // Did YAML set Enabled, or did the backend prefix decide?
+	DefaultForBackend bool     `json:"default_for_backend"` // Backend matches the auto-on rule (proxy-*).
+	Detectors         []string `json:"detectors,omitempty"` // NER detector model names this config references.
 }
 
 // MiddlewareRouterStatus is the placeholder shape the Routing tab

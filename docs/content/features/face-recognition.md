@@ -7,16 +7,93 @@ url = "/features/face-recognition/"
 
 ![Face recognition: 1:N match against a vector store, with an anti-spoofing liveness gate that can veto a verification](/images/diagrams/face-recognition-flow.png)
 
-LocalAI supports face recognition through the `insightface` backend:
-face verification (1:1), face identification (1:N) against a built-in
-vector store, face embedding, face detection, demographic analysis
-(age / gender), and antispoofing / liveness detection.
+LocalAI supports face recognition: face verification (1:1), face
+identification (1:N) against a built-in vector store, face embedding,
+face detection, demographic analysis (age / gender), and antispoofing /
+liveness detection.
 
-The backend ships **two interchangeable engines** under one image, each
-paired with a distinct gallery entry so users can pick by license and
-accuracy needs.
+The same `/v1/face/*` HTTP API is served by two backends:
 
-## Licensing — read this first
+- **`face-detect` (recommended, default).** A standalone C++/ggml
+  engine ([face-detect.cpp](https://github.com/mudler/face-detect.cpp)):
+  no Python, no onnxruntime, no torch runtime. Each gallery entry is a
+  single self-describing GGUF. This is the recommended option for new
+  deployments.
+- **`insightface` (Python).** The original ONNX Runtime backend. Still
+  supported; see [the Python backend](#insightface-python-backend) below.
+
+Both backends expose the identical wire format, so the API examples in
+this page work with either - only the gallery entry name (the `model`
+field) changes.
+
+## face-detect (ggml) backend
+
+The `face-detect` backend reads the detector and recognizer architecture
+(`facedetect.arch`) directly from the GGUF metadata, so installing a
+gallery entry is all that is needed to select an engine. It drives the
+Embeddings / Detect / FaceVerify / FaceAnalyze gRPC rpcs behind the
+`/v1/face/{embed,verify,analyze,detect,register,identify,forget}`
+endpoints.
+
+### Licensing - read this first
+
+| Gallery entry | Detector + recognizer | Embedding dim | License |
+|---|---|---|---|
+| `face-detect-buffalo-l` | SCRFD-10GF + ArcFace R50 + GenderAge | 512 | **Non-commercial research only** (upstream insightface weights) |
+| `face-detect-buffalo-m` | SCRFD-2.5GF + ArcFace R50 + GenderAge | 512 | **Non-commercial research only** |
+| `face-detect-buffalo-s` | SCRFD-500MF + MBF + GenderAge | 512 | **Non-commercial research only** |
+| `face-detect-yunet-sface` | YuNet + SFace (OpenCV Zoo) | 128 | **Apache 2.0 - commercial-safe** |
+
+The insightface buffalo packs (buffalo_l / buffalo_m / buffalo_s) are
+released by the upstream maintainers for **non-commercial research use
+only**. Pick the `face-detect-yunet-sface` entry for production /
+commercial deployments.
+
+### Quickstart
+
+Install the commercial-safe entry (recommended for copy-paste):
+
+```bash
+local-ai models install face-detect-yunet-sface
+```
+
+Verify that two images depict the same person:
+
+```bash
+curl -sX POST http://localhost:8080/v1/face/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "face-detect-yunet-sface",
+    "img1": "https://example.com/alice_1.jpg",
+    "img2": "https://example.com/alice_2.jpg"
+  }'
+```
+
+Detect faces and analyze demographics (buffalo entries populate
+age / gender; YuNet + SFace returns regions only):
+
+```bash
+curl -sX POST http://localhost:8080/v1/face/detect \
+  -H "Content-Type: application/json" \
+  -d '{"model": "face-detect-buffalo-l", "img": "https://example.com/group.jpg"}'
+
+curl -sX POST http://localhost:8080/v1/face/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"model": "face-detect-buffalo-l", "img": "https://example.com/alice.jpg"}'
+```
+
+The 1:N register / identify / forget workflow and the rest of the API
+are identical to the [API reference](#api-reference) below - just pass a
+`face-detect-*` model name. The per-engine verify thresholds are ~0.35
+for the buffalo ArcFace/MBF recognizers and ~0.363 for SFace.
+
+## insightface (Python) backend
+
+The `insightface` backend ships **two interchangeable engines** under
+one image, each paired with a distinct gallery entry so users can pick
+by license and accuracy needs.
+
+### Licensing - read this first
 
 | Gallery entry | Detector + recognizer | Size | License |
 |---|---|---|---|

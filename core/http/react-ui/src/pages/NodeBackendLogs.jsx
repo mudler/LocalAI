@@ -4,6 +4,7 @@ import { nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -176,9 +177,9 @@ export default function NodeBackendLogs() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title" style={{ marginBottom: 0 }}>
+      <PageHeader
+        title={
+          <>
             <i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
             {baseModelName}
             {!isMerged && (
@@ -217,13 +218,15 @@ export default function NodeBackendLogs() {
                 merged · {replicas.length} replicas
               </span>
             )}
-          </h1>
-          <p className="page-subtitle" style={{ marginTop: 'var(--spacing-xs)' }}>
+          </>
+        }
+        supporting={
+          <>
             Backend logs from node <strong>{nodeName || nodeId}</strong>
             {' '}<Link to="/app/nodes" style={{ color: 'var(--color-primary)', fontSize: '0.8125rem' }}>(back to nodes)</Link>
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {showReplicaToggle && (
         <div role="radiogroup" aria-label="Replica scope" className="segmented" style={{ marginBottom: 'var(--spacing-sm)' }}>

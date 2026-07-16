@@ -107,6 +107,64 @@ var _ = Describe("ConfigService", func() {
 			_, err := svc.PatchConfig(ctx, "qwen", map[string]any{})
 			Expect(err).To(MatchError(ErrEmptyBody))
 		})
+
+		It("replaces a map field wholesale so deleted entries do not survive", func() {
+			// A detector model with a populated entity_actions map. The editor
+			// removes SSN and re-sends the remaining map; a naive deep-merge
+			// would re-add SSN (it only adds/overrides keys, never deletes).
+			writeModelYAML(svc, dir, "ner", map[string]any{
+				"backend":        "llama-cpp",
+				"known_usecases": []any{"token_classify"},
+				"pii_detection": map[string]any{
+					"default_action": "mask",
+					"entity_actions": map[string]any{"SSN": "block", "EMAIL": "mask"},
+				},
+			})
+
+			_, err := svc.PatchConfig(ctx, "ner", map[string]any{
+				"pii_detection": map[string]any{
+					"default_action": "mask",
+					"entity_actions": map[string]any{"EMAIL": "mask"},
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			raw, err := os.ReadFile(filepath.Join(dir, "ner.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			var got map[string]any
+			Expect(yaml.Unmarshal(raw, &got)).To(Succeed())
+			pii := got["pii_detection"].(map[string]any)
+			ea := pii["entity_actions"].(map[string]any)
+			Expect(ea).To(HaveKeyWithValue("EMAIL", "mask"))
+			Expect(ea).NotTo(HaveKey("SSN"), "deleted map entry must not survive the patch")
+			// The scalar sibling in the same nested block is still preserved.
+			Expect(pii).To(HaveKeyWithValue("default_action", "mask"))
+		})
+
+		It("drops a map field entirely when the patch empties it", func() {
+			writeModelYAML(svc, dir, "ner", map[string]any{
+				"backend":        "llama-cpp",
+				"known_usecases": []any{"token_classify"},
+				"pii_detection": map[string]any{
+					"default_action": "mask",
+					"entity_actions": map[string]any{"SSN": "block"},
+				},
+			})
+
+			_, err := svc.PatchConfig(ctx, "ner", map[string]any{
+				"pii_detection": map[string]any{
+					"entity_actions": map[string]any{},
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			raw, err := os.ReadFile(filepath.Join(dir, "ner.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			var got map[string]any
+			Expect(yaml.Unmarshal(raw, &got)).To(Succeed())
+			pii := got["pii_detection"].(map[string]any)
+			Expect(pii).NotTo(HaveKey("entity_actions"))
+		})
 	})
 
 	Describe("EditYAML", func() {
@@ -152,6 +210,24 @@ var _ = Describe("ConfigService", func() {
 			writeModelYAML(svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
 			_, err := svc.EditYAML(ctx, "alpha", nil, nil)
 			Expect(err).To(MatchError(ErrEmptyBody))
+		})
+
+		It("rejects editing a config into an alias with a missing target", func() {
+			writeModelYAML(svc, dir, "base", map[string]any{"backend": "llama-cpp"})
+
+			body := []byte("name: base\nalias: ghost\n")
+			_, err := svc.EditYAML(ctx, "base", body, nil)
+			Expect(err).To(MatchError(ErrInvalidConfig))
+			Expect(err.Error()).To(ContainSubstring("ghost"))
+		})
+
+		It("accepts editing a config into an alias with a real target", func() {
+			writeModelYAML(svc, dir, "base", map[string]any{"backend": "llama-cpp"})
+			writeModelYAML(svc, dir, "target", map[string]any{"backend": "llama-cpp"})
+
+			body := []byte("name: base\nalias: target\n")
+			_, err := svc.EditYAML(ctx, "base", body, nil)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

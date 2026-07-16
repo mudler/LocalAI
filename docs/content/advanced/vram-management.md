@@ -360,6 +360,49 @@ This configuration:
 - Waits 2 seconds between retry attempts
 - Ensures busy models have time to complete their requests before eviction
 
+## VRAM Budget (Allocation Ceiling)
+
+By default LocalAI treats **all** detected GPU memory as available for model allocation. On a shared machine (a desktop you also game on, a box that runs other GPU workloads, or a multi-tenant server) you often want to reserve some headroom and let LocalAI use only part of the card. The **VRAM budget** sets a hard ceiling on how much VRAM LocalAI will consider allocatable.
+
+### Configuration
+
+Set the budget with a CLI flag or environment variable:
+
+```bash
+# Percentage of detected VRAM
+./local-ai --vram-budget=80%
+
+# Absolute amount (GB, GiB, MB, or raw bytes)
+./local-ai --vram-budget=12GB
+
+# Using environment variables
+LOCALAI_VRAM_BUDGET=80% ./local-ai
+LOCALAI_VRAM_BUDGET=12GB ./local-ai
+```
+
+Accepted formats:
+
+- A **percentage** such as `80%` (or the decimal `0.8`).
+- An **absolute amount** such as `12GB`, `12GiB`, `12000MB`, or a raw byte count.
+
+Leaving it empty or unset (the default) uses all detected VRAM, which is the historical behavior.
+
+### Semantics
+
+The budget is a **hard ceiling**, never a floor:
+
+- Everywhere LocalAI reads VRAM to decide model allocation (hardware defaults for batch size and parallelism, context auto-fit, GGUF fit warnings, and the watchdog), it uses `min(detected VRAM, budget)`.
+- The budget can only **lower** usable VRAM, never raise it above what the hardware physically has. An absolute value larger than physical VRAM is clamped to physical.
+- A percentage above `100%` is rejected as invalid.
+
+### Editing from the UI
+
+The budget is exposed in the **Settings** page under the **Performance** section as **VRAM Budget**, so you can change it without editing flags or restarting from scratch. It is live-editable and persists to the runtime settings.
+
+### Distributed mode
+
+The same `LOCALAI_VRAM_BUDGET` / `--vram-budget` applies to distributed worker nodes (`local-ai worker ...`), where it caps the VRAM the scheduler will use for per-node placement. Admins can also set a per-node budget live from the node UI (or the admin API); see [Distributed Mode]({{%relref "features/distributed-mode#per-node-vram-budget" %}}).
+
 ## Limitations and Considerations
 
 ### VRAM Usage Estimation
@@ -380,6 +423,8 @@ curl -X POST http://localhost:8080/backend/shutdown \
 ```
 
 To stop all models, you'll need to call the endpoint for each loaded model individually, or use the web UI to stop all models at once.
+
+Conversely, you can pre-load a model into memory ahead of its first request with `POST /backend/load` (the inverse of shutdown) — see [Backend Monitor]({{%relref "features/backend-monitor" %}}).
 
 ### Best Practices
 

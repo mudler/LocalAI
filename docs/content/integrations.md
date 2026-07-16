@@ -381,7 +381,7 @@ jobs:
 
 ### Realtime Voice Assistant
 
-LocalAI supports realtime voice interactions , enabling voice assistant applications with real-time speech-to-speech communication. A complete example implementation is available in the [LocalAI-examples repository](https://github.com/mudler/LocalAI-examples/tree/main/realtime).
+LocalAI supports realtime voice interactions , enabling voice assistant applications with real-time speech-to-speech communication. A complete example implementation is available in the [LocalAI-examples repository](https://github.com/mudler/LocalAI-examples/tree/main/realtime). For a minimal native client, see the [Go realtime voice assistant demo](https://github.com/localai-org/localai-realtime-demo): a tiny Go client for the Realtime (WebSocket) API with a full talk-back loop and an example tool call, plus a `docker compose` setup that brings up a realtime-capable LocalAI for you.
 
 #### Overview
 
@@ -457,7 +457,8 @@ The realtime voice assistant example demonstrates how to build a voice assistant
 
 #### Additional Resources
 
-- [Realtime Voice Assistant Example](https://github.com/mudler/LocalAI-examples/tree/main/realtime)
+- [Realtime Voice Assistant Example (Python)](https://github.com/mudler/LocalAI-examples/tree/main/realtime)
+- [Realtime Voice Assistant Demo (Go)](https://github.com/localai-org/localai-realtime-demo)
 - [LocalAI Realtime API documentation](/features/)
 - [Audio features documentation](/features/text-to-audio/)
 - [Transcription features documentation](/features/audio-to-text/)

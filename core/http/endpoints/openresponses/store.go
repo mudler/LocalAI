@@ -3,6 +3,7 @@ package openresponses
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,6 +12,30 @@ import (
 	"github.com/mudler/xlog"
 )
 
+const (
+	// defaultMaxStreamEvents bounds how many resume-buffer events a single
+	// background response retains. Without a cap, a long-running or abandoned
+	// background generation grows StreamEvents without limit and can exhaust
+	// process memory. When the cap is exceeded the oldest events are evicted
+	// from the front (see AppendEvent). Mirrors llama.cpp's byte-capped slot
+	// ring used for resumable /slots state.
+	defaultMaxStreamEvents = 8192
+
+	// defaultMaxStreamBytes caps the total serialized size of retained
+	// resume-buffer events, evicting oldest-first when exceeded. This guards
+	// against a handful of very large events defeating the count cap. 0
+	// disables the byte cap (count cap still applies).
+	defaultMaxStreamBytes = 64 << 20 // 64 MiB
+)
+
+// ErrOffsetLost is returned by GetEventsAfter when the requested
+// starting_after sequence number is older than the oldest event still
+// retained in the resume buffer (i.e. the events between the requested
+// offset and the current watermark were evicted by the cap). Callers should
+// surface this to clients as a distinct error instead of silently returning
+// a truncated stream that omits the dropped events.
+var ErrOffsetLost = errors.New("resume offset lost: requested events were evicted from the buffer")
+
 // ResponseStore provides thread-safe storage for Open Responses API responses
 type ResponseStore struct {
 	mu            sync.RWMutex
@@ -18,6 +43,12 @@ type ResponseStore struct {
 	ttl           time.Duration // Time-to-live for stored responses (0 = no expiration)
 	cleanupCtx    context.Context
 	cleanupCancel context.CancelFunc
+
+	// maxStreamEvents / maxStreamBytes bound the per-response resume buffer.
+	// Set once at construction from the default constants; tests may lower
+	// them. A value <= 0 disables that particular cap.
+	maxStreamEvents int
+	maxStreamBytes  int
 }
 
 // StreamedEvent represents a buffered SSE event for streaming resume
@@ -35,6 +66,12 @@ type StoredResponse struct {
 	StoredAt  time.Time
 	ExpiresAt *time.Time // nil if no expiration
 
+	// Owner is the identity (user ID) that created this response. It is set
+	// once at creation and never mutated, so it can be read without holding
+	// mu. Empty means "no owner" (single-key / no-auth deployments), in which
+	// case ownership checks are skipped for backward compatibility.
+	Owner string
+
 	// Background execution support
 	CancelFunc    context.CancelFunc // For cancellation of background tasks
 	StreamEvents  []StreamedEvent    // Buffered events for streaming resume
@@ -42,6 +79,14 @@ type StoredResponse struct {
 	IsBackground  bool               // Was created with background=true
 	EventsChan    chan struct{}      // Signals new events for live subscribers
 	mu            sync.RWMutex       // Protect concurrent access to this response
+
+	// streamBytes tracks the total serialized size of the events currently
+	// retained in StreamEvents, used to enforce the byte cap. droppedThrough
+	// is the highest sequence number evicted from the front of the buffer
+	// (-1 = nothing evicted); it is the watermark GetEventsAfter compares
+	// against to detect a lost resume offset. Both are guarded by mu.
+	streamBytes    int
+	droppedThrough int
 }
 
 var getGlobalStore = sync.OnceValue(func() *ResponseStore {
@@ -81,8 +126,10 @@ func (s *ResponseStore) SetTTL(ttl time.Duration) {
 // If ttl is 0, responses are stored indefinitely
 func NewResponseStore(ttl time.Duration) *ResponseStore {
 	store := &ResponseStore{
-		responses: make(map[string]*StoredResponse),
-		ttl:       ttl,
+		responses:       make(map[string]*StoredResponse),
+		ttl:             ttl,
+		maxStreamEvents: defaultMaxStreamEvents,
+		maxStreamBytes:  defaultMaxStreamBytes,
 	}
 
 	// Start cleanup goroutine if TTL is set
@@ -109,11 +156,12 @@ func (s *ResponseStore) Store(responseID string, request *schema.OpenResponsesRe
 	}
 
 	stored := &StoredResponse{
-		Request:   request,
-		Response:  response,
-		Items:     items,
-		StoredAt:  time.Now(),
-		ExpiresAt: nil,
+		Request:        request,
+		Response:       response,
+		Items:          items,
+		StoredAt:       time.Now(),
+		ExpiresAt:      nil,
+		droppedThrough: -1,
 	}
 
 	// Set expiration if TTL is configured
@@ -256,16 +304,17 @@ func (s *ResponseStore) StoreBackground(responseID string, request *schema.OpenR
 	}
 
 	stored := &StoredResponse{
-		Request:       request,
-		Response:      response,
-		Items:         items,
-		StoredAt:      time.Now(),
-		ExpiresAt:     nil,
-		CancelFunc:    cancelFunc,
-		StreamEvents:  []StreamedEvent{},
-		StreamEnabled: streamEnabled,
-		IsBackground:  true,
-		EventsChan:    make(chan struct{}, 100), // Buffered channel for event notifications
+		Request:        request,
+		Response:       response,
+		Items:          items,
+		StoredAt:       time.Now(),
+		ExpiresAt:      nil,
+		CancelFunc:     cancelFunc,
+		StreamEvents:   []StreamedEvent{},
+		StreamEnabled:  streamEnabled,
+		IsBackground:   true,
+		EventsChan:     make(chan struct{}, 100), // Buffered channel for event notifications
+		droppedThrough: -1,
 	}
 
 	// Set expiration if TTL is configured
@@ -349,6 +398,25 @@ func (s *ResponseStore) AppendEvent(responseID string, event *schema.ORStreamEve
 		EventType:      event.Type,
 		Data:           data,
 	})
+	stored.streamBytes += len(data)
+
+	// Evict oldest events from the front once either cap is exceeded. The
+	// byte cap never evicts the only remaining event (a single oversized
+	// event is still served once). Each eviction advances droppedThrough so
+	// a later resume below the watermark is reported as ErrOffsetLost rather
+	// than silently skipping the dropped events.
+	for (s.maxStreamEvents > 0 && len(stored.StreamEvents) > s.maxStreamEvents) ||
+		(s.maxStreamBytes > 0 && stored.streamBytes > s.maxStreamBytes && len(stored.StreamEvents) > 1) {
+		evicted := stored.StreamEvents[0]
+		stored.streamBytes -= len(evicted.Data)
+		if evicted.SequenceNumber > stored.droppedThrough {
+			stored.droppedThrough = evicted.SequenceNumber
+		}
+		// Release the evicted payload so it can be GC'd even though the
+		// backing array element is still owned by the slice until reuse.
+		stored.StreamEvents[0].Data = nil
+		stored.StreamEvents = stored.StreamEvents[1:]
+	}
 	stored.mu.Unlock()
 
 	// Notify any subscribers of new event
@@ -373,6 +441,14 @@ func (s *ResponseStore) GetEventsAfter(responseID string, startingAfter int) ([]
 
 	stored.mu.RLock()
 	defer stored.mu.RUnlock()
+
+	// If the requested offset is older than the watermark, the events the
+	// client expects next (those in (startingAfter, droppedThrough]) were
+	// evicted by the cap. Signal the gap rather than returning a stream that
+	// silently skips them.
+	if startingAfter < stored.droppedThrough {
+		return nil, ErrOffsetLost
+	}
 
 	var result []StreamedEvent
 	for _, event := range stored.StreamEvents {
@@ -446,4 +522,31 @@ func (s *ResponseStore) IsStreamEnabled(responseID string) (bool, error) {
 	defer stored.mu.RUnlock()
 
 	return stored.StreamEnabled, nil
+}
+
+// SetOwner records the identity that owns a stored response. It is called
+// once, right after the response is stored and before its ID is handed back
+// to any client, so no lock on the stored response is required. A no-op for
+// an empty owner or unknown response ID.
+func (s *ResponseStore) SetOwner(responseID, owner string) {
+	if owner == "" {
+		return
+	}
+
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+	if !exists {
+		return
+	}
+
+	stored.Owner = owner
+}
+
+// accessAllowed reports whether a caller identified by callerID may read or
+// mutate the given stored response. An empty owner (single-key / no-auth
+// deployments) is accessible by anyone, preserving backward compatibility;
+// otherwise the caller identity must match the recorded owner.
+func accessAllowed(stored *StoredResponse, callerID string) bool {
+	return stored.Owner == "" || stored.Owner == callerID
 }

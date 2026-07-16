@@ -67,6 +67,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` — one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
+| `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
@@ -133,6 +134,31 @@ When S3 is not configured, model files are transferred directly from the fronten
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
+### Shared models directory
+
+If every node (frontend and workers) mounts the **same** models directory at the **same** path - for example a shared volume or network filesystem, as shown in the "Shared Volume Mode" section of `docker-compose.distributed.yaml` - the model files are already present on each worker at their canonical path. In that case staging is wasted work: it copies files that already exist into a per-model subdirectory the worker then loads from, which shows up as a re-download of a model you already have.
+
+Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) on the frontend to skip staging entirely. The router then leaves the model's absolute paths untouched and the worker loads them directly from the shared volume.
+
+This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
+
+### Model artifact staging
+
+For managed Hugging Face artifacts, the controller resolves the repository and
+downloads every selected file. Workers receive the committed snapshot through
+the existing directory stager. They never receive `HF_TOKEN` and do not contact
+Hugging Face for managed artifacts.
+
+With `LOCALAI_DISTRIBUTED_SHARED_MODELS` enabled, workers use the shared
+absolute snapshot path and skip transfer. Otherwise, the controller stages the
+complete snapshot tree to each worker before loading the backend.
+
+{{% notice warning %}}
+Every controller and worker must have enough disk space for its own snapshot
+copy unless shared-models mode is enabled. Account for temporary partial files
+during installation as well as the committed snapshot.
+{{% /notice %}}
+
 {{% notice warning %}}
 The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** — anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /notice %}}
@@ -194,6 +220,7 @@ local-ai worker \
 | `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | *(empty)* | Client private key for NATS mTLS |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
+| `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
 
 {{% notice tip %}}
 **Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
@@ -307,11 +334,44 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
+| `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
+| `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
+| `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
-The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models.
+The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
+
+### Per-node VRAM budget
+
+Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
+
+There are two ways to set the cap:
+
+- **At the worker:** start it with `--vram-budget` / `LOCALAI_VRAM_BUDGET` (see [Worker Configuration](#worker-configuration)).
+- **From the frontend, live:** set it per node in the **node capacity editor** on the node detail page, or via the admin API:
+
+```bash
+# Cap node placement at 80% of its detected VRAM
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"value":"80%"}'
+
+# Or an absolute amount
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"value":"12GB"}'
+
+# Clear the budget (revert to all detected VRAM)
+curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>"
+```
+
+The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "advanced/vram-management#vram-budget-allocation-ceiling" %}}).
+
+The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 
 ## Node Approval
 
@@ -554,7 +614,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. It combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Scheduling** page (a top-level nav item, separate from the Nodes page). It combines two optional features:
 
 ### Node Selectors
 
@@ -603,6 +663,91 @@ All fields are optional and composable:
 - Node selector only: pin model to matching nodes, single replica
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
+
+### Declarative per-model scheduling (unattended installs)
+
+In distributed mode you can declare per-model scheduling at startup, instead of
+using the WebUI/API. Config is **authoritative**: it is re-applied on every boot
+and overwrites the listed models (models not listed are left untouched).
+
+| Variable | Description |
+|----------|-------------|
+| `LOCALAI_MODEL_SCHEDULING` | Inline JSON list of scheduling entries |
+| `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
+
+Entry fields: `model_name` (required), `node_selector` (a label map; **omit it to
+match every node**), and then **one of two replica modes** (they are mutually
+exclusive):
+
+- **`replicas: all`** - static spread: place exactly **one replica on every
+  matching node**, proactively, regardless of load, and keep it in sync as nodes
+  join and leave. Use this for "run model X everywhere (with this label)".
+- **`min_replicas` / `max_replicas`** - elastic auto-scaling: keep at least
+  `min_replicas` running, and burst **up to** `max_replicas` only when all
+  replicas are busy, scaling back down to the minimum when idle. `max_replicas: 0`
+  means **no upper bound** (grow to cluster capacity). To enable this mode you
+  must set `min_replicas >= 1` or `max_replicas >= 1` - an entry with only
+  `max_replicas: 0` (and no `replicas: all`) does nothing.
+
+Net effect at a glance:
+
+| Config | Behavior |
+|--------|----------|
+| `replicas: all` | One replica per matching node, placed immediately, tracks join/leave |
+| `min_replicas: 1, max_replicas: 0` | Always >=1, bursts to cluster capacity under load, back to 1 when idle |
+| `min_replicas: 2, max_replicas: 4` | Always >=2, bursts to at most 4 under load |
+
+`node_selector` constrains which nodes a model may use; with no selector the
+model may use **all** healthy nodes. So "spread model X across all nodes" is just
+`replicas: all` with no `node_selector`. `replicas: all` targets one replica per
+matching node; with the default per-node cap of one replica per model this lands
+exactly one on each node (see the note below about `LOCALAI_MAX_REPLICAS_PER_MODEL`).
+
+YAML example (`scheduling.yaml`):
+
+```yaml
+# One replica on every GPU-labelled node (static spread, tracks join/leave):
+- model_name: gpt-oss
+  node_selector:
+    tier: gpu
+  replicas: all
+
+# One replica on EVERY node in the cluster (no selector = all nodes):
+- model_name: embeddings
+  replicas: all
+
+# Elastic on CPU nodes: always >=1, burst to capacity under load, 0 = no cap:
+- model_name: whisper
+  node_selector:
+    tier: cpu
+  min_replicas: 1
+  max_replicas: 0
+```
+
+```bash
+LOCALAI_DISTRIBUTED=true \
+LOCALAI_MODEL_SCHEDULING_CONFIG=/etc/localai/scheduling.yaml \
+local-ai run
+```
+
+Inline equivalent:
+
+```bash
+LOCALAI_MODEL_SCHEDULING='[{"model_name":"gpt-oss","node_selector":{"tier":"gpu"},"replicas":"all"}]'
+```
+
+Notes:
+
+- Because the config is authoritative, each listed model's **entire** scheduling
+  row is replaced on every boot, including the optional prefix-cache routing
+  overrides (`route_policy`, `balance_abs_threshold`, `balance_rel_threshold`,
+  `min_prefix_match`). For a model you manage via this config, set those fields
+  here too if you need non-default values; values set only through the API are
+  reset on the next restart. Models not listed in the config are never touched.
+- `replicas: all` places one replica per matching node by relying on the default
+  per-node cap of one replica per model. If you raise `LOCALAI_MAX_REPLICAS_PER_MODEL`
+  on a worker above 1, the target count can be met by stacking replicas on fewer
+  nodes rather than spreading one to each.
 
 ## Label Management API
 

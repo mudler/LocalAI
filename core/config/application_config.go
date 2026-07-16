@@ -6,7 +6,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -16,6 +19,13 @@ type ApplicationConfig struct {
 	ConfigFile       string
 	SystemState      *system.SystemState
 	ExternalBackends []string
+
+	// ModelArtifactMaterializer is a controller-only acquisition capability.
+	// It is excluded from serialization so credentials captured by its concrete
+	// implementation cannot enter persisted settings or distributed payloads.
+	ModelArtifactMaterializer ArtifactMaterializer `json:"-" yaml:"-"`
+	ModelPreloadRenderMode    string               `json:"-" yaml:"-"`
+	DisableModelPreloadColor  bool                 `json:"-" yaml:"-"`
 
 	// WebRTCNAT1To1IPs, when set, are advertised as the host ICE candidates for
 	// /v1/realtime WebRTC instead of every local interface address. Needed when
@@ -49,6 +59,13 @@ type ApplicationConfig struct {
 	P2PNetworkID                  string
 	Federated                     bool
 
+	// ExternalBaseURL is the externally visible base URL of this instance
+	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is
+	// authoritative for every self-referential URL LocalAI emits (OAuth
+	// callbacks, generated image/video links, async job StatusURLs),
+	// overriding proxy-header detection. Empty = derive from request headers.
+	ExternalBaseURL string
+
 	// DisableStats turns off per-request token tracking. By default the
 	// routing module's billing recorder runs in every mode (including
 	// no-auth single-user) so dashboards and `/api/usage` are immediately
@@ -56,25 +73,6 @@ type ApplicationConfig struct {
 	// or privacy-strict deployments where no token-count history should
 	// touch disk or memory.
 	DisableStats bool
-
-	// PIIConfigPath points to an optional YAML file describing the PII
-	// pattern set. When empty, the routing/pii module's DefaultPatterns()
-	// (email, phone, SSN, credit card, IPv4, API key prefixes) are
-	// loaded with their default actions. Each entry overrides the
-	// matching default by ID:
-	//
-	//   patterns:
-	//     - id: email
-	//       action: allow            # downgrade default mask -> allow (log only)
-	//     - id: ssn
-	//       action: block            # upgrade default mask -> block
-	//
-	// Unknown ids are rejected with a clear error at startup.
-	PIIConfigPath string
-
-	// DisablePII turns the regex PII filter off entirely. Default
-	// (false) enables it on the OpenAI chat completions route.
-	DisablePII bool
 
 	// MITMListen is the address (host:port) the cloudproxy MITM
 	// listener binds on. Empty disables the MITM proxy entirely.
@@ -84,17 +82,19 @@ type ApplicationConfig struct {
 	// LocalAI exposes at /api/middleware/proxy-ca.crt.
 	MITMListen string
 
+	// PIIDefaultDetectors lists token-classification (NER) detector model
+	// names applied to any PII-enabled model that does not name its own
+	// pii.detectors. This makes cloud-proxy / MITM redaction work out of the
+	// box (those default to PII-enabled but carry no detector list) and lets
+	// an operator set one detector for the whole instance. Set at runtime via
+	// POST /api/settings; read live by Application.ResolvePIIPolicy.
+	PIIDefaultDetectors []string
+
 	// MITMCADir holds the persisted MITM proxy CA cert and private
 	// key. The CA is generated on first start; subsequent starts
 	// reload it so clients keep trusting the same root. The key
 	// file is mode 0600.
 	MITMCADir string
-
-	// PIIPatternOverrides applies persisted per-id deltas (action,
-	// disabled) to the live redactor at startup. Loaded from
-	// runtime_settings.json and applied right after pii.NewRedactor.
-	// nil/empty leaves the YAML defaults in place.
-	PIIPatternOverrides map[string]PIIPatternRuntimeOverride
 
 	DisableWebUI                       bool
 	OllamaAPIRootEndpoint              bool
@@ -134,10 +134,22 @@ type ApplicationConfig struct {
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
 	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
+	// VRAMBudget optionally caps how much VRAM this instance uses for model
+	// allocation, as "80%" or "12GB". Empty = use full detected VRAM.
+	VRAMBudget string
+
 	// Eviction settings
 	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        bool          // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
+
+	// ModelLoadFailureCooldown is the base cooldown applied after a model load
+	// fails: new load attempts for that model are refused (HTTP 503 + Retry-After)
+	// until it elapses, doubling per consecutive failure up to a 5m cap and reset
+	// on success. Prevents a client polling a broken model from respawning a
+	// crashing backend on every request. 0 disables it. Default: 10s.
+	ModelLoadFailureCooldown time.Duration
 
 	ModelsURL []string
 
@@ -212,7 +224,6 @@ type AuthConfig struct {
 	OIDCIssuer          string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
 	OIDCClientID        string
 	OIDCClientSecret    string
-	BaseURL             string // for OAuth callback URLs (e.g. "http://localhost:8080")
 	AdminEmail          string // auto-promote to admin on login
 	RegistrationMode    string // "open", "approval" (default when empty), "invite"
 	DisableLocalAuth    bool   // disable local email/password registration and login
@@ -248,15 +259,32 @@ type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:                  context.Background(),
-		UploadLimitMB:            15,
-		Debug:                    true,
-		AgentJobRetentionDays:    30,                     // Default: 30 days
-		LRUEvictionMaxRetries:    30,                     // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second,        // Default: 1 second
-		WatchDogInterval:         500 * time.Millisecond, // Default: 500ms
-		TracingMaxItems:          1024,
-		TracingMaxBodyBytes:      64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
+		Context:                   context.Background(),
+		UploadLimitMB:             15,
+		Debug:                     true,
+		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
+		ModelPreloadRenderMode:    "dark",
+		// Capture backend process stdout/stderr into the per-model
+		// BackendLogStore by default so the UI "Backend Logs" page works out
+		// of the box in single mode, matching worker/distributed mode (which
+		// force-enables it). It's a small in-memory ring buffer; the Settings
+		// toggle can still turn it off (a persisted false wins - see
+		// loadRuntimeSettingsFromFile).
+		EnableBackendLogging:     true,
+		AgentJobRetentionDays:    30,               // Default: 30 days
+		LRUEvictionMaxRetries:    30,               // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
+		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
+		// WatchDogInterval is intentionally left at the zero value here.
+		// The startup loader applies a persisted runtime_settings.json value
+		// only when the interval is still 0 (its "not set by env var"
+		// heuristic, matching the idle/busy timeouts); a non-zero baseline
+		// default would defeat that and silently revert a UI-saved Check
+		// Interval to the default on every restart (#10601). The effective
+		// 500ms default is supplied at the watchdog layer (DefaultWatchdogInterval)
+		// when the value is still 0.
+		TracingMaxItems:     1024,
+		TracingMaxBodyBytes: 64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
 		AgentPool: AgentPoolConfig{
 			Enabled:         true,
 			Timeout:         "5m",
@@ -441,6 +469,13 @@ func SetMemoryReclaimerThreshold(threshold float64) AppOption {
 	}
 }
 
+// SetVRAMBudget sets the VRAM allocation cap ("80%" or "12GB", "" = no cap).
+func SetVRAMBudget(v string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.VRAMBudget = v
+	}
+}
+
 // WithMemoryReclaimer configures the memory reclaimer with the given settings
 func WithMemoryReclaimer(enabled bool, threshold float64) AppOption {
 	return func(o *ApplicationConfig) {
@@ -488,10 +523,30 @@ func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
 	return 0
 }
 
+// WatchdogShouldRun reports whether the live watchdog process should be
+// running for the current config. It mirrors the gating in
+// (*Application).startWatchdog so the /api/settings start/stop decision and
+// the startup path agree on a single source of truth: the watchdog runs when
+// idle/busy checks are enabled (WatchDog), when LRU eviction is active
+// (effective max active backends > 0), or when the memory reclaimer is on.
+func (o *ApplicationConfig) WatchdogShouldRun() bool {
+	return o.WatchDog || o.GetEffectiveMaxActiveBackends() > 0 || o.MemoryReclaimerEnabled
+}
+
 // WithForceEvictionWhenBusy sets whether to force eviction even when models have active API calls
 func WithForceEvictionWhenBusy(enabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ForceEvictionWhenBusy = enabled
+	}
+}
+
+// WithSizeAwareEviction enables size-aware eviction ordering.
+// When true, the watchdog evicts the largest loaded model first rather than the
+// least-recently-used one, keeping small utility models resident and maximizing
+// memory freed per eviction.
+func WithSizeAwareEviction(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.SizeAwareEviction = enabled
 	}
 }
 
@@ -509,6 +564,17 @@ func WithLRUEvictionRetryInterval(interval time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		if interval > 0 {
 			o.LRUEvictionRetryInterval = interval
+		}
+	}
+}
+
+// WithModelLoadFailureCooldown sets the base cooldown applied after a failed
+// model load. 0 disables the cooldown, so unlike most options it accepts any
+// non-negative value.
+func WithModelLoadFailureCooldown(cooldown time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if cooldown >= 0 {
+			o.ModelLoadFailureCooldown = cooldown
 		}
 	}
 }
@@ -592,6 +658,25 @@ func WithContext(ctx context.Context) AppOption {
 	}
 }
 
+// WithModelArtifactMaterializer injects the controller-only model acquisition capability.
+func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption {
+	return func(o *ApplicationConfig) {
+		if materializer != nil {
+			o.ModelArtifactMaterializer = materializer
+		}
+	}
+}
+
+// WithModelPreloadDisplay configures terminal rendering for model preload output.
+func WithModelPreloadDisplay(renderMode string, disableColor bool) AppOption {
+	return func(o *ApplicationConfig) {
+		if renderMode != "" {
+			o.ModelPreloadRenderMode = renderMode
+		}
+		o.DisableModelPreloadColor = disableColor
+	}
+}
+
 func WithYAMLConfigPreload(configFile string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.PreloadModelsFromPath = configFile
@@ -603,6 +688,7 @@ func WithJSONStringPreload(configFile string) AppOption {
 		o.PreloadJSONModels = configFile
 	}
 }
+
 func WithConfigFile(configFile string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ConfigFile = configFile
@@ -691,21 +777,6 @@ func WithDisableStats(disable bool) AppOption {
 	}
 }
 
-// WithPIIConfigPath points the routing PII filter at a YAML config
-// file. CLI: --pii-config.
-func WithPIIConfigPath(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.PIIConfigPath = path
-	}
-}
-
-// WithDisablePII turns the regex PII filter off. CLI: --disable-pii.
-func WithDisablePII(disable bool) AppOption {
-	return func(o *ApplicationConfig) {
-		o.DisablePII = disable
-	}
-}
-
 // WithMITMListen sets the address the cloudproxy MITM listener
 // binds on. Empty = disabled. CLI: --mitm-listen.
 func WithMITMListen(addr string) AppOption {
@@ -719,6 +790,18 @@ func WithMITMListen(addr string) AppOption {
 func WithMITMCADir(dir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.MITMCADir = dir
+	}
+}
+
+// WithPIIDefaultDetectors sets the instance-wide default PII/secret detector
+// model names applied to any PII-enabled model (chiefly cloud-proxy / MITM
+// models) that names no pii.detectors of its own. CLI/env:
+// LOCALAI_PII_DEFAULT_DETECTORS. Empty leaves the value to
+// runtime_settings.json / the Middleware UI; a non-empty value takes
+// precedence over the file (env > file).
+func WithPIIDefaultDetectors(detectors []string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.PIIDefaultDetectors = detectors
 	}
 }
 
@@ -948,9 +1031,9 @@ func WithAuthGitHubClientSecret(clientSecret string) AppOption {
 	}
 }
 
-func WithAuthBaseURL(baseURL string) AppOption {
+func WithExternalBaseURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.Auth.BaseURL = baseURL
+		o.ExternalBaseURL = url
 	}
 }
 
@@ -1049,9 +1132,11 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
+	sizeAwareEviction := o.SizeAwareEviction
 	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
 	threads := o.Threads
 	contextSize := o.ContextSize
+	vramBudget := o.VRAMBudget
 	f16 := o.F16
 	debug := o.Debug
 	tracingMaxItems := o.TracingMaxItems
@@ -1088,7 +1173,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	if o.WatchDogInterval > 0 {
 		watchdogInterval = o.WatchDogInterval.String()
 	} else {
-		watchdogInterval = "2s" // default
+		watchdogInterval = model.DefaultWatchdogInterval.String() // default: 500ms
 	}
 	var lruEvictionRetryInterval string
 	if o.LRUEvictionRetryInterval > 0 {
@@ -1127,6 +1212,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 
 	mitmListen := o.MITMListen
 
+	piiDefaultDetectors := append([]string(nil), o.PIIDefaultDetectors...)
+
 	return RuntimeSettings{
 		WatchdogEnabled:           &watchdogEnabled,
 		WatchdogIdleEnabled:       &watchdogIdle,
@@ -1139,10 +1226,12 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		MemoryReclaimerEnabled:    &memoryReclaimerEnabled,
 		MemoryReclaimerThreshold:  &memoryReclaimerThreshold,
 		ForceEvictionWhenBusy:     &forceEvictionWhenBusy,
+		SizeAwareEviction:         &sizeAwareEviction,
 		LRUEvictionMaxRetries:     &lruEvictionMaxRetries,
 		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
 		Threads:                   &threads,
 		ContextSize:               &contextSize,
+		VRAMBudget:                &vramBudget,
 		F16:                       &f16,
 		Debug:                     &debug,
 		TracingMaxItems:           &tracingMaxItems,
@@ -1181,6 +1270,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		LogoHorizontalFile:        &logoHorizontalFile,
 		FaviconFile:               &faviconFile,
 		MITMListen:                &mitmListen,
+		PIIDefaultDetectors:       &piiDefaultDetectors,
 	}
 }
 
@@ -1198,17 +1288,21 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.WatchdogIdleEnabled != nil {
 		o.WatchDogIdle = *settings.WatchdogIdleEnabled
-		if o.WatchDogIdle {
-			o.WatchDog = true
-		}
 		requireRestart = true
 	}
 	if settings.WatchdogBusyEnabled != nil {
 		o.WatchDogBusy = *settings.WatchdogBusyEnabled
-		if o.WatchDogBusy {
-			o.WatchDog = true
-		}
 		requireRestart = true
+	}
+	// The React Settings "Enable Watchdog" master toggle manages only the
+	// idle/busy checks — watchdog_enabled is vestigial in that UI. Whenever
+	// either idle/busy field is present in the body, derive the run-state from
+	// idle||busy so a cold enable starts the watchdog and a full disable stops
+	// it, instead of trusting the stale watchdog_enabled the UI never updates.
+	// This mirrors the startup invariant in startup.go. An API client posting
+	// only watchdog_enabled (idle/busy absent) keeps its explicit value.
+	if settings.WatchdogIdleEnabled != nil || settings.WatchdogBusyEnabled != nil {
+		o.WatchDog = o.WatchDogIdle || o.WatchDogBusy
 	}
 	if settings.WatchdogIdleTimeout != nil {
 		if dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err == nil {
@@ -1258,6 +1352,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 		o.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 		// This setting doesn't require restart, can be updated dynamically
 	}
+	if settings.SizeAwareEviction != nil {
+		o.SizeAwareEviction = *settings.SizeAwareEviction
+		// This setting doesn't require restart, can be updated dynamically
+	}
 	if settings.LRUEvictionMaxRetries != nil {
 		o.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
 		// This setting doesn't require restart, can be updated dynamically
@@ -1273,6 +1371,15 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.ContextSize != nil {
 		o.ContextSize = *settings.ContextSize
+	}
+	if settings.VRAMBudget != nil {
+		o.VRAMBudget = *settings.VRAMBudget
+		// Live-apply so the cap takes effect without a restart. An empty string
+		// clears the cap; a malformed value is rejected by the settings endpoint,
+		// but stay fail-open here too so a bad persisted value cannot wedge apply.
+		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
+			xsysinfo.SetDefaultVRAMBudget(b)
+		}
 	}
 	if settings.F16 != nil {
 		o.F16 = *settings.F16
@@ -1408,6 +1515,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 
 	if settings.MITMListen != nil {
 		o.MITMListen = *settings.MITMListen
+	}
+
+	if settings.PIIDefaultDetectors != nil {
+		o.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
 	}
 
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller

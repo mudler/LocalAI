@@ -299,51 +299,83 @@ func buildAdmissionStatus(app *application.Application) map[string]any {
 }
 
 // buildPIIStatus builds the pii section of /api/middleware/status. It
-// reads the live redactor, walks every model config, and reports the
-// resolved enabled state plus any per-pattern overrides — that's what
-// the admin page renders side-by-side so the operator can see at a
-// glance which models are protected.
-//
-// Returns a sentinel "disabled" payload when the redactor is nil
-// (--disable-pii), letting the page show "filter switched off" rather
-// than a confusing empty state.
+// walks every model config and reports the resolved enabled state plus
+// the NER detector models each one references — that's what the admin
+// page renders so the operator can see at a glance which models are
+// protected and by which detectors. The detection policy itself
+// (entity→action, min score) lives on each detector model's
+// pii_detection block.
 func buildPIIStatus(app *application.Application) map[string]any {
-	redactor := app.PIIRedactor()
-	if redactor == nil {
-		return map[string]any{
-			"enabled_globally": false,
-			"reason":           "--disable-pii",
-			"patterns":         []any{},
-			"models":           []any{},
-		}
-	}
-
-	patterns := redactor.Patterns()
-	patternList := make([]map[string]any, 0, len(patterns))
-	for _, p := range patterns {
-		patternList = append(patternList, map[string]any{
-			"id":               p.ID,
-			"description":      p.Description,
-			"action":           string(p.Action),
-			"disabled":         p.Disabled,
-			"max_match_length": p.MaxMatchLength,
-		})
-	}
-
+	appCfg := app.ApplicationConfig()
 	models := []map[string]any{}
 	for _, cfg := range app.ModelConfigLoader().GetAllModelsConfigs() {
+		// Only list models PII filtering can actually apply to (reachable
+		// through a text-accepting endpoint with a PII adapter wired).
+		// Skips VAD/STT/embedding/image-only models and the token_classify
+		// detector models themselves, which are the filters, not consumers.
+		if !cfg.PIIFilterApplies() {
+			continue
+		}
+		explicit := cfg.PII.Enabled != nil
+		ownDetectors := cfg.PIIDetectors()
+		// Resolve through the shared policy so the table reflects the EFFECTIVE
+		// state, including the instance-wide default detector — what the
+		// request path actually does.
+		enabled, detectors := app.ResolvePIIPolicy(&cfg)
+
 		entry := map[string]any{
 			"name":      cfg.Name,
 			"backend":   cfg.Backend,
-			"enabled":   cfg.PIIIsEnabled(),
-			"overrides": cfg.PIIPatternOverrides(),
+			"enabled":   enabled,
+			"detectors": detectors,
+			"explicit":  explicit,
+			// Why is this on? backend default (cloud-proxy) vs an explicit YAML
+			// toggle. Helps admins understand the resolved state without
+			// reading source.
+			"default_for_backend": !explicit && cfg.Backend == "cloud-proxy",
+			// The detectors came from the global default, not this model's YAML.
+			"detectors_from_default": enabled && len(ownDetectors) == 0 && len(detectors) > 0,
 		}
-		// explicit-set tells the UI whether the resolved state came
-		// from the YAML or the backend-prefix default. Helps admins
-		// understand "why is this on?" without reading source.
-		entry["explicit"] = cfg.PII.Enabled != nil
-		entry["default_for_backend"] = cfg.Backend == "cloud-proxy"
 		models = append(models, entry)
+	}
+
+	// Detector models: the token_classify "filter" models themselves (NER and
+	// in-process pattern matchers), which PIIFilterApplies deliberately omits
+	// from the consumer list above. The Filtering tab renders these as a table
+	// with a per-row toggle marking membership in the instance-wide default
+	// detector set, so admins manage defaults without retyping model names.
+	defaultSet := map[string]bool{}
+	for _, d := range appCfg.PIIDefaultDetectors {
+		defaultSet[d] = true
+	}
+	detectorModels := []map[string]any{}
+	for _, cfg := range app.ModelConfigLoader().GetAllModelsConfigs() {
+		if !cfg.HasUsecases(config.FLAG_TOKEN_CLASSIFY) {
+			continue
+		}
+		typ := "ner"
+		if cfg.IsPatternDetector() {
+			typ = "pattern"
+		}
+		detectorModels = append(detectorModels, map[string]any{
+			"name":    cfg.Name,
+			"backend": cfg.Backend,
+			"type":    typ,
+			// Whether this detector is in the instance-wide default set.
+			"default": defaultSet[cfg.Name],
+		})
+		delete(defaultSet, cfg.Name)
+	}
+	// Surface any default detector that names a model that is no longer loaded
+	// (or lost the token_classify usecase) so the admin can still toggle it off.
+	for name := range defaultSet {
+		detectorModels = append(detectorModels, map[string]any{
+			"name":    name,
+			"backend": "",
+			"type":    "unknown",
+			"default": true,
+			"missing": true,
+		})
 	}
 
 	recentCount := 0
@@ -356,8 +388,10 @@ func buildPIIStatus(app *application.Application) map[string]any {
 	return map[string]any{
 		"enabled_globally":             true,
 		"default_enabled_for_backends": []string{"cloud-proxy"},
-		"patterns":                     patternList,
 		"models":                       models,
+		"detector_models":              detectorModels,
 		"recent_event_count":           recentCount,
+		// Instance-wide default policy (the Default PII policy editor).
+		"default_detectors": appCfg.PIIDefaultDetectors,
 	}
 }

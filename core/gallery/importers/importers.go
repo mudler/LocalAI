@@ -33,7 +33,7 @@ var ErrAmbiguousImport = errors.New("importer: ambiguous — specify preferences
 // pipeline_tag values.
 type AmbiguousImportError struct {
 	// Modality is the importer modality key ("text", "asr", "tts", "image",
-	// "embeddings", "reranker", "detection"). Pre-mapped from the HF
+	// "video", "embeddings", "reranker", "detection"). Pre-mapped from the HF
 	// pipeline_tag so the UI doesn't have to.
 	Modality string
 	// Candidates is the list of backend names whose Modality() matches — a
@@ -119,6 +119,10 @@ var defaultImporters = []Importer{
 	// kept ahead of LlamaCPPImporter so its .gguf bundles aren't claimed by the
 	// generic GGUF importer.
 	&ParakeetCppImporter{},
+	// MossTranscribeCppImporter matches only moss-transcribe GGUFs
+	// (moss-transcribe[-<quant>].gguf); like parakeet-cpp it stays ahead of
+	// LlamaCPPImporter so its .gguf bundles aren't claimed by the generic GGUF importer.
+	&MossTranscribeCppImporter{},
 	// TTS (Batch 2)
 	&PiperImporter{},
 	&BarkImporter{},
@@ -140,6 +144,9 @@ var defaultImporters = []Importer{
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},
 	&ACEStepImporter{},
+	// LongCat repositories carry generic Diffusers metadata, so this exact
+	// owner/repo matcher must run before DiffuserImporter.
+	&LongCatVideoImporter{},
 	// Text LLM (Batch 4) — VLLMOmniImporter must stay ahead of
 	// VLLMImporter so Qwen Omni repos (which also carry tokenizer
 	// files) route to vllm-omni rather than plain vllm.
@@ -163,12 +170,23 @@ var defaultImporters = []Importer{
 	// bundles aren't claimed by the generic .gguf importer; kept next to
 	// RFDetrImporter as both are detection models.
 	&LocateAnythingImporter{},
+	// DepthAnythingImporter (ByteDance Depth Anything 3 metric depth + camera
+	// pose, native C++/ggml port) must run before LlamaCPPImporter so its GGUF
+	// bundles aren't claimed by the generic .gguf importer; matches only the
+	// depth-anything-<size>-<quant>.gguf naming, so it cannot claim arbitrary
+	// GGUFs.
+	&DepthAnythingImporter{},
 	// Existing
 	// DS4Importer must precede LlamaCPPImporter - ds4 weights are GGUFs and
 	// would otherwise be claimed by the generic .gguf-handling llama-cpp
 	// importer. Matches only the antirez/deepseek-v4-gguf repo + filename
 	// pattern, so false-positives against arbitrary GGUFs are impossible.
 	&DS4Importer{},
+	// PrivacyFilterImporter must precede LlamaCPPImporter too — the OpenMed
+	// privacy-filter GGUFs would otherwise be claimed by the generic .gguf
+	// importer. Matches only .gguf names carrying the "privacy-filter" token,
+	// so arbitrary GGUFs are never claimed.
+	&PrivacyFilterImporter{},
 	&LlamaCPPImporter{},
 	&MLXImporter{},
 	&VLLMImporter{},
@@ -189,7 +207,7 @@ type Importer interface {
 	// /backends/known to populate the import form dropdown.
 	Name() string
 	// Modality is the backend's primary modality ("text", "asr", "tts",
-	// "image", "embeddings", "reranker", "detection", "vad"). Used for
+	// "image", "video", "embeddings", "reranker", "detection", "vad"). Used for
 	// grouping in the UI.
 	Modality() string
 	// AutoDetects is true when Match() can fire without an explicit
@@ -299,6 +317,10 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 			modelConfig, err = importer.Import(details)
 			if err != nil {
 				continue
+			}
+			modelConfig, err = AttachPrimaryArtifact(modelConfig, details)
+			if err != nil {
+				return gallery.ModelConfig{}, fmt.Errorf("attach managed artifact: %w", err)
 			}
 			break
 		}

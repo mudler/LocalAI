@@ -393,6 +393,88 @@ var _ = Describe("ComputeChoices", func() {
 		})
 	})
 
+	Context("reachedTokenBudget", func() {
+		ptr := func(i int) *int { return &i }
+		It("is false when no limit is configured", func() {
+			Expect(reachedTokenBudget(1000, nil)).To(BeFalse())
+			Expect(reachedTokenBudget(1000, ptr(0))).To(BeFalse())
+			Expect(reachedTokenBudget(1000, ptr(-1))).To(BeFalse())
+		})
+		It("is false when generation stopped below the limit", func() {
+			Expect(reachedTokenBudget(99, ptr(100))).To(BeFalse())
+		})
+		It("is true when generation reached or exceeded the limit", func() {
+			Expect(reachedTokenBudget(100, ptr(100))).To(BeTrue())
+			Expect(reachedTokenBudget(101, ptr(100))).To(BeTrue())
+		})
+
+		// Truncation labeling for agentic clients (cogito): a reasoning model
+		// that meets its output ceiling must report finish_reason=length so the
+		// caller can detect the cutoff rather than treat it as a clean stop.
+		It("reports the budget as reached when completion meets max_tokens", func() {
+			max := 16
+			Expect(reachedTokenBudget(16, &max)).To(BeTrue())
+			Expect(reachedTokenBudget(15, &max)).To(BeFalse())
+		})
+
+		It("does not flag a budget when max_tokens is zero or nil", func() {
+			zero := 0
+			Expect(reachedTokenBudget(100, &zero)).To(BeFalse())
+			Expect(reachedTokenBudget(100, nil)).To(BeFalse())
+		})
+	})
+
+	Context("max_tokens budget exhausted on reasoning (issue #9716)", func() {
+		// Reproduces the streaming retry loop: when a thinking model spends its
+		// entire max_tokens budget on the reasoning block, the C++ autoparser
+		// clears the raw Response and delivers reasoning-only ChatDeltas (no
+		// content, no tool calls). The built-in empty-response retry then fires
+		// and regenerates from scratch up to maxRetries times, each re-consuming
+		// the whole budget — instead of terminating with finish_reason "length".
+		It("should NOT retry when the token budget was exhausted", func() {
+			maxTokens := 100
+			cfg.Maxtokens = &maxTokens
+
+			calls := 0
+			backend.ModelInferenceFunc = func(
+				ctx context.Context, s string, messages schema.Messages,
+				images, videos, audios []string,
+				loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+				o *config.ApplicationConfig,
+				tokenCallback func(string, backend.TokenUsage) bool,
+				tools, toolChoice string,
+				logprobs, topLogprobs *int,
+				logitBias map[string]float64,
+				metadata map[string]string,
+			) (func() (backend.LLMResponse, error), error) {
+				predFunc := func() (backend.LLMResponse, error) {
+					calls++
+					// Autoparser cleared Response; only reasoning was produced,
+					// and the completion count reached the max_tokens budget.
+					return backend.LLMResponse{
+						Response:   "",
+						ChatDeltas: []*pb.ChatDelta{{ReasoningContent: "thinking..."}},
+						Usage:      backend.TokenUsage{Prompt: 5, Completion: maxTokens},
+					}, nil
+				}
+				return predFunc, nil
+			}
+
+			_, usage, _, err := ComputeChoices(
+				makeReq(), "test", cfg, nil, appCfg, nil,
+				func(s string, c *[]schema.Choice) {
+					*c = append(*c, schema.Choice{Text: s})
+				},
+				nil,
+			)
+			Expect(err).ToNot(HaveOccurred())
+			// The model hit its token ceiling; regenerating would just hit it
+			// again and multiply token consumption. Exactly one call expected.
+			Expect(calls).To(Equal(1), "budget-exhausted generation must not be retried")
+			Expect(usage.Completion).To(Equal(maxTokens))
+		})
+	})
+
 	Context("with streaming token callback", func() {
 		It("should call tokenCallback for streaming responses", func() {
 			var streamedTokens []string

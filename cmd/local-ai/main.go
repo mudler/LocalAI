@@ -57,10 +57,17 @@ For documentation and support:
 		),
 		kong.UsageOnError(),
 		kong.Vars{
-			"basepath":  kong.ExpandPath("."),
-			"galleries": `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`,
-			"backends":  `[{"name":"localai", "url":"github:mudler/LocalAI/backend/index.yaml@master"}]`,
-			"version":   internal.PrintableVersion(),
+			"basepath": kong.ExpandPath("."),
+			// Per-user temp locations for ephemeral writable content. A fixed
+			// shared name under /tmp collides across accounts on multi-user hosts
+			// (notably macOS, where /tmp is the shared /private/tmp for everyone),
+			// failing startup with "mkdir /tmp/generated/content: permission
+			// denied". See cli.DefaultGeneratedContentPath.
+			"generatedcontentpath": cli.DefaultGeneratedContentPath(),
+			"uploadpath":           cli.DefaultUploadPath(),
+			"galleries":            `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`,
+			"backends":             `[{"name":"localai", "url":"github:mudler/LocalAI/backend/index.yaml@master"}]`,
+			"version":              internal.PrintableVersion(),
 		},
 	)
 	ctx, err := k.Parse(os.Args[1:])

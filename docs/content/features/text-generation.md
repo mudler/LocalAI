@@ -31,6 +31,8 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 
 Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
+Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
+
 ### Edit completions
 
 https://platform.openai.com/docs/api-reference/edits
@@ -512,6 +514,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `check_tensors` | boolean | Validate tensor data for invalid values during model loading. Default: `false`. | `check_tensors:true` |
 | `warmup` | boolean | Enable warmup run after model loading. Default: `true`. | `warmup:false` |
 | `no_op_offload` | boolean | Disable offloading host tensor operations to device. Default: `false`. | `no_op_offload:true` |
+| `device` or `devices` | string | Select the llama.cpp backend devices to use. Repeat the option or pass a comma-separated list; unlisted devices are excluded. Use the names reported by `llama-server --list-devices` / `--list-devices`. | `devices:CUDA1,CUDA2,CUDA3` |
 | `kv_unified` or `unified_kv` | boolean | Use a single unified KV buffer shared across all sequences. Default: `true` (LocalAI override; upstream defaults to `false` but auto-enables it when slot count is auto). **Required for `cache_idle_slots` to work**: without it the server force-disables idle-slot saving at init, and the prompt cache is never written across requests. | `kv_unified:false` |
 | `cache_idle_slots` or `idle_slots_cache` | boolean | On a new task, save the previous slot's KV state into the prompt cache (and clear the slot) so a later request with the same prefix can warm-load it. Default: `true`. Auto-disabled by the server if `kv_unified=false` or `cache_ram=0`. | `cache_idle_slots:false` |
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
@@ -530,12 +533,23 @@ options:
   - context_shift:true
   - cache_ram:4096
   - parallel:2
+  - devices:CUDA1,CUDA2,CUDA3
   - fit_params:true
   - fit_target:1024
   - slot_prompt_similarity:0.5
 ```
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
+
+##### Hardware auto-tuning (and how to override it)
+
+On a detected GPU, LocalAI fills a few performance-relevant defaults the model config leaves unset — a larger physical batch on NVIDIA Blackwell, and a VRAM-scaled `parallel` slot count for concurrent serving. Both are gated on **per-device** VRAM at the model's context: when a large context already fills a single card (e.g. a 27B model with a 200k context across 2×16 GiB), the batch boost and the extra parallel slots are suppressed so they can't tip the tighter GPU into CUDA out-of-memory.
+
+Anything you set explicitly in the model YAML always wins, so to pin a value just set it (e.g. `batch: 512` or `options: ["parallel:1"]`). The effective values are logged at `INFO` when a model loads (`effective runtime tuning …`). To turn the hardware auto-tuning off entirely and run llama.cpp's stock behavior, set:
+
+```
+LOCALAI_DISABLE_HARDWARE_DEFAULTS=true
+```
 
 ##### Server-side prompt cache (repeated system prompts)
 

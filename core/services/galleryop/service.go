@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -93,6 +94,15 @@ func (g *GalleryService) BackendManager() BackendManager {
 	return g.backendManager
 }
 
+// ModelArtifactMaterializer returns the controller-only acquisition capability
+// used by startup paths that install gallery entries outside the operation loop.
+func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer {
+	if g == nil || g.appConfig == nil {
+		return nil
+	}
+	return g.appConfig.ModelArtifactMaterializer
+}
+
 // SetNATSClient sets the NATS client for distributed progress publishing.
 // Accepting the wider MessagingClient (vs. plain Publisher) lets
 // SubscribeBroadcasts wire the wildcard subscriptions that keep peer
@@ -166,7 +176,10 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
-			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize); err != nil {
+			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable,
+				distributed.OperationProgressDetails{
+					Phase: op.Phase, CurrentBytes: op.CurrentBytes, TotalBytes: op.TotalBytes,
+				}); err != nil {
 				xlog.Warn("Failed to persist gallery operation progress", "op_id", s, "error", err)
 			}
 		}
@@ -198,6 +211,24 @@ func (g *GalleryService) publishCacheInvalidate(subject string, evt messaging.Ca
 	if err := nc.Publish(subject, evt); err != nil {
 		xlog.Warn("Failed to broadcast cache invalidation", "subject", subject, "error", err)
 	}
+}
+
+// BroadcastModelsChanged notifies peer replicas that a model config was
+// created, edited, or removed out-of-band of the gallery install/delete
+// channel (e.g. the admin /models/edit, /models/import and
+// /models/toggle-state endpoints, which write the YAML and reload only the
+// local in-memory loader). Peers receive it via OnModelsChanged and refresh
+// their own ModelConfigLoader so a request load-balanced to any replica sees
+// the same config. No-op in standalone mode (no NATS client).
+//
+// op is "install" for a create/edit (the element must be (re)loaded from
+// disk) or "delete" for a removal (the element must be pruned from memory,
+// which a reload-from-path cannot do because the loader is additive).
+func (g *GalleryService) BroadcastModelsChanged(element, op string) {
+	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateModels, messaging.CacheInvalidateEvent{
+		Element: element,
+		Op:      op,
+	})
 }
 
 // mergeStatus is the broadcast-side merge: it updates the in-memory map from
@@ -402,6 +433,16 @@ func (g *GalleryService) applyCancel(id string) {
 	}
 }
 
+// newUserCancellableContext returns a child context whose CancelFunc cancels
+// with the downloader.ErrUserCancelled cause. This lets the download layer
+// distinguish a deliberate user cancel (discard the half-downloaded .partial)
+// from an incidental cancellation such as process shutdown (keep the .partial
+// so the next run resumes via Range instead of restarting from zero).
+func newUserCancellableContext(parent context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancelCause := context.WithCancelCause(parent)
+	return ctx, func() { cancelCause(downloader.ErrUserCancelled) }
+}
+
 // storeCancellation stores a cancellation function for an operation
 func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelFunc) {
 	g.Lock()
@@ -444,7 +485,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case op := <-g.BackendGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
-					op.Context, op.CancelFunc = context.WithCancel(c)
+					op.Context, op.CancelFunc = newUserCancellableContext(c)
 					g.storeCancellation(op.ID, op.CancelFunc)
 				} else if op.CancelFunc != nil {
 					g.storeCancellation(op.ID, op.CancelFunc)
@@ -456,6 +497,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             "backend_install",
 						Status:             "pending",
+						Cancellable:        true,
 					})
 				}
 				err := g.backendHandler(&op, systemState)
@@ -472,7 +514,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case op := <-g.ModelGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
-					op.Context, op.CancelFunc = context.WithCancel(c)
+					op.Context, op.CancelFunc = newUserCancellableContext(c)
 					g.storeCancellation(op.ID, op.CancelFunc)
 				} else if op.CancelFunc != nil {
 					g.storeCancellation(op.ID, op.CancelFunc)
@@ -488,6 +530,8 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
+						// A delete is not cancellable; an install is.
+						Cancellable: !op.Delete,
 					})
 				}
 				err := g.modelHandler(&op, cl, systemState)
@@ -630,6 +674,9 @@ func (g *GalleryService) Hydrate() error {
 		st := &OpStatus{
 			Message:            op.Message,
 			Progress:           op.Progress,
+			Phase:              op.Phase,
+			CurrentBytes:       op.CurrentBytes,
+			TotalBytes:         op.TotalBytes,
 			FileName:           op.FileName,
 			TotalFileSize:      op.TotalFileSize,
 			DownloadedFileSize: op.DownloadedFileSize,

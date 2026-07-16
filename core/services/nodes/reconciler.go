@@ -399,6 +399,28 @@ func (rc *ReplicaReconciler) candidateNodeIDsForSelector(ctx context.Context, cf
 }
 
 func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedulingConfig) {
+	// spread_all: derive a dynamic replica target equal to the number of nodes
+	// currently matching the selector (all healthy backend nodes when the
+	// selector is empty). Feeding it through Min==Max==target reuses every
+	// existing path: the floor scales up toward target (capped at capacity),
+	// Max==target stops busy-burst/pressure overshooting, and idle scale-down
+	// trims above target. The target re-tracks node join/leave each tick. cfg is
+	// a by-value copy, so mutating it here is local to this tick.
+	if cfg.SpreadAll {
+		matched, err := rc.registry.FindNodesBySelector(ctx, parseSelector(cfg.NodeSelector))
+		if err != nil {
+			xlog.Warn("Reconciler: spread_all failed to resolve matching nodes", "model", cfg.ModelName, "error", err)
+			return
+		}
+		if len(matched) == 0 {
+			xlog.Info("Reconciler: spread_all has no matching nodes; nothing to schedule",
+				"model", cfg.ModelName, "selector", cfg.NodeSelector)
+			return
+		}
+		cfg.MinReplicas = len(matched)
+		cfg.MaxReplicas = len(matched)
+	}
+
 	// Cooldown gate: if we previously decided this config is unsatisfiable,
 	// don't even bother checking until the cooldown expires. ClearAllUnsatisfiable
 	// (fired by node lifecycle events) bypasses this by zeroing the column.

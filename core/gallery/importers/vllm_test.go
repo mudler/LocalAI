@@ -177,5 +177,22 @@ var _ = Describe("VLLMImporter", func() {
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("known_usecases:"))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("- chat"))
 		})
+
+		It("should emit a bare filesystem path for a file:// local import", func() {
+			// Regression for #7461: vLLM rejects a file:// model field as an
+			// invalid repo id, so a locally-imported model must carry the bare
+			// path instead.
+			preferences := json.RawMessage(`{"backend": "vllm"}`)
+			details := Details{
+				URI:         "file://my-models/nvidia/Qwen3-30B-A3B-FP4",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-models/nvidia/Qwen3-30B-A3B-FP4"))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("model: file://"))
+		})
 	})
 })

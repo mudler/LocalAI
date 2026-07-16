@@ -50,8 +50,13 @@ add_custom_command(
         "${hw_proto}"
       DEPENDS "${hw_proto}")
 
-# hw_grpc_proto
-add_library(hw_grpc_proto
+# hw_grpc_proto: force STATIC. Under the CPU_ALL_VARIANTS build BUILD_SHARED_LIBS=ON
+# (ggml/llama become shared), which would otherwise make this glue library a DSO. As a
+# DSO it references the hidden-visibility symbols in the static libprotobuf.a, which the
+# linker cannot satisfy ("hidden symbol ... in libprotobuf.a is referenced by DSO").
+# Keeping it STATIC links protobuf/gRPC directly into the grpc-server executable while
+# only ggml/llama stay shared. No effect on the static variants (already BUILD_SHARED_LIBS=OFF).
+add_library(hw_grpc_proto STATIC
   ${hw_grpc_srcs}
   ${hw_grpc_hdrs}
   ${hw_proto_srcs}
@@ -81,4 +86,28 @@ target_link_libraries(${TARGET} PRIVATE ${_LLAMA_COMMON_TARGET} llama mtmd ${CMA
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)
+endif()
+
+# Unit test for the message-content normalization helper (message_content.h).
+# Off by default so the normal backend build is untouched; enable with
+# -DLLAMA_GRPC_BUILD_TESTS=ON and run via ctest. It reuses llama.cpp's vendored
+# <nlohmann/json.hpp> (propagated by the common helpers library) so it has no
+# extra dependency beyond what the backend already builds against.
+option(LLAMA_GRPC_BUILD_TESTS "Build grpc-server unit tests" OFF)
+if(LLAMA_GRPC_BUILD_TESTS)
+    enable_testing()
+    add_executable(message_content_test message_content_test.cpp message_content.h)
+    target_include_directories(message_content_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(message_content_test PRIVATE ${_LLAMA_COMMON_TARGET})
+    target_compile_features(message_content_test PRIVATE cxx_std_17)
+    add_test(NAME message_content_test COMMAND message_content_test)
+
+    # Parent-death watcher test (parent_watch.h) — standard library only, but
+    # needs a threading runtime for std::thread.
+    find_package(Threads REQUIRED)
+    add_executable(parent_watch_test parent_watch_test.cpp parent_watch.h)
+    target_include_directories(parent_watch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(parent_watch_test PRIVATE Threads::Threads)
+    target_compile_features(parent_watch_test PRIVATE cxx_std_17)
+    add_test(NAME parent_watch_test COMMAND parent_watch_test)
 endif()

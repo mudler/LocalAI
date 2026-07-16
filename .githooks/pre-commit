@@ -7,8 +7,11 @@
 # Runs only the checks relevant to what's staged:
 #   - Go files          -> make lint + make test-coverage-check
 #   - core/http/react-ui -> make test-ui-coverage-check (Playwright e2e + gate)
-# A commit touching neither is skipped entirely (docs/YAML/etc. can't change
-# lint findings, Go coverage, or the UI).
+#   - realtime state machines / specs -> make test-realtime-conformance
+#       (respcoord/**, turncoord/**, or formal-verification/** -- a pure .fizz
+#        spec edit must still re-verify the design, detected separately from Go)
+# A commit touching none of these is skipped entirely (other docs/YAML can't
+# change lint findings, Go coverage, the UI, or the realtime conformance gate).
 #
 # To bypass for a single commit (e.g. a WIP checkpoint): git commit --no-verify
 set -eu
@@ -20,11 +23,13 @@ staged="$(git diff --cached --name-only --diff-filter=ACMRD)"
 
 go_changed=0
 ui_changed=0
+rt_changed=0
 if echo "$staged" | grep -qE '\.go$'; then go_changed=1; fi
 if echo "$staged" | grep -qE '^core/http/react-ui/'; then ui_changed=1; fi
+if echo "$staged" | grep -qE '^(core/http/endpoints/openai/(coordinator|respcoord|turncoord|conncoord|compactcoord|ttscoord)/|formal-verification/)'; then rt_changed=1; fi
 
-if [ "$go_changed" -eq 0 ] && [ "$ui_changed" -eq 0 ]; then
-	echo "pre-commit: no Go or React UI changes staged — skipping."
+if [ "$go_changed" -eq 0 ] && [ "$ui_changed" -eq 0 ] && [ "$rt_changed" -eq 0 ]; then
+	echo "pre-commit: no Go, React UI, or realtime-spec changes staged — skipping."
 	exit 0
 fi
 
@@ -55,6 +60,13 @@ if [ "$ui_changed" -eq 1 ]; then
 	echo "             rebuilds the UI + ui-test-server, runs the Playwright specs, and"
 	echo "             fails if line coverage regressed; can take a couple of minutes."
 	make test-ui-coverage-check
+fi
+
+if [ "$rt_changed" -eq 1 ]; then
+	echo "pre-commit ▶ realtime state-machine conformance (make test-realtime-conformance) —"
+	echo "             Go transition/rapid tests under -race + FizzBee model check of the"
+	echo "             authoritative specs. Fail-closed: needs FizzBee (make install-fizzbee)."
+	make test-realtime-conformance
 fi
 
 echo "pre-commit ✓ all relevant checks passed"

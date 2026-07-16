@@ -5,7 +5,7 @@ weight = 18
 url = "/features/video-generation/"
 +++
 
-LocalAI can generate videos from text prompts and optional reference images via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion`, and `vllm-omni`.
+LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion`, `vllm-omni`, and the dedicated `longcat-video` backend.
 
 ## API
 
@@ -23,6 +23,7 @@ The request body is JSON with the following fields:
 | `negative_prompt` | `string` | No       |         | What to exclude from the generated video                 |
 | `start_image`     | `string` | No       |         | Starting image as base64 string or URL                   |
 | `end_image`       | `string` | No       |         | Ending image for guided generation                       |
+| `audio`           | `string` | No       |         | Audio conditioning as base64, a data URI, or URL          |
 | `width`           | `int`    | No       | 512     | Video width in pixels                                    |
 | `height`          | `int`    | No       | 512     | Video height in pixels                                   |
 | `num_frames`      | `int`    | No       |         | Number of frames                                         |
@@ -34,6 +35,7 @@ The request body is JSON with the following fields:
 | `cfg_scale`       | `float`  | No       |         | Classifier-free guidance scale                           |
 | `step`            | `int`    | No       |         | Number of inference steps                                |
 | `response_format` | `string` | No       | `url`   | `url` to return a file URL, `b64_json` for base64 output |
+| `params`          | `object` | No       |         | Backend-specific string parameters                        |
 
 ### Response
 
@@ -107,9 +109,14 @@ curl http://localhost:8080/video \
   }'
 ```
 
+## LongCat-Video and Avatar 1.5
+
+The dedicated `longcat-video` backend serves the official base and Avatar 1.5 checkpoints, including CUDA 13 ARM64 systems such as DGX Spark. See [LongCat Video and Avatar]({{%relref "features/longcat-video" %}}) for gallery installation, Studio instructions, complete model YAML, API examples, tuning options, and hardware requirements.
+
 ## Error Responses
 
 | Status Code | Description                                          |
 |-------------|------------------------------------------------------|
 | 400         | Missing or invalid model or request parameters       |
+| 412         | The selected backend cannot run on the available hardware |
 | 500         | Backend error during video generation                |

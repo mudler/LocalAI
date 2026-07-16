@@ -84,6 +84,7 @@ export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
+  listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   estimate: (id, contexts) => fetchJSON(
@@ -286,6 +287,21 @@ export const ttsApi = {
   generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
 }
 
+// Reusable voice-cloning profiles. The browser uploads multipart PCM-WAV;
+// list/preview are available to TTS-authorized users while mutations are
+// enforced as admin-only by the server.
+export const voiceProfilesApi = {
+  list: () => fetchJSON('/api/voice-profiles'),
+  create: (formData) => fetch(apiUrl('/api/voice-profiles'), {
+    method: 'POST',
+    body: formData,
+  }).then(handleResponse),
+  delete: (id) => fetch(apiUrl(`/api/voice-profiles/${enc(id)}`), {
+    method: 'DELETE',
+  }).then(handleResponse),
+  audioUrl: (id) => apiUrl(`/api/voice-profiles/${enc(id)}/audio`),
+}
+
 // Sound generation
 export const soundApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.soundGeneration, body),
@@ -351,6 +367,9 @@ export const realtimeApi = {
 // Backend control
 export const backendControlApi = {
   shutdown: (body) => postJSON(API_CONFIG.endpoints.backendShutdown, body),
+  // Pre-load a model (or all of a realtime pipeline's sub-models) into memory.
+  // body: { model: "<name>" }. Inverse of shutdown.
+  load: (body) => postJSON(API_CONFIG.endpoints.backendLoad, body),
 }
 
 // System info
@@ -548,6 +567,11 @@ export const nodesApi = {
     ...(opts.alias ? { alias: opts.alias } : {}),
     ...(opts.backend_galleries ? { backend_galleries: opts.backend_galleries } : {}),
   }),
+  // upgradeBackend force-reinstalls a gallery backend on a single node. This
+  // is a distinct endpoint from installBackend: the worker treats install as
+  // "ensure installed" and no-ops when the backend already exists on disk,
+  // so an upgrade dispatched through install would silently do nothing.
+  upgradeBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsUpgrade(id), { backend }),
   deleteBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsDelete(id), { backend }),
   getBackendLogs: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogs(id)),
   getBackendLogLines: (id, modelId) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogsModel(id, modelId)),
@@ -566,7 +590,19 @@ export const nodesApi = {
   resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
     method: 'DELETE',
   }),
+  // Set a sticky admin override for the per-node VRAM allocation budget. The
+  // value is a string ("80%" or "12GB"); resolution to a byte ceiling happens
+  // server-side. Call resetVramBudget to clear the override entirely.
+  updateVramBudget: (id, value) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }),
+  resetVramBudget: (id) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
+    method: 'DELETE',
+  }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),
+  allModels: () => fetchJSON(API_CONFIG.endpoints.nodesModels),
   setScheduling: (config) => postJSON(API_CONFIG.endpoints.nodesScheduling, config),
   deleteScheduling: (model) => fetchJSON(API_CONFIG.endpoints.nodesSchedulingModel(model), { method: 'DELETE' }),
 }

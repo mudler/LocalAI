@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/store"
@@ -52,15 +53,20 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 
 			storeOpts := []model.Option{
 				model.WithBackendString(bc.Backend),
-				model.WithModel("test"),
+				model.WithModel(store.NamespacePrefix + "test"),
 			}
 
+			// External backends are normally registered at app startup
+			// (gallery.RegisterBackends); a bare ModelLoader knows none,
+			// so wire up the BACKENDS_PATH the Makefile builds into.
 			systemState, err := system.GetSystemState(
 				system.WithModelPath(tmpdir),
+				system.WithBackendPath(os.Getenv("BACKENDS_PATH")),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
 			sl = model.NewModelLoader(systemState)
+			Expect(gallery.RegisterBackends(systemState, sl)).To(Succeed())
 			sc, err = sl.Load(storeOpts...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sc).ToNot(BeNil())

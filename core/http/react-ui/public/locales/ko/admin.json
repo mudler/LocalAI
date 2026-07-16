@@ -1,0 +1,89 @@
+{
+  "manage": {
+    "title": "시스템",
+    "subtitle": "설치된 모델과 백엔드를 관리합니다"
+  },
+  "settings": {
+    "title": "설정",
+    "subtitle": "LocalAI 런타임 설정을 구성합니다",
+    "saved": "설정이 저장되었습니다",
+    "saveFailed": "저장 실패: {{message}}",
+    "loadFailed": "설정을 불러오지 못했습니다: {{message}}",
+    "sections": {
+      "branding": "브랜딩",
+      "watchdog": "워치독",
+      "memory": "메모리",
+      "backends": "백엔드",
+      "performance": "성능",
+      "tracing": "트레이싱",
+      "api": "API 및 CORS",
+      "p2p": "P2P",
+      "galleries": "갤러리",
+      "apikeys": "API 키",
+      "agents": "에이전트 작업",
+      "agentpool": "에이전트 풀",
+      "assistant": "LocalAI 어시스턴트",
+      "responses": "응답"
+    }
+  },
+  "backends": {
+    "title": "백엔드 관리",
+    "subtitle": "모델을 구동할 AI 백엔드를 탐색하고 설치합니다"
+  },
+  "backendLogs": {
+    "title": "백엔드 로그",
+    "subtitle": "실행 중인 백엔드의 로그를 확인합니다",
+    "empty": "사용 가능한 로그가 없습니다"
+  },
+  "traces": {
+    "title": "트레이스",
+    "subtitle": "기록된 API 요청, 응답, 백엔드 작업을 확인합니다"
+  },
+  "nodes": {
+    "title": "분산 노드",
+    "subtitle": "백엔드 및 에이전트 워커 노드를 관리합니다"
+  },
+  "scheduling": {
+    "title": "스케줄링",
+    "subtitle": "클러스터 전반의 모델 배치 및 복제본 규칙"
+  },
+  "p2p": {
+    "title": "분산 AI 컴퓨팅",
+    "subtitle": "피어 투 피어 분산으로 여러 기기에 걸쳐 AI 워크로드를 확장합니다"
+  },
+  "users": {
+    "title": "사용자",
+    "subtitle": "등록된 사용자, 역할, 초대를 관리합니다"
+  },
+  "usage": {
+    "title": "사용량",
+    "subtitle": "API 토큰 사용량 통계",
+    "sources": {
+      "tab": "출처",
+      "mixTitle": "출처 구성",
+      "ribbonAria": "API 키 {{apikey}}%, 웹 UI {{web}}%, 레거시 {{legacy}}%",
+      "topSources": "기간별 상위 출처",
+      "searchPlaceholder": "이름 또는 접두사로 검색",
+      "sortBy": "정렬",
+      "sortTokens": "토큰",
+      "sortRequests": "요청",
+      "sortLastUsed": "마지막 사용",
+      "sortName": "이름",
+      "sortUser": "사용자",
+      "webUI": "웹 UI",
+      "legacy": "레거시",
+      "revoked": "해지됨",
+      "filteredTo": "필터: {{name}}",
+      "clearFilter": "필터 지우기",
+      "other": "기타 ({{count}})",
+      "noTrafficShort": "이 기간에는 요청이 없습니다.",
+      "noKeysYet": "요청이 들어오면 여기에 항목별로 표시됩니다.",
+      "createKey": "첫 API 키 만들기",
+      "truncatedWarning": "상위 200개 키를 표시합니다. 필터를 적용해 범위를 좁혀 보세요."
+    }
+  },
+  "explorer": {
+    "title": "탐색기",
+    "subtitle": "파일과 구성을 둘러봅니다"
+  }
+}

@@ -44,7 +44,7 @@ test.describe('Model Editor — Back navigation', () => {
     await mockEditorEndpoints(page)
   })
 
-  test('Back returns to Manage with a "Back to Manage" caption', async ({ page }) => {
+  test('Back returns to Manage with a "Back to System" caption', async ({ page }) => {
     await page.goto('/app/manage')
     await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
 
@@ -55,7 +55,7 @@ test.describe('Model Editor — Back navigation', () => {
     await page.getByRole('menuitem', { name: 'Edit configuration' }).click()
 
     await expect(page).toHaveURL(/\/app\/model-editor\//)
-    const back = page.getByRole('button', { name: /Back to Manage/ })
+    const back = page.getByRole('button', { name: /Back to System/ })
     await expect(back).toBeVisible({ timeout: 10_000 })
 
     await back.click()
@@ -89,6 +89,6 @@ test.describe('Model Editor — Back navigation', () => {
 
   test('falls back to "Back to Manage" on a direct visit with no origin state', async ({ page }) => {
     await page.goto('/app/model-editor/mock-model')
-    await expect(page.getByRole('button', { name: /Back to Manage/ })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: /Back to System/ })).toBeVisible({ timeout: 10_000 })
   })
 })

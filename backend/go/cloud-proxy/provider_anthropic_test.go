@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,15 +74,16 @@ func TestPredict_Anthropic_BasicMessages(t *testing.T) {
 	g.Expect(captured.Messages).To(HaveLen(1))
 	g.Expect(captured.Messages[0].Role).To(Equal("user"))
 	g.Expect(captured.MaxTokens).To(Equal(int32(32)))
-	g.Expect(captured.Temperature).NotTo(BeNil())
-	g.Expect(*captured.Temperature).To(Equal(0.5))
-	// Anthropic 400s when both temperature and top_p are set; the
-	// translator must prefer temperature and drop top_p.
+	// Newer Anthropic reasoning models reject requests carrying temperature
+	// ("`temperature` is deprecated for this model"); clients typically send
+	// only default sampling values, so the translator forwards neither.
+	g.Expect(captured.Temperature).To(BeNil())
 	g.Expect(captured.TopP).To(BeNil())
 	g.Expect(captured.Stream).To(BeFalse())
 }
 
-// When only top_p is set, it should be forwarded.
+// Sampling parameters are not forwarded at all — the upstream applies its
+// own defaults (newest models reject explicit temperature/top_p).
 func TestPredict_Anthropic_TopPOnly(t *testing.T) {
 	g := NewWithT(t)
 	srv, captured := fakeAnthropicUpstream(t, func(_ anthropicRequest) (int, string, string) {
@@ -99,11 +99,7 @@ func TestPredict_Anthropic_TopPOnly(t *testing.T) {
 	})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(captured.Temperature).To(BeNil())
-	// PredictOptions.TopP is float32 on the wire; the translator widens
-	// to float64 so 0.9 round-trips as 0.8999999761581421… — compare
-	// with a small tolerance rather than exact equality.
-	g.Expect(captured.TopP).NotTo(BeNil())
-	g.Expect(math.Abs(*captured.TopP - 0.9)).To(BeNumerically("<=", 1e-6))
+	g.Expect(captured.TopP).To(BeNil())
 }
 
 func TestPredict_Anthropic_DefaultsMaxTokens(t *testing.T) {

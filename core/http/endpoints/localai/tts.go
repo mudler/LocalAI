@@ -1,6 +1,9 @@
 package localai
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
 	"path/filepath"
 
 	"github.com/labstack/echo/v4"
@@ -8,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -24,7 +28,7 @@ import (
 //		@Success	200		{string}	binary				"generated audio/wav file"
 //		@Router		/v1/audio/speech [post]
 //		@Router		/tts [post]
-func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, profiles *voiceprofile.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.TTSRequest)
 		if !ok || input.Model == "" {
@@ -48,6 +52,35 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 
 		if input.Voice != "" {
 			cfg.Voice = input.Voice
+			if voiceprofile.IsReference(input.Voice) {
+				profileID, valid := voiceprofile.ParseReference(input.Voice)
+				if !valid {
+					return echo.NewHTTPError(http.StatusBadRequest, "invalid voice profile reference")
+				}
+				if config.VoiceCloningForModel(cfg) == nil {
+					return echo.NewHTTPError(http.StatusBadRequest, "selected model does not support reference-audio voice cloning")
+				}
+				if profiles == nil {
+					return echo.NewHTTPError(http.StatusInternalServerError, "voice profile store is unavailable")
+				}
+				profile, referencePath, release, err := profiles.LeaseAudio(c.Request().Context(), profileID)
+				if err != nil {
+					if errors.Is(err, voiceprofile.ErrNotFound) {
+						return echo.NewHTTPError(http.StatusNotFound, "voice profile not found")
+					}
+					return fmt.Errorf("resolve voice profile: %w", err)
+				}
+				defer release()
+				cfg.Voice = referencePath
+				if cfg.Language == "" && profile.Language != "" {
+					cfg.Language = profile.Language
+				}
+				if input.Params == nil {
+					input.Params = make(map[string]string)
+				}
+				input.Params["ref_text"] = profile.Transcript
+				xlog.Debug("Resolved saved voice profile", "id", profile.ID, "model", input.Model)
+			}
 		}
 
 		// Handle streaming TTS

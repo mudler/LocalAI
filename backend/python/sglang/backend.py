@@ -41,6 +41,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 # sglang imports. Engine is the stable public entry point; parser modules
 # are wrapped in try/except so older / leaner installs that omit them
@@ -147,9 +148,25 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 d["reasoning_content"] = msg.reasoning_content
             if msg.tool_calls:
                 try:
-                    d["tool_calls"] = json.loads(msg.tool_calls)
+                    tool_calls = json.loads(msg.tool_calls)
                 except json.JSONDecodeError:
                     pass
+                else:
+                    # OpenAI wire format carries function.arguments as a
+                    # JSON-encoded string, but chat templates (e.g. Qwen3)
+                    # iterate over it as a mapping. The vllm backend
+                    # already parses arguments before applying the chat
+                    # template (PR #10256); mirror that here so the
+                    # sglang backend works with the same wire format.
+                    if isinstance(tool_calls, list):
+                        for tc in tool_calls:
+                            func = tc.get("function") if isinstance(tc, dict) else None
+                            if isinstance(func, dict) and isinstance(func.get("arguments"), str):
+                                try:
+                                    func["arguments"] = json.loads(func["arguments"])
+                                except json.JSONDecodeError:
+                                    pass
+                    d["tool_calls"] = tool_calls
             result.append(d)
         return result
 
@@ -157,7 +174,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
     async def LoadModel(self, request, context):
-        engine_kwargs = {"model_path": request.Model}
+        model_ref, local_only = resolve_model_reference(request)
+        engine_kwargs = {"model_path": model_ref}
 
         if request.Quantization:
             engine_kwargs["quantization"] = request.Quantization
@@ -212,8 +230,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if HAS_TRANSFORMERS:
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(
-                    request.Model,
+                    model_ref,
                     trust_remote_code=bool(request.TrustRemoteCode),
+                    local_files_only=local_only,
                 )
             except Exception as err:
                 print(f"AutoTokenizer load failed (non-fatal): {err!r}", file=sys.stderr)

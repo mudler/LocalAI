@@ -4,7 +4,8 @@
       "images": "Bilder",
       "video": "Video",
       "tts": "TTS",
-      "sound": "Audio"
+      "sound": "Audio",
+      "transform": "Transform"
     }
   },
   "image": {
@@ -29,6 +30,7 @@
       "refImagesAdded_other": "{{count}} Bilder hinzugefügt"
     },
     "actions": {
+      "view": "View",
       "generate": "Generieren",
       "generating": "Generieren..."
     },
@@ -50,7 +52,12 @@
       "size": "Größe",
       "advanced": "Erweiterte Einstellungen",
       "seed": "Seed",
-      "seedPlaceholder": "Zufällig"
+      "seedPlaceholder": "Zufällig",
+      "frames": "Frames",
+      "referenceMedia": "Referenzmedien",
+      "startImage": "Startbild",
+      "endImage": "Endbild",
+      "avatarAudio": "Avatar-Audio"
     },
     "actions": {
       "generate": "Video generieren",

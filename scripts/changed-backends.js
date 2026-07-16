@@ -1,5 +1,5 @@
 import fs from "fs";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { Octokit } from "@octokit/core";
 
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
@@ -26,6 +26,21 @@ function inferBackendPath(item) {
   if (item.backend === "parakeet-cpp") {
     return `backend/go/parakeet-cpp/`;
   }
+  // ced is a Go backend (Dockerfile.golang) wrapping the ced.cpp ggml port via
+  // purego, living in backend/go/ced/. Same explicit-branch rationale as
+  // parakeet-cpp above: the generic golang fallthrough would also resolve it,
+  // but this documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "ced") {
+    return `backend/go/ced/`;
+  }
+  // moss-transcribe-cpp is a Go backend (Dockerfile.golang) wrapping the
+  // moss-transcribe.cpp ggml port via purego, living in
+  // backend/go/moss-transcribe-cpp/. Same explicit-branch rationale as
+  // parakeet-cpp / ced: the generic golang fallthrough would also resolve it,
+  // but this documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "moss-transcribe-cpp") {
+    return `backend/go/moss-transcribe-cpp/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }
@@ -39,6 +54,9 @@ function inferBackendPath(item) {
     // turboquant is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
+  }
+  if (item.dockerfile.endsWith("privacy-filter")) {
+    return `backend/cpp/privacy-filter/`;
   }
   if (item.dockerfile.endsWith("ds4")) {
     return `backend/cpp/ds4/`;
@@ -55,6 +73,16 @@ function inferBackendPathDarwin(item) {
   // for runner/toolchain selection, but the source path is C++.
   if (item.backend === "llama-cpp") {
     return `backend/cpp/llama-cpp/`;
+  }
+  // ds4 is C++ too (built via `make backends/ds4-darwin`); the matrix entry
+  // carries lang=go for runner/toolchain selection, but the source is C++.
+  if (item.backend === "ds4") {
+    return `backend/cpp/ds4/`;
+  }
+  // privacy-filter is C++ too (built via `make backends/privacy-filter-darwin`);
+  // same lang=go-for-runner convention, source under backend/cpp.
+  if (item.backend === "privacy-filter") {
+    return `backend/cpp/privacy-filter/`;
   }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;
@@ -189,23 +217,75 @@ function splitByArch(entries) {
   return { multiarch, singlearch };
 }
 
+// GitHub Actions refuses to instantiate a matrix with more than 256 jobs. When
+// it happens the job doesn't error visibly — it hangs forever at "Waiting for
+// pending jobs" and the whole run is marked `failure` while every *other* job
+// stays green (seen on the v4.6.1 tag build, run 28786533892: 268 single-arch
+// entries, zero single-arch jobs ever created). The single-arch list is the
+// one that grows unbounded as backends are added, so we shard it across a
+// fixed number of matrix jobs instead of feeding one oversized matrix.
+//
+// SINGLEARCH_SHARDS MUST equal the number of backend-jobs-singlearch-<n>
+// (and backend-merge-jobs-singlearch-<n>) blocks defined in backend.yml and
+// backend_pr.yml. Bump all three together.
+const SINGLEARCH_SHARDS = 4;
+const GHA_MATRIX_LIMIT = 256;
+
+// Split `arr` into exactly `shards` balanced, contiguous chunks. Earlier chunks
+// absorb the remainder when the length doesn't divide evenly; trailing chunks
+// may be empty when there are fewer entries than shards (those emit a
+// has-backends-singlearch-<n>=false flag so their job is skipped).
+function chunkEqually(arr, shards) {
+  const out = [];
+  const base = Math.floor(arr.length / shards);
+  const rem = arr.length % shards;
+  let idx = 0;
+  for (let i = 0; i < shards; i++) {
+    const size = base + (i < rem ? 1 : 0);
+    out.push(arr.slice(idx, idx + size));
+    idx += size;
+  }
+  return out;
+}
+
+// Emit the sharded single-arch build + merge matrices and their has-* gates.
+// Called with the full or filtered single-arch entry list.
+function emitSinglearchShards(singlearch) {
+  const shards = chunkEqually(singlearch, SINGLEARCH_SHARDS);
+  for (let i = 0; i < SINGLEARCH_SHARDS; i++) {
+    const shard = shards[i];
+    // Fail loudly rather than let GitHub silently drop the overflow: a shard at
+    // or above the limit means SINGLEARCH_SHARDS (and the matching job blocks in
+    // both workflows) need to grow.
+    if (shard.length >= GHA_MATRIX_LIMIT) {
+      throw new Error(
+        `single-arch shard ${i + 1} has ${shard.length} entries (>= ${GHA_MATRIX_LIMIT}, ` +
+        `GitHub's per-matrix job limit). Increase SINGLEARCH_SHARDS in ` +
+        `scripts/changed-backends.js and add matching backend-jobs-singlearch-<n> / ` +
+        `backend-merge-jobs-singlearch-<n> blocks to backend.yml and backend_pr.yml.`
+      );
+    }
+    const merge = computeMergeMatrix(shard);
+    const n = i + 1;
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-singlearch-${n}=${shard.length > 0 ? 'true' : 'false'}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-singlearch-${n}=${merge.include.length > 0 ? 'true' : 'false'}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-singlearch-${n}=${JSON.stringify({ include: shard })}\n`);
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-singlearch-${n}=${JSON.stringify(merge)}\n`);
+  }
+}
+
 function emitFullMatrix() {
   const { multiarch, singlearch } = splitByArch(includes);
   const mergeMatrixMultiarch = computeMergeMatrix(multiarch);
-  const mergeMatrixSinglearch = computeMergeMatrix(singlearch);
   const hasMergesMultiarch = mergeMatrixMultiarch.include.length > 0 ? 'true' : 'false';
-  const hasMergesSinglearch = mergeMatrixSinglearch.include.length > 0 ? 'true' : 'false';
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-singlearch=${singlearch.length > 0 ? 'true' : 'false'}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${multiarch.length > 0 ? 'true' : 'false'}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-multiarch=${hasMergesMultiarch}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-singlearch=${hasMergesSinglearch}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-singlearch=${JSON.stringify({ include: singlearch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-singlearch=${JSON.stringify(mergeMatrixSinglearch)}\n`);
+  emitSinglearchShards(singlearch);
   for (const backend of allBackendPaths.keys()) {
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=true\n`);
   }
@@ -229,29 +309,23 @@ function emitFilteredMatrix(changedFiles) {
   console.log("Filtered files Darwin:", filteredDarwin);
 
   const { multiarch, singlearch } = splitByArch(filtered);
-  const hasBackendsSinglearch = singlearch.length > 0 ? 'true' : 'false';
   const hasBackendsMultiarch = multiarch.length > 0 ? 'true' : 'false';
   const hasBackendsDarwin = filteredDarwin.length > 0 ? 'true' : 'false';
-  console.log("Has single-arch backends?:", hasBackendsSinglearch);
+  console.log("Has single-arch backends?:", singlearch.length > 0 ? 'true' : 'false');
   console.log("Has multi-arch backends?:", hasBackendsMultiarch);
   console.log("Has Darwin backends?:", hasBackendsDarwin);
 
   const mergeMatrixMultiarch = computeMergeMatrix(multiarch);
-  const mergeMatrixSinglearch = computeMergeMatrix(singlearch);
   const hasMergesMultiarch = mergeMatrixMultiarch.include.length > 0 ? 'true' : 'false';
-  const hasMergesSinglearch = mergeMatrixSinglearch.include.length > 0 ? 'true' : 'false';
 
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=false\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-singlearch=${hasBackendsSinglearch}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${hasBackendsMultiarch}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=${hasBackendsDarwin}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-multiarch=${hasMergesMultiarch}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-singlearch=${hasMergesSinglearch}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-singlearch=${JSON.stringify({ include: singlearch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: filteredDarwin })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-singlearch=${JSON.stringify(mergeMatrixSinglearch)}\n`);
+  emitSinglearchShards(singlearch);
 
   // Per-backend boolean outputs
   for (const [backend, pathPrefix] of allBackendPaths) {

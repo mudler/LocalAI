@@ -14,5 +14,11 @@ else
 fi
 
 # liquid-audio's torch wheels are large; allow upgrades to satisfy transitive pins
-EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
+EXTRA_PIP_INSTALL_FLAGS+=" --upgrade"
+# --index-strategy is a uv-only flag. The darwin/MPS build installs with pip
+# (USE_PIP=true in scripts/build/python-darwin.sh), which rejects it. Only add
+# it on the uv path; Linux/CUDA resolution is unchanged.
+if [ "x${USE_PIP:-}" != "xtrue" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-first-match"
+fi
 installRequirements

@@ -4,8 +4,70 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"gopkg.in/yaml.v3"
 )
+
+var managedArtifactBackends = map[string]struct{}{
+	"transformers": {}, "huggingface-embeddings": {}, "sentencetransformers": {},
+	"transformers-musicgen": {}, "mamba": {}, "diffusers": {}, "qwen-asr": {},
+	"fish-speech": {}, "nemo": {}, "voxcpm": {}, "qwen-tts": {},
+	"liquid-audio": {}, "vllm": {}, "vllm-omni": {}, "sglang": {},
+}
+
+// AttachPrimaryArtifact adds the controller-managed source only when the
+// importer selected the same repository and a migrated backend.
+func AttachPrimaryArtifact(model gallery.ModelConfig, details Details) (gallery.ModelConfig, error) {
+	if len(model.Files) != 0 || details.HuggingFace == nil || details.HuggingFace.ModelID == "" {
+		return model, nil
+	}
+	var cfg config.ModelConfig
+	if err := yaml.Unmarshal([]byte(model.ConfigFile), &cfg); err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	if _, supported := managedArtifactBackends[cfg.Backend]; !supported {
+		return model, nil
+	}
+	if len(cfg.Artifacts) != 0 || cfg.Model != details.HuggingFace.ModelID {
+		return model, nil
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal([]byte(model.ConfigFile), &document); err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	document["artifacts"] = []map[string]any{{
+		"name":   modelartifacts.TargetModel,
+		"target": modelartifacts.TargetModel,
+		"source": map[string]any{
+			"type": modelartifacts.SourceTypeHuggingFace,
+			"repo": details.HuggingFace.ModelID,
+		},
+	}}
+	encoded, err := yaml.Marshal(document)
+	if err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	model.ConfigFile = string(encoded)
+	return model, nil
+}
+
+// LocalModelPath normalizes a model URI for backends that treat the model
+// field as a HuggingFace repo id or local filesystem path (mlx, mlx-vlm,
+// vllm, transformers, diffusers). A "file://" import URI is reduced to the
+// bare path it points at: mlx-lm and vLLM otherwise mis-read the "file://"
+// scheme as a repo id and fail with "Repo id must be in the form
+// 'repo_name' or 'namespace/repo_name'" (issue #7461). HuggingFace and HTTP
+// URIs are returned unchanged so the existing remote-load path is untouched.
+func LocalModelPath(uri string) string {
+	if path, ok := strings.CutPrefix(uri, downloader.LocalPrefix); ok {
+		return path
+	}
+	return uri
+}
 
 // HasFile returns true when any file in files has exactly the given basename.
 // Directory components in file.Path are ignored — a nested

@@ -33,6 +33,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 from vllm_utils import parse_options, messages_to_dicts, setup_parsers
 
 
@@ -166,12 +167,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Parse options from request.Options using shared helper
             self.options = parse_options(request.Options)
             opts = self.options
+            model_ref, _local_only = resolve_model_reference(request)
+            detection_ref = request.Model or model_ref
 
             print(f"Options: {self.options}", file=sys.stderr)
 
             # Detect model type
-            self.model_name = request.Model
-            self.model_type = request.Type if request.Type else self._detect_model_type(request.Model)
+            self.model_name = model_ref
+            self.model_type = (
+                request.Type if request.Type else self._detect_model_type(detection_ref)
+            )
             print(f"Detected model type: {self.model_type}", file=sys.stderr)
 
             # Build DiffusionParallelConfig if diffusion model (image or video)
@@ -205,9 +210,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 }
 
             # Base Omni initialization parameters
-            omni_kwargs = {
-                "model": request.Model,
-            }
+            omni_kwargs = {"model": model_ref}
 
             # Add diffusion-specific parameters (image/video models)
             if self.model_type in ["image", "video"]:
@@ -251,7 +254,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 try:
                     from vllm.transformers_utils.tokenizer import get_tokenizer
                     self.tokenizer = get_tokenizer(
-                        request.Model,
+                        model_ref,
                         trust_remote_code=opts.get("trust_remote_code", False),
                     )
                 except Exception as e:
@@ -337,9 +340,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not images or len(images) == 0:
                 return backend_pb2.Result(success=False, message="Empty images list")
 
-            # Save image
+            # Save image. Force PNG rather than letting Pillow guess from the
+            # extension: the core passes a staging path ending in .tmp, which
+            # Pillow can't map to a format ("unknown file extension: .tmp").
             output_image = images[0]
-            output_image.save(request.dst)
+            output_image.save(request.dst, format="PNG")
             return backend_pb2.Result(message="Image generated successfully", success=True)
 
         except Exception as err:
@@ -698,10 +703,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 inputs["additional_information"]["non_streaming_mode"] = [True]
             elif task_type == "Base":
                 # Voice cloning requires ref_audio and ref_text
-                if "ref_audio" in self.options:
-                    inputs["additional_information"]["ref_audio"] = [self.options["ref_audio"]]
-                if "ref_text" in self.options:
-                    inputs["additional_information"]["ref_text"] = [self.options["ref_text"]]
+                ref_audio = voice if voice and os.path.isfile(voice) else self.options.get("ref_audio")
+                ref_text = request.params.get("ref_text") if hasattr(request, "params") else None
+                if not ref_text:
+                    ref_text = self.options.get("ref_text")
+                if not ref_audio or not ref_text:
+                    return backend_pb2.Result(
+                        success=False,
+                        message="Base TTS voice cloning requires request.voice/ref_audio and params.ref_text",
+                    )
+                inputs["additional_information"]["ref_audio"] = [ref_audio]
+                inputs["additional_information"]["ref_text"] = [ref_text]
                 if "x_vector_only_mode" in self.options:
                     inputs["additional_information"]["x_vector_only_mode"] = [self.options["x_vector_only_mode"]]
 

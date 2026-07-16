@@ -7,6 +7,33 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 )
 
+// emitPrecomputedTranscription emits the transcription events for a turn
+// whose transcript already exists (semantic_vad's live stream, or the
+// retranscribe gate's batch decode): optional delta replays followed by the
+// completed event — the same contract emitTranscription produces, sharing
+// one itemID — without running the backend again.
+func emitPrecomputedTranscription(t Transport, itemID string, deltas []string, transcript string) error {
+	for _, d := range deltas {
+		if d == "" {
+			continue
+		}
+		if err := t.SendEvent(types.ConversationItemInputAudioTranscriptionDeltaEvent{
+			ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+			ItemID:          itemID,
+			ContentIndex:    0,
+			Delta:           d,
+		}); err != nil {
+			return err
+		}
+	}
+	return t.SendEvent(types.ConversationItemInputAudioTranscriptionCompletedEvent{
+		ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+		ItemID:          itemID,
+		ContentIndex:    0,
+		Transcript:      transcript,
+	})
+}
+
 // emitTranscription transcribes a committed utterance and emits the transcription
 // events for it, returning the final transcript text. With
 // pipeline.streaming.transcription enabled it streams each transcript fragment as

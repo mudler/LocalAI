@@ -9,9 +9,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
 
 func strPtr(s string) *string { return &s }
+func boolPtr(b bool) *bool     { return &b }
 
 var _ = Describe("RuntimeSettings persistence helpers", func() {
 	var (
@@ -48,6 +51,79 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 			Expect(*got.InstanceName).To(Equal("Acme AI"))
 			Expect(got.LogoFile).ToNot(BeNil())
 			Expect(*got.LogoFile).To(Equal("logo.png"))
+		})
+	})
+
+	// MergeNonNil is the partial-update primitive UpdateSettingsEndpoint
+	// relies on: a focused admin page POSTs only the field it owns, and the
+	// handler reads the on-disk settings and overlays the request on top.
+	// Without it, the body would be written verbatim and every field the
+	// caller omitted would be nulled (the reported regression: changing
+	// mitm_listen wiped the galleries, api keys, watchdog config, etc.).
+	Describe("MergeNonNil partial update", func() {
+		It("overlays set fields and preserves unset ones", func() {
+			base := config.RuntimeSettings{
+				MITMListen:          strPtr(":9000"),
+				Galleries:           &[]config.Gallery{{Name: "g1", URL: "http://example/g1"}},
+				WatchdogIdleEnabled: boolPtr(true),
+				ApiKeys:             &[]string{"persisted-key"},
+				PIIDefaultDetectors: &[]string{"det-a"},
+			}
+
+			// Simulate the Middleware proxy tab: only mitm_listen is sent.
+			overlay := config.RuntimeSettings{MITMListen: strPtr(":8443")}
+			base.MergeNonNil(overlay)
+
+			Expect(base.MITMListen).ToNot(BeNil())
+			Expect(*base.MITMListen).To(Equal(":8443"), "set field should be overlaid")
+			// Everything the overlay left unset must survive untouched.
+			Expect(base.Galleries).ToNot(BeNil(), "galleries were clobbered")
+			Expect(*base.Galleries).To(HaveLen(1))
+			Expect(base.WatchdogIdleEnabled).ToNot(BeNil())
+			Expect(*base.WatchdogIdleEnabled).To(BeTrue())
+			Expect(base.ApiKeys).ToNot(BeNil(), "api_keys were clobbered")
+			Expect(*base.ApiKeys).To(Equal([]string{"persisted-key"}))
+			Expect(base.PIIDefaultDetectors).ToNot(BeNil(), "pii_default_detectors were clobbered")
+			Expect(*base.PIIDefaultDetectors).To(Equal([]string{"det-a"}))
+		})
+
+		It("lets an explicit empty slice clear a field", func() {
+			base := config.RuntimeSettings{PIIDefaultDetectors: &[]string{"det-a"}}
+			base.MergeNonNil(config.RuntimeSettings{PIIDefaultDetectors: &[]string{}})
+			Expect(base.PIIDefaultDetectors).ToNot(BeNil())
+			Expect(*base.PIIDefaultDetectors).To(BeEmpty(), "an explicit empty slice should clear, not preserve")
+		})
+	})
+
+	// VRAMBudget round trip pins the Settings-page persistence contract: the
+	// operator-set cap must survive ToRuntimeSettings (GET /api/settings) ->
+	// ApplyRuntimeSettings (POST /api/settings) so it lives past a save, and an
+	// empty value must clear the cap rather than being dropped.
+	Describe("VRAMBudget round trip", func() {
+		// ApplyRuntimeSettings live-applies the cap through the process-global
+		// xsysinfo.SetDefaultVRAMBudget. Reset it after each spec so a cap set
+		// here cannot bleed into other core/config specs under Ginkgo's
+		// randomized ordering.
+		AfterEach(func() {
+			xsysinfo.SetDefaultVRAMBudget(vrambudget.Budget{})
+		})
+
+		It("round-trips the VRAM budget", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			rs := o.ToRuntimeSettings()
+			Expect(rs.VRAMBudget).NotTo(BeNil())
+			Expect(*rs.VRAMBudget).To(Equal("80%"))
+
+			o2 := config.NewApplicationConfig()
+			o2.ApplyRuntimeSettings(&rs)
+			Expect(o2.VRAMBudget).To(Equal("80%"))
+		})
+
+		It("applies an empty VRAM budget as clearing the cap", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			empty := ""
+			o.ApplyRuntimeSettings(&config.RuntimeSettings{VRAMBudget: &empty})
+			Expect(o.VRAMBudget).To(Equal(""))
 		})
 	})
 

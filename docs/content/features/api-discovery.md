@@ -36,6 +36,7 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
   "endpoints": {
     "chat_completions": "/v1/chat/completions",
     "models": "/v1/models",
+    "models_capabilities": "/v1/models/capabilities",
     "config_metadata": "/api/models/config-metadata",
     "instructions": "/api/instructions",
     "swagger": "/swagger/index.html"
@@ -122,6 +123,45 @@ Add `?format=json` to get a raw **OpenAPI fragment** (filtered Swagger spec with
 ```bash
 curl http://localhost:8080/api/instructions/config-management?format=json
 ```
+
+## Model Capabilities
+
+`GET /v1/models/capabilities`
+
+An additive, LocalAI-specific superset of `/v1/models`. It returns the same set of models but enriches each entry with the **capabilities** the model supports and the **input/output modalities** it accepts and produces. Use it to decide, before sending a request, whether a given model can take an image, audio, or video attachment directly — or whether the input needs converting/transcribing first.
+
+Because it is purely additive, clients that only understand `/v1/models` keep working unchanged; they simply never call this route.
+
+```bash
+curl http://localhost:8080/v1/models/capabilities
+```
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "qwen2.5-omni",
+      "object": "model",
+      "capabilities": ["chat", "vision", "tools"],
+      "input_modalities": ["text", "image", "audio"],
+      "output_modalities": ["text"]
+    },
+    {
+      "id": "parakeet",
+      "object": "model",
+      "capabilities": ["transcript"],
+      "input_modalities": ["audio"],
+      "output_modalities": ["text"]
+    }
+  ]
+}
+```
+
+- **`capabilities`** — canonical usecase strings (e.g. `chat`, `vision`, `transcript`, `tts`, `embeddings`, `image`, `video`) plus the modifiers `tools` and `thinking`.
+- **`input_modalities` / `output_modalities`** — the subsets of `{text, image, audio, video}` the model accepts and produces. LocalAI combines usecase-based inference, backend settings such as vLLM `limit_mm_per_prompt`, and explicit model-level `known_input_modalities` / `known_output_modalities`. The explicit fields cover distinctions a usecase cannot express, such as a video model that also accepts speech.
+
+The same query parameters as `/v1/models` are honored (`filter`, `excludeConfigured`), and the same per-user model allowlist is applied when authentication is enabled.
 
 ## Configuration Management APIs
 

@@ -69,6 +69,7 @@ type FieldMetaOverride struct {
 func DefaultSections() []Section {
 	return []Section{
 		{ID: "general", Label: "General", Icon: "settings", Order: 0},
+		{ID: "alias", Label: "Alias", Icon: "git-merge", Order: 5},
 		{ID: "llm", Label: "LLM", Icon: "cpu", Order: 10},
 		{ID: "parameters", Label: "Parameters", Icon: "sliders", Order: 20},
 		{ID: "templates", Label: "Templates", Icon: "file-text", Order: 30},

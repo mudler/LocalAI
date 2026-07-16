@@ -11,6 +11,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'de', name: 'Deutsch', flag: 'DE' },
   { code: 'zh-CN', name: '简体中文', flag: 'ZH' },
   { code: 'id', name: 'Bahasa Indonesia', flag: 'ID' },
+  { code: 'ko', name: '한국어', flag: 'KO' },
 ]
 
 export const NAMESPACES = [

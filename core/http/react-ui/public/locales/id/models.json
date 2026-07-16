@@ -1,6 +1,7 @@
 {
   "title": "Instal Model",
   "subtitle": "Telusuri dan instal model AI dari galeri",
+  "models": "Model",
   "stats": {
     "available": "Tersedia",
     "installed": "Terinstal"
@@ -89,5 +90,11 @@
     "loadFailed": "Gagal memuat model: {{message}}",
     "installFailed": "Gagal menginstal: {{message}}",
     "deleteFailed": "Gagal menghapus: {{message}}"
+  },
+  "selector": {
+    "loading": "Memuat model...",
+    "selectModel": "Pilih model...",
+    "searchPlaceholder": "Cari model...",
+    "noModels": "Model tidak tersedia"
   }
 }

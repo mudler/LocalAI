@@ -6,6 +6,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,6 +32,22 @@ func getUserID(c echo.Context) string {
 		return ""
 	}
 	return user.ID
+}
+
+// decodedParam returns the named path parameter, URL-decoding it.
+//
+// Echo routes a request via URL.RawPath whenever the path contains
+// percent-encoded characters (e.g. %3A for ':'), and in that case stores the
+// matched path-param value raw/escaped. Agent and collection names carry a
+// "legacy-api-key:" prefix, so the ':' arrives as %3A and the raw param no
+// longer matches the stored name. Callers must unescape before lookups.
+// Falls back to the raw value if it isn't valid percent-encoding.
+func decodedParam(c echo.Context, name string) string {
+	raw := c.Param(name)
+	if decoded, err := url.PathUnescape(raw); err == nil {
+		return decoded
+	}
+	return raw
 }
 
 // isAdminUser returns true if the authenticated user has admin role.
@@ -127,7 +144,7 @@ func GetAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 
 		statuses := svc.ListAgentsForUser(userID)
 		active, exists := statuses[name]
@@ -142,7 +159,7 @@ func UpdateAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		var cfg state.AgentConfig
 		if err := c.Bind(&cfg); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -161,7 +178,7 @@ func DeleteAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		if err := svc.DeleteAgentForUser(userID, name); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -173,7 +190,7 @@ func GetAgentConfigEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		cfg := svc.GetAgentConfigForUser(userID, name)
 		if cfg == nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Agent not found"})
@@ -186,7 +203,7 @@ func PauseAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		if err := svc.PauseAgentForUser(userID, c.Param("name")); err != nil {
+		if err := svc.PauseAgentForUser(userID, decodedParam(c, "name")); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -197,7 +214,7 @@ func ResumeAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		if err := svc.ResumeAgentForUser(userID, c.Param("name")); err != nil {
+		if err := svc.ResumeAgentForUser(userID, decodedParam(c, "name")); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -208,7 +225,7 @@ func GetAgentStatusEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 
 		history := svc.GetAgentStatusForUser(userID, name)
 		if history == nil {
@@ -241,7 +258,7 @@ func GetAgentObservablesEndpoint(app *application.Application) echo.HandlerFunc 
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 
 		history, err := svc.GetAgentObservablesForUser(userID, name)
 		if err != nil {
@@ -261,7 +278,7 @@ func ClearAgentObservablesEndpoint(app *application.Application) echo.HandlerFun
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		if err := svc.ClearAgentObservablesForUser(userID, name); err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
@@ -273,7 +290,7 @@ func ChatWithAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		var payload struct {
 			Message string `json:"message"`
 		}
@@ -302,7 +319,7 @@ func AgentSSEEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 
 		// Try local SSE manager first
 		manager := svc.GetSSEManagerForUser(userID, name)
@@ -334,7 +351,7 @@ func ExportAgentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		data, err := svc.ExportAgentForUser(userID, name)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})

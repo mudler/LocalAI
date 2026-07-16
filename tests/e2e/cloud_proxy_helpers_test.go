@@ -184,23 +184,11 @@ func nonStreamingOpenAIToolCallScript() (status int, body string, contentType st
 	return 200, `{"id":"chatcmpl-y","choices":[{"index":0,"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_lookup","type":"function","function":{"name":"lookup","arguments":"{\"q\":\"clouds\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":12,"completion_tokens":7,"total_tokens":19}}`, "application/json"
 }
 
-// emailLeakOpenAIScript returns a non-streaming response containing an
-// email address. The streaming PII filter doesn't apply to buffered
-// responses, but the response is JSON the client receives unchanged —
-// used to verify the wire path without PII assertions. The streaming
-// PII variant uses an SSE response.
-func emailLeakOpenAIStreamingScript() (status int, body string, contentType string) {
-	frames := []string{
-		`{"choices":[{"index":0,"delta":{"content":"contact alice@"}}]}`,
-		`{"choices":[{"index":0,"delta":{"content":"example.com please"}}]}`,
-		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
-	}
-	var b strings.Builder
-	for _, f := range frames {
-		b.WriteString("data: ")
-		b.WriteString(f)
-		b.WriteString("\n\n")
-	}
-	b.WriteString("data: [DONE]\n\n")
-	return 200, b.String(), "text/event-stream"
-}
+// leakedAnthropicKey is a synthetic Anthropic API key (sk-ant-… shape) used by
+// the translate-mode PII test: the client sends it inside a user message and
+// the request-side pattern detector (anthropic_api_key builtin, which matches
+// sk-ant-[A-Za-z0-9_-]{20,}) must catch it and block the request before the
+// cloud-proxy forwards anything upstream. An email is deliberately not used —
+// the pattern tier rejects open-ended shapes (that's the NER tier's job, and
+// the NER model can't run in this hermetic suite).
+const leakedAnthropicKey = "sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"
