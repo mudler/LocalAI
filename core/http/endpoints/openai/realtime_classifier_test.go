@@ -52,6 +52,18 @@ func classifierResultEvents(t *fakeTransport) []types.ClassifierResultEvent {
 	return out
 }
 
+// replyTexts collects the assistant reply text of every completed output
+// item — what a classifier response actually "spoke".
+func replyTexts(t *fakeTransport) []string {
+	var out []string
+	for _, e := range t.events {
+		if ev, ok := e.(types.ResponseOutputTextDoneEvent); ok {
+			out = append(out, ev.Text)
+		}
+	}
+	return out
+}
+
 var _ = Describe("classifierConfigFromPipeline", func() {
 	It("returns nil for an absent block", func() {
 		cc, err := classifierConfigFromPipeline(nil)
@@ -503,7 +515,7 @@ func slottedTestConfig(threshold float64, fallback *types.ClassifierFallback, de
 			{
 				ID:          "up",
 				Description: "the user asks the drone to fly up",
-				Reply:       "Going up.",
+				Reply:       "Going up {{distance}} {{units}}.",
 				Tool: &types.ClassifierTool{
 					Name:      "move",
 					Arguments: json.RawMessage(`{"direction":"up","distance":"{{distance}}","units":"{{units}}"}`),
@@ -579,7 +591,8 @@ var _ = Describe("classifierRespond slot filling", func() {
 	It("emits the filled tool arguments and reports them in the result event", func() {
 		m := &fakeModel{
 			classifyScores: []router.LabelScore{{Label: "up", Score: 0.9}, {Label: "greeting", Score: 0.1}},
-			fillArgs:       `{"direction":"up","distance":3,"units":"m"}`,
+			fillArgs:       `{"direction":"up","distance":3,"units":"meters"}`,
+			fillValues:     map[string]string{"distance": "3", "units": "meters"},
 		}
 		session := classifierTestSession(m)
 		conv := &Conversation{}
@@ -595,7 +608,7 @@ var _ = Describe("classifierRespond slot filling", func() {
 		results := classifierResultEvents(t)
 		Expect(results).To(HaveLen(1))
 		Expect(results[0].ChosenID).To(Equal("up"))
-		Expect(results[0].Arguments).To(MatchJSON(`{"direction":"up","distance":3,"units":"m"}`))
+		Expect(results[0].Arguments).To(MatchJSON(`{"direction":"up","distance":3,"units":"meters"}`))
 
 		var fcArgs string
 		for _, e := range t.events {
@@ -603,7 +616,24 @@ var _ = Describe("classifierRespond slot filling", func() {
 				fcArgs = done.Arguments
 			}
 		}
-		Expect(fcArgs).To(MatchJSON(`{"direction":"up","distance":3,"units":"m"}`))
+		Expect(fcArgs).To(MatchJSON(`{"direction":"up","distance":3,"units":"meters"}`))
+	})
+
+	It("splices the filled values into a templated reply", func() {
+		m := &fakeModel{
+			classifyScores: []router.LabelScore{{Label: "up", Score: 0.9}, {Label: "greeting", Score: 0.1}},
+			fillArgs:       `{"direction":"up","distance":3,"units":"meters"}`,
+			fillValues:     map[string]string{"distance": "3", "units": "meters"},
+		}
+		session := classifierTestSession(m)
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		r := &liveResponse{id: "resp-slot-reply"}
+
+		handled := classifierRespond(context.Background(), session, conv, t, r, slottedTestConfig(0.35, nil, false), classifierTestHistory, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		Expect(replyTexts(t)).To(ConsistOf("Going up 3 meters."))
 	})
 
 	It("recovers with slot defaults when filling fails", func() {
@@ -626,6 +656,7 @@ var _ = Describe("classifierRespond slot filling", func() {
 			}
 		}
 		Expect(fcArgs).To(MatchJSON(`{"direction":"up","distance":1,"units":"m"}`))
+		Expect(replyTexts(t)).To(ConsistOf("Going up 1 m."), "the default-recovery reply confirms the defaults")
 	})
 
 	It("fails the response when filling fails and a slot has no default", func() {

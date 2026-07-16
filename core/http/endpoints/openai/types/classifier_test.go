@@ -267,4 +267,27 @@ var _ = Describe("ClassifierTool slots", func() {
 			Expect(err).To(MatchError(ContainSubstring(`"distance"`)))
 		})
 	})
+
+	Describe("SpliceReply", func() {
+		option := func(reply string, t *types.ClassifierTool) *types.ClassifierOption {
+			return &types.ClassifierOption{ID: "up", Description: "d", Reply: reply, Tool: t}
+		}
+
+		It("substitutes slot values as plain text", func() {
+			o := option("Going up {{distance}} {{units}}.", tool(numberSlot, enumSlot))
+			Expect(o.SpliceReply(map[string]string{"distance": "3.5", "units": "m"})).To(Equal("Going up 3.5 m."))
+		})
+
+		It("leaves placeholders without a value literal", func() {
+			o := option("Going up {{distance}} {{units}}.", tool(numberSlot, enumSlot))
+			Expect(o.SpliceReply(map[string]string{"distance": "3"})).To(Equal("Going up 3 {{units}}."))
+		})
+
+		It("returns the reply verbatim without slots or values", func() {
+			o := option("Going up {{distance}}.", nil)
+			Expect(o.SpliceReply(map[string]string{"distance": "3"})).To(Equal("Going up {{distance}}."))
+			slotted := option("Going up {{distance}}.", tool(numberSlot))
+			Expect(slotted.SpliceReply(nil)).To(Equal("Going up {{distance}}."))
+		})
+	})
 })
