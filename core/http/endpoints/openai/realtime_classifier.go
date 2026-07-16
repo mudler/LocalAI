@@ -429,7 +429,8 @@ func slotFillGrammar(slots []types.ClassifierSlot) string {
 				if vi > 0 {
 					rules.WriteString(" | ")
 				}
-				rules.WriteString(gbnfLiteral(`"` + v + `"`))
+				encoded, _ := json.Marshal(v) // validation rejects values JSON cannot encode
+				rules.WriteString(gbnfLiteral(string(encoded)))
 			}
 		default: // string
 			rules.WriteString("str")
@@ -444,6 +445,57 @@ func slotFillGrammar(slots []types.ClassifierSlot) string {
 		rules.WriteString("\nstr ::= \"\\\"\" [^\"\\\\\\n]* \"\\\"\"")
 	}
 	return root.String() + rules.String()
+}
+
+const (
+	// Free-form values need an explicit ceiling; forced enum values and field
+	// syntax are budgeted from their actual JSON encoding below.
+	slotFillStringTokens = 64
+	slotFillNumberTokens = 32
+)
+
+// slotFillMaxTokens conservatively budgets one token per output byte for the
+// forced JSON tail, plus explicit allowances for free-form values. This avoids
+// truncating long enum values or field names while keeping string generation
+// bounded.
+func slotFillMaxTokens(slots []types.ClassifierSlot) int {
+	tokens := 1 // closing brace
+	for i := range slots {
+		if i > 0 {
+			field, _ := json.Marshal(slots[i].Name)
+			tokens += len(field) + len(`, : `)
+		}
+		switch slots[i].Type {
+		case types.ClassifierSlotNumber:
+			tokens += slotFillNumberTokens
+		case types.ClassifierSlotString:
+			tokens += slotFillStringTokens
+		case types.ClassifierSlotEnum:
+			longest := 0
+			for _, value := range slots[i].Values {
+				encoded, _ := json.Marshal(value)
+				if len(encoded) > longest {
+					longest = len(encoded)
+				}
+			}
+			tokens += longest
+		}
+	}
+	return tokens
+}
+
+// slotFillContextReserve includes both the generated tail and the continuation
+// prefix appended after the scored prompt. It intentionally over-reserves by
+// counting bytes as tokens; preserving the identical scoring prompt is more
+// important than reclaiming a handful of context tokens.
+func slotFillContextReserve(option *types.ClassifierOption) int {
+	if option == nil || option.Tool == nil || len(option.Tool.Slots) == 0 {
+		return 0
+	}
+	route, _ := json.Marshal(option.ID)
+	field, _ := json.Marshal(option.Tool.Slots[0].Name)
+	prefixBytes := len(`{"route": , : `) + len(route) + len(field)
+	return prefixBytes + slotFillMaxTokens(option.Tool.Slots)
 }
 
 // parseSlotValues closes the completed route JSON and extracts each slot's

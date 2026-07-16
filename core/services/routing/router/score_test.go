@@ -368,6 +368,19 @@ var _ = Describe("ScoreClassifier conversation trimming", func() {
 		Expect(len(strings.Fields(s.lastP))).To(BeNumerically("<", 20000), "must be trimmed, not the full transcript")
 	})
 
+	It("reserves context for a completion after scoring", func() {
+		without := NewScoreClassifier(testPolicies(), &stubScorer{}, ScoreClassifierOptions{
+			TokenCounter:     wordCount,
+			MaxContextTokens: 10000,
+		})
+		with := NewScoreClassifier(testPolicies(), &stubScorer{}, ScoreClassifierOptions{
+			TokenCounter:            wordCount,
+			MaxContextTokens:        10000,
+			CompletionReserveTokens: 257,
+		})
+		Expect(with.probeTokenBudget()).To(Equal(without.probeTokenBudget() - 257))
+	})
+
 	It("keeps the newest turn whole even when it alone exceeds the budget", func() {
 		s := &stubScorer{results: threeScores}
 		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{

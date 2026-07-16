@@ -390,6 +390,9 @@ func validateSlots(t *ClassifierTool) error {
 			if len(s.Values) == 0 {
 				return fmt.Errorf("slot %q: enum slots need values", s.Name)
 			}
+			if slices.Contains(s.Values, "") {
+				return fmt.Errorf("slot %q: enum values must be non-empty", s.Name)
+			}
 			if s.Default != "" && !slices.Contains(s.Values, s.Default) {
 				return fmt.Errorf("slot %q: default %q is not one of its values", s.Name, s.Default)
 			}

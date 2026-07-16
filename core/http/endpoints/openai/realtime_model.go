@@ -456,6 +456,18 @@ func (m *wrappedModel) classifierFor(options []types.ClassifierOption, normaliza
 		CacheCap:      0,
 		Normalization: normalization,
 	}
+	if m.routerDeps != nil && m.routerDeps.TokenCounter != nil && cfg.ContextSize != nil {
+		opts.TokenCounter = m.routerDeps.TokenCounter(cfg.Name)
+		opts.MaxContextTokens = *cfg.ContextSize
+	}
+	for i := range options {
+		if options[i].Tool != nil && len(options[i].Tool.Slots) > 0 {
+			reserve := slotFillContextReserve(&options[i])
+			if reserve > opts.CompletionReserveTokens {
+				opts.CompletionReserveTokens = reserve
+			}
+		}
+	}
 	if m.evaluator != nil {
 		if renderer := middleware.NewTemplateRenderer(m.evaluator, cfg); renderer != nil {
 			opts.PromptRenderer = renderer
@@ -522,7 +534,7 @@ func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Me
 		return "", nil, fmt.Errorf("classifier: slot filling requires completion in the scoring model's known_usecases")
 	}
 	cfg.Grammar = slotFillGrammar(slots)
-	maxTokens := 16 + 16*len(slots)
+	maxTokens := slotFillMaxTokens(slots)
 	temperature := 0.0
 	cfg.Maxtokens = &maxTokens
 	cfg.Temperature = &temperature
