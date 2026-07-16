@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
@@ -537,6 +538,24 @@ var _ = Describe("slotFillGrammar", func() {
 		Expect(g).To(ContainSubstring("slot0 ::= num"))
 		Expect(g).To(ContainSubstring(`slot1 ::= "\"m\"" | "\"ft\""`))
 		Expect(g).To(ContainSubstring("num ::="))
+	})
+
+	It("JSON-encodes enum values before embedding them in the grammar", func() {
+		g := slotFillGrammar([]types.ClassifierSlot{
+			{Name: "units", Type: types.ClassifierSlotEnum, Values: []string{"quoted\"value", "line\nbreak", `back\slash`}},
+		})
+		Expect(g).To(ContainSubstring(gbnfLiteral(`"quoted\"value"`)))
+		Expect(g).To(ContainSubstring(gbnfLiteral(`"line\nbreak"`)))
+		Expect(g).To(ContainSubstring(gbnfLiteral(`"back\\slash"`)))
+	})
+
+	It("budgets forced enum and field text by encoded length", func() {
+		short := []types.ClassifierSlot{{Name: "value", Type: types.ClassifierSlotEnum, Values: []string{"m"}}}
+		long := []types.ClassifierSlot{
+			{Name: "value", Type: types.ClassifierSlotEnum, Values: []string{strings.Repeat("long-value-", 20)}},
+			{Name: strings.Repeat("field", 20), Type: types.ClassifierSlotNumber},
+		}
+		Expect(slotFillMaxTokens(long)).To(BeNumerically(">", slotFillMaxTokens(short)+200))
 	})
 
 	It("emits a string rule only when needed", func() {
