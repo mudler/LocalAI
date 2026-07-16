@@ -228,6 +228,12 @@ var _ = Describe("ClassifierTool slots", func() {
 			Expect(cfgWith(tool(bad, enumSlot)).Validate()).To(MatchError(ContainSubstring("does not parse")))
 		})
 
+		It("rejects empty enum values that cannot be spliced", func() {
+			bad := enumSlot
+			bad.Values = []string{"m", ""}
+			Expect(cfgWith(tool(numberSlot, bad)).Validate()).To(MatchError(ContainSubstring("must be non-empty")))
+		})
+
 		It("rejects slots the template never references", func() {
 			t := tool(numberSlot, enumSlot, types.ClassifierSlot{Name: "speed", Type: types.ClassifierSlotNumber})
 			Expect(cfgWith(t).Validate()).To(MatchError(ContainSubstring("{{speed}}")))
