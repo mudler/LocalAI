@@ -19,7 +19,9 @@ var _ = Describe("Worker address resolution", func() {
 			Entry("falls back to ServeAddr", "", "0.0.0.0:50051", 50051),
 			Entry("returns 50051 when neither set", "", "", 50051),
 			Entry("Addr with custom port", "10.0.0.5:7000", "", 7000),
+			Entry("supports bracketed IPv6", "[2001:db8::1]:7001", "", 7001),
 			Entry("invalid port in Addr falls through to ServeAddr", "host:notanumber", "0.0.0.0:9999", 9999),
+			Entry("out-of-range port in Addr falls through to ServeAddr", "host:70000", "0.0.0.0:9998", 9998),
 		)
 	})
 

@@ -78,7 +78,7 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 			}
 			xlog.Warn("Stale process entry for backend (dead process); cleaning up before reinstall",
 				"backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
-			s.stopBackendExact(processKey)
+			s.stopBackendExact(processKey, false)
 		}
 	} else {
 		// Upgrade path: stop every live process that shares this backend so the
@@ -95,7 +95,7 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		for _, key := range toStop {
 			xlog.Info("Force install: stopping running backend before reinstall",
 				"backend", req.Backend, "processKey", key)
-			s.stopBackendExact(key)
+			s.stopBackendExact(key, true)
 		}
 	}
 
@@ -103,9 +103,10 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 	galleries := s.galleries
 	if req.BackendGalleries != "" {
 		var reqGalleries []config.Gallery
-		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err == nil {
-			galleries = reqGalleries
+		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err != nil {
+			return "", fmt.Errorf("decoding backend galleries: %w", err)
 		}
+		galleries = reqGalleries
 	}
 
 	// When the master tagged this install with an OpID, stream the
@@ -147,7 +148,9 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 			}
 		}
 		// Re-register after install and retry
-		gallery.RegisterBackends(s.systemState, s.ml)
+		if err := gallery.RegisterBackends(s.systemState, s.ml); err != nil {
+			return "", fmt.Errorf("refreshing registered backends after install: %w", err)
+		}
 		backendPath = s.findBackend(req.Backend)
 	}
 
@@ -175,15 +178,16 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 	for _, key := range toStop {
 		xlog.Info("Upgrade: stopping running backend before reinstall",
 			"backend", req.Backend, "processKey", key)
-		s.stopBackendExact(key)
+		s.stopBackendExact(key, true)
 	}
 
 	galleries := s.galleries
 	if req.BackendGalleries != "" {
 		var reqGalleries []config.Gallery
-		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err == nil {
-			galleries = reqGalleries
+		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err != nil {
+			return fmt.Errorf("decoding backend galleries: %w", err)
 		}
+		galleries = reqGalleries
 	}
 
 	// When the master tagged this upgrade with an OpID, stream gallery download
@@ -215,7 +219,9 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 		}
 	}
 
-	gallery.RegisterBackends(s.systemState, s.ml)
+	if err := gallery.RegisterBackends(s.systemState, s.ml); err != nil {
+		return fmt.Errorf("refreshing registered backends after upgrade: %w", err)
+	}
 	return nil
 }
 

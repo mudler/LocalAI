@@ -51,7 +51,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	ml.SetBackendLoggingEnabled(true)
 
 	// Register already-installed backends
-	gallery.RegisterBackends(systemState, ml)
+	if err := gallery.RegisterBackends(systemState, ml); err != nil {
+		return fmt.Errorf("registering installed backends: %w", err)
+	}
 
 	// Parse galleries config
 	var galleries []config.Gallery
@@ -190,7 +192,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Set the registration token once before any backends are started
 	if cfg.RegistrationToken != "" {
-		os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken)
+		if err := os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken); err != nil {
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("setting backend authentication token: %w", err)
+		}
 	}
 
 	supervisor := &backendSupervisor{
@@ -204,12 +209,16 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		processes:   make(map[string]*backendProcess),
 		nextPort:    basePort,
 	}
-	supervisor.subscribeLifecycleEvents()
+	if err := supervisor.subscribeLifecycleEvents(); err != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
+	}
 
 	// Subscribe to file staging NATS subjects if S3 is configured
 	if cfg.StorageURL != "" {
 		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
-			xlog.Error("Failed to subscribe to file staging subjects", "error", err)
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("subscribing to file staging subjects: %w", err)
 		}
 	}
 
@@ -228,7 +237,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Shutting down worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	regClient.GracefulDeregister(nodeID)
-	supervisor.stopAllBackends()
+	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return runErr
 }

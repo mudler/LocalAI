@@ -15,11 +15,6 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// backendStopRequest is the request payload for backend.stop (fire-and-forget).
-type backendStopRequest struct {
-	Backend string `json:"backend"`
-}
-
 // NodeCommandSender abstracts NATS-based commands to worker nodes.
 // Used by HTTP endpoint handlers to avoid coupling to the concrete RemoteUnloaderAdapter.
 //
@@ -78,28 +73,44 @@ func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
 
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
 // to stop their backend process via NATS backend.stop event.
-// The worker process handles: Free() → kill process.
+// The worker process handles a bounded Free() followed by process termination;
+// forced shutdown skips Free().
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
 func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
-	ctx := context.Background()
+	return a.UnloadRemoteModelContext(context.Background(), modelName, false)
+}
+
+// UnloadRemoteModelContext is the cancellation-aware extension used by the
+// model loader to preserve forced shutdown across the distributed boundary.
+func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	nodes, err := a.registry.FindNodesWithModel(ctx, modelName)
-	if err != nil || len(nodes) == 0 {
+	if err != nil {
+		return fmt.Errorf("finding nodes with model %q: %w", modelName, err)
+	}
+	if len(nodes) == 0 {
 		xlog.Debug("No remote nodes found with model", "model", modelName)
 		return nil
 	}
 
+	var unloadErr error
 	for _, node := range nodes {
-		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID)
-		if err := a.StopBackend(node.ID, modelName); err != nil {
+		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
+		if err := a.stopBackend(node.ID, modelName, force); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
+			unloadErr = errors.Join(unloadErr, fmt.Errorf("stopping model on node %s: %w", node.ID, err))
 			continue
 		}
 		// Remove every replica of this model on the node — the worker will
 		// handle the actual process cleanup.
-		a.registry.RemoveAllNodeModelReplicas(ctx, node.ID, modelName)
+		if err := a.registry.RemoveAllNodeModelReplicas(ctx, node.ID, modelName); err != nil {
+			unloadErr = errors.Join(unloadErr, fmt.Errorf("removing model replicas from node %s: %w", node.ID, err))
+		}
 	}
 
-	return nil
+	return unloadErr
 }
 
 // InstallBackend sends a backend.install request-reply to a worker node.
@@ -142,7 +153,9 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	}, a.installTimeout)
 
 	if sub != nil {
-		_ = sub.Unsubscribe()
+		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
+			xlog.Warn("Failed to unsubscribe from backend install progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
+		}
 	}
 
 	if err != nil && isNATSTimeout(err) {
@@ -216,7 +229,9 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 	}, a.upgradeTimeout)
 
 	if sub != nil {
-		_ = sub.Unsubscribe()
+		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
+			xlog.Warn("Failed to unsubscribe from backend upgrade progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
+		}
 	}
 
 	if err != nil && isNATSTimeout(err) {
@@ -250,7 +265,9 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 	}, a.upgradeTimeout)
 
 	if sub != nil {
-		_ = sub.Unsubscribe()
+		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
+			xlog.Warn("Failed to unsubscribe from legacy backend install progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
+		}
 	}
 
 	if err != nil && isNATSTimeout(err) {
@@ -272,14 +289,15 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 // If backend is empty, the worker stops ALL backends.
 // The node stays registered and can receive another InstallBackend later.
 func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
+	return a.stopBackend(nodeID, backend, false)
+}
+
+func (a *RemoteUnloaderAdapter) stopBackend(nodeID, backend string, force bool) error {
 	subject := messaging.SubjectNodeBackendStop(nodeID)
-	if backend == "" {
+	if backend == "" && !force {
 		return a.nats.Publish(subject, nil)
 	}
-	req := struct {
-		Backend string `json:"backend"`
-	}{Backend: backend}
-	return a.nats.Publish(subject, req)
+	return a.nats.Publish(subject, messaging.BackendStopRequest{Backend: backend, Force: force})
 }
 
 // DeleteBackend tells a worker node to delete a backend (stop + remove files).

@@ -412,8 +412,13 @@ test-realtime: build-mock-backend
 test-realtime-conformance:
 	GOCMD=$(GOCMD) ./scripts/realtime-conformance.sh
 
+# Verify the shared model-loader shutdown behavior independently of any API
+# modality (focused loader/gRPC/distributed/worker tests under -race + FizzBee).
+test-model-lifecycle-conformance:
+	GOCMD=$(GOCMD) ./scripts/model-lifecycle-conformance.sh
+
 # Install the pinned, checksum-verified FizzBee model checker (into .tools/,
-# gitignored) used by test-realtime-conformance. Idempotent; no-op if present.
+# gitignored) used by the conformance targets. Idempotent; no-op if present.
 install-fizzbee:
 	./scripts/install-fizzbee.sh
 

@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"net"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,10 +21,13 @@ import (
 
 // backendProcess represents a single gRPC backend process.
 type backendProcess struct {
-	proc    *process.Process
-	backend string
-	addr    string // gRPC address (host:port)
+	proc     *process.Process
+	addr     string // gRPC address (host:port)
+	port     int
+	stopping bool
 }
+
+const workerBackendFreeTimeout = 5 * time.Second
 
 // backendSupervisor manages multiple backend gRPC processes on different ports.
 // Each backend type (e.g., llama-cpp, bert-embeddings) gets its own process and port.
@@ -60,6 +61,10 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 
 	// Already running?
 	if bp, ok := s.processes[backend]; ok {
+		if bp.stopping {
+			s.mu.Unlock()
+			return "", fmt.Errorf("backend %s is stopping", backend)
+		}
 		if bp.proc != nil && bp.proc.IsAlive() {
 			s.mu.Unlock()
 			return bp.addr, nil
@@ -83,14 +88,15 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 
 	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
 	if err != nil {
+		s.freePorts = append(s.freePorts, port)
 		s.mu.Unlock()
 		return "", fmt.Errorf("starting backend process: %w", err)
 	}
 
 	s.processes[backend] = &backendProcess{
-		proc:    proc,
-		backend: backend,
-		addr:    clientAddr,
+		proc: proc,
+		addr: clientAddr,
+		port: port,
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
@@ -111,31 +117,32 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 		readinessTimeout      = 30 * time.Second
 	)
 	deadline := time.Now().Add(readinessTimeout)
+	var lastHealthErr error
 	for time.Now().Before(deadline) {
 		time.Sleep(readinessPollInterval)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		if ok, _ := client.HealthCheck(ctx); ok {
+		ok, healthErr := client.HealthCheck(ctx)
+		if ok {
 			cancel()
-			// Verify the process wasn't stopped/replaced while health-checking
-			s.mu.Lock()
-			currentBP, exists := s.processes[backend]
-			s.mu.Unlock()
-			if !exists || currentBP != bp {
+			// Verify the process wasn't stopped/replaced while health-checking.
+			// A stopping entry remains in the map until process termination so its
+			// port stays reserved, but it must not be advertised as ready.
+			if !s.backendStartStillValid(backend, bp) {
 				return "", fmt.Errorf("backend %s was stopped during startup", backend)
 			}
 			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", clientAddr)
 			return clientAddr, nil
+		}
+		if healthErr != nil {
+			lastHealthErr = healthErr
 		}
 		cancel()
 
 		// Check if the process died (e.g. OOM, CUDA error, missing libs)
 		if !proc.IsAlive() {
 			stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
-			xlog.Warn("Backend process died during startup", "backend", backend, "stderr", stderrTail)
-			s.mu.Lock()
-			delete(s.processes, backend)
-			s.freePorts = append(s.freePorts, port)
-			s.mu.Unlock()
+			xlog.Warn("Backend process died during startup", "backend", backend, "healthError", lastHealthErr, "stderr", stderrTail)
+			s.releaseBackendStart(backend, bp)
 			return "", fmt.Errorf("backend process %s died during startup. Last stderr:\n%s", backend, stderrTail)
 		}
 	}
@@ -146,17 +153,39 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	// real cause). Stop the half-started process, recycle the port, and
 	// surface the failure to the caller with the backend's stderr tail.
 	stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
-	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", clientAddr, "timeout", readinessTimeout, "stderr", stderrTail)
+	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", clientAddr, "timeout", readinessTimeout, "healthError", lastHealthErr, "stderr", stderrTail)
 	if killErr := proc.Stop(); killErr != nil {
 		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
 	}
-	s.mu.Lock()
-	if cur, ok := s.processes[backend]; ok && cur == bp {
-		delete(s.processes, backend)
-		s.freePorts = append(s.freePorts, port)
-	}
-	s.mu.Unlock()
+	s.releaseBackendStart(backend, bp)
 	return "", fmt.Errorf("backend %s did not become ready within %s. Last stderr:\n%s", backend, readinessTimeout, stderrTail)
+}
+
+// backendStartStillValid verifies that a successful readiness probe still
+// belongs to the active startup attempt. Stop keeps an entry tracked while it
+// terminates, so pointer identity alone is not enough.
+func (s *backendSupervisor) backendStartStillValid(key string, bp *backendProcess) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current, exists := s.processes[key]
+	return exists && current == bp && !current.stopping
+}
+
+// releaseBackendStart removes a failed startup and recycles its port only when
+// the map still owns that exact attempt. A concurrent stop or replacement may
+// already have removed it and recycled the port.
+func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if current, exists := s.processes[key]; !exists || current != bp {
+		return
+	}
+	delete(s.processes, key)
+	if bp.port <= 0 {
+		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
+		return
+	}
+	s.freePorts = append(s.freePorts, bp.port)
 }
 
 // resolveProcessKeys turns a caller-supplied identifier into the set of
@@ -193,51 +222,82 @@ func (s *backendSupervisor) resolveProcessKeys(id string) []string {
 // stopBackend stops the backend process(es) matching the given identifier.
 // Accepts a bare modelID (stops every replica) or a full processKey
 // (stops just that replica).
-func (s *backendSupervisor) stopBackend(id string) {
+func (s *backendSupervisor) stopBackend(id string, force bool) {
 	for _, key := range s.resolveProcessKeys(id) {
-		s.stopBackendExact(key)
+		s.stopBackendExact(key, force)
 	}
 }
 
-// stopBackendExact stops the process under exactly this key. Locking and
-// network I/O are split: the map mutation runs under the lock, the gRPC
-// Free() and proc.Stop() calls run after release so they don't block
-// other supervisor operations.
-func (s *backendSupervisor) stopBackendExact(key string) {
+// stopBackendExact stops the process under exactly this key. It marks the
+// entry as stopping under the lock, then runs Free() and proc.Stop() after
+// release so network I/O cannot block other supervisor operations. The entry
+// and port remain reserved until process termination completes.
+func (s *backendSupervisor) stopBackendExact(key string, force bool) {
+	bp := s.beginBackendStop(key)
+	if bp == nil {
+		return
+	}
+
+	if !force {
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
+		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
+		if err := client.Free(freeCtx); err != nil {
+			xlog.Warn("Free() failed (best-effort)", "backend", key, "error", err)
+		}
+		cancel()
+	}
+
+	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force)
+	stopErr := bp.proc.Stop()
+	if stopErr != nil {
+		xlog.Error("Error stopping backend process", "backend", key, "error", stopErr)
+	}
+	s.finishBackendStop(key, bp, stopErr)
+}
+
+// beginBackendStop reserves both the process entry and its port while network
+// cleanup and process termination run without the supervisor mutex.
+func (s *backendSupervisor) beginBackendStop(key string) *backendProcess {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	bp, ok := s.processes[key]
-	if !ok || bp.proc == nil {
-		s.mu.Unlock()
+	if !ok || bp.proc == nil || bp.stopping {
+		return nil
+	}
+	bp.stopping = true
+	return bp
+}
+
+func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, stopErr error) {
+	// Keep the process and port reserved until termination completes. Recycling
+	// the port before this point can start a second backend on an address still
+	// owned by the stuck process.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if current, exists := s.processes[key]; !exists || current != bp {
+		return
+	}
+	if stopErr != nil && bp.proc.IsAlive() {
+		bp.stopping = false
 		return
 	}
 	delete(s.processes, key)
-	if _, portStr, err := net.SplitHostPort(bp.addr); err == nil {
-		if p, err := strconv.Atoi(portStr); err == nil {
-			s.freePorts = append(s.freePorts, p)
-		}
+	if bp.port <= 0 {
+		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
+		return
 	}
-	s.mu.Unlock()
-
-	client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
-	xlog.Debug("Calling Free() before stopping backend", "backend", key)
-	if err := client.Free(context.Background()); err != nil {
-		xlog.Warn("Free() failed (best-effort)", "backend", key, "error", err)
-	}
-
-	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr)
-	if err := bp.proc.Stop(); err != nil {
-		xlog.Error("Error stopping backend process", "backend", key, "error", err)
-	}
+	s.freePorts = append(s.freePorts, bp.port)
 }
 
 // stopAllBackends stops all running backend processes.
-func (s *backendSupervisor) stopAllBackends() {
+func (s *backendSupervisor) stopAllBackends(force bool) {
 	s.mu.Lock()
 	backends := slices.Collect(maps.Keys(s.processes))
 	s.mu.Unlock()
 
 	for _, b := range backends {
-		s.stopBackend(b)
+		s.stopBackend(b, force)
 	}
 }
 
