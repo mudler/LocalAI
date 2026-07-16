@@ -110,8 +110,8 @@ func (m *transcriptOnlyModel) ClassifyTurn(ctx context.Context, messages schema.
 	return nil, fmt.Errorf("classifier mode not supported in transcript-only mode")
 }
 
-func (m *transcriptOnlyModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, error) {
-	return "", fmt.Errorf("classifier mode not supported in transcript-only mode")
+func (m *transcriptOnlyModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error) {
+	return "", nil, fmt.Errorf("classifier mode not supported in transcript-only mode")
 }
 
 func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
@@ -499,18 +499,18 @@ func (m *wrappedModel) ClassifyTurn(ctx context.Context, messages schema.Message
 // re-opened at its first slot, with a grammar pinning everything but the
 // slot values. Deterministic (temperature 0), a couple dozen tokens at
 // most.
-func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, error) {
+func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error) {
 	if chosen == nil || chosen.Tool == nil || len(chosen.Tool.Slots) == 0 {
-		return "", fmt.Errorf("classifier: option has no slots to fill")
+		return "", nil, fmt.Errorf("classifier: option has no slots to fill")
 	}
 	slots := chosen.Tool.Slots
 	classifier, err := m.classifierFor(options, normalization)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	prompt, err := classifier.SlotFillPrompt(classifierProbe(messages), chosen.ID, slots[0].Name)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	// The scoring config, narrowed to a deterministic constrained
@@ -519,7 +519,7 @@ func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Me
 	// score].
 	cfg := *m.scoreConfig()
 	if !cfg.HasUsecases(config.FLAG_COMPLETION) {
-		return "", fmt.Errorf("classifier: slot filling requires completion in the scoring model's known_usecases")
+		return "", nil, fmt.Errorf("classifier: slot filling requires completion in the scoring model's known_usecases")
 	}
 	cfg.Grammar = slotFillGrammar(slots)
 	maxTokens := 16 + 16*len(slots)
@@ -529,17 +529,21 @@ func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Me
 
 	fn, err := backend.ModelInference(ctx, prompt, nil, nil, nil, nil, m.modelLoader, &cfg, m.confLoader, m.appConfig, nil, "", "", nil, nil, nil, nil)
 	if err != nil {
-		return "", fmt.Errorf("classifier: slot fill inference: %w", err)
+		return "", nil, fmt.Errorf("classifier: slot fill inference: %w", err)
 	}
 	resp, err := fn()
 	if err != nil {
-		return "", fmt.Errorf("classifier: slot fill inference: %w", err)
+		return "", nil, fmt.Errorf("classifier: slot fill inference: %w", err)
 	}
 	values, err := parseSlotValues(chosen.ID, slots[0].Name, resp.Response, slots)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return chosen.Tool.SpliceArguments(values)
+	args, err := chosen.Tool.SpliceArguments(values)
+	if err != nil {
+		return "", nil, err
+	}
+	return args, values, nil
 }
 
 func (m *wrappedModel) Warmup(ctx context.Context) error {

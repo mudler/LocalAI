@@ -212,6 +212,26 @@ func (t *ClassifierTool) SpliceArguments(values map[string]string) (string, erro
 	return args, nil
 }
 
+// SpliceReply fills "{{name}}" placeholders in the option's spoken reply
+// with the same slot values that filled the tool arguments, as plain text
+// ("Going {{distance}} {{units}}." → "Going 3 meters."), so the reply can
+// confirm what was actually inferred. Values are optional in the reply:
+// placeholders without a value stay literal, and options without slots (or
+// a nil value set) return the reply verbatim.
+func (o *ClassifierOption) SpliceReply(values map[string]string) string {
+	reply := o.Reply
+	if o.Tool == nil || len(values) == 0 {
+		return reply
+	}
+	for i := range o.Tool.Slots {
+		s := &o.Tool.Slots[i]
+		if v, ok := values[s.Name]; ok && v != "" {
+			reply = strings.ReplaceAll(reply, slotPlaceholder(s.Name), v)
+		}
+	}
+	return reply
+}
+
 // SlotDefaults returns every slot's default value, or an error naming the
 // first slot without one — the fill-failure path either recovers with a
 // complete default set or not at all.
