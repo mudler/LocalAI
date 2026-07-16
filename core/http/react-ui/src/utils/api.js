@@ -272,6 +272,10 @@ export const videoApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.video, body),
 }
 
+export const threeDApi = {
+  generate: (body) => postJSON(API_CONFIG.endpoints.threeDGenerations, body),
+}
+
 // parseAudioBlobResponse — shared response handling for audio-blob endpoints.
 // Throws on non-2xx (with the API error message when present); returns the
 // blob plus the parsed Content-Disposition filename mapped to the server's

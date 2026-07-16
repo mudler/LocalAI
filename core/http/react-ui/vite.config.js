@@ -56,6 +56,8 @@ export default defineConfig({
       '/generated-audio': backendUrl,
       '/generated-images': backendUrl,
       '/generated-videos': backendUrl,
+      '/generated-3d': backendUrl,
+      '/3d': backendUrl,
       '/version': backendUrl,
       '/system': backendUrl,
     },

@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ImageGen from './ImageGen'
 import VideoGen from './VideoGen'
+import ThreeDGen from './ThreeDGen'
 import TTS from './TTS'
 import Sound from './Sound'
 import AudioTransform from './AudioTransform'
@@ -10,6 +11,7 @@ import { useAuth } from '../context/AuthContext'
 const BASE_TABS = [
   { key: 'images', labelKey: 'studio.tabs.images', icon: 'fas fa-image' },
   { key: 'video', labelKey: 'studio.tabs.video', icon: 'fas fa-video' },
+  { key: 'threed', labelKey: 'studio.tabs.threed', icon: 'fas fa-cube' },
   { key: 'tts', labelKey: 'studio.tabs.tts', icon: 'fas fa-headphones' },
   { key: 'sound', labelKey: 'studio.tabs.sound', icon: 'fas fa-music' },
 ]
@@ -19,6 +21,7 @@ const TRANSFORM_TAB = { key: 'transform', labelKey: 'studio.tabs.transform', ico
 const TAB_COMPONENTS = {
   images: ImageGen,
   video: VideoGen,
+  threed: ThreeDGen,
   tts: TTS,
   sound: Sound,
   transform: AudioTransform,

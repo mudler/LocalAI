@@ -5,7 +5,8 @@
       "video": "Video",
       "tts": "TTS",
       "sound": "Sound",
-      "transform": "Transform"
+      "transform": "Transform",
+      "threed": "3D"
     }
   },
   "image": {
@@ -68,6 +69,48 @@
       "noPrompt": "Please enter a prompt",
       "noModel": "Please select a model",
       "noResults": "No video generated"
+    }
+  },
+  "threed": {
+    "title": "3D Generation",
+    "labels": {
+      "model": "Model",
+      "image": "Input image",
+      "quality": "Quality",
+      "quality_auto": "Auto (best available)",
+      "quality_coarse": "Coarse preview (fast)",
+      "quality_512": "512³ fine",
+      "quality_1024": "1024³ cascade (slow)",
+      "background": "Background",
+      "background_auto": "Auto-remove solid background",
+      "background_keep": "Keep original",
+      "background_black": "Remove black",
+      "background_white": "Remove white",
+      "advanced": "Advanced Settings",
+      "steps": "Shape steps",
+      "textureSteps": "Material steps",
+      "guidance": "Guidance",
+      "seed": "Seed",
+      "seedPlaceholder": "Random"
+    },
+    "actions": {
+      "generate": "Generate",
+      "generating": "Generating...",
+      "download": "Download GLB"
+    },
+    "viewer": {
+      "wireframe": "Wireframe",
+      "autoRotate": "Auto-rotate",
+      "noWebgl": "WebGL2 is not available in this browser — download the GLB to view it elsewhere.",
+      "contextLost": "The 3D view lost the GPU context — reload the page to restore it.",
+      "stats": "{{verts}} vertices · {{tris}} triangles",
+      "hint": "drag: rotate · wheel: zoom · right-drag: pan · double-click: reset"
+    },
+    "empty": "Generated 3D model will appear here",
+    "toasts": {
+      "noImage": "Please provide an input image",
+      "noModel": "Please select a model",
+      "noResults": "No model generated"
     }
   },
   "tts": {
