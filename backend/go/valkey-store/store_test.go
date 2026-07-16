@@ -111,6 +111,40 @@ var _ = Describe("loadConfig", func() {
 		_, err := loadConfig(opts("db:-1"))
 		Expect(err).To(HaveOccurred())
 	})
+
+	It("resolves username from direct option", func() {
+		cfg, err := loadConfig(opts("username:admin"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.Username).To(Equal("admin"))
+	})
+
+	It("resolves password from env indirection via password_env", func() {
+		GinkgoT().Setenv("TEST_VALKEY_PW_INDIRECT", "s3cret")
+		cfg, err := loadConfig(opts("password_env:TEST_VALKEY_PW_INDIRECT"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.Password).To(Equal("s3cret"))
+	})
+
+	It("resolves username from env indirection via username_env", func() {
+		GinkgoT().Setenv("TEST_VALKEY_USER_INDIRECT", "myuser")
+		cfg, err := loadConfig(opts("username_env:TEST_VALKEY_USER_INDIRECT"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.Username).To(Equal("myuser"))
+	})
+
+	It("prefers the direct option over env indirection", func() {
+		GinkgoT().Setenv("TEST_VALKEY_PW_CLASH", "from-env")
+		cfg, err := loadConfig(opts("password:direct-value", "password_env:TEST_VALKEY_PW_CLASH"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.Password).To(Equal("direct-value"))
+	})
+
+	It("returns empty when neither direct nor env indirection is set", func() {
+		cfg, err := loadConfig(opts("addr:localhost:6379"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.Username).To(BeEmpty())
+		Expect(cfg.Password).To(BeEmpty())
+	})
 })
 
 var _ = Describe("Load namespace gate", func() {

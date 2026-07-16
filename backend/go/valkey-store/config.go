@@ -23,6 +23,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -76,6 +77,8 @@ const (
 	optAddr               = "addr"
 	optUsername           = "username"
 	optPassword           = "password"
+	optUsernameEnv        = "username_env"
+	optPasswordEnv        = "password_env"
 	optTLS                = "tls"
 	optTLSSkipVerify      = "tls_skip_verify"
 	optTLSCACert          = "tls_ca_cert"
@@ -164,8 +167,8 @@ func loadConfig(opts *pb.ModelOptions) (Config, error) {
 
 	cfg := Config{
 		Addr:           strOr(o, optAddr, _defaultAddr),
-		Username:       o[optUsername],
-		Password:       o[optPassword],
+		Username:       resolveCredential(o, optUsername, optUsernameEnv),
+		Password:       resolveCredential(o, optPassword, optPasswordEnv),
 		UseTLS:         boolOr(o, optTLS, false),
 		TLSSkipVerify:  boolOr(o, optTLSSkipVerify, false),
 		TLSCACert:      o[optTLSCACert],
@@ -235,4 +238,24 @@ func boolOr(o map[string]string, key string, fallback bool) bool {
 		return fallback
 	}
 	return b
+}
+
+// resolveCredential resolves a credential value with the following priority:
+//  1. Direct value from the model config option (e.g. `username:admin`)
+//  2. Env-indirection: if `username_env` names an env var, read the credential
+//     from that variable (e.g. `username_env:MY_VALKEY_USER` → os.Getenv("MY_VALKEY_USER"))
+//
+// The env-indirection pattern (same as cloud-proxy's api_key_env) avoids putting
+// secrets directly in model YAML: distinct store configs can each reference a
+// different credential env var without any plaintext passwords in the config.
+func resolveCredential(o map[string]string, directKey, envKey string) string {
+	// Direct value takes precedence (backward compatible).
+	if v := o[directKey]; v != "" {
+		return v
+	}
+	// Env indirection: the option names an env var that holds the credential.
+	if envVar := o[envKey]; envVar != "" {
+		return os.Getenv(envVar)
+	}
+	return ""
 }
