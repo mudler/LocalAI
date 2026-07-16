@@ -98,6 +98,11 @@ type ScoreClassifierOptions struct {
 	// sends Probe.Prompt as-is and relies on the backend's n_ctx guard.
 	TokenCounter     func(string) (int, error)
 	MaxContextTokens int
+
+	// CompletionReserveTokens reserves additional context beyond the longest
+	// scoring candidate. Classifier slot filling uses this to ensure the prompt
+	// scored here can be continued without overflowing the model context.
+	CompletionReserveTokens int
 }
 
 // ScoreClassifier scores every policy label as the model's actual
@@ -202,8 +207,13 @@ func NewScoreClassifier(policies []ScorePolicy, scorer backend.Scorer, opts Scor
 		systemPrompt:        systemPrompt,
 		labelOrder:          labels,
 		candidates:          candidates,
-		budget:              &lazyBudget{tokenize: opts.TokenCounter, maxContext: opts.MaxContextTokens, extras: candidates},
-		cache:               newLabelSetCache(opts.CacheCap),
+		budget: &lazyBudget{
+			tokenize:   opts.TokenCounter,
+			maxContext: opts.MaxContextTokens,
+			extras:     candidates,
+			reserve:    opts.CompletionReserveTokens,
+		},
+		cache: newLabelSetCache(opts.CacheCap),
 	}
 }
 

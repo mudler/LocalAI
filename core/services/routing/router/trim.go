@@ -123,6 +123,7 @@ type lazyBudget struct {
 	tokenize   func(string) (int, error)
 	maxContext int
 	extras     []string
+	reserve    int
 
 	mu    sync.Mutex
 	value atomic.Int64 // 0=unset, >0=budget, -1=disabled
@@ -156,7 +157,7 @@ func (l *lazyBudget) get() int {
 			longest = n
 		}
 	}
-	b := l.maxContext - longest - tokenBudgetMargin
+	b := l.maxContext - longest - l.reserve - tokenBudgetMargin
 	if b <= 0 {
 		l.value.Store(-1)
 		return 0
