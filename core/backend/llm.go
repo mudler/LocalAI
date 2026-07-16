@@ -463,7 +463,9 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			r, err := regexp.Compile(c)
 			if err != nil {
-				xlog.Fatal("failed to compile regex", "error", err)
+				mu.Unlock()
+				xlog.Error("failed to compile cutstrings regex, skipping", "error", err, "regex", c)
+				continue
 			}
 			cutstrings[c] = r
 			reg = cutstrings[c]
@@ -480,7 +482,9 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			regex, err := regexp.Compile(r)
 			if err != nil {
-				xlog.Fatal("failed to compile regex", "error", err)
+				mu.Unlock()
+				xlog.Error("failed to compile extract_regex regex, skipping", "error", err, "regex", r)
+				continue
 			}
 			cutstrings[r] = regex
 			reg = regex
