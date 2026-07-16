@@ -914,12 +914,40 @@ Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref 
 
 ## gRPC Configuration
 
-Backend gRPC communication settings:
+Backend gRPC communication settings. These control the readiness handshake
+between LocalAI and a freshly spawned backend process — LocalAI polls the
+backend's `Health` gRPC method up to `grpc.attempts` times, sleeping
+`grpc.attempts_sleep_time` seconds between polls, before giving up and
+terminating the backend as unresponsive.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `grpc.attempts` | int | Number of retry attempts |
-| `grpc.attempts_sleep_time` | int | Sleep time between retries (seconds) |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `grpc.attempts` | int | 20 | Number of health-check attempts before the backend is killed as unresponsive |
+| `grpc.attempts_sleep_time` | int | 2 | Sleep time between health-check attempts (seconds) |
+
+**Total load window ≈ `grpc.attempts × (grpc.attempts_sleep_time + per-call gRPC dial timeout)`.**
+The default of `20 × 2 s ≈ 40 s` is fine for typical backends but is too
+short for large models that need substantial time to become gRPC-ready
+after the process starts — for example NVFP4 / FP8 models whose shard
+loading and CUDA-graph capture can take several minutes, or slow storage
+backends. If the backend keeps getting killed while still legitimately
+loading (visible as `exitCode=120` + `rpc error: code = Canceled desc =
+context canceled` in the LocalAI log, while the backend's own stderr
+shows continued forward progress), raise these values.
+
+Example configuration for a model that needs up to ~10 minutes to become
+gRPC-ready (large NVFP4 model, cold shard load + CUDA-graph capture):
+
+```yaml
+grpc:
+  attempts: 140
+  attempts_sleep_time: 5
+```
+
+This gives a ~700 s window while keeping health-check polling frequent
+enough to detect real backend crashes quickly. The values only affect
+the initial readiness handshake — inference-request timeouts and the
+watchdog are unchanged.
 
 ## Overrides
 
