@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # moss-tts.cpp version
 MOSSTTS_REPO?=https://github.com/mudler/moss-tts.cpp
-MOSSTTS_CPP_VERSION?=b90b28fb22cf593b83fa51586b0e0f29211f5594
+MOSSTTS_CPP_VERSION?=ee722b8e9205ee9b1b1c398a4e87e4e393e9be41
 SO_TARGET?=libgomosstts-cpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
