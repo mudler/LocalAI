@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
@@ -701,11 +700,12 @@ func WithUploadLimitMB(limit int) AppOption {
 	}
 }
 
+// WithThreads sets the thread-count hint. 0 means "unset": the effective
+// physical-core default is resolved in application.New() only after
+// persisted runtime settings merge, so a file-saved value is not masked by
+// an eager fallback (#10845).
 func WithThreads(threads int) AppOption {
 	return func(o *ApplicationConfig) {
-		if threads == 0 { // 0 is not allowed
-			threads = xsysinfo.CPUPhysicalCores()
-		}
 		o.Threads = threads
 	}
 }
@@ -1119,410 +1119,60 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 	}
 }
 
-// ToRuntimeSettings converts ApplicationConfig to RuntimeSettings for API responses and JSON serialization.
-// This provides a single source of truth - ApplicationConfig holds the live values,
-// and this method creates a RuntimeSettings snapshot for external consumption.
+// ToRuntimeSettings converts ApplicationConfig to RuntimeSettings for API
+// responses and JSON serialization. Field coverage comes entirely from the
+// runtimeSettingsFields registry (runtime_settings_registry.go).
 func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
-	// Create local copies for pointer fields
-	watchdogEnabled := o.WatchDog
-	watchdogIdle := o.WatchDogIdle
-	watchdogBusy := o.WatchDogBusy
-	singleBackend := o.SingleBackend
-	maxActiveBackends := o.MaxActiveBackends
-	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
-	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
-	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
-	sizeAwareEviction := o.SizeAwareEviction
-	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
-	threads := o.Threads
-	contextSize := o.ContextSize
-	vramBudget := o.VRAMBudget
-	f16 := o.F16
-	debug := o.Debug
-	tracingMaxItems := o.TracingMaxItems
-	tracingMaxBodyBytes := o.TracingMaxBodyBytes
-	enableTracing := o.EnableTracing
-	enableBackendLogging := o.EnableBackendLogging
-	cors := o.CORS
-	csrf := o.DisableCSRF
-	corsAllowOrigins := o.CORSAllowOrigins
-	p2pToken := o.P2PToken
-	p2pNetworkID := o.P2PNetworkID
-	federated := o.Federated
-	galleries := o.Galleries
-	backendGalleries := o.BackendGalleries
-	autoloadGalleries := o.AutoloadGalleries
-	autoloadBackendGalleries := o.AutoloadBackendGalleries
-	autoUpgradeBackends := o.AutoUpgradeBackends
-	preferDevelopmentBackends := o.PreferDevelopmentBackends
-	apiKeys := o.ApiKeys
-	agentJobRetentionDays := o.AgentJobRetentionDays
-
-	// Format timeouts as strings
-	var idleTimeout, busyTimeout, watchdogInterval string
-	if o.WatchDogIdleTimeout > 0 {
-		idleTimeout = o.WatchDogIdleTimeout.String()
-	} else {
-		idleTimeout = "15m" // default
+	var s RuntimeSettings
+	for _, f := range runtimeSettingsFields {
+		f.snapshot(o, &s)
 	}
-	if o.WatchDogBusyTimeout > 0 {
-		busyTimeout = o.WatchDogBusyTimeout.String()
-	} else {
-		busyTimeout = "5m" // default
-	}
-	if o.WatchDogInterval > 0 {
-		watchdogInterval = o.WatchDogInterval.String()
-	} else {
-		watchdogInterval = model.DefaultWatchdogInterval.String() // default: 500ms
-	}
-	var lruEvictionRetryInterval string
-	if o.LRUEvictionRetryInterval > 0 {
-		lruEvictionRetryInterval = o.LRUEvictionRetryInterval.String()
-	} else {
-		lruEvictionRetryInterval = "1s" // default
-	}
-	var openResponsesStoreTTL string
-	if o.OpenResponsesStoreTTL > 0 {
-		openResponsesStoreTTL = o.OpenResponsesStoreTTL.String()
-	} else {
-		openResponsesStoreTTL = "0" // default: no expiration
-	}
-
-	// Agent Pool settings
-	agentPoolEnabled := o.AgentPool.Enabled
-	agentPoolDefaultModel := o.AgentPool.DefaultModel
-	agentPoolEmbeddingModel := o.AgentPool.EmbeddingModel
-	agentPoolMaxChunkingSize := o.AgentPool.MaxChunkingSize
-	agentPoolChunkOverlap := o.AgentPool.ChunkOverlap
-	agentPoolEnableLogs := o.AgentPool.EnableLogs
-	agentPoolCollectionDBPath := o.AgentPool.CollectionDBPath
-	agentPoolVectorEngine := o.AgentPool.VectorEngine
-	agentPoolDatabaseURL := o.AgentPool.DatabaseURL
-	agentPoolAgentHubURL := o.AgentPool.AgentHubURL
-
-	// LocalAI Assistant settings
-	localAIAssistantEnabled := !o.DisableLocalAIAssistant
-
-	// Branding settings
-	instanceName := o.Branding.InstanceName
-	instanceTagline := o.Branding.InstanceTagline
-	logoFile := o.Branding.LogoFile
-	logoHorizontalFile := o.Branding.LogoHorizontalFile
-	faviconFile := o.Branding.FaviconFile
-
-	mitmListen := o.MITMListen
-
-	piiDefaultDetectors := append([]string(nil), o.PIIDefaultDetectors...)
-
-	return RuntimeSettings{
-		WatchdogEnabled:           &watchdogEnabled,
-		WatchdogIdleEnabled:       &watchdogIdle,
-		WatchdogBusyEnabled:       &watchdogBusy,
-		WatchdogIdleTimeout:       &idleTimeout,
-		WatchdogBusyTimeout:       &busyTimeout,
-		WatchdogInterval:          &watchdogInterval,
-		SingleBackend:             &singleBackend,
-		MaxActiveBackends:         &maxActiveBackends,
-		MemoryReclaimerEnabled:    &memoryReclaimerEnabled,
-		MemoryReclaimerThreshold:  &memoryReclaimerThreshold,
-		ForceEvictionWhenBusy:     &forceEvictionWhenBusy,
-		SizeAwareEviction:         &sizeAwareEviction,
-		LRUEvictionMaxRetries:     &lruEvictionMaxRetries,
-		LRUEvictionRetryInterval:  &lruEvictionRetryInterval,
-		Threads:                   &threads,
-		ContextSize:               &contextSize,
-		VRAMBudget:                &vramBudget,
-		F16:                       &f16,
-		Debug:                     &debug,
-		TracingMaxItems:           &tracingMaxItems,
-		TracingMaxBodyBytes:       &tracingMaxBodyBytes,
-		EnableTracing:             &enableTracing,
-		EnableBackendLogging:      &enableBackendLogging,
-		CORS:                      &cors,
-		CSRF:                      &csrf,
-		CORSAllowOrigins:          &corsAllowOrigins,
-		P2PToken:                  &p2pToken,
-		P2PNetworkID:              &p2pNetworkID,
-		Federated:                 &federated,
-		Galleries:                 &galleries,
-		BackendGalleries:          &backendGalleries,
-		AutoloadGalleries:         &autoloadGalleries,
-		AutoloadBackendGalleries:  &autoloadBackendGalleries,
-		AutoUpgradeBackends:       &autoUpgradeBackends,
-		PreferDevelopmentBackends: &preferDevelopmentBackends,
-		ApiKeys:                   &apiKeys,
-		AgentJobRetentionDays:     &agentJobRetentionDays,
-		OpenResponsesStoreTTL:     &openResponsesStoreTTL,
-		AgentPoolEnabled:          &agentPoolEnabled,
-		AgentPoolDefaultModel:     &agentPoolDefaultModel,
-		AgentPoolEmbeddingModel:   &agentPoolEmbeddingModel,
-		AgentPoolMaxChunkingSize:  &agentPoolMaxChunkingSize,
-		AgentPoolChunkOverlap:     &agentPoolChunkOverlap,
-		AgentPoolEnableLogs:       &agentPoolEnableLogs,
-		AgentPoolCollectionDBPath: &agentPoolCollectionDBPath,
-		AgentPoolVectorEngine:     &agentPoolVectorEngine,
-		AgentPoolDatabaseURL:      &agentPoolDatabaseURL,
-		AgentPoolAgentHubURL:      &agentPoolAgentHubURL,
-		LocalAIAssistantEnabled:   &localAIAssistantEnabled,
-		InstanceName:              &instanceName,
-		InstanceTagline:           &instanceTagline,
-		LogoFile:                  &logoFile,
-		LogoHorizontalFile:        &logoHorizontalFile,
-		FaviconFile:               &faviconFile,
-		MITMListen:                &mitmListen,
-		PIIDefaultDetectors:       &piiDefaultDetectors,
-	}
+	return s
 }
 
-// ApplyRuntimeSettings applies RuntimeSettings to ApplicationConfig.
-// Only non-nil fields in RuntimeSettings are applied.
-// Returns true if watchdog-related settings changed (requiring restart).
+// ApplyRuntimeSettings applies RuntimeSettings to ApplicationConfig (the
+// live POST /api/settings path). Only non-nil fields are applied. Returns
+// true if restart-requiring settings changed (see each row's
+// restartRequired flag in runtimeSettingsFields).
 func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (requireRestart bool) {
 	if settings == nil {
 		return false
 	}
-
-	if settings.WatchdogEnabled != nil {
-		o.WatchDog = *settings.WatchdogEnabled
-		requireRestart = true
-	}
-	if settings.WatchdogIdleEnabled != nil {
-		o.WatchDogIdle = *settings.WatchdogIdleEnabled
-		requireRestart = true
-	}
-	if settings.WatchdogBusyEnabled != nil {
-		o.WatchDogBusy = *settings.WatchdogBusyEnabled
-		requireRestart = true
+	for _, f := range runtimeSettingsFields {
+		if f.snapshotOnly || !f.isSet(settings) {
+			continue
+		}
+		if f.apply(o, settings) && f.requiresRestart {
+			requireRestart = true
+		}
 	}
 	// The React Settings "Enable Watchdog" master toggle manages only the
-	// idle/busy checks — watchdog_enabled is vestigial in that UI. Whenever
-	// either idle/busy field is present in the body, derive the run-state from
-	// idle||busy so a cold enable starts the watchdog and a full disable stops
-	// it, instead of trusting the stale watchdog_enabled the UI never updates.
-	// This mirrors the startup invariant in startup.go. An API client posting
-	// only watchdog_enabled (idle/busy absent) keeps its explicit value.
+	// idle/busy checks - watchdog_enabled is vestigial in that UI. Whenever
+	// either idle/busy field is present in the body, derive the run-state
+	// from idle||busy so a cold enable starts the watchdog and a full
+	// disable stops it, instead of trusting the stale watchdog_enabled the
+	// UI never updates. An API client posting only watchdog_enabled
+	// (idle/busy absent) keeps its explicit value. (#9125)
 	if settings.WatchdogIdleEnabled != nil || settings.WatchdogBusyEnabled != nil {
 		o.WatchDog = o.WatchDogIdle || o.WatchDogBusy
 	}
-	if settings.WatchdogIdleTimeout != nil {
-		if dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err == nil {
-			o.WatchDogIdleTimeout = dur
-			requireRestart = true
-		}
+	// The memory reclaimer needs the watchdog run loop.
+	if settings.MemoryReclaimerEnabled != nil && *settings.MemoryReclaimerEnabled {
+		o.WatchDog = true
 	}
-	if settings.WatchdogBusyTimeout != nil {
-		if dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout); err == nil {
-			o.WatchDogBusyTimeout = dur
-			requireRestart = true
-		}
-	}
-	if settings.WatchdogInterval != nil {
-		if dur, err := time.ParseDuration(*settings.WatchdogInterval); err == nil {
-			o.WatchDogInterval = dur
-			requireRestart = true
-		}
-	}
-	if settings.MaxActiveBackends != nil {
-		o.MaxActiveBackends = *settings.MaxActiveBackends
-		o.SingleBackend = (*settings.MaxActiveBackends == 1)
-		requireRestart = true
-	} else if settings.SingleBackend != nil {
-		o.SingleBackend = *settings.SingleBackend
-		if *settings.SingleBackend {
-			o.MaxActiveBackends = 1
-		} else {
-			o.MaxActiveBackends = 0
-		}
-		requireRestart = true
-	}
-	if settings.MemoryReclaimerEnabled != nil {
-		o.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
-		if *settings.MemoryReclaimerEnabled {
-			o.WatchDog = true
-		}
-		requireRestart = true
-	}
-	if settings.MemoryReclaimerThreshold != nil {
-		if *settings.MemoryReclaimerThreshold > 0 && *settings.MemoryReclaimerThreshold <= 1.0 {
-			o.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
-			requireRestart = true
-		}
-	}
-	if settings.ForceEvictionWhenBusy != nil {
-		o.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
-		// This setting doesn't require restart, can be updated dynamically
-	}
-	if settings.SizeAwareEviction != nil {
-		o.SizeAwareEviction = *settings.SizeAwareEviction
-		// This setting doesn't require restart, can be updated dynamically
-	}
-	if settings.LRUEvictionMaxRetries != nil {
-		o.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
-		// This setting doesn't require restart, can be updated dynamically
-	}
-	if settings.LRUEvictionRetryInterval != nil {
-		if dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval); err == nil {
-			o.LRUEvictionRetryInterval = dur
-			// This setting doesn't require restart, can be updated dynamically
-		}
-	}
-	if settings.Threads != nil {
-		o.Threads = *settings.Threads
-	}
-	if settings.ContextSize != nil {
-		o.ContextSize = *settings.ContextSize
-	}
+	// VRAM budget live-apply: a cross-cutting process-global side effect
+	// (xsysinfo), kept out of the registry row like the watchdog/reclaimer
+	// invariants above - rows only own config members. An empty string
+	// clears the cap; a malformed value is rejected by the settings
+	// endpoint, but stay fail-open here too so a bad persisted value
+	// cannot wedge apply.
 	if settings.VRAMBudget != nil {
-		o.VRAMBudget = *settings.VRAMBudget
-		// Live-apply so the cap takes effect without a restart. An empty string
-		// clears the cap; a malformed value is rejected by the settings endpoint,
-		// but stay fail-open here too so a bad persisted value cannot wedge apply.
 		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
 			xsysinfo.SetDefaultVRAMBudget(b)
 		}
 	}
-	if settings.F16 != nil {
-		o.F16 = *settings.F16
-	}
-	if settings.Debug != nil {
-		o.Debug = *settings.Debug
-	}
-	if settings.EnableTracing != nil {
-		o.EnableTracing = *settings.EnableTracing
-	}
-	if settings.TracingMaxItems != nil {
-		o.TracingMaxItems = *settings.TracingMaxItems
-	}
-	if settings.TracingMaxBodyBytes != nil {
-		o.TracingMaxBodyBytes = *settings.TracingMaxBodyBytes
-	}
-	if settings.EnableBackendLogging != nil {
-		o.EnableBackendLogging = *settings.EnableBackendLogging
-	}
-	if settings.CORS != nil {
-		o.CORS = *settings.CORS
-	}
-	if settings.CSRF != nil {
-		o.DisableCSRF = *settings.CSRF
-	}
-	if settings.CORSAllowOrigins != nil {
-		o.CORSAllowOrigins = *settings.CORSAllowOrigins
-	}
-	if settings.P2PToken != nil {
-		o.P2PToken = *settings.P2PToken
-	}
-	if settings.P2PNetworkID != nil {
-		o.P2PNetworkID = *settings.P2PNetworkID
-	}
-	if settings.Federated != nil {
-		o.Federated = *settings.Federated
-	}
-	if settings.Galleries != nil {
-		o.Galleries = *settings.Galleries
-	}
-	if settings.BackendGalleries != nil {
-		o.BackendGalleries = *settings.BackendGalleries
-	}
-	if settings.AutoloadGalleries != nil {
-		o.AutoloadGalleries = *settings.AutoloadGalleries
-	}
-	if settings.AutoloadBackendGalleries != nil {
-		o.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
-	}
-	if settings.AutoUpgradeBackends != nil {
-		o.AutoUpgradeBackends = *settings.AutoUpgradeBackends
-	}
-	if settings.PreferDevelopmentBackends != nil {
-		o.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
-	}
-	if settings.AgentJobRetentionDays != nil {
-		o.AgentJobRetentionDays = *settings.AgentJobRetentionDays
-	}
-	if settings.OpenResponsesStoreTTL != nil {
-		if *settings.OpenResponsesStoreTTL == "0" || *settings.OpenResponsesStoreTTL == "" {
-			o.OpenResponsesStoreTTL = 0 // No expiration
-		} else if dur, err := time.ParseDuration(*settings.OpenResponsesStoreTTL); err == nil {
-			o.OpenResponsesStoreTTL = dur
-		}
-		// This setting doesn't require restart, can be updated dynamically
-	}
-	// Agent Pool settings
-	if settings.AgentPoolEnabled != nil {
-		o.AgentPool.Enabled = *settings.AgentPoolEnabled
-		requireRestart = true
-	}
-	if settings.AgentPoolDefaultModel != nil {
-		o.AgentPool.DefaultModel = *settings.AgentPoolDefaultModel
-		requireRestart = true
-	}
-	if settings.AgentPoolEmbeddingModel != nil {
-		o.AgentPool.EmbeddingModel = *settings.AgentPoolEmbeddingModel
-		requireRestart = true
-	}
-	if settings.AgentPoolMaxChunkingSize != nil {
-		o.AgentPool.MaxChunkingSize = *settings.AgentPoolMaxChunkingSize
-		requireRestart = true
-	}
-	if settings.AgentPoolChunkOverlap != nil {
-		o.AgentPool.ChunkOverlap = *settings.AgentPoolChunkOverlap
-		requireRestart = true
-	}
-	if settings.AgentPoolEnableLogs != nil {
-		o.AgentPool.EnableLogs = *settings.AgentPoolEnableLogs
-		requireRestart = true
-	}
-	if settings.AgentPoolCollectionDBPath != nil {
-		o.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
-		requireRestart = true
-	}
-	if settings.AgentPoolVectorEngine != nil {
-		o.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
-		requireRestart = true
-	}
-	if settings.AgentPoolDatabaseURL != nil {
-		o.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
-		requireRestart = true
-	}
-	if settings.AgentPoolAgentHubURL != nil {
-		o.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
-		requireRestart = true
-	}
-
-	// LocalAI Assistant: read live at request entry by the chat handler, so
-	// flipping the disable flag takes effect on the next request without a
-	// restart.
-	if settings.LocalAIAssistantEnabled != nil {
-		o.DisableLocalAIAssistant = !*settings.LocalAIAssistantEnabled
-	}
-
-	// Branding: read live by the public /api/branding endpoint and asset
-	// server, so changes apply on the next request without a restart.
-	if settings.InstanceName != nil {
-		o.Branding.InstanceName = *settings.InstanceName
-	}
-	if settings.InstanceTagline != nil {
-		o.Branding.InstanceTagline = *settings.InstanceTagline
-	}
-	if settings.LogoFile != nil {
-		o.Branding.LogoFile = *settings.LogoFile
-	}
-	if settings.LogoHorizontalFile != nil {
-		o.Branding.LogoHorizontalFile = *settings.LogoHorizontalFile
-	}
-	if settings.FaviconFile != nil {
-		o.Branding.FaviconFile = *settings.FaviconFile
-	}
-
-	if settings.MITMListen != nil {
-		o.MITMListen = *settings.MITMListen
-	}
-
-	if settings.PIIDefaultDetectors != nil {
-		o.PIIDefaultDetectors = append([]string(nil), (*settings.PIIDefaultDetectors)...)
-	}
-
-	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller
-
+	// Note: ApiKeys need env-merge handling (MergeAPIKeys) - done by the
+	// caller, because the env-provided keys live on the startup config.
 	return requireRestart
 }
 

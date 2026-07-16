@@ -595,10 +595,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 	}
 
-	// Handle memory reclaimer (uses GPU VRAM if available, otherwise RAM)
-	if r.EnableMemoryReclaimer {
-		opts = append(opts, config.WithMemoryReclaimer(true, r.MemoryReclaimerThreshold))
-	}
+	// Memory reclaimer (GPU VRAM if available, otherwise RAM). Injected
+	// unconditionally so the kong threshold default always reaches the
+	// config: DefaultRuntimeBaseline models an option-less boot with
+	// threshold 0.95, and the settings loader treats a live value equal
+	// to the baseline as "not env-set" (file may apply). Gating this on
+	// EnableMemoryReclaimer left the threshold at 0 and made a UI-saved
+	// threshold look env-set at boot.
+	opts = append(opts, config.WithMemoryReclaimer(r.EnableMemoryReclaimer, r.MemoryReclaimerThreshold))
 
 	// Handle max active backends (LRU eviction)
 	// MaxActiveBackends takes precedence over SingleActiveBackend

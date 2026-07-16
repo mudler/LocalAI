@@ -14,7 +14,7 @@ import (
 )
 
 func strPtr(s string) *string { return &s }
-func boolPtr(b bool) *bool     { return &b }
+func boolPtr(b bool) *bool    { return &b }
 
 var _ = Describe("RuntimeSettings persistence helpers", func() {
 	var (
@@ -195,6 +195,31 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 			Expect(*ondisk.LogoFile).To(Equal("logo.png"), "logo_file was clobbered by Save")
 			Expect(ondisk.InstanceName).ToNot(BeNil())
 			Expect(*ondisk.InstanceName).To(Equal("Acme AI"))
+		})
+	})
+
+	// MergeAPIKeys is the single env+runtime key merge shared by the
+	// settings endpoint and the runtime_settings.json file watcher. Env/CLI
+	// keys must always survive, and runtime entries that duplicate an env
+	// key must be dropped so repeated saves cannot stack them (#9071).
+	Describe("MergeAPIKeys", func() {
+		It("keeps env keys first and appends runtime keys", func() {
+			Expect(config.MergeAPIKeys([]string{"env1"}, []string{"rt1", "rt2"})).
+				To(Equal([]string{"env1", "rt1", "rt2"}))
+		})
+
+		It("drops runtime entries that duplicate an env key (#9071)", func() {
+			Expect(config.MergeAPIKeys([]string{"env1"}, []string{"env1", "rt1"})).
+				To(Equal([]string{"env1", "rt1"}))
+		})
+
+		It("clears runtime keys when the runtime list is empty", func() {
+			Expect(config.MergeAPIKeys([]string{"env1"}, []string{})).
+				To(Equal([]string{"env1"}))
+		})
+
+		It("handles no env keys", func() {
+			Expect(config.MergeAPIKeys(nil, []string{"rt1"})).To(Equal([]string{"rt1"}))
 		})
 	})
 })
