@@ -62,6 +62,11 @@ type WatchDog struct {
 
 type ProcessManager interface {
 	ShutdownModel(modelName string) error
+	// ShutdownModelForce stops the backend without waiting for an in-flight
+	// gRPC call to finish. Used when the watchdog evicts a backend that is
+	// stuck busy: the graceful ShutdownModel would block on that stuck call
+	// (while holding the loader's mutex), stalling every other model load.
+	ShutdownModelForce(modelName string) error
 }
 
 // NewWatchDog creates a new WatchDog with the provided options.
@@ -342,6 +347,17 @@ type modelUsageInfo struct {
 	sizeBytes int64 // on-disk file size; 0 if unknown
 }
 
+// evictionTarget is a model selected for eviction, retaining whether it was busy
+// at selection time. A busy target must be shut down via ShutdownModelForce:
+// the graceful path waits for its in-flight gRPC call to finish, but a busy
+// eviction only happens when that call is stuck (busy-killer) or the operator
+// opted into forceEvictionWhenBusy — either way, waiting would deadlock while
+// holding the loader mutex.
+type evictionTarget struct {
+	model   string
+	wasBusy bool
+}
+
 // EnforceLRULimitResult contains the result of LRU enforcement
 type EnforceLRULimitResult struct {
 	EvictedCount int  // Number of models successfully evicted
@@ -410,13 +426,10 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	needMore := len(modelsToShutdown) < modelsToEvict && skippedBusyCount > 0
 	wd.Unlock()
 
-	// Now shutdown models without holding the watchdog lock to prevent deadlock
-	for _, model := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(model); err != nil {
-			xlog.Error("[WatchDog] error shutting down model during LRU eviction", "error", err, "model", model)
-		}
-		xlog.Debug("[WatchDog] LRU eviction complete", "model", model)
-	}
+	// Now shutdown models without holding the watchdog lock to prevent
+	// deadlock. Busy targets go through the force path so the loader doesn't
+	// wait on their stuck in-flight call (which would re-deadlock here).
+	wd.shutdownEvicted(modelsToShutdown, "LRU eviction")
 
 	if needMore {
 		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", len(modelsToShutdown), "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls")
@@ -431,9 +444,10 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 // collectEvictionsLocked walks `candidates` (already in eviction order) and
 // untracks up to `maxToEvict` models that are eligible for eviction. Pinned
 // models are always skipped; busy models are skipped unless `force` is true.
-// Returns the names of evicted models and the number skipped because they
-// were busy. Must be called with wd.Lock() held.
-func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvict int, force bool) (evicted []string, skippedBusy int) {
+// Returns the evicted models (with their busy state at selection time) and
+// the number skipped because they were busy. Must be called with wd.Lock()
+// held.
+func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvict int, force bool) (evicted []evictionTarget, skippedBusy int) {
 	for i := 0; len(evicted) < maxToEvict && i < len(candidates); i++ {
 		m := candidates[i]
 		if wd.pinnedModels[m.model] {
@@ -447,10 +461,29 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 			continue
 		}
 		xlog.Info("[WatchDog] evicting model", "model", m.model, "busy", isBusy)
-		evicted = append(evicted, m.model)
+		evicted = append(evicted, evictionTarget{model: m.model, wasBusy: isBusy})
 		wd.untrack(m.address)
 	}
 	return evicted, skippedBusy
+}
+
+// shutdownEvicted shuts down each evicted model, using the force path for any
+// that were busy at selection time so a stuck in-flight call doesn't deadlock
+// the graceful ShutdownModel (which waits for that call while holding the
+// loader's mutex).
+func (wd *WatchDog) shutdownEvicted(targets []evictionTarget, label string) {
+	for _, t := range targets {
+		var err error
+		if t.wasBusy {
+			err = wd.pm.ShutdownModelForce(t.model)
+		} else {
+			err = wd.pm.ShutdownModel(t.model)
+		}
+		if err != nil {
+			xlog.Error("[WatchDog] error shutting down model during "+label, "error", err, "model", t.model, "busy", t.wasBusy)
+		}
+		xlog.Debug("[WatchDog] "+label+" complete", "model", t.model, "busy", t.wasBusy)
+	}
 }
 
 // EnforceGroupExclusivity evicts every loaded model that shares at least one
@@ -502,12 +535,7 @@ func (wd *WatchDog) EnforceGroupExclusivity(requestedModel string) EnforceLRULim
 	needMore := len(modelsToShutdown) < len(conflicts)
 	wd.Unlock()
 
-	for _, m := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(m); err != nil {
-			xlog.Error("[WatchDog] error shutting down model during group eviction", "error", err, "model", m)
-		}
-		xlog.Debug("[WatchDog] Group eviction complete", "model", m)
-	}
+	wd.shutdownEvicted(modelsToShutdown, "group eviction")
 
 	if needMore {
 		xlog.Warn("[WatchDog] Group eviction incomplete", "requested", requestedModel, "evicted", len(modelsToShutdown), "needed", len(conflicts), "skippedBusy", skippedBusyCount, "reason", "some conflicts are busy or pinned")
@@ -623,12 +651,19 @@ func (wd *WatchDog) checkBusy() {
 	}
 	wd.Unlock()
 
-	// Now shutdown models without holding the watchdog lock to prevent deadlock
+	// The busy-killer targets backends whose in-flight gRPC call has been
+	// stuck past the busy timeout. Use the force path so the loader stops
+	// the process FIRST (dropping the stuck call's gRPC connection) instead
+	// of waiting for that call to finish — the graceful path would block on
+	// that stuck call while holding the loader mutex and stall every other
+	// model load (notably the opus backend load at the start of every
+	// realtime WebRTC session, which hangs new sessions at "Connected,
+	// waiting for session...").
 	for _, model := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(model); err != nil {
+		if err := wd.pm.ShutdownModelForce(model); err != nil {
 			xlog.Error("[watchdog] error shutting down model", "error", err, "model", model)
 		}
-		xlog.Debug("[WatchDog] model shut down", "model", model)
+		xlog.Debug("[WatchDog] busy model shut down", "model", model)
 	}
 }
 
@@ -743,10 +778,20 @@ func (wd *WatchDog) evictLRUModel() {
 
 	xlog.Info("[WatchDog] Memory reclaimer evicting LRU model", "model", lruModel.model, "lastUsed", lruModel.lastUsed)
 
+	// A busy target only gets here when forceEvictionWhenBusy is true, i.e.
+	// the operator accepted evicting models with active calls. Route it
+	// through the force path so the loader stops the process first instead
+	// of blocking on the stuck in-flight call while holding its mutex.
+	_, wasBusy := wd.busyTime[lruModel.address]
+
 	wd.Unlock()
 
 	// Shutdown the model
-	if err := wd.pm.ShutdownModel(lruModel.model); err != nil && err != modelNotFoundErr {
+	shutdown := wd.pm.ShutdownModel
+	if wasBusy {
+		shutdown = wd.pm.ShutdownModelForce
+	}
+	if err := shutdown(lruModel.model); err != nil && err != modelNotFoundErr {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
 	} else {
 		// Untrack the model
