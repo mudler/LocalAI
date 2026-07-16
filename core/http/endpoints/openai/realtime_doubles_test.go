@@ -109,10 +109,12 @@ type fakeModel struct {
 	classifyCalls       int
 	lastClassifyOptions []types.ClassifierOption
 
-	// FillToolArguments scripting: fillArgs is returned verbatim; fillErr
-	// fails the call. fillCalls counts invocations and lastFillChosen
-	// records which option's slots the handler asked to fill.
+	// FillToolArguments scripting: fillArgs/fillValues are returned
+	// verbatim; fillErr fails the call. fillCalls counts invocations and
+	// lastFillChosen records which option's slots the handler asked to
+	// fill.
 	fillArgs       string
+	fillValues     map[string]string
 	fillErr        error
 	fillCalls      int
 	lastFillChosen *types.ClassifierOption
@@ -127,13 +129,13 @@ type fakeModel struct {
 	lastMessages schema.Messages
 }
 
-func (m *fakeModel) FillToolArguments(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string, chosen *types.ClassifierOption) (string, error) {
+func (m *fakeModel) FillToolArguments(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string, chosen *types.ClassifierOption) (string, map[string]string, error) {
 	m.fillCalls++
 	m.lastFillChosen = chosen
 	if m.fillErr != nil {
-		return "", m.fillErr
+		return "", nil, m.fillErr
 	}
-	return m.fillArgs, nil
+	return m.fillArgs, m.fillValues, nil
 }
 
 func (m *fakeModel) ClassifyTurn(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string) ([]router.LabelScore, error) {

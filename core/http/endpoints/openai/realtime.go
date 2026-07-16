@@ -283,9 +283,10 @@ type Model interface {
 	// FillToolArguments completes the chosen option's argument slots with a
 	// short grammar-constrained completion that continues the exact scoring
 	// prompt (so the backend's prompt cache stays warm) and returns the
-	// spliced tool-arguments JSON — the hybrid between prefill-only
-	// classification and full generation.
-	FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, error)
+	// spliced tool-arguments JSON plus the raw slot values (for reply
+	// templating) — the hybrid between prefill-only classification and full
+	// generation.
+	FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error)
 	PredictConfig() *config.ModelConfig
 	// Warmup eagerly loads the pipeline's sub-model backends into memory so the
 	// first realtime turn doesn't pay each backend's cold-start load cost. Loads

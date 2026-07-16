@@ -242,7 +242,9 @@ tool:
       hint: assume m when the user gives no units
 ```
 
-Slot declarations (and hints) are appended to the option's description in the shared system prompt, so they also inform scoring and cost no extra per-turn tokens. The `localai.classifier.result` event carries the final `arguments` and a `fill_latency_ms`. On an inference failure the slots' defaults apply; if any slot lacks a default the response fails (or falls through to generation with `fallback.mode: generate`). Slot filling requires `completion` in the scoring model's `known_usecases` alongside `score`.
+The option's spoken `reply` can reference the same placeholders — `reply: "Going forward {{distance}} {{units}}."` — and the filled values are spliced in as plain text before the reply is emitted, so what the assistant says confirms what it inferred. Reply placeholders are optional (one that names no slot stays literal).
+
+Slot declarations (and hints) are appended to the option's description in the shared system prompt, so they also inform scoring and cost no extra per-turn tokens. The `localai.classifier.result` event carries the final `arguments` and a `fill_latency_ms`. On an inference failure the slots' defaults apply (and template the reply); if any slot lacks a default the response fails (or falls through to generation with `fallback.mode: generate`). Slot filling requires `completion` in the scoring model's `known_usecases` alongside `score`.
 
 The concrete scoring model must declare `score` in `known_usecases`. A single llama.cpp model can serve ordinary inference and classification concurrently by declaring multiple use cases, for example `known_usecases: [chat, completion, score]`; LocalAI reserves the scoring slots only when `score` is present. Scoring also requires the unified KV cache, which is enabled by default, so a score-enabled model cannot set `kv_unified:false`.
 
