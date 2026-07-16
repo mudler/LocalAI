@@ -688,7 +688,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	// physical-core fallback. Detect the env/CLI explicitly so
 	// LOCALAI_THREADS/THREADS still win over the persisted file value.
 	if settings.Threads != nil {
-		if os.Getenv("LOCALAI_THREADS") == "" && os.Getenv("THREADS") == "" {
+		if os.Getenv("LOCALAI_THREADS") == "" && os.Getenv("THREADS") == "" { //nolint:forbidigo // deliberate env probe, see comment above
 			options.Threads = *settings.Threads
 		}
 	}

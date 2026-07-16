@@ -470,6 +470,22 @@ include:
     cuda-minor-version: "8"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-12-amd64'
+    # bigger-runner: same rationale as -gpu-nvidia-cuda-12-llama-cpp above
+    # (observed 6h5m wall-clock on v4.2.1, just past the 6h job timeout).
+    runs-on: 'bigger-runner'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-vllm'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -1111,6 +1127,21 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64'
+    # bigger-runner: observed 6h5m wall-clock on v4.2.1 — at the GHA timeout.
+    runs-on: 'bigger-runner'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
@@ -1135,6 +1166,20 @@ include:
     ubuntu-version: '2404'
     backend: "turboquant"
     dockerfile: "./backend/Dockerfile.turboquant"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-arm64'
+    base-image: "ubuntu:24.04"
+    runs-on: 'ubuntu-24.04-arm'
+    ubuntu-version: '2404'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
     context: "./"
   - build-type: 'cublas'
     cuda-major-version: "13"
@@ -2027,6 +2072,20 @@ include:
     cuda-minor-version: ""
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vllm'
     runs-on: 'ubuntu-latest'
     base-image: "rocm/dev-ubuntu-24.04:7.2.1"
@@ -2299,6 +2358,20 @@ include:
     dockerfile: "./backend/Dockerfile.turboquant"
     context: "./"
     ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-intel-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f16'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2325,6 +2398,20 @@ include:
     skip-drivers: 'false'
     backend: "turboquant"
     dockerfile: "./backend/Dockerfile.turboquant"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-intel-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
     context: "./"
     ubuntu-version: '2404'
   - build-type: 'intel'
@@ -2808,6 +2895,21 @@ include:
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
     platforms: 'linux/arm64'
     platform-tag: 'arm64'
     tag-latest: 'auto'
@@ -2818,6 +2920,21 @@ include:
     skip-drivers: 'false'
     backend: "turboquant"
     dockerfile: "./backend/Dockerfile.turboquant"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-arm64'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
     context: "./"
     ubuntu-version: '2404'
   - build-type: ''
@@ -2962,6 +3079,20 @@ include:
     dockerfile: "./backend/Dockerfile.turboquant"
     context: "./"
     ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-l4t-cuda-12-arm64'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2204'
   - build-type: 'vulkan'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -3011,6 +3142,22 @@ include:
   - build-type: 'vulkan'
     cuda-major-version: ""
     cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
+    context: "./"
+    ubuntu-version: '2404'
+  # Stablediffusion-ggml
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
     platforms: 'linux/arm64'
     platform-tag: 'arm64'
     tag-latest: 'auto'
@@ -3021,6 +3168,22 @@ include:
     skip-drivers: 'false'
     backend: "turboquant"
     dockerfile: "./backend/Dockerfile.turboquant"
+    context: "./"
+    ubuntu-version: '2404'
+  # Stablediffusion-ggml
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-bonsai'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-arm64'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "bonsai"
+    dockerfile: "./backend/Dockerfile.bonsai"
     context: "./"
     ubuntu-version: '2404'
   # Stablediffusion-ggml
