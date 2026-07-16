@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -104,5 +107,96 @@ var _ = Describe("runtime settings registry", func() {
 		dst.ApplyRuntimeSettings(&s1)
 		s2 := dst.ToRuntimeSettings()
 		Expect(s2).To(Equal(s1))
+	})
+})
+
+var _ = Describe("ApplyRuntimeSettingsAtStartup", func() {
+	// DefaultRuntimeBaseline simulates the config an option-less
+	// `local-ai run` boots with (NewApplicationConfig + the kong flag
+	// defaults run.go always injects). A live value equal to the baseline
+	// means env/CLI did not touch it, so the file may apply.
+	It("applies persisted values whose non-zero defaults broke the old == 0 guards", func() {
+		// Regression pins for the silent startup losses on master:
+		// lru_eviction_max_retries (default 30), tracing_max_items (1024),
+		// agent_job_retention_days (30), memory_reclaimer_threshold (0.95).
+		o := DefaultRuntimeBaseline()
+		retries, items, days, thr := 99, 4096, 7, 0.5
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{
+			LRUEvictionMaxRetries:    &retries,
+			TracingMaxItems:          &items,
+			AgentJobRetentionDays:    &days,
+			MemoryReclaimerThreshold: &thr,
+		})
+		Expect(o.LRUEvictionMaxRetries).To(Equal(99))
+		Expect(o.TracingMaxItems).To(Equal(4096))
+		Expect(o.AgentJobRetentionDays).To(Equal(7))
+		Expect(o.MemoryReclaimerThreshold).To(Equal(0.5))
+	})
+
+	It("lets an env/CLI-set value win over the file", func() {
+		o := DefaultRuntimeBaseline()
+		o.Threads = 8 // simulate LOCALAI_THREADS=8
+		fileThreads := 4
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{Threads: &fileThreads})
+		Expect(o.Threads).To(Equal(8), "env value must win over the persisted file value")
+	})
+
+	It("applies persisted threads when env/CLI left them unset", func() {
+		// Relies on WithThreads no longer eagerly resolving 0 (Task 5).
+		o := DefaultRuntimeBaseline()
+		fileThreads := 4
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{Threads: &fileThreads})
+		Expect(o.Threads).To(Equal(4))
+	})
+
+	It("applies persisted galleries over the kong default list", func() {
+		o := DefaultRuntimeBaseline()
+		saved := []Gallery{{Name: "mine", URL: "https://example.com/index.yaml"}}
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{Galleries: &saved})
+		Expect(o.Galleries).To(Equal(saved))
+	})
+
+	It("keeps env-configured galleries over the file", func() {
+		o := DefaultRuntimeBaseline()
+		o.Galleries = []Gallery{{Name: "env", URL: "https://env.example/index.yaml"}}
+		saved := []Gallery{{Name: "file", URL: "https://file.example/index.yaml"}}
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{Galleries: &saved})
+		Expect(o.Galleries[0].Name).To(Equal("env"))
+	})
+
+	It("always applies file-authoritative fields (backend logging toggle-off)", func() {
+		o := DefaultRuntimeBaseline() // EnableBackendLogging defaults true
+		off := false
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{EnableBackendLogging: &off})
+		Expect(o.EnableBackendLogging).To(BeFalse())
+	})
+
+	It("raises the watchdog master flag when the file enables idle checks", func() {
+		o := DefaultRuntimeBaseline()
+		on := true
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{WatchdogIdleEnabled: &on})
+		Expect(o.WatchDogIdle).To(BeTrue())
+		Expect(o.WatchDog).To(BeTrue())
+	})
+
+	It("applies a persisted vram_budget when env/CLI left it unset", func() {
+		// The vram_budget CLI flag has no kong default (empty string means
+		// uncapped), so the baseline needs no overlay for it. Assert only
+		// the config member: the xsysinfo default-budget side effect is
+		// process-global and asserting it here would make sibling specs
+		// order-dependent. Reset the cap afterwards for the same reason
+		// (mirrors the persist suite's AfterEach).
+		DeferCleanup(func() {
+			xsysinfo.SetDefaultVRAMBudget(vrambudget.Budget{})
+		})
+		o := DefaultRuntimeBaseline()
+		budget := "80%"
+		o.ApplyRuntimeSettingsAtStartup(&RuntimeSettings{VRAMBudget: &budget})
+		Expect(o.VRAMBudget).To(Equal("80%"))
+	})
+
+	It("is nil-safe", func() {
+		o := DefaultRuntimeBaseline()
+		o.ApplyRuntimeSettingsAtStartup(nil) // must not panic
 	})
 })
