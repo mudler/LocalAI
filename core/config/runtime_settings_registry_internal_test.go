@@ -46,6 +46,12 @@ var _ = Describe("runtime settings registry", func() {
 	// a config with a distinct value in every settings-backed member must
 	// survive To -> Apply -> To unchanged.
 	It("round-trips every field through Apply and To", func() {
+		// Applying vram_budget installs a process-global default cap via
+		// xsysinfo.SetDefaultVRAMBudget; reset it so later specs don't
+		// inherit a phantom 12GiB budget.
+		DeferCleanup(func() {
+			xsysinfo.SetDefaultVRAMBudget(vrambudget.Budget{})
+		})
 		src := NewApplicationConfig()
 		src.WatchDog = true
 		src.WatchDogIdle = true
