@@ -168,7 +168,7 @@ func (m *MossTtsCpp) TTS(req *pb.TTSRequest) error {
 	refPath, seed := m.resolveRequest(req)
 
 	var n, sr int32
-	ptr := CppTTS(req.Text, refPath, seed, unsafe.Pointer(&n), unsafe.Pointer(&sr))
+	ptr := CppTTS(req.Text, refPath, seed, unsafe.Pointer(&n), unsafe.Pointer(&sr)) // #nosec G103 -- out-params for the purego-bound C-API
 	if ptr == 0 {
 		return fmt.Errorf("moss-tts: synthesis failed")
 	}
@@ -178,7 +178,8 @@ func (m *MossTtsCpp) TTS(req *pb.TTSRequest) error {
 	if n <= 0 {
 		return fmt.Errorf("moss-tts: synthesis produced no samples")
 	}
-	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // C-allocated PCM, copied out before free
+	//nolint:govet // C-allocated PCM, copied out before free
+	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) // #nosec G103 -- C-allocated PCM, copied out before free
 	out := make([]float32, int(n))
 	copy(out, src)
 	return writeWAVStereo(req.Dst, out, int(sr))
@@ -197,7 +198,7 @@ func (m *MossTtsCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	refPath, seed := m.resolveRequest(req)
 
 	var n, sr int32
-	ptr := CppTTS(req.Text, refPath, seed, unsafe.Pointer(&n), unsafe.Pointer(&sr))
+	ptr := CppTTS(req.Text, refPath, seed, unsafe.Pointer(&n), unsafe.Pointer(&sr)) // #nosec G103 -- out-params for the purego-bound C-API
 	if ptr == 0 {
 		return fmt.Errorf("moss-tts: synthesis failed")
 	}
@@ -205,7 +206,8 @@ func (m *MossTtsCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	if n <= 0 {
 		return fmt.Errorf("moss-tts: synthesis produced no samples")
 	}
-	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // C-allocated PCM, copied out before free
+	//nolint:govet // C-allocated PCM, copied out before free
+	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) // #nosec G103 -- C-allocated PCM, copied out before free
 	out := make([]float32, int(n))
 	copy(out, src)
 

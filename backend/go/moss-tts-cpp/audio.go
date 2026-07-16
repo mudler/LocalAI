@@ -56,8 +56,8 @@ func floatToPCM16LE(samples []float32) []byte {
 			s = -1
 		}
 		v := int16(s * 32767)
-		out[i*2] = byte(v)
-		out[i*2+1] = byte(v >> 8)
+		out[i*2] = byte(v)        // #nosec G115 -- intentional little-endian split of a clamped int16
+		out[i*2+1] = byte(v >> 8) // #nosec G115 -- high byte of the same clamped int16
 	}
 	return out
 }
@@ -68,7 +68,7 @@ func writeWAVStereo(dst string, samples []float32, sampleRate int) error {
 	if sampleRate <= 0 {
 		sampleRate = mossttsSampleRate
 	}
-	f, err := os.Create(dst)
+	f, err := os.Create(dst) // #nosec G304 -- dst is the server-chosen output path from the TTS request, not user-traversable
 	if err != nil {
 		return fmt.Errorf("moss-tts: create %q: %w", dst, err)
 	}

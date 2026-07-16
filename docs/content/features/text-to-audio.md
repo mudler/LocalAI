@@ -127,7 +127,7 @@ When a saved profile is selected, LocalAI supplies both its private WAV and exac
 
 | Backend | Automatically compatible variants |
 | --- | --- |
-| `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
+| `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `moss-tts-cpp`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
 | `qwen-tts`, `qwen3-tts-cpp`, `vllm-omni` | Base or VoiceClone variants. CustomVoice and VoiceDesign variants are not raw reference-audio models. |
 | `vibevoice-cpp` | 1.5B reference-WAV variants. The realtime 0.5B preset-prompt model is excluded. |
 | `coqui` | XTTS and YourTTS variants. |
