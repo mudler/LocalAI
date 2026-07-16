@@ -36,6 +36,10 @@ PATCHES_DIR := $(CURRENT_MAKEFILE_DIR)/patches
 define bonsai-build
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build
+	# Drop patches vendored for upstream llama.cpp: the fork tree diverges, so
+	# they reject there. Fork-specific patches live in backend/cpp/bonsai/patches/
+	# and are applied by apply-patches.sh below.
+	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build purge
 	$(info $(GREEN)I bonsai build info:$(1)$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
@@ -68,6 +72,10 @@ bonsai-fallback:
 bonsai-cpu-all:
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build
+	# Drop patches vendored for upstream llama.cpp: the fork tree diverges, so
+	# they reject there. Fork-specific patches live in backend/cpp/bonsai/patches/
+	# and are applied by apply-patches.sh below.
+	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build purge
 	$(info $(GREEN)I bonsai build info:cpu-all-variants$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
