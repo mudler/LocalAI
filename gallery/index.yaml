@@ -1,4 +1,74 @@
 ---
+- name: "hy3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AngelSlim/Hy3-GGUF
+  description: |
+    中文&nbsp;｜&nbsp;English
+
+    [](#license)
+    &nbsp;&nbsp;
+    [](https://huggingface.co/tencent/Hy3)
+    &nbsp;&nbsp;
+    [](https://modelscope.cn/models/Tencent-Hunyuan/Hy3)
+    &nbsp;&nbsp;
+    [](https://cnb.cool/ai-models/tencent/Hy3)
+    &nbsp;&nbsp;
+    [](https://ai.gitcode.com/tencent_hunyuan/Hy3)
+
+    🖥️&nbsp;Official Website&nbsp;&nbsp;|&nbsp;&nbsp;
+    💬&nbsp;GitHub
+
+    ## Table of Contents
+
+      - Model Introduction
+      - Stronger Agent Capabilities
+      - More Reliable Product Experiences
+      - Benchmark Appendix
+      - News
+      - Model Links
+      - Quickstart
+      - Deployment
+      - vLLM
+      - SGLang
+      - Finetuning
+      - RL Post-training
+      - Quantization
+      - License
+      - Contact Us
+
+    ## Model Introduction
+
+    **Hy3** is a 295B-parameter Mixture-of-Experts (MoE) model with 21B active parameters and 3.8B MTP layer parameters, developed by the Tencent Hy Team. Following the Hy3 Preview launch in late April, we gathered feedback from 50+ products and scaled up post-training with higher quality data. Today, we introduce Hy3, which outperforms similar-size models and rivals flagship open-source models with 2-5x parameters. It also shows significant gains in utility across various products and productivity tasks.
+
+    ## Stronger Agent Capabilities
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Hy3-Q4_K_M-mtp/Hy3-Q4_K_M-mtp.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hy3-Q4_K_M-mtp/Hy3-Q4_K_M-mtp.gguf
+      sha256: 2524ee6cf689731ec924f0edabed0f57b634488fafe855c6bb3c2c2f86c08ae5
+      uri: https://huggingface.co/AngelSlim/Hy3-GGUF/resolve/main/Hy3-Q4_K_M-mtp.gguf
 - &bonsai-8b
   name: "bonsai-8b-1bit"
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
