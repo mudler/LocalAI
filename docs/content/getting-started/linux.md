@@ -1,7 +1,7 @@
 ---
 title: "Linux Installation"
 description: "Install LocalAI on Linux using binaries"
-weight: 3
+weight: 9
 url: '/installation/linux/'
 ---
 
@@ -23,6 +23,23 @@ chmod +x local-ai-*
 
 ```bash
 ./local-ai-*
+```
+
+### Run your first model
+
+Starting the binary on its own gives you an empty server. To get a working chat right away, run LocalAI with a model name and it will download and serve it from the gallery:
+
+```bash
+./local-ai-* run qwen3-4b
+```
+
+Once it is ready, open the WebUI at `http://localhost:8080` or send a request to the API:
+
+```bash
+curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
+  "model": "qwen3-4b",
+  "messages": [{"role": "user", "content": "Hello!"}]
+}'
 ```
 
 ### System Requirements

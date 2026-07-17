@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Setting Up Models"
-weight = 2
+weight = 3
 icon = "hub"
 description = "Learn how to install, configure, and manage models in LocalAI"
 +++
@@ -207,7 +207,7 @@ mkdir models
 
 cp your-model.gguf models/
 
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
 
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
@@ -219,7 +219,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 {{% notice tip %}}
 **Other Docker Images**:
 
-For other Docker images, please refer to the table in [the container images section]({{% relref "getting-started/container-images" %}}).
+For other Docker images, please refer to the table in [the container images section]({{% relref "getting-started/containers" %}}).
  {{% /notice %}}
 
 ### Example:
@@ -231,7 +231,7 @@ wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main
 
 cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
 
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
 
 curl http://localhost:8080/v1/models
 
@@ -243,7 +243,7 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 ```
 
 {{% notice note %}}
-- If running on Apple Silicon (ARM), it is **not** recommended to run on Docker due to emulation. Follow the [build instructions]({{% relref "installation/build" %}}) to use Metal acceleration for full GPU support.
+- If running on Apple Silicon (ARM), it is **not** recommended to run on Docker due to emulation. Follow the [build instructions]({{% relref "getting-started/build" %}}) to use Metal acceleration for full GPU support.
 - If you are running on Apple x86_64, you can use Docker without additional gain from building it from source.
  {{% /notice %}}
 
@@ -279,7 +279,7 @@ Note: If you are on Windows, ensure the project is on the Linux filesystem to av
 {{% /tab %}}
 {{% tab title="Kubernetes" %}}
 
-For Kubernetes deployment, see the [Kubernetes installation guide]({{% relref "installation/kubernetes" %}}).
+For Kubernetes deployment, see the [Kubernetes installation guide]({{% relref "getting-started/kubernetes" %}}).
 
 {{% /tab %}}
 {{% tab title="From Binary" %}}
@@ -306,7 +306,7 @@ Press "Allow Anyway."
 {{% /tab %}}
 {{% tab title="From Source" %}}
 
-For instructions on building LocalAI from source, see the [Build from Source guide]({{% relref "installation/build" %}}).
+For instructions on building LocalAI from source, see the [Build from Source guide]({{% relref "getting-started/build" %}}).
 
 {{% /tab %}}
 {{< /tabs >}}

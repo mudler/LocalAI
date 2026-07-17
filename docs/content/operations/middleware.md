@@ -2,6 +2,7 @@
 title = "Middleware: PII filtering and intelligent routing"
 weight = 27
 toc = true
+url = "/features/middleware/"
 description = "Per-model PII redaction and policy-based request routing"
 tags = ["Routing", "Privacy", "PII", "Middleware", "Advanced"]
 categories = ["Features"]
@@ -31,7 +32,7 @@ client ── auth ── route-model ── per-model PII ── backend ──
 
 The router runs first (it picks the target model so per-model PII has
 something to gate on), per-model PII runs next (gated by the resolved
-config), and the backend executes. Filtering is **request-side only** —
+config), and the backend executes. Filtering is **request-side only** -
 the request body is scanned and rewritten before forwarding; the response
 is not touched (NER over a streamed response is left as a follow-up). Each
 subsystem writes to its own admin-visible log: `/api/router/decisions` for
@@ -74,7 +75,7 @@ field in place and events carry message-local offsets.
 
 A **detector** is a `token_classify` model (e.g. an `openai-privacy-filter`
 GGUF) that carries the detection *policy* in a top-level `pii_detection:`
-block — defined once, on the model itself:
+block - defined once, on the model itself:
 
 ```yaml
 name: privacy-filter-multilingual
@@ -100,13 +101,13 @@ emits (the privacy-filter family uses uppercase names like `EMAIL`,
 
 ### Pattern detector tier
 
-NER is the wrong tool for high-entropy, highly-regular **secrets** — API keys,
+NER is the wrong tool for high-entropy, highly-regular **secrets** - API keys,
 tokens, private-key blocks. A trained NER model has no "API key" class, so it
 fragments a key into the nearest categories it *does* know and can leave the
 secret part exposed. Those secrets are exactly what a regex catches cheaply.
 
 A **pattern detector** is a detector model (`backend: pattern`) that matches
-secrets with a **restricted regex subset** compiled to Go's RE2 engine —
+secrets with a **restricted regex subset** compiled to Go's RE2 engine -
 linear-time, no backtracking, no ReDoS. It runs entirely in-process: no model
 download, no backend, zero VRAM. Install the gallery's **`secret-filter`** for a
 ready-made set, or define your own:
@@ -133,14 +134,14 @@ pii_detection:
 A match is reported under its group (built-in group name, or the pattern
 `name`), so `entity_actions` / `default_action` apply exactly as for NER.
 
-**The restricted grammar** (validated at load — an invalid pattern is rejected,
+**The restricted grammar** (validated at load - an invalid pattern is rejected,
 not silently ignored):
 - Allowed: literals, character classes `[…]` and `\w \d \s`, alternation,
   anchors `^ $ \b`, and quantifiers `? * + {m,n}`.
 - Rejected: `.` (any-char), capturing groups, and `{n,m}` bounds over 4096.
 - **Required anchor**: every pattern must contain a fixed literal run of at
   least 3 characters (e.g. `sk-ant-`, `ghp_`, `AKIA`). This admits real key
-  shapes but rejects open-ended ones — an email or a bare `\w+` has no such
+  shapes but rejects open-ended ones - an email or a bare `\w+` has no such
   anchor and belongs to the [NER tier](#detector-models).
 
 Use both tiers together: reference an NER detector *and* a pattern detector in a
@@ -149,7 +150,7 @@ model's `pii.detectors` (or as instance defaults); their hits union, and a
 
 ### Consuming models
 
-Any model opts in by enabling PII and referencing one or more detectors —
+Any model opts in by enabling PII and referencing one or more detectors -
 no per-consumer policy:
 
 ```yaml
@@ -179,7 +180,7 @@ scope for now.
 The **Detector models** table on the Middleware → Filtering page lists every
 `token_classify` detector model (neural NER models and in-process pattern
 matchers alike) and exposes a per-row **Default** toggle. Toggling a detector
-on adds it to the instance-wide default detector set — one or more models
+on adds it to the instance-wide default detector set - one or more models
 applied to any PII-enabled model that names none of its own `pii.detectors`.
 It is persisted through `POST /api/settings` and read live, so a change takes
 effect on the next request without a restart. A default that names a model no
@@ -200,31 +201,31 @@ cloud-proxy traffic is scanned with no per-model config.
 Resolution precedence (the single decision point is `ResolvePIIPolicy`,
 shared by the chat middleware and the MITM listener so both agree):
 
-1. An explicit `pii.enabled` on the model wins — `true` or `false`.
+1. An explicit `pii.enabled` on the model wins - `true` or `false`.
 2. Otherwise PII is on if the backend defaults it on (`cloud-proxy`).
 3. Detectors are the model's own `pii.detectors`; if it lists none, the
    instance-wide default detector(s) are used.
 
 A model that resolves enabled but ends up with no detector at all (a
 cloud-proxy model with no model detectors and no instance default) scans
-nothing — set a default detector to close that gap.
+nothing - set a default detector to close that gap.
 
 ### Admin page
 
-The `/app/middleware` page (admin role only) has four tabs — **Filtering**,
+The `/app/middleware` page (admin role only) has four tabs - **Filtering**,
 **Routing**, **MITM Proxy** (see the [MITM doc]({{< relref "mitm-proxy.md" >}})),
 and **Events**. The Filtering tab has a **Detector models** table (every
 `token_classify` filter model, with the per-row Default toggle above and an
 edit link to each detector's config, plus an *Add detector model* button) and
-a per-model table listing only the models PII can actually apply to — chat /
+a per-model table listing only the models PII can actually apply to - chat /
 completion / embeddings / edit consumers and cloud-proxy models, not
 VAD/STT/image models or the detector models themselves. Each row reports the
-**effective** `enabled` state as an inline **toggle** — flipping it writes an
+**effective** `enabled` state as an inline **toggle** - flipping it writes an
 explicit `pii.enabled` to that model's YAML (a server-side deep-merge that
 preserves `pii.detectors` and every other field), so a cloud-proxy model shown
-on by backend default can be turned off, and vice-versa — plus the
-resolved detector(s) — with a *(default)* marker when they come from the
-instance-wide default rather than the model's YAML — why it is on (`YAML` /
+on by backend default can be turned off, and vice-versa - plus the
+resolved detector(s) - with a *(default)* marker when they come from the
+instance-wide default rather than the model's YAML - why it is on (`YAML` /
 `backend default`), and the recent event count. Detection *policy*
 (entity→action, min score) is still edited on each detector model's config
 (Models → edit → PII), not globally.
@@ -234,22 +235,22 @@ instance-wide default rather than the model's YAML — why it is on (`YAML` /
 The same detection pipeline is also exposed as a standalone service, so a
 client can scan or sanitise a string **without** routing a full chat request
 through it (the inline path above). Two endpoints, both requiring a normal API
-key (the `pii_filter` feature — not admin):
+key (the `pii_filter` feature - not admin):
 
-- `POST /api/pii/analyze` — detect only. Returns the matched entity spans
+- `POST /api/pii/analyze` - detect only. Returns the matched entity spans
   (`entity_type`, `source` `ner`|`pattern`, `start`/`end`, `score`, `action`)
   and a `blocked` flag, **without modifying the text**.
-- `POST /api/pii/redact` — apply the configured policy. Returns `redacted_text`
+- `POST /api/pii/redact` - apply the configured policy. Returns `redacted_text`
   (with masked spans replaced by `[REDACTED:<id>]`) and `masked`; when a `block`
   action fires it returns `400` with `type: pii_blocked` and the offending
-  entities — never a redacted body.
+  entities - never a redacted body.
 
-Both take the same request: `text` plus a detector selection — either explicit
+Both take the same request: `text` plus a detector selection - either explicit
 detector model names in `detectors`, or a consuming `model` whose **effective**
 policy is used: the model's own `pii.detectors`, else the
 [instance-wide default detectors](#instance-wide-default-detector), exactly as
-the inline filter resolves them. A `model` with PII disabled — or enabled but
-with no detector anywhere — is a `400`: the inline filter would scan nothing
+the inline filter resolves them. A `model` with PII disabled - or enabled but
+with no detector anywhere - is a `400`: the inline filter would scan nothing
 for it, and the API says so rather than implying a clean scan. The detection
 policy lives on the detector models exactly as for the inline filter. The raw
 matched value is never returned (an admin may pass `reveal: true` to include
@@ -257,7 +258,7 @@ the audit `hash_prefix`).
 
 `text` is scanned as a single document. To reproduce the inline filter's
 conversation-context behaviour for multi-message content, join the messages
-with blank lines into one `text` — NER detection quality depends on that
+with blank lines into one `text` - NER detection quality depends on that
 context (a bare `4421` is nothing; after "what are the last four digits of
 your card?" it is a PIN).
 
@@ -286,7 +287,7 @@ the redact-API rows.
 |---|---|---|---|
 | POST | `/api/pii/analyze` | api key (`pii_filter`) | Detect PII in a string; returns entity spans, no mutation. |
 | POST | `/api/pii/redact` | api key (`pii_filter`) | Redact a string per policy; returns `redacted_text` or `400 pii_blocked`. |
-| GET | `/api/pii/events` | admin | Recent middleware events — PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id` (e.g. `ner:EMAIL`), `kind`, `origin`. |
+| GET | `/api/pii/events` | admin | Recent middleware events - PII redactions, MITM connect/traffic, admission denials. Filterable by `correlation_id`, `user_id`, `pattern_id` (e.g. `ner:EMAIL`), `kind`, `origin`. |
 | GET | `/api/middleware/status` | admin | Aggregated dashboard data: per-model PII state + detectors + router status + MITM status + admission status. One round-trip for the UI. |
 
 ### MCP tools
@@ -296,7 +297,7 @@ The same surface is mirrored through the LocalAI Assistant MCP server:
 | Tool | Read/Write | Purpose |
 |---|---|---|
 | `get_pii_events` | read | Recent redaction / block events with optional filters. |
-| `get_middleware_status` | read | Aggregator — the same payload as `GET /api/middleware/status`. |
+| `get_middleware_status` | read | Aggregator - the same payload as `GET /api/middleware/status`. |
 
 Detection policy is part of a detector model's config, so it is managed
 through the model-config tools (`edit_model_config`), not a dedicated PII
@@ -311,7 +312,7 @@ a client addresses it (`"model": "smart-router"`), the middleware
 classifies the prompt, picks a downstream candidate model, rewrites
 `input.Model` to the candidate, and the standard model-resolution path
 runs against that resolved target. ACL checks, disabled-state, and
-per-model PII all apply to the resolved model — the router does
+per-model PII all apply to the resolved model - the router does
 *model selection only*.
 
 #### Depth-1 invariant
@@ -329,7 +330,7 @@ predictable.
 If no candidate's label set covers the active label set from the classifier,
 or the classifier errors out, the router uses `cfg.Router.Fallback`.
 An empty `fallback` causes the dispatch to fail with HTTP 500 rather
-than silently routing somewhere unintended — fail-fast, not
+than silently routing somewhere unintended - fail-fast, not
 silent-bypass.
 
 ### Available classifiers
@@ -368,7 +369,7 @@ The `score` classifier works like this:
    activates multiple labels falls to a candidate that covers them all.
 
 This is the Arch-Router approach extended for multi-label. The
-distribution carries more signal than the argmax — reading off the
+distribution carries more signal than the argmax - reading off the
 spread lets one prompt activate multiple policies and route to a model
 capable of all of them.
 
@@ -388,7 +389,7 @@ probability distributions which translate to a higher
 
 On llama-cpp, scoring rides the server's task queue alongside
 generation and embeddings, so the classifier may share a model config
-with `chat`/`completion`/`embeddings` — a dedicated scorer model is no
+with `chat`/`completion`/`embeddings` - a dedicated scorer model is no
 longer required. Repeated calls with the same prompt also reuse the
 prompt's KV cache across candidates.
 
@@ -416,12 +417,12 @@ The reranker scores the *description* (natural English) rather than
 asking a small LM to score the *label* as a next-token continuation,
 so it tends to be more robust when policy labels are abstract slugs
 (`compliance-review`, `tier-2-support`). The trade-off is one
-reranker round-trip per request — bge-m3 in ColBERT mode is fast
+reranker round-trip per request - bge-m3 in ColBERT mode is fast
 enough on GPU that this is comparable to the Score path for most
 workloads. The `embedding_cache` block applies identically.
 
 The reranker model's `type:` (in the model YAML) selects which
-underlying scoring head loads — `colbert` for late-interaction MaxSim,
+underlying scoring head loads - `colbert` for late-interaction MaxSim,
 `cross-encoder` for cross-attention scoring. The classifier itself is
 indifferent; pick the head that fits your latency / quality budget.
 
@@ -441,7 +442,7 @@ router:
   # canonical choice.
   classifier_model: arch-router-1.5b
 
-  # Bounded LRU keyed on (case-folded, whitespace-trimmed) prompt — prompts
+  # Bounded LRU keyed on (case-folded, whitespace-trimmed) prompt - prompts
   # repeat in agent loops; the cache amortises the classifier round-trip
   # across them. 0 here means "use the default" (1024); the cache cannot be
   # disabled from YAML today.
@@ -449,7 +450,7 @@ router:
 
   # Softmax probability floor a label must clear to join the active label set.
   # 0 = use the package default (0.15). 0.40 is a better empirical
-  # starting point on Arch-Router-1.5B — see the tuning note below.
+  # starting point on Arch-Router-1.5B - see the tuning note below.
   activation_threshold: 0.40
 
   # Used when no candidate covers the active label set, or the classifier
@@ -457,7 +458,7 @@ router:
   fallback: qwen3-0.6b
 
   # The label vocabulary. Descriptions are fed verbatim into the
-  # classifier's system prompt — short, action-oriented sentences work
+  # classifier's system prompt - short, action-oriented sentences work
   # best ("writing or debugging code", "small talk").
   policies:
     - label: code-generation
@@ -467,7 +468,7 @@ router:
     - label: math-reasoning
       description: arithmetic, equations, percentage calculations, or step-by-step word problems
 
-  # Routing table — order matters (smallest → largest). See "Score
+  # Routing table - order matters (smallest → largest). See "Score
   # classifier" above for the matching rule.
   candidates:
     - model: qwen3-0.6b
@@ -492,14 +493,14 @@ three-policy setup above, sweeping the threshold over a hand-labeled
 | 0.50 | 67% | 97% |
 
 The classifier's argmax matches the dominant label 93% of the time on
-this corpus — what the threshold controls is how much secondary-label
+this corpus - what the threshold controls is how much secondary-label
 noise leaks into the active label set. Low thresholds push single-label
 queries to multi-label-capable (larger) candidates unnecessarily; 0.40
 keeps the dominant label dominant without losing genuine compound
 activations.
 
 Re-tune per (classifier-model, policy-set) pair. The `/api/score`
-endpoint (see below) is the convenient probe — it returns the raw
+endpoint (see below) is the convenient probe - it returns the raw
 length-normalized log-probabilities so you can sweep thresholds offline
 without driving real chat completions.
 
@@ -508,7 +509,7 @@ without driving real chat completions.
 Classification is the most expensive thing the middleware does. The
 score classifier already memo-caches verbatim repeats (case- and
 whitespace-folded prompt → decision); the **embedding cache** is the
-L2 tier that catches *semantically similar* prompts — "How do I exit
+L2 tier that catches *semantically similar* prompts - "How do I exit
 vim?" and "i need to quit vim" can share a decision instead of running
 the classifier twice.
 
@@ -535,7 +536,7 @@ router:
 ```
 
 Omit the block entirely to disable. The cache adds two new failure modes
-(embedder unavailable, store unavailable) — both fall through to the
+(embedder unavailable, store unavailable) - both fall through to the
 inner classifier so routing keeps working.
 
 #### How it works
@@ -552,41 +553,41 @@ For each request:
    paraphrases.
 
 The local-store collection is named `router-cache-<router-model-name>` by
-default — each router gets its own collection so two routers can't
+default - each router gets its own collection so two routers can't
 cross-contaminate. Collections persist on disk (local-store is the
 canonical persistent vector backend), so the cache survives restarts.
 
 #### Tuning notes
 
-- **Similarity threshold**: 0.80 is the package default — re-tune
+- **Similarity threshold**: 0.80 is the package default - re-tune
   per (embedding model, corpus). The histogram on the Routing tab
   shows where the cosine distribution actually sits; pick a
   threshold above the cross-intent cluster and below the paraphrase
   cluster.
 - **Confidence threshold**: 0.60 corresponds roughly to "the
-  classifier is committed to a top label." Don't lower this — caching
+  classifier is committed to a top label." Don't lower this - caching
   unsure decisions propagates the uncertainty.
 - **Cache flush**: invalidates automatically when the router YAML
   changes (the classifier cache is fingerprinted by `yaml.Marshal`),
   but the underlying local-store collection still holds the old
   payloads. Manual flush via local-store admin or by renaming
   `store_name` if you need a hard reset.
-- **Latency budget**: an embedding round-trip (typically 30–80ms for
+- **Latency budget**: an embedding round-trip (typically 30-80ms for
   small embedding models) plus KNN search (~5ms) is added to every
   *miss* on top of the classifier latency. Cache hits skip the
-  classifier entirely. Break-even is around 7–10% hit rate; agent
+  classifier entirely. Break-even is around 7-10% hit rate; agent
   loops with repeated phrasing easily exceed this.
 
 ### Admin page
 
 The `/app/middleware` page has a **Routing** tab listing every router
 model's classifier, policies, candidates, and fallback. The **Events**
-tab shows the decision log — one row per classified request with
+tab shows the decision log - one row per classified request with
 correlation ID, requested model, served model, classifier name, active
 labels, top-label score, and latency.
 
 Routing decisions are stored in an in-process ring buffer (default
-capacity 5,000). The decision log is for audit and tuning — the
+capacity 5,000). The decision log is for audit and tuning - the
 canonical usage log lives in `/api/usage` and correlates by request ID.
 
 ### REST surface
@@ -595,7 +596,7 @@ canonical usage log lives in `/api/usage` and correlates by request ID.
 |---|---|---|---|
 | GET | `/api/router/status` | any | Router configuration: each router model's classifier, policies, candidates. |
 | GET | `/api/router/decisions` | admin | Decision log with optional filters (`correlation_id`, `user_id`, `router_model`, `limit`). |
-| POST | `/api/score` | admin | Direct access to the `Score` gRPC primitive — useful for offline threshold tuning. Body: `{"model": "<classifier-model>", "prompt": "<chatml-prompt>", "candidates": ["label-a", ...], "length_normalize": true}`. The llama-cpp and vLLM backends implement Score; other backends return `UNIMPLEMENTED`. |
+| POST | `/api/score` | admin | Direct access to the `Score` gRPC primitive - useful for offline threshold tuning. Body: `{"model": "<classifier-model>", "prompt": "<chatml-prompt>", "candidates": ["label-a", ...], "length_normalize": true}`. The llama-cpp and vLLM backends implement Score; other backends return `UNIMPLEMENTED`. |
 
 ### MCP tools
 
@@ -604,8 +605,8 @@ canonical usage log lives in `/api/usage` and correlates by request ID.
 | `get_router_decisions` | read | Recent decision log with optional filters. |
 | `get_middleware_status` | read | Includes the router section listing configured router models. |
 
-Mutating routing config — adding a candidate, changing the classifier
-model — is YAML-only today; reload with `POST /models/reload` to pick
+Mutating routing config - adding a candidate, changing the classifier
+model - is YAML-only today; reload with `POST /models/reload` to pick
 up edits without restarting.
 
 ### Operational notes
@@ -623,20 +624,20 @@ up edits without restarting.
   `classifier_cache_size` is the highest-leverage knob for repeat-query
   workloads (agent loops).
 - **Decision log size**: 5,000-entry ring buffer per process. The
-  log is in-process and not persisted — pair with the usage log for
+  log is in-process and not persisted - pair with the usage log for
   long-horizon audit.
 
 ---
 
 ## Related features
 
-- [Cloud passthrough proxy]({{< relref "cloud-proxy.md" >}}) — combine
+- [Cloud passthrough proxy]({{< relref "cloud-proxy.md" >}}) - combine
   the router with `proxy-*` backends to send simple prompts to local
   models and complex ones to cloud providers.
-- [MITM proxy]({{< relref "mitm-proxy.md" >}}) — apply the same PII
+- [MITM proxy]({{< relref "mitm-proxy.md" >}}) - apply the same PII
   filter to Claude Code, Codex CLI, and any HTTPS client without
   LocalAI holding their API keys.
-- [Authentication]({{< relref "authentication.md" >}}) — admin role is
+- [Authentication]({{< relref "authentication.md" >}}) - admin role is
   required for mutating endpoints and the `/app/middleware` page; in
   no-auth single-user mode the synthetic local user has admin role
   automatically.

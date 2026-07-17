@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Runtime Settings"
-weight = 25
+weight = 82
 url = '/features/runtime-settings'
 +++
 
