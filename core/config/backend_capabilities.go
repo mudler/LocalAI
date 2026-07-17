@@ -3,6 +3,8 @@ package config
 import (
 	"slices"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // Usecase name constants — the canonical string values used in gallery entries,
@@ -676,6 +678,42 @@ func GetBackendCapability(backend string) *BackendCapability {
 		return &cap
 	}
 	return nil
+}
+
+// llmAutoLoadUsecases are the usecases that mark a backend able to serve a
+// text/LLM GGUF model. A GGUF model that declares no explicit backend must only
+// be auto-tried against backends carrying one of these usecases - never against
+// audio/codec/image backends (e.g. opus) that happen to be installed alongside
+// it (see issue #9287).
+var llmAutoLoadUsecases = []string{
+	UsecaseChat,
+	UsecaseCompletion,
+	UsecaseEdit,
+	UsecaseEmbeddings,
+}
+
+// isLLMCapableForAutoLoad reports whether the named backend is known to serve
+// text/LLM models, for pkg/model's GGUF backend auto-detection (#9287). Backends
+// absent from the capability table are treated as not LLM-capable.
+func isLLMCapableForAutoLoad(name string) bool {
+	capability := GetBackendCapability(name)
+	if capability == nil {
+		return false
+	}
+	for _, u := range capability.PossibleUsecases {
+		if slices.Contains(llmAutoLoadUsecases, u) {
+			return true
+		}
+	}
+	return false
+}
+
+func init() {
+	// Wire the LLM-capability filter into pkg/model's GGUF backend
+	// auto-detection. pkg/model is a lower-level package and must not import
+	// core/config (that would form a core/config -> pkg/model -> core/config
+	// import cycle), so core/config registers the predicate here instead (#9287).
+	model.RegisterLLMCapableBackendFunc(isLLMCapableForAutoLoad)
 }
 
 // VoiceCloningForModel returns the reference-audio contract only when the
