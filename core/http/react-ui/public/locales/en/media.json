@@ -104,7 +104,7 @@
       "noWebgl": "WebGL2 is not available in this browser — download the GLB to view it elsewhere.",
       "contextLost": "The 3D view lost the GPU context — reload the page to restore it.",
       "stats": "{{verts}} vertices · {{tris}} triangles",
-      "hint": "drag: rotate · wheel: zoom · right-drag: pan · double-click: reset"
+      "hint": "drag: rotate · pinch/wheel: zoom · two-finger/right-drag: pan · double-click: reset"
     },
     "empty": "Generated 3D model will appear here",
     "toasts": {

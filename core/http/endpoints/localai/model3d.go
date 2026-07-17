@@ -38,7 +38,7 @@ var (
 // @Tags 3d
 // @Param request body schema.Model3DRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
-// @Router /v1/3d/generations [post]
+// @Router /3d/generations [post]
 func Model3DEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.Model3DRequest)

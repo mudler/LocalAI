@@ -110,10 +110,16 @@ sources/boost:
 
 # Detect OS
 UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
 
-# Only build CPU SIMD variants on Linux
+# The AVX variants are x86-only. ARM64 images use the portable fallback while
+# still enabling the selected GPU backend (Vulkan/CUDA) through CMAKE_ARGS.
 ifeq ($(UNAME_S),Linux)
-	VARIANTS = avx avx2 avx512 fallback
+	ifneq (,$(filter x86_64 amd64,$(UNAME_M)))
+		VARIANTS = avx avx2 avx512 fallback
+	else
+		VARIANTS = fallback
+	endif
 else
 	# On non-Linux (e.g., Darwin), build only the fallback variant
 	VARIANTS = fallback

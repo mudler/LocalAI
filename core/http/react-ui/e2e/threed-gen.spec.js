@@ -91,7 +91,7 @@ const TINY_PNG = Buffer.from(
 )
 
 function mockGeneration(page, onRequest) {
-  return page.route('**/v1/3d/generations', (route) => {
+  return page.route('**/3d/generations', (route) => {
     if (route.request().method() !== 'POST') return route.continue()
     onRequest?.(route.request().postDataJSON())
     route.fulfill({
@@ -205,7 +205,7 @@ test.describe('3D generation', () => {
   })
 
   test('API errors surface through the trace link error box', async ({ page }) => {
-    await page.route('**/v1/3d/generations', (route) => {
+    await page.route('**/3d/generations', (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -215,5 +215,74 @@ test.describe('3D generation', () => {
 
     await generateOnce(page)
     await expect(page.locator('.media-result')).toContainText(/missing files|error/i, { timeout: 15_000 })
+  })
+
+  test('rejects oversized conditioning images before making an API request', async ({ page }) => {
+    let requested = false
+    await mockGeneration(page, () => { requested = true })
+    await page.goto('/app/3d')
+    await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
+
+    await page.locator('#threed-image-file').setInputFiles({
+      name: 'oversized.png',
+      mimeType: 'image/png',
+      buffer: Buffer.alloc(32 * 1024 * 1024 + 1),
+    })
+
+    await expect(page.locator('.toast')).toContainText('32 MiB limit')
+    expect(requested).toBe(false)
+  })
+
+  test('hides and guards 3D generation when the feature is disabled', async ({ page }) => {
+    await page.route('**/api/auth/status', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          authEnabled: true,
+          staticApiKeyRequired: false,
+          user: { id: 'restricted-user', role: 'user', permissions: { '3d': false } },
+        }),
+      })
+    })
+
+    await page.goto('/app/studio?tab=threed')
+    await expect(page.getByRole('button', { name: '3D', exact: true })).toHaveCount(0)
+    await expect(page.locator('.studio-tab', { hasText: 'Images' })).toHaveClass(/studio-tab-active/)
+
+    await page.goto('/app/3d')
+    await expect(page).toHaveURL(/\/app\/?$/)
+  })
+
+  test.describe('touch input', () => {
+    test.use({ hasTouch: true })
+
+    test('accepts two-finger touch gestures in the GLB viewer', async ({ page }) => {
+      await mockGeneration(page)
+      await generateOnce(page)
+      const canvas = page.getByTestId('glb-canvas')
+      await expect(canvas).toBeVisible({ timeout: 15_000 })
+      await canvas.scrollIntoViewIfNeeded()
+      const box = await canvas.boundingBox()
+      expect(box).not.toBeNull()
+
+      const client = await page.context().newCDPSession(page)
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [
+          { id: 1, x: box.x + box.width * 0.35, y: box.y + box.height * 0.5 },
+          { id: 2, x: box.x + box.width * 0.65, y: box.y + box.height * 0.5 },
+        ],
+      })
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          { id: 1, x: box.x + box.width * 0.3, y: box.y + box.height * 0.45 },
+          { id: 2, x: box.x + box.width * 0.7, y: box.y + box.height * 0.55 },
+        ],
+      })
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+
+      await expect(page.getByRole('button', { name: 'Auto-rotate' })).toHaveClass(/btn-secondary/)
+    })
   })
 })

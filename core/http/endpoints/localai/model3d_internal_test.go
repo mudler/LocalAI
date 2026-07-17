@@ -22,7 +22,7 @@ var _ = Describe("3D endpoint request validation", func() {
 		handler := Model3DEndpoint(nil, nil, appConfig)
 
 		e := echo.New()
-		req := httptest.NewRequest(http.MethodPost, "/v1/3d/generations", strings.NewReader("{}"))
+		req := httptest.NewRequest(http.MethodPost, "/3d/generations", strings.NewReader("{}"))
 		c := e.NewContext(req, httptest.NewRecorder())
 		c.Set(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
 		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &config.ModelConfig{Name: "test-3d"})

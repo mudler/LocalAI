@@ -124,6 +124,16 @@ var _ = Describe("API Instructions Endpoints", func() {
 			Expect(string(body)).To(ContainSubstring("stream"))
 		})
 
+		It("should advertise the LocalAI 3D generation path", func() {
+			req := httptest.NewRequest(http.MethodGet, "/api/instructions/3d", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			body, _ := io.ReadAll(rec.Body)
+			Expect(string(body)).To(ContainSubstring("POST /3d/generations"))
+			Expect(string(body)).NotTo(ContainSubstring("/v1/3d/generations"))
+		})
+
 		It("should return JSON fragment when format=json", func() {
 			req := httptest.NewRequest(http.MethodGet, "/api/instructions/chat-inference?format=json", nil)
 			rec := httptest.NewRecorder()

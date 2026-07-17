@@ -52,6 +52,26 @@ var _ = Describe("Trellis2CppImporter", func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error: %v", err))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: trellis2cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
+
+		It("does not override a different explicit backend", func() {
+			imp := &importers.Trellis2CppImporter{}
+			match := imp.Match(importers.Details{
+				URI:         "https://example.com/models/tex_slat_flow_512_f16.gguf",
+				Preferences: json.RawMessage(`{"backend": "llama-cpp"}`),
+			})
+
+			Expect(match).To(BeFalse())
+		})
+
+		It("still auto-detects when the backend preference is empty", func() {
+			imp := &importers.Trellis2CppImporter{}
+			match := imp.Match(importers.Details{
+				URI:         "https://example.com/models/tex_slat_flow_512_f16.gguf",
+				Preferences: json.RawMessage(`{"backend": ""}`),
+			})
+
+			Expect(match).To(BeTrue())
+		})
 	})
 
 	Context("negative detection", func() {

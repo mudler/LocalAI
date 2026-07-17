@@ -46,6 +46,7 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseChat:                config.FLAG_CHAT,
 	config.UsecaseImage:               config.FLAG_IMAGE,
 	config.UsecaseVideo:               config.FLAG_VIDEO,
+	config.Usecase3D:                  config.FLAG_3D,
 	config.UsecaseVision:              config.FLAG_VISION,
 	config.UsecaseTTS:                 config.FLAG_TTS,
 	config.UsecaseTranscript:          config.FLAG_TRANSCRIPT,

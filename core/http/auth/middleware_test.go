@@ -156,6 +156,11 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
 
+		It("returns 401 for unauthenticated 3D generation requests", func() {
+			rec := doRequest(app, http.MethodPost, "/3d/generations")
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+		})
+
 		It("allows unauthenticated access to non-API paths when no legacy keys", func() {
 			rec := doRequest(app, http.MethodGet, "/app")
 			Expect(rec.Code).To(Equal(http.StatusOK))

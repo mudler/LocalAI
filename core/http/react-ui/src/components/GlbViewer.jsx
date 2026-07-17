@@ -341,13 +341,68 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
 
   /* input */
   let dragging = false, panning = false, lx = 0, ly = 0
-  const onMouseDown = (e) => {
-    dragging = true
-    panning = e.button === 2 || e.shiftKey
-    lx = e.clientX; ly = e.clientY
+  let pinchDistance = 0, pinchX = 0, pinchY = 0
+  const pointers = new Map()
+  const pointerPair = () => Array.from(pointers.values()).slice(0, 2)
+  const beginPinch = () => {
+    const [a, b] = pointerPair()
+    if (!a || !b) return
+    pinchDistance = Math.hypot(b.x - a.x, b.y - a.y)
+    pinchX = (a.x + b.x) / 2
+    pinchY = (a.y + b.y) / 2
   }
-  const onMouseUp = () => { dragging = false }
-  const onMouseMove = (e) => {
+  const stopSpin = () => {
+    spin = false
+    if (onSpinChange) onSpinChange(false)
+  }
+  const onPointerDown = (e) => {
+    e.preventDefault()
+    canvas.setPointerCapture(e.pointerId)
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.size === 1) {
+      dragging = true
+      panning = e.button === 2 || e.shiftKey
+      lx = e.clientX; ly = e.clientY
+    } else {
+      dragging = false
+      beginPinch()
+      stopSpin()
+    }
+  }
+  const onPointerUp = (e) => {
+    pointers.delete(e.pointerId)
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
+    pinchDistance = 0
+    if (pointers.size === 1) {
+      const remaining = pointers.values().next().value
+      dragging = true
+      panning = false
+      lx = remaining.x; ly = remaining.y
+    } else {
+      dragging = false
+    }
+  }
+  const onPointerMove = (e) => {
+    if (!pointers.has(e.pointerId)) return
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (pointers.size >= 2) {
+      const [a, b] = pointerPair()
+      const nextDistance = Math.hypot(b.x - a.x, b.y - a.y)
+      const nextX = (a.x + b.x) / 2
+      const nextY = (a.y + b.y) / 2
+      if (pinchDistance > 0 && nextDistance > 0) {
+        dist *= pinchDistance / nextDistance
+        dist = Math.max(0.3, Math.min(8, dist))
+        panX += (nextX - pinchX) * 0.0015 * dist
+        panY -= (nextY - pinchY) * 0.0015 * dist
+      }
+      pinchDistance = nextDistance
+      pinchX = nextX
+      pinchY = nextY
+      return
+    }
+
     if (!dragging) return
     const dx = e.clientX - lx, dy = e.clientY - ly
     lx = e.clientX; ly = e.clientY
@@ -358,8 +413,7 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
       // frame), so rotation stays screen-relative and never locks up.
       const k = 0.008
       rot = Q.norm(Q.mul(Q.axisAngle(1, 0, 0, dy * k), Q.mul(Q.axisAngle(0, 1, 0, dx * k), rot)))
-      spin = false
-      if (onSpinChange) onSpinChange(false)
+      stopSpin()
     }
   }
   const onContextMenu = (e) => e.preventDefault()
@@ -371,9 +425,10 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
   const onDblClick = () => resetView()
   let onSpinChange = null
 
-  canvas.addEventListener('mousedown', onMouseDown)
-  window.addEventListener('mouseup', onMouseUp)
-  window.addEventListener('mousemove', onMouseMove)
+  canvas.addEventListener('pointerdown', onPointerDown)
+  canvas.addEventListener('pointerup', onPointerUp)
+  canvas.addEventListener('pointercancel', onPointerUp)
+  canvas.addEventListener('pointermove', onPointerMove)
   canvas.addEventListener('contextmenu', onContextMenu)
   canvas.addEventListener('wheel', onWheel, { passive: false })
   canvas.addEventListener('dblclick', onDblClick)
@@ -455,9 +510,10 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
   function dispose() {
     disposed = true
     cancelAnimationFrame(rafId)
-    canvas.removeEventListener('mousedown', onMouseDown)
-    window.removeEventListener('mouseup', onMouseUp)
-    window.removeEventListener('mousemove', onMouseMove)
+    canvas.removeEventListener('pointerdown', onPointerDown)
+    canvas.removeEventListener('pointerup', onPointerUp)
+    canvas.removeEventListener('pointercancel', onPointerUp)
+    canvas.removeEventListener('pointermove', onPointerMove)
     canvas.removeEventListener('contextmenu', onContextMenu)
     canvas.removeEventListener('wheel', onWheel)
     canvas.removeEventListener('dblclick', onDblClick)
