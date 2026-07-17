@@ -533,7 +533,9 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // backend.upgrade, we try the legacy backend.install Force=true path so a
 // new master + old worker still converges. Drop the fallback once every
 // worker in the fleet is on 2026-05-08 or newer.
-func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, opID, name string, progressCb galleryop.ProgressCallback) error {
+func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
+	opID := op.ID
+	name := op.GalleryElementName
 	galleriesJSON, _ := json.Marshal(d.backendGalleries)
 
 	installed, err := d.ListBackends()
@@ -547,6 +549,16 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, opID, na
 	targetNodeIDs := make(map[string]bool, len(entry.Nodes))
 	for _, n := range entry.Nodes {
 		targetNodeIDs[n.NodeID] = true
+	}
+	// Node-scoped upgrade (node detail page): restrict the fan-out to the one
+	// requested node, but only if that node actually reports the backend
+	// installed: upgrading a backend a node never had fails at the gallery
+	// and leaves a forever-retrying pending_backend_ops row.
+	if op.TargetNodeID != "" {
+		if !targetNodeIDs[op.TargetNodeID] {
+			return fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID)
+		}
+		targetNodeIDs = map[string]bool{op.TargetNodeID: true}
 	}
 
 	result, err := d.enqueueAndDrainBackendOp(ctx, opID, OpBackendUpgrade, name, galleriesJSON, targetNodeIDs, func(node BackendNode) error {

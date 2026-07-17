@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
 	"gopkg.in/yaml.v3"
@@ -28,6 +30,11 @@ type TTSConfig struct {
 	Voice string `yaml:"voice,omitempty" json:"voice,omitempty"`
 
 	AudioPath string `yaml:"audio_path,omitempty" json:"audio_path,omitempty"`
+
+	// VoiceCloning overrides saved-profile capability detection for this model.
+	// A pointer preserves the distinction between an explicit false and the
+	// default automatic behavior.
+	VoiceCloning *bool `yaml:"voice_cloning,omitempty" json:"voice_cloning,omitempty"`
 }
 
 // @Description ModelConfig represents a model configuration
@@ -35,7 +42,8 @@ type ModelConfig struct {
 	modelConfigFile          string `yaml:"-" json:"-"`
 	modelTemplate            string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	Name                     string `yaml:"name,omitempty" json:"name,omitempty"`
+	Name                     string                `yaml:"name,omitempty" json:"name,omitempty"`
+	Artifacts                []modelartifacts.Spec `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
 
 	// Alias, when set, makes this config a pure redirect: every request for
 	// Name is served by the model named here. All other fields are ignored.
@@ -52,7 +60,11 @@ type ModelConfig struct {
 	TemplateConfig      TemplateConfig      `yaml:"template,omitempty" json:"template,omitempty"`
 	KnownUsecaseStrings []string            `yaml:"known_usecases,omitempty" json:"known_usecases,omitempty"`
 	KnownUsecases       *ModelConfigUsecase `yaml:"-" json:"-"`
-	Pipeline            Pipeline            `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
+	// KnownInputModalities and KnownOutputModalities describe model-specific I/O
+	// that usecases alone cannot express, such as image- or audio-conditioned video.
+	KnownInputModalities  []string `yaml:"known_input_modalities,omitempty" json:"known_input_modalities,omitempty"`
+	KnownOutputModalities []string `yaml:"known_output_modalities,omitempty" json:"known_output_modalities,omitempty"`
+	Pipeline              Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
 	InputToken                                 [][]int        `yaml:"-" json:"-"`
@@ -656,6 +668,18 @@ type Pipeline struct {
 	// to benefit. A client session.update still overrides type and eagerness
 	// per session; retranscribe is server-side only. Unset keeps server_vad.
 	TurnDetection PipelineTurnDetection `yaml:"turn_detection,omitempty" json:"turn_detection,omitempty"`
+
+	// DisableWarmup turns off eager pre-loading of the pipeline's sub-models at
+	// realtime session start. By default (false) LocalAI loads every configured
+	// sub-model backend (VAD, transcription, LLM, TTS, sound detection, voice
+	// recognition) into memory (concurrently) before the
+	// session is announced and blocks until they are ready, so the first turn
+	// pays no cold-start cost and a model that fails to load surfaces as an error
+	// at session start rather than mid-call. Set true to restore the lazy "load
+	// on first use" behavior — session start no longer blocks on loading and
+	// load errors surface on first use instead (e.g. to keep idle sessions from
+	// holding model memory they may never use).
+	DisableWarmup bool `yaml:"disable_warmup,omitempty" json:"disable_warmup,omitempty"`
 }
 
 // PipelineCompaction configures summarize-then-drop for a realtime pipeline.
@@ -1189,9 +1213,21 @@ func (c ModelConfig) ModelID() string {
 	return c.Model
 }
 
-// ModelFileName returns the filename of the model
-// If the model is a URL, it will return the MD5 of the URL which is the filename
+// ModelFileName returns the controller-managed snapshot when the model has a
+// committed artifact, otherwise preserving the legacy URL/repository behavior.
 func (c *ModelConfig) ModelFileName() string {
+	if len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil {
+		relative, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey)
+		if err == nil {
+			// Single-file snapshots (e.g. a GGUF) must resolve to the file inside
+			// the snapshot directory; single-file backends load a file, not a dir.
+			// Multi-file snapshots keep pointing at the directory.
+			if primary := c.Artifacts[0].Resolved.PrimaryFile; primary != "" {
+				return filepath.Join(relative, filepath.FromSlash(primary))
+			}
+			return relative
+		}
+	}
 	uri := downloader.URI(c.Model)
 	if uri.LooksLikeURL() {
 		f, _ := uri.FilenameFromUrl()
@@ -1294,6 +1330,21 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	if c.IsAlias() && len(c.Artifacts) > 0 {
+		return false, fmt.Errorf("alias model %q cannot declare artifacts", c.Name)
+	}
+	seenArtifacts := make(map[string]struct{}, len(c.Artifacts))
+	for i, artifact := range c.Artifacts {
+		normalized, err := artifact.Normalize()
+		if err != nil {
+			return false, fmt.Errorf("artifact %d: %w", i, err)
+		}
+		if _, exists := seenArtifacts[normalized.Name]; exists {
+			return false, fmt.Errorf("duplicate artifact name %q", normalized.Name)
+		}
+		seenArtifacts[normalized.Name] = struct{}{}
+	}
+
 	// An alias is a pure redirect: validate only its own shape here. Target
 	// existence and the no-chain rule need the full config set, so the loader
 	// (load-time) and the create/swap endpoints enforce those.

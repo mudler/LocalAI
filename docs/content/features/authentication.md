@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Authentication & Authorization"
-weight = 26
+weight = 85
 url = '/features/authentication'
 +++
 
@@ -26,7 +26,7 @@ Clients provide the key via any of these methods:
 - `xi-api-key: <key>` header
 - `token` cookie
 
-Legacy API keys grant **full admin access** — there is no role separation. For multi-user deployments with role-based access, use the user authentication system instead.
+Legacy API keys grant **full admin access** - there is no role separation. For multi-user deployments with role-based access, use the user authentication system instead.
 
 API keys can also be managed at runtime through the [Runtime Settings]({{%relref "features/runtime-settings" %}}) interface.
 
@@ -39,7 +39,7 @@ The user authentication system provides:
 - **Session-based authentication** with secure cookies
 - **OAuth login** (GitHub) and **OIDC single sign-on** (Keycloak, Google, Okta, Authentik, etc.)
 - **Per-user API keys** for programmatic access
-- **Admin route gating** — management endpoints are restricted to admins
+- **Admin route gating** - management endpoints are restricted to admins
 - **Per-user usage tracking** with token consumption metrics
 
 ### Enabling Authentication
@@ -74,7 +74,7 @@ localai run
 | Environment Variable | Default | Description |
 |---|---|---|
 | `LOCALAI_AUTH` | `false` | Enable user authentication and authorization |
-| `LOCALAI_AUTH_DATABASE_URL` | `{DataPath}/database.db` | Database URL — `postgres://...` for PostgreSQL, or a file path for SQLite |
+| `LOCALAI_AUTH_DATABASE_URL` | `{DataPath}/database.db` | Database URL - `postgres://...` for PostgreSQL, or a file path for SQLite |
 | `GITHUB_CLIENT_ID` | | GitHub OAuth App Client ID (auto-enables auth when set) |
 | `GITHUB_CLIENT_SECRET` | | GitHub OAuth App Client Secret |
 | `LOCALAI_OIDC_ISSUER` | | OIDC issuer URL for auto-discovery (e.g. `https://accounts.google.com`) |
@@ -111,7 +111,7 @@ When disabled:
 There are two roles:
 
 - **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, agents, and user management.
-- **User**: Access to inference endpoints only — chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
+- **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
 
@@ -146,7 +146,7 @@ curl -X DELETE http://localhost:8080/api/auth/admin/invites/<invite-id> \
 curl http://localhost:8080/api/auth/invite/<code>/check
 ```
 
-Share the invite URL (`/invite/<code>`) with the user. When they open it, the registration form is pre-filled with the invite code. Invite codes are single-use — once consumed, they cannot be reused. Expired or used invites are rejected.
+Share the invite URL (`/invite/<code>`) with the user. When they open it, the registration form is pre-filled with the invite code. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
 
 For GitHub OAuth, the invite code is passed as a query parameter to the login URL (`/api/auth/github/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
 
@@ -166,7 +166,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /api/backend-traces`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
-- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`
+- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`, `POST /backend/load`
 
 **P2P:**
 - `GET /api/p2p/*`
@@ -191,7 +191,7 @@ When auth is enabled, the React UI sidebar dynamically shows/hides sections base
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
 - **Admins also see**: Install Models, Agents section (Agents, Skills, Memory, MCP CI Jobs), System section (Backends, Traces, Swarm, System, Settings)
 
-Admin-only pages are also protected at the router level — navigating directly to an admin URL redirects non-admin users to the home page.
+Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 
 ### GitHub OAuth Setup
 
@@ -228,7 +228,7 @@ LOCALAI_OIDC_ISSUER=https://authentik.example.com/application/o/localai/
 LOCALAI_OIDC_ISSUER=https://your-org.okta.com
 ```
 
-For OIDC, invite codes work the same way as GitHub OAuth — the invite code is passed as a query parameter to the login URL (`/api/auth/oidc/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
+For OIDC, invite codes work the same way as GitHub OAuth - the invite code is passed as a query parameter to the login URL (`/api/auth/oidc/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
 
 ### User API Keys
 
@@ -298,10 +298,10 @@ curl "http://localhost:8080/api/auth/admin/usage?period=month&user_id=<user-id>"
 ```
 
 **Period values:**
-- `day` — last 24 hours, bucketed by hour
-- `week` — last 7 days, bucketed by day
-- `month` — last 30 days, bucketed by day (default)
-- `all` — all time, bucketed by month
+- `day` - last 24 hours, bucketed by hour
+- `week` - last 7 days, bucketed by day
+- `month` - last 30 days, bucketed by day (default)
+- `all` - all time, bucketed by month
 
 **Response format:**
 
@@ -410,7 +410,7 @@ Usage rows recorded before this feature have no `source` column. On startup, `In
 Legacy API keys and user authentication can be used simultaneously. When both are configured:
 
 1. User sessions and user API keys are checked first
-2. Legacy API keys are checked as fallback — they grant **admin-level access**
+2. Legacy API keys are checked as fallback - they grant **admin-level access**
 3. This allows a gradual migration from shared API keys to per-user accounts
 
 ## Build Requirements
@@ -425,4 +425,4 @@ GO_TAGS=auth make build
 go build -tags auth ./...
 ```
 
-The default Dockerfile includes `GO_TAGS="auth"`, so all Docker images ship with auth support. When building from source without the `auth` tag, setting `LOCALAI_AUTH=true` has no effect — the system operates without authentication.
+The default Dockerfile includes `GO_TAGS="auth"`, so all Docker images ship with auth support. When building from source without the `auth` tag, setting `LOCALAI_AUTH=true` has no effect - the system operates without authentication.

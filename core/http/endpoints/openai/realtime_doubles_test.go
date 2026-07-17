@@ -174,6 +174,8 @@ func (m *fakeModel) TranscribeLive(_ context.Context, _ string, onEvent func(bac
 
 func (m *fakeModel) PredictConfig() *config.ModelConfig { return m.cfg }
 
+func (m *fakeModel) Warmup(ctx context.Context) error { return nil }
+
 // fakeLiveSession records what semantic_vad fed and closed; closeEvents are
 // replayed through onEvent during Close, mimicking the backend's finalize
 // flush (trailing delta + Final) landing before Close returns.

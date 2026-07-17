@@ -217,7 +217,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/audio/classification", soundClassificationHandler, soundClassificationMiddleware...)
 	app.POST("/audio/classification", soundClassificationHandler, soundClassificationMiddleware...)
 
-	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.VoiceProfileStore())
 	audioSpeechMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		traceMiddleware,
@@ -257,4 +257,10 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
 	app.GET("/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))
+
+	// List models enriched with capabilities + input/output modalities
+	// (LocalAI-specific, additive superset of /v1/models).
+	capabilitiesHandler := openai.ListModelCapabilitiesEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB())
+	app.GET("/v1/models/capabilities", capabilitiesHandler)
+	app.GET("/models/capabilities", capabilitiesHandler)
 }

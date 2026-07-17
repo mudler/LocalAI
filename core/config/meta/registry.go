@@ -66,6 +66,30 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Options:     UsecaseOptions,
 			Order:       6,
 		},
+		"known_input_modalities": {
+			Section:     "general",
+			Label:       "Known Input Modalities",
+			Description: "Explicit input types this model accepts when use cases alone are not specific enough",
+			Component:   "string-list",
+			Options:     ModalityOptions,
+			Order:       7,
+		},
+		"known_output_modalities": {
+			Section:     "general",
+			Label:       "Known Output Modalities",
+			Description: "Explicit output types this model produces when use cases alone are not specific enough",
+			Component:   "string-list",
+			Options:     ModalityOptions,
+			Order:       8,
+		},
+		"artifacts": {
+			Section:     "general",
+			Label:       "Managed Model Artifacts",
+			Description: "Controller-managed model sources. LocalAI resolves, downloads, verifies, and binds these sources before a backend loads.",
+			Component:   "json-editor",
+			Advanced:    true,
+			Order:       9,
+		},
 
 		// --- LLM ---
 		"context_size": {
@@ -599,6 +623,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       89,
 		},
+		"pipeline.disable_warmup": {
+			Section:     "pipeline",
+			Label:       "Disable Warmup",
+			Description: "Turn off eager pre-loading of the pipeline's sub-models at realtime session start. By default LocalAI loads every configured sub-model backend (VAD, transcription, LLM, TTS, sound detection, voice recognition) before the session starts and blocks until they are ready, so the first turn pays no cold-start cost and a model that fails to load is reported at session start instead of mid-call. Enable this to restore the lazy 'load on first use' behavior — session start no longer waits on loading and load errors surface on the first turn instead. Useful to keep idle sessions from holding model memory they may never use.",
+			Component:   "toggle",
+			Order:       90,
+		},
 
 		// --- Functions ---
 		"function.grammar.parallel_calls": {
@@ -622,12 +653,27 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		},
 
 		// --- TTS ---
+		"tts.voice_cloning": {
+			Section:     "tts",
+			Label:       "Voice Cloning",
+			Description: "Override automatic Voice Library profile support detection for this model. Leave unset to infer support from the backend and model variant.",
+			Component:   "toggle",
+			Advanced:    true,
+			Order:       89,
+		},
 		"tts.voice": {
 			Section:     "tts",
 			Label:       "Voice",
 			Description: "Default voice for TTS output",
 			Component:   "input",
 			Order:       90,
+		},
+		"tts.audio_path": {
+			Section:     "tts",
+			Label:       "Reference Audio Path",
+			Description: "Default reference audio for voice cloning. A per-request voice or saved Voice Library profile takes precedence.",
+			Component:   "input",
+			Order:       91,
 		},
 
 		// --- Diffusers ---

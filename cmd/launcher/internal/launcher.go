@@ -207,21 +207,7 @@ func (l *Launcher) StartLocalAI() error {
 	}
 
 	// Build command arguments
-	dataPath := l.GetDataPath()
-	args := []string{
-		"run",
-		"--models-path", l.config.ModelsPath,
-		"--backends-path", l.config.BackendsPath,
-		"--address", l.config.Address,
-		"--log-level", l.config.LogLevel,
-		// Keep persistent data and dynamic config under the launcher's data
-		// directory (~/.localai) rather than letting the server resolve them
-		// to ${basepath}/{data,configuration}. ${basepath} expands to the
-		// launcher process's CWD (often the user's home root), which puts
-		// ~/data and ~/configuration outside ~/.localai. See #10610.
-		"--data-path", filepath.Join(dataPath, "data"),
-		"--localai-config-dir", filepath.Join(dataPath, "configuration"),
-	}
+	args := l.BuildRunArgs()
 
 	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, args...)
 
@@ -404,6 +390,32 @@ func (l *Launcher) GetWebUIURL() string {
 		address = "http://" + address
 	}
 	return address
+}
+
+// BuildRunArgs assembles the argument list passed to `local-ai run`.
+//
+// Storage paths are anchored to the launcher's data directory instead of the
+// server's own defaults. The server resolves data/config to ${basepath}
+// (the launcher process CWD, often the user's home root) and generated-content
+// /uploads to shared /tmp paths. On a shared /tmp (macOS routes /tmp to
+// /private/tmp for every user) the first account to run LocalAI creates
+// /tmp/generated with 0750 perms, so any other account then fails startup with
+// "mkdir /tmp/generated/content: permission denied". Keeping every writable
+// path under the per-user data directory avoids both the misplacement (#10610)
+// and the cross-user /tmp collision.
+func (l *Launcher) BuildRunArgs() []string {
+	dataPath := l.GetDataPath()
+	return []string{
+		"run",
+		"--models-path", l.config.ModelsPath,
+		"--backends-path", l.config.BackendsPath,
+		"--address", l.config.Address,
+		"--log-level", l.config.LogLevel,
+		"--data-path", filepath.Join(dataPath, "data"),
+		"--localai-config-dir", filepath.Join(dataPath, "configuration"),
+		"--generated-content-path", filepath.Join(dataPath, "generated"),
+		"--upload-path", filepath.Join(dataPath, "uploads"),
+	}
 }
 
 // GetDataPath returns the path where LocalAI data and logs are stored

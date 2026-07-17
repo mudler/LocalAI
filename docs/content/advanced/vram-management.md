@@ -141,7 +141,7 @@ LOCALAI_SINGLE_ACTIVE_BACKEND=true ./local-ai
 
 ## Solution 1b: Concurrency Groups (per-model anti-affinity)
 
-`--max-active-backends` is a global count — three loaded models is fine, but it
+`--max-active-backends` is a global count - three loaded models is fine, but it
 doesn't know that two of them are 120B and shouldn't share a GPU.
 **Concurrency groups** give per-model rules: any two models that share a group
 name are mutually exclusive on the same node. Loading one evicts the others.
@@ -154,7 +154,7 @@ This addresses [issue #9659](https://github.com/mudler/LocalAI/issues/9659):
 
 ### Configuration
 
-Declare groups per model in the YAML config — no CLI flag, no env var:
+Declare groups per model in the YAML config - no CLI flag, no env var:
 
 ```yaml
 # llama-120b-a.yaml
@@ -175,7 +175,7 @@ concurrency_groups: ["vram-heavy"]
 ```
 
 ```yaml
-# zed-predict.yaml — no groups, runs alongside anything
+# zed-predict.yaml - no groups, runs alongside anything
 name: zed-predict
 backend: llama-cpp
 parameters:
@@ -190,7 +190,7 @@ With this configuration:
    `vram-heavy`); `zed-predict` stays loaded.
 
 A model can declare multiple groups; two models conflict if they share **any**
-group name. Group names are arbitrary strings — pick names that make sense for
+group name. Group names are arbitrary strings - pick names that make sense for
 your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
 
 ### Interaction with other knobs
@@ -198,7 +198,7 @@ your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
 - **`--max-active-backends`**: groups are checked *before* the LRU cap. Group
   evictions may already make room; LRU then enforces the global count.
 - **`pinned: true`**: a pinned model is never evicted, including by a group
-  conflict. The new request is loaded with a warning logged — pinning two
+  conflict. The new request is loaded with a warning logged - pinning two
   models in the same group is a configuration mismatch.
 - **`--force-eviction-when-busy`**: same retry semantics as LRU. A busy
   conflict is skipped and retried (`--lru-eviction-max-retries`,
@@ -207,7 +207,7 @@ your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
 
 ### Distributed mode
 
-`concurrency_groups` is enforced **per node**, not cluster-wide — VRAM is a
+`concurrency_groups` is enforced **per node**, not cluster-wide - VRAM is a
 node-local resource, so two heavy models on different nodes is fine. The
 distributed scheduler additionally uses the rule as a placement hint: when
 choosing where to load a new model, it prefers nodes that don't already host a
@@ -215,7 +215,7 @@ same-group model, falling back to eviction only if every candidate has a
 conflict.
 
 `concurrency_groups` composes with `NodeSelector` (which decides *which
-nodes* a model is eligible for) — the two filters apply in sequence. Use
+nodes* a model is eligible for) - the two filters apply in sequence. Use
 `NodeSelector` to target hardware classes; use `concurrency_groups` to keep
 specific models from co-residing on whichever node hosts them.
 
@@ -360,6 +360,49 @@ This configuration:
 - Waits 2 seconds between retry attempts
 - Ensures busy models have time to complete their requests before eviction
 
+## VRAM Budget (Allocation Ceiling)
+
+By default LocalAI treats **all** detected GPU memory as available for model allocation. On a shared machine (a desktop you also game on, a box that runs other GPU workloads, or a multi-tenant server) you often want to reserve some headroom and let LocalAI use only part of the card. The **VRAM budget** sets a hard ceiling on how much VRAM LocalAI will consider allocatable.
+
+### Configuration
+
+Set the budget with a CLI flag or environment variable:
+
+```bash
+# Percentage of detected VRAM
+./local-ai --vram-budget=80%
+
+# Absolute amount (GB, GiB, MB, or raw bytes)
+./local-ai --vram-budget=12GB
+
+# Using environment variables
+LOCALAI_VRAM_BUDGET=80% ./local-ai
+LOCALAI_VRAM_BUDGET=12GB ./local-ai
+```
+
+Accepted formats:
+
+- A **percentage** such as `80%` (or the decimal `0.8`).
+- An **absolute amount** such as `12GB`, `12GiB`, `12000MB`, or a raw byte count.
+
+Leaving it empty or unset (the default) uses all detected VRAM, which is the historical behavior.
+
+### Semantics
+
+The budget is a **hard ceiling**, never a floor:
+
+- Everywhere LocalAI reads VRAM to decide model allocation (hardware defaults for batch size and parallelism, context auto-fit, GGUF fit warnings, and the watchdog), it uses `min(detected VRAM, budget)`.
+- The budget can only **lower** usable VRAM, never raise it above what the hardware physically has. An absolute value larger than physical VRAM is clamped to physical.
+- A percentage above `100%` is rejected as invalid.
+
+### Editing from the UI
+
+The budget is exposed in the **Settings** page under the **Performance** section as **VRAM Budget**, so you can change it without editing flags or restarting from scratch. It is live-editable and persists to the runtime settings.
+
+### Distributed mode
+
+The same `LOCALAI_VRAM_BUDGET` / `--vram-budget` applies to distributed worker nodes (`local-ai worker ...`), where it caps the VRAM the scheduler will use for per-node placement. Admins can also set a per-node budget live from the node UI (or the admin API); see [Distributed Mode]({{%relref "features/distributed-mode#per-node-vram-budget" %}}).
+
 ## Limitations and Considerations
 
 ### VRAM Usage Estimation
@@ -380,6 +423,8 @@ curl -X POST http://localhost:8080/backend/shutdown \
 ```
 
 To stop all models, you'll need to call the endpoint for each loaded model individually, or use the web UI to stop all models at once.
+
+Conversely, you can pre-load a model into memory ahead of its first request with `POST /backend/load` (the inverse of shutdown) - see [Backend Monitor]({{%relref "operations/backend-monitor" %}}).
 
 ### Best Practices
 

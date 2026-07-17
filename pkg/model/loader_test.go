@@ -73,6 +73,22 @@ var _ = Describe("ModelLoader", func() {
 	})
 
 	Context("LoadModel", func() {
+		It("passes a logical model and managed model file independently", func() {
+			const relative = ".artifacts/huggingface/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/snapshot"
+			var receivedName, receivedFile string
+			mockModel = model.NewModel("managed", "test.model", nil)
+			mockModel.MarkHealthy()
+			mockLoader := func(_ string, modelName, modelFile string) (*model.Model, error) {
+				receivedName, receivedFile = modelName, modelFile
+				return mockModel, nil
+			}
+
+			_, err := modelLoader.LoadModelWithFile("managed", "owner/repo", relative, mockLoader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receivedName).To(Equal("owner/repo"))
+			Expect(receivedFile).To(Equal(filepath.Join(modelPath, filepath.FromSlash(relative))))
+		})
+
 		It("should load a model and keep it in memory", func() {
 			mockModel = model.NewModel("foo", "test.model", nil)
 			mockModel.MarkHealthy() // skip gRPC health check (no real server)
@@ -255,6 +271,11 @@ var _ = Describe("ModelLoader", func() {
 			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				count := atomic.AddInt32(&attemptCount, 1)
 				if count == 1 {
+					// Hold the loading slot so the second request coalesces as a
+					// follower before this leader fails. That follower then gets
+					// the one in-burst retry, which bypasses the failure cooldown
+					// (the cooldown only gates fresh, independent load triggers).
+					time.Sleep(50 * time.Millisecond)
 					return nil, errors.New("first attempt fails")
 				}
 				return model.NewModel(modelID, modelName, nil), nil
@@ -270,7 +291,7 @@ var _ = Describe("ModelLoader", func() {
 				m1, err1 = modelLoader.LoadModel("retry-model", "test.model", mockLoader)
 			})
 
-			// Give first goroutine a head start
+			// Give first goroutine a head start so it owns the loading slot.
 			time.Sleep(10 * time.Millisecond)
 
 			wg.Go(func() {
@@ -303,6 +324,92 @@ var _ = Describe("ModelLoader", func() {
 			// Settings are updated - we can verify through behavior if needed
 			// For now, just verify the call doesn't panic
 			Expect(modelLoader).ToNot(BeNil())
+		})
+	})
+
+	Context("Load failure cooldown", func() {
+		It("refuses a fresh load within the cooldown window without re-invoking the loader", func() {
+			modelLoader.SetLoadFailureCooldown(60*time.Millisecond, 240*time.Millisecond)
+
+			var loadCount int32
+			failing := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				atomic.AddInt32(&loadCount, 1)
+				return nil, errors.New("boom")
+			}
+
+			// First attempt runs the loader and fails (not a cooldown error).
+			_, err := modelLoader.LoadModel("broken", "test.model", failing)
+			Expect(err).To(HaveOccurred())
+			var coolErr *model.ModelLoadCooldownError
+			Expect(errors.As(err, &coolErr)).To(BeFalse())
+			Expect(atomic.LoadInt32(&loadCount)).To(Equal(int32(1)))
+
+			// An immediate retry is short-circuited: cooldown error, loader untouched.
+			_, err = modelLoader.LoadModel("broken", "test.model", failing)
+			Expect(errors.As(err, &coolErr)).To(BeTrue())
+			Expect(coolErr.ModelID).To(Equal("broken"))
+			Expect(coolErr.RetryAfter).To(BeNumerically(">", time.Duration(0)))
+			Expect(atomic.LoadInt32(&loadCount)).To(Equal(int32(1)))
+
+			// Once the window elapses the loader is attempted again.
+			Eventually(func() int32 {
+				_, _ = modelLoader.LoadModel("broken", "test.model", failing)
+				return atomic.LoadInt32(&loadCount)
+			}, "1s", "20ms").Should(BeNumerically(">=", 2))
+		})
+
+		It("clears the cooldown after a successful load", func() {
+			modelLoader.SetLoadFailureCooldown(60*time.Millisecond, 240*time.Millisecond)
+
+			var attempts int32
+			loader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				if atomic.AddInt32(&attempts, 1) == 1 {
+					return nil, errors.New("boom")
+				}
+				m := model.NewModel(modelID, modelName, nil)
+				m.MarkHealthy()
+				return m, nil
+			}
+
+			_, err := modelLoader.LoadModel("flaky", "test.model", loader)
+			Expect(err).To(HaveOccurred())
+
+			// After the window, the retry succeeds and resets the failure state.
+			var m *model.Model
+			Eventually(func() error {
+				m, err = modelLoader.LoadModel("flaky", "test.model", loader)
+				return err
+			}, "1s", "20ms").Should(Succeed())
+			Expect(m).ToNot(BeNil())
+
+			// A subsequent load returns the cached model, never a cooldown error.
+			m2, err := modelLoader.LoadModel("flaky", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(m2).To(Equal(m))
+		})
+
+		It("grows the cooldown on consecutive failures", func() {
+			modelLoader.SetLoadFailureCooldown(50*time.Millisecond, 10*time.Second)
+			failing := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("boom")
+			}
+
+			// Failure 1, then read its cooldown.
+			_, err := modelLoader.LoadModel("bad", "test.model", failing)
+			Expect(err).To(HaveOccurred())
+			_, err = modelLoader.LoadModel("bad", "test.model", failing)
+			var c1 *model.ModelLoadCooldownError
+			Expect(errors.As(err, &c1)).To(BeTrue())
+
+			// Wait out the first window, trigger failure 2, read its (larger) cooldown.
+			time.Sleep(70 * time.Millisecond)
+			_, err = modelLoader.LoadModel("bad", "test.model", failing)
+			Expect(err).To(HaveOccurred())
+			_, err = modelLoader.LoadModel("bad", "test.model", failing)
+			var c2 *model.ModelLoadCooldownError
+			Expect(errors.As(err, &c2)).To(BeTrue())
+
+			Expect(c2.RetryAfter).To(BeNumerically(">", c1.RetryAfter))
 		})
 	})
 })

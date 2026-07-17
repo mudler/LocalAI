@@ -251,6 +251,7 @@ After adding a new backend, verify:
 - [ ] No YAML syntax errors (check with linter)
 - [ ] No Makefile syntax errors (check with linter)
 - [ ] Follows the same pattern as similar backends (e.g., if it's a transcription backend, follow `faster-whisper` pattern)
+- [ ] **`Load` validates its input and refuses models it can't serve.** When a model config has no explicit `backend:`, the model loader greedily probes *every* installed backend with the model's name and binds to the first `Load` that succeeds — an accept-anything `Load` will capture arbitrary LLMs (issue #9287). Backends that load a real artefact get this for free (the load fails); backends with no artefact must gate on the name: `opus` accepts only its own name (or none), `local-store` requires the `store.NamespacePrefix` namespace marker sent by `core/backend/stores.go`.
 - [ ] Documented: added to the category list in `docs/content/features/backends.md` (and any new endpoint/realtime capability documented under `docs/content/`)
 - [ ] If it is an in-house native C/C++/GGML engine, added to the maintained-engines table in the top-level `README.md`
 

@@ -298,10 +298,25 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed to remove stale backend artefact at %s: %w", backendPath, rmErr)
 		}
 	}
-	err = os.MkdirAll(backendPath, 0750)
-	if err != nil {
-		return fmt.Errorf("failed to create base path: %v", err)
+	// Stage the download into a temp directory and atomically swap it into
+	// place once it's complete and validated. This makes a reinstall a clean
+	// replace rather than an overlay: files from a previous version that are
+	// absent in the new artifact (a stale .so, an orphaned package dir) are
+	// dropped instead of lingering to shadow the new build at import time.
+	// Mirrors the atomic-swap UpgradeBackend already performs.
+	stagingPath := backendPath + ".install-tmp"
+	backupPath := backendPath + ".install-backup"
+	// Clean any stale staging/backup dirs from a prior interrupted attempt
+	// (best-effort; a missing dir is the common case).
+	_ = os.RemoveAll(stagingPath)
+	_ = os.RemoveAll(backupPath)
+	if err := os.MkdirAll(stagingPath, 0750); err != nil {
+		return fmt.Errorf("failed to create staging path: %v", err)
 	}
+	// Unless we successfully swap the staging dir into place below, never leave
+	// it behind. After a successful rename it no longer exists, so this is a
+	// no-op on the happy path.
+	defer func() { _ = os.RemoveAll(stagingPath) }()
 
 	// Build the download options once and reuse for every retry path —
 	// mirrors and tag fallbacks must verify against the same gallery
@@ -327,21 +342,21 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	uri := downloader.URI(primaryURI)
 	// Check if it is a directory
 	if uri.LooksLikeDir() {
-		// It is a directory, we just copy it over in the backend folder
-		if err := cp.Copy(string(uri), backendPath); err != nil {
+		// It is a directory, we just copy it over into the staging folder
+		if err := cp.Copy(string(uri), stagingPath); err != nil {
 			return fmt.Errorf("failed copying: %w", err)
 		}
 	} else {
-		xlog.Debug("Downloading backend", "uri", primaryURI, "backendPath", backendPath)
-		if err := uri.DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
-			xlog.Debug("Backend download failed, trying fallback", "backendPath", backendPath, "error", err)
+		xlog.Debug("Downloading backend", "uri", primaryURI, "backendPath", stagingPath)
+		if err := uri.DownloadFileWithContext(ctx, stagingPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
+			xlog.Debug("Backend download failed, trying fallback", "backendPath", stagingPath, "error", err)
 
-			// resetBackendPath cleans up partial state from a failed OCI extraction
+			// resetStagingPath cleans up partial state from a failed OCI extraction
 			// so the next download attempt starts fresh. The directory is re-created
 			// because OCI image extractors need it to exist for writing files into.
-			resetBackendPath := func() {
-				os.RemoveAll(backendPath)
-				os.MkdirAll(backendPath, 0750)
+			resetStagingPath := func() {
+				_ = os.RemoveAll(stagingPath)
+				_ = os.MkdirAll(stagingPath, 0750)
 			}
 
 			success := false
@@ -354,10 +369,10 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 					return ctx.Err()
 				default:
 				}
-				resetBackendPath()
-				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
+				resetStagingPath()
+				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, stagingPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
 					success = true
-					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", backendPath)
+					xlog.Debug("Downloaded backend from mirror", "uri", config.URI, "backendPath", stagingPath)
 					break
 				}
 			}
@@ -366,19 +381,19 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				// Try fallback: replace latestTag + "-" with masterTag + "-" in the URI
 				fallbackURI := strings.Replace(string(config.URI), latestTag+"-", masterTag+"-", 1)
 				if fallbackURI != string(config.URI) {
-					resetBackendPath()
+					resetStagingPath()
 					xlog.Info("Trying fallback URI", "original", config.URI, "fallback", fallbackURI)
-					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
-						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", backendPath)
+					if err := downloader.URI(fallbackURI).DownloadFileWithContext(ctx, stagingPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
+						xlog.Info("Downloaded backend using fallback URI", "uri", fallbackURI, "backendPath", stagingPath)
 						success = true
 					} else {
 						xlog.Info("Fallback URI failed", "fallback", fallbackURI, "error", err)
 						if !strings.Contains(fallbackURI, "-"+devSuffix) {
-							resetBackendPath()
+							resetStagingPath()
 							devFallbackURI := fallbackURI + "-" + devSuffix
 							xlog.Info("Trying development fallback URI", "fallback", devFallbackURI)
-							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, backendPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
-								xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", backendPath)
+							if err := downloader.URI(devFallbackURI).DownloadFileWithContext(ctx, stagingPath, config.SHA256, 1, 1, downloadStatus, downloadOpts...); err == nil {
+								xlog.Info("Downloaded backend using development fallback URI", "uri", devFallbackURI, "backendPath", stagingPath)
 								success = true
 							} else {
 								xlog.Info("Development fallback URI failed", "fallback", devFallbackURI, "error", err)
@@ -389,26 +404,27 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			}
 
 			if !success {
-				// Clean up backend directory only when all download attempts have failed
-				if cleanupErr := os.RemoveAll(backendPath); cleanupErr != nil {
-					xlog.Warn("Failed to clean up backend directory", "backendPath", backendPath, "error", cleanupErr)
-				}
-				xlog.Error("Failed to download backend", "uri", config.URI, "backendPath", backendPath, "error", err)
+				// The deferred RemoveAll(stagingPath) cleans up the partial
+				// download; the previously installed backend (if any) is left
+				// untouched because we never touched backendPath.
+				xlog.Error("Failed to download backend", "uri", config.URI, "backendPath", stagingPath, "error", err)
 				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 			}
 		} else {
-			xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
+			xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", stagingPath)
 		}
 	}
 
-	// sanity check - check if runfile is present
-	runFile := filepath.Join(backendPath, runFile)
-	if _, err := os.Stat(runFile); os.IsNotExist(err) {
-		xlog.Error("Run file not found", "runFile", runFile)
-		return fmt.Errorf("not a valid backend: run file not found %q", runFile)
+	// sanity check - check if runfile is present in the staged content. This
+	// doubles as the validation gate before we swap it into place.
+	stagedRunFile := filepath.Join(stagingPath, runFile)
+	if _, err := os.Stat(stagedRunFile); os.IsNotExist(err) {
+		xlog.Error("Run file not found", "runFile", stagedRunFile)
+		return fmt.Errorf("not a valid backend: run file not found %q", stagedRunFile)
 	}
 
-	// Create metadata for the backend
+	// Create metadata for the backend (written into the staged dir so the
+	// atomic swap brings a complete, self-describing backend into place).
 	metadata := &BackendMetadata{
 		Name:        name,
 		GalleryURL:  config.Gallery.URL,
@@ -431,9 +447,25 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		metadata.Alias = config.Alias
 	}
 
-	if err := writeBackendMetadata(backendPath, metadata); err != nil {
+	if err := writeBackendMetadata(stagingPath, metadata); err != nil {
 		return fmt.Errorf("failed to write metadata for backend %q: %v", name, err)
 	}
+
+	// Atomic swap: move any existing install aside, move the staged dir into
+	// place, and roll the old one back if the final rename fails.
+	if _, statErr := os.Stat(backendPath); statErr == nil {
+		if err := os.Rename(backendPath, backupPath); err != nil {
+			return fmt.Errorf("failed to move current backend to backup: %w", err)
+		}
+	}
+	if err := os.Rename(stagingPath, backendPath); err != nil {
+		xlog.Error("Failed to move new backend into place, restoring backup", "error", err)
+		if restoreErr := os.Rename(backupPath, backendPath); restoreErr != nil {
+			xlog.Error("Failed to restore backup", "error", restoreErr)
+		}
+		return fmt.Errorf("failed to move new backend into place: %w", err)
+	}
+	_ = os.RemoveAll(backupPath)
 
 	return RegisterBackends(systemState, modelLoader)
 }

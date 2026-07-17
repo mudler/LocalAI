@@ -169,5 +169,14 @@ var _ = Describe("Hardware-driven config defaults", func() {
 			ApplyHardwareDefaults(cfg, GPU{VRAM: 119 * gib})
 			Expect(cfg.Options).To(Equal([]string{"parallel:2"}))
 		})
+		It("adds no parallel option for a non-llama backend", func() {
+			// parallel is a llama.cpp server option (n_parallel); a backend that
+			// strictly validates options (e.g. longcat-video) rejects it. Only the
+			// llama.cpp path should receive it, even on a capable GPU.
+			cfg := &ModelConfig{}
+			cfg.Backend = "longcat-video"
+			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
+			Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")))
+		})
 	})
 })

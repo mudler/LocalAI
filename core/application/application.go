@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -58,6 +59,7 @@ type Application struct {
 	agentPoolService   atomic.Pointer[agentpool.AgentPoolService]
 	faceRegistry       facerecognition.Registry
 	voiceRegistry      voicerecognition.Registry
+	voiceProfileStore  *voiceprofile.Store
 	authDB             *gorm.DB
 	metricsService     *monitoring.LocalAIMetricsService
 	statsRecorder      *billing.Recorder
@@ -98,6 +100,11 @@ type Application struct {
 func newApplication(appConfig *config.ApplicationConfig) *Application {
 	ml := model.NewModelLoader(appConfig.SystemState)
 
+	// Apply the per-model load-failure cooldown (0 disables). Set here rather
+	// than in the watchdog block so it takes effect regardless of whether the
+	// watchdog/LRU limiter is enabled.
+	ml.SetLoadFailureCooldown(appConfig.ModelLoadFailureCooldown, 0)
+
 	// Close MCP sessions when a model is unloaded (watchdog eviction, manual shutdown, etc.)
 	ml.OnModelUnload(func(modelName string) {
 		mcpTools.CloseMCPSessions(modelName)
@@ -109,10 +116,15 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	ml.SetLoadObserver(corebackend.ModelLoadTraceObserver(appConfig))
 
 	app := &Application{
-		backendLoader:      config.NewModelConfigLoader(appConfig.SystemState.Model.ModelsPath),
+		backendLoader: config.NewModelConfigLoader(
+			appConfig.SystemState.Model.ModelsPath,
+			config.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			config.WithPreloadDisplay(appConfig.ModelPreloadRenderMode, appConfig.DisableModelPreloadColor),
+		),
 		modelLoader:        ml,
 		applicationConfig:  appConfig,
 		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),
+		voiceProfileStore:  voiceprofile.NewStore(appConfig.DataPath),
 	}
 
 	// Face-recognition registry backed by LocalAI's built-in vector store.
@@ -209,6 +221,13 @@ func (a *Application) FaceRegistry() facerecognition.Registry {
 // their own vector space.
 func (a *Application) VoiceRegistry() voicerecognition.Registry {
 	return a.voiceRegistry
+}
+
+// VoiceProfileStore returns the persistent library of reusable voice-cloning
+// references. It is distinct from VoiceRegistry, which stores speaker
+// recognition embeddings rather than synthesis reference audio.
+func (a *Application) VoiceProfileStore() *voiceprofile.Store {
+	return a.voiceProfileStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -456,6 +475,11 @@ func (a *Application) Shutdown() error {
 		if a.modelLoader != nil {
 			err = a.modelLoader.StopAllGRPC()
 		}
+		if a.voiceProfileStore != nil {
+			if closeErr := a.voiceProfileStore.Close(); err == nil {
+				err = closeErr
+			}
+		}
 	})
 	return err
 }
@@ -520,6 +544,7 @@ func (a *Application) start() error {
 		// "unavailable" error if startup ran with --disable-stats.
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
+		assistantClient.VoiceProfiles = a.voiceProfileStore
 		// PII filter — same nil-or-real wiring.
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents

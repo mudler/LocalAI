@@ -239,6 +239,8 @@ definitions:
       cancelled:
         description: Cancelled is true if the operation was cancelled
         type: boolean
+      current_bytes:
+        type: integer
       deletion:
         description: Deletion is true if the operation is a deletion
         type: boolean
@@ -262,10 +264,14 @@ definitions:
         items:
           $ref: '#/definitions/galleryop.NodeProgress'
         type: array
+      phase:
+        type: string
       processed:
         type: boolean
       progress:
         type: number
+      total_bytes:
+        type: integer
     type: object
   localai.APIInstructionResponse:
     properties:
@@ -390,6 +396,20 @@ definitions:
           >= 1.
         type: integer
     type: object
+  localai.UpdateVRAMBudgetRequest:
+    properties:
+      value:
+        description: Value is the VRAM cap ("80%" or "12GB"). Empty string clears
+          the cap.
+        type: string
+    type: object
+  localai.VoiceProfileListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/voiceprofile.Profile'
+        type: array
+    type: object
   model.BackendLogLine:
     properties:
       stream:
@@ -504,6 +524,16 @@ definitions:
       start:
         type: number
     type: object
+  schema.APIError:
+    properties:
+      code: {}
+      message:
+        type: string
+      param:
+        type: string
+      type:
+        type: string
+    type: object
   schema.AnthropicContentBlock:
     properties:
       content: {}
@@ -516,9 +546,13 @@ definitions:
         type: boolean
       name:
         type: string
+      signature:
+        type: string
       source:
         $ref: '#/definitions/schema.AnthropicImageSource'
       text:
+        type: string
+      thinking:
         type: string
       tool_use_id:
         type: string
@@ -564,6 +598,13 @@ definitions:
         type: string
       temperature:
         type: number
+      thinking:
+        allOf:
+        - $ref: '#/definitions/schema.AnthropicThinkingParam'
+        description: |-
+          Thinking gates extended-thinking output. We only surface thinking
+          content blocks when the client explicitly opts in, matching Anthropic's
+          API where thinking is off unless requested.
       tool_choice: {}
       tools:
         items:
@@ -594,6 +635,14 @@ definitions:
         type: string
       usage:
         $ref: '#/definitions/schema.AnthropicUsage'
+    type: object
+  schema.AnthropicThinkingParam:
+    properties:
+      budget_tokens:
+        type: integer
+      type:
+        description: '"enabled" | "disabled"'
+        type: string
     type: object
   schema.AnthropicTool:
     properties:
@@ -852,6 +901,11 @@ definitions:
         type: string
       vocal_language:
         type: string
+    type: object
+  schema.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/schema.APIError'
     type: object
   schema.FaceAnalysis:
     properties:
@@ -1361,6 +1415,60 @@ definitions:
         items:
           $ref: '#/definitions/schema.ToolCall'
         type: array
+    type: object
+  schema.ModelCapabilities:
+    properties:
+      capabilities:
+        description: |-
+          Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
+          tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      input_modalities:
+        description: InputModalities is the subset of {text,image,audio,video} the
+          model accepts.
+        items:
+          type: string
+        type: array
+      object:
+        type: string
+      output_modalities:
+        description: OutputModalities is the subset of {text,image,audio,video} the
+          model produces.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelCapabilitiesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.ModelCapabilities'
+        type: array
+      object:
+        type: string
+    type: object
+  schema.ModelLoadRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  schema.ModelLoadResponse:
+    properties:
+      loaded:
+        description: |-
+          Loaded lists the model names actually resident in memory after the call.
+          For a pipeline model these are its sub-models, not the pipeline name.
+        items:
+          type: string
+        type: array
+      message:
+        description: Message is a short human-readable status ("model loaded", or
+          an error).
+        type: string
     type: object
   schema.ModelsDataResponse:
     properties:
@@ -2298,6 +2406,9 @@ definitions:
     type: object
   schema.VideoRequest:
     properties:
+      audio:
+        description: URL or base64 audio for audio-conditioned generation
+        type: string
       cfg_scale:
         description: classifier-free guidance scale
         type: number
@@ -2321,6 +2432,11 @@ definitions:
       num_frames:
         description: total number of frames to generate
         type: integer
+      params:
+        additionalProperties:
+          type: string
+        description: backend-specific generation parameters
+        type: object
       prompt:
         description: text description of the video to generate
         type: string
@@ -2519,6 +2635,44 @@ definitions:
         type: string
       url:
         description: Webhook endpoint URL
+        type: string
+    type: object
+  voiceprofile.AudioMetadata:
+    properties:
+      bit_depth:
+        type: integer
+      channels:
+        type: integer
+      duration_ms:
+        type: integer
+      mime_type:
+        type: string
+      sample_rate:
+        type: integer
+      size_bytes:
+        type: integer
+    type: object
+  voiceprofile.Profile:
+    properties:
+      audio:
+        $ref: '#/definitions/voiceprofile.AudioMetadata'
+      consent_confirmed_at:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      language:
+        type: string
+      name:
+        type: string
+      transcript:
+        type: string
+      updated_at:
+        type: string
+      voice:
         type: string
     type: object
 info:
@@ -3259,6 +3413,62 @@ paths:
       summary: Update a node's max replicas per model
       tags:
       - Nodes
+  /api/nodes/{id}/vram-budget:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset a node's VRAM budget to the worker default
+      tags:
+      - Nodes
+    put:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New value (\
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.UpdateVRAMBudgetRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: invalid budget
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update a node's VRAM allocation budget
+      tags:
+      - Nodes
   /api/nodes/models:
     get:
       responses:
@@ -3412,6 +3622,124 @@ paths:
       summary: Clear API traces
       tags:
       - monitoring
+  /api/voice-profiles:
+    get:
+      description: List saved voice-cloning references without exposing filesystem
+        paths.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.VoiceProfileListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List voice profiles
+      tags:
+      - audio
+      - voice-profiles
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Save a consent-confirmed PCM WAV reference clip and exact transcript
+        for voice cloning. Admin-only.
+      parameters:
+      - description: Display name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Optional description
+        in: formData
+        name: description
+        type: string
+      - description: Optional language tag
+        in: formData
+        name: language
+        type: string
+      - description: Exact transcript of the reference clip
+        in: formData
+        name: transcript
+        required: true
+        type: string
+      - description: Confirms authorization to clone the voice
+        in: formData
+        name: consent_confirmed
+        required: true
+        type: boolean
+      - description: 16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to
+          50 MiB
+        in: formData
+        name: audio
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/voiceprofile.Profile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a voice profile
+      tags:
+      - audio
+      - voice-profiles
+  /api/voice-profiles/{id}:
+    delete:
+      description: Permanently remove a saved voice-cloning profile. Admin-only.
+      parameters:
+      - description: Voice profile UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a voice profile
+      tags:
+      - audio
+      - voice-profiles
+  /api/voice-profiles/{id}/audio:
+    get:
+      description: Stream the saved reference WAV for an authenticated TTS user.
+      parameters:
+      - description: Voice profile UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview voice profile audio
+      tags:
+      - audio
+      - voice-profiles
   /audio/transform:
     post:
       consumes:
@@ -3510,6 +3838,38 @@ paths:
       summary: Bidirectional realtime audio transform over WebSocket.
       tags:
       - audio
+  /backend/load:
+    post:
+      consumes:
+      - application/json
+      description: Loads the named model (or, for a realtime pipeline, all of its
+        sub-models) into memory so subsequent requests pay no cold-start cost. The
+        inverse of /backend/shutdown.
+      parameters:
+      - description: Model to load
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Model loaded
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "400":
+          description: Missing model name
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "500":
+          description: Load failed (Loaded lists any sub-models that did load)
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+      summary: Pre-load a model into memory
+      tags:
+      - monitoring
   /backend/monitor:
     get:
       parameters:
@@ -4307,6 +4667,16 @@ paths:
       summary: List and describe the various models available in the API.
       tags:
       - models
+  /v1/models/capabilities:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelCapabilitiesResponse'
+      summary: List available models enriched with capabilities and input/output modalities.
+      tags:
+      - models
   /v1/rerank:
     post:
       parameters:
@@ -4608,7 +4978,7 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
-      summary: Creates a video given a prompt.
+      summary: Creates a video from a prompt and optional image or audio conditioning.
       tags:
       - video
   /ws/backend-logs/{modelId}:

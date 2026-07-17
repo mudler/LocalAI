@@ -338,6 +338,16 @@ func (c *Client) ReloadModels(ctx context.Context) error {
 	return c.do(ctx, http.MethodPost, routeModelsReload, nil, nil)
 }
 
+func (c *Client) LoadModel(ctx context.Context, model string) ([]string, error) {
+	// On a load failure the endpoint returns a non-2xx whose body (carrying the
+	// per-sub-model failure detail) is folded into the HTTPError by c.do.
+	var resp schema.ModelLoadResponse
+	if err := c.do(ctx, http.MethodPost, routeBackendLoad, map[string]string{"model": model}, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Loaded, nil
+}
+
 // ---- Model aliases ----
 
 // SetAlias is swap-first: it PATCHes the alias config (a deep-merge that
@@ -470,6 +480,13 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	return out, nil
 }
 
+func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error {
+	// PUT with an empty value clears the override server-side (Task 9), so we
+	// use PUT uniformly rather than switching to DELETE for the clear case.
+	body := map[string]any{"value": budget}
+	return c.do(ctx, http.MethodPut, routeNodeVRAMBudget(nodeID), body, nil)
+}
+
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	body := map[string]any{"model": req.ModelName}
 	if req.ContextSize > 0 {
@@ -540,6 +557,33 @@ func (c *Client) SetBranding(ctx context.Context, req localaitools.SetBrandingRe
 		return nil, err
 	}
 	return c.GetBranding(ctx)
+}
+
+// ---- Voice profile library ----
+
+func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoiceProfile, error) {
+	var response struct {
+		Data []localaitools.VoiceProfile `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeVoiceProfiles, nil, &response); err != nil {
+		return nil, err
+	}
+	return response.Data, nil
+}
+
+func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	var profile localaitools.VoiceProfile
+	if err := c.do(ctx, http.MethodPost, routeVoiceProfiles, req, &profile); err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("id is required")
+	}
+	return c.do(ctx, http.MethodDelete, routeVoiceProfileDelete(id), nil, nil)
 }
 
 // ---- Usage / billing ----

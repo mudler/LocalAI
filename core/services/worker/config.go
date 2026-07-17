@@ -61,6 +61,11 @@ type Config struct {
 	// the existing label selector.
 	MaxReplicasPerModel int `env:"LOCALAI_MAX_REPLICAS_PER_MODEL" default:"1" help:"Max replicas of any single model on this worker. Default 1 preserves single-replica behavior; set higher to allow stacking replicas on a fat node." group:"registration"`
 
+	// VRAMBudget optionally caps this node's VRAM for model allocation ("80%" or
+	// "12GB"). Reported to the server as a string; the server resolves and
+	// enforces it against the raw VRAM this worker reports. Empty = no cap.
+	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
+
 	// NATS (required)
 	NatsURL         string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (normally from registration nats_jwt)" group:"distributed"`

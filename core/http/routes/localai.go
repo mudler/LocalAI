@@ -151,7 +151,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// Forget does not load a voice model — it only needs the registry.
 	router.POST("/v1/voice/forget", localai.VoiceForgetEndpoint(app.VoiceRegistry()))
 
-	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig)
+	voiceProfiles := app.VoiceProfileStore()
+	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
+	router.GET("/api/voice-profiles/:id/audio", localai.ServeVoiceProfileAudioEndpoint(voiceProfiles))
+	router.POST("/api/voice-profiles", localai.CreateVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+	router.DELETE("/api/voice-profiles/:id", localai.DeleteVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+
+	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig, voiceProfiles)
 	router.POST("/tts",
 		ttsHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
@@ -207,9 +213,14 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	backendMonitorService := monitoring.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
 	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	// /backend/load is the inverse of /backend/shutdown: pre-load a model (or all
+	// of a realtime pipeline's sub-models) into memory so clients can drive
+	// warm-up explicitly instead of paying the cold-start cost on first use.
+	router.POST("/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
 	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)
+	router.POST("/v1/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
@@ -245,6 +256,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"metrics":              "/metrics",
 			"backend_monitor":      "/backend/monitor",
 			"backend_shutdown":     "/backend/shutdown",
+			"backend_load":         "/backend/load",
 			"system":               "/system",
 			"version":              "/version",
 			"traces":               "/api/traces",
@@ -266,25 +278,28 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"version": internal.PrintableVersion(),
 			// Flat endpoint list for backwards compatibility
 			"endpoints": map[string]any{
-				"models":           "/v1/models",
-				"chat_completions": "/v1/chat/completions",
-				"completions":      "/v1/completions",
-				"embeddings":       "/v1/embeddings",
-				"config_metadata":  "/api/models/config-metadata",
-				"config_json":      "/api/models/config-json/:name",
-				"config_patch":     "/api/models/config-json/:name",
-				"autocomplete":     "/api/models/config-metadata/autocomplete/:provider",
-				"vram_estimate":    "/api/models/vram-estimate",
-				"tts":              "/tts",
-				"transcription":    "/v1/audio/transcriptions",
-				"image_generation": "/v1/images/generations",
-				"swagger":          "/swagger/index.html",
-				"instructions":     "/api/instructions",
+				"models":              "/v1/models",
+				"models_capabilities": "/v1/models/capabilities",
+				"chat_completions":    "/v1/chat/completions",
+				"completions":         "/v1/completions",
+				"embeddings":          "/v1/embeddings",
+				"config_metadata":     "/api/models/config-metadata",
+				"config_json":         "/api/models/config-json/:name",
+				"config_patch":        "/api/models/config-json/:name",
+				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
+				"vram_estimate":       "/api/models/vram-estimate",
+				"tts":                 "/tts",
+				"voice_profiles":      "/api/voice-profiles",
+				"transcription":       "/v1/audio/transcriptions",
+				"image_generation":    "/v1/images/generations",
+				"swagger":             "/swagger/index.html",
+				"instructions":        "/api/instructions",
 			},
 			// Categorized endpoint groups for structured discovery
 			"endpoint_groups": map[string]any{
 				"openai_compatible": map[string]string{
 					"models":               "/v1/models",
+					"models_capabilities":  "/v1/models/capabilities",
 					"chat_completions":     "/v1/chat/completions",
 					"completions":          "/v1/completions",
 					"embeddings":           "/v1/embeddings",
@@ -310,11 +325,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"list_aliases": "/api/aliases",
 				},
 				"ai_functions": map[string]string{
-					"tts":       "/tts",
-					"vad":       "/vad",
-					"video":     "/video",
-					"detection": "/v1/detection",
-					"tokenize":  "/v1/tokenize",
+					"tts":            "/tts",
+					"voice_profiles": "/api/voice-profiles",
+					"vad":            "/vad",
+					"video":          "/video",
+					"detection":      "/v1/detection",
+					"tokenize":       "/v1/tokenize",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -355,6 +371,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"agents":          appConfig.AgentPool.Enabled,
 				"p2p":             appConfig.P2PToken != "",
 				"tracing":         true,
+				"voice_profiles":  true,
 			},
 		})
 	})

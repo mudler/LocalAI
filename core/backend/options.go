@@ -12,9 +12,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
-	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 )
@@ -52,6 +53,22 @@ func ModelLoadTraceObserver(appConfig *config.ApplicationConfig) func(model.Back
 	}
 }
 
+// PreloadModel warms a model into memory without running any inference, so the
+// first real request doesn't pay the backend's cold-start load cost. It uses
+// the same ModelOptions + ml.Load path the modality functions use, so a
+// subsequent inference call hits the loader cache instead of reloading. Load
+// failures are recorded and returned; callers that warm models opportunistically
+// (e.g. realtime session warm-up) typically log and continue, since the lazy
+// path will retry on first use.
+func PreloadModel(ctx context.Context, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) error {
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
+	if _, err := ml.Load(opts...); err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
+		return err
+	}
+	return nil
+}
+
 // recordModelLoadFailure records a backend trace when model loading fails.
 func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, backend string, err error, data map[string]any) {
 	if !appConfig.EnableTracing {
@@ -77,8 +94,9 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 	seen := make(map[string]bool)
 	input := vram.ModelEstimateInput{}
+	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
 
-	addFile := func(uri string) {
+	addFile := func(uri string, size int64) {
 		if !vram.IsWeightFile(uri) {
 			return
 		}
@@ -90,7 +108,7 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 			return
 		}
 		seen[resolved] = true
-		input.Files = append(input.Files, vram.FileInput{URI: resolved})
+		input.Files = append(input.Files, vram.FileInput{URI: resolved, Size: size})
 	}
 
 	// tryHFRepo resolves any huggingface:// or hf:// URI to an HTTPS URL and
@@ -107,13 +125,30 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 
 	for _, f := range c.DownloadFiles {
 		uriStr := string(f.URI)
-		addFile(uriStr)
-		tryHFRepo(uriStr)
+		addFile(uriStr, 0)
+		if !managedPrimary {
+			tryHFRepo(uriStr)
+		}
 	}
-	addFile(c.Model)
-	tryHFRepo(c.Model)
+	if managedPrimary {
+		// The snapshot directory is derived from the cache key, not from
+		// ModelFileName(): for a single-file artifact ModelFileName() resolves to
+		// the file inside the snapshot, whereas the manifest and every artifact
+		// file live relative to the snapshot directory itself.
+		if snapshotDir, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey); err == nil {
+			manifest, err := modelartifacts.ReadManifest(filepath.Join(modelsPath, filepath.Dir(snapshotDir), "manifest.json"))
+			if err == nil {
+				for _, file := range manifest.Files {
+					addFile(filepath.Join(snapshotDir, filepath.FromSlash(file.Path)), file.Size)
+				}
+			}
+		}
+	} else {
+		addFile(c.Model, 0)
+		tryHFRepo(c.Model)
+	}
 	if c.MMProj != "" {
-		addFile(c.MMProj)
+		addFile(c.MMProj, 0)
 	}
 
 	if len(input.Files) == 0 && input.HFRepo == "" {
@@ -136,6 +171,10 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithModel(c.Model),
 		model.WithContext(so.Context),
 		model.WithModelID(c.ModelID()),
+	}
+	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
+	if managedPrimary {
+		defOpts = append(defOpts, model.WithModelFile(c.ModelFileName()))
 	}
 
 	threads := 1
@@ -199,21 +238,35 @@ const (
 )
 
 // EffectiveContextSize is the context window the backend will run with: the
-// configured value, or DefaultContextSize when unset.
+// configured value, or DefaultContextSize when unset. A negative value (the
+// context_size: -1 auto-max sentinel) that survived config resolution, e.g. on
+// a backend that never ran the GGUF resolver, is clamped here so a negative
+// n_ctx never reaches a backend.
 func EffectiveContextSize(c config.ModelConfig) int {
-	if c.ContextSize != nil {
+	if c.ContextSize != nil && *c.ContextSize > 0 {
 		return *c.ContextSize
 	}
 	return DefaultContextSize
 }
 
+// localGPU resolves the device that will run the model, for single-pass batch
+// sizing. It is a package var so tests inject a deterministic device; production
+// reads config.LocalGPU, whose detection is sync.Once-cached in xsysinfo — so the
+// per-request call from the router's prompt trimmer (modelTokenTrim) stays cheap.
+var localGPU = config.LocalGPU
+
 // EffectiveBatchSize is the single-decode batch the backend will run with.
 // Score, embedding and rerank all process the whole input in one pass: score
 // decodes prompt+candidate (asserts n_tokens <= n_batch), and embedding/rerank
-// pool over the full sequence in one physical batch (n_ubatch). So the batch
-// is sized to the context — anything that fits the context fits one pass,
+// pool over the full sequence in one physical batch (n_ubatch). Ideally the batch
+// covers the whole context so any input that fits the context fits one pass,
 // avoiding both the GGML_ASSERT crash and the "input is too large to process"
-// error. Explicit `batch:` always wins.
+// error — BUT a full ctx-sized n_ubatch makes the per-device CUDA compute buffer
+// multi-GiB (it scales ~ n_ubatch * n_ctx and can't be split across GPUs), so a
+// large-context embedding model aborts on load with free VRAM to spare (#10485).
+// So we cap the batch to the largest that fits the per-device VRAM headroom; an
+// input longer than that cap is the accepted tradeoff (it can't be pooled in one
+// pass, but the load no longer OOMs). Explicit `batch:` always wins.
 func EffectiveBatchSize(c config.ModelConfig) int {
 	if c.Batch != 0 {
 		return c.Batch
@@ -222,7 +275,7 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 		c.HasUsecases(config.FLAG_EMBEDDINGS) ||
 		c.HasUsecases(config.FLAG_RERANK)
 	if ctx := EffectiveContextSize(c); singlePass && ctx > DefaultBatchSize {
-		return ctx
+		return config.SinglePassBatchForContext(localGPU(), ctx)
 	}
 	return DefaultBatchSize
 }

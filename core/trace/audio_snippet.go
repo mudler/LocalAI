@@ -14,6 +14,16 @@ import (
 // MaxSnippetSeconds is the maximum number of seconds of audio captured per trace.
 const MaxSnippetSeconds = 30
 
+// silenceFloorDBFS is the dBFS value reported for digital silence (RMS or peak
+// of zero). The true level is -∞ dBFS; reporting a finite floor keeps the
+// metric present and meaningful in the Traces UI (a scrubbed nil would read as
+// "missing" rather than "silent"). -120 dBFS sits well below 16-bit PCM's
+// ~-90 dBFS least-significant-bit floor, so it reads unambiguously as
+// "effectively silent". JSON-marshal safety for any non-finite float that does
+// reach a trace is owned centrally by RecordBackendTrace's sanitizer — this
+// floor is about presentation, not transport.
+const silenceFloorDBFS = -120.0
+
 // AudioSnippet captures the first MaxSnippetSeconds of a WAV file and computes
 // quality metrics. The result is a map suitable for merging into a BackendTrace
 // Data field. maxBytes caps the embedded base64 waveform so a single TTS or
@@ -63,7 +73,7 @@ func AudioSnippetFromPCM(pcm []byte, sampleRate, totalPCMBytes, maxBytes int) ma
 	snippetDuration := float64(len(samples)) / float64(sampleRate)
 
 	rms := sound.CalculateRMS16(samples)
-	rmsDBFS := -math.Inf(1)
+	rmsDBFS := silenceFloorDBFS
 	if rms > 0 {
 		rmsDBFS = 20 * math.Log10(rms/32768.0)
 	}
@@ -78,7 +88,7 @@ func AudioSnippetFromPCM(pcm []byte, sampleRate, totalPCMBytes, maxBytes int) ma
 		}
 		dcSum += int64(s)
 	}
-	peakDBFS := -math.Inf(1)
+	peakDBFS := silenceFloorDBFS
 	if peak > 0 {
 		peakDBFS = 20 * math.Log10(float64(peak)/32768.0)
 	}

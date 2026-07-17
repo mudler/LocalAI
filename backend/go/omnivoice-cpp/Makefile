@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # omnivoice.cpp version
 OMNIVOICE_REPO?=https://github.com/ServeurpersoCom/omnivoice.cpp
-OMNIVOICE_VERSION?=0f37401bebe9b20c0160a888e592108fc1d17607
+OMNIVOICE_VERSION?=11c67198db58f75bf1bafc9051c2b018aaf1a3da
 SO_TARGET?=libgomnivoicecpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -24,7 +24,14 @@ else ifeq ($(BUILD_TYPE),openblas)
 else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DGGML_HIPBLAS=ON
+	# This ggml only understands GGML_HIP (GGML_HIPBLAS was removed upstream),
+	# so passing GGML_HIPBLAS silently produced a CPU-only build (see #10666).
+	ROCM_HOME ?= /opt/rocm
+	ROCM_PATH ?= /opt/rocm
+	export CXX=$(ROCM_HOME)/llvm/bin/clang++
+	export CC=$(ROCM_HOME)/llvm/bin/clang
+	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON
 else ifeq ($(OS),Darwin)

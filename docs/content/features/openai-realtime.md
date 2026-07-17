@@ -1,7 +1,7 @@
 
 ---
 title: "Realtime API"
-weight: 60
+weight: 37
 ---
 
 ![The realtime voice loop: VAD to STT to LLM to TTS, over WebSocket or WebRTC](/images/diagrams/realtime-pipeline.png)
@@ -51,19 +51,52 @@ pipeline:
 
 - **streaming.tts**: emit a `response.output_audio.delta` per audio chunk the TTS backend produces (requires a backend that supports streaming synthesis), instead of one delta for the whole utterance. Falls back to a single unary delta otherwise.
 - **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
-- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete — streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
-- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces — it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
+- **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete - streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
+- **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces - it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
 
 All streaming flags are off by default, so existing pipelines are unaffected.
+
+### Model warm-up (cold start)
+
+Without warm-up the pipeline's models are loaded into memory only on first use *within* a session: the VAD on the first audio chunk, transcription at the first end-of-speech, the LLM on the first reply, and TTS on the first spoken output. On a cold session this staggers a load delay across those first few interactions - and a model that fails to load (missing weights, wrong backend, out of memory) only fails part-way through the first turn.
+
+To avoid that, LocalAI **warms the pipeline by default**: it loads the VAD, transcription, LLM and TTS backends into memory *before* the session is announced, and the session start **blocks until they are all ready**. The loads run concurrently, so the wait is the slowest single model, not the sum. This means:
+
+- The first turn pays no cold-start cost - every backend is already resident.
+- **Model-load errors surface at session start.** If any stage fails to load, the session is not started and the client receives a `model_load_error` instead of `session.created`, so a broken pipeline fails fast and visibly rather than mid-call.
+
+Set `disable_warmup: true` to restore the lazy "load on first use" behavior - session start no longer waits on loading and load errors surface on the first turn instead. Useful if you want idle sessions to avoid holding model memory they may never use:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: tts-1
+  disable_warmup: true   # lazily load each model on first use instead of at session start
+```
+
+#### Pre-loading a pipeline on demand
+
+Warm-up only fires when a realtime session opens. To load a pipeline into memory ahead of time - e.g. to warm it right after boot, or when running with `disable_warmup: true` - POST the model name to the admin-only `/backend/load` endpoint. For a pipeline model it loads every configured sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) concurrently:
+
+```bash
+curl -X POST http://localhost:8080/backend/load \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-realtime"}'
+```
+
+The endpoint is not realtime-specific - it pre-loads any model. See [Backend Monitor]({{%relref "operations/backend-monitor" %}}) for the full request/response reference (it is the inverse of `/backend/shutdown`).
 
 ### Turn detection
 
 Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
 
 - **`server_vad`** (default): silence-based. The VAD model watches the audio and the turn commits after `silence_duration_ms` (default 500 ms) of silence. Simple and model-agnostic, but a fixed silence window must trade interrupting mid-sentence pauses against sluggish responses.
-- **`semantic_vad`**: model-driven. The transcription model itself signals end-of-utterance and the silence window becomes dynamic: short right after the model emits its end-of-utterance token, much longer when it does not — so pausing to think no longer gets cut off, while finished sentences get a fast response.
+- **`semantic_vad`**: model-driven. The transcription model itself signals end-of-utterance and the silence window becomes dynamic: short right after the model emits its end-of-utterance token, much longer when it does not - so pausing to think no longer gets cut off, while finished sentences get a fast response.
 
-`semantic_vad` requires a transcription model that emits an end-of-utterance token over a cache-aware streaming decode — currently `parakeet-cpp-realtime_eou_120m-v1` (the model is trained to distinguish "paused, expecting a reply" from "paused mid-thought"). The realtime pipeline feeds it the microphone audio live while the user speaks. With any other transcription backend the session degrades gracefully to silence-only detection using the eagerness timeout below (a warning is logged once). The model also emits a distinct end-of-backchannel token (`<EOB>`) for short acknowledgments like "uh-huh": those are transcribed but never treated as the user yielding the turn.
+`semantic_vad` requires a transcription model that emits an end-of-utterance token over a cache-aware streaming decode - currently `parakeet-cpp-realtime_eou_120m-v1` (the model is trained to distinguish "paused, expecting a reply" from "paused mid-thought"). The realtime pipeline feeds it the microphone audio live while the user speaks. With any other transcription backend the session degrades gracefully to silence-only detection using the eagerness timeout below (a warning is logged once). The model also emits a distinct end-of-backchannel token (`<EOB>`) for short acknowledgments like "uh-huh": those are transcribed but never treated as the user yielding the turn.
 
 Sessions can opt in via `session.update` (`turn_detection: {"type": "semantic_vad", "eagerness": "medium"}`), or the pipeline can set a server-side default so clients need no changes:
 
@@ -82,14 +115,14 @@ pipeline:
 
 A client `session.update` still overrides `type` and `eagerness` per session.
 
-**Eagerness** sets the fallback silence window used when no end-of-utterance token was seen (the model missed it, or the user genuinely trails off): `low` waits 8 s, `medium`/`auto` 4 s, `high` 2 s — the same max-timeout semantics OpenAI documents. After the token is seen, the turn commits on the next VAD tick (~300 ms).
+**Eagerness** sets the fallback silence window used when no end-of-utterance token was seen (the model missed it, or the user genuinely trails off): `low` waits 8 s, `medium`/`auto` 4 s, `high` 2 s - the same max-timeout semantics OpenAI documents. After the token is seen, the turn commits on the next VAD tick (~300 ms).
 
 **Live captions**: while the user speaks, `semantic_vad` streams `conversation.item.input_audio_transcription.delta` events under the item id the commit will later reuse, so clients can render the words as they are recognized. The `completed` event at commit carries the authoritative transcript and replaces the partial text (with `retranscribe: true` it may differ from the captions); a turn discarded before commit emits `conversation.item.input_audio_transcription.failed` so clients can retract its captions.
 
 **`retranscribe`** (server-side only, semantic_vad only) cross-checks the streaming decode against a batch decode at commit time:
 
-- `false` (default): the transcript accumulated from the live stream is used as-is — the model runs once per utterance and the LLM starts immediately at commit.
-- `true`: the committed audio is re-transcribed offline. If the batch decode also ends with the end-of-utterance token the turn proceeds (using the batch transcript); if it does **not**, the commit is cancelled and the session keeps listening — treating the streaming token as a false positive. Both transcripts are compared and logged, which makes this mode a useful diagnostic for how well the streaming and batch decodes align, at the cost of one extra decode per turn.
+- `false` (default): the transcript accumulated from the live stream is used as-is - the model runs once per utterance and the LLM starts immediately at commit.
+- `true`: the committed audio is re-transcribed offline. If the batch decode also ends with the end-of-utterance token the turn proceeds (using the batch transcript); if it does **not**, the commit is cancelled and the session keeps listening - treating the streaming token as a false positive. Both transcripts are compared and logged, which makes this mode a useful diagnostic for how well the streaming and batch decodes align, at the cost of one extra decode per turn.
 
 ### Disabling thinking
 
@@ -109,14 +142,14 @@ By default a realtime session feeds only the last `max_history_items` turns to t
 
 Compaction works with two numbers:
 
-- **`max_history_items`** is the *live window* — the recent turns kept verbatim in the prompt.
-- **`compaction.trigger_items`** is the *high-water mark* — let the buffer grow to here, then summarize the overflow (everything above `max_history_items`) into a rolling memory and evict it. It must be greater than `max_history_items`; if it is not, it is clamped up.
+- **`max_history_items`** is the *live window* - the recent turns kept verbatim in the prompt.
+- **`compaction.trigger_items`** is the *high-water mark* - let the buffer grow to here, then summarize the overflow (everything above `max_history_items`) into a rolling memory and evict it. It must be greater than `max_history_items`; if it is not, it is clamped up.
 
 The gap between the two controls how often summarization runs: a summary call fires roughly every `(trigger_items - max_history_items)` turns (here, about every 6 turns).
 
 ```yaml
 pipeline:
-  max_history_items: 6        # live window — recent turns kept verbatim
+  max_history_items: 6        # live window - recent turns kept verbatim
   compaction:
     enabled: true
     trigger_items: 12         # summarize overflow back down to max_history_items
@@ -171,7 +204,7 @@ Or set the `EXTERNAL_GRPC_BACKENDS` environment variable if running a local buil
 EXTERNAL_GRPC_BACKENDS=opus:/path/to/backend/go/opus/opus
 ```
 
-The opus backend is loaded automatically when a WebRTC session starts. It does not require any model configuration file — just the backend binary.
+The opus backend is loaded automatically when a WebRTC session starts. It does not require any model configuration file - just the backend binary.
 
 #### WebRTC behind Docker host networking or NAT
 

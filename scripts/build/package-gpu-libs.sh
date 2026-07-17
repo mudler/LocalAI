@@ -224,6 +224,50 @@ package_cuda_libs() {
     echo "CUDA libraries packaged successfully"
 }
 
+# Copy a ROCm library data subdirectory (e.g. rocblas, hipblaslt) into the
+# bundled lib/ dir. These directories hold the TensileLibrary_*.dat GPU kernel
+# tuning files, which rocBLAS/hipBLASLt load at runtime *relative to their own
+# .so*. Since backends ship their own copies of libhipblaslt.so/librocblas.so
+# under lib/, the matching data dir must travel with them or the libs fall back
+# to slow generic kernels (rocblaslt error: Cannot read TensileLibrary_lazy_gfx*.dat;
+# see issue #10660).
+#
+# The ROCm search roots default to /opt/rocm{,-*} but can be overridden via the
+# ROCM_BASE_DIRS env var (space-separated), which keeps the copy unit-testable
+# without a real ROCm install.
+# Args: $1 = data subdir name found under <rocm-root>/lib{,64}/
+copy_rocm_data_dir() {
+    local data_name="$1"
+    # Single-line `local x=$(...)` on purpose: `local` masks the command
+    # substitution's exit status, which is 1 when nullglob is unset and would
+    # otherwise trip the script's `set -e`.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local rocm_dirs
+    if [ -n "${ROCM_BASE_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # intentional word-split of the override
+        rocm_dirs=(${ROCM_BASE_DIRS})
+    else
+        rocm_dirs=(/opt/rocm /opt/rocm-*)
+    fi
+    eval "$old_nullglob"
+    local found=false
+    local rocm_base lib_subdir
+    for rocm_base in "${rocm_dirs[@]}"; do
+        for lib_subdir in lib lib64; do
+            if [ -d "$rocm_base/$lib_subdir/$data_name" ]; then
+                echo "Found $data_name data at $rocm_base/$lib_subdir/$data_name"
+                mkdir -p "$TARGET_LIB_DIR/$data_name"
+                cp -arfL "$rocm_base/$lib_subdir/$data_name/"* "$TARGET_LIB_DIR/$data_name/" || echo "WARNING: Failed to copy $data_name data from $rocm_base/$lib_subdir/$data_name"
+                found=true
+            fi
+        done
+    done
+    if [ "$found" = false ]; then
+        echo "WARNING: No $data_name library data found in ${ROCM_BASE_DIRS:-/opt/rocm*}/lib{,64}/$data_name"
+    fi
+}
+
 # Package AMD ROCm/HIPBlas libraries
 package_rocm_libs() {
     echo "Packaging ROCm/HIPBlas libraries for BUILD_TYPE=${BUILD_TYPE}..."
@@ -267,27 +311,16 @@ package_rocm_libs() {
         fi
     done
 
-    # Copy rocblas library data (tuning files, TensileLibrary, etc.)
-    local old_nullglob=$(shopt -p nullglob)
-    shopt -s nullglob
-    local rocm_dirs=(/opt/rocm /opt/rocm-*)
-    eval "$old_nullglob"
-    local rocblas_found=false
-    for rocm_base in "${rocm_dirs[@]}"; do
-        for lib_subdir in lib lib64; do
-            if [ -d "$rocm_base/$lib_subdir/rocblas" ]; then
-                echo "Found rocblas data at $rocm_base/$lib_subdir/rocblas"
-                mkdir -p "$TARGET_LIB_DIR/rocblas"
-                cp -arfL "$rocm_base/$lib_subdir/rocblas/"* "$TARGET_LIB_DIR/rocblas/" || echo "WARNING: Failed to copy rocblas data from $rocm_base/$lib_subdir/rocblas"
-                rocblas_found=true
-            fi
-        done
-    done
-    if [ "$rocblas_found" = false ]; then
-        echo "WARNING: No rocblas library data found in /opt/rocm*/lib{,64}/rocblas"
-    fi
+    # Copy rocBLAS and hipBLASLt kernel data (TensileLibrary_*.dat tuning files)
+    # so the bundled libs find their per-arch kernels at runtime instead of
+    # falling back to slow generic code (see copy_rocm_data_dir / issue #10660).
+    copy_rocm_data_dir rocblas
+    copy_rocm_data_dir hipblaslt
 
     # Copy libomp from LLVM (required for ROCm)
+    # Single-line `local x=$(...)` on purpose: masks shopt -p's nonzero exit
+    # (nullglob unset) so it doesn't trip `set -e`.
+    local old_nullglob=$(shopt -p nullglob)
     shopt -s nullglob
     local omp_libs=(/opt/rocm*/lib/llvm/lib/libomp.so*)
     eval "$old_nullglob"
@@ -477,6 +510,7 @@ export -f copy_libs_glob
 export -f is_core_lib
 export -f copy_elf_deps
 export -f sweep_transitive_deps
+export -f copy_rocm_data_dir
 export -f package_cuda_libs
 export -f package_rocm_libs
 export -f package_intel_libs

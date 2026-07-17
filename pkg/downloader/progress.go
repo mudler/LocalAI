@@ -12,8 +12,32 @@ type progressWriter struct {
 	totalFiles     int
 	written        int64
 	downloadStatus func(string, string, string, float64)
+	transferSink   TransferProgressSink
 	hash           hash.Hash
 	ctx            context.Context
+}
+
+func (pw *progressWriter) report() {
+	if pw.transferSink != nil {
+		pw.transferSink(TransferProgress{
+			FileName: pw.fileName,
+			Written:  pw.written,
+			Total:    pw.total,
+		})
+	}
+	if pw.downloadStatus == nil {
+		return
+	}
+	percentage := float64(0)
+	total := ""
+	if pw.total > 0 {
+		percentage = float64(pw.written) / float64(pw.total) * 100
+		total = formatBytes(pw.total)
+		if pw.totalFiles > 1 {
+			percentage = percentage/float64(pw.totalFiles) + float64(pw.fileNo)*100/float64(pw.totalFiles)
+		}
+	}
+	pw.downloadStatus(pw.fileName, formatBytes(pw.written), total, percentage)
 }
 
 func (pw *progressWriter) Write(p []byte) (n int, err error) {
@@ -41,24 +65,7 @@ func (pw *progressWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 
-	if pw.total > 0 {
-		percentage := float64(pw.written) / float64(pw.total) * 100
-		if pw.totalFiles > 1 {
-			// This is a multi-file download
-			// so we need to adjust the percentage
-			// to reflect the progress of the whole download
-			// This is the file pw.fileNo (0-indexed) of pw.totalFiles files. We assume that
-			// the files before successfully downloaded.
-			percentage = percentage / float64(pw.totalFiles)
-			if pw.fileNo > 0 {
-				percentage += float64(pw.fileNo) * 100 / float64(pw.totalFiles)
-			}
-		}
-		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
-		pw.downloadStatus(pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
-	} else {
-		pw.downloadStatus(pw.fileName, formatBytes(pw.written), "", 0)
-	}
+	pw.report()
 
 	return
 }

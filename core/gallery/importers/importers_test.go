@@ -15,6 +15,16 @@ import (
 var _ = Describe("DiscoverModelConfig", func() {
 
 	Context("With only a repository URI", func() {
+		It("should discover LongCat Avatar before the generic Diffusers importer", func() {
+			uri := "https://huggingface.co/meituan-longcat/LongCat-Video-Avatar-1.5"
+
+			modelConfig, err := importers.DiscoverModelConfig(uri, json.RawMessage(`{}`))
+
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error: %v", err))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: longcat-video"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("known_usecases:\n    - video"))
+		})
+
 		It("should discover and import using LlamaCPPImporter", func() {
 			uri := "https://huggingface.co/mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF"
 			preferences := json.RawMessage(`{}`)
@@ -242,7 +252,7 @@ var _ = Describe("DiscoverModelConfig", func() {
 			for _, imp := range registry {
 				names = append(names, imp.Name())
 			}
-			Expect(names).To(ContainElements("llama-cpp", "mlx", "vllm", "transformers", "diffusers"))
+			Expect(names).To(ContainElements("llama-cpp", "mlx", "vllm", "transformers", "diffusers", "longcat-video"))
 		})
 
 		It("LlamaCPPImporter exposes name/modality/autodetect", func() {

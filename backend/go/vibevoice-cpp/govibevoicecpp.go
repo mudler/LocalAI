@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,7 +11,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"unsafe"
 
+	"github.com/ebitengine/purego"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -113,11 +116,75 @@ var (
 		refAudioPaths []*byte, nRefAudioPaths int32,
 		dstWav string,
 		nSteps int32, cfgScale float32, maxSpeechFrames int32, seed uint32) int32
+	// CppTTSStream drives vv_capi_tts_stream: it synthesizes `text` and
+	// invokes the C callback `cb` once per decoded PCM window instead of
+	// writing a file. `cb` is the address of a purego callback (see
+	// streamCB); `user` is an opaque pointer handed back to every
+	// callback invocation - we route via the package-level activeStream
+	// instead, so it is always nil here.
+	CppTTSStream func(text, voicePath string,
+		nSteps int32, cfgScale float32, maxFrames int32, seed uint32,
+		cb uintptr, user unsafe.Pointer) int32
 	CppASR func(srcWav string, outJSON []byte, capacity uint64,
 		maxNewTokens int32) int32
 	CppUnload  func()
 	CppVersion func() string
 )
+
+// streamState carries the destination channel for one in-flight
+// TTSStream call. vibevoice's engine is a single process-global, and
+// backend calls are serialized through base.SingleThread, so a single
+// package-level pointer is safe: only one TTSStream runs at a time.
+type streamState struct {
+	results chan []byte
+}
+
+// activeStream points at the streamState for the currently-running
+// TTSStream. The C callback (streamCB) and the deliverPCMForTest hook
+// read it to find the channel. Guarded by base.SingleThread
+// serialization; TTSStream sets it and clears it in a defer.
+var activeStream *streamState
+
+// pushPCM copies a transient int16 PCM window into a fresh little-endian
+// []byte and pushes it onto the active stream. The C buffer handed to
+// the callback is only valid for the duration of the call, so we must
+// copy before returning. A nil/empty input or a missing active stream
+// is a no-op.
+func pushPCM(pcm []int16) {
+	s := activeStream
+	if s == nil || len(pcm) == 0 {
+		return
+	}
+	buf := make([]byte, len(pcm)*2)
+	for i, v := range pcm {
+		binary.LittleEndian.PutUint16(buf[i*2:], uint16(v))
+	}
+	s.results <- buf
+}
+
+// streamCB is the ONE reusable purego callback bound to the C ABI's
+// vv_pcm_cb. purego cannot free callbacks and enforces a process-global
+// limit, so we create exactly one at package init and reuse it for every
+// TTSStream call - the per-call state lives in activeStream, not here.
+// purego marshals the C `const int16_t*` first argument straight into a
+// Go *int16, so we can unsafe.Slice it without a uintptr round-trip
+// (keeps go vet clean); pushPCM copies the transient buffer out and
+// returns 0 to keep synthesizing.
+var streamCB = purego.NewCallback(func(samples *int16, n int32, _ uintptr) uintptr {
+	if activeStream == nil || samples == nil || n <= 0 {
+		return 0
+	}
+	pcm := unsafe.Slice(samples, int(n))
+	pushPCM(pcm)
+	return 0
+})
+
+// deliverPCMForTest exercises the exact copy-and-push path streamCB runs
+// against activeStream, but from a Go []int16 - so unit tests can
+// validate the callback -> channel framing without the C library.
+func deliverPCMForTest(samples []int16) {
+	pushPCM(samples)
+}
 
 // VibevoiceCpp speaks gRPC against vibevoice.cpp's flat C ABI. The
 // engine is a single global, so we serialize calls through SingleThread.
@@ -404,14 +471,16 @@ func (v *VibevoiceCpp) callASR(srcWav string, maxNewTokens int32) (string, error
 	return string(buf[:rc]), nil
 }
 
-// TTSStream is the streaming counterpart to TTS. vibevoice's C ABI is
-// file-only (vv_capi_tts writes a complete WAV), so we synthesize to
-// a tempfile, then emit a streaming-WAV header followed by the PCM
-// body in chunks. The main reason this exists at all is the gRPC
-// server wrapper (pkg/grpc/server.go:TTSStream) blocks on a channel
-// that only this method can close - if we leave the default Base
-// stub in place, every TTSStream call hangs until the client
-// deadline.
+// TTSStream is the streaming counterpart to TTS. It drives
+// vv_capi_tts_stream, which synthesizes `text` and invokes our C
+// callback (streamCB) once per decoded PCM window instead of writing a
+// file - so the client starts receiving audio while the model is still
+// generating. We first emit a streaming-WAV header, install the results
+// channel as the active stream, then let the callback push each PCM
+// window (copied to little-endian bytes) onto that channel. The gRPC
+// server wrapper (pkg/grpc/server.go:TTSStream) blocks on the channel
+// until this method closes it, so `defer close(results)` is mandatory
+// even on the error paths.
 func (v *VibevoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	defer close(results)
 	if v.ttsModel == "" {
@@ -419,28 +488,6 @@ func (v *VibevoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error 
 	}
 	if req.Text == "" {
 		return fmt.Errorf("vibevoice-cpp: TTSStream requires text")
-	}
-
-	tmp, err := os.CreateTemp("", "vibevoice-cpp-stream-*.wav")
-	if err != nil {
-		return fmt.Errorf("vibevoice-cpp: tempfile: %w", err)
-	}
-	dst := tmp.Name()
-	_ = tmp.Close()
-	defer func() { _ = os.Remove(dst) }()
-
-	if err := v.TTS(&pb.TTSRequest{
-		Text:     req.Text,
-		Voice:    req.Voice,
-		Dst:      dst,
-		Language: req.Language,
-	}); err != nil {
-		return err
-	}
-
-	wav, err := os.ReadFile(dst)
-	if err != nil {
-		return fmt.Errorf("vibevoice-cpp: read tempfile: %w", err)
 	}
 
 	// Streaming WAV header: declare 0xFFFFFFFF for chunk sizes so HTTP
@@ -455,18 +502,38 @@ func (v *VibevoiceCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error 
 	}
 	results <- hdrBuf
 
-	// PCM body: send in ~64 KB slices so the client gets multiple
-	// reply chunks (e2e harness asserts >=2 frames).
-	pcm := laudio.StripWAVHeader(wav)
-	const chunkBytes = 64 * 1024
-	for off := 0; off < len(pcm); off += chunkBytes {
-		end := off + chunkBytes
-		if end > len(pcm) {
-			end = len(pcm)
-		}
-		chunk := make([]byte, end-off)
-		copy(chunk, pcm[off:end])
-		results <- chunk
+	// vv_capi_tts_stream takes a single voice_path (realtime-0.5B path);
+	// unlike vv_capi_tts it has no ref_audio array. Resolve the per-call
+	// override when it names a voice gguf, otherwise fall back to the
+	// load-time default that already went to vv_capi_load.
+	voice := v.voice
+	if reqVoice := strings.TrimSpace(req.Voice); reqVoice != "" && !isRefAudioOverride(reqVoice) {
+		voice = resolvePath(reqVoice, v.modelRoot)
+	}
+
+	if req.Language != nil && *req.Language != "" {
+		fmt.Fprintf(os.Stderr,
+			"[vibevoice-cpp] note: TTSRequest.language=%q ignored - vibevoice picks language from the voice prompt\n",
+			*req.Language)
+	}
+
+	const (
+		defaultSteps     = 20
+		defaultMaxFrames = 200
+	)
+	defaultCfg := float32(1.3)
+
+	// Serialized by base.SingleThread, so a single package-level
+	// activeStream is race-free: exactly one TTSStream runs at a time.
+	// The callback reads it to find `results`; clear it on the way out.
+	activeStream = &streamState{results: results}
+	defer func() { activeStream = nil }()
+
+	rc := CppTTSStream(req.Text, voice,
+		int32(defaultSteps), defaultCfg, int32(defaultMaxFrames), 0,
+		streamCB, nil)
+	if rc != 0 {
+		return fmt.Errorf("vibevoice-cpp: vv_capi_tts_stream failed (rc=%d)", rc)
 	}
 	return nil
 }

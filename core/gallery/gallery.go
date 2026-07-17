@@ -15,14 +15,35 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/xlog"
 
 	"gopkg.in/yaml.v3"
 )
 
+// validateGalleryConfigURL guards the gallery config fetch against SSRF. A
+// gallery config URL can be attacker-controlled (e.g. POST /models/apply with
+// an empty id fetches it directly), so a plain http(s) URL must not be allowed
+// to reach private, loopback, link-local or cloud-metadata addresses. Other
+// schemes (huggingface://, github:, oci://, ollama://, file://) resolve to
+// fixed public services or local files and are not a network-SSRF vector, so
+// they are left untouched.
+// See https://github.com/mudler/LocalAI/issues/10665
+func validateGalleryConfigURL(rawURL string) error {
+	lower := strings.ToLower(strings.TrimSpace(rawURL))
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return utils.ValidateExternalURL(rawURL)
+	}
+	return nil
+}
+
 func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 	var config T
+	if err := validateGalleryConfigURL(url); err != nil {
+		xlog.Error("refusing to fetch gallery config", "error", err, "url", url)
+		return config, err
+	}
 	uri := downloader.URI(url)
 	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
@@ -36,6 +57,10 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 
 func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, basePath string) (T, error) {
 	var config T
+	if err := validateGalleryConfigURL(url); err != nil {
+		xlog.Error("refusing to fetch gallery config", "error", err, "url", url)
+		return config, err
+	}
 	uri := downloader.URI(url)
 	err := uri.ReadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)

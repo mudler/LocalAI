@@ -251,7 +251,11 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		backend = realBackend
 	}
 
-	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
+	modelFileName := o.modelFile
+	if modelFileName == "" {
+		modelFileName = o.model
+	}
+	model, err := ml.LoadModelWithFile(o.modelID, o.model, modelFileName, ml.grpcModel(backend, o))
 	if err != nil {
 		// Defensive cleanup: the model usually wasn't registered yet (LoadModel
 		// failed before that), so StopGRPC reporting "model not found" is the

@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // These specs guard the contract between the opcache (which stores
@@ -151,5 +152,42 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		// Critical: bare ops must NOT gain a misleading empty nodeID field.
 		Expect(found).ToNot(HaveKey("nodeID"), "non-node-scoped ops must NOT carry a nodeID field")
 		Expect(found["name"]).To(Equal("llama-cpp"))
+	})
+
+	It("surfaces managed model artifact phase and byte counters", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+		jobID := "test-op-artifact-progress"
+		opcache.Set("qwen-asr", jobID)
+		galleryService.UpdateStatus(jobID, &galleryop.OpStatus{
+			Phase: "downloading", CurrentBytes: 1024, TotalBytes: 4096,
+			Progress: 22.5, Message: "Downloading model file: weights.safetensors", Cancellable: true,
+		})
+
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, &application.Application{}, noopMw)
+		req := httptest.NewRequest(http.MethodGet, "/api/operations", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+		var found map[string]any
+		for _, op := range envelope.Operations {
+			if op["jobID"] == jobID {
+				found = op
+				break
+			}
+		}
+		Expect(found).ToNot(BeNil())
+		Expect(found["phase"]).To(Equal("downloading"))
+		Expect(found["currentBytes"]).To(Equal(float64(1024)))
+		Expect(found["totalBytes"]).To(Equal(float64(4096)))
 	})
 })

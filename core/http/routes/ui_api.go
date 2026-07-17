@@ -37,6 +37,7 @@ const (
 	statusSortFieldName     = "status"
 	ascSortOrder            = "asc"
 	multimodalFilterKey     = "multimodal"
+	voiceCloningCapability  = "voice_cloning"
 )
 
 // usecaseFilters maps UI filter keys to ModelConfigUsecase flags for
@@ -172,6 +173,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			isCancelled := false
 			isCancellable := false
 			message := ""
+			phase := ""
+			currentBytes := int64(0)
+			totalBytes := int64(0)
 
 			if status != nil {
 				// Skip successfully completed operations
@@ -188,6 +192,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				isCancelled = status.Cancelled
 				isCancellable = status.Cancellable
 				message = status.Message
+				phase = status.Phase
+				currentBytes = status.CurrentBytes
+				totalBytes = status.TotalBytes
 				if isDeletion {
 					taskType = "deletion"
 				}
@@ -255,6 +262,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// existed in the first place.
 			if scopedNodeID != "" {
 				opData["nodeID"] = scopedNodeID
+			}
+			if phase != "" {
+				opData["phase"] = phase
+			}
+			if currentBytes > 0 {
+				opData["currentBytes"] = currentBytes
+			}
+			if totalBytes > 0 {
+				opData["totalBytes"] = totalBytes
 			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
@@ -464,6 +480,27 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			models = filtered
 		}
 
+		// Capability filters are derived from the effective gallery model
+		// configuration. In particular, voice cloning is variant-sensitive, so
+		// filtering by the TTS usecase or backend name alone would advertise
+		// incompatible CustomVoice/VoiceDesign models.
+		capabilityFilter := strings.ToLower(strings.TrimSpace(c.QueryParam("capability")))
+		switch capabilityFilter {
+		case "":
+		case voiceCloningCapability:
+			filtered := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
+			for _, m := range models {
+				if m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath) != nil {
+					filtered = append(filtered, m)
+				}
+			}
+			models = filtered
+		default:
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": fmt.Sprintf("unsupported capability filter %q", capabilityFilter),
+			})
+		}
+
 		// Get model statuses
 		processingModelsData, taskTypes := opcache.GetStatus()
 
@@ -545,6 +582,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"trustRemoteCode": trustRemoteCodeExists,
 				"additionalFiles": m.AdditionalFiles,
 				"backend":         m.Backend,
+				"voice_cloning":   m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath),
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -597,11 +635,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			ID           string   `json:"id"`
-			Capabilities []string `json:"capabilities"`
-			Backend      string   `json:"backend"`
-			Disabled     bool     `json:"disabled"`
-			Pinned       bool     `json:"pinned"`
+			ID           string                         `json:"id"`
+			Capabilities []string                       `json:"capabilities"`
+			Backend      string                         `json:"backend"`
+			Disabled     bool                           `json:"disabled"`
+			Pinned       bool                           `json:"pinned"`
+			VoiceCloning *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -649,6 +688,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				Backend:      cfg.Backend,
 				Disabled:     cfg.IsDisabled(),
 				Pinned:       cfg.IsPinned(),
+				VoiceCloning: config.VoiceCloningForModel(&cfg),
 				LoadedOn:     loadedByModel[cfg.Name],
 			})
 		}
@@ -884,7 +924,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
+		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
+			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),

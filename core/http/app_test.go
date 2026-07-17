@@ -383,13 +383,13 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
-				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
 					xlog.Error("server error", "error", err)
 				}
 			}()
 
 			defaultConfig := openai.DefaultConfig(apiKey)
-			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+			defaultConfig.BaseURL = "http://" + testHTTPAddr + "/v1"
 
 			client2 = openaigo.NewClient("")
 			client2.BaseURL = defaultConfig.BaseURL
@@ -418,7 +418,7 @@ var _ = Describe("API test", func() {
 
 		Context("Auth Tests", func() {
 			It("Should fail if the api key is missing", func() {
-				err, sc := postInvalidRequest("http://127.0.0.1:9090/models/available")
+				err, sc := postInvalidRequest("http://" + testHTTPAddr + "/models/available")
 				Expect(err).ToNot(BeNil())
 				Expect(sc).To(Equal(401))
 			})
@@ -427,7 +427,7 @@ var _ = Describe("API test", func() {
 		Context("URL routing Tests", func() {
 			It("Should support reverse-proxy when unauthenticated", func() {
 
-				err, sc, body := getRequest("http://127.0.0.1:9090/myprefix/", http.Header{
+				err, sc, body := getRequest("http://"+testHTTPAddr+"/myprefix/", http.Header{
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
 					"X-Forwarded-Prefix": {"/myprefix/"},
@@ -441,7 +441,7 @@ var _ = Describe("API test", func() {
 
 			It("Should support reverse-proxy when authenticated", func() {
 
-				err, sc, body := getRequest("http://127.0.0.1:9090/myprefix/", http.Header{
+				err, sc, body := getRequest("http://"+testHTTPAddr+"/myprefix/", http.Header{
 					"Authorization":      {bearerKey},
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
@@ -459,7 +459,7 @@ var _ = Describe("API test", func() {
 			// requests them through the proxy.
 			It("Should support reverse-proxy when prefix is stripped by the proxy", func() {
 
-				err, sc, body := getRequest("http://127.0.0.1:9090/app", http.Header{
+				err, sc, body := getRequest("http://"+testHTTPAddr+"/app", http.Header{
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
 					"X-Forwarded-Prefix": {"/myprefix"},
@@ -477,7 +477,7 @@ var _ = Describe("API test", func() {
 			// from a foreign origin. BasePathPrefix must reject these via
 			// SafeForwardedPrefix and fall back to "/".
 			It("Should ignore an unsafe X-Forwarded-Prefix and not poison asset URLs", func() {
-				err, sc, body := getRequest("http://127.0.0.1:9090/app", http.Header{
+				err, sc, body := getRequest("http://"+testHTTPAddr+"/app", http.Header{
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
 					"X-Forwarded-Prefix": {"//evil.com"},
@@ -492,13 +492,13 @@ var _ = Describe("API test", func() {
 		Context("Applying models", func() {
 
 			It("applies models from a gallery", func() {
-				models, err := getModels("http://127.0.0.1:9090/models/available")
+				models, err := getModels("http://" + testHTTPAddr + "/models/available")
 				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
 				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
 
-				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+				response := postModelApplyRequest("http://"+testHTTPAddr+"/models/apply", modelApplyRequest{
 					ID: "test@bert2",
 				})
 
@@ -507,7 +507,7 @@ var _ = Describe("API test", func() {
 				uuid := response["uuid"].(string)
 				resp := map[string]any{}
 				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					fmt.Println(response)
 					resp = response
 					return response["processed"].(bool)
@@ -526,7 +526,7 @@ var _ = Describe("API test", func() {
 				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 				Expect(content["foo"]).To(Equal("bar"))
 
-				models, err = getModels("http://127.0.0.1:9090/models/available")
+				models, err = getModels("http://" + testHTTPAddr + "/models/available")
 				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
@@ -541,7 +541,7 @@ var _ = Describe("API test", func() {
 			})
 			It("overrides models", func() {
 
-				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+				response := postModelApplyRequest("http://"+testHTTPAddr+"/models/apply", modelApplyRequest{
 					URL:  bertEmbeddingsURL,
 					Name: "bert",
 					Overrides: map[string]any{
@@ -554,7 +554,7 @@ var _ = Describe("API test", func() {
 				uuid := response["uuid"].(string)
 
 				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
@@ -567,7 +567,7 @@ var _ = Describe("API test", func() {
 				Expect(content["backend"]).To(Equal("llama"))
 			})
 			It("apply models without overrides", func() {
-				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+				response := postModelApplyRequest("http://"+testHTTPAddr+"/models/apply", modelApplyRequest{
 					URL:       bertEmbeddingsURL,
 					Name:      "bert",
 					Overrides: map[string]any{},
@@ -578,7 +578,7 @@ var _ = Describe("API test", func() {
 				uuid := response["uuid"].(string)
 
 				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
@@ -622,14 +622,14 @@ parameters:
 				}
 
 				var response schema.GalleryResponse
-				err := postRequestResponseJSON("http://127.0.0.1:9090/models/import-uri", &importReq, &response)
+				err := postRequestResponseJSON("http://"+testHTTPAddr+"/models/import-uri", &importReq, &response)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.ID).ToNot(BeEmpty())
 
 				uuid := response.ID
 				resp := map[string]any{}
 				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					resp = response
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
@@ -657,7 +657,7 @@ parameters:
 				}
 
 				var response schema.GalleryResponse
-				err := postRequestResponseJSON("http://127.0.0.1:9090/models/import-uri", &importReq, &response)
+				err := postRequestResponseJSON("http://"+testHTTPAddr+"/models/import-uri", &importReq, &response)
 				// The endpoint should return an error immediately
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to discover model config"))
@@ -693,14 +693,14 @@ parameters:
 				}
 
 				var response schema.GalleryResponse
-				err := postRequestResponseJSON("http://127.0.0.1:9090/models/import-uri", &importReq, &response)
+				err := postRequestResponseJSON("http://"+testHTTPAddr+"/models/import-uri", &importReq, &response)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.ID).ToNot(BeEmpty())
 
 				uuid := response.ID
 				resp := map[string]any{}
 				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					resp = response
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
@@ -763,13 +763,13 @@ chat_template_kwargs:
 			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
-				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
 					xlog.Error("server error", "error", err)
 				}
 			}()
 
 			defaultConfig := openai.DefaultConfig("")
-			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+			defaultConfig.BaseURL = "http://" + testHTTPAddr + "/v1"
 
 			client2 = openaigo.NewClient("")
 			client2.BaseURL = defaultConfig.BaseURL
@@ -813,7 +813,7 @@ chat_template_kwargs:
 			// Mock-backend is registered via SetExternalBackend so it appears
 			// alongside any built-in entries; verifying that string proves the
 			// endpoint is wired up regardless of which real backends exist.
-			resp, err := http.Get("http://127.0.0.1:9090/system")
+			resp, err := http.Get("http://" + testHTTPAddr + "/system")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			dat, err := io.ReadAll(resp.Body)
@@ -851,7 +851,7 @@ chat_template_kwargs:
 					} `json:"message"`
 				} `json:"choices"`
 			}
-			err := postRequestResponseJSON("http://127.0.0.1:9090/v1/chat/completions", &reqBody, &chatResp)
+			err := postRequestResponseJSON("http://"+testHTTPAddr+"/v1/chat/completions", &reqBody, &chatResp)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(chatResp.Choices).ToNot(BeEmpty())
 
@@ -889,14 +889,14 @@ chat_template_kwargs:
 				}
 
 				var createResp map[string]any
-				err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
+				err := postRequestResponseJSON("http://"+testHTTPAddr+"/api/agent/tasks", &taskBody, &createResp)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(createResp["id"]).ToNot(BeEmpty())
 				taskID := createResp["id"].(string)
 
 				// Get the task
 				var task schema.Task
-				resp, err := http.Get("http://127.0.0.1:9090/api/agent/tasks/" + taskID)
+				resp, err := http.Get("http://" + testHTTPAddr + "/api/agent/tasks/" + taskID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				body, _ := io.ReadAll(resp.Body)
@@ -904,7 +904,7 @@ chat_template_kwargs:
 				Expect(task.Name).To(Equal("Test Task"))
 
 				// List tasks
-				resp, err = http.Get("http://127.0.0.1:9090/api/agent/tasks")
+				resp, err = http.Get("http://" + testHTTPAddr + "/api/agent/tasks")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				var tasks []schema.Task
@@ -914,18 +914,18 @@ chat_template_kwargs:
 
 				// Update task
 				taskBody["name"] = "Updated Task"
-				err = putRequestJSON("http://127.0.0.1:9090/api/agent/tasks/"+taskID, &taskBody)
+				err = putRequestJSON("http://"+testHTTPAddr+"/api/agent/tasks/"+taskID, &taskBody)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Verify update
-				resp, err = http.Get("http://127.0.0.1:9090/api/agent/tasks/" + taskID)
+				resp, err = http.Get("http://" + testHTTPAddr + "/api/agent/tasks/" + taskID)
 				Expect(err).ToNot(HaveOccurred())
 				body, _ = io.ReadAll(resp.Body)
 				json.Unmarshal(body, &task)
 				Expect(task.Name).To(Equal("Updated Task"))
 
 				// Delete task
-				req, _ := http.NewRequest("DELETE", "http://127.0.0.1:9090/api/agent/tasks/"+taskID, nil)
+				req, _ := http.NewRequest("DELETE", "http://"+testHTTPAddr+"/api/agent/tasks/"+taskID, nil)
 				req.Header.Set("Authorization", bearerKey)
 				resp, err = http.DefaultClient.Do(req)
 				Expect(err).ToNot(HaveOccurred())
@@ -942,7 +942,7 @@ chat_template_kwargs:
 				}
 
 				var createResp map[string]any
-				err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
+				err := postRequestResponseJSON("http://"+testHTTPAddr+"/api/agent/tasks", &taskBody, &createResp)
 				Expect(err).ToNot(HaveOccurred())
 				taskID := createResp["id"].(string)
 
@@ -953,14 +953,14 @@ chat_template_kwargs:
 				}
 
 				var jobResp schema.JobExecutionResponse
-				err = postRequestResponseJSON("http://127.0.0.1:9090/api/agent/jobs/execute", &jobBody, &jobResp)
+				err = postRequestResponseJSON("http://"+testHTTPAddr+"/api/agent/jobs/execute", &jobBody, &jobResp)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(jobResp.JobID).ToNot(BeEmpty())
 				jobID := jobResp.JobID
 
 				// Get job status
 				var job schema.Job
-				resp, err := http.Get("http://127.0.0.1:9090/api/agent/jobs/" + jobID)
+				resp, err := http.Get("http://" + testHTTPAddr + "/api/agent/jobs/" + jobID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				body, _ := io.ReadAll(resp.Body)
@@ -969,7 +969,7 @@ chat_template_kwargs:
 				Expect(job.TaskID).To(Equal(taskID))
 
 				// List jobs
-				resp, err = http.Get("http://127.0.0.1:9090/api/agent/jobs")
+				resp, err = http.Get("http://" + testHTTPAddr + "/api/agent/jobs")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				var jobs []schema.Job
@@ -979,11 +979,26 @@ chat_template_kwargs:
 
 				// Cancel job (if still pending/running)
 				if job.Status == schema.JobStatusPending || job.Status == schema.JobStatusRunning {
-					req, _ := http.NewRequest("POST", "http://127.0.0.1:9090/api/agent/jobs/"+jobID+"/cancel", nil)
+					req, _ := http.NewRequest("POST", "http://"+testHTTPAddr+"/api/agent/jobs/"+jobID+"/cancel", nil)
 					req.Header.Set("Authorization", bearerKey)
 					resp, err = http.DefaultClient.Do(req)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(200))
+					if resp.StatusCode == http.StatusBadRequest {
+						// The worker can finish between the status read and cancellation request.
+						resp, err = http.Get("http://" + testHTTPAddr + "/api/agent/jobs/" + jobID)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(resp.StatusCode).To(Equal(http.StatusOK))
+						body, _ = io.ReadAll(resp.Body)
+						err = json.Unmarshal(body, &job)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(job.Status).To(Or(
+							Equal(schema.JobStatusCompleted),
+							Equal(schema.JobStatusFailed),
+							Equal(schema.JobStatusCancelled),
+						))
+					} else {
+						Expect(resp.StatusCode).To(Equal(http.StatusOK))
+					}
 				}
 			})
 
@@ -997,13 +1012,13 @@ chat_template_kwargs:
 				}
 
 				var createResp map[string]any
-				err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
+				err := postRequestResponseJSON("http://"+testHTTPAddr+"/api/agent/tasks", &taskBody, &createResp)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Execute by name
 				paramsBody := map[string]string{"param1": "value1"}
 				var jobResp schema.JobExecutionResponse
-				err = postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks/Named Task/execute", &paramsBody, &jobResp)
+				err = postRequestResponseJSON("http://"+testHTTPAddr+"/api/agent/tasks/Named Task/execute", &paramsBody, &jobResp)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(jobResp.JobID).ToNot(BeEmpty())
 			})
@@ -1063,13 +1078,13 @@ chat_template_kwargs:
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
-				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
 					xlog.Error("server error", "error", err)
 				}
 			}()
 
 			defaultConfig := openai.DefaultConfig("")
-			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
+			defaultConfig.BaseURL = "http://" + testHTTPAddr + "/v1"
 			client2 = openaigo.NewClient("")
 			client2.BaseURL = defaultConfig.BaseURL
 			// Wait for API to be ready

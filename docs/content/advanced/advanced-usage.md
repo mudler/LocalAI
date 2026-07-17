@@ -20,7 +20,7 @@ parameters:
 
 context_size: 512
 threads: 10
-backend: llama-stable
+backend: llama-cpp
 
 template:
   completion: completion
@@ -140,7 +140,7 @@ parameters:
   # Relative to the models path
   model: ...
 
-backend: llama-stable
+backend: llama-cpp
 ```
 
 ### Connect external backends

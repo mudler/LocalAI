@@ -30,6 +30,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/natsauth"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 )
 
 // nodeError builds a schema.ErrorResponse for node endpoints.
@@ -92,6 +93,9 @@ type RegisterNodeRequest struct {
 	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
 	// historical single-replica behavior.
 	MaxReplicasPerModel int `json:"max_replicas_per_model,omitempty"`
+	// VRAMBudget is the worker's operator-set VRAM cap ("80%" or "12GB"). The
+	// registry resolves and enforces it against the raw reported VRAM.
+	VRAMBudget string `json:"vram_budget,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -171,6 +175,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			GPUVendor:            req.GPUVendor,
 			GPUComputeCapability: req.GPUComputeCapability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
+			VRAMBudget:           req.VRAMBudget,
 		}
 
 		ctx := c.Request().Context()
@@ -524,6 +529,71 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 	}
 }
 
+// UpgradeBackendOnNodeEndpoint triggers a backend upgrade (force-reinstall)
+// on a single worker node. Async like InstallBackendOnNodeEndpoint: enqueues
+// a ManagementOp with Upgrade=true and TargetNodeID set, returns 202 + jobID.
+// The gallery service routes Upgrade ops to
+// DistributedBackendManager.UpgradeBackend, which fires the NATS
+// backend.upgrade subject: the worker stops running processes for the
+// backend and reinstalls from the gallery even when the artifact already
+// exists on disk. Reusing the install path here would no-op: the worker's
+// backend.install handler is "ensure installed" and short-circuits on an
+// already-present binary (the "backend upgraded but nothing happens" bug).
+//
+// Only gallery-name upgrades are supported: the distributed upgrade path
+// resolves galleries from server config, so unlike install there is no
+// URI/name/alias or galleries-override surface.
+func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if galleryService == nil {
+			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "gallery service not configured"))
+		}
+		nodeID := c.Param("id")
+		var req struct {
+			Backend string `json:"backend"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		if req.Backend == "" {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name required"))
+		}
+
+		jobUUID, err := uuid.NewUUID()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to generate job id"))
+		}
+		jobID := jobUUID.String()
+
+		// Node-scoped cache key so a concurrent upgrade of the same backend on
+		// another node doesn't stomp this job in opcache.
+		cacheKey := galleryop.NodeScopedKey(nodeID, req.Backend)
+		opcache.SetBackend(cacheKey, jobID)
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 jobID,
+			GalleryElementName: req.Backend,
+			Galleries:          appConfig.BackendGalleries,
+			TargetNodeID:       nodeID,
+			Upgrade:            true,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+		}
+		galleryService.StoreCancellation(jobID, cancelFunc)
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		xlog.Info("Node-scoped backend upgrade dispatched", "node", nodeID, "backend", req.Backend, "jobID", jobID)
+		return c.JSON(http.StatusAccepted, map[string]string{
+			"jobID":     jobID,
+			"statusUrl": "/api/backends/job/" + jobID,
+			"message":   "backend upgrade started",
+		})
+	}
+}
+
 // DeleteBackendOnNodeEndpoint deletes a backend from a worker node via NATS.
 func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -872,6 +942,74 @@ func ResetMaxReplicasPerModelEndpoint(registry *nodes.NodeRegistry) echo.Handler
 		if err := registry.ResetMaxReplicasPerModel(ctx, nodeID); err != nil {
 			xlog.Error("Failed to reset max_replicas_per_model override", "node", nodeID, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to reset override"))
+		}
+		return c.JSON(http.StatusOK, map[string]bool{"reset": true})
+	}
+}
+
+// UpdateVRAMBudgetRequest is the body for the per-node VRAM budget endpoint.
+type UpdateVRAMBudgetRequest struct {
+	// Value is the VRAM cap ("80%" or "12GB"). Empty string clears the cap.
+	Value string `json:"value"`
+}
+
+// UpdateVRAMBudgetEndpoint sets a node's VRAM allocation cap as a sticky admin
+// override. The value is validated, resolved against the node's total VRAM, and
+// applied to available_vram immediately so scheduling reflects it before the
+// next heartbeat.
+//
+// @Summary Update a node's VRAM allocation budget
+// @Tags Nodes
+// @Param id path string true "Node ID"
+// @Param request body UpdateVRAMBudgetRequest true "New value (\"80%\" or \"12GB\"; empty clears)"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]any "invalid budget"
+// @Failure 404 {object} map[string]any "node not found"
+// @Router /api/nodes/{id}/vram-budget [put]
+func UpdateVRAMBudgetEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		if _, err := registry.Get(ctx, nodeID); err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		var req UpdateVRAMBudgetRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
+		}
+		// An empty value clears the cap; only a non-empty value must parse.
+		if req.Value != "" {
+			if _, err := vrambudget.Parse(req.Value); err != nil {
+				return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, fmt.Sprintf("invalid vram budget: %v", err)))
+			}
+		}
+		if err := registry.UpdateVRAMBudget(ctx, nodeID, req.Value); err != nil {
+			xlog.Error("Failed to update vram_budget", "node", nodeID, "value", req.Value, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to update vram budget"))
+		}
+		return c.JSON(http.StatusOK, map[string]string{"vram_budget": req.Value})
+	}
+}
+
+// ResetVRAMBudgetEndpoint clears the admin override so the worker's
+// LOCALAI_VRAM_BUDGET takes over again on next registration.
+//
+// @Summary Reset a node's VRAM budget to the worker default
+// @Tags Nodes
+// @Param id path string true "Node ID"
+// @Success 200 {object} map[string]bool
+// @Failure 404 {object} map[string]any "node not found"
+// @Router /api/nodes/{id}/vram-budget [delete]
+func ResetVRAMBudgetEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		nodeID := c.Param("id")
+		if _, err := registry.Get(ctx, nodeID); err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		if err := registry.ResetVRAMBudget(ctx, nodeID); err != nil {
+			xlog.Error("Failed to reset vram_budget override", "node", nodeID, "error", err)
+			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to reset vram budget"))
 		}
 		return c.JSON(http.StatusOK, map[string]bool{"reset": true})
 	}

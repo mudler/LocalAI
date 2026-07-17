@@ -1,6 +1,9 @@
 package trace_test
 
 import (
+	"encoding/json"
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -45,5 +48,34 @@ var _ = Describe("AudioSnippetFromPCM byte cap", func() {
 		out := trace.AudioSnippetFromPCM(pcm, snippetSampleRate, totalPCM, 0)
 
 		Expect(out).To(HaveKey("audio_wav_base64"))
+	})
+})
+
+// Silent audio (RMS/peak of zero) has a true level of -∞ dBFS, but emitting
+// -Inf made the whole /api/backend-traces response fail to JSON-marshal and
+// blanked the Traces UI. The metrics must instead be finite and serializable.
+var _ = Describe("AudioSnippetFromPCM silent audio dBFS", func() {
+	pcm := makePCM(snippetSeconds, snippetSampleRate) // all zeros == digital silence
+	totalPCM := len(pcm)
+
+	It("reports finite dBFS for silence instead of -Inf", func() {
+		out := trace.AudioSnippetFromPCM(pcm, snippetSampleRate, totalPCM, 0)
+
+		rms, ok := out["audio_rms_dbfs"].(float64)
+		Expect(ok).To(BeTrue())
+		Expect(math.IsInf(rms, 0)).To(BeFalse(), "silent RMS must not be ±Inf")
+		Expect(math.IsNaN(rms)).To(BeFalse())
+
+		peak, ok := out["audio_peak_dbfs"].(float64)
+		Expect(ok).To(BeTrue())
+		Expect(math.IsInf(peak, 0)).To(BeFalse(), "silent peak must not be ±Inf")
+		Expect(math.IsNaN(peak)).To(BeFalse())
+	})
+
+	It("produces a snippet that round-trips through encoding/json", func() {
+		out := trace.AudioSnippetFromPCM(pcm, snippetSampleRate, totalPCM, 0)
+
+		_, err := json.Marshal(out)
+		Expect(err).ToNot(HaveOccurred(), "silent-audio metrics must be JSON-marshalable")
 	})
 })

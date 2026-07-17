@@ -146,6 +146,7 @@ export default function Manage() {
   const [distributedMode, setDistributedMode] = useState(false)
   const [togglingModels, setTogglingModels] = useState(new Set())
   const [pinningModels, setPinningModels] = useState(new Set())
+  const [loadingModels, setLoadingModels] = useState(new Set())
   // Expanded row state — keyed by `${tab}:${id}` so switching tabs doesn't
   // collide and a single row is open at a time per tab.
   const [expandedKey, setExpandedKey] = useState(null)
@@ -311,6 +312,26 @@ export default function Manage() {
         }
       },
     })
+  }
+
+  // Pre-load a model (or all of a realtime pipeline's sub-models) into memory.
+  // The /backend/load call blocks until loading finishes, so the menu item shows
+  // a loading state while in flight and reports the outcome on completion.
+  const handleLoadModel = async (modelName) => {
+    setLoadingModels(prev => new Set(prev).add(modelName))
+    try {
+      await backendControlApi.load({ model: modelName })
+      addToast(`Loaded ${modelName}`, 'success')
+      setTimeout(fetchLoadedModels, 500)
+    } catch (err) {
+      addToast(`Failed to load: ${err.message}`, 'error')
+    } finally {
+      setLoadingModels(prev => {
+        const next = new Set(prev)
+        next.delete(modelName)
+        return next
+      })
+    }
   }
 
   const handleDeleteModel = (modelName) => {
@@ -687,6 +708,11 @@ export default function Manage() {
                               label: model.disabled ? 'Enable model' : 'Disable model',
                               onClick: () => handleToggleModel(model.id, model.disabled),
                               disabled: togglingModels.has(model.id) },
+                            { key: 'load', icon: 'fa-bolt',
+                              label: loadingModels.has(model.id) ? 'Loading…' : 'Load into memory',
+                              onClick: () => handleLoadModel(model.id),
+                              hidden: isRunning || !!model.disabled,
+                              disabled: loadingModels.has(model.id) },
                             { key: 'stop', icon: 'fa-stop', label: 'Stop model',
                               onClick: () => handleStopModel(model.id), hidden: !isRunning },
                             { key: 'pin', icon: 'fa-thumbtack',

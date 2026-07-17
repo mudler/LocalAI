@@ -34,6 +34,12 @@ else
 	if [ -d "$CURDIR/lib/rocblas/library" ]; then
 		export ROCBLAS_TENSILE_LIBPATH="$CURDIR"/lib/rocblas/library
 	fi
+	# Same for hipBLASLt (rocblaslt): the bundled libhipblaslt.so resolves its
+	# TensileLibrary_lazy_gfx*.dat kernel data relative to itself, so point it at
+	# the bundled data or it falls back to slow generic kernels (issue #10660).
+	if [ -d "$CURDIR/lib/hipblaslt/library" ]; then
+		export HIPBLASLT_TENSILE_LIBPATH="$CURDIR"/lib/hipblaslt/library
+	fi
 fi
 
 # If there is a lib/ld.so, use it

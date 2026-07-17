@@ -6,13 +6,16 @@ package inproc
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
@@ -23,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -38,11 +42,12 @@ import (
 // distributed-aware, ModelConfigLoader manages on-disk YAML, etc.), so this
 // layer just translates between MCP DTOs and service signatures.
 type Client struct {
-	AppConfig    *config.ApplicationConfig
-	SystemState  *system.SystemState
-	ConfigLoader *config.ModelConfigLoader
-	ModelLoader  *model.ModelLoader
-	Gallery      *galleryop.GalleryService
+	AppConfig     *config.ApplicationConfig
+	SystemState   *system.SystemState
+	ConfigLoader  *config.ModelConfigLoader
+	ModelLoader   *model.ModelLoader
+	Gallery       *galleryop.GalleryService
+	VoiceProfiles *voiceprofile.Store
 
 	// StatsRecorder and FallbackUser are optional — they back the
 	// get_usage_stats tool. nil StatsRecorder makes the tool return an
@@ -72,12 +77,13 @@ type Client struct {
 // fields (StatsRecorder, FallbackUser) which gate get_usage_stats.
 func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService) *Client {
 	return &Client{
-		AppConfig:    appConfig,
-		SystemState:  systemState,
-		ConfigLoader: cl,
-		ModelLoader:  ml,
-		Gallery:      gs,
-		modelAdmin:   modeladmin.NewConfigService(cl, appConfig),
+		AppConfig:     appConfig,
+		SystemState:   systemState,
+		ConfigLoader:  cl,
+		ModelLoader:   ml,
+		Gallery:       gs,
+		VoiceProfiles: voiceprofile.NewStore(appConfig.DataPath),
+		modelAdmin:    modeladmin.NewConfigService(cl, appConfig),
 	}
 }
 
@@ -302,6 +308,16 @@ func (c *Client) ReloadModels(_ context.Context) error {
 	return c.ConfigLoader.LoadModelConfigsFromPath(c.SystemState.Model.ModelsPath)
 }
 
+func (c *Client) LoadModel(ctx context.Context, model string) ([]string, error) {
+	if c.ConfigLoader == nil || c.ModelLoader == nil {
+		return nil, errors.New("model loader not available")
+	}
+	// Reuse the same preload path the REST /backend/load endpoint uses, so a
+	// pipeline model loads all its sub-models and the behaviour stays identical
+	// across the in-process and HTTP clients.
+	return backend.PreloadModelByName(ctx, c.ConfigLoader, c.ModelLoader, c.AppConfig, model)
+}
+
 // ---- Model aliases ----
 
 // SetAlias is swap-first to match the httpapi client: PatchConfig swaps an
@@ -484,6 +500,14 @@ func (c *Client) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
+	// The node registry is a distributed-mode concern owned by the Application
+	// layer and is not wired into the in-process client (which also returns an
+	// empty node list from ListNodes). Report it as unavailable rather than
+	// silently succeeding so the assistant tells the admin the truth.
+	return errors.New("per-node VRAM budgets are only available in distributed mode")
+}
+
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	resp, err := modeladmin.EstimateVRAM(ctx, modeladmin.VRAMRequest{
 		Model:       req.ModelName,
@@ -558,6 +582,59 @@ func (c *Client) SetBranding(_ context.Context, req localaitools.SetBrandingRequ
 		return nil, err
 	}
 	return c.currentBranding(), nil
+}
+
+// ---- Voice profile library ----
+
+func (c *Client) voiceProfileStore() (*voiceprofile.Store, error) {
+	if c.VoiceProfiles != nil {
+		return c.VoiceProfiles, nil
+	}
+	if c.AppConfig == nil {
+		return nil, errors.New("voice profile store is unavailable")
+	}
+	c.VoiceProfiles = voiceprofile.NewStore(c.AppConfig.DataPath)
+	return c.VoiceProfiles, nil
+}
+
+func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoiceProfile, error) {
+	store, err := c.voiceProfileStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.List(ctx)
+}
+
+func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	if req.AudioBase64 == "" {
+		return nil, errors.New("audio_base64 is required")
+	}
+	if base64.StdEncoding.DecodedLen(len(req.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
+		return nil, voiceprofile.ErrAudioTooLarge
+	}
+	store, err := c.voiceProfileStore()
+	if err != nil {
+		return nil, err
+	}
+	profile, err := store.Create(ctx, voiceprofile.CreateInput{
+		Name:             req.Name,
+		Description:      req.Description,
+		Language:         req.Language,
+		Transcript:       req.Transcript,
+		ConsentConfirmed: req.ConsentConfirmed,
+	}, base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.AudioBase64)))
+	if err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
+	store, err := c.voiceProfileStore()
+	if err != nil {
+		return err
+	}
+	return store.Delete(ctx, id)
 }
 
 // ---- helpers ----

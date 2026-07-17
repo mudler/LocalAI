@@ -50,6 +50,7 @@ export default function ConsoleLayout({ config }) {
   const { t } = useTranslation('nav')
   const { isAdmin, authEnabled, hasFeature } = useAuth()
   const [features, setFeatures] = useState(featuresCache)
+  const [railOpen, setRailOpen] = useState(false)
   const location = useLocation()
   // Forward the App-level outlet context (e.g. addToast) — a nested bare
   // <Outlet/> would otherwise shadow it with undefined and crash pages.
@@ -72,23 +73,37 @@ export default function ConsoleLayout({ config }) {
 
   return (
     <div className="console-layout">
-      <nav className={`console-rail${entering ? ' console-rail--enter' : ''}`} aria-label={t(config.titleKey)}>
+      <nav className={`console-rail${entering ? ' console-rail--enter' : ''}${railOpen ? ' console-rail--open' : ''}`} aria-label={t(config.titleKey)}>
         <div className="console-rail-header">
-          <i className={config.icon} aria-hidden="true" />
-          <span>{t(config.titleKey)}</span>
+          <span className="console-rail-header__title">
+            <i className={config.icon} aria-hidden="true" />
+            <span>{t(config.titleKey)}</span>
+          </span>
+          <button
+            type="button"
+            className="console-rail-toggle"
+            aria-expanded={railOpen}
+            aria-controls={`console-rail-groups-${config.id}`}
+            aria-label={t(railOpen ? 'console.collapseNavigation' : 'console.expandNavigation', { section: t(config.titleKey) })}
+            onClick={() => setRailOpen(open => !open)}
+          >
+            <i className={`fas fa-chevron-${railOpen ? 'up' : 'down'}`} aria-hidden="true" />
+          </button>
         </div>
-        {config.groups.map((group, gi) => {
-          const items = group.items.filter(item => isConsoleItemVisible(item, auth))
-          if (items.length === 0) return null
-          return (
-            <div key={group.titleKey || gi} className="console-group">
-              {group.titleKey && <div className="console-group-title">{t(group.titleKey)}</div>}
-              {items.map(item => (
-                <RailItem key={item.path || item.href} item={item} label={t(item.labelKey)} />
-              ))}
-            </div>
-          )
-        })}
+        <div id={`console-rail-groups-${config.id}`} className="console-rail-groups">
+          {config.groups.map((group, gi) => {
+            const items = group.items.filter(item => isConsoleItemVisible(item, auth))
+            if (items.length === 0) return null
+            return (
+              <div key={group.titleKey || gi} className="console-group">
+                {group.titleKey && <div className="console-group-title">{t(group.titleKey)}</div>}
+                {items.map(item => (
+                  <RailItem key={item.path || item.href} item={item} label={t(item.labelKey)} />
+                ))}
+              </div>
+            )
+          })}
+        </div>
       </nav>
       <div className="console-body" key={location.pathname}>
         {/* Own Suspense so a lazy page shows the loader in the body while the

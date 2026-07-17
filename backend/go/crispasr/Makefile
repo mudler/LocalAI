@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # CrispASR version (release tag)
 CRISPASR_REPO?=https://github.com/CrispStrobe/CrispASR
-CRISPASR_VERSION?=9a26976a8c8cf5af0afcdd04463cf8ba91e96a54
+CRISPASR_VERSION?=a38cb89f7b9a743db2e8e50869fa646f91dc7f08
 SO_TARGET?=libgocrispasr.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -62,12 +62,17 @@ sources/CrispASR:
 	git checkout $(CRISPASR_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 	# CrispASR's src/CMakeLists.txt locates its vendored llama.cpp
-	# (crispasr-llama-core, used by the chat C-ABI) via ${CMAKE_SOURCE_DIR},
-	# which assumes CrispASR is the top-level CMake project. We add_subdirectory
-	# it, so ${CMAKE_SOURCE_DIR} is THIS backend dir and the talk-llama sources
-	# aren't found. Rewrite to ${PROJECT_SOURCE_DIR} (the crispasr project root),
-	# which is correct both standalone and as a subproject. Idempotent.
-	sed -i.bak 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
+	# (crispasr-llama-core, used by the chat C-ABI) and the c2pa-audio
+	# submodule (crispasr_c2pa_native, the pure-C++ C2PA signer) via
+	# ${CMAKE_SOURCE_DIR}, which assumes CrispASR is the top-level CMake
+	# project. We add_subdirectory it, so ${CMAKE_SOURCE_DIR} is THIS backend
+	# dir and those sources aren't found. Rewrite to ${PROJECT_SOURCE_DIR}
+	# (the crispasr project root), which is correct both standalone and as a
+	# subproject. Idempotent.
+	sed -i.bak \
+		-e 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' \
+		-e 's#\$${CMAKE_SOURCE_DIR}/third_party/c2pa-audio#\$${PROJECT_SOURCE_DIR}/third_party/c2pa-audio#' \
+		sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
 
 # Detect OS
 UNAME_S := $(shell uname -s)

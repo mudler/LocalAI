@@ -41,6 +41,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 # sglang imports. Engine is the stable public entry point; parser modules
 # are wrapped in try/except so older / leaner installs that omit them
@@ -172,8 +173,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
+
+    def Status(self, request, context):
+        # Minimal shim: LocalAI polls /backend.Backend/Status on registered
+        # backends; without this method the default NotImplementedError from
+        # backend_pb2_grpc bubbles up as HTTP 500 on /backend/monitor and blocks
+        # inference requests to a healthy loaded model. Returning READY
+        # unconditionally mirrors the existing Health method's behavior.
+        return backend_pb2.StatusResponse(state=backend_pb2.StatusResponse.State.READY)
     async def LoadModel(self, request, context):
-        engine_kwargs = {"model_path": request.Model}
+        model_ref, local_only = resolve_model_reference(request)
+        engine_kwargs = {"model_path": model_ref}
 
         if request.Quantization:
             engine_kwargs["quantization"] = request.Quantization
@@ -228,8 +238,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if HAS_TRANSFORMERS:
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(
-                    request.Model,
+                    model_ref,
                     trust_remote_code=bool(request.TrustRemoteCode),
+                    local_files_only=local_only,
                 )
             except Exception as err:
                 print(f"AutoTokenizer load failed (non-fatal): {err!r}", file=sys.stderr)

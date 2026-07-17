@@ -19,6 +19,7 @@ const (
 	routeModelImport     = "/models/import"
 	routeAliases         = "/api/aliases"
 	routeModelsReload    = "/models/reload"
+	routeBackendLoad     = "/backend/load"
 	routeBackends        = "/backends"
 	routeBackendsKnown   = "/backends/known"
 	routeBackendsApply   = "/backends/apply"
@@ -31,6 +32,7 @@ const (
 	routePIIEvents       = "/api/pii/events"
 	routeMiddleware      = "/api/middleware/status"
 	routeRouterDecisions = "/api/router/decisions"
+	routeVoiceProfiles   = "/api/voice-profiles"
 )
 
 func routeJobStatus(jobID string) string {
@@ -55,4 +57,12 @@ func routeToggleModelState(name, action string) string {
 
 func routeToggleModelPinned(name, action string) string {
 	return fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action))
+}
+
+func routeVoiceProfileDelete(id string) string {
+	return "/api/voice-profiles/" + url.PathEscape(id)
+}
+
+func routeNodeVRAMBudget(id string) string {
+	return "/api/nodes/" + url.PathEscape(id) + "/vram-budget"
 }

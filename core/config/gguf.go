@@ -27,10 +27,33 @@ func reservedNonChatModel(cfg *ModelConfig) bool {
 }
 
 func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
+	// Explicit opt-in: a negative context_size (canonically -1) means "use the
+	// model's full trained context (n_ctx_train) from GGUF metadata". Unlike the
+	// silent unset path below, this overrides an already-present value and warns
+	// when the resolved window will not fit detected VRAM.
+	if cfg.ContextSize != nil && *cfg.ContextSize < 0 {
+		if maxCtx := int(f.Architecture().MaximumContextLength); maxCtx > 0 {
+			cfg.ContextSize = &maxCtx
+			warnIfContextExceedsVRAM(f, maxCtx, f.Metadata().Name)
+		} else {
+			// No usable trained max in metadata: degrade to the safe default
+			// rather than leak a negative n_ctx downstream.
+			d := DefaultContextSize
+			cfg.ContextSize = &d
+			xlog.Warn("[gguf] context_size=-1 requested but GGUF exposes no trained max; using default",
+				"default", d, "model", f.Metadata().Name)
+		}
+	}
+
 	if defaultCtx == 0 && cfg.ContextSize == nil {
-		ctxSize := f.EstimateLLaMACppRun().ContextSize
-		if ctxSize > 0 {
-			cSize := int(ctxSize)
+		// trainedMax is the model's full trained context window (n_ctx_train).
+		// Defaulting a model to it unbounded is what OOMs long-context models at
+		// load: a 128k / 256k / 1M KV cache cannot fit a consumer GPU and the
+		// backend aborts (exitCode=-1). autoContextSize instead caps to a modest
+		// default and only steps below it when detected per-device VRAM demands.
+		trainedMax := int(f.EstimateLLaMACppRun().ContextSize)
+		if trainedMax > 0 {
+			cSize := autoContextSize(f, trainedMax)
 			cfg.ContextSize = &cSize
 		} else {
 			defaultCtx = DefaultContextSize
@@ -65,16 +88,6 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	// and when the user already configured a spec_type.
 	if n, ok := HasEmbeddedMTPHead(f); ok {
 		ApplyMTPDefaults(cfg, n)
-	}
-
-	// Sliding-window-attention models (Gemma 2/3, Cohere2, Llama 4, ...) ship
-	// with a reduced SWA KV cache by default, which cannot reuse a prompt
-	// prefix across requests and so defeats the cross-request prefix cache
-	// (cache_reuse) we enable in serving_defaults.go. Enable the full SWA cache
-	// for these models so the prefix survives; skipped for dense models and
-	// when the user already pinned an SWA cache option.
-	if w, ok := HasSlidingWindowAttention(f); ok {
-		ApplySWAFullDefault(cfg, w)
 	}
 
 	// Thinking support detection is done after model load via DetectThinkingSupportFromBackend
@@ -229,4 +242,36 @@ func applyDetectedThinkingConfig(cfg *ModelConfig, metadata *pb.ModelMetadataRes
 	}
 
 	xlog.Debug("[gguf] DetectThinkingSupportFromBackend: preserving explicit reasoning config", "supports_thinking", metadata.SupportsThinking, "disable_reasoning", *cfg.ReasoningConfig.DisableReasoning, "disable_reasoning_tag_prefill", *cfg.ReasoningConfig.DisableReasoningTagPrefill)
+}
+
+// warnIfContextExceedsVRAM logs a best-effort warning when running the model at
+// the given context would not fit detected VRAM. It never blocks load: any
+// detection or estimation gap (no GPU, unknown VRAM, estimate failure) silently
+// skips the warning. Used by the context_size=-1 auto-max path, where the raw
+// trained max can be far larger than a consumer card holds.
+func warnIfContextExceedsVRAM(f *gguf.GGUFFile, ctx int, name string) {
+	defer func() { _ = recover() }() // the run estimate can panic on unusual headers
+
+	if !xsysinfo.HasGPU("nvidia") && !xsysinfo.HasGPU("amd") {
+		return // no VRAM to compare against
+	}
+	vram, err := xsysinfo.TotalAvailableVRAM()
+	if err != nil || vram == 0 {
+		return
+	}
+
+	sum := f.EstimateLLaMACppRun(gguf.WithLLaMACppContextSize(int32(ctx))).Summarize(true, 0, 0)
+	if len(sum.Items) == 0 {
+		return
+	}
+	var used uint64
+	for _, v := range sum.Items[0].VRAMs {
+		used += uint64(v.NonUMA)
+	}
+	if used == 0 || used <= vram {
+		return
+	}
+	xlog.Warn("[gguf] context_size=-1 resolved to the model's trained max; estimated VRAM may exceed available - expect OOM, or set an explicit context_size",
+		"model", name, "context", ctx,
+		"estimated_vram_gib", used>>30, "available_vram_gib", vram>>30)
 }
