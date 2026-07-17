@@ -83,6 +83,27 @@ func classifierConfigFromPipeline(p *config.PipelineClassifier) (*types.Classifi
 	return cc, nil
 }
 
+// prewarmClassifier primes the scoring prompt cache for the session's
+// current classifier config in the background: registration returns
+// immediately, and by the time the canned mode-switch reply finishes
+// speaking, the new option list's prompt (and, on hybrid/recurrent
+// models, a rewind checkpoint at the per-turn probe boundary) is already
+// in the backend's cache. The context is deliberately detached from the
+// registering request — the warmed cache belongs to the backend, not the
+// request.
+func prewarmClassifier(session *Session) {
+	cc := session.Classifier
+	if session.ModelInterface == nil || !cc.Active() {
+		return
+	}
+	options, normalization := cc.Options, cc.Normalization
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		session.ModelInterface.PrewarmClassifier(ctx, options, normalization)
+	}()
+}
+
 // resolveClassifier merges the session classifier config with a
 // response-level override: a non-nil override replaces the whole block
 // (same replace-not-merge semantics as tools), so {"enabled": false} runs

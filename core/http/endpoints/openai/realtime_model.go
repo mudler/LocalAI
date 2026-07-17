@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
@@ -57,6 +58,9 @@ type wrappedModel struct {
 	classifier     *router.ScoreClassifier
 	classifierKey  string
 	classifierWarn sync.Once
+	// prewarmKey remembers the option set whose scoring prompt was last
+	// prewarmed, so re-pushing an unchanged config doesn't re-score.
+	prewarmKey string
 
 	// Routing — populated by newModel when the application wires routing
 	// deps in. nil-safe: with classifierRegistry == nil the per-turn
@@ -112,6 +116,9 @@ func (m *transcriptOnlyModel) ClassifyTurn(ctx context.Context, messages schema.
 
 func (m *transcriptOnlyModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error) {
 	return "", nil, fmt.Errorf("classifier mode not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string) {
 }
 
 func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
@@ -486,6 +493,44 @@ func (m *wrappedModel) classifierFor(options []types.ClassifierOption, normaliza
 	m.classifier = router.NewScoreClassifier(policies, scorer, opts)
 	m.classifierKey = key.String()
 	return m.classifier, nil
+}
+
+// PrewarmClassifier primes the scoring backend's prompt cache for a newly
+// registered option list so the first real turns don't pay the prefill.
+// Two throwaway scores with distinct probes run back to back: the first
+// prefills the new option-list prompt, and the second — diverging exactly
+// where the per-turn probe text starts — leaves the backend a rewind point
+// (a KV checkpoint on hybrid/recurrent models, which cannot rewind
+// arbitrarily) at the stable-prefix boundary every subsequent turn reuses.
+// Best-effort: errors are logged, never surfaced.
+func (m *wrappedModel) PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string) {
+	classifier, err := m.classifierFor(options, normalization)
+	if err != nil {
+		xlog.Debug("realtime classifier: prewarm skipped", "error", err)
+		return
+	}
+	m.classifierMu.Lock()
+	key := m.classifierKey
+	done := m.prewarmKey == key
+	m.classifierMu.Unlock()
+	if done {
+		return
+	}
+	start := time.Now()
+	for _, probe := range []string{"warmup", "standing by"} {
+		if ctx.Err() != nil {
+			return
+		}
+		if _, err := classifier.Classify(ctx, router.Probe{Prompt: probe, Messages: []string{probe}}); err != nil {
+			xlog.Warn("realtime classifier: prewarm scoring failed", "error", err)
+			return
+		}
+	}
+	m.classifierMu.Lock()
+	m.prewarmKey = key
+	m.classifierMu.Unlock()
+	xlog.Debug("realtime classifier: prewarmed scoring prompt cache",
+		"options", len(options), "latency_ms", time.Since(start).Milliseconds())
 }
 
 func (m *wrappedModel) ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error) {
