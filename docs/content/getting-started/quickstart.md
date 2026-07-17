@@ -32,14 +32,14 @@ This guide assumes you have already [installed LocalAI](/installation/). If you 
 Once installed, start LocalAI. For Docker installations:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-cpu
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
 For GPU acceleration, choose the image that matches your hardware:
 
 | Hardware | Docker image |
 |----------|-------------|
-| CPU only | `localai/localai:latest-cpu` |
+| CPU only | `localai/localai:latest` |
 | NVIDIA CUDA | `localai/localai:latest-gpu-nvidia-cuda-12` |
 | AMD (ROCm) | `localai/localai:latest-gpu-hipblas` |
 | Intel GPU | `localai/localai:latest-gpu-intel` |

@@ -52,7 +52,7 @@ LocalAI can be installed in several ways. **Docker is the recommended installati
 The quickest way to get started with LocalAI is using Docker:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-cpu
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
 Then open **http://localhost:8080** to access the web interface, install models, and start chatting.
