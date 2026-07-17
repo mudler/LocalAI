@@ -1,3 +1,3 @@
 --index-url https://download.pytorch.org/whl/cu126
-torch==2.12.1
+torch==2.12.1+cu130
 torchvision==0.27.1
