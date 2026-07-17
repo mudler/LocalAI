@@ -511,7 +511,7 @@
     2.  Load target.
     3.  Load settings → Speculative Decoding → select mtp file file.
 
-    (Requires LM Studio with am17an's PR merged or custom llama.cpp runtime. As of 2026-05, mainline LM Studio runtime doesn't yet have `draft-mtp` for Gemma-4 — track upstream merge.)
+    (Requires a llama.cpp runtime with Gemma 4 MTP support from ggml-org/llama.cpp#23398. LocalAI's pinned llama.cpp backend already carries it, so this entry runs draft-mtp out of the box.)
 
     ## GGUF / local inference notes
 
@@ -523,6 +523,7 @@
   icon: https://storage.ko-fi.com/cdn/kofi6.png
   overrides:
     backend: llama-cpp
+    draft_model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -531,11 +532,17 @@
       - chat
     options:
       - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-      model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
+      model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
   files:
+    - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M.gguf
+      sha256: bd15b283c2b564cb59a35b1d52ecb00fa33183aeac645a9cb41a82c86e656556
+      uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M.gguf
     - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
       sha256: 217dc0ed177ecc733f801a851c3e3854cf1b17a1f86cd5430c0a7f82d93027bc
       uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M-mtp.gguf
@@ -1910,172 +1917,226 @@
     - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
       sha256: 8e239c9c592541c9f537fff75677ea30d8af1e14ba63d27cf245423b7d0a688b
       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B-it-mmproj.gguf
-# Temporarily disabled: Gemma 4 QAT MTP assistant-head entries are hidden
-# until the assistant GGUFs are verified against the stock llama.cpp backend.
-# - name: "gemma-4-12b-it-qat-mtp"
-#   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-#   urls:
-#     - https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf
-#     - https://huggingface.co/Janvitos/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF
-#   description: |
-#     Gemma 4 12B IT QAT (Google DeepMind) paired with the official QAT assistant/drafter head for Multi-Token Prediction (MTP) speculative decoding. The Q4_0 target carries the full multimodal (text + image) model, while the Q8_0 assistant GGUF (from Janvitos, converted from Google's `gemma-4-12B-it-qat-q4_0-unquantized-assistant` checkpoint) acts as the draft model. With llama.cpp's `draft-mtp` speculative path enabled, this combination accelerates generation while keeping the target model's quality. The assistant head is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
-#
-#     License: Apache 2.0 | Authors: Google DeepMind (target/assistant checkpoints), Janvitos (GGUF conversion)
-#   license: "apache-2.0"
-#   tags:
-#     - llm
-#     - gguf
-#     - qat
-#     - multimodal
-#     - mtp
-#   icon: https://ai.google.dev/gemma/images/gemma4_banner.png
-#   overrides:
-#     backend: llama-cpp
-#     function:
-#       automatic_tool_parsing_fallback: true
-#       grammar:
-#         disable: true
-#     known_usecases:
-#       - chat
-#     mmproj: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
-#     draft_model: llama-cpp/models/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF/gemma-4-12B-it-qat-assistant-MTP-Q8_0.gguf
-#     options:
-#       - use_jinja:true
-#       - spec_type:draft-mtp
-#       - spec_n_max:6
-#       - spec_p_min:0.75
-#     parameters:
-#       min_p: 0
-#       model: llama-cpp/models/gemma-4-12B-it-qat-q4_0-gguf/gemma-4-12b-it-qat-q4_0.gguf
-#       repeat_penalty: 1
-#       temperature: 1
-#       top_k: 64
-#       top_p: 0.95
-#     template:
-#       use_tokenizer_template: true
-#   files:
-#     - filename: llama-cpp/models/gemma-4-12B-it-qat-q4_0-gguf/gemma-4-12b-it-qat-q4_0.gguf
-#       sha256: faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1
-#       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf
-#     - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
-#       sha256: e70b0e5cd80323d5d588b4ed06780356b7b1ba03995a4b8164c6ae9db0ff5989
-#       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/mmproj-gemma-4-12b-it-qat-q4_0.gguf
-#     - filename: llama-cpp/models/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF/gemma-4-12B-it-qat-assistant-MTP-Q8_0.gguf
-#       sha256: 13331068b6af643c3dc75e619373b674c1f75a1958e7c82e2020d96a17c63809
-#       uri: https://huggingface.co/Janvitos/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF/resolve/main/gemma-4-12B-it-qat-assistant-MTP-Q8_0.gguf
-# Temporarily disabled: these Gemma 4 MTP assistant-head GGUFs currently fail
-# to load in stock llama.cpp with unknown architecture `gemma4_assistant`.
-# Re-enable after the published GGUFs use the upstream `gemma4-assistant`
-# architecture spelling or the backend carries a vetted compatibility fix.
-# - name: "gemma-4-26b-a4b-it-qat-mtp"
-#   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-#   urls:
-#     - https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf
-#     - https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads
-#   description: |
-#     Gemma 4 26B-A4B IT QAT (Google DeepMind), a multimodal Mixture-of-Experts model (26B total, ~4B active per token), paired with the QAT-matched MTP assistant/drafter head for Multi-Token Prediction speculative decoding. The Q4_0 target carries the full multimodal (text + image) model, while the Q8_0 assistant GGUF (from boxwrench, converted from Google's `gemma-4-26B-A4B-it-qat-q4_0-unquantized-assistant` checkpoint) acts as the draft model. Using a QAT-matched head instead of a generic non-QAT head raised draft acceptance from ~57% to ~92% on this model. The assistant head is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
-#
-#     > [!Note]
-#     > The assistant head uses the early `gemma4_assistant` architecture spelling; LocalAI patches the llama.cpp backend to accept it as the upstream `gemma4-assistant` architecture. Until the upstream `n_tokens` reshape fix lands, run with a single parallel slot.
-#
-#     License: Apache 2.0 | Authors: Google DeepMind (target/assistant checkpoints), boxwrench (GGUF conversion)
-#   license: "apache-2.0"
-#   tags:
-#     - llm
-#     - gguf
-#     - qat
-#     - multimodal
-#     - moe
-#     - mtp
-#   icon: https://ai.google.dev/gemma/images/gemma4_banner.png
-#   overrides:
-#     backend: llama-cpp
-#     function:
-#       automatic_tool_parsing_fallback: true
-#       grammar:
-#         disable: true
-#     known_usecases:
-#       - chat
-#     mmproj: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B-it-mmproj.gguf
-#     draft_model: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-26B-A4B-it-qat-assistant-MTP-Q8_0.gguf
-#     options:
-#       - use_jinja:true
-#       - spec_type:draft-mtp
-#       - spec_n_max:6
-#       - spec_p_min:0.75
-#     parameters:
-#       min_p: 0
-#       model: llama-cpp/models/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B_q4_0-it.gguf
-#       repeat_penalty: 1
-#       temperature: 1
-#       top_k: 64
-#       top_p: 0.95
-#     template:
-#       use_tokenizer_template: true
-#   files:
-#     - filename: llama-cpp/models/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B_q4_0-it.gguf
-#       sha256: 4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5
-#       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B_q4_0-it.gguf
-#     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B-it-mmproj.gguf
-#       sha256: d8e2de16e17515d9061b23c9a002715f996f9e0c87b93a9354264611bfab9239
-#       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B-it-mmproj.gguf
-#     - filename: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-26B-A4B-it-qat-assistant-MTP-Q8_0.gguf
-#       sha256: 86f156403d9148aeffa765411f1373d1a2f9c840d62f5e088701153a35ecff73
-#       uri: https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads/resolve/main/gemma-4-26B-A4B-it-qat-assistant-MTP-Q8_0.gguf
-# - name: "gemma-4-31b-it-qat-mtp"
-#   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-#   urls:
-#     - https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf
-#     - https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads
-#   description: |
-#     Gemma 4 31B IT QAT (Google DeepMind), the largest dense multimodal model in the family, paired with the QAT-matched MTP assistant/drafter head for Multi-Token Prediction speculative decoding. The Q4_0 target carries the full multimodal (text + image) model, while the Q8_0 assistant GGUF (from boxwrench, converted from Google's `gemma-4-31B-it-qat-q4_0-unquantized-assistant` checkpoint) acts as the draft model. Using a QAT-matched head instead of a generic non-QAT head substantially raises draft acceptance and end-to-end throughput. The assistant head is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
-#
-#     > [!Note]
-#     > The assistant head uses the early `gemma4_assistant` architecture spelling; LocalAI patches the llama.cpp backend to accept it as the upstream `gemma4-assistant` architecture. Until the upstream `n_tokens` reshape fix lands, run with a single parallel slot.
-#
-#     License: Apache 2.0 | Authors: Google DeepMind (target/assistant checkpoints), boxwrench (GGUF conversion)
-#   license: "apache-2.0"
-#   tags:
-#     - llm
-#     - gguf
-#     - qat
-#     - multimodal
-#     - mtp
-#   icon: https://ai.google.dev/gemma/images/gemma4_banner.png
-#   overrides:
-#     backend: llama-cpp
-#     function:
-#       automatic_tool_parsing_fallback: true
-#       grammar:
-#         disable: true
-#     known_usecases:
-#       - chat
-#     mmproj: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
-#     draft_model: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-31B-it-qat-assistant-MTP-Q8_0.gguf
-#     options:
-#       - use_jinja:true
-#       - spec_type:draft-mtp
-#       - spec_n_max:6
-#       - spec_p_min:0.75
-#     parameters:
-#       min_p: 0
-#       model: llama-cpp/models/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B_q4_0-it.gguf
-#       repeat_penalty: 1
-#       temperature: 1
-#       top_k: 64
-#       top_p: 0.95
-#     template:
-#       use_tokenizer_template: true
-#   files:
-#     - filename: llama-cpp/models/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B_q4_0-it.gguf
-#       sha256: 0374ce7b0124db9ba96fc649e835c531223ee224a497ce88a374baaea10932ec
-#       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B_q4_0-it.gguf
-#     - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
-#       sha256: 8e239c9c592541c9f537fff75677ea30d8af1e14ba63d27cf245423b7d0a688b
-#       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B-it-mmproj.gguf
-#     - filename: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-31B-it-qat-assistant-MTP-Q8_0.gguf
-#       sha256: 7a7cdd65a93536f3bf324e97ddf60cc8d482510eaa0837873aef0fd7e0b493a5
-#       uri: https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads/resolve/main/gemma-4-31B-it-qat-assistant-MTP-Q8_0.gguf
+- name: "gemma-4-e2b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it
+    - https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 E2B IT QAT (Google DeepMind) paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-E2B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. E2B is a MatFormer "effective 2B" elastic variant, well suited to lightweight and on-device deployments.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/mtp-gemma-4-E2B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-E2B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+      sha256: cd4526493dccbfd6791bee8822e37e30340074d1d4d9aada52ce09afefd6a33a
+      uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+    - filename: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/mtp-gemma-4-E2B-it.gguf
+      sha256: 8702bf70ab5604dcc818f26ea144fd4237c9908c15992d5b34746c65039dc65d
+      uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/mtp-gemma-4-E2B-it.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: 38b33846f56426cd650e0e574d78de125abdfcedf35c0d7f6929f6ffe26efe02
+      uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+- name: "gemma-4-e4b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 E4B IT QAT (Google DeepMind) paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-E4B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. E4B is a MatFormer "effective 4B" elastic variant, balancing quality and footprint for on-device and edge deployments.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/mtp-gemma-4-E4B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-E4B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+      sha256: b3052f962d6449b4eb2075733c068bdec1c51eadb7b237e6c3157bfbb7b1dae0
+      uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+    - filename: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/mtp-gemma-4-E4B-it.gguf
+      sha256: b0005dc39d47ede950c3ec413cb20e832f15b216126eae368d9f572676153cb6
+      uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/mtp-gemma-4-E4B-it.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: 7c9bafa27f82d658eda805c1d82ef62bb0368e1ff75f64f77de58ad318beaaf9
+      uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+- name: "gemma-4-12b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-12B-it
+    - https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 12B IT QAT (Google DeepMind) paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-12B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. As a dense model, Gemma 4 12B is among the sizes that benefit most from MTP, with the llama.cpp PR reporting well over 1.4x decode speedup.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-12B-it-qat-GGUF/mtp-gemma-4-12B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-12B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-12B-it-qat-GGUF/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12B-it-qat-GGUF/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      sha256: cc9ff072e0a8203429ed854e6662c17a6c2bc1e5dca5b475dd4736caaacbc165
+      uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+    - filename: llama-cpp/models/gemma-4-12B-it-qat-GGUF/mtp-gemma-4-12B-it.gguf
+      sha256: c50c91c35f04903815b2e8930cbb8c8c5bee0e1aa00748c30a7b8ff05d2310b4
+      uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/mtp-gemma-4-12B-it.gguf
+    - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: dcb8103adad042b1bf99df767aaf34eb37c5a73a4a2f0417e4d7ba557e91664f
+      uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+- name: "gemma-4-31b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-31B-it
+    - https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 31B IT QAT (Google DeepMind), the largest dense model in the family, paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-31B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. Dense models like 31B are the sizes that benefit most from MTP.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-31B-it-qat-GGUF/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+      sha256: 9188a71055550f1e60b875d02b7abb63625ac11b4a6f148d6b22b3b28ba3d335
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+    - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
+      sha256: b5c4e583fc5982439080114bbc1b7edaec361f9d4c9193d6bed606a3de401b62
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mtp-gemma-4-31B-it.gguf
+    - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: 4775e1bf6ef6f8df94caed2d672c74432f0722565e5225a170c72949ebe4cf23
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
 - name: "step-3.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
