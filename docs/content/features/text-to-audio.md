@@ -4,6 +4,7 @@ disableToc = false
 title = "Text to Audio (TTS)"
 weight = 11
 url = "/features/text-to-audio/"
+aliases = ["/features/sound-generation/"]
 +++
 
 ## API Compatibility
@@ -265,6 +266,40 @@ curl http://localhost:8080/v1/sound-generation -H "Content-Type: application/jso
   "duration_seconds": 225
 }' --output music.flac
 ```
+
+#### Music and sound generation API (`/v1/sound-generation`)
+
+The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound generation API](https://elevenlabs.io/docs/api-reference/sound-generation) and can produce music, sound effects, and other audio content. It responds with a binary audio file and the appropriate `Content-Type` header (for example `audio/wav`, `audio/mpeg`, `audio/flac`, or `audio/ogg`). The request body is JSON and supports two usage modes.
+
+**Simple mode:**
+
+| Parameter        | Type     | Required | Description                                  |
+|------------------|----------|----------|----------------------------------------------|
+| `model_id`       | `string` | Yes      | Model identifier (for example `ace-step-turbo`) |
+| `text`           | `string` | Yes      | Audio description or prompt                  |
+| `instrumental`   | `bool`   | No       | Generate instrumental audio (no vocals)      |
+| `vocal_language` | `string` | No       | Language code for vocals (for example `bn`, `ja`) |
+
+**Advanced mode:**
+
+| Parameter           | Type     | Required | Description                                     |
+|---------------------|----------|----------|-------------------------------------------------|
+| `model_id`          | `string` | Yes      | Model identifier (for example `ace-step-turbo`) |
+| `text`              | `string` | Yes      | Text prompt or description                      |
+| `duration_seconds`  | `float`  | No       | Target duration in seconds                      |
+| `prompt_influence`  | `float`  | No       | Temperature / prompt influence parameter        |
+| `do_sample`         | `bool`   | No       | Enable sampling                                 |
+| `think`             | `bool`   | No       | Enable extended thinking for generation         |
+| `caption`           | `string` | No       | Caption describing the audio                    |
+| `lyrics`            | `string` | No       | Lyrics for the generated audio                  |
+| `bpm`               | `int`    | No       | Beats per minute                                |
+| `keyscale`          | `string` | No       | Musical key/scale (for example `Ab major`)      |
+| `language`          | `string` | No       | Language code                                   |
+| `vocal_language`    | `string` | No       | Vocal language (fallback if `language` is empty) |
+| `timesignature`     | `string` | No       | Time signature (for example `4`)                |
+| `instrumental`      | `bool`   | No       | Generate instrumental audio (no vocals)         |
+
+Error responses: `400` for a missing or invalid model or request parameters, and `500` for a backend error during sound generation.
 
 #### Configuration
 
