@@ -3,6 +3,7 @@ disableToc = false
 title = "Fine-Tuning"
 weight = 18
 url = '/features/fine-tuning/'
+aliases = ['/advanced/fine-tuning/']
 +++
 
 ![The fine-tune job lifecycle: create, train with SSE progress, then export to LoRA, merged, or GGUF](/images/diagrams/finetune-job-lifecycle.png)
