@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # qwentts.cpp version
 QWEN3TTS_REPO?=https://github.com/ServeurpersoCom/qwentts.cpp
-QWEN3TTS_CPP_VERSION?=9e11ce41b90a2238ca1ec09e0c71fcc913544f2a
+QWEN3TTS_CPP_VERSION?=95b4840ad3722b0b67acb945cd57682aae1ac9ca
 SO_TARGET?=libgoqwen3ttscpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
