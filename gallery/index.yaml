@@ -54,47 +54,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/AngelSlim/Hy3-GGUF
-  description: |
-    中文&nbsp;｜&nbsp;English
-
-    [](#license)
-    &nbsp;&nbsp;
-    [](https://huggingface.co/tencent/Hy3)
-    &nbsp;&nbsp;
-    [](https://modelscope.cn/models/Tencent-Hunyuan/Hy3)
-    &nbsp;&nbsp;
-    [](https://cnb.cool/ai-models/tencent/Hy3)
-    &nbsp;&nbsp;
-    [](https://ai.gitcode.com/tencent_hunyuan/Hy3)
-
-    🖥️&nbsp;Official Website&nbsp;&nbsp;|&nbsp;&nbsp;
-    💬&nbsp;GitHub
-
-    ## Table of Contents
-
-      - Model Introduction
-      - Stronger Agent Capabilities
-      - More Reliable Product Experiences
-      - Benchmark Appendix
-      - News
-      - Model Links
-      - Quickstart
-      - Deployment
-      - vLLM
-      - SGLang
-      - Finetuning
-      - RL Post-training
-      - Quantization
-      - License
-      - Contact Us
-
-    ## Model Introduction
-
-    **Hy3** is a 295B-parameter Mixture-of-Experts (MoE) model with 21B active parameters and 3.8B MTP layer parameters, developed by the Tencent Hy Team. Following the Hy3 Preview launch in late April, we gathered feedback from 50+ products and scaled up post-training with higher quality data. Today, we introduce Hy3, which outperforms similar-size models and rivals flagship open-source models with 2-5x parameters. It also shows significant gains in utility across various products and productivity tasks.
-
-    ## Stronger Agent Capabilities
-
-    ...
+  description: "中文&nbsp;｜&nbsp;English\n\n[](#license)\n&nbsp;&nbsp;\n[](https://huggingface.co/tencent/Hy3)\n&nbsp;&nbsp;\n[](https://modelscope.cn/models/Tencent-Hunyuan/Hy3)\n&nbsp;&nbsp;\n[](https://cnb.cool/ai-models/tencent/Hy3)\n&nbsp;&nbsp;\n[](https://ai.gitcode.com/tencent_hunyuan/Hy3)\n\n\U0001F5A5️&nbsp;Official Website&nbsp;&nbsp;|&nbsp;&nbsp;\n\U0001F4AC&nbsp;GitHub\n\n## Table of Contents\n\n  - Model Introduction\n  - Stronger Agent Capabilities\n  - More Reliable Product Experiences\n  - Benchmark Appendix\n  - News\n  - Model Links\n  - Quickstart\n  - Deployment\n  - vLLM\n  - SGLang\n  - Finetuning\n  - RL Post-training\n  - Quantization\n  - License\n  - Contact Us\n\n## Model Introduction\n\n**Hy3** is a 295B-parameter Mixture-of-Experts (MoE) model with 21B active parameters and 3.8B MTP layer parameters, developed by the Tencent Hy Team. Following the Hy3 Preview launch in late April, we gathered feedback from 50+ products and scaled up post-training with higher quality data. Today, we introduce Hy3, which outperforms similar-size models and rivals flagship open-source models with 2-5x parameters. It also shows significant gains in utility across various products and productivity tasks.\n\n## Stronger Agent Capabilities\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -118,8 +78,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Hy3-Q4_K_M-mtp/Hy3-Q4_K_M-mtp.gguf
-      sha256: 2524ee6cf689731ec924f0edabed0f57b634488fafe855c6bb3c2c2f86c08ae5
       uri: https://huggingface.co/AngelSlim/Hy3-GGUF/resolve/main/Hy3-Q4_K_M-mtp.gguf
+      sha256: 95adea74e07533bef7c94b4baabb0c5028cc1000de0e39f0a085aea22e06cd5e
 - &bonsai-8b
   name: "bonsai-8b-1bit"
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
@@ -436,7 +396,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: a3346922a3e65c90ebf8713c26c9612433f31b76bc780656a176ecce940db59a
+      sha256: a748f0fe92c0a4e9597a8ec551960992d8f502924a7b6326f7fff12794b15449
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1811,8 +1771,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-qat-GGUF/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
-      sha256: dcf179a91153e3a7ece792e48ef872180d9d6ef9b7677f0a0bd3e83cfe624d5e
       uri: https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
+      sha256: a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891
     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-GGUF/mmproj-F32.gguf
       sha256: ef269e294502d6ee3722cbf129681b2586c2e6ceb79d0507963c92146e058cd4
       uri: https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/mmproj-F32.gguf
@@ -2085,11 +2045,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
-      sha256: cd4526493dccbfd6791bee8822e37e30340074d1d4d9aada52ce09afefd6a33a
       uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+      sha256: e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889
     - filename: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/mtp-gemma-4-E2B-it.gguf
-      sha256: 8702bf70ab5604dcc818f26ea144fd4237c9908c15992d5b34746c65039dc65d
       uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/mtp-gemma-4-E2B-it.gguf
+      sha256: 586f2460b909008640981ec34060aa864e03c144fbabfb3173c4335087e4aae0
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-GGUF/mmproj-BF16.gguf
       sha256: 38b33846f56426cd650e0e574d78de125abdfcedf35c0d7f6929f6ffe26efe02
       uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
@@ -2140,11 +2100,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
-      sha256: b3052f962d6449b4eb2075733c068bdec1c51eadb7b237e6c3157bfbb7b1dae0
       uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+      sha256: df0fd4ee07072c607c29a0a1cb4f98918426cca12f45a2776bdd6ee6d09a4de3
     - filename: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/mtp-gemma-4-E4B-it.gguf
-      sha256: b0005dc39d47ede950c3ec413cb20e832f15b216126eae368d9f572676153cb6
       uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/mtp-gemma-4-E4B-it.gguf
+      sha256: 423074e537504b4f9ec5eafed5c639fac82c96631626efccacdd3c4039b20605
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-GGUF/mmproj-BF16.gguf
       sha256: 7c9bafa27f82d658eda805c1d82ef62bb0368e1ff75f64f77de58ad318beaaf9
       uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
@@ -2195,11 +2155,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-12B-it-qat-GGUF/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
-      sha256: cc9ff072e0a8203429ed854e6662c17a6c2bc1e5dca5b475dd4736caaacbc165
       uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      sha256: 90fd44e29e0d7cffeb0fd00dc73cfdab9ed0b0e95306ecf7821ea634c940c370
     - filename: llama-cpp/models/gemma-4-12B-it-qat-GGUF/mtp-gemma-4-12B-it.gguf
-      sha256: c50c91c35f04903815b2e8930cbb8c8c5bee0e1aa00748c30a7b8ff05d2310b4
       uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/mtp-gemma-4-12B-it.gguf
+      sha256: fcb35dea42c71333db904cee11baac525c9ef872818ee3753f6cb156f3c6f4f6
     - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-GGUF/mmproj-BF16.gguf
       sha256: dcb8103adad042b1bf99df767aaf34eb37c5a73a4a2f0417e4d7ba557e91664f
       uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
@@ -2250,14 +2210,14 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
-      sha256: 9188a71055550f1e60b875d02b7abb63625ac11b4a6f148d6b22b3b28ba3d335
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+      sha256: 00b5a7c497f0c8934033088c10a7fa9a4c015e46ee6d89e9c6890650ba5d0e71
     - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
-      sha256: b5c4e583fc5982439080114bbc1b7edaec361f9d4c9193d6bed606a3de401b62
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mtp-gemma-4-31B-it.gguf
+      sha256: 3a5e99fd8d0b23afb1fccd1ee0c9ebd1f571d00399c2dae2292d217feeec0f6b
     - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-BF16.gguf
-      sha256: 4775e1bf6ef6f8df94caed2d672c74432f0722565e5225a170c72949ebe4cf23
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+      sha256: d904b3579a9fbfbd50bc9bf40cb7384909edbd69fa9276db5ddc853e80f0edca
 - name: "step-3.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -3718,8 +3678,8 @@
       use_tokenizer_template: true
   files:
     - filename: gemma-4-31B-it-Q4_K_M.gguf
-      sha256: 9fdf3dc8b0384830b4402d151388c140bd8eb2abf8d60588d8224231198254a1
       uri: huggingface://unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
+      sha256: 38bd64c852c4b460434cc7162fa9bdcf242faf86502581a754cb72956bb17f84
     - filename: mmproj-F16.gguf
       sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
