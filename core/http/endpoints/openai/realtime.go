@@ -280,6 +280,11 @@ type Model interface {
 	// pipeline's scoring model (classifier.model, defaulting to the LLM) —
 	// no autoregressive decode happens.
 	ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error)
+	// PrewarmClassifier primes the scoring backend's prompt cache for a
+	// newly registered option list (fired async on registration) so the
+	// first turns after a session.update don't pay the option-list
+	// prefill. Best-effort and idempotent per option set.
+	PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string)
 	// FillToolArguments completes the chosen option's argument slots with a
 	// short grammar-constrained completion that continues the exact scoring
 	// prompt (so the backend's prompt cache stays warm) and returns the
@@ -616,6 +621,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	session.ModelInterface = m
+	// A pipeline-seeded option list gets its scoring prompt prewarmed
+	// alongside the model warm-up below, so the session's first turn
+	// doesn't pay the option-list prefill.
+	prewarmClassifier(session)
 
 	// The voice gate is built before the warm-up below so its
 	// speaker-recognition model can warm alongside the pipeline stages.
@@ -1269,6 +1278,7 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			return err
 		}
 		session.Classifier = rt.LocalAIClassifier
+		prewarmClassifier(session)
 	}
 
 	if rt.MaxOutputTokens != 0 {
