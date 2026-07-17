@@ -12,12 +12,12 @@ Welcome to LocalAI! This section takes you from a fresh install to a working cha
 {{% notice tip %}}
 **Haven't installed LocalAI yet?**
 
-See the [Installation guide]({{% relref "installation" %}}) first. **Docker is the recommended installation method** for most users.
+See the [Installation guide]({{% relref "getting-started/install" %}}) first. **Docker is the recommended installation method** for most users.
 {{% /notice %}}
 
 ## The path
 
-1. **Install** LocalAI (see the [Installation guide]({{% relref "installation" %}})).
+1. **Install** LocalAI (see the [Installation guide]({{% relref "getting-started/install" %}})).
 2. **[Quickstart]({{% relref "getting-started/quickstart" %}})** - start LocalAI, install your first model, and get your first chat reply from both the web interface and the API.
 3. **[Install and run models]({{% relref "getting-started/models" %}})** - the different ways to install models (gallery, Hugging Face, OCI, local files) and run them.
 4. **[Try it out]({{% relref "getting-started/try-it-out" %}})** - copy-paste examples for every OpenAI-compatible endpoint (chat, vision, functions, audio, images, embeddings).

@@ -45,7 +45,7 @@ For GPU acceleration, choose the image that matches your hardware:
 | Intel GPU | `localai/localai:latest-gpu-intel` |
 | Vulkan | `localai/localai:latest-gpu-vulkan` |
 
-For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--device` flags. See [Container images]({{% relref "installation/containers" %}}) for the full reference.
+For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--device` flags. See [Container images]({{% relref "getting-started/containers" %}}) for the full reference.
 
 ### Using the Web Interface
 
@@ -86,7 +86,7 @@ local-ai models install <name> # Install a model
 **Automatic Backend Detection**: When you install models from the gallery or YAML files, LocalAI automatically detects your system's GPU capabilities (NVIDIA, AMD, Intel) and downloads the appropriate backend. For advanced configuration options, see [GPU Acceleration]({{% relref "features/gpu-acceleration#automatic-backend-detection" %}}).
  {{% /notice %}}
 
-For a full list of options, run LocalAI with `--help`, or see the [Linux Installation guide]({{% relref "installation/linux" %}}).
+For a full list of options, run LocalAI with `--help`, or see the [Linux Installation guide]({{% relref "getting-started/linux" %}}).
 
 ### Using the API
 
@@ -130,10 +130,10 @@ See the **Nodes** page in the web interface or the [Distributed inference docs](
 
 There is much more to explore! LocalAI supports video generation, voice cloning, embeddings, image understanding, and more. Check out:
 
-- [Container images reference]({{% relref "installation/containers" %}})
+- [Container images reference]({{% relref "getting-started/containers" %}})
 - [Try the API endpoints]({{% relref "getting-started/try-it-out" %}})
 - [All features]({{% relref "features" %}})
 - [Model gallery](https://models.localai.io)
 - [Run models manually]({{% relref "getting-started/models" %}})
-- [Build from source]({{% relref "installation/build" %}})
+- [Build from source]({{% relref "getting-started/build" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)
