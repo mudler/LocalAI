@@ -1157,6 +1157,20 @@
     nvidia-l4t: "nvidia-l4t-arm64-moss-tts-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-moss-tts-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-moss-tts-cpp"
+- !!merge <<: *mossttscpp
+  name: "moss-tts-cpp-development"
+  capabilities:
+    default: "cpu-moss-tts-cpp-development"
+    nvidia: "cuda12-moss-tts-cpp-development"
+    nvidia-cuda-13: "cuda13-moss-tts-cpp-development"
+    nvidia-cuda-12: "cuda12-moss-tts-cpp-development"
+    intel: "intel-sycl-f16-moss-tts-cpp-development"
+    metal: "metal-moss-tts-cpp-development"
+    amd: "rocm-moss-tts-cpp-development"
+    vulkan: "vulkan-moss-tts-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-moss-tts-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-moss-tts-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-moss-tts-cpp-development"
 - &omnivoicecpp
   name: "omnivoice-cpp"
   description: |
