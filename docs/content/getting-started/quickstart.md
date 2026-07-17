@@ -45,7 +45,7 @@ For GPU acceleration, choose the image that matches your hardware:
 | Intel GPU | `localai/localai:latest-gpu-intel` |
 | Vulkan | `localai/localai:latest-gpu-vulkan` |
 
-For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--device` flags. See [Container images]({{% relref "getting-started/container-images" %}}) for the full reference.
+For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--device` flags. See [Container images]({{% relref "installation/containers" %}}) for the full reference.
 
 ### Using the Web Interface
 
@@ -127,7 +127,7 @@ See the **Nodes** page in the web interface or the [Distribution docs]({{% relre
 
 There is much more to explore! LocalAI supports video generation, voice cloning, embeddings, image understanding, and more. Check out:
 
-- [Container images reference]({{% relref "getting-started/container-images" %}})
+- [Container images reference]({{% relref "installation/containers" %}})
 - [Try the API endpoints]({{% relref "getting-started/try-it-out" %}})
 - [All features]({{% relref "features" %}})
 - [Model gallery](https://models.localai.io)

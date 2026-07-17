@@ -57,7 +57,7 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 
 Then open **http://localhost:8080** to access the web interface, install models, and start chatting.
 
-For GPU support, see the [Container images reference]({{% relref "getting-started/container-images" %}}) or the [Quickstart guide]({{% relref "getting-started/quickstart" %}}).
+For GPU support, see the [Container images reference]({{% relref "installation/containers" %}}) or the [Quickstart guide]({{% relref "getting-started/quickstart" %}}).
 
 For complete installation instructions including Docker, macOS, Linux, Kubernetes, and building from source, see the [Installation guide](/installation/).
 

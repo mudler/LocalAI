@@ -219,7 +219,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 {{% notice tip %}}
 **Other Docker Images**:
 
-For other Docker images, please refer to the table in [the container images section]({{% relref "getting-started/container-images" %}}).
+For other Docker images, please refer to the table in [the container images section]({{% relref "installation/containers" %}}).
  {{% /notice %}}
 
 ### Example:
