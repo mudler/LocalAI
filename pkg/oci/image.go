@@ -618,11 +618,13 @@ func extractTarCopyingLinks(r io.Reader, targetDestination string) error {
 }
 
 // safeJoin joins name onto root and guarantees the result stays within root,
-// guarding against path-traversal entries in a malicious tar.
+// rejecting path-traversal entries in a malicious tar. An absolute name (e.g. an
+// absolute symlink target) is treated as image-root relative, so it is mapped
+// under root rather than escaping it.
 func safeJoin(root, name string) (string, error) {
-	cleaned := filepath.Join(root, filepath.Clean("/"+name))
+	cleaned := filepath.Join(root, name)
 	rel, err := filepath.Rel(root, cleaned)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
 		return "", fmt.Errorf("tar entry escapes extraction root: %s", name)
 	}
 	return cleaned, nil
