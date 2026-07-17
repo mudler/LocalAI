@@ -315,7 +315,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: bd9c933cc364d7e9e3538b4545af32c65f62535210fc19d3adf068a09f19b428
+      sha256: a3346922a3e65c90ebf8713c26c9612433f31b76bc780656a176ecce940db59a
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -3452,8 +3452,8 @@
       use_tokenizer_template: true
   files:
     - filename: gemma-4-E2B-it-Q8_0.gguf
-      sha256: e049411c01fb7a81161768c52e38828970e55a64e22738957adcbe51d20f1c8e
       uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q8_0.gguf
+      sha256: 996d08777aadc6bfd3c7375ef70ba25a0f55240075860754fdb18d6d860aa63a
     - filename: mmproj-gemma-4-E2B-it-bf16.gguf
       sha256: e42083b71a9e31e0f722171d551f6d92b101544001c4dde040306a8f2160fe8c
       uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/mmproj-gemma-4-E2B-it-bf16.gguf
