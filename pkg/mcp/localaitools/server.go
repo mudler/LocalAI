@@ -43,11 +43,13 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	})
 
 	registerModelTools(srv, client, opts)
+	registerAliasTools(srv, client, opts)
 	registerBackendTools(srv, client, opts)
 	registerConfigTools(srv, client, opts)
 	registerSystemTools(srv, client, opts)
 	registerStateTools(srv, client, opts)
 	registerBrandingTools(srv, client, opts)
+	registerVoiceProfileTools(srv, client, opts)
 	registerUsageTools(srv, client, opts)
 	registerPIITools(srv, client, opts)
 	registerMiddlewareTools(srv, client, opts)

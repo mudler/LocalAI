@@ -43,6 +43,10 @@
     "title": "Distributed Nodes",
     "subtitle": "Manage backend and agent worker nodes"
   },
+  "scheduling": {
+    "title": "Scheduling",
+    "subtitle": "Model placement and replica rules across the cluster"
+  },
   "p2p": {
     "title": "Distributed AI Computing",
     "subtitle": "Scale your AI workloads across multiple devices with peer-to-peer distribution"

@@ -2,14 +2,17 @@ import { useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_VIDEO } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import GenerationProgress from '../components/GenerationProgress'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
+import MediaInput from '../components/biometrics/MediaInput'
 import { videoApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 
-const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
+const SIZES = ['256x256', '512x512', '768x768', '1024x1024', '832x480', '1280x720']
 
 export default function VideoGen() {
   const { model: urlModel } = useParams()
@@ -29,9 +32,10 @@ export default function VideoGen() {
   const [error, setError] = useState(null)
   const [videos, setVideos] = useState([])
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [showImageInputs, setShowImageInputs] = useState(false)
+  const [showMediaInputs, setShowMediaInputs] = useState(false)
   const [startImage, setStartImage] = useState(null)
   const [endImage, setEndImage] = useState(null)
+  const [audioInput, setAudioInput] = useState(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('video')
 
   const handleGenerate = async (e) => {
@@ -53,6 +57,7 @@ export default function VideoGen() {
     if (cfgScale) body.cfg_scale = parseFloat(cfgScale)
     if (startImage) body.start_image = startImage
     if (endImage) body.end_image = endImage
+    if (audioInput?.base64) body.audio = audioInput.base64
 
     try {
       const data = await videoApi.generate(body)
@@ -81,9 +86,7 @@ export default function VideoGen() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-video" /> {t('video.title')}</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-video" /> {t('video.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -116,24 +119,46 @@ export default function VideoGen() {
             </div>
           </div>
 
-          <div className={`collapsible-header ${showAdvanced ? 'open' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
-            <i className="fas fa-chevron-right" /> {t('video.labels.advanced')}
-          </div>
+          <button
+            type="button"
+            className={`collapsible-header ${showAdvanced ? 'open' : ''}`}
+            aria-expanded={showAdvanced}
+            aria-controls="video-advanced-options"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <i className="fas fa-chevron-right" aria-hidden="true" /> {t('video.labels.advanced')}
+          </button>
           {showAdvanced && (
-            <div className="form-grid-3col">
+            <div id="video-advanced-options" className="form-grid-3col">
               <div className="form-group"><label className="form-label">{t('image.labels.steps')}</label><input className="input" type="number" value={steps} onChange={(e) => setSteps(e.target.value)} /></div>
               <div className="form-group"><label className="form-label">{t('video.labels.seed')}</label><input className="input" type="number" value={seed} onChange={(e) => setSeed(e.target.value)} /></div>
               <div className="form-group"><label className="form-label">CFG Scale</label><input className="input" type="number" step="0.1" value={cfgScale} onChange={(e) => setCfgScale(e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">{t('video.labels.frames')}</label><input className="input" type="number" min="1" value={frames} onChange={(e) => setFrames(e.target.value)} /></div>
             </div>
           )}
 
-          <div className={`collapsible-header ${showImageInputs ? 'open' : ''}`} onClick={() => setShowImageInputs(!showImageInputs)}>
-            <i className="fas fa-chevron-right" /> {t('image.labels.imageInputs')}
-          </div>
-          {showImageInputs && (
-            <div className="form-grid-2col">
-              <div className="form-group"><label className="form-label">Start Image</label><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setStartImage)} className="input" /></div>
-              <div className="form-group"><label className="form-label">End Image</label><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setEndImage)} className="input" /></div>
+          <button
+            type="button"
+            className={`collapsible-header ${showMediaInputs ? 'open' : ''}`}
+            aria-expanded={showMediaInputs}
+            aria-controls="video-reference-media"
+            onClick={() => setShowMediaInputs(!showMediaInputs)}
+          >
+            <i className="fas fa-chevron-right" aria-hidden="true" /> {t('video.labels.referenceMedia')}
+          </button>
+          {showMediaInputs && (
+            <div id="video-reference-media">
+              <div className="form-grid-2col">
+                <div className="form-group"><label className="form-label">{t('video.labels.startImage')}</label><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setStartImage)} className="input" /></div>
+                <div className="form-group"><label className="form-label">{t('video.labels.endImage')}</label><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setEndImage)} className="input" /></div>
+              </div>
+              <MediaInput
+                mode="audio"
+                label={t('video.labels.avatarAudio')}
+                value={audioInput}
+                onChange={setAudioInput}
+                idPrefix="video-avatar"
+              />
             </div>
           )}
 
@@ -147,7 +172,7 @@ export default function VideoGen() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress label={t('video.actions.generating')} />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
           ) : selectedEntry ? (

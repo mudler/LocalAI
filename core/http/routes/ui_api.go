@@ -37,25 +37,28 @@ const (
 	statusSortFieldName     = "status"
 	ascSortOrder            = "asc"
 	multimodalFilterKey     = "multimodal"
+	voiceCloningCapability  = "voice_cloning"
 )
 
 // usecaseFilters maps UI filter keys to ModelConfigUsecase flags for
 // capability-based gallery filtering.
 var usecaseFilters = map[string]config.ModelConfigUsecase{
-	config.UsecaseChat:            config.FLAG_CHAT,
-	config.UsecaseImage:           config.FLAG_IMAGE,
-	config.UsecaseVideo:           config.FLAG_VIDEO,
-	config.UsecaseVision:          config.FLAG_VISION,
-	config.UsecaseTTS:             config.FLAG_TTS,
-	config.UsecaseTranscript:      config.FLAG_TRANSCRIPT,
-	config.UsecaseSoundGeneration: config.FLAG_SOUND_GENERATION,
-	config.UsecaseEmbeddings:      config.FLAG_EMBEDDINGS,
-	config.UsecaseRerank:          config.FLAG_RERANK,
-	config.UsecaseDetection:       config.FLAG_DETECTION,
-	config.UsecaseVAD:             config.FLAG_VAD,
-	config.UsecaseAudioTransform:  config.FLAG_AUDIO_TRANSFORM,
-	config.UsecaseDiarization:     config.FLAG_DIARIZATION,
-	config.UsecaseRealtimeAudio:   config.FLAG_REALTIME_AUDIO,
+	config.UsecaseChat:                config.FLAG_CHAT,
+	config.UsecaseImage:               config.FLAG_IMAGE,
+	config.UsecaseVideo:               config.FLAG_VIDEO,
+	config.UsecaseVision:              config.FLAG_VISION,
+	config.UsecaseTTS:                 config.FLAG_TTS,
+	config.UsecaseTranscript:          config.FLAG_TRANSCRIPT,
+	config.UsecaseSoundGeneration:     config.FLAG_SOUND_GENERATION,
+	config.UsecaseEmbeddings:          config.FLAG_EMBEDDINGS,
+	config.UsecaseRerank:              config.FLAG_RERANK,
+	config.UsecaseDetection:           config.FLAG_DETECTION,
+	config.UsecaseVAD:                 config.FLAG_VAD,
+	config.UsecaseAudioTransform:      config.FLAG_AUDIO_TRANSFORM,
+	config.UsecaseDiarization:         config.FLAG_DIARIZATION,
+	config.UsecaseSoundClassification: config.FLAG_SOUND_CLASSIFICATION,
+	config.UsecaseRealtimeAudio:       config.FLAG_REALTIME_AUDIO,
+	config.UsecaseTokenClassify:       config.FLAG_TOKEN_CLASSIFY,
 }
 
 // extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
@@ -170,6 +173,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			isCancelled := false
 			isCancellable := false
 			message := ""
+			phase := ""
+			currentBytes := int64(0)
+			totalBytes := int64(0)
 
 			if status != nil {
 				// Skip successfully completed operations
@@ -186,6 +192,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				isCancelled = status.Cancelled
 				isCancellable = status.Cancellable
 				message = status.Message
+				phase = status.Phase
+				currentBytes = status.CurrentBytes
+				totalBytes = status.TotalBytes
 				if isDeletion {
 					taskType = "deletion"
 				}
@@ -253,6 +262,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// existed in the first place.
 			if scopedNodeID != "" {
 				opData["nodeID"] = scopedNodeID
+			}
+			if phase != "" {
+				opData["phase"] = phase
+			}
+			if currentBytes > 0 {
+				opData["currentBytes"] = currentBytes
+			}
+			if totalBytes > 0 {
+				opData["totalBytes"] = totalBytes
 			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
@@ -462,6 +480,27 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			models = filtered
 		}
 
+		// Capability filters are derived from the effective gallery model
+		// configuration. In particular, voice cloning is variant-sensitive, so
+		// filtering by the TTS usecase or backend name alone would advertise
+		// incompatible CustomVoice/VoiceDesign models.
+		capabilityFilter := strings.ToLower(strings.TrimSpace(c.QueryParam("capability")))
+		switch capabilityFilter {
+		case "":
+		case voiceCloningCapability:
+			filtered := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
+			for _, m := range models {
+				if m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath) != nil {
+					filtered = append(filtered, m)
+				}
+			}
+			models = filtered
+		default:
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": fmt.Sprintf("unsupported capability filter %q", capabilityFilter),
+			})
+		}
+
 		// Get model statuses
 		processingModelsData, taskTypes := opcache.GetStatus()
 
@@ -543,6 +582,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"trustRemoteCode": trustRemoteCodeExists,
 				"additionalFiles": m.AdditionalFiles,
 				"backend":         m.Backend,
+				"voice_cloning":   m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath),
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -595,11 +635,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
-			ID           string   `json:"id"`
-			Capabilities []string `json:"capabilities"`
-			Backend      string   `json:"backend"`
-			Disabled     bool     `json:"disabled"`
-			Pinned       bool     `json:"pinned"`
+			ID           string                         `json:"id"`
+			Capabilities []string                       `json:"capabilities"`
+			Backend      string                         `json:"backend"`
+			Disabled     bool                           `json:"disabled"`
+			Pinned       bool                           `json:"pinned"`
+			VoiceCloning *config.VoiceCloningCapability `json:"voice_cloning,omitempty"`
 			// LoadedOn is populated only when the node registry is active
 			// (distributed mode). Lets the UI show "loaded on worker-1" without
 			// the operator having to expand every node manually. An empty slice
@@ -647,6 +688,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				Backend:      cfg.Backend,
 				Disabled:     cfg.IsDisabled(),
 				Pinned:       cfg.IsPinned(),
+				VoiceCloning: config.VoiceCloningForModel(&cfg),
 				LoadedOn:     loadedByModel[cfg.Name],
 			})
 		}
@@ -882,7 +924,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
+		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
+			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),
@@ -920,7 +963,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// PATCH config endpoint - partial update using nested JSON merge
-	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, appConfig), adminMiddleware)
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
@@ -1241,6 +1284,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			// The React UI's "Reinstall backend" action reuses this route, so
+			// the op must force even when the backend is already installed.
+			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)

@@ -107,6 +107,29 @@ var _ = Describe("defaultMaxHistoryItems", func() {
 	})
 })
 
+var _ = Describe("resolveMaxHistoryItems", func() {
+	ptr := func(i int) *int { return &i }
+
+	It("uses an explicit pipeline.max_history_items", func() {
+		cfg := &config.ModelConfig{Pipeline: config.Pipeline{LLM: "llama", MaxHistoryItems: ptr(10)}}
+		Expect(resolveMaxHistoryItems(cfg)).To(Equal(10))
+	})
+	It("honors an explicit 0 (unlimited) over the type default", func() {
+		cfg := &config.ModelConfig{
+			KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO),
+			Pipeline:      config.Pipeline{MaxHistoryItems: ptr(0)},
+		}
+		Expect(resolveMaxHistoryItems(cfg)).To(Equal(0))
+	})
+	It("falls back to the type default when unset", func() {
+		cfg := &config.ModelConfig{KnownUsecases: withUsecases(config.FLAG_REALTIME_AUDIO)}
+		Expect(resolveMaxHistoryItems(cfg)).To(Equal(6))
+	})
+	It("tolerates nil", func() {
+		Expect(resolveMaxHistoryItems(nil)).To(Equal(0))
+	})
+})
+
 var _ = Describe("trimRealtimeItems", func() {
 	user := func(id string) *types.MessageItemUnion {
 		return &types.MessageItemUnion{User: &types.MessageItemUser{ID: id}}

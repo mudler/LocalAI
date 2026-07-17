@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // FineTuneJobRecord tracks fine-tune jobs in PostgreSQL.
@@ -78,6 +79,34 @@ func (s *FineTuneStore) List(userID string) ([]FineTuneJobRecord, error) {
 		q = q.Where("user_id = ?", userID)
 	}
 	return jobs, q.Find(&jobs).Error
+}
+
+// ListAll returns every fine-tune job across all users. The SyncedMap that backs
+// FineTuneService is a single global map (the REST API filters by user at read
+// time), so hydrate needs the full set rather than the per-user List above.
+func (s *FineTuneStore) ListAll() ([]FineTuneJobRecord, error) {
+	var jobs []FineTuneJobRecord
+	return jobs, s.db.Order("created_at DESC").Find(&jobs).Error
+}
+
+// Upsert idempotently inserts or fully replaces a job row by primary key. The
+// SyncedMap write-through path issues a single Set per mutation regardless of
+// whether the job already exists, so it needs one create-or-update primitive
+// (Create alone fails on a duplicate key, UpdateStatus alone misses new rows and
+// only touches a few columns).
+func (s *FineTuneStore) Upsert(job *FineTuneJobRecord) error {
+	if job.ID == "" {
+		job.ID = uuid.New().String()
+	}
+	now := time.Now()
+	if job.CreatedAt.IsZero() {
+		job.CreatedAt = now
+	}
+	job.UpdatedAt = now
+	return s.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		UpdateAll: true,
+	}).Create(job).Error
 }
 
 // UpdateStatus updates the status and message of a fine-tune job.

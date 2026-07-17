@@ -3,7 +3,6 @@ package application
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -37,9 +38,27 @@ import (
 func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
 
-	// Store a copy of the startup config (from env vars, before file loading)
-	// This is used to determine if settings came from env vars vs file
+	// Store a copy of the startup config (env/CLI only, before file
+	// loading): the settings endpoint uses it to tell env-provided API
+	// keys apart from runtime-managed ones.
 	startupConfigCopy := *options
+
+	// Merge persisted runtime settings BEFORE anything consumes options:
+	// model-config defaults (ToConfigLoaderOptions), gallery services, the
+	// watchdog, and the MITM listener are all configured from options
+	// further down. Loading late (the old call site, after model configs
+	// were read) meant boot-loaded models saw pre-file defaults for one
+	// full restart. Env/CLI values win over the file (see
+	// ApplyRuntimeSettingsAtStartup).
+	loadRuntimeSettingsFromFile(options)
+
+	// WithThreads no longer eagerly resolves 0 (so the settings merge can
+	// tell "unset" from "env-set"); resolve the physical-core default now
+	// that env, CLI, and file have all had their say.
+	if options.Threads == 0 {
+		options.Threads = xsysinfo.CPUPhysicalCores()
+	}
+
 	application := newApplication(options)
 	application.startupConfig = &startupConfigCopy
 
@@ -53,7 +72,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	caps, err := xsysinfo.CPUCapabilities()
 	if err == nil {
 		xlog.Debug("CPU capabilities", "capabilities", caps)
-
 	}
 	gpus, err := xsysinfo.GPUs()
 	if err == nil {
@@ -68,18 +86,28 @@ func New(opts ...config.AppOption) (*Application, error) {
 		return nil, fmt.Errorf("models path cannot be empty")
 	}
 
-	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0750)
+	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
+
+	// Reap *.partial downloads abandoned by a previous run (killed mid-transfer
+	// by an OOM/restart, or stalled before cleanup could run). The 24h window
+	// is well beyond any legitimate in-flight download, so this never trims an
+	// active transfer; it just stops dead partials accumulating on the volume.
+	if removed, cErr := downloader.CleanupStalePartialFiles(options.SystemState.Model.ModelsPath, 24*time.Hour); cErr != nil {
+		xlog.Warn("Failed to reap stale partial downloads", "error", cErr)
+	} else if removed > 0 {
+		xlog.Info("Reaped stale partial downloads", "count", removed)
+	}
 	if options.GeneratedContentDir != "" {
-		err := os.MkdirAll(options.GeneratedContentDir, 0750)
+		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create ImageDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
-		err := os.MkdirAll(options.UploadDir, 0750)
+		err := os.MkdirAll(options.UploadDir, 0o750)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create UploadDir: %q", err)
 		}
@@ -87,7 +115,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Create and migrate data directory
 	if options.DataPath != "" {
-		if err := os.MkdirAll(options.DataPath, 0750); err != nil {
+		if err := os.MkdirAll(options.DataPath, 0o750); err != nil {
 			return nil, fmt.Errorf("unable to create DataPath: %q", err)
 		}
 		// Migrate data from DynamicConfigsDir to DataPath if needed
@@ -192,44 +220,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Info("stats: disabled by --disable-stats")
 	}
 
-	// Wire the regex PII filter. Default-on: a single-user box gets
-	// the built-in pattern set the first time it starts, with email/
-	// phone/SSN/credit-card on mask and api_key_prefix on block. If
-	// the operator wants different actions, --pii-config points at a
-	// YAML file that overrides per-id; --disable-pii turns it off
-	// entirely.
-	if !options.DisablePII {
-		patterns, err := pii.LoadConfig(options.PIIConfigPath)
-		if err != nil {
-			return nil, fmt.Errorf("pii config: %w", err)
-		}
-		application.piiRedactor = pii.NewRedactor(patterns)
-		application.piiEvents = pii.NewMemoryEventStore(0)
-		// Apply persisted per-pattern overrides — admins toggling
-		// action/disabled via the UI and clicking "Save to disk" land
-		// here on the next start. Bad ids are warned and ignored so a
-		// stale entry doesn't block startup.
-		for id, ov := range options.PIIPatternOverrides {
-			if ov.Action != nil {
-				if err := application.piiRedactor.SetAction(id, pii.Action(*ov.Action)); err != nil {
-					xlog.Warn("pii: persisted override skipped", "pattern", id, "error", err)
-					continue
-				}
-			}
-			if ov.Disabled != nil {
-				if err := application.piiRedactor.SetDisabled(id, *ov.Disabled); err != nil {
-					xlog.Warn("pii: persisted disable skipped", "pattern", id, "error", err)
-				}
-			}
-		}
-		xlog.Info("pii: filter enabled",
-			"patterns", len(patterns),
-			"config_path", options.PIIConfigPath,
-			"persisted_overrides", len(options.PIIPatternOverrides),
-		)
-	} else {
-		xlog.Info("pii: disabled by --disable-pii")
-	}
+	// Wire the PII filter subsystem. The redactor is now a stateless
+	// handle — detection is driven by per-model NER detectors
+	// (pii.detectors → the detector model's pii_detection policy), run
+	// request-side by the chat middleware and the MITM input path. The
+	// regex tier was removed; redaction is opt-in per model via
+	// PIIIsEnabled(). The event store backs the /api/pii/events audit log.
+	application.piiRedactor = &pii.Redactor{}
+	application.piiEvents = pii.NewMemoryEventStore(0)
 
 	// Wire the routing decision log. Always-on when stats are enabled —
 	// the per-router admin page reads this as the live activity feed
@@ -299,6 +297,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if application.agentJobService != nil {
 			application.agentJobService.SetDistributedBackends(distSvc.Dispatcher)
 			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
+			// Keep agent tasks consistent across replicas (jobs already sync via the
+			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
+			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
 		}
 		// Wire skill store into AgentPoolService (wired at pool start time via closure)
 		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
@@ -350,9 +351,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs := application.galleryService
 			sys := options.SystemState
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
-			gs.OnModelsChanged = func(_ messaging.CacheInvalidateEvent) {
-				if err := application.ModelConfigLoader().LoadModelConfigsFromPath(sys.Model.ModelsPath, cfgLoaderOpts...); err != nil {
-					xlog.Warn("Failed to reload model configs after peer invalidation", "error", err)
+			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
+				// ApplyRemoteChange honors the op: a "delete" prunes the element
+				// (a reload-from-path is additive and cannot drop it), anything
+				// else reloads from disk; a named element's running instance is
+				// shut down so the new config takes effect. The originating
+				// replica reloads inline and never depends on this path.
+				if err := modeladmin.ApplyRemoteChange(application.ModelConfigLoader(), application.modelLoader, sys.Model.ModelsPath, evt, cfgLoaderOpts...); err != nil {
+					xlog.Warn("Failed to apply peer model config change", "error", err)
 				}
 			}
 			if err := application.galleryService.SubscribeBroadcasts(); err != nil {
@@ -380,7 +386,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	for _, backend := range options.ExternalBackends {
-		if err := galleryop.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", "", options.RequireBackendIntegrity); err != nil {
+		if err := galleryop.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", "", false, options.RequireBackendIntegrity); err != nil {
 			xlog.Error("error installing external backend", "error", err)
 		}
 	}
@@ -425,18 +431,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	if err := application.ModelConfigLoader().Preload(options.SystemState.Model.ModelsPath); err != nil {
+	if err := application.ModelConfigLoader().PreloadWithContext(options.Context, options.SystemState.Model.ModelsPath); err != nil {
 		xlog.Error("error downloading models", "error", err)
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity); err != nil {
+		if err := galleryop.ApplyGalleryFromString(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity); err != nil {
+		if err := galleryop.ApplyGalleryFromFile(options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath, options.RequireBackendIntegrity, gallery.WithArtifactMaterializer(options.ModelArtifactMaterializer)); err != nil {
 			return nil, err
 		}
 	}
@@ -445,13 +451,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 		for _, v := range application.ModelConfigLoader().GetAllModelsConfigs() {
 			xlog.Debug("Model", "name", v.Name, "config", v)
 		}
-	}
-
-	// Load runtime settings from file if DynamicConfigsDir is set
-	// This applies file settings with env var precedence (env vars take priority)
-	// Note: startupConfigCopy was already created above, so it has the original env var values
-	if options.DynamicConfigsDir != "" {
-		loadRuntimeSettingsFromFile(options)
 	}
 
 	// Wire the cloudproxy MITM listener. Opt-in: empty MITMListen
@@ -484,19 +483,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {
-			cfg, err := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(m, options)
-			if err != nil {
+			xlog.Debug("Auto loading model into memory from file", "model", m)
+			// Same path as POST /backend/load: a realtime pipeline model expands
+			// to its sub-models, and load failures are recorded as model_load
+			// traces.
+			if _, err := backend.PreloadModelByName(options.Context, application.ModelConfigLoader(), application.ModelLoader(), options, m); err != nil {
 				return nil, err
-			}
-
-			xlog.Debug("Auto loading model into memory from file", "model", m, "file", cfg.Model)
-
-			o := backend.ModelOptions(*cfg, options)
-
-			var backendErr error
-			_, backendErr = application.ModelLoader().Load(o...)
-			if backendErr != nil {
-				return nil, backendErr
 			}
 		}
 	}
@@ -517,7 +509,7 @@ func startWatcher(options *config.ApplicationConfig) {
 	if _, err := os.Stat(options.DynamicConfigsDir); err != nil {
 		if os.IsNotExist(err) {
 			// We try to create the directory if it does not exist and was specified
-			if err := os.MkdirAll(options.DynamicConfigsDir, 0700); err != nil {
+			if err := os.MkdirAll(options.DynamicConfigsDir, 0o700); err != nil {
 				xlog.Error("failed creating DynamicConfigsDir", "error", err)
 			}
 		} else {
@@ -533,330 +525,27 @@ func startWatcher(options *config.ApplicationConfig) {
 	}
 }
 
-// loadRuntimeSettingsFromFile loads settings from runtime_settings.json with env var precedence
-// This function is called at startup, before env vars are applied via AppOptions.
-// Since env vars are applied via AppOptions in run.go, we need to check if they're set.
-// We do this by checking if the current options values differ from defaults, which would
-// indicate they were set from env vars. However, a simpler approach is to just apply
-// file settings here, and let the AppOptions (which are applied after this) override them.
-// But actually, this is called AFTER AppOptions are applied in New(), so we need to check env vars.
-// The cleanest solution: Store original values before applying file, or check if values match
-// what would be set from env vars. For now, we'll apply file settings and they'll be
-// overridden by AppOptions if env vars were set (but AppOptions are already applied).
-// Actually, this function is called in New() before AppOptions are fully processed for watchdog.
-// Let's check the call order: New() -> loadRuntimeSettingsFromFile() -> initializeWatchdog()
-// But AppOptions are applied in NewApplicationConfig() which is called first.
-// So at this point, options already has values from env vars. We should compare against
-// defaults to see if env vars were set. But we don't have defaults stored.
-// Simplest: Just apply file settings. If env vars were set, they're already in options.
-// The file watcher handler will handle runtime changes properly by comparing with startupAppConfig.
+// loadRuntimeSettingsFromFile merges runtime_settings.json into options
+// with env-over-file precedence. Field coverage and the precedence rules
+// live in the config registry (ApplyRuntimeSettingsAtStartup); this wrapper
+// only handles the file read. No-op when DynamicConfigsDir is unset.
 func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
-	settingsFile := filepath.Join(options.DynamicConfigsDir, "runtime_settings.json")
-	fileContent, err := os.ReadFile(settingsFile)
+	if options.DynamicConfigsDir == "" {
+		return
+	}
+	// ReadPersistedSettings treats a missing file as zero settings, so probe
+	// for it here only to keep the log honest: "loaded" must mean a file was
+	// actually read, not that we merged an all-nil struct.
+	if _, err := os.Stat(filepath.Join(options.DynamicConfigsDir, "runtime_settings.json")); os.IsNotExist(err) {
+		xlog.Debug("runtime_settings.json not found, using defaults")
+		return
+	}
+	settings, err := options.ReadPersistedSettings()
 	if err != nil {
-		if os.IsNotExist(err) {
-			xlog.Debug("runtime_settings.json not found, using defaults")
-			return
-		}
 		xlog.Warn("failed to read runtime_settings.json", "error", err)
 		return
 	}
-
-	var settings config.RuntimeSettings
-
-	if err := json.Unmarshal(fileContent, &settings); err != nil {
-		xlog.Warn("failed to parse runtime_settings.json", "error", err)
-		return
-	}
-
-	// At this point, options already has values from env vars (via AppOptions in run.go).
-	// To avoid env var duplication, we determine if env vars were set by checking if
-	// current values differ from defaults. Defaults are: false for bools, 0 for durations.
-	// If current value is at default, it likely wasn't set from env var, so we can apply file.
-	// If current value is non-default, it was likely set from env var, so we preserve it.
-	// Note: This means env vars explicitly setting to false/0 won't be distinguishable from defaults,
-	// but that's an acceptable limitation to avoid env var duplication.
-
-	if settings.WatchdogIdleEnabled != nil {
-		// Only apply if current value is default (false), suggesting it wasn't set from env var
-		if !options.WatchDogIdle {
-			options.WatchDogIdle = *settings.WatchdogIdleEnabled
-			if options.WatchDogIdle {
-				options.WatchDog = true
-			}
-		}
-	}
-	if settings.WatchdogBusyEnabled != nil {
-		if !options.WatchDogBusy {
-			options.WatchDogBusy = *settings.WatchdogBusyEnabled
-			if options.WatchDogBusy {
-				options.WatchDog = true
-			}
-		}
-	}
-	if settings.WatchdogIdleTimeout != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.WatchDogIdleTimeout == 0 {
-			dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout)
-			if err == nil {
-				options.WatchDogIdleTimeout = dur
-			} else {
-				xlog.Warn("invalid watchdog idle timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogIdleTimeout)
-			}
-		}
-	}
-	if settings.WatchdogBusyTimeout != nil {
-		if options.WatchDogBusyTimeout == 0 {
-			dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout)
-			if err == nil {
-				options.WatchDogBusyTimeout = dur
-			} else {
-				xlog.Warn("invalid watchdog busy timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogBusyTimeout)
-			}
-		}
-	}
-	if settings.WatchdogInterval != nil {
-		if options.WatchDogInterval == 0 {
-			dur, err := time.ParseDuration(*settings.WatchdogInterval)
-			if err == nil {
-				options.WatchDogInterval = dur
-			} else {
-				xlog.Warn("invalid watchdog interval in runtime_settings.json", "error", err, "interval", *settings.WatchdogInterval)
-				options.WatchDogInterval = model.DefaultWatchdogInterval
-			}
-		}
-	}
-	// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
-	if settings.MaxActiveBackends != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.MaxActiveBackends == 0 {
-			options.MaxActiveBackends = *settings.MaxActiveBackends
-			// For backward compatibility, also set SingleBackend if MaxActiveBackends == 1
-			options.SingleBackend = (*settings.MaxActiveBackends == 1)
-		}
-	} else if settings.SingleBackend != nil {
-		// Legacy: SingleBackend maps to MaxActiveBackends = 1
-		if !options.SingleBackend {
-			options.SingleBackend = *settings.SingleBackend
-			if *settings.SingleBackend {
-				options.MaxActiveBackends = 1
-			}
-		}
-	}
-	if settings.MemoryReclaimerEnabled != nil {
-		// Only apply if current value is default (false), suggesting it wasn't set from env var
-		if !options.MemoryReclaimerEnabled {
-			options.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
-			if options.MemoryReclaimerEnabled {
-				options.WatchDog = true // Memory reclaimer requires watchdog
-			}
-		}
-	}
-	if settings.MemoryReclaimerThreshold != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.MemoryReclaimerThreshold == 0 {
-			options.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
-		}
-	}
-	if settings.ForceEvictionWhenBusy != nil {
-		// Only apply if current value is default (false), suggesting it wasn't set from env var
-		if !options.ForceEvictionWhenBusy {
-			options.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
-		}
-	}
-	if settings.LRUEvictionMaxRetries != nil {
-		// Only apply if current value is default (30), suggesting it wasn't set from env var
-		if options.LRUEvictionMaxRetries == 0 {
-			options.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
-		}
-	}
-	if settings.LRUEvictionRetryInterval != nil {
-		// Only apply if current value is default (1s), suggesting it wasn't set from env var
-		if options.LRUEvictionRetryInterval == 0 {
-			dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval)
-			if err == nil {
-				options.LRUEvictionRetryInterval = dur
-			} else {
-				xlog.Warn("invalid LRU eviction retry interval in runtime_settings.json", "error", err, "interval", *settings.LRUEvictionRetryInterval)
-			}
-		}
-	}
-	if settings.AgentJobRetentionDays != nil {
-		// Only apply if current value is default (0), suggesting it wasn't set from env var
-		if options.AgentJobRetentionDays == 0 {
-			options.AgentJobRetentionDays = *settings.AgentJobRetentionDays
-		}
-	}
-	if !options.WatchDogIdle && !options.WatchDogBusy {
-		if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
-			options.WatchDog = true
-		}
-	}
-
-	// P2P settings
-	if settings.P2PToken != nil {
-		if options.P2PToken == "" {
-			options.P2PToken = *settings.P2PToken
-		}
-	}
-	if settings.P2PNetworkID != nil {
-		if options.P2PNetworkID == "" {
-			options.P2PNetworkID = *settings.P2PNetworkID
-		}
-	}
-	if settings.Federated != nil {
-		if !options.Federated {
-			options.Federated = *settings.Federated
-		}
-	}
-
-	if settings.EnableBackendLogging != nil {
-		if !options.EnableBackendLogging {
-			options.EnableBackendLogging = *settings.EnableBackendLogging
-		}
-	}
-
-	// Tracing settings
-	if settings.EnableTracing != nil {
-		if !options.EnableTracing {
-			options.EnableTracing = *settings.EnableTracing
-		}
-	}
-	if settings.TracingMaxItems != nil {
-		if options.TracingMaxItems == 0 {
-			options.TracingMaxItems = *settings.TracingMaxItems
-		}
-	}
-	if settings.TracingMaxBodyBytes != nil {
-		// Allow the on-disk setting to override the CLI/env default. The
-		// startup default is non-zero (see NewApplicationConfig), so a plain
-		// `== 0` guard like the others would never trigger; we instead respect
-		// any value the file specifies. 0 in the file means "uncapped".
-		options.TracingMaxBodyBytes = *settings.TracingMaxBodyBytes
-	}
-
-	// Branding / whitelabeling. There are no env vars for these — the file is
-	// the only source — so apply unconditionally. Without this block a server
-	// restart silently drops the configured instance name, tagline, and asset
-	// filenames.
-	if settings.InstanceName != nil {
-		options.Branding.InstanceName = *settings.InstanceName
-	}
-	if settings.InstanceTagline != nil {
-		options.Branding.InstanceTagline = *settings.InstanceTagline
-	}
-	if settings.LogoFile != nil {
-		options.Branding.LogoFile = *settings.LogoFile
-	}
-	if settings.LogoHorizontalFile != nil {
-		options.Branding.LogoHorizontalFile = *settings.LogoHorizontalFile
-	}
-	if settings.FaviconFile != nil {
-		options.Branding.FaviconFile = *settings.FaviconFile
-	}
-
-	// MITM listener address. The CLI flag WithMITMListen populates
-	// options at startup; if the user configured MITM via /api/settings
-	// after the fact, only the file holds the value. Apply when the
-	// CLI flag did not already set it. (Intercept hosts now live in
-	// model YAML mitm.hosts: rather than runtime_settings.json.)
-	if settings.MITMListen != nil && options.MITMListen == "" {
-		options.MITMListen = *settings.MITMListen
-	}
-
-	// PII pattern overrides — file is the only source; CLI flags don't
-	// reach into this map. Apply unconditionally when present; the
-	// redactor wiring below sees the result on first construction.
-	if settings.PIIPatternOverrides != nil {
-		options.PIIPatternOverrides = make(map[string]config.PIIPatternRuntimeOverride, len(*settings.PIIPatternOverrides))
-		for id, ov := range *settings.PIIPatternOverrides {
-			options.PIIPatternOverrides[id] = ov
-		}
-	}
-
-	// Backend upgrade flags
-	if settings.AutoUpgradeBackends != nil {
-		if !options.AutoUpgradeBackends {
-			options.AutoUpgradeBackends = *settings.AutoUpgradeBackends
-		}
-	}
-	if settings.PreferDevelopmentBackends != nil {
-		if !options.PreferDevelopmentBackends {
-			options.PreferDevelopmentBackends = *settings.PreferDevelopmentBackends
-		}
-	}
-
-	// LocalAI Assistant — file-stored as the negation (LocalAIAssistantEnabled).
-	// Default is enabled (DisableLocalAIAssistant=false). Apply the file value
-	// unless env explicitly disabled the assistant (DisableLocalAIAssistant=true).
-	if settings.LocalAIAssistantEnabled != nil {
-		if !options.DisableLocalAIAssistant {
-			options.DisableLocalAIAssistant = !*settings.LocalAIAssistantEnabled
-		}
-	}
-
-	// Open Responses TTL. Default is 0 (no expiration). Treat the on-disk
-	// "0"/empty as "no expiration" — a no-op since options is already 0 —
-	// and parse anything else as a duration.
-	if settings.OpenResponsesStoreTTL != nil && options.OpenResponsesStoreTTL == 0 {
-		v := *settings.OpenResponsesStoreTTL
-		if v != "0" && v != "" {
-			if dur, err := time.ParseDuration(v); err == nil {
-				options.OpenResponsesStoreTTL = dur
-			} else {
-				xlog.Warn("invalid open_responses_store_ttl in runtime_settings.json", "error", err, "ttl", v)
-			}
-		}
-	}
-
-	// Agent Pool. NewApplicationConfig seeds non-zero defaults for some of
-	// these fields (Enabled=true, EmbeddingModel="granite-embedding-107m-
-	// multilingual", MaxChunkingSize=400). The "if at default, apply file"
-	// gate uses each field's actual default literal so file values can
-	// override the bootstrap default while still letting an env-set value
-	// (e.g. WithAgentPoolEmbeddingModel from a flag) win.
-	if settings.AgentPoolEnabled != nil && options.AgentPool.Enabled {
-		options.AgentPool.Enabled = *settings.AgentPoolEnabled
-	}
-	if settings.AgentPoolDefaultModel != nil && options.AgentPool.DefaultModel == "" {
-		options.AgentPool.DefaultModel = *settings.AgentPoolDefaultModel
-	}
-	if settings.AgentPoolEmbeddingModel != nil {
-		if options.AgentPool.EmbeddingModel == "" || options.AgentPool.EmbeddingModel == "granite-embedding-107m-multilingual" {
-			options.AgentPool.EmbeddingModel = *settings.AgentPoolEmbeddingModel
-		}
-	}
-	if settings.AgentPoolMaxChunkingSize != nil {
-		if options.AgentPool.MaxChunkingSize == 0 || options.AgentPool.MaxChunkingSize == 400 {
-			options.AgentPool.MaxChunkingSize = *settings.AgentPoolMaxChunkingSize
-		}
-	}
-	if settings.AgentPoolChunkOverlap != nil && options.AgentPool.ChunkOverlap == 0 {
-		options.AgentPool.ChunkOverlap = *settings.AgentPoolChunkOverlap
-	}
-	if settings.AgentPoolEnableLogs != nil && !options.AgentPool.EnableLogs {
-		options.AgentPool.EnableLogs = *settings.AgentPoolEnableLogs
-	}
-	if settings.AgentPoolCollectionDBPath != nil && options.AgentPool.CollectionDBPath == "" {
-		options.AgentPool.CollectionDBPath = *settings.AgentPoolCollectionDBPath
-	}
-	if settings.AgentPoolVectorEngine != nil {
-		// Default is "chromem"; treat both that and empty as "not env-set".
-		if options.AgentPool.VectorEngine == "" || options.AgentPool.VectorEngine == "chromem" {
-			options.AgentPool.VectorEngine = *settings.AgentPoolVectorEngine
-		}
-	}
-	if settings.AgentPoolDatabaseURL != nil && options.AgentPool.DatabaseURL == "" {
-		options.AgentPool.DatabaseURL = *settings.AgentPoolDatabaseURL
-	}
-	if settings.AgentPoolAgentHubURL != nil {
-		// Default is "https://agenthub.localai.io"; treat both that and empty
-		// as "not env-set".
-		if options.AgentPool.AgentHubURL == "" || options.AgentPool.AgentHubURL == "https://agenthub.localai.io" {
-			options.AgentPool.AgentHubURL = *settings.AgentPoolAgentHubURL
-		}
-	}
-
+	options.ApplyRuntimeSettingsAtStartup(&settings)
 	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }
 
@@ -877,6 +566,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			model.WithLRULimit(lruLimit),
 			model.WithMemoryReclaimer(options.MemoryReclaimerEnabled, options.MemoryReclaimerThreshold),
 			model.WithForceEvictionWhenBusy(options.ForceEvictionWhenBusy),
+			model.WithSizeAwareEviction(options.SizeAwareEviction),
 		)
 		application.ModelLoader().SetWatchDog(wd)
 
@@ -924,7 +614,7 @@ func loadOrGenerateHMACSecret(path string) (string, error) {
 	}
 	secret := hex.EncodeToString(b)
 
-	if err := os.WriteFile(path, []byte(secret), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(secret), 0o600); err != nil {
 		return "", fmt.Errorf("failed to persist HMAC secret: %w", err)
 	}
 

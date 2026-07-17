@@ -87,6 +87,31 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 		})
 	})
 
+	// Watchdog check interval (issue #10601). Unlike the idle/busy timeouts
+	// (which default to 0), NewApplicationConfig baseline-defaults the
+	// interval to 500ms. The loader's "apply file value only if still at the
+	// zero default" env-detection therefore never fired for the interval, so
+	// a UI-saved Check Interval silently reverted to 500ms on every restart
+	// while the idle/busy timeouts persisted. These specs construct the
+	// config the same way boot does (NewApplicationConfig) so they observe
+	// the real default the loader sees.
+	Describe("watchdog interval", func() {
+		It("loads a UI-saved watchdog_interval on the next startup", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"watchdog_interval": "2s"}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.WatchDogInterval).To(Equal(2 * time.Second))
+		})
+
+		It("does not override an explicit env/CLI interval", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"watchdog_interval": "2s"}`)
+			cfg.WatchDogInterval = 1 * time.Second // simulate SetWatchDogInterval from env
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.WatchDogInterval).To(Equal(1*time.Second), "env/CLI interval must win over the persisted file value")
+		})
+	})
+
 	// MITM listener address. The file is the only source — no env var
 	// exists — so a regression here means an admin who configured the
 	// listener via /api/settings loses it after a reboot, even though
@@ -106,6 +131,64 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			}
 			loadRuntimeSettingsFromFile(cfg)
 			Expect(cfg.MITMListen).To(Equal(":9999"), "CLI flag must win over the persisted file value")
+		})
+	})
+
+	// Instance-wide default PII detectors. The file is the only source (no
+	// env var), and the loader runs immediately before startMITMIfConfigured,
+	// so a regression here means the cloud-proxy MITM listener resolves an
+	// empty detector set at boot and forwards intercepted traffic unredacted —
+	// even though pii_default_detectors is on disk and the MITM model has PII
+	// enabled. It also breaks request-side default redaction the same way.
+	Describe("PII default detectors", func() {
+		It("loads pii_default_detectors from the file", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"pii_default_detectors": ["privacy-filter-nemotron", "secret-filter"]}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.PIIDefaultDetectors).To(Equal([]string{"privacy-filter-nemotron", "secret-filter"}))
+		})
+
+		It("does not override an env/CLI-set value (LOCALAI_PII_DEFAULT_DETECTORS)", func() {
+			cfg := &config.ApplicationConfig{
+				DynamicConfigsDir:   seedSettings(`{"pii_default_detectors": ["from-file"]}`),
+				PIIDefaultDetectors: []string{"from-env"}, // simulate WithPIIDefaultDetectors(env)
+			}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.PIIDefaultDetectors).To(Equal([]string{"from-env"}), "env var must win over the persisted file value")
+		})
+	})
+
+	// The live file watcher delegates to ApplyRuntimeSettingsAtStartup, so a
+	// manual edit of runtime_settings.json behaves exactly like a boot-time
+	// load: env/CLI-claimed values win, the file supplies the rest, and the
+	// applied value reaches request-side default redaction without a restart.
+	Describe("file watcher: pii_default_detectors", func() {
+		It("applies a file value when the live config is still at its default", func() {
+			startup := config.ApplicationConfig{} // no env baseline
+			live := config.NewApplicationConfig() // detectors at default (empty)
+			handler := readRuntimeSettingsJson(startup)
+			Expect(handler([]byte(`{"pii_default_detectors":["new-a","new-b"]}`), live)).To(Succeed())
+			Expect(live.PIIDefaultDetectors).To(Equal([]string{"new-a", "new-b"}))
+		})
+
+		It("defers a file edit of an already-customized value to the next restart", func() {
+			// The baseline comparison cannot tell an API-set value from an
+			// env-set one, so the watcher leaves it alone; the boot loader
+			// applies it on restart. Documented trade-off of the unified
+			// merge semantics (design doc 2026-07-16).
+			startup := config.ApplicationConfig{}
+			live := config.NewApplicationConfig()
+			live.PIIDefaultDetectors = []string{"old"}
+			handler := readRuntimeSettingsJson(startup)
+			Expect(handler([]byte(`{"pii_default_detectors":["from-file"]}`), live)).To(Succeed())
+			Expect(live.PIIDefaultDetectors).To(Equal([]string{"old"}))
+		})
+
+		It("leaves an env-controlled value untouched", func() {
+			startup := config.ApplicationConfig{PIIDefaultDetectors: []string{"from-env"}}
+			live := &config.ApplicationConfig{PIIDefaultDetectors: []string{"from-env"}}
+			handler := readRuntimeSettingsJson(startup)
+			Expect(handler([]byte(`{"pii_default_detectors":["from-file"]}`), live)).To(Succeed())
+			Expect(live.PIIDefaultDetectors).To(Equal([]string{"from-env"}), "env-controlled detectors must not be overwritten by the file")
 		})
 	})
 
@@ -188,6 +271,110 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			}
 			loadRuntimeSettingsFromFile(cfg)
 			Expect(cfg.AgentPool.AgentHubURL).To(Equal("https://hub.acme.io"))
+		})
+	})
+
+	// Issue #10845 root cause class: fields with non-zero boot defaults
+	// whose == 0 guards never fired, so the persisted value was ignored on
+	// every restart. The registry's baseline comparison fixes them; these
+	// specs pin that.
+	Describe("fields with non-zero defaults (silent restart loss)", func() {
+		It("loads a persisted lru_eviction_max_retries over the default 30", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"lru_eviction_max_retries": 99}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.LRUEvictionMaxRetries).To(Equal(99))
+		})
+
+		It("loads a persisted tracing_max_items over the default 1024", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"tracing_max_items": 4096}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.TracingMaxItems).To(Equal(4096))
+		})
+
+		It("loads a persisted agent_job_retention_days over the default 30", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"agent_job_retention_days": 7}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.AgentJobRetentionDays).To(Equal(7))
+		})
+	})
+
+	// #10845: threads saved via the UI must survive a restart, while
+	// LOCALAI_THREADS/CLI still wins. WithThreads no longer eagerly
+	// resolves 0 to the physical-core count; application.New() does that
+	// after this loader has run.
+	Describe("performance fields", func() {
+		It("loads persisted threads when env/CLI left them unset", func() {
+			cfg := config.NewApplicationConfig(config.WithThreads(0))
+			cfg.DynamicConfigsDir = seedSettings(`{"threads": 4}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.Threads).To(Equal(4))
+		})
+
+		It("keeps an env/CLI thread count over the file", func() {
+			cfg := config.NewApplicationConfig(config.WithThreads(8))
+			cfg.DynamicConfigsDir = seedSettings(`{"threads": 4}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.Threads).To(Equal(8))
+		})
+
+		It("loads persisted context_size and f16", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.DynamicConfigsDir = seedSettings(`{"context_size": 4096, "f16": true}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.ContextSize).To(Equal(4096))
+			Expect(cfg.F16).To(BeTrue())
+		})
+	})
+
+	// Option-less boot contract with core/cli/run.go: the kong threshold
+	// default (0.95) is injected unconditionally even when the reclaimer is
+	// disabled, so DefaultRuntimeBaseline's 0.95 overlay matches reality and
+	// a UI-persisted threshold is not mistaken for an env-set one. Both
+	// persisted fields must apply, and enabling the reclaimer must force the
+	// watchdog master flag (startup invariant).
+	Describe("memory reclaimer", func() {
+		It("applies a persisted enable + threshold on an option-less boot", func() {
+			cfg := config.NewApplicationConfig()
+			cfg.MemoryReclaimerThreshold = 0.95 // what run.go injects when no flag is passed
+			cfg.DynamicConfigsDir = seedSettings(`{"memory_reclaimer_enabled": true, "memory_reclaimer_threshold": 0.5}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.MemoryReclaimerEnabled).To(BeTrue())
+			Expect(cfg.MemoryReclaimerThreshold).To(Equal(0.5))
+			Expect(cfg.WatchDog).To(BeTrue(), "an enabled reclaimer must force the watchdog on")
+		})
+	})
+
+	// Backend logging capture. Worker/distributed mode force-enables it
+	// (core/services/worker.SetBackendLoggingEnabled(true)); single mode used
+	// to leave it off by default with no CLI flag, so the UI "Backend Logs"
+	// page was silently empty unless the operator found the Settings toggle.
+	// It now defaults on in single mode too. Because the default is on, the
+	// loader must let a persisted enable_backend_logging=false (the UI
+	// toggle-off) win over the default - the sticky "only flip false->true"
+	// merge used for env-backed flags would otherwise ignore it and revert
+	// the toggle on every restart.
+	Describe("backend logging capture", func() {
+		It("captures backend logs by default in single mode", func() {
+			cfg := config.NewApplicationConfig()
+			Expect(cfg.EnableBackendLogging).To(BeTrue(),
+				"single mode should capture backend logs out of the box, matching worker mode")
+		})
+
+		It("honors a persisted enable_backend_logging=false across restart (toggle-off wins over default-on)", func() {
+			cfg := config.NewApplicationConfig() // default-on boot state
+			cfg.DynamicConfigsDir = seedSettings(`{"enable_backend_logging": false}`)
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.EnableBackendLogging).To(BeFalse(),
+				"a UI toggle-off persisted to runtime_settings.json must survive a restart")
+		})
+
+		It("loads a persisted enable_backend_logging=true", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"enable_backend_logging": true}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.EnableBackendLogging).To(BeTrue())
 		})
 	})
 })

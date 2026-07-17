@@ -31,6 +31,14 @@ type DistributedConfig struct {
 	// available to enforce just one layer.
 	RequireAuth      bool // LOCALAI_DISTRIBUTED_REQUIRE_AUTH
 	AutoApproveNodes bool // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
+	// SharedModels asserts that every node (frontend and workers) mounts the
+	// SAME models directory at the SAME path (e.g. a shared volume, as in
+	// docker-compose.distributed.yaml). When true, the router skips staging
+	// model files to workers entirely: the frontend's absolute model paths are
+	// already valid on the worker, so re-uploading them into a per-model
+	// subdirectory only re-downloads what is already present (#10556). Default
+	// false preserves the historical per-node staging behavior.
+	SharedModels bool // --distributed-shared-models / LOCALAI_DISTRIBUTED_SHARED_MODELS
 
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
@@ -84,6 +92,12 @@ type DistributedConfig struct {
 	// drives the background eviction cadence (eviction runs every TTL/2). Zero
 	// means use the prefixcache package default (5m).
 	PrefixCacheTTL time.Duration
+	// ModelSchedulingJSON is an inline JSON list of per-model scheduling configs
+	// applied authoritatively at startup (LOCALAI_MODEL_SCHEDULING).
+	ModelSchedulingJSON string
+	// ModelSchedulingConfigPath is a path to a YAML file with the same list
+	// (LOCALAI_MODEL_SCHEDULING_CONFIG).
+	ModelSchedulingConfigPath string
 }
 
 // Validate checks that the distributed configuration is internally consistent.
@@ -276,6 +290,13 @@ var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
 
+// EnableDistributedSharedModels marks the cluster as sharing one models
+// directory across all nodes, so the router skips staging model files to
+// workers (see DistributedConfig.SharedModels).
+var EnableDistributedSharedModels = func(o *ApplicationConfig) {
+	o.Distributed.SharedModels = true
+}
+
 // DisablePrefixCache turns off prefix-cache-aware routing (falls back to
 // round-robin). Prefix-cache routing is enabled by default in distributed mode.
 var DisablePrefixCache = func(o *ApplicationConfig) {
@@ -287,6 +308,21 @@ var DisablePrefixCache = func(o *ApplicationConfig) {
 func WithPrefixCacheTTL(d time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.PrefixCacheTTL = d
+	}
+}
+
+// WithModelSchedulingJSON sets the inline-JSON declarative scheduling config.
+func WithModelSchedulingJSON(s string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelSchedulingJSON = s
+	}
+}
+
+// WithModelSchedulingConfigPath sets the path to a YAML declarative scheduling
+// config file.
+func WithModelSchedulingConfigPath(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelSchedulingConfigPath = path
 	}
 }
 

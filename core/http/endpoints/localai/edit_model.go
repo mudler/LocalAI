@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -55,7 +56,7 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 }
 
 // EditModelEndpoint handles updating existing model configurations
-func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	svc := modeladmin.NewConfigService(cl, appConfig)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
@@ -70,6 +71,17 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
+
+		// Tell peer replicas to refresh their in-memory config: this endpoint
+		// only reloaded the local loader. A rename is a delete of the old name
+		// plus an install of the new one. No-op in standalone mode.
+		if gs != nil {
+			if result.Renamed {
+				gs.BroadcastModelsChanged(result.OldName, "delete")
+			}
+			gs.BroadcastModelsChanged(result.NewName, "install")
+		}
+
 		msg := fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", result.NewName)
 		if result.Renamed {
 			msg = fmt.Sprintf("Model '%s' renamed to '%s' and updated successfully.", result.OldName, result.NewName)

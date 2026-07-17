@@ -1,0 +1,70 @@
+{
+  "appName": "LocalAI",
+  "openMenu": "메뉴 열기",
+  "closeMenu": "메뉴 닫기",
+  "primaryNavigation": "기본 탐색",
+  "switchToLightMode": "라이트 모드로 전환",
+  "switchToDarkMode": "다크 모드로 전환",
+  "expandSidebar": "사이드바 펼치기",
+  "collapseSidebar": "사이드바 접기",
+  "changeLanguage": "언어 변경",
+  "logout": "로그아웃",
+  "accountSettings": "계정 설정",
+  "account": "계정",
+  "accountFor": "계정: {{name}}",
+  "sections": {
+    "create": "만들기",
+    "recognition": "인식",
+    "build": "구축",
+    "operate": "운영"
+  },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System"
+  },
+  "items": {
+    "home": "홈",
+    "installModels": "모델 설치",
+    "chat": "채팅",
+    "studio": "스튜디오",
+    "talk": "대화",
+    "fineTune": "파인튜닝 (실험적)",
+    "quantize": "양자화 (실험적)",
+    "faces": "얼굴",
+    "voices": "음성",
+    "jobs": "작업",
+    "operate": "관리",
+    "host": "호스트",
+    "audioTransform": "오디오 변환",
+    "faceRecognition": "얼굴 인식",
+    "voiceRecognition": "음성 인식",
+    "agents": "에이전트",
+    "skills": "스킬",
+    "memory": "메모리",
+    "mcpJobs": "MCP CI 작업",
+    "usage": "사용량",
+    "users": "사용자",
+    "middleware": "미들웨어",
+    "backends": "백엔드",
+    "traces": "트레이스",
+    "nodes": "노드",
+    "scheduling": "스케줄링",
+    "swarm": "Swarm",
+    "system": "시스템",
+    "settings": "설정",
+    "api": "API"
+  },
+  "footer": {
+    "github": "GitHub",
+    "documentation": "문서",
+    "author": "작성자",
+    "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "자동화",
+    "training": "학습"
+  }
+}

@@ -43,6 +43,10 @@
     "title": "Node Terdistribusi",
     "subtitle": "Kelola node backend dan node worker"
   },
+  "scheduling": {
+    "title": "Penjadwalan",
+    "subtitle": "Aturan penempatan model dan replika di seluruh kluster"
+  },
   "p2p": {
     "title": "Komputasi AI Terdistribusi",
     "subtitle": "Skalakan beban kerja AI Anda ke beberapa perangkat dengan distribusi peer-to-peer"

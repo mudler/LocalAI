@@ -64,6 +64,22 @@ func SubjectGalleryProgress(opID string) string {
 	return subjectGalleryPrefix + sanitizeSubjectToken(opID) + ".progress"
 }
 
+// SubjectStagingProgress returns the NATS subject a frontend replica publishes
+// file-staging progress on. Staging progress is otherwise per-process state
+// (the SmartRouter's in-memory StagingTracker), so without this broadcast a
+// /api/operations poll that round-robins onto a replica that did not originate
+// the staging op sees nothing - the progress row flickers in multi-replica
+// deployments. Peers subscribe to the wildcard and merge.
+func SubjectStagingProgress(modelID string) string {
+	return subjectStagingPrefix + sanitizeSubjectToken(modelID) + ".progress"
+}
+
+const subjectStagingPrefix = "staging."
+
+// SubjectStagingProgressWildcard matches every replica's staging-progress
+// broadcasts so a peer can mirror staging ops it did not originate.
+const SubjectStagingProgressWildcard = "staging.*.progress"
+
 // SubjectGalleryOpStart and SubjectGalleryOpEnd are broadcast subjects for the
 // in-memory OpCache lifecycle. Frontend replicas publish to these when an
 // admin admits a new install/delete (Start) and when an operation is
@@ -363,6 +379,20 @@ type CacheInvalidateEvent struct {
 func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
+
+// SyncedMap State Sync (Pub/Sub — broadcast to all frontends)
+//
+// The reusable syncstate.SyncedMap component publishes a {op,key,value} delta on
+// this subject whenever a replica mutates a piece of cross-replica in-memory
+// state. Peers subscribe and apply the delta to their own map, so a round-robin
+// API request that lands on a replica which did not originate the change still
+// sees it. Convergence on (re)connect is done by re-hydrating from the durable
+// source, so no request/reply snapshot subject is needed here.
+func SubjectSyncStateDelta(name string) string {
+	return subjectSyncStatePrefix + sanitizeSubjectToken(name) + ".delta"
+}
+
+const subjectSyncStatePrefix = "state."
 
 // Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
 //

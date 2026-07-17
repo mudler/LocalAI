@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
 torch
-git+https://github.com/huggingface/diffusers
-transformers
+diffusers==0.38.0
+transformers==4.57.6
 accelerate
 peft
 optimum-quanto
@@ -10,9 +10,15 @@ sentencepiece
 torchvision
 ftfy
 chardet
-# TODO: re-add compel once it supports transformers >= 5.
-# Tracking: https://github.com/damian0815/compel/pull/129
-#           https://github.com/damian0815/compel/issues/128
-# compel currently pins transformers~=4.25, which forced pip into multi-hour
-# resolver backtracking storms in CI. backend.py imports it lazily and gates
-# the COMPEL=1 env var on the import succeeding, so dropping it here is safe.
+# diffusers and transformers are pinned together on purpose. transformers v5
+# restructured CLIPTextModel and dropped the `.text_model` attribute, which
+# breaks single-file Stable Diffusion loading on every released diffusers
+# (<=0.38.0); only unreleased diffusers main supports transformers v5. Tracking
+# main via git froze whichever broken pair existed at image-build time. Pin the
+# last known-good released pair so builds are reproducible and can't drift into
+# the broken window. See https://github.com/mudler/LocalAI/issues/9979
+#
+# compel is intentionally omitted: it pins transformers~=4.25, which conflicts
+# with this pin and previously forced pip into multi-hour resolver backtracking
+# storms in CI. backend.py imports it lazily and gates the COMPEL=1 env var on
+# the import succeeding, so dropping it here is safe.

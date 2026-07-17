@@ -21,7 +21,7 @@ jobs:
         go-version: ['1.26.x']
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Free disk space
@@ -84,7 +84,7 @@ jobs:
         go-version: ['1.26.x']
     steps:
       - name: Clone
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
@@ -121,3 +121,19 @@ jobs:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
+
+  # Fast standalone unit tests for the backends' pure C++ helpers - currently the
+  # llama-cpp message reconstruction (backend/cpp/llama-cpp/message_content.h),
+  # which guards the OpenAI chat content normalization (mudler/LocalAI#10524,
+  # #7324, #7528). The runner discovers every *_test.cpp under backend/cpp/, so
+  # new pure-C++ unit tests are picked up with no CI changes. These need only the
+  # C++ stdlib + nlohmann/json, so they run on every PR without the full
+  # llama.cpp + gRPC backend build. (The same suite is also wired as an opt-in
+  # CMake/ctest target, -DLLAMA_GRPC_BUILD_TESTS=ON, for in-backend-build runs.)
+  tests-backend-cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Run backend C++ unit tests
+        run: make test-backend-cpp

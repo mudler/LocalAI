@@ -72,6 +72,29 @@ var _ = Describe("GetBackendCapability", func() {
 	})
 })
 
+var _ = Describe("VoiceCloningForModel", func() {
+	voiceCloningSetting := func(enabled bool) *bool { return &enabled }
+
+	DescribeTable("advertises only compatible model variants",
+		func(cfg ModelConfig, expected bool) {
+			Expect(VoiceCloningForModel(&cfg) != nil).To(Equal(expected))
+		},
+		Entry("Qwen C++ Base", ModelConfig{Name: "qwen3-tts-cpp-0.6b-base", Backend: "qwen3-tts-cpp"}, true),
+		Entry("Qwen C++ CustomVoice", ModelConfig{Name: "qwen3-tts-cpp-customvoice", Backend: "qwen3-tts-cpp"}, false),
+		Entry("VibeVoice realtime 0.5B", ModelConfig{Name: "vibevoice-cpp-0.5b", Backend: "vibevoice-cpp"}, false),
+		Entry("VibeVoice 1.5B", ModelConfig{Name: "vibevoice-1.5b", Backend: "vibevoice-cpp"}, true),
+		Entry("F5 through CrispASR", ModelConfig{Name: "f5-tts-crispasr", Backend: "crispasr"}, true),
+		Entry("ASR through CrispASR", ModelConfig{Name: "parakeet-crispasr", Backend: "crispasr"}, false),
+		Entry("VoxCPM", ModelConfig{Name: "voxcpm-1.5", Backend: "voxcpm"}, true),
+		Entry("unsupported Piper", ModelConfig{Name: "piper", Backend: "piper"}, false),
+		Entry("typed custom opt-in", ModelConfig{Name: "private-build", Backend: "qwen3-tts-cpp", TTSConfig: TTSConfig{VoiceCloning: voiceCloningSetting(true)}}, true),
+		Entry("typed opt-out", ModelConfig{Name: "voxcpm-1.5", Backend: "voxcpm", TTSConfig: TTSConfig{VoiceCloning: voiceCloningSetting(false)}}, false),
+		Entry("typed setting wins over compatibility option", ModelConfig{Name: "private-build", Backend: "qwen3-tts-cpp", TTSConfig: TTSConfig{VoiceCloning: voiceCloningSetting(true)}, Options: []string{"voice_cloning:false"}}, true),
+		Entry("legacy option custom opt-in", ModelConfig{Name: "private-build", Backend: "qwen3-tts-cpp", Options: []string{"voice_cloning:true"}}, true),
+		Entry("legacy option opt-out", ModelConfig{Name: "voxcpm-1.5", Backend: "voxcpm", Options: []string{"voice_cloning=false"}}, false),
+	)
+})
+
 var _ = Describe("IsValidUsecaseForBackend", func() {
 	It("accepts a backend's declared usecases", func() {
 		Expect(IsValidUsecaseForBackend("piper", "tts")).To(BeTrue())

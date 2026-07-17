@@ -149,6 +149,41 @@ var _ = Describe("Launcher", func() {
 		})
 	})
 
+	Describe("BuildRunArgs", func() {
+		// Regression for the macOS "mkdir /tmp/generated/content: permission denied"
+		// startup failure: the launcher must redirect generated-content and upload
+		// paths under its own data directory instead of letting the server fall back
+		// to the shared /tmp defaults, which collide across users on a shared /tmp.
+		It("should keep generated-content and upload paths under the data directory", func() {
+			config := launcherInstance.GetConfig()
+			config.ModelsPath = filepath.Join(tempDir, "models")
+			launcherInstance.SetConfig(config)
+
+			dataPath := launcherInstance.GetDataPath()
+			args := launcherInstance.BuildRunArgs()
+
+			assertFlagValue := func(flag, expected string) {
+				idx := -1
+				for i, a := range args {
+					if a == flag {
+						idx = i
+						break
+					}
+				}
+				Expect(idx).To(BeNumerically(">=", 0), "expected %s to be present in run args", flag)
+				Expect(idx+1).To(BeNumerically("<", len(args)), "expected a value after %s", flag)
+				Expect(args[idx+1]).To(Equal(expected))
+			}
+
+			assertFlagValue("--generated-content-path", filepath.Join(dataPath, "generated"))
+			assertFlagValue("--upload-path", filepath.Join(dataPath, "uploads"))
+			// The bug was the server resolving these to shared /tmp paths.
+			for _, a := range args {
+				Expect(a).ToNot(HavePrefix("/tmp/"), "run args must not reference shared /tmp paths, got %s", a)
+			}
+		})
+	})
+
 	Describe("Logs", func() {
 		It("should return empty logs initially", func() {
 			logs := launcherInstance.GetLogs()

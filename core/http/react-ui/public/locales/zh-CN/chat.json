@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "复制",
-    "regenerate": "重新生成"
+    "regenerate": "重新生成",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "正在传输模型...",

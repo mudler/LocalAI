@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
@@ -85,27 +86,28 @@ import (
 // file path to LoadModel, so GGUF, ONNX, safetensors, .bin etc. all work so
 // long as the backend under test accepts that format.
 const (
-	capHealth        = "health"
-	capLoad          = "load"
-	capPredict       = "predict"
-	capStream        = "stream"
-	capEmbeddings    = "embeddings"
-	capTools         = "tools"
-	capTranscription = "transcription"
-	capTTS           = "tts"
-	capImage         = "image"
-	capFaceDetect    = "face_detect"
-	capFaceEmbed     = "face_embed"
-	capFaceVerify    = "face_verify"
-	capFaceAnalyze   = "face_analyze"
-	capFaceAntispoof = "face_antispoof"
-	capVoiceEmbed    = "voice_embed"
-	capVoiceVerify   = "voice_verify"
-	capVoiceAnalyze  = "voice_analyze"
+	capHealth         = "health"
+	capLoad           = "load"
+	capPredict        = "predict"
+	capStream         = "stream"
+	capEmbeddings     = "embeddings"
+	capTools          = "tools"
+	capTranscription  = "transcription"
+	capTTS            = "tts"
+	capImage          = "image"
+	capFaceDetect     = "face_detect"
+	capFaceEmbed      = "face_embed"
+	capFaceVerify     = "face_verify"
+	capFaceAnalyze    = "face_analyze"
+	capFaceAntispoof  = "face_antispoof"
+	capVoiceEmbed     = "voice_embed"
+	capVoiceVerify    = "voice_verify"
+	capVoiceAnalyze   = "voice_analyze"
 	capAudioTransform = "audio_transform"
-	capLogprobs      = "logprobs"
-	capLogitBias     = "logit_bias"
-	capTokenize      = "tokenize"
+	capLogprobs       = "logprobs"
+	capLogitBias      = "logit_bias"
+	capTokenize       = "tokenize"
+	capTokenClassify  = "token_classify"
 
 	defaultPrompt             = "The capital of France is"
 	streamPrompt              = "Once upon a time"
@@ -548,6 +550,45 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetEmbeddings()).NotTo(BeEmpty(), "Embedding returned empty vector")
 		GinkgoWriter.Printf("Embedding: %d dims\n", len(res.GetEmbeddings()))
+	})
+
+	// TokenClassify is the PII-NER RPC (privacy-filter backend). The crown-jewel
+	// invariant is byte-offset correctness: Start/End are half-open BYTE offsets
+	// into the original UTF-8 text, and the backend's emitted text for a span must
+	// equal text[Start:End]. We run at Threshold 0 (raw, unfiltered) and assert
+	// every returned span is in range, rune-aligned, and self-consistent. The
+	// prompt carries multibyte runes BEFORE the PII so a rune/byte confusion in
+	// the engine would surface as a shifted slice here. Override the text with
+	// BACKEND_TEST_TOKEN_CLASSIFY_TEXT for a model that detects a different class.
+	It("classifies PII spans with byte-correct offsets via TokenClassify", func() {
+		if !caps[capTokenClassify] {
+			Skip("token_classify capability not enabled")
+		}
+		text := os.Getenv("BACKEND_TEST_TOKEN_CLASSIFY_TEXT")
+		if text == "" {
+			text = "Müller paid at café in Zürich; reach john.doe@example.com tomorrow."
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		res, err := client.TokenClassify(ctx, &pb.TokenClassifyRequest{Text: text, Threshold: 0})
+		Expect(err).NotTo(HaveOccurred(), "TokenClassify RPC failed")
+		ents := res.GetEntities()
+		Expect(ents).NotTo(BeEmpty(), "TokenClassify returned no entities for an obvious-PII sentence")
+		for _, e := range ents {
+			start, end := int(e.GetStart()), int(e.GetEnd())
+			Expect(start).To(BeNumerically(">=", 0))
+			Expect(end).To(BeNumerically(">", start))
+			Expect(end).To(BeNumerically("<=", len(text)))
+			Expect(utf8.RuneStart(text[start])).To(BeTrue(), "start %d is mid-rune in %q", start, text)
+			if end < len(text) {
+				Expect(utf8.RuneStart(text[end])).To(BeTrue(), "end %d is mid-rune in %q", end, text)
+			}
+			slice := text[start:end]
+			Expect(utf8.ValidString(slice)).To(BeTrue(), "span %q is not valid UTF-8", slice)
+			Expect(e.GetText()).To(Equal(slice), "entity text must equal text[start:end]")
+			GinkgoWriter.Printf("TokenClassify: %q [%d:%d] %s score=%.3f\n",
+				slice, start, end, e.GetEntityGroup(), e.GetScore())
+		}
 	})
 
 	It("generates an image via GenerateImage", func() {
@@ -1412,20 +1453,34 @@ func extractImage(image, dest string) {
 
 // downloadFile fetches url into dest using curl -L. Used for CI convenience;
 // local runs can use BACKEND_TEST_MODEL_FILE to skip downloading.
-// Retry flags guard against transient CI network hiccups (github.com in
-// particular has been flaky from GHA runners, timing out TCP connects).
+// Model files can be huge (the vibevoice ASR e2e model is >10 GB), so a
+// wall-clock cap per attempt (--max-time) is the wrong guard: on a slow CDN
+// day no attempt can ever finish, and curl's --retry restarts from byte
+// zero, so repeated attempts make no forward progress (this hung the
+// vibevoice transcription job until the suite timeout). Instead, abort only
+// on a real stall (--speed-limit/--speed-time) and resume from the bytes
+// already on disk (-C -), with the retry loop out here because curl does
+// not re-evaluate the resume offset on its internal retries.
 func downloadFile(url, dest string) {
 	GinkgoHelper()
-	cmd := exec.Command("curl", "-sSfL",
-		"--connect-timeout", "30",
-		"--max-time", "600",
-		"--retry", "5",
-		"--retry-delay", "5",
-		"--retry-all-errors",
-		"-o", dest, url)
-	cmd.Stdout = GinkgoWriter
-	cmd.Stderr = GinkgoWriter
-	Expect(cmd.Run()).To(Succeed(), "failed to download %s", url)
+	var err error
+	for attempt := 1; attempt <= 6; attempt++ {
+		if attempt > 1 {
+			time.Sleep(5 * time.Second)
+		}
+		cmd := exec.Command("curl", "-sSfL",
+			"--connect-timeout", "30",
+			"-C", "-",
+			"--speed-limit", "1048576",
+			"--speed-time", "120",
+			"-o", dest, url)
+		cmd.Stdout = GinkgoWriter
+		cmd.Stderr = GinkgoWriter
+		if err = cmd.Run(); err == nil {
+			break
+		}
+	}
+	Expect(err).NotTo(HaveOccurred(), "failed to download %s", url)
 	fi, err := os.Stat(dest)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(fi.Size()).To(BeNumerically(">", 1024), "downloaded file is suspiciously small")

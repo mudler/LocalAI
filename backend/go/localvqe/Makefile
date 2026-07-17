@@ -32,6 +32,8 @@ endif
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON -DLOCALVQE_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# Apple Silicon: CPU-only (no Metal upstream); built + published as an arm64
+	# image by CI (includeDarwin in .github/backend-matrix.yml) for macOS install.
 	CMAKE_ARGS+=-DGGML_METAL=OFF
 endif
 
@@ -67,8 +69,9 @@ $(LIB_SENTINEL): sources/LocalVQE
 	# that the loader picks at runtime. We must build every target — the
 	# default `--target localvqe_shared` drops these. CMAKE_LIBRARY_OUTPUT_DIRECTORY
 	# routes all of them into build/bin; copy them out next to the binary.
-	cp -P build/bin/liblocalvqe.so* . 2>/dev/null || cp -P build/liblocalvqe.so* .
+	cp -P build/bin/liblocalvqe.so* . 2>/dev/null || cp -P build/bin/liblocalvqe.dylib . 2>/dev/null || cp -P build/liblocalvqe.so* . 2>/dev/null || cp -P build/liblocalvqe.dylib .
 	cp -P build/bin/libggml*.so* . 2>/dev/null || true
+	cp -P build/bin/libggml*.dylib . 2>/dev/null || true
 	touch $(LIB_SENTINEL)
 
 liblocalvqe.so: $(LIB_SENTINEL)

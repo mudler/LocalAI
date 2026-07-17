@@ -22,13 +22,16 @@ Download the latest DMG from GitHub releases:
 3. Drag the LocalAI application to your Applications folder
 4. Launch LocalAI from your Applications folder
 
-## Known Issues
+## Verification
 
-> **Note**: The DMGs are not signed by Apple and may show as quarantined.
->
-> **Workaround**: See [this issue](https://github.com/mudler/LocalAI/issues/6268) for details on how to bypass the quarantine.
->
-> **Fix tracking**: The signing issue is being tracked in [this issue](https://github.com/mudler/LocalAI/issues/6244).
+The `LocalAI.dmg` (and the app inside it) and the `local-ai` server binary are
+signed with an Apple Developer ID and notarized by Apple, so they launch with no
+quarantine prompt or workaround. To inspect the signature yourself:
+
+```bash
+spctl --assess --type open --context context:primary-signature -v /Applications/LocalAI.app
+codesign --verify --deep --strict --verbose=2 /Applications/LocalAI.app
+```
 
 ## Next Steps
 

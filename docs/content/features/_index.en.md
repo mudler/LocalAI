@@ -17,7 +17,8 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Text to Audio](text-to-audio/)** - Generate speech from text with TTS models
 - **[Sound Generation](sound-generation/)** - Generate music and sound effects from text descriptions
 - **[Voice Activity Detection](voice-activity-detection/)** - Detect speech segments in audio data
-- **[Video Generation](video-generation/)** - Generate videos from text prompts and reference images
+- **[Video Generation](video-generation/)** - Generate videos from text prompts with optional image or audio conditioning
+- **[LongCat Video and Avatar](longcat-video/)** - Run text/image-to-video and audio-driven avatars on NVIDIA CUDA and DGX Spark
 - **[Embeddings](embeddings/)** - Generate vector embeddings for semantic search and RAG applications
 - **[GPT Vision](gpt-vision/)** - Analyze and understand images with vision-language models
 

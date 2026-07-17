@@ -1,4 +1,9 @@
 {
+  "unsaved": {
+    "title": "Buang perubahan yang belum disimpan?",
+    "message": "Anda memiliki perubahan yang belum disimpan. Perubahan tersebut akan hilang jika Anda meninggalkan halaman ini.",
+    "leave": "Tinggalkan Halaman"
+  },
   "actions": {
     "save": "Simpan",
     "saving": "Menyimpan...",
@@ -86,7 +91,8 @@
     "type": "Tipe",
     "value": "Nilai",
     "search": "Cari...",
-    "selectPlaceholder": "Pilih opsi..."
+    "selectPlaceholder": "Pilih opsi...",
+    "noMatch": "Tidak ada yang cocok"
   },
   "time": {
     "now": "baru saja",

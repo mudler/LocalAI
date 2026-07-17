@@ -31,6 +31,12 @@ config_file: |
     - vad
   parameters:
     model: LiquidAI/LFM2.5-Audio-1.5B
+  artifacts:
+    - name: model
+      target: model
+      source:
+        type: huggingface
+        repo: LiquidAI/LFM2.5-Audio-1.5B
   # Special tokens emitted in the text track during interleaved generation.
   # Included so a future client-side parser can spot them; the LFM2 tool-call
   # format itself is auto-detected by the upstream llama.cpp parser when the

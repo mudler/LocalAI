@@ -26,7 +26,7 @@ const (
 // array (tokenizer.ggml.tokens). The big array is exactly what SkipLargeMetadata
 // + UseMMap are expected to avoid reading element-by-element, so it must survive a
 // round-trip through the real hook without corrupting the guessed defaults.
-func writeTestGGUF(path, chatTemplate string, vocab int) error {
+func writeTestGGUF(path, chatTemplate string, vocab int, ctxTrain uint32) error {
 	wStr := func(b *bytes.Buffer, s string) {
 		binary.Write(b, binary.LittleEndian, uint64(len(s)))
 		b.WriteString(s)
@@ -45,7 +45,7 @@ func writeTestGGUF(path, chatTemplate string, vocab int) error {
 	var meta bytes.Buffer
 	kvStr(&meta, "general.architecture", "llama")
 	kvStr(&meta, "general.name", "ReproModel")
-	kvU32(&meta, "llama.context_length", 4096)
+	kvU32(&meta, "llama.context_length", ctxTrain)
 	kvU32(&meta, "llama.attention.head_count", 32)
 	kvU32(&meta, "llama.feed_forward_length", 11008)
 	kvU32(&meta, "llama.block_count", 32)
@@ -211,7 +211,7 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 		It("guesses defaults from a GGUF whose large vocab is skipped", func() {
 			dir := GinkgoT().TempDir()
 			modelFile := "repro.gguf"
-			Expect(writeTestGGUF(filepath.Join(dir, modelFile), chatTemplate, 50000)).To(Succeed())
+			Expect(writeTestGGUF(filepath.Join(dir, modelFile), chatTemplate, 50000, 4096)).To(Succeed())
 
 			// A pre-set context size short-circuits the GGUF run-estimate, which
 			// needs full tensor info this header-only fixture deliberately omits;
@@ -236,6 +236,26 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			Expect(cfg.KnownUsecaseStrings).To(ContainElement("FLAG_CHAT"))
 		})
 
+		It("resolves context_size=-1 to the model's trained maximum context", func() {
+			dir := GinkgoT().TempDir()
+			modelFile := "automax.gguf"
+			// A distinctive trained max proves we read metadata, not the 4096 default.
+			Expect(writeTestGGUF(filepath.Join(dir, modelFile), chatTemplate, 100, 131072)).To(Succeed())
+
+			neg := -1
+			cfg := &ModelConfig{
+				Backend:   "llama-cpp",
+				LLMConfig: LLMConfig{ContextSize: &neg},
+				PredictionOptions: schema.PredictionOptions{
+					BasicModelRequest: schema.BasicModelRequest{Model: modelFile},
+				},
+			}
+			cfg.SetDefaults(ModelPath(dir))
+
+			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(*cfg.ContextSize).To(Equal(131072))
+		})
+
 		It("falls back to the default context size when the GGUF is unreadable", func() {
 			dir := GinkgoT().TempDir()
 			Expect(os.WriteFile(filepath.Join(dir, "bad.gguf"), []byte("not a gguf"), 0o644)).To(Succeed())
@@ -248,7 +268,29 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			}
 			cfg.SetDefaults(ModelPath(dir))
 
+			// An unreadable/unparseable GGUF (e.g. a quant type the parser does
+			// not know, such as NVFP4) yields no estimate, so the hook must fall
+			// back to DefaultContextSize rather than a tiny, surprising value.
 			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(*cfg.ContextSize).To(Equal(DefaultContextSize))
+		})
+
+		It("falls back to the default when context_size=-1 but the GGUF is unreadable", func() {
+			dir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "bad.gguf"), []byte("not a gguf"), 0o644)).To(Succeed())
+
+			neg := -1
+			cfg := &ModelConfig{
+				Backend:   "llama-cpp",
+				LLMConfig: LLMConfig{ContextSize: &neg},
+				PredictionOptions: schema.PredictionOptions{
+					BasicModelRequest: schema.BasicModelRequest{Model: "bad.gguf"},
+				},
+			}
+			cfg.SetDefaults(ModelPath(dir))
+
+			Expect(cfg.ContextSize).NotTo(BeNil())
+			Expect(*cfg.ContextSize).To(Equal(DefaultContextSize))
 		})
 	})
 

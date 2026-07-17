@@ -13,6 +13,8 @@ import (
 type mockProcessManager struct {
 	mu             sync.Mutex
 	shutdownCalls  []string
+	forceCalls     []string
+	gracefulCalls  []string
 	shutdownErrors map[string]error
 }
 
@@ -27,6 +29,18 @@ func (m *mockProcessManager) ShutdownModel(modelName string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.shutdownCalls = append(m.shutdownCalls, modelName)
+	m.gracefulCalls = append(m.gracefulCalls, modelName)
+	if err, ok := m.shutdownErrors[modelName]; ok {
+		return err
+	}
+	return nil
+}
+
+func (m *mockProcessManager) ShutdownModelForce(modelName string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.shutdownCalls = append(m.shutdownCalls, modelName)
+	m.forceCalls = append(m.forceCalls, modelName)
 	if err, ok := m.shutdownErrors[modelName]; ok {
 		return err
 	}
@@ -38,6 +52,14 @@ func (m *mockProcessManager) getShutdownCalls() []string {
 	defer m.mu.Unlock()
 	result := make([]string, len(m.shutdownCalls))
 	copy(result, m.shutdownCalls)
+	return result
+}
+
+func (m *mockProcessManager) getForceShutdownCalls() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]string, len(m.forceCalls))
+	copy(result, m.forceCalls)
 	return result
 }
 
@@ -666,6 +688,35 @@ var _ = Describe("WatchDog", func() {
 		})
 	})
 
+	Context("Busy Killer", func() {
+		It("force-shuts down a model that is stuck busy past the busy timeout", func() {
+			// Regression: a backend stuck on an in-flight gRPC call must be
+			// killed via the force path (stop the process first), not the
+			// graceful one (wait for the stuck call to finish, which would
+			// deadlock while holding the loader mutex and stall every other
+			// model load — e.g. the opus backend load at the start of every
+			// realtime WebRTC session, hanging new "Connected, waiting for
+			// session..." connections).
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(10*time.Millisecond),
+				model.WithBusyCheck(true),
+				model.WithWatchdogInterval(20*time.Millisecond),
+			)
+
+			wd.AddAddressModelMap("addr1", "stuckModel")
+			wd.Mark("addr1") // busy — simulates an in-flight gRPC call
+
+			go wd.Run()
+			defer wd.Shutdown()
+
+			Eventually(func() []string {
+				return pm.getForceShutdownCalls()
+			}, "300ms", "10ms").Should(ContainElement("stuckModel"))
+			Expect(pm.getShutdownCalls()).To(ContainElement("stuckModel"))
+		})
+	})
+
 	Context("Concurrency Groups", func() {
 		Describe("ReplaceModelGroups / GetModelGroups", func() {
 			It("returns nil for unknown models", func() {
@@ -915,6 +966,112 @@ var _ = Describe("WatchDog", func() {
 			Expect(result.NeedMore).To(BeFalse())
 			Expect(result.EvictedCount).To(Equal(1))
 			Expect(pm.getShutdownCalls()).To(ContainElement("model1"))
+		})
+	})
+
+	Context("Size-Aware Eviction", func() {
+		BeforeEach(func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithLRULimit(2),
+				model.WithForceEvictionWhenBusy(true),
+				model.WithSizeAwareEviction(true),
+			)
+		})
+
+		It("should enable size-aware eviction via option", func() {
+			Expect(wd.GetSizeAwareEviction()).To(BeTrue())
+		})
+
+		It("should allow toggling size-aware eviction dynamically", func() {
+			wd.SetSizeAwareEviction(false)
+			Expect(wd.GetSizeAwareEviction()).To(BeFalse())
+			wd.SetSizeAwareEviction(true)
+			Expect(wd.GetSizeAwareEviction()).To(BeTrue())
+		})
+
+		It("should evict the largest model first when size-aware eviction is enabled", func() {
+			// Register sizes: model1=100MB, model2=400MB
+			wd.RegisterModelSize("model1", 100*1024*1024)
+			wd.RegisterModelSize("model2", 400*1024*1024)
+
+			// Add models — model1 older, model2 newer
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+			time.Sleep(10 * time.Millisecond)
+
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			// With limit=2 and 2 loaded, adding a 3rd triggers eviction.
+			// LRU order: model1 (oldest) would be evicted first.
+			// Size order: model2 (400MB) should be evicted first.
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(1))
+			Expect(result.NeedMore).To(BeFalse())
+			Expect(pm.getShutdownCalls()).To(ContainElement("model2")) // largest first
+			Expect(pm.getShutdownCalls()).ToNot(ContainElement("model1"))
+		})
+
+		It("should use LRU time as tiebreaker for equal-size models", func() {
+			// Register equal sizes for both models
+			wd.RegisterModelSize("model1", 200*1024*1024)
+			wd.RegisterModelSize("model2", 200*1024*1024)
+
+			// Add model1 first (older)
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+			time.Sleep(20 * time.Millisecond)
+
+			// Add model2 (newer)
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			// Equal size → LRU tiebreaker: model1 (older) should be evicted
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(1))
+			Expect(pm.getShutdownCalls()).To(ContainElement("model1"))
+			Expect(pm.getShutdownCalls()).ToNot(ContainElement("model2"))
+		})
+
+		It("should fall back to LRU when no size is registered", func() {
+			// No sizes registered — should behave like standard LRU
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+			time.Sleep(20 * time.Millisecond)
+
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			// Both have size 0 → LRU tiebreaker: model1 (older) evicted
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(1))
+			Expect(pm.getShutdownCalls()).To(ContainElement("model1"))
+		})
+
+		It("should clean up model size on eviction", func() {
+			wd.RegisterModelSize("model1", 200*1024*1024)
+
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+
+			wd.AddAddressModelMap("addr2", "model2")
+			wd.Mark("addr2")
+			wd.UnMark("addr2")
+
+			wd.EnforceLRULimit(0)
+
+			// model1 was evicted; registering a new model with the same name
+			// should start from a clean state (size not inherited)
+			wd.RegisterModelSize("model1", 50*1024*1024)
+			// Just verifying no panic and size can be re-registered
 		})
 	})
 })

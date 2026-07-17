@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
-import { renderMarkdown, highlightAll } from '../utils/markdown'
+import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, extractMetadataArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
 import CanvasPanel from '../components/CanvasPanel'
 import ResourceCards from '../components/ResourceCards'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
-import { relativeTime } from '../utils/format'
+import { relativeTime, normalizeTimestampMs } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 
 function getLastMessagePreview(conv) {
@@ -139,8 +139,9 @@ export default function AgentChat() {
           id: nextId(),
           sender,
           content: data.content || data.message || '',
-          // Backend sends Unix milliseconds (see core/services/agents events).
-          timestamp: data.timestamp || Date.now(),
+          // Backend timestamp encoding varies by deploy mode (RFC3339 string,
+          // Unix ms, or Unix ns); normalize to JS milliseconds.
+          timestamp: normalizeTimestampMs(data.timestamp),
         }
         if (data.metadata && Object.keys(data.metadata).length > 0) {
           msg.metadata = data.metadata
@@ -287,10 +288,24 @@ export default function AgentChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
   }, [activeId])
 
-  // Highlight code blocks
+  // Highlight code blocks + add per-block copy buttons (parity with Chat). A
+  // MutationObserver on the messages container fires reliably for streamed and
+  // loaded messages; it disconnects while mutating so its own edits do not
+  // retrigger it.
   useEffect(() => {
-    if (messagesRef.current) highlightAll(messagesRef.current)
-  }, [messages])
+    const el = messagesRef.current
+    if (!el) return
+    let obs
+    const run = () => {
+      obs?.disconnect()
+      highlightAll(el)
+      enhanceCodeBlocks(el)
+      obs?.observe(el, { childList: true, subtree: true })
+    }
+    obs = new MutationObserver(run)
+    run()
+    return () => obs.disconnect()
+  }, [])
 
   const agentMessages = useMemo(() => messages.filter(m => m.sender === 'agent'), [messages])
   const codeArtifacts = useMemo(
@@ -555,7 +570,7 @@ export default function AgentChat() {
           <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
             <i className="fas fa-columns" />
             <span className="canvas-mode-label">Canvas</span>
-            <span className="toggle">
+            <span className={`toggle${canvasMode ? ' toggle--on' : ''}`}>
               <input
                 type="checkbox"
                 checked={canvasMode}
@@ -564,7 +579,9 @@ export default function AgentChat() {
                   if (!e.target.checked) setCanvasOpen(false)
                 }}
               />
-              <span className="toggle-slider" />
+              <span className="toggle__track">
+                <span className="toggle__thumb" />
+              </span>
             </span>
           </label>
           {canvasMode && artifacts.length > 0 && !canvasOpen && (
@@ -748,8 +765,10 @@ export default function AgentChat() {
             className="chat-send-btn"
             onClick={handleSend}
             disabled={processing || !input.trim()}
+            aria-label="Send message"
+            title="Send message"
           >
-            <i className="fas fa-paper-plane" />
+            <i className="fas fa-paper-plane" aria-hidden="true" />
           </button>
         </div>
       </div>

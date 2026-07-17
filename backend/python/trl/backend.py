@@ -309,6 +309,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         dataset_split = request.dataset_split or "train"
         if os.path.exists(request.dataset_source):
+            _allowed_dir = os.path.realpath(os.path.abspath(os.environ.get("LOCALAI_DATASET_DIR", os.getcwd())))
+            _real_path = os.path.realpath(os.path.abspath(request.dataset_source))
+            if not (_real_path == _allowed_dir or _real_path.startswith(_allowed_dir + os.sep)):
+                raise ValueError("Dataset source path is outside the allowed directory")
             if request.dataset_source.endswith('.json') or request.dataset_source.endswith('.jsonl'):
                 dataset = load_dataset("json", data_files=request.dataset_source, split=dataset_split)
             elif request.dataset_source.endswith('.csv'):
@@ -687,6 +691,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def ExportModel(self, request, context):
         export_format = request.export_format or "lora"
         output_path = request.output_path
+        _allowed_output_dir = os.path.realpath(os.path.abspath(os.environ.get("LOCALAI_OUTPUT_DIR", os.getcwd())))
+        _real_output_path = os.path.realpath(os.path.abspath(output_path))
+        if not (_real_output_path == _allowed_output_dir or _real_output_path.startswith(_allowed_output_dir + os.sep)):
+            raise ValueError("Output path is outside the allowed directory")
+        output_path = _real_output_path
         checkpoint_path = request.checkpoint_path
 
         # Extract HF token for gated model access
@@ -807,7 +816,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 env = os.environ.copy()
                 env["NO_LOCAL_GGUF"] = "1"
                 cmd = [sys.executable, convert_script, merge_dir, "--outtype", outtype, "--outfile", gguf_path]
-                conv_result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600, env=env)
+                conv_result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600, env=env, shell=False)  # nosemgrep: python.django.security.injection.command.subprocess-injection.subprocess-injection
                 if conv_result.returncode != 0:
                     diag = f"stdout: {conv_result.stdout[-300:]}\nstderr: {conv_result.stderr[-500:]}"
                     return backend_pb2.Result(success=False,

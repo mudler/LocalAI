@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import SourcesTab from './Usage/SourcesTab'
 
 const PERIODS = [
@@ -23,7 +24,37 @@ function formatNumber(n) {
   return String(n)
 }
 
-function StatCard({ icon, label, value, muted }) {
+// Opt-in token pricing. LocalAI is self-hosted and has no inherent monetary
+// cost, but multi-user deployments use estimated cost for chargeback/budgeting.
+// Prices are admin-supplied $ per 1M tokens, stored locally (per-browser), and
+// the whole cost surface stays hidden until a non-zero price is set.
+const TOKEN_PRICING_KEY = 'localai_token_pricing'
+
+function loadPricing() {
+  try {
+    const p = JSON.parse(localStorage.getItem(TOKEN_PRICING_KEY) || '{}')
+    return { prompt: Number(p.prompt) || 0, completion: Number(p.completion) || 0 }
+  } catch { return { prompt: 0, completion: 0 } }
+}
+
+function savePricing(p) {
+  try { localStorage.setItem(TOKEN_PRICING_KEY, JSON.stringify(p)) } catch { /* ignore */ }
+}
+
+function pricingEnabled(p) { return (p?.prompt || 0) > 0 || (p?.completion || 0) > 0 }
+
+function costOf(row, p) {
+  return (row.prompt_tokens / 1_000_000) * (p.prompt || 0)
+       + (row.completion_tokens / 1_000_000) * (p.completion || 0)
+}
+
+function formatCost(n) {
+  if (!n) return '$0.00'
+  if (n < 0.01) return '<$0.01'
+  return '$' + n.toFixed(2)
+}
+
+function StatCard({ icon, label, value, muted, text }) {
   return (
     <div className="card" style={{ padding: 'var(--spacing-sm) var(--spacing-md)', flex: '1 1 0', minWidth: 120, opacity: muted ? 0.7 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -31,7 +62,7 @@ function StatCard({ icon, label, value, muted }) {
         <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
       </div>
       <div style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: muted ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}>
-        {muted ? '~' : ''}{formatNumber(value)}
+        {text != null ? text : `${muted ? '~' : ''}${formatNumber(value)}`}
       </div>
     </div>
   )
@@ -412,7 +443,7 @@ function UsageTimeChart({ data, predictedData, period }) {
         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Tokens over time</span>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
           <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', marginRight: 4, verticalAlign: 'middle' }} />Prompt</span>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', opacity: 0.35, marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
+          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-data-3)', marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
           {predictedData && predictedData.length > 0 && (
             <span>
               <span style={{
@@ -471,7 +502,7 @@ function UsageTimeChart({ data, predictedData, period }) {
                   {/* Prompt tokens (bottom) */}
                   <rect x={x} y={chartH - promptH - compH} width={barWidth} height={promptH} fill="var(--color-primary)" rx={2} />
                   {/* Completion tokens (top) */}
-                  <rect x={x} y={chartH - compH} width={barWidth} height={compH} fill="var(--color-primary)" opacity={0.35} rx={2} />
+                  <rect x={x} y={chartH - compH} width={barWidth} height={compH} fill="var(--color-data-3)" rx={2} />
                 </g>
               )
             })}
@@ -570,7 +601,7 @@ function UsageTimeChart({ data, predictedData, period }) {
               {formatBucket(tooltip.data.bucket, period)}
             </div>
             <div><span style={{ color: 'var(--color-primary)' }}>Prompt:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.prompt_tokens.toLocaleString()}</div>
-            <div><span style={{ color: 'var(--color-text-secondary)' }}>Completion:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.completion_tokens.toLocaleString()}</div>
+            <div><span style={{ color: 'var(--color-data-3)' }}>Completion:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.completion_tokens.toLocaleString()}</div>
             <div style={{ color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)', marginTop: 2, paddingTop: 2 }}>
               {tooltip.predicted ? '~' : ''}{tooltip.data.request_count} requests
             </div>
@@ -595,7 +626,7 @@ function ModelDistChart({ rows }) {
         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Token distribution by model</span>
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
           <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', marginRight: 4, verticalAlign: 'middle' }} />Prompt</span>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', opacity: 0.35, marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
+          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-data-3)', marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: gap }}>
@@ -612,7 +643,7 @@ function ModelDistChart({ rows }) {
               </div>
               <div style={{ flex: 1, height: barH, background: 'var(--color-bg-primary)', borderRadius: "var(--radius-sm)", overflow: 'hidden', display: 'flex' }}>
                 <div style={{ width: `${promptPct}%`, height: '100%', background: 'var(--color-primary)', transition: 'width 0.3s ease' }} />
-                <div style={{ width: `${compPct}%`, height: '100%', background: 'var(--color-primary)', opacity: 0.35, transition: 'width 0.3s ease' }} />
+                <div style={{ width: `${compPct}%`, height: '100%', background: 'var(--color-data-3)', transition: 'width 0.3s ease' }} />
               </div>
               <div style={{
                 minWidth: 60, textAlign: 'right', fontSize: '0.75rem', fontFamily: 'var(--font-mono)',
@@ -641,6 +672,10 @@ export default function Usage() {
   const [activeTab, setActiveTab] = useState('models')
   const [quotas, setQuotas] = useState([])
   const [selectedUserId, setSelectedUserId] = useState(null)
+  const [pricing, setPricingState] = useState(loadPricing)
+  const [showPricing, setShowPricing] = useState(false)
+  const setPricing = (p) => { setPricingState(p); savePricing(p) }
+  const costEnabled = pricingEnabled(pricing)
 
   const fetchUsage = useCallback(async () => {
     setLoading(true)
@@ -707,10 +742,7 @@ export default function Usage() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header" style={{ marginBottom: 'var(--spacing-sm)' }}>
-        <h1 className="page-title">{t('usage.title')}</h1>
-        <p className="page-subtitle">{t('usage.subtitle')}</p>
-      </div>
+      <PageHeader title={t('usage.title')} supporting={t('usage.subtitle')} />
 
       {/* Period selector + tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
@@ -745,10 +777,49 @@ export default function Usage() {
           <i className="fas fa-key" style={{ fontSize: '0.7rem' }} /> {t('usage.sources.tab')}
         </button>
         <div style={{ flex: 1 }} />
+        <button
+          className={`btn btn-sm ${costEnabled ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setShowPricing(v => !v)}
+          style={{ gap: 4 }}
+          title="Set token pricing to estimate cost"
+        >
+          <i className="fas fa-dollar-sign" /> {costEnabled ? 'Pricing' : 'Set pricing'}
+        </button>
         <button className="btn btn-secondary btn-sm" onClick={fetchUsage} disabled={loading} style={{ gap: 4 }}>
           <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
         </button>
       </div>
+
+      {showPricing && (
+        <div className="card" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--spacing-md)', flexWrap: 'wrap', padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Prompt $/1M tokens</label>
+            <input
+              className="input" type="number" min="0" step="0.01" style={{ width: 140 }}
+              value={pricing.prompt || ''}
+              placeholder="0.00"
+              onChange={e => setPricing({ ...pricing, prompt: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Completion $/1M tokens</label>
+            <input
+              className="input" type="number" min="0" step="0.01" style={{ width: 140 }}
+              value={pricing.completion || ''}
+              placeholder="0.00"
+              onChange={e => setPricing({ ...pricing, completion: Number(e.target.value) || 0 })}
+            />
+          </div>
+          {costEnabled && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setPricing({ prompt: 0, completion: 0 })} style={{ gap: 4 }}>
+              <i className="fas fa-times" /> Clear
+            </button>
+          )}
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flex: '1 1 200px' }}>
+            Estimated cost only. Prices are stored in this browser and applied to recorded token counts.
+          </span>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
@@ -762,6 +833,9 @@ export default function Usage() {
             <StatCard icon="fas fa-arrow-up" label="Prompt" value={displayTotals.prompt_tokens} />
             <StatCard icon="fas fa-arrow-down" label="Completion" value={displayTotals.completion_tokens} />
             <StatCard icon="fas fa-coins" label="Total" value={displayTotals.total_tokens} />
+            {costEnabled && (
+              <StatCard icon="fas fa-dollar-sign" label="Est. Cost" text={formatCost(costOf(displayTotals, pricing))} />
+            )}
           </div>
 
           {/* Predictions */}
@@ -791,6 +865,7 @@ export default function Usage() {
                       <th style={{ width: 110 }}>Prompt</th>
                       <th style={{ width: 110 }}>Completion</th>
                       <th style={{ width: 110 }}>Total</th>
+                      {costEnabled && <th style={{ width: 100 }}>Est. Cost</th>}
                       <th style={{ width: 140 }}></th>
                     </tr>
                   </thead>
@@ -802,6 +877,7 @@ export default function Usage() {
                         <td style={monoCell}>{formatNumber(row.prompt_tokens)}</td>
                         <td style={monoCell}>{formatNumber(row.completion_tokens)}</td>
                         <td style={{ ...monoCell, fontWeight: 600 }}>{formatNumber(row.total_tokens)}</td>
+                        {costEnabled && <td style={monoCell}>{formatCost(costOf(row, pricing))}</td>}
                         <td><UsageBar value={row.total_tokens} max={maxTokens} /></td>
                       </tr>
                     ))}
@@ -829,6 +905,7 @@ export default function Usage() {
                       <th style={{ width: 110 }}>Prompt</th>
                       <th style={{ width: 110 }}>Completion</th>
                       <th style={{ width: 110 }}>Total</th>
+                      {costEnabled && <th style={{ width: 100 }}>Est. Cost</th>}
                       <th style={{ width: 110 }}>Proj. Total</th>
                       <th style={{ width: 140 }}></th>
                     </tr>
@@ -851,6 +928,7 @@ export default function Usage() {
                             <td style={monoCell}>{formatNumber(row.prompt_tokens)}</td>
                             <td style={monoCell}>{formatNumber(row.completion_tokens)}</td>
                             <td style={{ ...monoCell, fontWeight: 600 }}>{formatNumber(row.total_tokens)}</td>
+                            {costEnabled && <td style={monoCell}>{formatCost(costOf(row, pricing))}</td>}
                             <td style={{ ...monoCell, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
                               {up?.predictions ? `~${formatNumber(up.predictions.projectedTotals.total_tokens)}` : '-'}
                             </td>
@@ -858,7 +936,7 @@ export default function Usage() {
                           </tr>
                           {isExpanded && up && (
                             <tr>
-                              <td colSpan={8} style={{ padding: 0, background: 'var(--color-bg-secondary)' }}>
+                              <td colSpan={costEnabled ? 9 : 8} style={{ padding: 0, background: 'var(--color-bg-secondary)' }}>
                                 <div style={{ padding: 'var(--spacing-md)' }}>
                                   {up.predictions && (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>

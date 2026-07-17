@@ -1,0 +1,143 @@
+{
+  "title": "새 모델 가져오기",
+  "subtitle": {
+    "simple": "URI에서 모델을 가져옵니다 — 자동 감지가 백엔드를 선택합니다.",
+    "powerYaml": "전체 모델 YAML 구성을 작성합니다.",
+    "powerPrefs": "세밀한 가져오기 환경설정."
+  },
+  "actions": {
+    "import": "모델 가져오기",
+    "importing": "가져오는 중...",
+    "create": "만들기",
+    "saving": "저장 중...",
+    "browseHF": "HF에서 모델 둘러보기",
+    "addCustom": "사용자 지정 추가",
+    "copy": "복사"
+  },
+  "form": {
+    "modelUri": "모델 URI",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF 또는 https://example.com/model.gguf",
+    "uriHint": "가져올 모델 파일의 URI 또는 경로를 입력하세요",
+    "supportedFormats": "지원되는 URI 형식",
+    "options": "옵션",
+    "preferences": "환경설정 (선택 사항)",
+    "commonPreferences": "공통 환경설정",
+    "customPreferences": "사용자 지정 환경설정",
+    "customKeyValueHint": "고급 구성을 위한 사용자 지정 키-값 쌍을 추가합니다.",
+    "preferenceKey": "{{index}}행의 환경설정 키",
+    "preferenceValue": "{{index}}행의 환경설정 값",
+    "removePref": "이 환경설정 제거",
+    "key": "키",
+    "value": "값",
+    "backend": "백엔드",
+    "backendAuto": "자동 감지 (URI 기반)",
+    "backendLoading": "백엔드 불러오는 중…",
+    "backendSearch": "백엔드 검색...",
+    "backendHint": "특정 백엔드를 강제로 지정합니다. 비워 두면 URI에서 자동 감지합니다. \"수동 선택\"으로 표시된 항목은 자동 감지되지 않으므로 모델에 필요한 것을 알고 있다면 직접 선택하세요.",
+    "backendErrorHint": "백엔드 목록을 불러오지 못했습니다 — 자동 감지만 사용합니다.",
+    "backendNotInstalled": "이 백엔드는 아직 설치되지 않았습니다. 가져오기를 제출하면 먼저 다운로드됩니다.",
+    "modelName": "모델 이름",
+    "modelNamePlaceholder": "비워 두면 파일 이름을 사용합니다",
+    "modelNameHint": "모델의 사용자 지정 이름입니다. 비워 두면 파일 이름이 사용됩니다.",
+    "description": "설명",
+    "descriptionPlaceholder": "비워 두면 기본 설명을 사용합니다",
+    "descriptionHint": "모델의 사용자 지정 설명입니다.",
+    "quantizations": "양자화",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (쉼표로 구분)",
+    "quantizationsHint": "선호하는 양자화 (쉼표로 구분). 비워 두면 기본값(q4_k_m)을 사용합니다.",
+    "mmprojQuantizations": "MMProj 양자화",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (쉼표로 구분)",
+    "mmprojQuantizationsHint": "선호하는 MMProj 양자화입니다. 비워 두면 기본값(fp16)을 사용합니다.",
+    "embeddings": "임베딩",
+    "embeddingsHint": "이 모델에 대한 임베딩 지원을 활성화합니다.",
+    "modelType": "모델 유형",
+    "modelTypePlaceholder": "AutoModelForCausalLM (transformers 백엔드용)",
+    "modelTypeHint": "transformers 백엔드의 모델 유형입니다. 예: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "파이프라인 유형",
+    "pipelineTypeHint": "diffusers 백엔드의 파이프라인 유형입니다.",
+    "schedulerType": "스케줄러 유형",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (선택 사항)",
+    "schedulerTypeHint": "diffusers 백엔드의 스케줄러 유형입니다. 예: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "활성화 매개변수",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (쉼표로 구분)",
+    "enableParametersHint": "diffusers 백엔드에 대해 활성화된 매개변수 (쉼표로 구분).",
+    "cuda": "CUDA",
+    "cudaHint": "GPU 가속을 위한 CUDA 지원을 활성화합니다.",
+    "yamlEditor": "YAML 구성 편집기",
+    "manualPick": "수동 선택",
+    "manualPickTooltip": "자동 감지는 이 백엔드로 라우팅하지 않습니다. 원하는 것이 무엇인지 안다면 여기서 직접 선택하세요."
+  },
+  "modality": {
+    "text": "텍스트 LLM",
+    "asr": "음성 인식",
+    "tts": "텍스트 음성 변환",
+    "image": "이미지 / 비디오",
+    "video": "비디오 생성",
+    "embeddings": "임베딩",
+    "reranker": "리랭커",
+    "detection": "객체 감지",
+    "vad": "음성 활동 감지",
+    "other": "기타"
+  },
+  "powerTabs": {
+    "ariaLabel": "고급 모드 탭",
+    "preferences": "환경설정",
+    "yaml": "YAML"
+  },
+  "switchDialog": {
+    "title": "사용자 지정 환경설정을 유지할까요?",
+    "body": "간단 모드로 전환하면 백엔드, 이름, 설명을 제외한 환경설정이 숨겨집니다. 가져오기 시 여전히 전송됩니다.",
+    "cancel": "취소",
+    "discard": "폐기하고 전환",
+    "keep": "유지하고 전환"
+  },
+  "estimate": {
+    "title": "예상 요구 사항",
+    "download": "다운로드: {{size}}",
+    "vram": "VRAM: {{vram}}"
+  },
+  "toasts": {
+    "noUri": "모델 URI를 입력해 주세요",
+    "noYaml": "YAML 구성을 입력해 주세요",
+    "started": "가져오기를 시작했습니다! 진행 상황을 추적하는 중...",
+    "startedWithMeta": "가져오기를 시작했습니다! 진행 상황을 추적하는 중... ({{meta}})",
+    "imported": "모델을 성공적으로 가져왔습니다!",
+    "importedYaml": "모델 구성을 성공적으로 가져왔습니다!",
+    "importFailed": "가져오기 실패: {{message}}",
+    "startImportFailed": "가져오기를 시작하지 못했습니다: {{message}}",
+    "backendsLoadFailed": "백엔드 목록을 불러오지 못했습니다 — 자동 감지만 사용합니다",
+    "modalityClearedBackend": "백엔드 선택을 해제했습니다 — {{label}} 그룹에 없었습니다.",
+    "copied": "클립보드에 복사되었습니다"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "HuggingFace",
+      "standard": "표준 HuggingFace 형식",
+      "short": "짧은 HuggingFace 형식",
+      "fullUrl": "전체 HuggingFace URL"
+    },
+    "http": {
+      "title": "HTTP/HTTPS URL",
+      "direct": "모든 HTTPS URL에서 직접 다운로드"
+    },
+    "local": {
+      "title": "로컬 파일",
+      "filePath": "로컬 파일 경로 (절대 경로)",
+      "directYaml": "직접 로컬 YAML 구성 파일"
+    },
+    "oci": {
+      "title": "OCI 레지스트리",
+      "registry": "OCI 컨테이너 레지스트리",
+      "tarball": "로컬 OCI tarball 파일"
+    },
+    "ollama": {
+      "title": "Ollama",
+      "model": "Ollama 모델 형식"
+    },
+    "yaml": {
+      "title": "YAML 구성 파일",
+      "remote": "원격 YAML 구성 파일",
+      "local": "로컬 YAML 구성 파일"
+    }
+  }
+}

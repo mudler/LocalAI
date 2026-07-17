@@ -70,6 +70,12 @@ if [ "${BUILD_TYPE:-}" = "vulkan" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; t
         git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
         ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
         clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils
+    # Mesa Vulkan ICD drivers (ANV/RADV/lavapipe + Arm SoC) and their ICD
+    # manifests. The LunarG SDK below only provides the loader and shader
+    # tooling, not hardware drivers — without Mesa the packaged Vulkan backend
+    # would ship a loader that finds no GPU. package-gpu-libs.sh bundles these
+    # .so files plus their deps into the backend so it stays self-contained.
+    apt-get install -y mesa-vulkan-drivers libdrm2
     if [ "amd64" = "${TARGETARCH:-}" ]; then
         wget "https://sdk.lunarg.com/sdk/download/1.4.335.0/linux/vulkansdk-linux-x86_64-1.4.335.0.tar.xz"
         tar -xf vulkansdk-linux-x86_64-1.4.335.0.tar.xz

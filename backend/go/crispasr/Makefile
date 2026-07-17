@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # CrispASR version (release tag)
 CRISPASR_REPO?=https://github.com/CrispStrobe/CrispASR
-CRISPASR_VERSION?=d745bda4386ae0f9d1d2f23fff8ec95d76428221
+CRISPASR_VERSION?=a38cb89f7b9a743db2e8e50869fa646f91dc7f08
 SO_TARGET?=libgocrispasr.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -62,12 +62,17 @@ sources/CrispASR:
 	git checkout $(CRISPASR_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 	# CrispASR's src/CMakeLists.txt locates its vendored llama.cpp
-	# (crispasr-llama-core, used by the chat C-ABI) via ${CMAKE_SOURCE_DIR},
-	# which assumes CrispASR is the top-level CMake project. We add_subdirectory
-	# it, so ${CMAKE_SOURCE_DIR} is THIS backend dir and the talk-llama sources
-	# aren't found. Rewrite to ${PROJECT_SOURCE_DIR} (the crispasr project root),
-	# which is correct both standalone and as a subproject. Idempotent.
-	sed -i 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' sources/CrispASR/src/CMakeLists.txt
+	# (crispasr-llama-core, used by the chat C-ABI) and the c2pa-audio
+	# submodule (crispasr_c2pa_native, the pure-C++ C2PA signer) via
+	# ${CMAKE_SOURCE_DIR}, which assumes CrispASR is the top-level CMake
+	# project. We add_subdirectory it, so ${CMAKE_SOURCE_DIR} is THIS backend
+	# dir and those sources aren't found. Rewrite to ${PROJECT_SOURCE_DIR}
+	# (the crispasr project root), which is correct both standalone and as a
+	# subproject. Idempotent.
+	sed -i.bak \
+		-e 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' \
+		-e 's#\$${CMAKE_SOURCE_DIR}/third_party/c2pa-audio#\$${PROJECT_SOURCE_DIR}/third_party/c2pa-audio#' \
+		sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
 
 # Detect OS
 UNAME_S := $(shell uname -s)
@@ -75,7 +80,8 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libgocrispasr-avx.so libgocrispasr-avx2.so libgocrispasr-avx512.so libgocrispasr-fallback.so
 else
-	VARIANT_TARGETS = libgocrispasr-fallback.so
+	# On non-Linux (e.g., Darwin), build only fallback variant (as a dylib)
+	VARIANT_TARGETS = libgocrispasr-fallback.dylib
 endif
 
 crispasr: main.go gocrispasr.go $(VARIANT_TARGETS)
@@ -87,7 +93,7 @@ package: crispasr
 build: package
 
 clean: purge
-	rm -rf libgocrispasr*.so package sources/CrispASR crispasr
+	rm -rf libgocrispasr*.so libgocrispasr*.dylib package sources/CrispASR crispasr
 
 purge:
 	rm -rf build*
@@ -118,13 +124,21 @@ libgocrispasr-fallback.so: sources/CrispASR
 	SO_TARGET=libgocrispasr-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgocrispasr-custom
 	rm -rfv build*
 
+# Build fallback variant as a dylib (Darwin)
+libgocrispasr-fallback.dylib: sources/CrispASR
+	$(MAKE) purge
+	$(info ${GREEN}I crispasr build info:fallback (dylib)${RESET})
+	SO_TARGET=libgocrispasr-fallback.dylib CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgocrispasr-custom
+	rm -rfv build*
+
 libgocrispasr-custom: CMakeLists.txt cpp/crispasr_shim.cpp cpp/crispasr_shim.h
 	mkdir -p build-$(SO_TARGET) && \
 	cd build-$(SO_TARGET) && \
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgocrispasr.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgocrispasr.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgocrispasr.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: crispasr
 	CGO_ENABLED=0 $(GOCMD) test -v ./...

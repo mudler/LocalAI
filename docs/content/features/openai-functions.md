@@ -28,7 +28,7 @@ LocalAI also supports [JSON mode](https://platform.openai.com/docs/guides/text-g
 | `mlx` | `mlx_lm.tool_parsers` — **auto-detected from the chat template**, no configuration needed |
 | `mlx-vlm` | `mlx_vlm.tool_parsers` (with fallback to mlx-lm parsers) — **auto-detected from the chat template**, no configuration needed |
 
-Reasoning content (`<think>...</think>` blocks from DeepSeek R1, Qwen3, Gemma 4, etc.) is returned in the OpenAI `reasoning_content` field on the same backends.
+Reasoning content (`<think>...</think>` blocks from DeepSeek R1, Qwen3, Gemma 4, etc.) is returned in the OpenAI `reasoning_content` field on the same backends. When a model both reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}) for how the reasoning survives the tool-result round trip.
 
 ## Setup
 

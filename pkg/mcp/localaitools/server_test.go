@@ -88,20 +88,23 @@ var expectedFullCatalog = sortedStrings(
 	ToolInstallModel,
 	ToolListBackends,
 	ToolListGalleries,
+	ToolListAliases,
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
-	ToolListPIIPatterns,
-	ToolPersistPIIPatterns,
+	ToolListVoiceProfiles,
+	ToolLoadModel,
 	ToolReloadModels,
+	ToolSetAlias,
 	ToolSetBranding,
-	ToolSetPIIPatternAction,
 	ToolSystemInfo,
-	ToolTestPIIRedaction,
 	ToolToggleModelPinned,
 	ToolToggleModelState,
 	ToolUpgradeBackend,
 	ToolVRAMEstimate,
+	ToolCreateVoiceProfile,
+	ToolDeleteVoiceProfile,
+	ToolSetNodeVRAMBudget,
 )
 
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
@@ -114,14 +117,14 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolGetPIIEvents,
 	ToolGetRouterDecisions,
 	ToolGetUsageStats,
+	ToolListAliases,
 	ToolListBackends,
 	ToolListGalleries,
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
-	ToolListPIIPatterns,
+	ToolListVoiceProfiles,
 	ToolSystemInfo,
-	ToolTestPIIRedaction,
 	ToolVRAMEstimate,
 )
 
@@ -162,6 +165,7 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},
 		{ToolSystemInfo, struct{}{}, "SystemInfo"},
 		{ToolListNodes, struct{}{}, "ListNodes"},
+		{ToolListVoiceProfiles, struct{}{}, "ListVoiceProfiles"},
 		{ToolInstallModel, InstallModelRequest{ModelName: "test/foo"}, "InstallModel"},
 		{ToolImportModelURI, ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
 		{ToolDeleteModel, map[string]any{"name": "foo"}, "DeleteModel"},
@@ -169,8 +173,13 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolUpgradeBackend, map[string]any{"name": "llama-cpp"}, "UpgradeBackend"},
 		{ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{"context_size": 4096}}, "EditModelConfig"},
 		{ToolReloadModels, struct{}{}, "ReloadModels"},
+		{ToolLoadModel, map[string]any{"model": "test-model"}, "LoadModel"},
 		{ToolToggleModelState, map[string]any{"name": "foo", "action": "enable"}, "ToggleModelState"},
 		{ToolToggleModelPinned, map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},
+		{ToolSetAlias, map[string]any{"name": "gpt-4", "target": "real"}, "SetAlias"},
+		{ToolListAliases, struct{}{}, "ListAliases"},
+		{ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Reference words", AudioBase64: "UklGRg==", ConsentConfirmed: true}, "CreateVoiceProfile"},
+		{ToolDeleteVoiceProfile, DeleteVoiceProfileRequest{ID: "00000000-0000-0000-0000-000000000001"}, "DeleteVoiceProfile"},
 	}
 
 	for _, c := range cases {
@@ -225,6 +234,7 @@ var _ = Describe("Argument validation", func() {
 		{"delete_model rejects missing name (schema)", ToolDeleteModel, map[string]any{}, "missing properties"},
 		{"toggle_model_state rejects unknown action", ToolToggleModelState, map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
 		{"edit_model_config rejects empty patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
+		{"create_voice_profile requires consent", ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Voice", Transcript: "words", AudioBase64: "UklGRg=="}, "consent_confirmed must be true"},
 	}
 
 	for _, c := range cases {

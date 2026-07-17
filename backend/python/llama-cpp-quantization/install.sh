@@ -11,14 +11,31 @@ fi
 EXTRA_PIP_INSTALL_FLAGS+=" --upgrade "
 installRequirements
 
-# Fetch convert_hf_to_gguf.py from llama.cpp
+# Fetch convert_hf_to_gguf.py from llama.cpp.
+# Upstream split the model-specific logic out of the single file into a
+# sibling `conversion/` package (convert_hf_to_gguf.py now does
+# `from conversion import ...`), so a single-file download no longer runs —
+# it fails with `ModuleNotFoundError: No module named 'conversion'`. We clone
+# the repo and copy both the script and the package; Python puts the script's
+# own directory on sys.path[0], so the package resolves when placed beside it.
 LLAMA_CPP_CONVERT_VERSION="${LLAMA_CPP_CONVERT_VERSION:-master}"
+LLAMA_CPP_SRC="${EDIR}/llama.cpp"
 CONVERT_SCRIPT="${EDIR}/convert_hf_to_gguf.py"
-if [ ! -f "${CONVERT_SCRIPT}" ]; then
-    echo "Downloading convert_hf_to_gguf.py from llama.cpp (${LLAMA_CPP_CONVERT_VERSION})..."
-    curl -L --fail --retry 3 \
-        "https://raw.githubusercontent.com/ggml-org/llama.cpp/${LLAMA_CPP_CONVERT_VERSION}/convert_hf_to_gguf.py" \
-        -o "${CONVERT_SCRIPT}" || echo "Warning: Failed to download convert_hf_to_gguf.py."
+
+cloneLlamaCpp() {
+    if [ ! -d "${LLAMA_CPP_SRC}/.git" ]; then
+        git clone --depth 1 --branch "${LLAMA_CPP_CONVERT_VERSION}" \
+            https://github.com/ggml-org/llama.cpp.git "${LLAMA_CPP_SRC}" 2>/dev/null || \
+        git clone --depth 1 https://github.com/ggml-org/llama.cpp.git "${LLAMA_CPP_SRC}"
+    fi
+}
+
+if [ ! -f "${CONVERT_SCRIPT}" ] || [ ! -d "${EDIR}/conversion" ]; then
+    echo "Fetching convert_hf_to_gguf.py + conversion/ from llama.cpp (${LLAMA_CPP_CONVERT_VERSION})..."
+    cloneLlamaCpp
+    cp "${LLAMA_CPP_SRC}/convert_hf_to_gguf.py" "${CONVERT_SCRIPT}"
+    rm -rf "${EDIR}/conversion"
+    cp -r "${LLAMA_CPP_SRC}/conversion" "${EDIR}/conversion"
 fi
 
 # Install gguf package from the same llama.cpp commit to keep them in sync
@@ -41,12 +58,7 @@ QUANTIZE_BIN="${EDIR}/llama-quantize"
 if [ ! -x "${QUANTIZE_BIN}" ] && ! command -v llama-quantize &>/dev/null; then
     if command -v cmake &>/dev/null; then
         echo "Building llama-quantize from llama.cpp (${LLAMA_CPP_CONVERT_VERSION})..."
-        LLAMA_CPP_SRC="${EDIR}/llama.cpp"
-        if [ ! -d "${LLAMA_CPP_SRC}" ]; then
-            git clone --depth 1 --branch "${LLAMA_CPP_CONVERT_VERSION}" \
-                https://github.com/ggml-org/llama.cpp.git "${LLAMA_CPP_SRC}" 2>/dev/null || \
-            git clone --depth 1 https://github.com/ggml-org/llama.cpp.git "${LLAMA_CPP_SRC}"
-        fi
+        cloneLlamaCpp  # reuses the clone fetched for convert_hf_to_gguf.py
         cmake -B "${LLAMA_CPP_SRC}/build" -S "${LLAMA_CPP_SRC}" -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF
         cmake --build "${LLAMA_CPP_SRC}/build" --target llama-quantize -j"$(nproc 2>/dev/null || echo 2)"
         cp "${LLAMA_CPP_SRC}/build/bin/llama-quantize" "${QUANTIZE_BIN}"

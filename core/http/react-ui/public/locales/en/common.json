@@ -1,4 +1,9 @@
 {
+  "unsaved": {
+    "title": "Discard unsaved changes?",
+    "message": "You have unsaved changes that will be lost if you leave this page.",
+    "leave": "Leave"
+  },
   "actions": {
     "save": "Save",
     "saving": "Saving...",
@@ -86,7 +91,8 @@
     "type": "Type",
     "value": "Value",
     "search": "Search...",
-    "selectPlaceholder": "Select an option..."
+    "selectPlaceholder": "Select an option...",
+    "noMatch": "No matches"
   },
   "time": {
     "now": "now",

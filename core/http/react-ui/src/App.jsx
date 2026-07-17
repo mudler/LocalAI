@@ -8,8 +8,21 @@ import { systemApi } from './utils/api'
 import { useTheme } from './contexts/ThemeContext'
 import { useBranding } from './contexts/BrandingContext'
 import { useAuth } from './context/AuthContext'
+import RouteFallback from './components/RouteFallback'
+import { consoles, consolePaths } from './components/console/consoleConfig'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
+
+// The page wrapper is keyed so its transition replays on navigation. Within a
+// console, collapse the key to the console id so the layout (and its rail)
+// persists across item-to-item nav instead of remounting and flashing — only
+// the inner page swaps. Normal routes keep their per-path key.
+function pageTransitionKey(pathname) {
+  for (const c of consoles) {
+    if (consolePaths(c).some(p => pathname.startsWith(p))) return `console:${c.id}`
+  }
+  return pathname
+}
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -61,6 +74,14 @@ export default function App() {
       hamburgerRef.current?.focus()
     }
   }, [sidebarOpen])
+
+  // Reset scroll to the top on every route change. The default (non-chat)
+  // layout uses the document as its scroll container, so without this a new
+  // page opens at the previous page's scroll position - navigating the console
+  // rail from a scrolled page would land mid-view instead of at the top.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
   const layoutClasses = [
     'app-layout',
@@ -121,13 +142,14 @@ export default function App() {
           </div>
         </header>
         <div className="main-content-inner">
-          <div className="page-transition" key={location.pathname}>
+          <div className="page-transition" key={pageTransitionKey(location.pathname)}>
             {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
                 here, inside the App layout. Without it, suspension would bubble
                 up to main.jsx's outer boundary and unmount the sidebar/header
-                on every navigation. fallback={null} keeps the shell stable; the
-                page-content area briefly blanks while the chunk arrives. */}
-            <Suspense fallback={null}>
+                on every navigation. RouteFallback shows a delayed loader so the
+                content area isn't blank while a chunk arrives (console pages get
+                their own boundary in ConsoleLayout so the rail stays put). */}
+            <Suspense fallback={<RouteFallback />}>
               <Outlet context={{ addToast }} />
             </Suspense>
           </div>

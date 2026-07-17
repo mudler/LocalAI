@@ -85,6 +85,8 @@ localai run
 | `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 
+> **Note: network-backed storage.** File-based SQLite relies on POSIX file locking, which is unreliable over network filesystems (SMB/CIFS/NFS, e.g. Azure Files / Azure Container Apps shared volumes). On such storage the auth DB can fail to migrate with `database is locked`. Use PostgreSQL (`LOCALAI_AUTH_DATABASE_URL=postgres://...`) when the data directory lives on shared or network storage, or place `database.db` on a local volume.
+
 ### Disabling Local Authentication
 
 If you want to enforce OAuth/OIDC-only login and prevent users from registering or logging in with email/password, set `LOCALAI_DISABLE_LOCAL_AUTH=true` (or pass `--disable-local-auth`):
@@ -164,7 +166,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /api/backend-traces`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
-- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`
+- `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`, `POST /backend/load`
 
 **P2P:**
 - `GET /api/p2p/*`

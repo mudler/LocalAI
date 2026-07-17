@@ -1,11 +1,12 @@
 package localai
 
 import (
-	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,32 +29,105 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
-// Downloading user-supplied media URLs legitimately follows redirects (CDNs);
-// WithFollowRedirects still strips any credential header on a cross-host hop.
-var videoDownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
+const maxVideoInputBytes = 128 << 20
 
-func downloadFile(url string) (string, error) {
-	if err := utils.ValidateExternalURL(url); err != nil {
-		return "", fmt.Errorf("URL validation failed: %w", err)
+func newVideoDownloadClient() *http.Client {
+	client := httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
+	checkRedirect := client.CheckRedirect
+	// Media CDNs commonly redirect, so validate every hop rather than trusting
+	// only the URL supplied by the caller. Keep the shared redirect policy too;
+	// it bounds the chain and strips credentials on cross-origin hops.
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if err := utils.ValidateExternalURL(req.URL.String()); err != nil {
+			return fmt.Errorf("redirect URL validation failed: %w", err)
+		}
+		return checkRedirect(req, via)
+	}
+	return client
+}
+
+var videoDownloadClient = newVideoDownloadClient()
+
+func openVideoMedia(ctx context.Context, ref string) (io.ReadCloser, int64, error) {
+	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+		if err := utils.ValidateExternalURL(ref); err != nil {
+			return nil, 0, fmt.Errorf("URL validation failed: %w", err)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, ref, nil)
+		if err != nil {
+			return nil, 0, fmt.Errorf("creating download request: %w", err)
+		}
+		resp, err := videoDownloadClient.Do(req)
+		if err != nil {
+			return nil, 0, fmt.Errorf("downloading media: %w", err)
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			_ = resp.Body.Close()
+			return nil, 0, fmt.Errorf("media URL returned HTTP %d", resp.StatusCode)
+		}
+		return resp.Body, resp.ContentLength, nil
 	}
 
-	// Get the data
-	resp, err := videoDownloadClient.Get(url)
+	encoded := ref
+	if strings.HasPrefix(ref, "data:") {
+		comma := strings.IndexByte(ref, ',')
+		if comma < 0 || !strings.Contains(strings.ToLower(ref[:comma]), ";base64") {
+			return nil, 0, fmt.Errorf("data URI must contain a base64 payload")
+		}
+		encoded = ref[comma+1:]
+	}
+	if encoded == "" {
+		return nil, 0, fmt.Errorf("media payload is empty")
+	}
+
+	decodedSize := int64(base64.StdEncoding.DecodedLen(len(encoded)))
+	return io.NopCloser(base64.NewDecoder(base64.StdEncoding, strings.NewReader(encoded))), decodedSize, nil
+}
+
+func stageVideoMedia(ctx context.Context, directory, ref string) (string, error) {
+	return stageVideoMediaWithLimit(ctx, directory, ref, maxVideoInputBytes)
+}
+
+func stageVideoMediaWithLimit(ctx context.Context, directory, ref string, maxBytes int64) (string, error) {
+	if ref == "" {
+		return "", nil
+	}
+
+	source, declaredSize, err := openVideoMedia(ctx, ref)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	// Create the file
-	out, err := os.CreateTemp("", "video")
-	if err != nil {
-		return "", err
+	defer func() { _ = source.Close() }()
+	if declaredSize > maxBytes {
+		return "", fmt.Errorf("media exceeds the %d-byte limit", maxBytes)
 	}
-	defer out.Close()
 
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	return out.Name(), err
+	output, err := os.CreateTemp(directory, "video-input-*")
+	if err != nil {
+		return "", fmt.Errorf("creating staged media file: %w", err)
+	}
+	outputPath := output.Name()
+	keep := false
+	defer func() {
+		_ = output.Close()
+		if !keep {
+			_ = os.Remove(outputPath)
+		}
+	}()
+
+	written, err := io.Copy(output, io.LimitReader(source, maxBytes+1))
+	if err != nil {
+		return "", fmt.Errorf("decoding media: %w", err)
+	}
+	if written > maxBytes {
+		return "", fmt.Errorf("media exceeds the %d-byte limit", maxBytes)
+	}
+	if err := output.Close(); err != nil {
+		return "", fmt.Errorf("closing staged media file: %w", err)
+	}
+	keep = true
+	return outputPath, nil
 }
 
 //
@@ -72,7 +146,7 @@ func downloadFile(url string) (string, error) {
 *
 */
 // VideoEndpoint
-// @Summary Creates a video given a prompt.
+// @Summary Creates a video from a prompt and optional image or audio conditioning.
 // @Tags video
 // @Param request body schema.VideoRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
@@ -91,63 +165,39 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			return echo.ErrBadRequest
 		}
 
-		// Stage a base64- or URL-provided image into a temp file so the
-		// backend can read it as a path. Used for both start_image and
-		// (optional) end_image. Returns the temp file path, or "" if the
-		// input is empty. Caller is responsible for the defer-cleanup.
-		stageImage := func(ref string) (string, error) {
-			if ref == "" {
-				return "", nil
-			}
-			var fileData []byte
-			var err error
-			if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
-				out, derr := downloadFile(ref)
-				if derr != nil {
-					return "", fmt.Errorf("failed downloading file: %w", derr)
-				}
-				defer os.RemoveAll(out)
-				fileData, err = os.ReadFile(out)
-				if err != nil {
-					return "", fmt.Errorf("failed reading file: %w", err)
-				}
-			} else {
-				fileData, err = base64.StdEncoding.DecodeString(ref)
-				if err != nil {
-					return "", err
-				}
-			}
-			outputFile, err := os.CreateTemp(appConfig.GeneratedContentDir, "b64")
+		stageInput := func(name, ref string) (string, error) {
+			path, err := stageVideoMedia(c.Request().Context(), appConfig.GeneratedContentDir, ref)
 			if err != nil {
-				return "", err
+				return "", echo.NewHTTPError(
+					http.StatusBadRequest,
+					fmt.Sprintf("invalid %s: %v", name, err),
+				)
 			}
-			writer := bufio.NewWriter(outputFile)
-			if _, err := writer.Write(fileData); err != nil {
-				outputFile.Close()
-				return "", err
-			}
-			if err := writer.Flush(); err != nil {
-				outputFile.Close()
-				return "", err
-			}
-			outputFile.Close()
-			return outputFile.Name(), nil
+			return path, nil
 		}
 
-		src, err := stageImage(input.StartImage)
+		src, err := stageInput("start_image", input.StartImage)
 		if err != nil {
 			return err
 		}
 		if src != "" {
-			defer os.RemoveAll(src)
+			defer func() { _ = os.Remove(src) }()
 		}
 
-		endSrc, err := stageImage(input.EndImage)
+		endSrc, err := stageInput("end_image", input.EndImage)
 		if err != nil {
 			return err
 		}
 		if endSrc != "" {
-			defer os.RemoveAll(endSrc)
+			defer func() { _ = os.Remove(endSrc) }()
+		}
+
+		audioSrc, err := stageInput("audio", input.Audio)
+		if err != nil {
+			return err
+		}
+		if audioSrc != "" {
+			defer func() { _ = os.Remove(audioSrc) }()
 		}
 
 		xlog.Debug("Parameter Config", "config", config)
@@ -174,13 +224,19 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		tempDir := ""
 		if !b64JSON {
 			tempDir = filepath.Join(appConfig.GeneratedContentDir, "videos")
+			if err := os.MkdirAll(tempDir, 0o750); err != nil {
+				return err
+			}
 		}
 		// Create a temporary file
 		outputFile, err := os.CreateTemp(tempDir, "b64")
 		if err != nil {
 			return err
 		}
-		outputFile.Close()
+		if err := outputFile.Close(); err != nil {
+			_ = os.Remove(outputFile.Name())
+			return err
+		}
 
 		// TODO: use mime type to determine the extension
 		output := outputFile.Name() + ".mp4"
@@ -188,8 +244,15 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		// Rename the temporary file
 		err = os.Rename(outputFile.Name(), output)
 		if err != nil {
+			_ = os.Remove(outputFile.Name())
 			return err
 		}
+		preserveOutput := false
+		defer func() {
+			if !preserveOutput {
+				_ = os.Remove(output)
+			}
+		}()
 
 		baseURL := middleware.BaseURL(c)
 
@@ -204,33 +267,36 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			"negative_prompt", input.NegativePrompt)
 
 		fn, err := backend.VideoGeneration(
-			height,
-			width,
-			input.Prompt,
-			input.NegativePrompt,
-			src,
-			endSrc,
-			output,
-			input.NumFrames,
-			input.FPS,
-			input.Seed,
-			input.CFGScale,
-			input.Step,
+			backend.VideoGenerationOptions{
+				Height:         height,
+				Width:          width,
+				Prompt:         input.Prompt,
+				NegativePrompt: input.NegativePrompt,
+				StartImage:     src,
+				EndImage:       endSrc,
+				Audio:          audioSrc,
+				Destination:    output,
+				NumFrames:      input.NumFrames,
+				FPS:            input.FPS,
+				Seed:           input.Seed,
+				CFGScale:       input.CFGScale,
+				Step:           input.Step,
+				Params:         input.Params,
+			},
 			ml,
 			*config,
 			appConfig,
 		)
 		if err != nil {
-			return err
+			return mapBackendError(err)
 		}
 		if err := fn(); err != nil {
-			return err
+			return mapBackendError(err)
 		}
 
 		item := &schema.Item{}
 
 		if b64JSON {
-			defer os.RemoveAll(output)
 			data, err := os.ReadFile(output)
 			if err != nil {
 				return err
@@ -242,6 +308,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			if err != nil {
 				return err
 			}
+			preserveOutput = true
 		}
 
 		id := uuid.New().String()

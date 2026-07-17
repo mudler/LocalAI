@@ -3,6 +3,7 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,13 +11,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy"
-	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -30,7 +29,7 @@ import (
 // @Param request body schema.AnthropicRequest true "query params"
 // @Success 200 {object} schema.AnthropicResponse "Response"
 // @Router /v1/messages [post]
-func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, piiRedactor *pii.Redactor, piiEvents pii.EventStore) echo.HandlerFunc {
+func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		id := uuid.New().String()
 
@@ -53,7 +52,7 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		// Cloud-proxy bail. Same shape as the OpenAI chat endpoint —
 		// forwards via the cloud-proxy gRPC backend.
 		if cfg.IsCloudProxyBackendPassthrough() {
-			return forwardCloudProxyAnthropicViaBackend(c, cfg, input, piiRedactor, piiEvents, ml, appConfig)
+			return forwardCloudProxyAnthropicViaBackend(c, cfg, input, ml, appConfig)
 		}
 
 		// Convert Anthropic messages to OpenAI format for internal processing
@@ -141,7 +140,7 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		xlog.Debug("Anthropic Messages - Prompt (after templating)", "prompt", predInput)
 
 		if input.Stream {
-			return handleAnthropicStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator, piiRedactor, piiEvents)
+			return handleAnthropicStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
 		}
 
 		return handleAnthropicNonStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
@@ -246,63 +245,59 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 			}
 		}
 
-		// No MCP tools to execute, build and return response
+		// No MCP tools to execute, build and return response.
+		// Reasoning surfaces as a thinking block only when the client opted in,
+		// matching Anthropic's extended-thinking gating.
+		reasoning := functions.ReasoningFromChatDeltas(chatDeltas)
+		thinkingEnabled := input.Thinking != nil && input.Thinking.Type == "enabled"
+
 		var contentBlocks []schema.AnthropicContentBlock
 		var stopReason string
 
 		if shouldUseFn && len(toolCalls) > 0 {
 			stopReason = "tool_use"
-			for _, tc := range toolCalls {
-				var inputArgs map[string]any
-				if err := json.Unmarshal([]byte(tc.Arguments), &inputArgs); err != nil {
-					xlog.Warn("Failed to parse tool call arguments as JSON", "error", err, "args", tc.Arguments)
-					inputArgs = map[string]any{"raw": tc.Arguments}
-				}
-				contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
-					Type:  "tool_use",
-					ID:    fmt.Sprintf("toolu_%s_%d", id, len(contentBlocks)),
-					Name:  tc.Name,
-					Input: inputArgs,
-				})
-			}
-			textContent := functions.ParseTextContent(result, cfg.FunctionsConfig)
-			if textContent != "" {
-				contentBlocks = append([]schema.AnthropicContentBlock{{Type: "text", Text: textContent}}, contentBlocks...)
-			}
+			contentBlocks = buildAnthropicContentBlocks(buildParams{
+				reasoning:       reasoning,
+				thinkingEnabled: thinkingEnabled,
+				text:            functions.ParseTextContent(result, cfg.FunctionsConfig),
+				toolCalls:       funcResultsToToolCalls(toolCalls),
+				id:              id,
+			})
 		} else if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && result != "" {
 			// Automatic tool parsing fallback: no tools in request but model emitted tool call markup
 			parsed := functions.ParseFunctionCall(result, cfg.FunctionsConfig)
 			if len(parsed) > 0 {
 				stopReason = "tool_use"
-				stripped := functions.StripToolCallMarkup(result)
-				if stripped != "" {
-					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{Type: "text", Text: stripped})
-				}
-				for i, fc := range parsed {
-					var inputArgs map[string]any
-					if err := json.Unmarshal([]byte(fc.Arguments), &inputArgs); err != nil {
-						inputArgs = map[string]any{"raw": fc.Arguments}
-					}
-					toolCallID := fc.ID
-					if toolCallID == "" {
-						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
-					}
-					contentBlocks = append(contentBlocks, schema.AnthropicContentBlock{
-						Type:  "tool_use",
-						ID:    toolCallID,
-						Name:  fc.Name,
-						Input: inputArgs,
-					})
-				}
+				contentBlocks = buildAnthropicContentBlocks(buildParams{
+					reasoning:       reasoning,
+					thinkingEnabled: thinkingEnabled,
+					text:            functions.StripToolCallMarkup(result),
+					toolCalls:       funcResultsToToolCalls(parsed),
+					id:              id,
+				})
 			} else {
 				stopReason = "end_turn"
-				contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
+				contentBlocks = buildAnthropicContentBlocks(buildParams{
+					reasoning:       reasoning,
+					thinkingEnabled: thinkingEnabled,
+					text:            result,
+					id:              id,
+				})
 			}
 		} else {
 			stopReason = "end_turn"
-			contentBlocks = []schema.AnthropicContentBlock{
-				{Type: "text", Text: result},
-			}
+			contentBlocks = buildAnthropicContentBlocks(buildParams{
+				reasoning:       reasoning,
+				thinkingEnabled: thinkingEnabled,
+				text:            result,
+				id:              id,
+			})
+		}
+
+		// Anthropic responses must carry at least one content block; keep the
+		// empty-text fallback the pre-refactor assembly guaranteed.
+		if len(contentBlocks) == 0 {
+			contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
 		}
 
 		resp := &schema.AnthropicResponse{
@@ -330,36 +325,13 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 	return sendAnthropicError(c, 500, "api_error", "MCP iteration limit reached")
 }
 
-func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator, piiRedactor *pii.Redactor, piiEvents pii.EventStore) error {
+func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool, mcpExecutor mcpTools.ToolExecutor, evaluator *templates.Evaluator) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
 
-	// Per-stream PII filter — same gating as the OpenAI chat path. The
-	// filter is wire-format-agnostic; we feed it the text portion of
-	// each text_delta and emit only what's safe to send. The filter
-	// holds back a tail of size MaxPatternLength-1 so a pattern split
-	// across chunk boundaries still gets masked. When PII is disabled
-	// for this model the filter is nil and emits flow unchanged.
-	var streamPIIFilter *pii.StreamFilter
-	if piiRedactor != nil && cfg.PIIIsEnabled() {
-		correlationID := c.Request().Header.Get("x-request-id")
-		userID := ""
-		if u := auth.GetUser(c); u != nil {
-			userID = u.ID
-		}
-		var overrides map[string]pii.Action
-		if raw := cfg.PIIPatternOverrides(); len(raw) > 0 {
-			overrides = make(map[string]pii.Action, len(raw))
-			for ovid, action := range raw {
-				switch pii.Action(action) {
-				case pii.ActionMask, pii.ActionBlock, pii.ActionAllow:
-					overrides[ovid] = pii.Action(action)
-				}
-			}
-		}
-		streamPIIFilter = pii.NewStreamFilter(piiRedactor, overrides, piiEvents, correlationID, userID)
-	}
+	// Response/output PII redaction is out of scope for now — redaction
+	// runs request-side only (the NER middleware).
 
 	// Send message_start event
 	messageStart := schema.AnthropicStreamEvent{
@@ -380,6 +352,9 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		mcpMaxIterations = cfg.Agent.MaxIterations
 	}
 	hasMCPTools := mcpExecutor != nil && mcpExecutor.HasTools()
+
+	// Reasoning streams as a thinking block only when the client opted in.
+	thinkingEnabled := input.Thinking != nil && input.Thinking.Type == "enabled"
 
 	for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
 		// Re-template on MCP iterations
@@ -440,7 +415,6 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 
 				if len(toolCalls) > toolCallsEmitted {
 					if !inToolCall && currentBlockIndex == 0 {
-						drainStreamPIIToText(c, streamPIIFilter, intPtr(currentBlockIndex))
 						sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 							Type:  "content_block_stop",
 							Index: intPtr(currentBlockIndex),
@@ -481,20 +455,14 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			}
 
 			if !inToolCall && token != "" {
-				out := token
-				if streamPIIFilter != nil {
-					out = streamPIIFilter.Push(token)
-				}
-				if out != "" {
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_delta",
-						Index: intPtr(0),
-						Delta: &schema.AnthropicStreamDelta{
-							Type: "text_delta",
-							Text: out,
-						},
-					})
-				}
+				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+					Type:  "content_block_delta",
+					Index: intPtr(0),
+					Delta: &schema.AnthropicStreamDelta{
+						Type: "text_delta",
+						Text: token,
+					},
+				})
 			}
 			return true
 		}
@@ -532,28 +500,23 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			// didn't already stream it (autoparser clears raw text, so
 			// accumulatedContent will be empty in that case).
 			if deltaContent != "" && !inToolCall && accumulatedContent == "" {
-				out := deltaContent
-				if streamPIIFilter != nil {
-					out = streamPIIFilter.Push(deltaContent)
-				}
-				if out != "" {
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_delta",
-						Index: intPtr(0),
-						Delta: &schema.AnthropicStreamDelta{
-							Type: "text_delta",
-							Text: out,
-						},
-					})
-				}
+				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+					Type:  "content_block_delta",
+					Index: intPtr(0),
+					Delta: &schema.AnthropicStreamDelta{
+						Type: "text_delta",
+						Text: deltaContent,
+					},
+				})
 			}
 
-			// Emit tool_use blocks from ChatDeltas
+			// Emit tool_use blocks from ChatDeltas, preceded by a fully-closed
+			// thinking block when reasoning is present (Anthropic ordering:
+			// thinking is streamed and closed before any tool_use starts).
 			if len(deltaToolCalls) > 0 && len(collectedToolCalls) == 0 {
 				collectedToolCalls = deltaToolCalls
 
 				if !inToolCall && currentBlockIndex == 0 {
-					drainStreamPIIToText(c, streamPIIFilter, intPtr(currentBlockIndex))
 					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 						Type:  "content_block_stop",
 						Index: intPtr(currentBlockIndex),
@@ -561,35 +524,23 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 					currentBlockIndex++
 					inToolCall = true
 				}
-				for i, tc := range deltaToolCalls {
-					toolCallID := tc.ID
-					if toolCallID == "" {
-						toolCallID = fmt.Sprintf("toolu_%s_%d", id, i)
+
+				seq := anthropicStreamSequence(streamInput{
+					reasoningDeltas: []string{functions.ReasoningFromChatDeltas(chatDeltas)},
+					thinkingEnabled: thinkingEnabled,
+					toolCalls:       funcResultsToToolCalls(deltaToolCalls),
+					startIndex:      currentBlockIndex,
+					id:              id,
+				})
+				for _, ev := range seq {
+					sendAnthropicSSE(c, ev)
+					// Each content block ends with exactly one content_block_stop,
+					// so advance the running index in lockstep with the sequencer.
+					if ev.Type == "content_block_stop" {
+						currentBlockIndex++
 					}
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_start",
-						Index: intPtr(currentBlockIndex),
-						ContentBlock: &schema.AnthropicContentBlock{
-							Type: "tool_use",
-							ID:   toolCallID,
-							Name: tc.Name,
-						},
-					})
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_delta",
-						Index: intPtr(currentBlockIndex),
-						Delta: &schema.AnthropicStreamDelta{
-							Type:        "input_json_delta",
-							PartialJSON: tc.Arguments,
-						},
-					})
-					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-						Type:  "content_block_stop",
-						Index: intPtr(currentBlockIndex),
-					})
-					currentBlockIndex++
-					toolCallsEmitted++
 				}
+				toolCallsEmitted += len(deltaToolCalls)
 			}
 		}
 
@@ -657,9 +608,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		if !shouldUseFn && cfg.FunctionsConfig.AutomaticToolParsingFallback && accumulatedContent != "" && toolCallsEmitted == 0 {
 			parsed := functions.ParseFunctionCall(accumulatedContent, cfg.FunctionsConfig)
 			if len(parsed) > 0 {
-				// Close the text content block (after flushing any
-				// residual the streaming PII filter held back).
-				drainStreamPIIToText(c, streamPIIFilter, intPtr(currentBlockIndex))
+				// Close the text content block.
 				sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 					Type:  "content_block_stop",
 					Index: intPtr(currentBlockIndex),
@@ -699,12 +648,8 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			}
 		}
 
-		// No MCP tools to execute, close stream. drainStreamPIIToText
-		// flushes any residual the streaming PII filter held back as
-		// part of its trailing pattern-window before we close the
-		// text content block.
+		// No MCP tools to execute, close the text content block.
 		if !inToolCall {
-			drainStreamPIIToText(c, streamPIIFilter, intPtr(0))
 			sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 				Type:  "content_block_stop",
 				Index: intPtr(0),
@@ -742,6 +687,139 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 	return nil
 }
 
+// buildParams carries the pieces of an assistant turn that become Anthropic
+// content blocks. It exists so the block-assembly logic is unit-testable in
+// isolation from the HTTP handler.
+type buildParams struct {
+	reasoning       string
+	thinkingEnabled bool
+	text            string
+	toolCalls       []schema.ToolCall
+	id              string
+}
+
+// syntheticThinkingSignature returns an opaque, non-cryptographic signature so
+// Anthropic SDK clients round-trip the thinking block. Local models have no
+// real signature; this marker is accepted-but-ignored on the way back in.
+func syntheticThinkingSignature() string { return "localai" }
+
+// buildAnthropicContentBlocks assembles the content blocks for a non-streaming
+// assistant turn. When thinking is enabled and reasoning is present, a thinking
+// block is prepended before text and tool_use blocks (Anthropic ordering).
+func buildAnthropicContentBlocks(p buildParams) []schema.AnthropicContentBlock {
+	var blocks []schema.AnthropicContentBlock
+	if p.thinkingEnabled && p.reasoning != "" {
+		blocks = append(blocks, schema.AnthropicContentBlock{
+			Type:      "thinking",
+			Thinking:  p.reasoning,
+			Signature: syntheticThinkingSignature(),
+		})
+	}
+	if p.text != "" {
+		blocks = append(blocks, schema.AnthropicContentBlock{Type: "text", Text: p.text})
+	}
+	for i, tc := range p.toolCalls {
+		var inputArgs map[string]any
+		if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &inputArgs); err != nil {
+			inputArgs = map[string]any{"raw": tc.FunctionCall.Arguments}
+		}
+		id := tc.ID
+		if id == "" {
+			id = fmt.Sprintf("toolu_%s_%d", p.id, i)
+		}
+		blocks = append(blocks, schema.AnthropicContentBlock{
+			Type: "tool_use", ID: id, Name: tc.FunctionCall.Name, Input: inputArgs,
+		})
+	}
+	return blocks
+}
+
+// funcResultsToToolCalls adapts the parser's FuncCallResults into schema
+// ToolCalls so the pure block builders operate on one tool-call shape.
+func funcResultsToToolCalls(results []functions.FuncCallResults) []schema.ToolCall {
+	out := make([]schema.ToolCall, len(results))
+	for i, r := range results {
+		out[i] = schema.ToolCall{
+			ID:           r.ID,
+			Type:         "function",
+			FunctionCall: schema.FunctionCall{Name: r.Name, Arguments: r.Arguments},
+		}
+	}
+	return out
+}
+
+// streamInput carries the reasoning deltas and tool calls for one streaming
+// assistant turn. startIndex and id let the pure sequencer be wired into the
+// live loop, which already owns a running block index.
+type streamInput struct {
+	reasoningDeltas []string
+	thinkingEnabled bool
+	toolCalls       []schema.ToolCall
+	startIndex      int
+	id              string
+}
+
+// anthropicStreamSequence produces the ordered stream events for a thinking
+// block followed by tool_use blocks. Per the Anthropic spec the thinking block
+// is fully streamed and closed (content_block_stop) before any tool_use block
+// starts. Kept pure so ordering is unit-testable without an HTTP stream.
+func anthropicStreamSequence(in streamInput) []schema.AnthropicStreamEvent {
+	var events []schema.AnthropicStreamEvent
+	idx := in.startIndex
+
+	if in.thinkingEnabled && strings.Join(in.reasoningDeltas, "") != "" {
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:         "content_block_start",
+			Index:        intPtr(idx),
+			ContentBlock: &schema.AnthropicContentBlock{Type: "thinking"},
+		})
+		for _, d := range in.reasoningDeltas {
+			if d == "" {
+				continue
+			}
+			events = append(events, schema.AnthropicStreamEvent{
+				Type:  "content_block_delta",
+				Index: intPtr(idx),
+				Delta: &schema.AnthropicStreamDelta{Type: "thinking_delta", Thinking: d},
+			})
+		}
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_delta",
+			Index: intPtr(idx),
+			Delta: &schema.AnthropicStreamDelta{Type: "signature_delta", Signature: syntheticThinkingSignature()},
+		})
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_stop",
+			Index: intPtr(idx),
+		})
+		idx++
+	}
+
+	for i, tc := range in.toolCalls {
+		toolID := tc.ID
+		if toolID == "" {
+			toolID = fmt.Sprintf("toolu_%s_%d", in.id, i)
+		}
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:         "content_block_start",
+			Index:        intPtr(idx),
+			ContentBlock: &schema.AnthropicContentBlock{Type: "tool_use", ID: toolID, Name: tc.FunctionCall.Name},
+		})
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_delta",
+			Index: intPtr(idx),
+			Delta: &schema.AnthropicStreamDelta{Type: "input_json_delta", PartialJSON: tc.FunctionCall.Arguments},
+		})
+		events = append(events, schema.AnthropicStreamEvent{
+			Type:  "content_block_stop",
+			Index: intPtr(idx),
+		})
+		idx++
+	}
+
+	return events
+}
+
 func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
 	tools := make([]functions.Tool, len(funcs))
 	for i, f := range funcs {
@@ -751,30 +829,6 @@ func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
 }
 
 func intPtr(i int) *int { return &i }
-
-// drainStreamPIIToText flushes any residual the streaming PII filter
-// has been holding back as part of its trailing pattern-window, and
-// emits it as one final text_delta into the named block before the
-// caller closes that block. Drain is idempotent: calling it twice on
-// the same filter returns "" the second time. Safe to call with a nil
-// filter (no-op).
-func drainStreamPIIToText(c echo.Context, sf *pii.StreamFilter, index *int) {
-	if sf == nil {
-		return
-	}
-	residual := sf.Drain()
-	if residual == "" {
-		return
-	}
-	sendAnthropicSSE(c, schema.AnthropicStreamEvent{
-		Type:  "content_block_delta",
-		Index: index,
-		Delta: &schema.AnthropicStreamDelta{
-			Type: "text_delta",
-			Text: residual,
-		},
-	})
-}
 
 func sendAnthropicSSE(c echo.Context, event schema.AnthropicStreamEvent) {
 	data, err := json.Marshal(event)
@@ -835,6 +889,17 @@ func convertAnthropicToOpenAIMessages(input *schema.AnthropicRequest) []schema.M
 					case "text":
 						if text, ok := blockMap["text"].(string); ok {
 							textContent += text
+						}
+					case "thinking":
+						// Anthropic interleaved thinking: preserve the model's reasoning so it
+						// survives the tool-result loop. Signature is Anthropic-cloud specific;
+						// for local models we read but do not validate it.
+						if thinking, ok := blockMap["thinking"].(string); ok && thinking != "" {
+							combined := thinking
+							if openAIMsg.Reasoning != nil {
+								combined = *openAIMsg.Reasoning + thinking
+							}
+							openAIMsg.Reasoning = &combined
 						}
 					case "image":
 						// Handle image content
@@ -973,17 +1038,14 @@ func convertAnthropicTools(input *schema.AnthropicRequest, cfg *config.ModelConf
 }
 
 // forwardCloudProxyAnthropicViaBackend marshals the Anthropic request,
-// constructs the streaming PII filter (when applicable), and hands the
-// body off to the cloud-proxy gRPC backend. Model swap + upstream auth
-// headers are applied inside the backend; the filter is built here
-// because the auth/correlation context only exists in the echo handler.
-func forwardCloudProxyAnthropicViaBackend(c echo.Context, cfg *config.ModelConfig, input *schema.AnthropicRequest, piiRedactor *pii.Redactor, piiEvents pii.EventStore, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
+// and hands the body off to the cloud-proxy gRPC backend. Model swap +
+// upstream auth headers are applied inside the backend. Request-side PII
+// redaction already ran in the middleware; the response is forwarded
+// unmodified.
+func forwardCloudProxyAnthropicViaBackend(c echo.Context, cfg *config.ModelConfig, input *schema.AnthropicRequest, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
 	body, err := json.Marshal(input)
 	if err != nil {
 		return sendAnthropicError(c, 400, "invalid_request_error", "cloudproxy: marshal request: "+err.Error())
 	}
-
-	correlationID := c.Request().Header.Get("x-request-id")
-	streamFilter := cloudproxy.BuildStreamFilter(c, cfg, input.Stream, piiRedactor, piiEvents, correlationID)
-	return cloudproxy.ForwardViaBackend(c, cfg, body, streamFilter, ml, appConfig)
+	return cloudproxy.ForwardViaBackend(c, cfg, body, ml, appConfig)
 }

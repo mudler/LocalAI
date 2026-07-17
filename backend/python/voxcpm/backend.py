@@ -21,6 +21,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 
 def is_float(s):
@@ -99,10 +100,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 value = value.lower() == "true"
             self.options[key] = value
 
-        # Get model path from request
-        model_path = request.Model
-        if not model_path:
-            model_path = "openbmb/VoxCPM1.5"
+        model_path, _local_only = resolve_model_reference(
+            request, "openbmb/VoxCPM1.5"
+        )
         
         try:
             print(f"Loading model from {model_path}", file=sys.stderr)
@@ -144,7 +144,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     if os.path.exists(potential_path):
                         prompt_wav_path = potential_path
 
-            if hasattr(request, 'AudioPath') and request.AudioPath:
+            if prompt_wav_path is None and hasattr(request, 'AudioPath') and request.AudioPath:
                 if os.path.isabs(request.AudioPath):
                     prompt_wav_path = request.AudioPath
                 elif hasattr(request, 'ModelFile') and request.ModelFile:
@@ -155,8 +155,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     prompt_wav_path = request.AudioPath
 
-            # Get prompt_text from options if available
-            if "prompt_text" in self.options:
+            # Per-request profile transcript takes precedence over YAML.
+            if hasattr(request, "params") and request.params.get("ref_text"):
+                prompt_text = request.params["ref_text"]
+            elif "prompt_text" in self.options:
                 prompt_text = self.options["prompt_text"]
 
             # Prepare text
@@ -241,7 +243,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     if os.path.exists(potential_path):
                         prompt_wav_path = potential_path
 
-            if hasattr(request, 'AudioPath') and request.AudioPath:
+            if prompt_wav_path is None and hasattr(request, 'AudioPath') and request.AudioPath:
                 if os.path.isabs(request.AudioPath):
                     prompt_wav_path = request.AudioPath
                 elif hasattr(request, 'ModelFile') and request.ModelFile:
@@ -252,8 +254,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else:
                     prompt_wav_path = request.AudioPath
 
-            # Get prompt_text from options if available
-            if "prompt_text" in self.options:
+            # Per-request profile transcript takes precedence over YAML.
+            if hasattr(request, "params") and request.params.get("ref_text"):
+                prompt_text = request.params["ref_text"]
+            elif "prompt_text" in self.options:
                 prompt_text = self.options["prompt_text"]
 
             # Prepare text

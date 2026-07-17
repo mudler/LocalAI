@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { skillsApi } from '../utils/api'
+import PageHeader from '../components/PageHeader'
 
 const RESOURCE_PREFIXES = ['scripts/', 'references/', 'assets/']
 function isValidResourcePath(path) {
@@ -498,11 +499,13 @@ export default function SkillEdit() {
       <a className="skilledit-back-link" onClick={() => navigate('/app/skills')}>
         <i className="fas fa-arrow-left" /> Back to skills
       </a>
-      <div className="page-header">
-        <h1 className="page-title">
-          <i className="fas fa-book" style={{ marginRight: 'var(--spacing-xs)' }} /> {isNew ? 'New skill' : `Edit: ${name}`}
-        </h1>
-      </div>
+      <PageHeader
+        title={
+          <>
+            <i className="fas fa-book" style={{ marginRight: 'var(--spacing-xs)' }} /> {isNew ? 'New skill' : `Edit: ${name}`}
+          </>
+        }
+      />
 
       <div className="card" style={{ marginTop: 'var(--spacing-md)' }}>
         <div className="skilledit-layout">

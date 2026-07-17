@@ -161,6 +161,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Node registry initialized")
 
+	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
+	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
+	// on every boot. Runs before the reconciler starts so the first tick already
+	// sees the desired state. Models not listed are left untouched.
+	if cfg.Distributed.ModelSchedulingJSON != "" || cfg.Distributed.ModelSchedulingConfigPath != "" {
+		schedConfigs, err := nodes.ParseSchedulingSeed(cfg.Distributed.ModelSchedulingJSON, cfg.Distributed.ModelSchedulingConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing declarative model scheduling config: %w", err)
+		}
+		if err := registry.SeedModelScheduling(context.Background(), schedConfigs); err != nil {
+			return nil, fmt.Errorf("seeding declarative model scheduling config: %w", err)
+		}
+		xlog.Info("Applied declarative model scheduling config", "models", len(schedConfigs))
+	}
+
 	// Collect SmartRouter option values; the router itself is created after all
 	// dependencies (including FileStager and Unloader) are ready.
 	var routerAuthToken string
@@ -340,7 +355,23 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
+		SharedModels:     cfg.Distributed.SharedModels,
+		// Cap how long a cold load may hold the per-model advisory lock: the
+		// configured backend.install deadline plus a margin for file staging and
+		// the remote LoadModel. Derived from the install timeout so raising it
+		// (for slow links pulling multi-GB images) widens the ceiling too,
+		// instead of letting the static default cut a legitimately slow load.
+		ModelLoadCeiling: cfg.Distributed.BackendInstallTimeoutOrDefault() + 10*time.Minute,
 	})
+
+	// Wire staging-progress broadcasting so file-staging shows up on every
+	// replica, not just the one performing the transfer. Without this, a
+	// /api/operations poll that round-robins onto a peer sees no staging row and
+	// the progress flickers. The origin publishes; peers mirror via the wildcard.
+	router.StagingTracker().SetPublisher(natsClient)
+	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
+		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
+	}
 
 	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +
 	// RegistrationToken feed the state-reconciliation passes: pending op

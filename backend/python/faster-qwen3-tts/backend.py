@@ -83,20 +83,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
     def _get_ref_audio_path(self, request):
-        if not self.audio_path:
+        # A per-request voice path is the canonical LocalAI voice-profile
+        # contract. Keep AudioPath as the backwards-compatible YAML fallback.
+        audio_path = request.voice if hasattr(request, "voice") and request.voice else self.audio_path
+        if not audio_path:
             return None
-        if os.path.isabs(self.audio_path):
-            return self.audio_path
+        if os.path.isabs(audio_path):
+            return audio_path
         if self.model_file:
             model_file_base = os.path.dirname(self.model_file)
-            ref_path = os.path.join(model_file_base, self.audio_path)
+            ref_path = os.path.join(model_file_base, audio_path)
             if os.path.exists(ref_path):
                 return ref_path
         if self.model_path:
-            ref_path = os.path.join(self.model_path, self.audio_path)
+            ref_path = os.path.join(self.model_path, audio_path)
             if os.path.exists(ref_path):
                 return ref_path
-        return self.audio_path
+        return audio_path
 
     def TTS(self, request, context):
         try:
@@ -122,13 +125,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     success=False,
                     message="AudioPath is required for voice clone (set in LoadModel)"
                 )
-            ref_text = self.options.get("ref_text")
-            if not ref_text and hasattr(request, 'ref_text') and request.ref_text:
-                ref_text = request.ref_text
+            ref_text = request.params.get("ref_text") if hasattr(request, "params") else None
+            if not ref_text:
+                ref_text = self.options.get("ref_text")
             if not ref_text:
                 return backend_pb2.Result(
                     success=False,
-                    message="ref_text is required for voice clone (set via LoadModel Options, e.g. ref_text:Your reference transcript)"
+                    message="ref_text is required for voice clone (set in request.params or LoadModel options)"
                 )
 
             chunk_size = self.options.get("chunk_size")

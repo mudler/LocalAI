@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hpcloud/tail"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	"github.com/mudler/LocalAI/pkg/signals"
 	process "github.com/mudler/go-processmanager"
 	"github.com/mudler/xlog"
@@ -22,40 +23,68 @@ var (
 	modelNotFoundErr = errors.New("model not found")
 )
 
-func (ml *ModelLoader) deleteProcess(s string) error {
+// deleteProcess stops and removes a backend. The force flag trades a graceful
+// shutdown for a prompt one and is meant for the watchdog's busy-killer: a
+// backend that has been busy past the watchdog timeout is, by definition,
+// stuck in an in-flight gRPC call. Waiting for that call to finish before
+// stopping the process (the graceful path) would block forever — and since
+// deleteProcess runs under ml.mu, it would stall every other model load,
+// including the shared opus backend load at the start of every realtime
+// (WebRTC) session, hanging new connections at "Connected, waiting for
+// session...". The force path stops the process first, which drops the
+// in-flight call's gRPC connection and unblocks it, then cleans up.
+func (ml *ModelLoader) deleteProcess(s string, force bool) error {
 	model, ok := ml.store.Get(s)
 	if !ok {
 		xlog.Debug("Model not found", "model", s)
 		return modelNotFoundErr
 	}
 
-	retries := 1
-	for model.GRPC(false, ml.wd).IsBusy() {
-		xlog.Debug("Model busy. Waiting.", "model", s)
-		dur := time.Duration(retries*2) * time.Second
-		if dur > retryTimeout {
-			dur = retryTimeout
-		}
-		time.Sleep(dur)
-		retries++
+	if !force {
+		retries := 1
+		for model.GRPC(false, ml.wd).IsBusy() {
+			xlog.Debug("Model busy. Waiting.", "model", s)
+			dur := time.Duration(retries*2) * time.Second
+			if dur > retryTimeout {
+				dur = retryTimeout
+			}
+			time.Sleep(dur)
+			retries++
 
-		if retries > 10 && forceBackendShutdown {
-			xlog.Warn("Model is still busy after retries. Forcing shutdown.", "model", s, "retries", retries)
-			break
+			if retries > 10 && forceBackendShutdown {
+				xlog.Warn("Model is still busy after retries. Forcing shutdown.", "model", s, "retries", retries)
+				break
+			}
 		}
 	}
 
-	xlog.Debug("Deleting process", "model", s)
+	xlog.Debug("Deleting process", "model", s, "force", force)
 
 	// Run unload hooks (e.g. close MCP sessions)
 	for _, hook := range ml.onUnloadHooks {
 		hook(s)
 	}
 
-	// Free GPU resources before stopping the process to ensure VRAM is released
-	xlog.Debug("Calling Free() to release GPU resources", "model", s)
-	if err := model.GRPC(false, ml.wd).Free(context.Background()); err != nil {
-		xlog.Warn("Error freeing GPU resources", "error", err, "model", s)
+	// Free GPU resources before stopping the process to ensure VRAM is
+	// released. Skipped on force-shutdown: a stuck-busy backend won't answer
+	// a Free RPC (it's hung on the same stuck call), and stopping the
+	// process releases its VRAM anyway. Free is optional: backends that
+	// don't override it (the generated stub, many Python/external backends,
+	// or a federation proxy in distributed mode) return gRPC Unimplemented.
+	// That is expected, not a failure — VRAM is reclaimed when the process
+	// is stopped below, or by the remote unloader for remote backends — so
+	// don't surface it as an error.
+	if !force {
+		xlog.Debug("Calling Free() to release GPU resources", "model", s)
+		if err := model.GRPC(false, ml.wd).Free(context.Background()); err != nil {
+			if grpcerrors.IsUnimplemented(err) {
+				xlog.Debug("Backend does not implement Free(); GPU release handled on process stop", "model", s)
+			} else {
+				// Now that the expected Unimplemented case is filtered out above, a
+				// remaining error is a genuine failure to release VRAM — surface it.
+				xlog.Error("Error freeing GPU resources", "error", err, "model", s)
+			}
+		}
 	}
 
 	process := model.Process()
@@ -103,7 +132,7 @@ func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 		return true
 	})
 	for _, k := range toDelete {
-		e := ml.deleteProcess(k)
+		e := ml.deleteProcess(k, false)
 		err = errors.Join(err, e)
 	}
 	return err
@@ -154,11 +183,20 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	env := os.Environ()
+	// Vulkan backends are self-contained: they bundle their own loader and
+	// Mesa driver .so files in lib/ plus the matching ICD manifests in
+	// vulkan/icd.d/. Point the loader at those manifests so it doesn't rely on
+	// the runtime base image shipping a Vulkan driver (it carries the
+	// SYCL/Level-Zero stack instead, so the default ICD search path is empty
+	// and the GPU would silently fall back to CPU). No-op for other backends.
+	env = append(env, vulkanICDEnv(workDir)...)
+
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
 		process.WithName(filepath.Base(grpcProcess)),
 		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
-		process.WithEnvironment(os.Environ()...),
+		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)
 
@@ -248,4 +286,39 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}()
 
 	return grpcControlProcess, nil
+}
+
+// vulkanICDEnv returns environment overrides that point the Vulkan loader at
+// the ICD manifests a backend bundles in <workDir>/vulkan/icd.d. Vulkan
+// backends ship a self-contained stack — their own loader and Mesa driver .so
+// files in lib/ (resolved via the LD_LIBRARY_PATH that run.sh sets) plus the
+// matching ICD manifests — so the loader must be told where those manifests
+// live; its default search path (/usr/share/vulkan/icd.d, /etc/vulkan/icd.d)
+// is empty on the runtime base image. Returns nil when the directory holds no
+// manifests (CPU/CUDA/SYCL builds), leaving the host's Vulkan setup untouched.
+func vulkanICDEnv(workDir string) []string {
+	icdDir := filepath.Join(workDir, "vulkan", "icd.d")
+	entries, err := os.ReadDir(icdDir)
+	if err != nil {
+		return nil
+	}
+
+	manifests := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		manifests = append(manifests, filepath.Join(icdDir, e.Name()))
+	}
+	if len(manifests) == 0 {
+		return nil
+	}
+
+	list := strings.Join(manifests, string(os.PathListSeparator))
+	// VK_DRIVER_FILES is the current loader variable; VK_ICD_FILENAMES is its
+	// deprecated alias, set too so older bundled loaders still pick it up.
+	return []string{
+		"VK_DRIVER_FILES=" + list,
+		"VK_ICD_FILENAMES=" + list,
+	}
 }

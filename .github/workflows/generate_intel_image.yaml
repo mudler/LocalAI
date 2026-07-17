@@ -44,7 +44,7 @@ jobs:
         uses: docker/setup-buildx-action@master
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Cache Intel images
         uses: docker/build-push-action@v7

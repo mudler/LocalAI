@@ -443,81 +443,23 @@ func (sm *SystrayManager) showStartupErrorDialog(err error) {
 	})
 }
 
-// showDownloadProgress shows a progress window for downloading updates
+// showDownloadProgress shows a progress window for downloading updates. The
+// progress UI (byte readout, resume-aware retry, sizing) is shared with the
+// other download entry points via the launcher; only the post-success behaviour
+// (restart prompt + systray refresh) is specific to the update flow.
 func (sm *SystrayManager) showDownloadProgress(version string) {
-	// Create a new window for download progress
-	progressWindow := sm.app.NewWindow("Downloading LocalAI Update")
-	progressWindow.Resize(fyne.NewSize(400, 250))
-	progressWindow.CenterOnScreen()
+	sm.launcher.showDownloadProgressWindow(version, fmt.Sprintf("Downloading LocalAI version %s", version), func(win fyne.Window) {
+		dialog.ShowConfirm("Update Downloaded",
+			"LocalAI has been updated successfully. Please restart the launcher to use the new version.",
+			func(restart bool) {
+				if restart {
+					sm.app.Quit()
+				}
+				win.Close()
+			}, win)
 
-	// Progress bar
-	progressBar := widget.NewProgressBar()
-	progressBar.SetValue(0)
-
-	// Status label
-	statusLabel := widget.NewLabel("Preparing download...")
-
-	// Release notes button
-	releaseNotesButton := widget.NewButton("View Release Notes", func() {
-		releaseNotesURL, err := sm.launcher.githubReleaseNotesURL(version)
-		if err != nil {
-			log.Printf("Failed to parse URL: %v", err)
-			return
-		}
-
-		sm.app.OpenURL(releaseNotesURL)
+		sm.hasUpdateAvailable = false
+		sm.latestVersion = ""
+		sm.recreateMenu()
 	})
-
-	// Progress container
-	progressContainer := container.NewVBox(
-		widget.NewLabel(fmt.Sprintf("Downloading LocalAI version %s", version)),
-		progressBar,
-		statusLabel,
-		widget.NewSeparator(),
-		releaseNotesButton,
-	)
-
-	progressWindow.SetContent(progressContainer)
-	progressWindow.Show()
-
-	// Start download in background
-	go func() {
-		err := sm.launcher.DownloadUpdate(version, func(progress float64) {
-			// Update progress bar
-			fyne.Do(func() {
-				progressBar.SetValue(progress)
-				percentage := int(progress * 100)
-				statusLabel.SetText(fmt.Sprintf("Downloading... %d%%", percentage))
-			})
-		})
-
-		// Handle completion
-		fyne.Do(func() {
-			if err != nil {
-				statusLabel.SetText(fmt.Sprintf("Download failed: %v", err))
-				// Show error dialog
-				dialog.ShowError(err, progressWindow)
-			} else {
-				statusLabel.SetText("Download completed successfully!")
-				progressBar.SetValue(1.0)
-
-				// Show restart dialog
-				dialog.ShowConfirm("Update Downloaded",
-					"LocalAI has been updated successfully. Please restart the launcher to use the new version.",
-					func(restart bool) {
-						if restart {
-							sm.app.Quit()
-						}
-						progressWindow.Close()
-					}, progressWindow)
-			}
-		})
-
-		// Update systray menu
-		if err == nil {
-			sm.hasUpdateAvailable = false
-			sm.latestVersion = ""
-			sm.recreateMenu()
-		}
-	}()
 }

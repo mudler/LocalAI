@@ -5,15 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -23,8 +27,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/quantization"
 
@@ -42,6 +48,23 @@ var embedDirStatic embed.FS
 var reactUI embed.FS
 
 var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/readyz"}
+
+// applyModelLoadCooldown maps a ModelLoadCooldownError anywhere in err's chain
+// to HTTP 503 with a Retry-After header (whole seconds, floor 1), so a client
+// polling a model whose load recently failed backs off instead of triggering a
+// fresh backend start. If err is not a cooldown error, code is returned as-is.
+func applyModelLoadCooldown(err error, code int, c echo.Context) int {
+	var coolErr *model.ModelLoadCooldownError
+	if !errors.As(err, &coolErr) {
+		return code
+	}
+	secs := int(math.Ceil(coolErr.RetryAfter.Seconds()))
+	if secs < 1 {
+		secs = 1
+	}
+	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	return http.StatusServiceUnavailable
+}
 
 // @title LocalAI API
 // @version 2.0.0
@@ -108,6 +131,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			if errors.As(err, &he) {
 				code = he.Code
 			}
+			code = applyModelLoadCooldown(err, code, c)
 
 			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
@@ -135,6 +159,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			if errors.As(err, &he) {
 				code = he.Code
 			}
+			code = applyModelLoadCooldown(err, code, c)
 			c.NoContent(code)
 		}
 	}
@@ -148,6 +173,18 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
+
+	// Stamp the configured external base URL into each request context so
+	// middleware.BaseURL can treat it as authoritative for self-referential
+	// links. Registered as Pre so it runs before routing and handlers.
+	if extBaseURL := application.ApplicationConfig().ExternalBaseURL; extBaseURL != "" {
+		e.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				c.Set("_external_base_url", extBaseURL)
+				return next(c)
+			}
+		})
+	}
 
 	e.Pre(middleware.RemoveTrailingSlash())
 
@@ -388,25 +425,45 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
+	// In distributed mode pass the shared NATS client + PostgreSQL store so
+	// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
+	// mutations and hydrates from the DB); standalone passes nil for both.
+	var ftNats messaging.MessagingClient
+	var ftStore *distributed.FineTuneStore
+	if d := application.Distributed(); d != nil {
+		ftNats = d.Nats
+		if d.DistStores != nil && d.DistStores.FineTune != nil {
+			ftStore = d.DistStores.FineTune
+		}
+	}
 	ftService := finetune.NewFineTuneService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
+		ftNats,
+		ftStore,
 	)
-	if d := application.Distributed(); d != nil {
-		ftService.SetNATSClient(d.Nats)
-		if d.DistStores != nil && d.DistStores.FineTune != nil {
-			ftService.SetFineTuneStore(d.DistStores.FineTune)
-		}
-	}
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
+	// In distributed mode pass the shared NATS client + PostgreSQL store so
+	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
+	// mutations and hydrates from the DB); standalone passes nil for both.
+	var quantNats messaging.MessagingClient
+	var quantStore *distributed.QuantStore
+	if d := application.Distributed(); d != nil {
+		quantNats = d.Nats
+		if d.DistStores != nil && d.DistStores.Quant != nil {
+			quantStore = d.DistStores.Quant
+		}
+	}
 	qService := quantization.NewQuantizationService(
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
+		quantNats,
+		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
 

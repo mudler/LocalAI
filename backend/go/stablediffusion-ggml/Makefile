@@ -8,9 +8,15 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=19bdfe22d255d5b4dff39d449318b9bc5ea2317f
+STABLEDIFFUSION_GGML_VERSION?=b2906939774dc73453467215c80390404d0a2701
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
+
+# Enable the ggml RPC backend so generation can be sharded across remote
+# rpc-server workers (the same backend-agnostic ggml rpc-server used by the
+# llama.cpp backend). Servers are selected via the `rpc_servers` option or the
+# LLAMACPP_GRPC_SERVERS env var (populated automatically in p2p worker mode).
+CMAKE_ARGS+=-DSD_RPC=ON
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
@@ -125,6 +131,7 @@ libgosd-custom: CMakeLists.txt cpp/gosd.cpp cpp/gosd.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgosd.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgosd.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgosd.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: stablediffusion-ggml package

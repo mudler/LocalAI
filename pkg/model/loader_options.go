@@ -9,6 +9,7 @@ import (
 type Options struct {
 	backendString string
 	model         string
+	modelFile     string
 	modelID       string
 	context       context.Context
 
@@ -19,6 +20,11 @@ type Options struct {
 	grpcAttempts      int
 	grpcAttemptsDelay int
 	parallelRequests  bool
+
+	// modelSizeBytes is the estimated total weight size in bytes, pre-computed
+	// by the caller using the vram estimation scaffolding.  When non-zero it is
+	// registered with the watchdog so size-aware eviction can rank models.
+	modelSizeBytes int64
 }
 
 type Option func(*Options)
@@ -68,6 +74,12 @@ func WithModel(modelFile string) Option {
 	}
 }
 
+func WithModelFile(modelFile string) Option {
+	return func(o *Options) {
+		o.modelFile = modelFile
+	}
+}
+
 func WithLoadGRPCLoadModelOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
@@ -83,6 +95,12 @@ func WithContext(ctx context.Context) Option {
 func WithModelID(id string) Option {
 	return func(o *Options) {
 		o.modelID = id
+	}
+}
+
+func WithModelSizeBytes(bytes int64) Option {
+	return func(o *Options) {
+		o.modelSizeBytes = bytes
 	}
 }
 

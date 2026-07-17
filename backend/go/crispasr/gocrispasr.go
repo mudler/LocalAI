@@ -34,6 +34,18 @@ var (
 	CppTTSFree         func(ptr uintptr)
 	CppTTSSetVoice     func(name string) int
 	CppTTSSetVoiceFile func(path string, refText string) int
+
+	// Word-level timestamp accessors (session-based, per-segment)
+	CppGetWordCount func(segI int) int
+	CppGetWordText  func(segI int, wordI int) string
+	CppGetWordT0    func(segI int, wordI int) int64
+	CppGetWordT1    func(segI int, wordI int) int64
+
+	// Parakeet-specific word accessors (global, no segment index)
+	CppGetParakeetWordCount func() int
+	CppGetParakeetWordText  func(wordI int) string
+	CppGetParakeetWordT0    func(wordI int) int64
+	CppGetParakeetWordT1    func(wordI int) int64
 )
 
 type CrispASR struct {
@@ -212,6 +224,28 @@ func (w *CrispASR) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	}, nil
 }
 
+// isValidWord reports whether a TranscriptWord contains recognisable speech
+// content. The parakeet-specific word accessors can return stale initialisation
+// data (model name, binary blobs) when a segment has no real speech. A word is
+// considered valid only when:
+//   - the text is non-empty after trimming,
+//   - it contains no U+FFFD replacement characters (from binary data scrubbing),
+//   - both timestamps are non-negative,
+//   - the word has positive duration (end > start).
+func isValidWord(w *pb.TranscriptWord) bool {
+	txt := strings.TrimSpace(w.Text)
+	if txt == "" {
+		return false
+	}
+	if strings.ContainsRune(txt, '\uFFFD') {
+		return false
+	}
+	if w.Start < 0 || w.End < 0 || w.End <= w.Start {
+		return false
+	}
+	return true
+}
+
 func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if err := ctx.Err(); err != nil {
 		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
@@ -290,15 +324,54 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 		// IDs, so Tokens is left empty.
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
 
+		// Populate word-level timestamps. Try session-based functions first
+		// (per-segment); fall back to parakeet-specific functions (global word
+		// list with no segment index — only populated on the first segment to
+		// avoid duplication).
+		words := []*pb.TranscriptWord{}
+		wordCount := CppGetWordCount(i)
+		if wordCount == 0 && i == 0 {
+			wordCount = CppGetParakeetWordCount()
+			for j := 0; j < wordCount; j++ {
+				w := &pb.TranscriptWord{
+					Start: CppGetParakeetWordT0(j) * (10000000),
+					End:   CppGetParakeetWordT1(j) * (10000000),
+					Text:  strings.ToValidUTF8(strings.Clone(CppGetParakeetWordText(j)), "�"),
+				}
+				if isValidWord(w) {
+					words = append(words, w)
+				}
+			}
+		} else {
+			for j := 0; j < wordCount; j++ {
+				w := &pb.TranscriptWord{
+					Start: CppGetWordT0(i, j) * (10000000),
+					End:   CppGetWordT1(i, j) * (10000000),
+					Text:  strings.ToValidUTF8(strings.Clone(CppGetWordText(i, j)), "�"),
+				}
+				if isValidWord(w) {
+					words = append(words, w)
+				}
+			}
+		}
+
+		// Skip empty segments with no recognisable content (e.g. trailing
+		// silence segments that parakeet emits with stale init data).
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" && len(words) == 0 {
+			continue
+		}
+
 		segment := &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
+			Words: words,
 		}
 
 		segments = append(segments, segment)
 
-		text += " " + strings.TrimSpace(txt)
+		text += " " + trimmed
 	}
 
 	return pb.TranscriptResult{
@@ -390,13 +463,20 @@ func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.Transc
 		s := CppGetSegmentStart(i) * 10000000
 		t := CppGetSegmentEnd(i) * 10000000
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
+
+		// Skip empty segments (e.g. trailing silence that parakeet emits
+		// with stale init data).
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" && s == t {
+			continue
+		}
+
 		segments = append(segments, &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
 		})
 
-		trimmed := strings.TrimSpace(txt)
 		if trimmed == "" {
 			continue
 		}
@@ -450,11 +530,51 @@ func setVoice(voice string) {
 	}
 }
 
+// applyRequestVoice distinguishes named speakers from per-request reference
+// WAVs. The latter are used by F5-TTS and require the exact transcript under
+// the cross-backend params.ref_text contract.
+func applyRequestVoice(req *pb.TTSRequest) error {
+	voice := strings.TrimSpace(req.Voice)
+	if voice == "" {
+		return nil
+	}
+
+	info, statErr := os.Stat(voice)
+	looksLikeFile := filepath.IsAbs(voice) || strings.EqualFold(filepath.Ext(voice), ".wav")
+	if statErr == nil && info.Mode().IsRegular() {
+		refText := ""
+		if req.Params != nil {
+			refText = strings.TrimSpace(req.Params["ref_text"])
+			if refText == "" {
+				refText = strings.TrimSpace(req.Params["voice_text"])
+			}
+		}
+		if refText == "" {
+			return fmt.Errorf("crispasr: params.ref_text is required with a reference voice WAV")
+		}
+		if rc := CppTTSSetVoiceFile(voice, refText); rc < 0 {
+			return fmt.Errorf("crispasr: failed to apply reference voice %q (rc=%d)", voice, rc)
+		}
+		return nil
+	}
+	if looksLikeFile {
+		if statErr != nil {
+			return fmt.Errorf("crispasr: reference voice %q: %w", voice, statErr)
+		}
+		return fmt.Errorf("crispasr: reference voice %q is not a regular file", voice)
+	}
+
+	setVoice(voice)
+	return nil
+}
+
 func (w *CrispASR) TTS(req *pb.TTSRequest) error {
 	if req.Dst == "" {
 		return fmt.Errorf("crispasr: TTS requires a destination path")
 	}
-	setVoice(req.Voice)
+	if err := applyRequestVoice(req); err != nil {
+		return err
+	}
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err
@@ -473,7 +593,9 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	if req.Text == "" {
 		return fmt.Errorf("crispasr: TTSStream requires text")
 	}
-	setVoice(req.Voice)
+	if err := applyRequestVoice(req); err != nil {
+		return err
+	}
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err

@@ -52,8 +52,21 @@ type ImageVerifier interface {
 	VerifyImage(ctx context.Context, imageRef string) error
 }
 
+// TransferProgress reports the raw byte counts for an HTTP download.
+// Total is negative when the server does not advertise a response length.
+type TransferProgress struct {
+	FileName string
+	Written  int64
+	Total    int64
+}
+
+// TransferProgressSink receives raw byte progress updates for an HTTP download.
+type TransferProgressSink func(TransferProgress)
+
 type downloadOptions struct {
-	verifier ImageVerifier
+	verifier         ImageVerifier
+	bearerToken      string
+	transferProgress TransferProgressSink
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -68,6 +81,17 @@ type DownloadOption func(*downloadOptions)
 // those paths use SHA256 integrity instead.
 func WithImageVerifier(v ImageVerifier) DownloadOption {
 	return func(o *downloadOptions) { o.verifier = v }
+}
+
+// WithBearerToken authenticates HTTP download requests with a bearer token.
+// The token is stripped if a request redirects to a different origin.
+func WithBearerToken(token string) DownloadOption {
+	return func(o *downloadOptions) { o.bearerToken = token }
+}
+
+// WithTransferProgress attaches a sink for raw HTTP download byte progress.
+func WithTransferProgress(sink TransferProgressSink) DownloadOption {
+	return func(o *downloadOptions) { o.transferProgress = sink }
 }
 
 func applyDownloadOptions(opts []DownloadOption) downloadOptions {
@@ -330,6 +354,18 @@ func (s URI) ResolveURL() string {
 	return string(s)
 }
 
+// ErrUserCancelled distinguishes a deliberate user abort from an incidental
+// context cancellation (process shutdown, pod restart). Pass it as the cause
+// when cancelling the download context:
+//
+//	ctx, cancel := context.WithCancelCause(parent)
+//	cancel(downloader.ErrUserCancelled) // discards the .partial
+//
+// On a deliberate cancel the downloader removes the .partial (the user does not
+// want a half-download lingering). On a plain cancellation it keeps the .partial
+// so the next run resumes via Range instead of restarting from zero.
+var ErrUserCancelled = errors.New("download cancelled by user")
+
 func removePartialFile(tmpFilePath string) error {
 	xlog.Debug("Removing temporary file", "file", tmpFilePath)
 	if err := os.Remove(tmpFilePath); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -355,9 +391,28 @@ func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
 // deadline so large downloads are not truncated.
 var downloadClient = httpclient.New(httpclient.WithFollowRedirects())
 
-func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
-	url := uri.ResolveURL()
-	resp, err := downloadClient.Head(url)
+func newDownloadRequest(
+	ctx context.Context,
+	method string,
+	rawURL string,
+	bearerToken string,
+) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+bearerToken)
+	}
+	return req, nil
+}
+
+func (uri URI) checkServerSupportsRangeHeader(ctx context.Context, bearerToken string) (bool, error) {
+	req, err := newDownloadRequest(ctx, http.MethodHead, uri.ResolveURL(), bearerToken)
+	if err != nil {
+		return false, err
+	}
+	resp, err := downloadClient.Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -551,21 +606,22 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	xlog.Info("Downloading", "url", url)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := newDownloadRequest(ctx, http.MethodGet, url, dopts.bearerToken)
 	if err != nil {
 		return fmt.Errorf("failed to create request for %q: %v", filePath, err)
 	}
 
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
+	var startPos int64
 	tmpFileInfo, err := os.Stat(tmpFilePath)
 	if err == nil && uri.LooksLikeHTTPURL() {
-		support, err := uri.checkSeverSupportsRangeHeader()
+		support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
 		if err != nil {
 			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
 		}
 		if support {
-			startPos := tmpFileInfo.Size()
+			startPos = tmpFileInfo.Size()
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
 		} else {
 			err := removePartialFile(tmpFilePath)
@@ -594,21 +650,43 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		// Start the request
 		resp, err := downloadClient.Do(req)
 		if err != nil {
-			// Check if error is due to context cancellation
-			if errors.Is(err, context.Canceled) {
-				// Clean up partial file on cancellation
-				removePartialFile(tmpFilePath)
-				return err
+			// Detect cancellation via the context, not the returned error: a
+			// request cancelled *with a cause* surfaces the cause error (not
+			// context.Canceled) from the HTTP client. Keep the .partial for
+			// resume on an incidental cancel (shutdown, restart) — large GGUFs
+			// take long enough that deleting progress means they never finish —
+			// but discard it on a deliberate user abort (ErrUserCancelled).
+			if ctx.Err() != nil {
+				if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+					_ = removePartialFile(tmpFilePath)
+				}
+				return ctx.Err()
 			}
 			return fmt.Errorf("failed to download file %q: %v", filePath, err)
 		}
 		//defer resp.Body.Close()
 
+		if startPos > 0 && resp.StatusCode != http.StatusPartialContent {
+			_ = resp.Body.Close()
+			_ = removePartialFile(tmpFilePath)
+			return fmt.Errorf(
+				"resume request for %q returned status %d instead of 206",
+				filePath,
+				resp.StatusCode,
+			)
+		}
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
 		}
 		source = resp.Body
-		contentLength = resp.ContentLength
+		// Guard against a silently-stalled stream: a dropped TCP connection
+		// that never sends FIN/RST would otherwise block the body Read (and
+		// thus the whole install) forever. The watchdog aborts after a window
+		// of zero progress; the .partial is kept for a later resume.
+		if DownloadStallTimeout > 0 {
+			source = newIdleTimeoutReader(resp.Body, DownloadStallTimeout)
+		}
+		contentLength = resp.ContentLength + startPos
 	}
 	defer source.Close()
 
@@ -619,11 +697,14 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	}
 
 	// Create and write file
-	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
 	}
 	defer outFile.Close()
+	if err := outFile.Chmod(0600); err != nil {
+		return fmt.Errorf("failed to restrict partial file %q permissions: %v", tmpFilePath, err)
+	}
 	hash, err := calculateHashForPartialFile(outFile)
 	if err != nil {
 		return fmt.Errorf("failed to calculate hash for partial file")
@@ -634,25 +715,35 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		hash:           hash,
 		fileNo:         fileN,
 		totalFiles:     total,
+		written:        startPos,
 		downloadStatus: downloadStatus,
+		transferSink:   dopts.transferProgress,
 		ctx:            ctx,
 	}
 
 	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
 	if err != nil {
-		// Check if error is due to context cancellation
-		if errors.Is(err, context.Canceled) {
-			// Clean up partial file on cancellation
-			removePartialFile(tmpFilePath)
-			return err
+		// Detect cancellation via the context (a cause-cancelled read surfaces
+		// the cause, not context.Canceled). Keep the .partial for resume,
+		// except on a deliberate user abort (ErrUserCancelled), which discards
+		// it. A stall-guard abort leaves ctx uncancelled, so it falls through
+		// to the error path below and likewise preserves the partial.
+		if ctx.Err() != nil {
+			if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+				_ = removePartialFile(tmpFilePath)
+			}
+			return ctx.Err()
 		}
 		return fmt.Errorf("failed to write file %q: %v", filePath, err)
 	}
 
-	// Check for cancellation before finalizing
+	// Check for cancellation before finalizing. Keep the .partial for resume
+	// unless the user deliberately aborted.
 	select {
 	case <-ctx.Done():
-		removePartialFile(tmpFilePath)
+		if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+			_ = removePartialFile(tmpFilePath)
+		}
 		return ctx.Err()
 	default:
 	}

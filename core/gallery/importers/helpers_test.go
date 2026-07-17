@@ -4,8 +4,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("importer helpers", func() {
@@ -86,4 +89,68 @@ var _ = Describe("importer helpers", func() {
 			Expect(importers.HasGGMLFile(files, "ggml-")).To(BeFalse())
 		})
 	})
+
+	Describe("LocalModelPath", func() {
+		It("strips the file:// scheme from an absolute local path", func() {
+			Expect(importers.LocalModelPath("file:///Users/u/.lmstudio/models/mlx-community/Qwen3-4bit")).
+				To(Equal("/Users/u/.lmstudio/models/mlx-community/Qwen3-4bit"))
+		})
+		It("strips the file:// scheme from a relative local path", func() {
+			Expect(importers.LocalModelPath("file://my-models/nvidia/Qwen3-30B-A3B-FP4")).
+				To(Equal("my-models/nvidia/Qwen3-30B-A3B-FP4"))
+		})
+		It("leaves HuggingFace and HTTP URIs unchanged", func() {
+			Expect(importers.LocalModelPath("https://huggingface.co/mlx-community/test-model")).
+				To(Equal("https://huggingface.co/mlx-community/test-model"))
+			Expect(importers.LocalModelPath("mlx-community/test-model")).
+				To(Equal("mlx-community/test-model"))
+		})
+	})
+})
+
+var _ = Describe("managed artifact attachment", func() {
+	details := importers.Details{
+		URI:         "https://huggingface.co/owner/repo",
+		HuggingFace: &hfapi.ModelDetails{ModelID: "owner/repo"},
+	}
+
+	It("attaches a source when the imported model is the discovered repository", func() {
+		input := gallery.ModelConfig{ConfigFile: "backend: transformers\nparameters:\n  model: owner/repo\n"}
+		output, err := importers.AttachPrimaryArtifact(input, details)
+		Expect(err).NotTo(HaveOccurred())
+		var cfg config.ModelConfig
+		Expect(yaml.Unmarshal([]byte(output.ConfigFile), &cfg)).To(Succeed())
+		Expect(cfg.Artifacts).To(HaveLen(1))
+		Expect(cfg.Artifacts[0].Source.Repo).To(Equal("owner/repo"))
+	})
+
+	It("preserves explicit gallery files", func() {
+		input := gallery.ModelConfig{
+			ConfigFile: "parameters:\n  model: owner/repo\n",
+			Files:      []gallery.File{{Filename: "model.gguf", URI: "https://huggingface.co/owner/repo/resolve/main/model.gguf"}},
+		}
+		output, err := importers.AttachPrimaryArtifact(input, details)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(output.ConfigFile).To(Equal(input.ConfigFile))
+	})
+
+	It("does not attach a managed source to an unmigrated backend", func() {
+		input := gallery.ModelConfig{ConfigFile: "backend: custom-python\nparameters:\n  model: owner/repo\n"}
+		output, err := importers.AttachPrimaryArtifact(input, details)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(output.ConfigFile).To(Equal(input.ConfigFile))
+	})
+
+	DescribeTable("does not guess an unrelated or local source",
+		func(model string, candidate importers.Details) {
+			input := gallery.ModelConfig{ConfigFile: "parameters:\n  model: " + model + "\n"}
+			output, err := importers.AttachPrimaryArtifact(input, candidate)
+			Expect(err).NotTo(HaveOccurred())
+			var cfg config.ModelConfig
+			Expect(yaml.Unmarshal([]byte(output.ConfigFile), &cfg)).To(Succeed())
+			Expect(cfg.Artifacts).To(BeEmpty())
+		},
+		Entry("different repo", "other/repo", details),
+		Entry("local file", "/models/repo", importers.Details{URI: "file:///models/repo"}),
+	)
 })

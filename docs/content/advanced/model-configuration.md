@@ -89,6 +89,62 @@ download_files:
     sha256: abc123...
 ```
 
+## Model artifacts
+
+The `artifacts` section makes installation of a Hugging Face model eager and
+repeatable. LocalAI resolves the requested revision to an immutable commit,
+downloads the selected repository files, and commits the complete snapshot
+before the model installation succeeds.
+
+```yaml
+artifacts:
+  - name: model
+    target: model
+    source:
+      type: huggingface
+      repo: Qwen/Qwen3-ASR-1.7B
+      revision: main
+      token_env: HF_TOKEN
+    resolved:
+      endpoint: https://huggingface.co
+      revision: 0123456789abcdef0123456789abcdef01234567
+      cache_key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+parameters:
+  model: Qwen/Qwen3-ASR-1.7B
+```
+
+Declare `source` when authoring a configuration. LocalAI owns the `resolved`
+block and writes it after installation; do not choose its values manually.
+For a public repository, omit `token_env`. For a private or gated repository,
+set it to `HF_TOKEN` and provide that environment variable to the LocalAI
+controller.
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Logical artifact name; `model` for the initial primary artifact |
+| `target` | Binding target; only `model` is supported initially |
+| `source.type` | `huggingface` |
+| `source.repo` | `owner/repository` or `hf://owner/repository` |
+| `source.revision` | Branch, tag, or commit; defaults to `main` and resolves to a commit |
+| `source.token_env` | Empty or `HF_TOKEN`; the secret value is never persisted |
+| `source.allow_patterns` | Optional slash-separated glob allow-list |
+| `source.ignore_patterns` | Optional slash-separated glob deny-list |
+| `resolved` | Installer-owned immutable endpoint, revision, and cache key |
+
+Managed installation finishes only after every selected file is committed
+locally. `parameters.model` remains the logical repository ID. Once
+`resolved.cache_key` is present, LocalAI derives
+`.artifacts/huggingface/<cache-key>/snapshot` as the runtime `ModelFile`.
+Configurations without `artifacts` keep the existing lazy repository-ID
+behavior.
+
+The initially migrated backend families are `transformers` and its aliases,
+`diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
+`liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+artifact declarations only for this set. Compatible external backends may opt
+in by declaring the artifact explicitly.
+
 ## Parameters Section
 
 The `parameters` section contains all OpenAI-compatible request parameters and model-specific options.
@@ -145,7 +201,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `threads` | int | `processor count` | Number of threads for parallel computation |
-| `context_size` | int | `512` | Maximum context size (number of tokens) |
+| `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
 | `gpu_layers` | int | `0` | Number of layers to offload to GPU (0 = CPU only) |
 
@@ -403,7 +459,7 @@ Pre-converted GGUFs with MTP heads are published on the [ggml-org HuggingFace or
 
 ### Reasoning Models (DeepSeek-R1, Qwen3, etc.)
 
-These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array.
+These load-time options control how the backend parses `<think>` reasoning blocks and how much budget the model is allowed for thinking. They are set per model via the `options:` array. For how reasoning is returned alongside tool calls and survives the tool-result round trip, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -438,6 +494,36 @@ pipeline:
   reasoning_effort: none   # overrides the LLM model's own reasoning_effort
 ```
 
+#### Custom `chat_template_kwargs`
+
+Some jinja chat templates expose extra variables beyond `enable_thinking` /
+`reasoning_effort` (for example Qwen3's `preserve_thinking`). Set arbitrary key/values in
+the model config and they are forwarded to the backend's `chat_template_kwargs` as-is, so
+you don't need a dedicated server option per template variable:
+
+```yaml
+name: qwen3
+chat_template_kwargs:
+  preserve_thinking: true
+```
+
+You can also override (or add) any of these per request through the OpenAI `metadata`
+field on `/v1/chat/completions`. Values are strings; `"true"` / `"false"` are coerced to
+booleans, anything else is passed through as a string:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "metadata": { "preserve_thinking": "true", "enable_thinking": "false" }
+}
+```
+
+Per-request `metadata` overrides the model config defaults and the reasoning-config levers,
+and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
+reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
+model YAML `chat_template_kwargs`, where YAML preserves the type.
+
 ### Multimodal Backend Options
 
 | Option | Type | Default | Description |
@@ -463,7 +549,42 @@ These llama.cpp options are passed through the `options:` array.
 | `threads_batch` / `n_threads_batch` | int | same as `threads` | Threads used during prompt processing. `<= 0` means `hardware_concurrency()`. |
 | `direct_io` / `use_direct_io` | bool | `false` | Open the model with `O_DIRECT` (faster cold loads on NVMe; ignored if not supported). |
 | `verbosity` | int | `3` | llama.cpp internal log verbosity threshold. Higher = more verbose. |
+| `device` / `devices` | string | all devices | Select the llama.cpp backend devices to use. Repeat the option or pass a comma-separated list; unlisted devices are excluded. Use the names reported by `llama-server --list-devices` / `--list-devices`. |
 | `override_tensor` / `tensor_buft_overrides` | string | "" | Per-tensor buffer-type overrides for the main model. Format: `<tensor regex>=<buffer type>,<tensor regex>=<buffer type>,...`. Mirrors the existing `draft_override_tensor` syntax for the draft model. |
+| `cpu_moe` | bool | false | Keep all MoE expert weights of the main model on CPU (upstream `--cpu-moe`). Frees VRAM on large MoE models (DeepSeek, Qwen3 `*-A3B`). |
+| `n_cpu_moe` | int | 0 | Keep MoE expert weights of the first N main-model layers on CPU (upstream `--n-cpu-moe`). |
+
+#### Generic option passthrough
+
+Any `options:` entry whose name starts with `-` is forwarded **verbatim** to
+upstream llama.cpp's own `llama-server` argument parser. This means any flag the
+bundled llama.cpp supports works without LocalAI needing a dedicated option,
+even ones added after your LocalAI version was built. See the upstream
+[server flags reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+
+Format mirrors the rest of the array - `--flag` for a boolean, or `--flag:value`
+for a flag that takes a value. Everything after the first `:` is the value, so
+embedded colons (e.g. `host:port`) are preserved:
+
+```yaml
+options:
+  - "--cpu-moe"                 # boolean flag
+  - "--n-cpu-moe:4"             # flag with a value
+  - "--override-tensor:exps=CPU"
+  - "devices:CUDA1,CUDA2,CUDA3" # skip CUDA0, e.g. a display GPU
+```
+
+Notes:
+
+- **Precedence:** passthrough flags are applied last, so an explicit flag
+  overrides the LocalAI option it maps to (e.g. `--ctx-size:8192` overrides
+  `context_size`).
+- **Power-user territory:** an invalid flag or value is rejected by the upstream
+  parser exactly as it would be by `llama-server`, which can fail model loading.
+  Prefer the named options above when one exists.
+- Flags that would terminate the process (such as `--help`, `--usage`,
+  `--version`, `--license`, `--list-devices`, `--cache-list`, and
+  `--completion*`) are ignored.
 
 ### Prompt Caching
 
@@ -609,8 +730,25 @@ For text-to-speech models:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tts.voice` | string | Voice file path or voice ID |
-| `tts.audio_path` | string | Path to audio files (for Vall-E) |
+| `tts.voice` | string | Default backend voice ID, speaker name, or reference path. A request `voice` takes precedence. |
+| `tts.audio_path` | string | Default reference-audio path for cloning backends. A request voice or saved Voice Library profile takes precedence. |
+| `tts.voice_cloning` | bool | Optional Voice Library capability override. Omit for automatic backend/variant detection; `true` opts in a verified custom-named variant and `false` rejects saved profile references. |
+
+For example, a custom-named model on a known cloning backend can declare support explicitly while retaining a model-wide reference fallback:
+
+```yaml
+name: private-voice-model
+backend: qwen3-tts-cpp
+parameters:
+  model: private/qwen-talker-base.gguf
+known_usecases:
+  - tts
+tts:
+  voice_cloning: true
+  audio_path: voices/default-reference.wav
+```
+
+`tts.voice_cloning: true` only overrides model-variant detection. It cannot enable cloning on a backend that does not implement LocalAI's reference-audio contract.
 
 ## Roles Configuration
 
@@ -776,12 +914,40 @@ Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref 
 
 ## gRPC Configuration
 
-Backend gRPC communication settings:
+Backend gRPC communication settings. These control the readiness handshake
+between LocalAI and a freshly spawned backend process — LocalAI polls the
+backend's `Health` gRPC method up to `grpc.attempts` times, sleeping
+`grpc.attempts_sleep_time` seconds between polls, before giving up and
+terminating the backend as unresponsive.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `grpc.attempts` | int | Number of retry attempts |
-| `grpc.attempts_sleep_time` | int | Sleep time between retries (seconds) |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `grpc.attempts` | int | 20 | Number of health-check attempts before the backend is killed as unresponsive |
+| `grpc.attempts_sleep_time` | int | 2 | Sleep time between health-check attempts (seconds) |
+
+**Total load window ≈ `grpc.attempts × (grpc.attempts_sleep_time + per-call gRPC dial timeout)`.**
+The default of `20 × 2 s ≈ 40 s` is fine for typical backends but is too
+short for large models that need substantial time to become gRPC-ready
+after the process starts — for example NVFP4 / FP8 models whose shard
+loading and CUDA-graph capture can take several minutes, or slow storage
+backends. If the backend keeps getting killed while still legitimately
+loading (visible as `exitCode=120` + `rpc error: code = Canceled desc =
+context canceled` in the LocalAI log, while the backend's own stderr
+shows continued forward progress), raise these values.
+
+Example configuration for a model that needs up to ~10 minutes to become
+gRPC-ready (large NVFP4 model, cold shard load + CUDA-graph capture):
+
+```yaml
+grpc:
+  attempts: 140
+  attempts_sleep_time: 5
+```
+
+This gives a ~700 s window while keeping health-check polling frequent
+enough to detect real backend crashes quickly. The values only affect
+the initial readiness handshake — inference-request timeouts and the
+watchdog are unchanged.
 
 ## Overrides
 
@@ -807,6 +973,61 @@ known_usecases:
 ```
 
 Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
+
+`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family — separate from `llama-cpp`, which no longer carries the token-classification path.
+
+### Known input and output modalities
+
+Use `known_input_modalities` and `known_output_modalities` when a use case does not fully describe a model's I/O. For example, both text-to-video and audio-driven avatar models use the `video` use case, but only the avatar model accepts audio:
+
+```yaml
+known_usecases:
+  - video
+known_input_modalities:
+  - text
+  - image
+  - audio
+known_output_modalities:
+  - video
+```
+
+Valid modality values are `text`, `image`, `audio`, and `video`. Explicit values are combined with modalities LocalAI can infer from the model use cases and configuration. The resulting canonical, de-duplicated lists are exposed by `GET /v1/models/capabilities`.
+
+## PII filtering
+
+PII redaction is NER-based and runs on the **request** (input) side. It has two halves:
+
+- **Detector models** are `token_classify` models that carry the detection *policy* in a top-level `pii_detection:` block. The policy is defined once, on the model itself:
+
+  ```yaml
+  name: privacy-filter-multilingual
+  backend: llama-cpp
+  embeddings: true
+  known_usecases:
+    - token_classify
+  pii_detection:
+    min_score: 0.5            # drop detections below this confidence
+    default_action: mask      # mask | block | allow — applied to any detected
+                              # group with no explicit entry (empty = mask)
+    entity_actions:           # which PII to block vs mask vs allow-log
+      PASSWORD: block
+      CREDITCARD: block
+      EMAIL: mask
+  ```
+
+- **Consuming models** opt in and reference one or more detectors by name — no per-consumer policy:
+
+  ```yaml
+  name: my-assistant
+  pii:
+    enabled: true             # default: off for local backends, on for cloud-proxy
+    detectors:
+      - privacy-filter-multilingual
+  ```
+
+Multiple detectors union their detections; overlapping spans resolve to the strongest action (`block` > `mask` > `allow`). A configured detector that can't be loaded fails the request closed (HTTP 503) rather than silently skipping the check. Detections are audited at `/api/pii/events` (hash-prefix only, never the raw value).
+
+> The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
 
 ## Complete Example
 

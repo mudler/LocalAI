@@ -11,32 +11,29 @@ import (
 // registrations in core/http/routes/localai.go — the Tool↔REST drift detector
 // in coverage_test.go documents the mapping.
 const (
-	routeWelcome            = "/"
-	routeModelsApply        = "/models/apply"
-	routeModelsAvail        = "/models/available"
-	routeModelsGall         = "/models/galleries"
-	routeModelsImport       = "/models/import-uri"
-	routeModelsReload       = "/models/reload"
-	routeBackends           = "/backends"
-	routeBackendsKnown      = "/backends/known"
-	routeBackendsApply      = "/backends/apply"
-	routeNodes              = "/api/nodes"
-	routeVRAMEstimate       = "/api/models/vram-estimate"
-	routeBranding           = "/api/branding"
-	routeSettings           = "/api/settings"
-	routeUsage              = "/api/usage"
-	routeUsageAll           = "/api/usage/all"
-	routePIIPatterns        = "/api/pii/patterns"
-	routePIIPatternsPersist = "/api/pii/patterns/persist"
-	routePIIEvents          = "/api/pii/events"
-	routePIITest            = "/api/pii/test"
-	routeMiddleware         = "/api/middleware/status"
-	routeRouterDecisions    = "/api/router/decisions"
+	routeWelcome         = "/"
+	routeModelsApply     = "/models/apply"
+	routeModelsAvail     = "/models/available"
+	routeModelsGall      = "/models/galleries"
+	routeModelsImport    = "/models/import-uri"
+	routeModelImport     = "/models/import"
+	routeAliases         = "/api/aliases"
+	routeModelsReload    = "/models/reload"
+	routeBackendLoad     = "/backend/load"
+	routeBackends        = "/backends"
+	routeBackendsKnown   = "/backends/known"
+	routeBackendsApply   = "/backends/apply"
+	routeNodes           = "/api/nodes"
+	routeVRAMEstimate    = "/api/models/vram-estimate"
+	routeBranding        = "/api/branding"
+	routeSettings        = "/api/settings"
+	routeUsage           = "/api/usage"
+	routeUsageAll        = "/api/usage/all"
+	routePIIEvents       = "/api/pii/events"
+	routeMiddleware      = "/api/middleware/status"
+	routeRouterDecisions = "/api/router/decisions"
+	routeVoiceProfiles   = "/api/voice-profiles"
 )
-
-func routePIIPatternByID(id string) string {
-	return "/api/pii/patterns/" + url.PathEscape(id)
-}
 
 func routeJobStatus(jobID string) string {
 	return "/models/jobs/" + url.PathEscape(jobID)
@@ -60,4 +57,12 @@ func routeToggleModelState(name, action string) string {
 
 func routeToggleModelPinned(name, action string) string {
 	return fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action))
+}
+
+func routeVoiceProfileDelete(id string) string {
+	return "/api/voice-profiles/" + url.PathEscape(id)
+}
+
+func routeNodeVRAMBudget(id string) string {
+	return "/api/nodes/" + url.PathEscape(id) + "/vram-budget"
 }

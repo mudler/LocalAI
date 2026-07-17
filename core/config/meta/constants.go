@@ -64,9 +64,11 @@ var UsecaseOptions = []FieldOption{
 	{Value: "image", Label: "Image"},
 	{Value: "vision", Label: "Vision"},
 	{Value: "detection", Label: "Detection"},
+	{Value: "depth", Label: "Depth"},
 	{Value: "face_recognition", Label: "Face Recognition"},
 	{Value: "transcript", Label: "Transcript"},
 	{Value: "diarization", Label: "Diarization"},
+	{Value: "sound_classification", Label: "Sound Classification"},
 	{Value: "speaker_recognition", Label: "Speaker Recognition"},
 	{Value: "tts", Label: "TTS"},
 	{Value: "sound_generation", Label: "Sound Generation"},
@@ -74,6 +76,14 @@ var UsecaseOptions = []FieldOption{
 	{Value: "realtime_audio", Label: "Realtime Audio"},
 	{Value: "tokenize", Label: "Tokenize"},
 	{Value: "vad", Label: "VAD"},
+	{Value: "video", Label: "Video"},
+}
+
+// ModalityOptions enumerates the values accepted by known modality fields.
+var ModalityOptions = []FieldOption{
+	{Value: "text", Label: "Text"},
+	{Value: "image", Label: "Image"},
+	{Value: "audio", Label: "Audio"},
 	{Value: "video", Label: "Video"},
 }
 

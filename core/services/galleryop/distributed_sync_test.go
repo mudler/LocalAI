@@ -122,6 +122,9 @@ var _ = Describe("OpStatus JSON wire format", func() {
 		original := &galleryop.OpStatus{
 			Progress:           42.0,
 			Message:            "downloading",
+			Phase:              "downloading",
+			CurrentBytes:       123,
+			TotalBytes:         456,
 			GalleryElementName: "vllm",
 			Error:              errors.New("disk full"),
 			Processed:          true,
@@ -134,6 +137,9 @@ var _ = Describe("OpStatus JSON wire format", func() {
 		Expect(got.Error).ToNot(BeNil(), "the error must survive the round-trip — peer replicas need to surface the failure")
 		Expect(got.Error.Error()).To(Equal("disk full"))
 		Expect(got.Progress).To(Equal(42.0))
+		Expect(got.Phase).To(Equal("downloading"))
+		Expect(got.CurrentBytes).To(Equal(int64(123)))
+		Expect(got.TotalBytes).To(Equal(int64(456)))
 		Expect(got.GalleryElementName).To(Equal("vllm"))
 		Expect(got.Processed).To(BeTrue())
 	})
@@ -403,6 +409,36 @@ var _ = Describe("GalleryService cache invalidation broadcasts", func() {
 		Expect(bus.Publish(messaging.SubjectCacheInvalidateModels, messaging.CacheInvalidateEvent{
 			Element: "x", Op: "install",
 		})).To(Succeed())
+	})
+
+	It("BroadcastModelsChanged delivers the element and op to a peer's OnModelsChanged", func() {
+		var (
+			mu   sync.Mutex
+			seen []messaging.CacheInvalidateEvent
+		)
+		svcB.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
+			mu.Lock()
+			seen = append(seen, evt)
+			mu.Unlock()
+		}
+		Expect(svcA.SubscribeBroadcasts()).To(Succeed())
+		Expect(svcB.SubscribeBroadcasts()).To(Succeed())
+
+		// An admin edit on replica A must reach replica B over the same subject
+		// the gallery path uses, so B refreshes its in-memory config loader.
+		svcA.BroadcastModelsChanged("my-alias", "install")
+
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(seen).To(ContainElement(messaging.CacheInvalidateEvent{
+			Element: "my-alias", Op: "install",
+		}))
+	})
+
+	It("BroadcastModelsChanged is a no-op when NATS is not wired (standalone)", func() {
+		standalone := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		// No SetNATSClient: must not panic and must simply do nothing.
+		Expect(func() { standalone.BroadcastModelsChanged("x", "delete") }).ToNot(Panic())
 	})
 })
 

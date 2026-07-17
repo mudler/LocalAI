@@ -22,6 +22,14 @@ const subscribeConfirmTimeout = 5 * time.Second
 type Client struct {
 	conn *nats.Conn
 	mu   sync.RWMutex
+
+	// reconnectCbs are invoked after the underlying connection is
+	// re-established. nats.go transparently resubscribes existing
+	// subscriptions on reconnect, but it cannot know that a consumer kept
+	// derived in-memory state (e.g. syncstate.SyncedMap) that may have drifted
+	// while the link was down — these callbacks let such consumers re-hydrate.
+	cbMu         sync.Mutex
+	reconnectCbs []func()
 }
 
 // New creates a new NATS client with auto-reconnect.
@@ -30,6 +38,10 @@ func New(url string, opts ...Option) (*Client, error) {
 	for _, o := range opts {
 		o(&cfg)
 	}
+
+	// Allocate the client up front so the reconnect handler closure can reach
+	// it; conn is populated after nats.Connect succeeds below.
+	c := &Client{}
 
 	natsOpts := []nats.Option{
 		nats.RetryOnFailedConnect(true),
@@ -41,6 +53,7 @@ func New(url string, opts ...Option) (*Client, error) {
 		}),
 		nats.ReconnectHandler(func(_ *nats.Conn) {
 			xlog.Info("NATS reconnected")
+			c.runReconnectCallbacks()
 		}),
 		nats.ClosedHandler(func(_ *nats.Conn) {
 			xlog.Info("NATS connection closed")
@@ -103,7 +116,33 @@ func New(url string, opts ...Option) (*Client, error) {
 		return nil, fmt.Errorf("connecting to NATS at %s: %w", sanitize.URL(url), err)
 	}
 
-	return &Client{conn: nc}, nil
+	c.conn = nc
+	return c, nil
+}
+
+// OnReconnect registers a callback invoked after the NATS connection is
+// re-established. It is consumed via an optional interface type-assertion
+// (interface{ OnReconnect(func()) }) rather than being added to MessagingClient,
+// so the messaging abstraction stays minimal and standalone/test clients are not
+// forced to implement reconnect semantics. A nil callback is ignored.
+func (c *Client) OnReconnect(cb func()) {
+	if cb == nil {
+		return
+	}
+	c.cbMu.Lock()
+	c.reconnectCbs = append(c.reconnectCbs, cb)
+	c.cbMu.Unlock()
+}
+
+// runReconnectCallbacks invokes registered reconnect callbacks. It copies the
+// slice under the lock so a callback that (re)registers cannot deadlock.
+func (c *Client) runReconnectCallbacks() {
+	c.cbMu.Lock()
+	cbs := append([]func(){}, c.reconnectCbs...)
+	c.cbMu.Unlock()
+	for _, cb := range cbs {
+		cb()
+	}
 }
 
 // Publish marshals data as JSON and publishes it to the given subject.

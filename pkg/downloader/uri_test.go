@@ -238,8 +238,17 @@ var _ = Describe("Download Test", func() {
 				}
 			}
 			respData = mockData[startPos:endPos]
-			w.WriteHeader(http.StatusOK)
-			w.Write(respData)
+			w.Header().Set("Content-Length", strconv.Itoa(len(respData)))
+			if rangeString != "" {
+				w.Header().Set(
+					"Content-Range",
+					fmt.Sprintf("bytes %d-%d/%d", startPos, endPos-1, len(mockData)),
+				)
+				w.WriteHeader(http.StatusPartialContent)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+			_, _ = w.Write(respData)
 		}))
 		mockServer.EnableHTTP2 = true
 		mockServer.Start()

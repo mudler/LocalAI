@@ -372,6 +372,160 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.Files).To(BeEmpty())
 		})
+
+		It("derives the model name from the selected GGUF when no name is given", func() {
+			// Regression for #10587: a repo-root URI has no file component, so
+			// the URI base ("example-GGUF") is just the repo name. With the
+			// name field left blank, the emitted name and model directory must
+			// follow the GGUF file actually selected, not the repository.
+			details := withHF(`{"quantizations":"Q4_K_M"}`,
+				hfFile("Meta-Llama-3-8B-Instruct.Q4_K_M.gguf", "aaa"),
+				hfFile("Meta-Llama-3-8B-Instruct.Q3_K_M.gguf", "bbb"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("Meta-Llama-3-8B-Instruct.Q4_K_M"))
+			Expect(modelConfig.Files).To(HaveLen(1), fmt.Sprintf("%+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal(
+				"llama-cpp/models/Meta-Llama-3-8B-Instruct.Q4_K_M/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("name: Meta-Llama-3-8B-Instruct.Q4_K_M"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring(
+				"model: llama-cpp/models/Meta-Llama-3-8B-Instruct.Q4_K_M/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"))
+		})
+
+		It("derives a clean name from the shard base for split GGUFs when no name is given", func() {
+			// The selected primary file is shard 1; using its raw basename
+			// would leak the -00001-of-00002 suffix into the name. The shard
+			// base must be used so the name is the logical model.
+			details := withHF(``,
+				hfFile("Qwen3-30B-A3B-Q4_K_M-00001-of-00002.gguf", "p1"),
+				hfFile("Qwen3-30B-A3B-Q4_K_M-00002-of-00002.gguf", "p2"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("Qwen3-30B-A3B-Q4_K_M"))
+			Expect(modelConfig.Files).To(HaveLen(2), fmt.Sprintf("%+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal(
+				"llama-cpp/models/Qwen3-30B-A3B-Q4_K_M/Qwen3-30B-A3B-Q4_K_M-00001-of-00002.gguf"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring(
+				"model: llama-cpp/models/Qwen3-30B-A3B-Q4_K_M/Qwen3-30B-A3B-Q4_K_M-00001-of-00002.gguf"))
+		})
+
+		It("keeps an explicit name over the selected GGUF filename", func() {
+			// Precedence guard: when the user supplies a name it always wins,
+			// even though a GGUF file was selected from the listing.
+			details := withHF(`{"name":"my-custom-name","quantizations":"Q4_K_M"}`,
+				hfFile("model-Q4_K_M.gguf", "aaa"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.Name).To(Equal("my-custom-name"))
+			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/my-custom-name/model-Q4_K_M.gguf"))
+		})
+	})
+
+	Context("quant token boundary matching", func() {
+		// Regression for #10559: the quant preference must match as a whole
+		// token, not as a substring. Asking for `F16` used to select a
+		// `BF16` mmproj because strings.Contains("...bf16.gguf", "f16") is
+		// true — the leading `b` was ignored.
+
+		const repoBase = "https://huggingface.co/acme/example-GGUF/resolve/main/"
+
+		hfFile := func(path, sha string) hfapi.ModelFile {
+			return hfapi.ModelFile{
+				Path:   path,
+				SHA256: sha,
+				URL:    repoBase + path,
+			}
+		}
+
+		withHF := func(preferences string, files ...hfapi.ModelFile) Details {
+			d := Details{
+				URI: "https://huggingface.co/acme/example-GGUF",
+				HuggingFace: &hfapi.ModelDetails{
+					ModelID: "acme/example-GGUF",
+					Files:   files,
+				},
+			}
+			if preferences != "" {
+				d.Preferences = json.RawMessage(preferences)
+			}
+			return d
+		}
+
+		It("selects the F16 mmproj over BF16 (BF16 listed first)", func() {
+			details := withHF(`{"name":"VL","mmproj_quantizations":"F16"}`,
+				hfFile("model-Q4_K_M.gguf", "model"),
+				hfFile("mmproj-x-BF16.gguf", "bf16"),
+				hfFile("mmproj-x-F16.gguf", "f16"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/VL/mmproj-x-F16.gguf"), fmt.Sprintf("%+v", modelConfig))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("BF16"), fmt.Sprintf("%+v", modelConfig))
+		})
+
+		It("selects the F16 mmproj over BF16 (F16 listed first)", func() {
+			details := withHF(`{"name":"VL","mmproj_quantizations":"F16"}`,
+				hfFile("model-Q4_K_M.gguf", "model"),
+				hfFile("mmproj-x-F16.gguf", "f16"),
+				hfFile("mmproj-x-BF16.gguf", "bf16"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/VL/mmproj-x-F16.gguf"), fmt.Sprintf("%+v", modelConfig))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("BF16"), fmt.Sprintf("%+v", modelConfig))
+		})
+
+		It("selects BF16 when BF16 is the requested mmproj quant", func() {
+			details := withHF(`{"name":"VL","mmproj_quantizations":"BF16"}`,
+				hfFile("model-Q4_K_M.gguf", "model"),
+				hfFile("mmproj-x-F16.gguf", "f16"),
+				hfFile("mmproj-x-BF16.gguf", "bf16"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/VL/mmproj-x-BF16.gguf"), fmt.Sprintf("%+v", modelConfig))
+		})
+
+		It("still matches a normal model quant with internal separators", func() {
+			// ud-q4_k_xl contains `-`/`_` internally; only the outer edges
+			// must hit a token boundary.
+			details := withHF(`{"name":"M","quantizations":"ud-q4_k_xl"}`,
+				hfFile("model-UD-Q4_K_XL.gguf", "xl"),
+				hfFile("model-Q3_K_M.gguf", "q3"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: llama-cpp/models/M/model-UD-Q4_K_XL.gguf"), fmt.Sprintf("%+v", modelConfig))
+		})
+
+		It("falls back to the last group when no preference matches", func() {
+			details := withHF(`{"name":"M","quantizations":"Q2_K"}`,
+				hfFile("model-Q8_0.gguf", "q8"),
+				hfFile("model-Q3_K_M.gguf", "q3"),
+			)
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: llama-cpp/models/M/model-Q3_K_M.gguf"), fmt.Sprintf("%+v", modelConfig))
+		})
 	})
 
 	Context("AdditionalBackends", func() {

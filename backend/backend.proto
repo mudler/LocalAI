@@ -18,12 +18,28 @@ service Backend {
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
+  // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
+  // first message MUST carry a Config; subsequent messages carry Audio frames
+  // (mono float PCM at config.sample_rate, 16 kHz default). After a
+  // successful open the backend replies with a single ready ack
+  // (TranscriptLiveResponse{ready:true}); backends or models without
+  // cache-aware streaming support return UNIMPLEMENTED instead. Newly
+  // finalized text streams back as deltas; eou=true marks the model's
+  // end-of-utterance token. One stream spans many utterances (the decoder
+  // resets itself after each EOU). Closing the send side finalizes: the
+  // backend flushes the decoder tail and emits a terminal message carrying
+  // final_result. A second Config mid-stream resets the decode session.
+  rpc AudioTranscriptionLive(stream TranscriptLiveRequest) returns (stream TranscriptLiveResponse) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
+  // SoundDetection runs an audio-tagging / sound-event-classification model
+  // (e.g. CED over the AudioSet ontology) on a clip and returns scored labels.
+  rpc SoundDetection(SoundDetectionRequest) returns (SoundDetectionResponse) {}
+  rpc Depth(DepthRequest) returns (DepthResponse) {}
   rpc FaceVerify(FaceVerifyRequest) returns (FaceVerifyResponse) {}
   rpc FaceAnalyze(FaceAnalyzeRequest) returns (FaceAnalyzeResponse) {}
   rpc VoiceVerify(VoiceVerifyRequest) returns (VoiceVerifyResponse) {}
@@ -475,11 +491,43 @@ message TranscriptResult {
   string text = 2;
   string language = 3;
   float duration = 4;
+  // True when the decode ended on the model's end-of-utterance special token
+  // (<EOU>/<EOB>, emitted by cache-aware streaming models such as
+  // parakeet_realtime_eou_120m-v1). The marker itself is stripped from text.
+  bool eou = 5;
 }
 
 message TranscriptStreamResponse {
   string delta = 1;
   TranscriptResult final_result = 2;
+}
+
+// === AudioTranscriptionLive messages =====================================
+
+message TranscriptLiveRequest {
+  oneof payload {
+    TranscriptLiveConfig config = 1;
+    TranscriptLiveAudio  audio  = 2;
+  }
+}
+
+message TranscriptLiveConfig {
+  string language = 1;             // "" => model default
+  int32 sample_rate = 2;           // 0 => 16000; backends may reject others
+  map<string, string> params = 3;  // backend-specific tuning
+}
+
+message TranscriptLiveAudio {
+  repeated float pcm = 1;          // mono PCM in [-1,1] at config.sample_rate
+}
+
+message TranscriptLiveResponse {
+  bool ready = 1;                       // open ack: sent once, before any delta
+  string delta = 2;                     // newly-finalized text since previous response
+  bool eou = 3;                         // <EOU> fired during this feed (the user yielded the turn)
+  repeated TranscriptWord words = 4;    // words finalized by this feed (stream-relative ns)
+  TranscriptResult final_result = 5;    // terminal message only, after the send side closes
+  bool eob = 6;                         // <EOB> fired: a backchannel ("uh-huh") ended — NOT a turn boundary
 }
 
 message TranscriptWord {
@@ -529,6 +577,10 @@ message GenerateVideoRequest {
   float cfg_scale = 10;    // Classifier-free guidance scale
   int32 step = 11;         // Number of inference steps
   string dst = 12;        // Output path for the generated video
+  string audio = 13;      // Path to staged audio for audio-conditioned video
+  // Backend-specific per-request generation parameters. Values are strings
+  // and are validated/coerced by the selected backend.
+  map<string, string> params = 14;
 }
 
 message TTSRequest {
@@ -668,6 +720,53 @@ message Detection {
 
 message DetectResponse {
   repeated Detection Detections = 1;
+}
+
+// --- Sound-event classification / audio tagging messages (CED) ---
+
+message SoundDetectionRequest {
+  string src = 1;       // audio file path (LocalAI writes the upload to disk)
+  int32 top_k = 2;      // number of top tags to return (0 = all classes)
+  float threshold = 3;  // optional: drop tags scoring below this
+}
+
+message SoundClass {
+  string label = 1;     // AudioSet class name, e.g. "Baby cry, infant cry"
+  float score = 2;      // per-class probability (multi-label, independent)
+  int32 index = 3;      // class index in the model ontology
+}
+
+message SoundDetectionResponse {
+  repeated SoundClass detections = 1;  // score-descending
+}
+
+// --- Depth estimation messages (Depth Anything 3) ---
+
+message DepthRequest {
+  string src = 1;                  // input image (filesystem path or base64-encoded payload)
+  string dst = 2;                  // optional output directory for exports (glb/colmap)
+  bool include_depth = 3;          // return the per-pixel metric depth map
+  bool include_confidence = 4;     // return the per-pixel confidence map (DualDPT)
+  bool include_pose = 5;           // return camera extrinsics/intrinsics (DualDPT)
+  bool include_sky = 6;            // return the per-pixel sky map (mono models)
+  bool include_points = 7;         // back-project to a 3D point cloud (DualDPT)
+  float points_conf_thresh = 8;    // keep points with confidence >= this threshold
+  repeated string exports = 9;     // requested exports: "glb", "colmap"
+}
+
+message DepthResponse {
+  int32 width = 1;                 // processed depth-map width
+  int32 height = 2;                // processed depth-map height
+  repeated float depth = 3;        // width*height row-major metric depth
+  repeated float confidence = 4;   // width*height row-major confidence (DualDPT)
+  repeated float sky = 5;          // width*height row-major sky map (mono)
+  repeated float extrinsics = 6;   // 12 floats, 3x4 row-major (world-to-camera)
+  repeated float intrinsics = 7;   // 9 floats, 3x3 row-major
+  int32 num_points = 8;            // number of 3D points
+  repeated float points = 9;       // num_points*3 xyz, world space
+  bytes point_colors = 10;         // num_points*3 uint8 rgb
+  repeated string export_paths = 11; // paths written for the requested exports
+  bool is_metric = 12;             // depth is in metric units
 }
 
 // --- Face recognition messages ---
@@ -1161,4 +1260,3 @@ message ForwardReply {
   repeated ForwardHeader headers = 2;
   bytes body_chunk = 3;
 }
-

@@ -9,8 +9,10 @@ import (
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	"github.com/phayes/freeport"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -53,7 +55,9 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend, "options", *o)
 
-		// Distributed mode: delegate to the model router if set
+		// Distributed mode: delegate to the model router if set. No load
+		// event is emitted here: this branch runs per inference request and
+		// the actual load happens on the worker node.
 		ml.mu.Lock()
 		router := ml.modelRouter
 		ml.mu.Unlock()
@@ -62,111 +66,177 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			return router(o.context, backend, modelID, modelName, modelFile, o.gRPCOptions, o.parallelRequests)
 		}
 
-		var client *Model
-
-		getFreeAddress := func() (string, error) {
-			port, err := freeport.GetFreePort()
-			if err != nil {
-				return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
-			}
-			return fmt.Sprintf("127.0.0.1:%d", port), nil
-		}
-
-		// If no specific model path is set for transformers/HF, set it to the model path
-		for _, env := range []string{"HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE"} {
-			if os.Getenv(env) == "" {
-				err := os.Setenv(env, ml.ModelPath)
-				if err != nil {
-					xlog.Error("unable to set environment variable to modelPath", "error", err, "name", env, "modelPath", ml.ModelPath)
-				}
-			}
-		}
-
-		// Check if the backend is provided as external
-		if uri, ok := ml.GetAllExternalBackends(o)[backend]; ok {
-			xlog.Debug("Loading external backend", "uri", uri)
-			// check if uri is a file or an address
-			if fi, err := os.Stat(uri); err == nil {
-				xlog.Debug("external backend is file", "file", fi)
-				serverAddress, err := getFreeAddress()
-				if err != nil {
-					return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
-				}
-				// Make sure the process is executable
-				process, err := ml.startProcess(uri, modelID, serverAddress)
-				if err != nil {
-					xlog.Error("failed to launch", "error", err, "path", uri)
-					return nil, err
-				}
-
-				xlog.Debug("GRPC Service Started")
-
-				client = NewModel(modelID, serverAddress, process)
-			} else {
-				xlog.Debug("external backend is a uri")
-				// address
-				client = NewModel(modelID, uri, nil)
-			}
-		} else {
-			xlog.Error("Backend not found", "backend", backend)
-			return nil, fmt.Errorf("backend not found: %s", backend)
-		}
-
-		xlog.Debug("Wait for the service to start up")
-		xlog.Debug("Options", "options", o.gRPCOptions)
-
-		// Wait for the service to start up
-		ready := false
-		for i := range o.grpcAttempts {
-			alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
-			if alive {
-				xlog.Debug("GRPC Service Ready")
-				ready = true
-				break
-			}
-			if err != nil && i == o.grpcAttempts-1 {
-				xlog.Error("failed starting/connecting to the gRPC service", "error", err)
-			}
-			time.Sleep(time.Duration(o.grpcAttemptsDelay) * time.Second)
-		}
-
-		if !ready {
-			xlog.Debug("GRPC Service NOT ready")
-			if process := client.Process(); process != nil {
-				process.Stop()
-			}
-			return nil, fmt.Errorf("grpc service not ready")
-		}
-
-		options := *o.gRPCOptions
-		options.Model = modelName
-		options.ModelFile = modelFile
-		options.ModelPath = ml.ModelPath
-
-		xlog.Debug("GRPC: Loading model with options", "options", options)
-
-		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
-		if err != nil {
-			if process := client.Process(); process != nil {
-				process.Stop()
-			}
-			return nil, fmt.Errorf("could not load model: %w", err)
-		}
-		if !res.Success {
-			if process := client.Process(); process != nil {
-				process.Stop()
-			}
-			return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
-		}
-
-		return client, nil
+		uri := ml.GetAllExternalBackends(o)[backend]
+		start := time.Now()
+		m, err := ml.spawnGRPCModel(backend, uri, o, modelID, modelName, modelFile)
+		ml.notifyLoadObserver(BackendLoadEvent{
+			ModelID:    modelID,
+			ModelName:  modelName,
+			Backend:    backend,
+			BackendURI: uri,
+			Duration:   time.Since(start),
+			Err:        err,
+		})
+		return m, err
 	}
+}
+
+// spawnGRPCModel starts the backend process (or attaches to a remote
+// address), waits for it to come up, and issues the LoadModel RPC. Reached
+// only for actual loads: LoadModel resolves cache hits and coalesces
+// concurrent loads before invoking the grpcModel closure. uri is the
+// resolved external-backend runtime (empty when the backend isn't
+// registered).
+func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, modelName, modelFile string) (*Model, error) {
+	var client *Model
+
+	getFreeAddress := func() (string, error) {
+		port, err := freeport.GetFreePort()
+		if err != nil {
+			return "", fmt.Errorf("failed allocating free ports: %s", err.Error())
+		}
+		return fmt.Sprintf("127.0.0.1:%d", port), nil
+	}
+
+	// If no specific model path is set for transformers/HF, set it to the model path
+	for _, env := range []string{"HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE"} {
+		if os.Getenv(env) == "" {
+			err := os.Setenv(env, ml.ModelPath)
+			if err != nil {
+				xlog.Error("unable to set environment variable to modelPath", "error", err, "name", env, "modelPath", ml.ModelPath)
+			}
+		}
+	}
+
+	// Check if the backend is provided as external
+	if uri != "" {
+		xlog.Debug("Loading external backend", "uri", uri)
+		// check if uri is a file or an address
+		if fi, err := os.Stat(uri); err == nil {
+			xlog.Debug("external backend is file", "file", fi)
+			serverAddress, err := getFreeAddress()
+			if err != nil {
+				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
+			}
+			// Make sure the process is executable
+			process, err := ml.startProcess(uri, modelID, serverAddress)
+			if err != nil {
+				xlog.Error("failed to launch", "error", err, "path", uri)
+				return nil, err
+			}
+
+			xlog.Debug("GRPC Service Started")
+
+			client = NewModel(modelID, serverAddress, process)
+		} else {
+			xlog.Debug("external backend is a uri")
+			// address
+			client = NewModel(modelID, uri, nil)
+		}
+	} else {
+		xlog.Error("Backend not found", "backend", backend)
+		return nil, fmt.Errorf("backend not found: %s", backend)
+	}
+
+	xlog.Debug("Wait for the service to start up")
+	xlog.Debug("Options", "options", o.gRPCOptions)
+
+	// Wait for the service to start up
+	ready := false
+	for i := range o.grpcAttempts {
+		alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
+		if alive {
+			xlog.Debug("GRPC Service Ready")
+			ready = true
+			break
+		}
+		if err != nil && i == o.grpcAttempts-1 {
+			xlog.Error("failed starting/connecting to the gRPC service", "error", err)
+		}
+		time.Sleep(time.Duration(o.grpcAttemptsDelay) * time.Second)
+	}
+
+	if !ready {
+		xlog.Debug("GRPC Service NOT ready")
+		stopLoadProcess(client, modelID)
+		return nil, fmt.Errorf("grpc service not ready")
+	}
+
+	// Clone before setting the per-load fields: o.gRPCOptions is shared by
+	// retried/auto-discovery attempts, and a plain struct copy would copy
+	// the protobuf message's internal mutex.
+	options := proto.Clone(o.gRPCOptions).(*pb.ModelOptions)
+	options.Model = modelName
+	options.ModelFile = modelFile
+	options.ModelPath = ml.ModelPath
+
+	xlog.Debug("GRPC: Loading model with options", "options", options)
+
+	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, options)
+	if err != nil {
+		stopLoadProcess(client, modelID)
+		return nil, fmt.Errorf("could not load model: %w", err)
+	}
+	if !res.Success {
+		stopLoadProcess(client, modelID)
+		return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
+	}
+
+	// Register size for size-aware eviction using the caller-supplied estimate
+	// (computed via pkg/vram, which handles multi-file and non-GGUF models).
+	if ml.wd != nil && o.modelSizeBytes > 0 {
+		ml.wd.RegisterModelSize(modelID, o.modelSizeBytes)
+	}
+
+	return client, nil
+}
+
+// stopLoadProcess tears down a backend process whose load did not complete.
+// The stop error is only logged: the load error is what the caller reports.
+func stopLoadProcess(client *Model, modelID string) {
+	process := client.Process()
+	if process == nil {
+		return
+	}
+	if err := process.Stop(); err != nil {
+		xlog.Warn("failed to stop backend process after failed load", "error", err, "modelID", modelID)
+	}
+}
+
+// parallelSlotsFromOptions returns the effective n_parallel from the backend
+// option strings ("parallel:N" / "n_parallel:N"), or "1" when unset — the
+// llama.cpp default. Used only for the effective-tuning load log.
+func parallelSlotsFromOptions(opts []string) string {
+	for _, o := range opts {
+		k, v, ok := strings.Cut(o, ":")
+		if ok && (k == "parallel" || k == "n_parallel") {
+			return strings.TrimSpace(v)
+		}
+	}
+	return "1"
 }
 
 func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
 	xlog.Info("BackendLoader starting", "modelID", o.modelID, "backend", o.backendString, "model", o.model)
+
+	// Surface the effective performance-relevant runtime options at load (some of
+	// these are auto-tuned for the detected hardware). Logged once per load so an
+	// admin can see what will actually run and pin or override any value in the
+	// model YAML — or set LOCALAI_DISABLE_HARDWARE_DEFAULTS=true to turn the
+	// hardware auto-tuning off entirely. Gated on an LLM-ish load (context set) so
+	// TTS/audio/other backends stay quiet.
+	if opt := o.gRPCOptions; opt != nil && opt.ContextSize > 0 {
+		xlog.Info("effective runtime tuning (override in the model YAML; LOCALAI_DISABLE_HARDWARE_DEFAULTS=true disables hardware auto-tuning)",
+			"modelID", o.modelID,
+			"context", opt.ContextSize,
+			"n_batch", opt.NBatch,
+			"n_gpu_layers", opt.NGPULayers,
+			"parallel", parallelSlotsFromOptions(opt.Options),
+			"flash_attention", opt.FlashAttention,
+			"f16", opt.F16Memory)
+	}
 
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {
@@ -181,7 +251,11 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		backend = realBackend
 	}
 
-	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
+	modelFileName := o.modelFile
+	if modelFileName == "" {
+		modelFileName = o.model
+	}
+	model, err := ml.LoadModelWithFile(o.modelID, o.model, modelFileName, ml.grpcModel(backend, o))
 	if err != nil {
 		// Defensive cleanup: the model usually wasn't registered yet (LoadModel
 		// failed before that), so StopGRPC reporting "model not found" is the

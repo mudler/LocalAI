@@ -36,7 +36,7 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
-	github.com/mudler/cogito v0.9.5-0.20260315222927-63abdec7189b
+	github.com/mudler/cogito v0.10.1-0.20260609212329-bf4010d31047
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.1
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
@@ -65,6 +65,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/nats v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/timbutler/zxcvbn v1.0.4
+	github.com/yalue/onnxruntime_go v1.11.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
 	go.opentelemetry.io/otel/metric v1.44.0
@@ -220,7 +221,7 @@ require (
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/mudler/LocalAGI v0.0.0-20260606071251-14aed1ae4336
-	github.com/mudler/localrecall v0.6.3-0.20260606070048-9a3b3321a9cd // indirect
+	github.com/mudler/localrecall v0.6.3 // indirect
 	github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
@@ -497,7 +498,7 @@ require (
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/term v0.43.0
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/text v0.37.0
 	golang.org/x/tools v0.45.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb // indirect

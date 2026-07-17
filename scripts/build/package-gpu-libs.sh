@@ -109,6 +109,70 @@ copy_libs_glob() {
     done
 }
 
+# Returns success for the core runtime libs the base image and package.sh
+# already provide. We must NOT bundle our own copies of these — a second libc
+# or libstdc++ on LD_LIBRARY_PATH clashes with the loader and the rest of the
+# process — so they're skipped when pulling in a driver's transitive deps.
+is_core_lib() {
+    case "$1" in
+        ld-linux*|ld.so|libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|\
+        libgcc_s.so.*|libstdc++.so.*|libresolv.so.*|libutil.so.*|linux-vdso.so.*)
+            return 0 ;;
+    esac
+    return 1
+}
+
+# Copy the shared-library dependencies of an ELF file into TARGET_LIB_DIR.
+# Used to make a bundled GPU driver self-contained: e.g. the Mesa Vulkan ICDs
+# pull in libdrm, libexpat and (for RADV/lavapipe) libLLVM, none of which the
+# runtime base image is guaranteed to have. Core libc-family deps are skipped.
+copy_elf_deps() {
+    local elf="$1"
+    [ -e "$elf" ] || return 0
+    command -v ldd >/dev/null 2>&1 || return 0
+
+    # ldd lines look like: "<TAB>libfoo.so.1 => /path/to/libfoo.so.1 (0x..)".
+    # Take the resolved absolute path (field 3) and skip vdso/static entries.
+    while read -r dep; do
+        if is_core_lib "$(basename "$dep")"; then
+            continue
+        fi
+        copy_lib "$dep"
+    done < <(ldd "$elf" 2>/dev/null | awk '/=>/ && $3 ~ /^\// {print $3}')
+}
+
+# Sweep the transitive shared-library dependencies of everything already
+# bundled in a lib dir. The per-vendor packagers below copy an explicit
+# allowlist of top-level runtime libs, but those libs pull in transitive deps
+# that aren't in the list (e.g. ROCm's librocprofiler-register.so.0, libnuma,
+# libdrm_amdgpu). Because backends run through the bundled lib/ld.so with
+# LD_LIBRARY_PATH=lib (see run.sh), an unbundled transitive dep is a hard load
+# failure (issue #10537: "librocprofiler-register.so.0: cannot open shared
+# object file"). ldd resolves the full recursive closure, so a single pass over
+# the already-bundled libs is enough; core libc-family deps are skipped via
+# copy_elf_deps/is_core_lib so we never shadow the loader's own libc/libstdc++.
+sweep_transitive_deps() {
+    local dir="${1:-$TARGET_LIB_DIR}"
+    command -v ldd >/dev/null 2>&1 || return 0
+
+    # Snapshot the current set first: copy_elf_deps adds files as it runs, and
+    # ldd already returns the full recursive closure, so we only need to sweep
+    # the libs that were present before the sweep started.
+    # `local x=$(...)` keeps set -e from tripping on shopt -p's nonzero exit.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local libs=("$dir"/*.so*)
+    eval "$old_nullglob"
+
+    local lib
+    for lib in "${libs[@]}"; do
+        [ -e "$lib" ] || continue
+        # Skip symlinks: their real target is in the snapshot and gets swept.
+        [ -L "$lib" ] && continue
+        copy_elf_deps "$lib"
+    done
+}
+
 # Package NVIDIA CUDA libraries
 package_cuda_libs() {
     echo "Packaging CUDA libraries for BUILD_TYPE=${BUILD_TYPE}..."
@@ -153,7 +217,55 @@ package_cuda_libs() {
     #     cp -arfL /usr/local/cuda/targets "$TARGET_LIB_DIR/../cuda/" 2>/dev/null || true
     # fi
 
+    # Pull in transitive deps the allowlist misses so the backend is
+    # self-contained (same class of failure as #10537).
+    sweep_transitive_deps "$TARGET_LIB_DIR"
+
     echo "CUDA libraries packaged successfully"
+}
+
+# Copy a ROCm library data subdirectory (e.g. rocblas, hipblaslt) into the
+# bundled lib/ dir. These directories hold the TensileLibrary_*.dat GPU kernel
+# tuning files, which rocBLAS/hipBLASLt load at runtime *relative to their own
+# .so*. Since backends ship their own copies of libhipblaslt.so/librocblas.so
+# under lib/, the matching data dir must travel with them or the libs fall back
+# to slow generic kernels (rocblaslt error: Cannot read TensileLibrary_lazy_gfx*.dat;
+# see issue #10660).
+#
+# The ROCm search roots default to /opt/rocm{,-*} but can be overridden via the
+# ROCM_BASE_DIRS env var (space-separated), which keeps the copy unit-testable
+# without a real ROCm install.
+# Args: $1 = data subdir name found under <rocm-root>/lib{,64}/
+copy_rocm_data_dir() {
+    local data_name="$1"
+    # Single-line `local x=$(...)` on purpose: `local` masks the command
+    # substitution's exit status, which is 1 when nullglob is unset and would
+    # otherwise trip the script's `set -e`.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local rocm_dirs
+    if [ -n "${ROCM_BASE_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # intentional word-split of the override
+        rocm_dirs=(${ROCM_BASE_DIRS})
+    else
+        rocm_dirs=(/opt/rocm /opt/rocm-*)
+    fi
+    eval "$old_nullglob"
+    local found=false
+    local rocm_base lib_subdir
+    for rocm_base in "${rocm_dirs[@]}"; do
+        for lib_subdir in lib lib64; do
+            if [ -d "$rocm_base/$lib_subdir/$data_name" ]; then
+                echo "Found $data_name data at $rocm_base/$lib_subdir/$data_name"
+                mkdir -p "$TARGET_LIB_DIR/$data_name"
+                cp -arfL "$rocm_base/$lib_subdir/$data_name/"* "$TARGET_LIB_DIR/$data_name/" || echo "WARNING: Failed to copy $data_name data from $rocm_base/$lib_subdir/$data_name"
+                found=true
+            fi
+        done
+    done
+    if [ "$found" = false ]; then
+        echo "WARNING: No $data_name library data found in ${ROCM_BASE_DIRS:-/opt/rocm*}/lib{,64}/$data_name"
+    fi
 }
 
 # Package AMD ROCm/HIPBlas libraries
@@ -199,27 +311,16 @@ package_rocm_libs() {
         fi
     done
 
-    # Copy rocblas library data (tuning files, TensileLibrary, etc.)
-    local old_nullglob=$(shopt -p nullglob)
-    shopt -s nullglob
-    local rocm_dirs=(/opt/rocm /opt/rocm-*)
-    eval "$old_nullglob"
-    local rocblas_found=false
-    for rocm_base in "${rocm_dirs[@]}"; do
-        for lib_subdir in lib lib64; do
-            if [ -d "$rocm_base/$lib_subdir/rocblas" ]; then
-                echo "Found rocblas data at $rocm_base/$lib_subdir/rocblas"
-                mkdir -p "$TARGET_LIB_DIR/rocblas"
-                cp -arfL "$rocm_base/$lib_subdir/rocblas/"* "$TARGET_LIB_DIR/rocblas/" || echo "WARNING: Failed to copy rocblas data from $rocm_base/$lib_subdir/rocblas"
-                rocblas_found=true
-            fi
-        done
-    done
-    if [ "$rocblas_found" = false ]; then
-        echo "WARNING: No rocblas library data found in /opt/rocm*/lib{,64}/rocblas"
-    fi
+    # Copy rocBLAS and hipBLASLt kernel data (TensileLibrary_*.dat tuning files)
+    # so the bundled libs find their per-arch kernels at runtime instead of
+    # falling back to slow generic code (see copy_rocm_data_dir / issue #10660).
+    copy_rocm_data_dir rocblas
+    copy_rocm_data_dir hipblaslt
 
     # Copy libomp from LLVM (required for ROCm)
+    # Single-line `local x=$(...)` on purpose: masks shopt -p's nonzero exit
+    # (nullglob unset) so it doesn't trip `set -e`.
+    local old_nullglob=$(shopt -p nullglob)
     shopt -s nullglob
     local omp_libs=(/opt/rocm*/lib/llvm/lib/libomp.so*)
     eval "$old_nullglob"
@@ -228,6 +329,10 @@ package_rocm_libs() {
             copy_lib "$omp_path"
         fi
     done
+
+    # Pull in transitive deps the allowlist misses (librocprofiler-register.so.0,
+    # libnuma, libdrm_amdgpu, ...) so the backend is self-contained. See #10537.
+    sweep_transitive_deps "$TARGET_LIB_DIR"
 
     echo "ROCm libraries packaged successfully"
 }
@@ -271,6 +376,10 @@ package_intel_libs() {
         fi
     done
 
+    # Pull in transitive deps the allowlist misses so the backend is
+    # self-contained (same class of failure as #10537).
+    sweep_transitive_deps "$TARGET_LIB_DIR"
+
     echo "Intel oneAPI libraries packaged successfully"
 }
 
@@ -284,7 +393,7 @@ package_vulkan_libs() {
         "/usr/local/lib"
     )
 
-    # Core Vulkan runtime libraries
+    # Core Vulkan runtime: the loader plus the shader tooling shipped by the SDK.
     local vulkan_libs=(
         "libvulkan.so*"
         "libshaderc_shared.so*"
@@ -301,10 +410,63 @@ package_vulkan_libs() {
         fi
     done
 
-    # Copy Vulkan ICD files
+    # Bundle the ICD drivers. Rather than hard-code Mesa's (platform- and
+    # version-dependent) driver sonames, treat each installed ICD manifest as
+    # the source of truth: every /usr/share/vulkan/icd.d/*.json names the exact
+    # driver .so it needs in its "library_path". So we copy whatever drivers
+    # the manifests reference (libvulkan_intel/radeon/lvp/... on amd64, the SoC
+    # drivers on arm64, ...) plus each driver's transitive deps, and skip any
+    # manifest whose driver isn't actually installed. The loader picks the
+    # right driver for the GPU at runtime.
     if [ -d "/usr/share/vulkan/icd.d" ]; then
-        mkdir -p "$TARGET_LIB_DIR/../vulkan/icd.d"
-        cp -arfL /usr/share/vulkan/icd.d/* "$TARGET_LIB_DIR/../vulkan/icd.d/" 2>/dev/null || true
+        local icd_dest="$TARGET_LIB_DIR/../vulkan/icd.d"
+        mkdir -p "$icd_dest"
+
+        local manifest driver driver_base resolved lib_path
+        for manifest in /usr/share/vulkan/icd.d/*.json; do
+            [ -e "$manifest" ] || continue
+
+            # Pull the driver path out of "library_path": "<path-or-soname>".
+            driver=$(sed -nE 's/.*"library_path"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$manifest" | head -n1)
+            [ -n "$driver" ] || continue
+            driver_base=$(basename "$driver")
+
+            # Resolve to an absolute path: honour an absolute library_path,
+            # else look in the standard lib dirs, else fall back to ldconfig.
+            resolved=""
+            case "$driver" in
+                /*) [ -e "$driver" ] && resolved="$driver" ;;
+            esac
+            if [ -z "$resolved" ]; then
+                for lib_path in "${vulkan_lib_paths[@]}"; do
+                    if [ -e "${lib_path}/${driver_base}" ]; then
+                        resolved="${lib_path}/${driver_base}"
+                        break
+                    fi
+                done
+            fi
+            if [ -z "$resolved" ] && command -v ldconfig >/dev/null 2>&1; then
+                resolved=$(ldconfig -p | awk -v n="$driver_base" '$1 == n { print $NF; exit }')
+            fi
+
+            if [ -z "$resolved" ] || [ ! -e "$resolved" ]; then
+                echo "Vulkan ICD: driver '$driver_base' for $(basename "$manifest") not installed; skipping its manifest" >&2
+                continue
+            fi
+
+            # Bundle the driver + its transitive deps (libdrm, libexpat, and
+            # libLLVM for RADV/lavapipe, ...) so the backend is self-contained
+            # on a runtime base image without Mesa.
+            copy_lib "$resolved"
+            copy_elf_deps "$resolved"
+
+            # Copy the manifest and rewrite its library_path to a bare soname
+            # so the loader resolves our bundled driver via LD_LIBRARY_PATH
+            # (run.sh adds lib/ to it) instead of a host path that won't exist
+            # on the runtime image.
+            cp -arfL "$manifest" "$icd_dest/" 2>/dev/null || true
+            sed -i -E 's#("library_path"[[:space:]]*:[[:space:]]*")[^"]*/#\1#' "$icd_dest/$(basename "$manifest")"
+        done
     fi
 
     echo "Vulkan libraries packaged successfully"
@@ -345,6 +507,10 @@ package_gpu_libs() {
 export -f package_gpu_libs
 export -f copy_lib
 export -f copy_libs_glob
+export -f is_core_lib
+export -f copy_elf_deps
+export -f sweep_transitive_deps
+export -f copy_rocm_data_dir
 export -f package_cuda_libs
 export -f package_rocm_libs
 export -f package_intel_libs

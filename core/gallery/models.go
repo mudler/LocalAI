@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	lconfig "github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
@@ -77,7 +79,7 @@ func InstallModelFromGallery(
 	modelGalleries, backendGalleries []lconfig.Gallery,
 	systemState *system.SystemState,
 	modelLoader *model.ModelLoader,
-	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend, requireBackendIntegrity bool) error {
+	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend, requireBackendIntegrity bool, options ...InstallOption) error {
 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -129,7 +131,7 @@ func InstallModelFromGallery(
 			}
 		}
 
-		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan)
+		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan, options...)
 		if err != nil {
 			return err
 		}
@@ -158,7 +160,9 @@ func InstallModelFromGallery(
 	return applyModel(model)
 }
 
-func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, config *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.ModelConfig, error) {
+func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool, options ...InstallOption) (*lconfig.ModelConfig, error) {
+	installOptions := applyInstallOptions(options...)
+	config := galleryConfig
 	basePath := systemState.Model.ModelsPath
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0750)
@@ -168,59 +172,6 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 
 	if len(configOverrides) > 0 {
 		xlog.Debug("Config overrides", "overrides", configOverrides)
-	}
-
-	// Download files and verify their SHA
-	for i, file := range config.Files {
-		// Check for cancellation before each file
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		xlog.Debug("Checking file exists and matches SHA", "filename", file.Filename)
-
-		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
-			return nil, err
-		}
-
-		// Create file path
-		filePath := filepath.Join(basePath, file.Filename)
-
-		if enforceScan {
-			scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
-			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
-				xlog.Error("Contains unsafe file(s)!", "model", config.Name, "clamAV", scanResults.ClamAVInfectedFiles, "pickles", scanResults.DangerousPickles)
-				return nil, err
-			}
-		}
-		uri := downloader.URI(file.URI)
-		if err := uri.DownloadFileWithContext(ctx, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
-			return nil, err
-		}
-	}
-
-	// Write prompt template contents to separate files
-	for _, template := range config.PromptTemplates {
-		if err := utils.VerifyPath(template.Name+".tmpl", basePath); err != nil {
-			return nil, err
-		}
-		// Create file path
-		filePath := filepath.Join(basePath, template.Name+".tmpl")
-
-		// Create parent directory
-		err := os.MkdirAll(filepath.Dir(filePath), 0750)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
-		}
-		// Create and write file content
-		err = os.WriteFile(filePath, []byte(template.Content), 0644)
-		if err != nil {
-			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
-		}
-
-		xlog.Debug("Prompt template written", "template", template.Name)
 	}
 
 	name := config.Name
@@ -233,11 +184,11 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 	}
 
 	modelConfig := lconfig.ModelConfig{}
+	configFilePath := filepath.Join(basePath, name+".yaml")
+	var updatedConfigYAML []byte
+	writeConfig := len(configOverrides) != 0 || len(config.ConfigFile) != 0
 
-	// write config file
-	if len(configOverrides) != 0 || len(config.ConfigFile) != 0 {
-		configFilePath := filepath.Join(basePath, name+".yaml")
-
+	if writeConfig {
 		// Read and update config file as map[string]interface{}
 		configMap := make(map[string]any)
 		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
@@ -253,8 +204,8 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			}
 		}
 
-		// Write updated config file
-		updatedConfigYAML, err := yaml.Marshal(configMap)
+		// Marshal the merged map for typed validation and default application.
+		updatedConfigYAML, err = yaml.Marshal(configMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal updated config YAML: %v", err)
 		}
@@ -301,19 +252,110 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			}
 		}
 
-		// Re-marshal from configMap to preserve unknown fields
-		updatedConfigYAML, err = yaml.Marshal(configMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
-		}
-
 		if valid, err := modelConfig.Validate(); !valid {
 			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
 
-		err = os.WriteFile(configFilePath, updatedConfigYAML, 0644)
+		if len(config.Files) == 0 {
+			artifactSpec, inferred, hasArtifact, err := modelConfig.PrimaryArtifactSpec(basePath)
+			if err != nil {
+				return nil, err
+			}
+			if hasArtifact && enforceScan {
+				artifact, err := artifactSpec.Normalize()
+				if err != nil {
+					return nil, err
+				}
+				probe := downloader.URI(fmt.Sprintf("%s/%s/resolve/%s/.gitattributes", strings.TrimRight(downloader.HF_ENDPOINT, "/"), artifact.Source.Repo, url.PathEscape(artifact.Source.Revision)))
+				if _, err := downloader.HuggingFaceScan(probe); errors.Is(err, downloader.ErrUnsafeFilesFound) {
+					return nil, err
+				}
+			}
+
+			if hasArtifact {
+				applied, err := bindPrimaryArtifact(ctx, basePath, &modelConfig, configMap, installOptions.materializer, artifactSpec, inferred)
+				if err != nil {
+					return nil, err
+				}
+				if applied {
+					// Re-marshal from configMap after artifact binding to preserve unknown fields.
+					updatedConfigYAML, err = yaml.Marshal(configMap)
+					if err != nil {
+						return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
+					}
+				}
+			}
+		}
+	}
+
+	// Download files and verify their SHA
+	tasks := make([]downloader.FileTask, 0, len(config.Files))
+	for i, file := range config.Files {
+		// Check for cancellation before each file
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		xlog.Debug("Checking file exists and matches SHA", "filename", file.Filename)
+
+		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
+			return nil, err
+		}
+
+		// Create file path
+		filePath := filepath.Join(basePath, file.Filename)
+
+		if enforceScan {
+			scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
+			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
+				xlog.Error("Contains unsafe file(s)!", "model", config.Name, "clamAV", scanResults.ClamAVInfectedFiles, "pickles", scanResults.DangerousPickles)
+				return nil, err
+			}
+		}
+		tasks = append(tasks, downloader.FileTask{
+			URI:         downloader.URI(file.URI),
+			Destination: filePath,
+			SHA256:      file.SHA256,
+			FileIndex:   i,
+			TotalFiles:  len(config.Files),
+		})
+	}
+	if err := downloader.DownloadFilesWithContext(ctx, tasks, downloadStatus); err != nil {
+		return nil, err
+	}
+
+	// Write prompt template contents to separate files
+	for _, template := range config.PromptTemplates {
+		if err := utils.VerifyPath(template.Name+".tmpl", basePath); err != nil {
+			return nil, err
+		}
+		// Create file path
+		filePath := filepath.Join(basePath, template.Name+".tmpl")
+
+		// Create parent directory
+		err := os.MkdirAll(filepath.Dir(filePath), 0750)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write updated config file: %v", err)
+			return nil, fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
+		}
+		// Create and write file content
+		err = os.WriteFile(filePath, []byte(template.Content), 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
+		}
+
+		xlog.Debug("Prompt template written", "template", template.Name)
+	}
+
+	if writeConfig {
+		if len(modelConfig.Artifacts) > 0 {
+			modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
+				Phase: modelartifacts.PhasePersisting, Artifact: modelConfig.Artifacts[0].Name,
+			})
+		}
+		if err := writeModelConfigAtomic(configFilePath, updatedConfigYAML); err != nil {
+			return nil, fmt.Errorf("failed to atomically write updated config file: %w", err)
 		}
 
 		xlog.Debug("Written config file", "file", configFilePath)
@@ -374,7 +416,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 		if err != nil {
 			return nil, err
 		}
-		if modelConfig.Model != "" {
+		if modelConfig.Model != "" && len(modelConfig.Artifacts) == 0 {
 			additionalFiles = append(additionalFiles, modelConfig.ModelFileName())
 		}
 

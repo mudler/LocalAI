@@ -47,6 +47,74 @@ extern "C" void set_abort(int v) {
   g_abort.store(v, std::memory_order_relaxed);
 }
 
+// --- word-level timestamp accessors ---
+extern "C" {
+int crispasr_session_result_n_words(crispasr_session_result *r, int seg_i);
+const char *crispasr_session_result_word_text(crispasr_session_result *r,
+                                               int seg_i, int word_i);
+int64_t crispasr_session_result_word_t0(crispasr_session_result *r, int seg_i,
+                                         int word_i);
+int64_t crispasr_session_result_word_t1(crispasr_session_result *r, int seg_i,
+                                         int word_i);
+
+// Parakeet-specific word accessors
+int crispasr_parakeet_result_n_words(void *r);
+const char *crispasr_parakeet_result_word_text(void *r, int word_i);
+int64_t crispasr_parakeet_result_word_t0(void *r, int word_i);
+int64_t crispasr_parakeet_result_word_t1(void *r, int word_i);
+}
+
+void *get_result(void) { return g_result; }
+
+int get_word_count(int seg_i) {
+  if (!g_result)
+    return 0;
+  return crispasr_session_result_n_words(g_result, seg_i);
+}
+
+const char *get_word_text(int seg_i, int word_i) {
+  if (!g_result)
+    return "";
+  return crispasr_session_result_word_text(g_result, seg_i, word_i);
+}
+
+int64_t get_word_t0(int seg_i, int word_i) {
+  if (!g_result)
+    return 0;
+  return crispasr_session_result_word_t0(g_result, seg_i, word_i);
+}
+
+int64_t get_word_t1(int seg_i, int word_i) {
+  if (!g_result)
+    return 0;
+  return crispasr_session_result_word_t1(g_result, seg_i, word_i);
+}
+
+// Parakeet-specific word accessors
+int get_parakeet_word_count(void) {
+  if (!g_result)
+    return 0;
+  return crispasr_parakeet_result_n_words(g_result);
+}
+
+const char *get_parakeet_word_text(int word_i) {
+  if (!g_result)
+    return "";
+  return crispasr_parakeet_result_word_text(g_result, word_i);
+}
+
+int64_t get_parakeet_word_t0(int word_i) {
+  if (!g_result)
+    return 0;
+  return crispasr_parakeet_result_word_t0(g_result, word_i);
+}
+
+int64_t get_parakeet_word_t1(int word_i) {
+  if (!g_result)
+    return 0;
+  return crispasr_parakeet_result_word_t1(g_result, word_i);
+}
+
 static void ggml_log_cb(enum ggml_log_level level, const char *log,
                         void *data) {
   const char *level_str;

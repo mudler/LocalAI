@@ -50,7 +50,7 @@ target_include_directories(govibevoicecpp SYSTEM PRIVATE ${VIBEVOICE_DIR}/third_
 # Link GPU backends if available — vibevoice's own CMake already links
 # these to the libvibevoice STATIC library, but we re-link them on the
 # MODULE so resolved symbols include all backend kernels.
-foreach(backend blas cuda metal vulkan)
+foreach(backend blas cuda hip metal vulkan)
     if(TARGET ggml-${backend})
         target_link_libraries(govibevoicecpp PRIVATE ggml-${backend})
         string(TOUPPER ${backend} BACKEND_UPPER)

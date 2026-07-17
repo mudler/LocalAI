@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext, useSearchParams, useLocation } from 'rea
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import ResourceMonitor from '../components/ResourceMonitor'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import NodeDistributionChip from '../components/NodeDistributionChip'
 import FilterBar from '../components/FilterBar'
@@ -11,6 +12,7 @@ import ManageSummary from '../components/ManageSummary'
 import MetaBadgeRow from '../components/MetaBadgeRow'
 import ActionMenu from '../components/ActionMenu'
 import ResourceRow, { ChevronCell, IconCell, StopPropagationCell } from '../components/ResourceRow'
+import ResponsiveTable from '../components/ResponsiveTable'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
@@ -131,6 +133,10 @@ export default function Manage() {
   const { enrichModel, enrichBackend } = useGalleryEnrichment()
   const { operations } = useOperations()
   const [loadedModelIds, setLoadedModelIds] = useState(new Set())
+  // Map of alias name -> target. The capabilities endpoint that feeds the row
+  // list doesn't carry the alias field, so we fetch it once and look rows up by
+  // name to render the read-only "alias -> target" badge.
+  const [aliasTargets, setAliasTargets] = useState({})
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
   const [reloading, setReloading] = useState(false)
@@ -140,6 +146,7 @@ export default function Manage() {
   const [distributedMode, setDistributedMode] = useState(false)
   const [togglingModels, setTogglingModels] = useState(new Set())
   const [pinningModels, setPinningModels] = useState(new Set())
+  const [loadingModels, setLoadingModels] = useState(new Set())
   // Expanded row state — keyed by `${tab}:${id}` so switching tabs doesn't
   // collide and a single row is open at a time per tab.
   const [expandedKey, setExpandedKey] = useState(null)
@@ -226,12 +233,24 @@ export default function Manage() {
     }
   }, [])
 
+  const fetchAliases = useCallback(async () => {
+    try {
+      const data = await modelsApi.listAliases()
+      const map = {}
+      for (const a of Array.isArray(data) ? data : []) map[a.name] = a.target
+      setAliasTargets(map)
+    } catch {
+      setAliasTargets({})
+    }
+  }, [])
+
   useEffect(() => {
     fetchLoadedModels()
     fetchBackends()
+    fetchAliases()
     // Detect distributed mode (nodes API returns 503 when not enabled)
     nodesApi.list().then(() => setDistributedMode(true)).catch(() => {})
-  }, [fetchLoadedModels, fetchBackends])
+  }, [fetchLoadedModels, fetchBackends, fetchAliases])
 
   // Auto-refresh the Models tab every 10s in distributed mode so ghost models
   // (loaded on a worker but absent from this frontend's in-memory cache)
@@ -293,6 +312,26 @@ export default function Manage() {
         }
       },
     })
+  }
+
+  // Pre-load a model (or all of a realtime pipeline's sub-models) into memory.
+  // The /backend/load call blocks until loading finishes, so the menu item shows
+  // a loading state while in flight and reports the outcome on completion.
+  const handleLoadModel = async (modelName) => {
+    setLoadingModels(prev => new Set(prev).add(modelName))
+    try {
+      await backendControlApi.load({ model: modelName })
+      addToast(`Loaded ${modelName}`, 'success')
+      setTimeout(fetchLoadedModels, 500)
+    } catch (err) {
+      addToast(`Failed to load: ${err.message}`, 'error')
+    } finally {
+      setLoadingModels(prev => {
+        const next = new Set(prev)
+        next.delete(modelName)
+        return next
+      })
+    }
   }
 
   const handleDeleteModel = (modelName) => {
@@ -448,10 +487,7 @@ export default function Manage() {
 
   return (
     <div className="page page--wide">
-      <div className="page-header">
-        <h1 className="page-title">{t('manage.title')}</h1>
-        <p className="page-subtitle">{t('manage.subtitle')}</p>
-      </div>
+      <PageHeader title={t('manage.title')} supporting={t('manage.subtitle')} />
 
       {/* Resource Monitor */}
       <ResourceMonitor />
@@ -562,8 +598,7 @@ export default function Manage() {
             <button className="btn btn-ghost btn-sm" onClick={() => { setModelsSearch(''); setModelsFilter('all') }}>Clear filters</button>
           </div>
         ) : (
-          <div className="table-container">
-            <table className="table">
+          <ResponsiveTable>
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th>
@@ -638,6 +673,11 @@ export default function Manage() {
                               <i className="fas fa-thumbtack" /> Pinned
                             </span>
                           )}
+                          {aliasTargets[model.id] && (
+                            <span className="badge badge-info" title={`Alias -> ${aliasTargets[model.id]}`}>
+                              <i className="fas fa-arrow-right-arrow-left" /> alias -&gt; {aliasTargets[model.id]}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -668,6 +708,11 @@ export default function Manage() {
                               label: model.disabled ? 'Enable model' : 'Disable model',
                               onClick: () => handleToggleModel(model.id, model.disabled),
                               disabled: togglingModels.has(model.id) },
+                            { key: 'load', icon: 'fa-bolt',
+                              label: loadingModels.has(model.id) ? 'Loading…' : 'Load into memory',
+                              onClick: () => handleLoadModel(model.id),
+                              hidden: isRunning || !!model.disabled,
+                              disabled: loadingModels.has(model.id) },
                             { key: 'stop', icon: 'fa-stop', label: 'Stop model',
                               onClick: () => handleStopModel(model.id), hidden: !isRunning },
                             { key: 'pin', icon: 'fa-thumbtack',
@@ -675,7 +720,7 @@ export default function Manage() {
                               onClick: () => handleTogglePinned(model.id, model.pinned),
                               disabled: pinningModels.has(model.id) || !!model.disabled },
                             { key: 'edit', icon: 'fa-pen-to-square', label: 'Edit configuration',
-                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, { state: fromState(location, 'Manage') }) },
+                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, { state: fromState(location, t('manage.title')) }) },
                             { key: 'logs', icon: 'fa-terminal', label: 'Backend logs',
                               onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) },
                             { divider: true },
@@ -688,8 +733,7 @@ export default function Manage() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
+          </ResponsiveTable>
         )}
       </div>
         )
@@ -857,8 +901,7 @@ export default function Manage() {
           return (
           <>
             {filterBar}
-            <div className="table-container">
-            <table className="table">
+            <ResponsiveTable>
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th>
@@ -989,8 +1032,7 @@ export default function Manage() {
                   )
                 })}
               </tbody>
-            </table>
-            </div>
+            </ResponsiveTable>
           </>
           )
         })()}
