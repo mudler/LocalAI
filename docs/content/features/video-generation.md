@@ -52,13 +52,19 @@ Returns an OpenAI-compatible JSON response:
 
 ## Usage
 
+First install a video-generation model from the gallery (the examples below use `longcat-video`):
+
+```bash
+local-ai run longcat-video
+```
+
 ### Generate a video from a text prompt
 
 ```bash
 curl http://localhost:8080/video \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "video-model",
+    "model": "longcat-video",
     "prompt": "A cat playing in a garden on a sunny day",
     "width": 512,
     "height": 512,
@@ -87,7 +93,7 @@ curl http://localhost:8080/video \
 curl http://localhost:8080/video \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "video-model",
+    "model": "longcat-video",
     "prompt": "A timelapse of flowers blooming",
     "start_image": "https://example.com/flowers.jpg",
     "num_frames": 24,
@@ -104,7 +110,7 @@ curl http://localhost:8080/video \
 curl http://localhost:8080/video \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "video-model",
+    "model": "longcat-video",
     "prompt": "Ocean waves on a beach",
     "response_format": "b64_json"
   }'

@@ -21,7 +21,7 @@ Content-Type: multipart/form-data
 | Field | Type | Description |
 |-------|------|-------------|
 | `file` | file (required) | audio file in any format `ffmpeg` accepts |
-| `model` | string (required) | name of the sound-classification-capable model (e.g. `ced-base`) |
+| `model` | string (required) | name of the sound-classification-capable model (e.g. `ced-base-f16`) |
 | `top_k` | int | number of top tags to return (0 = backend default) |
 | `threshold` | float | drop tags scoring below this value |
 
@@ -29,7 +29,7 @@ Content-Type: multipart/form-data
 
 ```json
 {
-  "model": "ced-base",
+  "model": "ced-base-f16",
   "detections": [
     {"index": 23, "label": "Baby cry, infant cry", "score": 0.87},
     {"index": 22, "label": "Crying, sobbing", "score": 0.41}
@@ -41,11 +41,17 @@ Detections are returned in score-descending order. Scores are per-class probabil
 
 ## Example
 
+First install a classification model from the gallery (the example below uses `ced-base-f16`):
+
+```bash
+local-ai run ced-base-f16
+```
+
 ```bash
 curl http://localhost:8080/v1/audio/classification \
   -H "Content-Type: multipart/form-data" \
   -F file="@/path/to/clip.wav" \
-  -F model="ced-base" \
+  -F model="ced-base-f16" \
   -F top_k=10
 ```
 

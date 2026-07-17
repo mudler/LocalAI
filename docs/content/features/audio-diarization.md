@@ -89,13 +89,21 @@ Returned as `Content-Type: text/plain; charset=utf-8`.
 
 ## Quick start
 
+First install a diarization-capable model from the gallery. The example below uses `vibevoice-cpp-asr`, which serves the vibevoice.cpp backend and returns speaker-labelled segments (and, optionally, a transcript):
+
+```bash
+local-ai run vibevoice-cpp-asr
+```
+
 ```bash
 curl http://localhost:8080/v1/audio/diarization \
   -H "Content-Type: multipart/form-data" \
   -F file="@meeting.wav" \
-  -F model="pyannote-diarization" \
+  -F model="vibevoice-cpp-asr" \
   -F num_speakers=3
 ```
+
+The sections below show how to configure the two supported backends by hand when you want full control over the segmentation and embedding models.
 
 ## Backend setup — sherpa-onnx (pure diarization)
 

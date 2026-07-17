@@ -43,18 +43,24 @@ form-data, returns audio bytes.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `model` | string | yes | Audio-transform model id (e.g. `localvqe`) |
+| `model` | string | yes | Audio-transform model id (e.g. `localvqe-v1.3-4.8m`) |
 | `audio` | file   | yes | Primary input audio |
 | `reference` | file | no | Optional auxiliary signal |
 | `response_format` | string | no | `wav` (default), `mp3`, `ogg`, `flac` |
 | `sample_rate` | int | no | Desired output sample rate |
 | `params[<key>]` | string | no | Repeated; forwarded to backend |
 
+First install an audio-transform model from the gallery (the examples below use `localvqe-v1.3-4.8m`):
+
+```bash
+local-ai run localvqe-v1.3-4.8m
+```
+
 Example (LocalVQE: cancel echo, suppress noise, gate residual):
 
 ```bash
 curl -X POST http://localhost:8080/audio/transformations \
-  -F model=localvqe \
+  -F model=localvqe-v1.3-4.8m \
   -F audio=@mic.wav \
   -F reference=@loopback.wav \
   -F 'params[noise_gate]=true' \
@@ -78,7 +84,7 @@ PCM frames; server emits binary PCM frames at the same cadence.
 ```json
 {
   "type": "session.update",
-  "model": "localvqe",
+  "model": "localvqe-v1.3-4.8m",
   "sample_format": "S16_LE",
   "sample_rate": 16000,
   "frame_samples": 256,
