@@ -207,7 +207,7 @@ mkdir models
 
 cp your-model.gguf models/
 
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
 
 curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d '{
      "model": "your-model.gguf",
@@ -231,7 +231,7 @@ wget https://huggingface.co/TheBloke/Luna-AI-Llama2-Uncensored-GGUF/resolve/main
 
 cp -rf prompt-templates/getting_started.tmpl models/luna-ai-llama2.tmpl
 
-docker run -p 8080:8080 -v $PWD/models:/models -ti --rm quay.io/go-skynet/local-ai:latest --models-path /models --context-size 700 --threads 4
+docker run -p 8080:8080 -v $PWD/models:/models -ti --rm localai/localai:latest --models-path /models --context-size 700 --threads 4
 
 curl http://localhost:8080/v1/models
 
