@@ -304,8 +304,27 @@ function BackendTraceDetail({ trace }) {
 
 // Expanded detail for an API trace row
 function ApiTraceDetail({ trace }) {
+  const user = trace.user_name || trace.user_id
+  const meta = [
+    ['User', user],
+    ['Client IP', trace.client_ip],
+    ['User Agent', trace.user_agent],
+  ].filter(([, v]) => v)
   return (
     <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+      {meta.length > 0 && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.25rem var(--spacing-md)',
+          alignItems: 'baseline', marginBottom: 'var(--spacing-md)', fontSize: '0.8125rem',
+        }}>
+          {meta.map(([label, value]) => (
+            <React.Fragment key={label}>
+              <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>{label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{value}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
       {trace.error && (
         <div style={{
           background: 'var(--color-error-light)', border: '1px solid var(--color-error-border)',
@@ -360,6 +379,7 @@ export default function Traces() {
   const TRACE_SORT = {
     method: (a, b) => (a.request?.method || '').localeCompare(b.request?.method || ''),
     path: (a, b) => (a.request?.path || '').localeCompare(b.request?.path || ''),
+    user: (a, b) => (a.user_name || a.user_id || '').localeCompare(b.user_name || b.user_id || ''),
     status: (a, b) => (a.response?.status || 0) - (b.response?.status || 0),
     type: (a, b) => (a.type || '').localeCompare(b.type || ''),
     time: (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0),
@@ -615,6 +635,7 @@ export default function Traces() {
                 <th style={{ width: '30px' }}></th>
                 {sortableTh('method', 'Method')}
                 {sortableTh('path', 'Path')}
+                {sortableTh('user', 'User')}
                 {sortableTh('status', 'Status')}
                 <th style={{ width: '40px' }}>Result</th>
               </tr>
@@ -626,6 +647,7 @@ export default function Traces() {
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
+                    <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
                     <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
                     <td style={{ textAlign: 'center' }}>
                       {trace.error
@@ -635,7 +657,7 @@ export default function Traces() {
                   </tr>
                   {expandedRow === i && (
                     <tr>
-                      <td colSpan="5" style={{ padding: 0 }}>
+                      <td colSpan="6" style={{ padding: 0 }}>
                         <ApiTraceDetail trace={trace} />
                       </td>
                     </tr>
