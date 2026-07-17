@@ -65,6 +65,32 @@ func replyTexts(t *fakeTransport) []string {
 	return out
 }
 
+var _ = Describe("prewarmClassifier", func() {
+	It("prewarms an active option list in the background", func() {
+		m := &fakeModel{}
+		session := classifierTestSession(m)
+		session.Classifier = classifierTestConfig(0.35, nil)
+
+		prewarmClassifier(session)
+
+		Eventually(func() int { n, _ := m.prewarmed(); return n }).Should(Equal(1))
+		_, opts := m.prewarmed()
+		Expect(opts).To(HaveLen(len(session.Classifier.Options)))
+	})
+
+	It("does nothing without an active classifier", func() {
+		m := &fakeModel{}
+		session := classifierTestSession(m)
+		prewarmClassifier(session)
+
+		off := false
+		session.Classifier = &types.ClassifierConfig{Enabled: &off, Options: classifierTestConfig(0.35, nil).Options}
+		prewarmClassifier(session)
+
+		Consistently(func() int { n, _ := m.prewarmed(); return n }, "150ms").Should(BeZero())
+	})
+})
+
 var _ = Describe("classifierConfigFromPipeline", func() {
 	It("returns nil for an absent block", func() {
 		cc, err := classifierConfigFromPipeline(nil)

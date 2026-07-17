@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -119,6 +120,12 @@ type fakeModel struct {
 	fillCalls      int
 	lastFillChosen *types.ClassifierOption
 
+	// PrewarmClassifier runs on a background goroutine, so its recording
+	// is mutex-guarded; specs poll prewarmCalls with Eventually.
+	prewarmMu          sync.Mutex
+	prewarmCalls       int
+	lastPrewarmOptions []types.ClassifierOption
+
 	// VAD scripting: vadFn, when set, decides per call (specs vary the
 	// answer across ticks or record the request); otherwise
 	// vadSegments/vadErr answer every call.
@@ -127,6 +134,19 @@ type fakeModel struct {
 	vadErr      error
 
 	lastMessages schema.Messages
+}
+
+func (m *fakeModel) PrewarmClassifier(_ context.Context, options []types.ClassifierOption, _ string) {
+	m.prewarmMu.Lock()
+	defer m.prewarmMu.Unlock()
+	m.prewarmCalls++
+	m.lastPrewarmOptions = options
+}
+
+func (m *fakeModel) prewarmed() (int, []types.ClassifierOption) {
+	m.prewarmMu.Lock()
+	defer m.prewarmMu.Unlock()
+	return m.prewarmCalls, m.lastPrewarmOptions
 }
 
 func (m *fakeModel) FillToolArguments(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string, chosen *types.ClassifierOption) (string, map[string]string, error) {
