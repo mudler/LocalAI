@@ -17,13 +17,15 @@ type stubScorer struct {
 	results []backend.CandidateScore
 	err     error
 	calls   int
-	lastP   string
-	lastC   []string
+	lastP      string
+	lastC      []string
+	lastStable int
 }
 
-func (s *stubScorer) Score(_ context.Context, prompt string, candidates []string) ([]backend.CandidateScore, error) {
+func (s *stubScorer) Score(_ context.Context, prompt string, stablePrefixLen int, candidates []string) ([]backend.CandidateScore, error) {
 	s.calls++
 	s.lastP = prompt
+	s.lastStable = stablePrefixLen
 	s.lastC = append(s.lastC[:0], candidates...)
 	if s.err != nil {
 		return nil, s.err
@@ -72,6 +74,26 @@ var _ = Describe("ScoreClassifier", func() {
 		Expect(err).NotTo(HaveOccurred(), "Classify")
 		Expect(equalLabels(d.Labels, []string{"code-generation"})).To(BeTrue(), "Labels = %v, want [code-generation]", d.Labels)
 		Expect(d.Score).To(BeNumerically(">=", 0.8), "want >= 0.8 for dominant single label")
+	})
+
+	It("reports the probe-invariant stable prompt prefix to the scorer", func() {
+		s := &stubScorer{results: []backend.CandidateScore{
+			{LogProb: -0.05, NumTokens: 6},
+			{LogProb: -8.0, NumTokens: 6},
+			{LogProb: -10.0, NumTokens: 6},
+		}}
+		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{})
+		_, err := c.Classify(context.Background(), Probe{Prompt: "first probe text"})
+		Expect(err).NotTo(HaveOccurred())
+		first, firstStable := s.lastP, s.lastStable
+		Expect(firstStable).To(BeNumerically(">", 0), "stable prefix must be non-empty")
+		Expect(firstStable).To(BeNumerically("<", len(first)), "stable prefix must not cover the probe")
+
+		_, err = c.Classify(context.Background(), Probe{Prompt: "a wholly different request"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.lastStable).To(Equal(firstStable), "stable prefix is probe-invariant")
+		Expect(s.lastP[:firstStable]).To(Equal(first[:firstStable]), "prompts share the declared prefix")
+		Expect(first[firstStable:]).To(ContainSubstring("first probe text"), "the probe lives beyond the stable prefix")
 	})
 
 	It("activates multiple labels", func() {

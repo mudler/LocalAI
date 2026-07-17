@@ -136,7 +136,7 @@ type stubScorer struct {
 	labelToLogProb map[string]float64
 }
 
-func (s *stubScorer) Score(_ context.Context, _ string, candidates []string) ([]backend.CandidateScore, error) {
+func (s *stubScorer) Score(_ context.Context, _ string, _ int, candidates []string) ([]backend.CandidateScore, error) {
 	out := make([]backend.CandidateScore, len(candidates))
 	for i, c := range candidates {
 		// Candidate is the Arch-Router JSON envelope
