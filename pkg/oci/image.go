@@ -553,14 +553,14 @@ func extractTarCopyingLinks(r io.Reader, targetDestination string) error {
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(cleaned, os.FileMode(hdr.Mode)&os.ModePerm|0700); err != nil {
+			if err := os.MkdirAll(cleaned, hdr.FileInfo().Mode().Perm()|0700); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", cleaned, err)
 			}
 		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(cleaned), 0700); err != nil {
 				return fmt.Errorf("failed to create parent directory for %s: %w", cleaned, err)
 			}
-			if err := writeRegularFile(cleaned, tr, os.FileMode(hdr.Mode)&os.ModePerm); err != nil {
+			if err := writeRegularFile(cleaned, tr, hdr.FileInfo().Mode().Perm()); err != nil {
 				return err
 			}
 		case tar.TypeSymlink:
@@ -580,6 +580,7 @@ func extractTarCopyingLinks(r io.Reader, targetDestination string) error {
 			if filepath.IsAbs(hdr.Linkname) {
 				src, err = safeJoin(root, hdr.Linkname)
 			} else {
+				// #nosec G305 -- safeJoin rejects any result that resolves outside the extraction root
 				src, err = safeJoin(root, filepath.Join(filepath.Dir(hdr.Name), hdr.Linkname))
 			}
 			if err != nil {
@@ -635,6 +636,7 @@ func writeRegularFile(path string, r io.Reader, mode os.FileMode) error {
 	if fi, err := os.Lstat(path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 		_ = os.Remove(path)
 	}
+	// #nosec G304 -- path is validated by safeJoin to stay within the extraction root
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode|0600)
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", path, err)
@@ -650,6 +652,7 @@ func writeRegularFile(path string, r io.Reader, mode os.FileMode) error {
 }
 
 func copyFilePreservingMode(src, dst string) error {
+	// #nosec G304 -- src is a safeJoin-validated link target within the extraction root
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -663,6 +666,7 @@ func copyFilePreservingMode(src, dst string) error {
 		return err
 	}
 	_ = os.Remove(dst)
+	// #nosec G304 -- dst is a safeJoin-validated path within the extraction root
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode().Perm()|0600)
 	if err != nil {
 		return err
