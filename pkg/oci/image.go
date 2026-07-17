@@ -1,12 +1,14 @@
 package oci
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -447,8 +449,227 @@ func ExtractOCIImageFromTar(ctx context.Context, tarFilePath, imageRef, targetDe
 	_, err = archive.Apply(ctx,
 		targetDestination, reader,
 		archive.WithNoSameOwner())
+	if err == nil {
+		return nil
+	}
 
-	return err
+	// Some filesystems (notably CIFS/SMB mounts, which users commonly bind as the
+	// /backends volume) reject symlink/hardlink creation with "operation not
+	// supported"/"operation not permitted". containerd's archive.Apply hard-fails
+	// there, so no backend can be installed. Fall back to a pure-Go extractor that
+	// degrades unsupported links into plain file copies. mutate.Extract already
+	// flattened the layers, so this tar carries no whiteouts to interpret.
+	if !isLinkUnsupportedError(err) {
+		return err
+	}
+	logs.Warn.Printf("symlink/hardlink creation is not supported on filesystem at %q (%v), retrying extraction with links copied in place", targetDestination, err)
+
+	// archive.Apply may have written some entries before failing; start from a
+	// clean destination so the manual pass is deterministic. The caller stages
+	// into an ephemeral, per-install temp directory, so wiping its contents is safe.
+	if err := cleanDirContents(targetDestination); err != nil {
+		return fmt.Errorf("failed to reset destination before fallback extraction: %w", err)
+	}
+
+	// Re-read the tar from the beginning for the second pass.
+	if _, err := tarFile.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("failed to rewind tar for fallback extraction: %w", err)
+	}
+	return extractTarCopyingLinks(tarFile, targetDestination)
+}
+
+// symlink and hardlink are indirected so tests can simulate a filesystem that
+// rejects link creation (e.g. CIFS/SMB).
+var (
+	symlink  = os.Symlink
+	hardlink = os.Link
+)
+
+// isLinkUnsupportedError reports whether err indicates the destination
+// filesystem cannot create symlinks or hardlinks (e.g. CIFS/SMB, some FUSE
+// mounts). Such filesystems surface ENOTSUP/EOPNOTSUPP, or EPERM in some
+// configurations; the error text is also matched because containerd wraps the
+// syscall error into a formatted string.
+func isLinkUnsupportedError(err error) bool {
+	if errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.EPERM) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "operation not supported") || strings.Contains(msg, "operation not permitted")
+}
+
+// cleanDirContents removes the entries inside dir without removing dir itself,
+// preserving the directory (and its permissions) the caller created.
+func cleanDirContents(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// extractTarCopyingLinks extracts a flattened image tar into targetDestination,
+// copying the target contents of any symlink/hardlink that the filesystem cannot
+// represent. Regular symlinks are still attempted first, so link semantics are
+// preserved wherever the filesystem allows it. Link copies are deferred to a
+// second pass so that forward references (a link appearing before its target in
+// the tar) resolve correctly.
+func extractTarCopyingLinks(r io.Reader, targetDestination string) error {
+	root, err := filepath.Abs(targetDestination)
+	if err != nil {
+		return err
+	}
+
+	type pendingLink struct {
+		path       string // absolute destination path of the link
+		targetPath string // absolute path of the file to copy from
+	}
+	var pending []pendingLink
+
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar entry: %w", err)
+		}
+
+		cleaned, err := safeJoin(root, hdr.Name)
+		if err != nil {
+			return err
+		}
+		// Skip aufs/overlay whiteout markers defensively; a flattened tar
+		// should not contain any, but ignoring them is always correct here.
+		if strings.HasPrefix(filepath.Base(hdr.Name), ".wh.") {
+			continue
+		}
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(cleaned, os.FileMode(hdr.Mode)&os.ModePerm|0700); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", cleaned, err)
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(cleaned), 0700); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", cleaned, err)
+			}
+			if err := writeRegularFile(cleaned, tr, os.FileMode(hdr.Mode)&os.ModePerm); err != nil {
+				return err
+			}
+		case tar.TypeSymlink:
+			if err := os.MkdirAll(filepath.Dir(cleaned), 0700); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", cleaned, err)
+			}
+			// Remove any pre-existing entry so os.Symlink does not fail with EEXIST.
+			_ = os.Remove(cleaned)
+			if err := symlink(hdr.Linkname, cleaned); err == nil {
+				break
+			} else if !isLinkUnsupportedError(err) {
+				return fmt.Errorf("failed to create symlink %s -> %s: %w", cleaned, hdr.Linkname, err)
+			}
+			// Resolve the link target: absolute targets are image-root relative,
+			// relative ones are resolved against the link's own directory.
+			var src string
+			if filepath.IsAbs(hdr.Linkname) {
+				src, err = safeJoin(root, hdr.Linkname)
+			} else {
+				src, err = safeJoin(root, filepath.Join(filepath.Dir(hdr.Name), hdr.Linkname))
+			}
+			if err != nil {
+				return err
+			}
+			pending = append(pending, pendingLink{path: cleaned, targetPath: src})
+		case tar.TypeLink:
+			if err := os.MkdirAll(filepath.Dir(cleaned), 0700); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", cleaned, err)
+			}
+			// Hardlink targets are always relative to the image root.
+			src, err := safeJoin(root, hdr.Linkname)
+			if err != nil {
+				return err
+			}
+			_ = os.Remove(cleaned)
+			if err := hardlink(src, cleaned); err == nil {
+				break
+			} else if !isLinkUnsupportedError(err) {
+				return fmt.Errorf("failed to create hardlink %s -> %s: %w", cleaned, src, err)
+			}
+			pending = append(pending, pendingLink{path: cleaned, targetPath: src})
+		default:
+			// Ignore device nodes, fifos, etc: backend artifacts do not use them.
+			logs.Debug.Printf("skipping unsupported tar entry type during fallback extraction: name=%q type=%d", hdr.Name, hdr.Typeflag)
+		}
+	}
+
+	// Second pass: materialise links that the filesystem could not represent.
+	for _, link := range pending {
+		if err := copyFilePreservingMode(link.targetPath, link.path); err != nil {
+			return fmt.Errorf("failed to copy link target %s -> %s: %w", link.targetPath, link.path, err)
+		}
+	}
+	return nil
+}
+
+// safeJoin joins name onto root and guarantees the result stays within root,
+// guarding against path-traversal entries in a malicious tar.
+func safeJoin(root, name string) (string, error) {
+	cleaned := filepath.Join(root, filepath.Clean("/"+name))
+	rel, err := filepath.Rel(root, cleaned)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("tar entry escapes extraction root: %s", name)
+	}
+	return cleaned, nil
+}
+
+func writeRegularFile(path string, r io.Reader, mode os.FileMode) error {
+	// Remove any pre-existing symlink so we do not write through it.
+	if fi, err := os.Lstat(path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		_ = os.Remove(path)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode|0600)
+	if err != nil {
+		return fmt.Errorf("failed to create file %s: %w", path, err)
+	}
+	if _, err := io.Copy(f, r); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("failed to write file %s: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to close file %s: %w", path, err)
+	}
+	return nil
+}
+
+func copyFilePreservingMode(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
+		return err
+	}
+	_ = os.Remove(dst)
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode().Perm()|0600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // GetOCIImageUncompressedSize returns the total uncompressed size of an image
