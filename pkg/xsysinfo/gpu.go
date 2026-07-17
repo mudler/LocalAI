@@ -438,7 +438,7 @@ func detectNVIDIAComputeCapability() string {
 
 	best := ""
 	bestMajor, bestMinor := -1, -1
-	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(stdout.String()), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -500,9 +500,9 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 	}
 
 	var gpus []GPUMemoryInfo
-	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	lines := strings.SplitSeq(strings.TrimSpace(stdout.String()), "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		if line == "" {
 			continue
 		}
