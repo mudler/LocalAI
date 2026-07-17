@@ -1,16 +1,18 @@
 #!/bin/bash
 
+set -e
+
 ## Patches
 
-## Apply patches from the `patches` directory
+## Apply patches from the `patches` directory. Runs under set -e so a
+## rejected patch aborts the build here, loudly, instead of surfacing later
+## as a confusing compile error. A missing or empty patches dir is a no-op.
 if [ -d "patches" ]; then
     for patch in $(ls patches); do
         echo "Applying patch $patch"
         patch -d llama.cpp/ -p1 < patches/$patch
-    done 
+    done
 fi
-
-set -e
 
 for file in $(ls llama.cpp/tools/server/); do
     cp -rfv llama.cpp/tools/server/$file llama.cpp/tools/grpc-server/
