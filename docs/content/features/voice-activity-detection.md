@@ -35,13 +35,34 @@ Returns a JSON object with detected speech segments:
 
 ### Example request
 
+The `/v1/vad` endpoint expects the `audio` field to be an array of raw
+16kHz mono PCM samples as `float32` values, so the request body is usually
+built from a real audio file rather than typed by hand.
+
+First convert any audio file to 16kHz mono with ffmpeg:
+
 ```bash
-curl http://localhost:8080/v1/vad \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "silero-vad",
-    "audio": [0.0012, -0.0045, 0.0053, -0.0021, ...]
-  }'
+ffmpeg -i input.mp3 -ar 16000 -ac 1 -f wav speech.wav
+```
+
+Then load the samples and POST them (this snippet needs
+`pip install soundfile numpy requests`):
+
+```python
+import soundfile as sf
+import numpy as np
+import requests
+
+audio, sample_rate = sf.read("speech.wav")
+if audio.ndim > 1:
+    audio = audio.mean(axis=1)  # downmix to mono
+samples = audio.astype(np.float32).tolist()
+
+response = requests.post(
+    "http://localhost:8080/v1/vad",
+    json={"model": "silero-vad", "audio": samples},
+)
+print(response.json())
 ```
 
 ### Example response

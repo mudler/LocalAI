@@ -30,7 +30,7 @@ Yes. You can load any compatible model, not just the ones in the gallery. And be
 
 ### How do I get models? 
 
-Most gguf-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=gguf, or models from gpt4all are compatible too: https://github.com/nomic-ai/gpt4all.
+The easiest way is the built-in model gallery: open the web interface at `http://localhost:8080`, go to the Models page, and install a model by name. You can also install from the command line with `local-ai models install <model-name>`. Most gguf-based models work, and you can point LocalAI at any compatible GGUF from Hugging Face (https://huggingface.co/models?search=gguf). Be cautious about downloading models from untrusted sources, as there may be security vulnerabilities in llama.cpp or ggml that could be maliciously exploited.
 
 ### Where are models stored?
 
@@ -64,10 +64,6 @@ Model sizes vary significantly depending on the model and quantization level:
 
 LocalAI applies a set of defaults when loading models with the llama.cpp backend, one of these is mirostat sampling - while it achieves better results, it slows down the inference. You can disable this by setting `mirostat: 0` in the model config file. See also the advanced section ({{%relref "advanced/advanced-usage" %}}) for more information and [this issue](https://github.com/mudler/LocalAI/issues/2780).
 
-### What's the difference with Serge, or XXX?
-
-LocalAI is a multi-model solution that doesn't focus on a specific model type (e.g., llama.cpp or alpaca.cpp), and it handles all of these internally for faster inference,  easy to set up locally and deploy to Kubernetes.
-
 ### Everything is slow, how is it possible?
 
 There are few situation why this could occur. Some tips are:
@@ -84,13 +80,9 @@ Yes! If the client uses OpenAI and supports setting a different base URL to send
 
 There is GPU support, see {{%relref "features/GPU-acceleration" %}}.
 
-### Where is the webUI? 
+### Where is the WebUI?
 
-There is the availability of localai-webui and chatbot-ui in the examples section and can be setup as per the instructions. However as LocalAI is an API you can already plug it into existing projects that provides are UI interfaces to OpenAI's APIs. There are several already on Github, and should be compatible with LocalAI already (as it mimics the OpenAI API)
-
-### Does it work with AutoGPT? 
-
-Yes, see the [examples](https://github.com/mudler/LocalAI-examples)!
+LocalAI ships with a built-in web interface. Once LocalAI is running, open `http://localhost:8080` in your browser to manage models, chat, and configure the server. There is nothing extra to install. Because LocalAI also exposes an OpenAI-compatible API, you can additionally plug it into any existing application that talks to the OpenAI API by pointing that application at the LocalAI endpoint.
 
 ### How can I troubleshoot when something is wrong?
 

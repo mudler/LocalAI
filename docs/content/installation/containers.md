@@ -231,7 +231,7 @@ After installation:
 ### GPU not detected
 
 - Ensure Docker has GPU access: `docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi`
-- For Podman, see the [Podman installation guide](/installation/podman/#gpu-not-detected)
+- For Podman, pass the GPU with the `--device` flags shown in the GPU sections above (for example `--device nvidia.com/gpu=all`)
 - For NVIDIA: Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 - For AMD: Ensure devices are accessible: `ls -la /dev/kfd /dev/dri`
 
