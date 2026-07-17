@@ -1,4 +1,55 @@
 ---
+- name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF
+  description: |
+    # MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking
+
+    GGUF quantizations for local deployment: **MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF**
+
+    中文说明
+
+    **MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking** is a compact 1B **Thinking** language model built on openbmb/MiniCPM5-1B. Compared with V1, this V2 release is further fine-tuned on **Fable 5** data with a stronger focus on **tool calling / function calling**, while also improving **coding** and **instruction-following**. It keeps MiniCPM5's native Thinking chat template and XML tool-call format.
+
+    Previous version: **MiniCPM5-1B-Claude-Opus-Fable5-Thinking** (V1)
+
+    For llama.cpp / Ollama / LM Studio deployment, see the **GGUF repository**.
+
+    ## Overview
+
+    ## Capabilities
+
+      - **Tool calling (enhanced in V2)** — more reliable XML / function-calling style tool use on top of MiniCPM5's native format
+      - **Coding** — code generation, debugging, and software-engineering-style tasks
+      - **Instruction following** — more reliable adherence to user prompts and structured constraints
+      - **Thinking mode** — chain-of-thought reasoning via the MiniCPM5 chat template
+      - **Long context** — up to **128K tokens** (131,072 tokens per `config.json`)
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0.gguf
+      sha256: fc3ee1eddd305c155f63b6bd7bb189daa4d5f226ca325ab219bd7acd3b00ec77
+      uri: https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF/resolve/main/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0.gguf
 - name: "hy3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
