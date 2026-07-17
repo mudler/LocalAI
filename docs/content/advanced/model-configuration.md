@@ -35,7 +35,7 @@ parameters:
 
 context_size: 512
 threads: 10
-backend: llama-stable
+backend: llama-cpp
 
 template:
   completion: completion
@@ -51,13 +51,13 @@ When using `--models-config-file`, you can define multiple models as a list:
   parameters:
     model: model1.bin
   context_size: 512
-  backend: llama-stable
+  backend: llama-cpp
 
 - name: model2
   parameters:
     model: model2.bin
   context_size: 1024
-  backend: llama-stable
+  backend: llama-cpp
 ```
 
 ## Core Configuration Fields
@@ -1036,7 +1036,7 @@ Here's a comprehensive example combining many options:
 ```yaml
 name: my-llm-model
 description: A high-performance LLM model
-backend: llama-stable
+backend: llama-cpp
 
 parameters:
   model: my-model.gguf
