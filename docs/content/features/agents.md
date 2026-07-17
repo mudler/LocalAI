@@ -182,7 +182,7 @@ Each agent has its own configuration that controls its behavior. Key settings in
 - **Name** — unique identifier for the agent
 - **Model** — the LLM model the agent uses for reasoning
 - **System Prompt** — defines the agent's personality and instructions
-- **Actions** — tools the agent can use (web search, code execution, etc.)
+- **Actions** — tools the agent can use (web search, code execution, etc.). See the {{% relref "features/agent-actions" %}} for the full catalog of built-in actions and how to configure each one.
 - **Connectors** — external integrations (Slack, Discord, etc.)
 - **Knowledge Base** — collections of documents for RAG
 - **MCP Servers** — Model Context Protocol servers for additional tool access
