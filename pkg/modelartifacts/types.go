@@ -40,6 +40,13 @@ type Resolved struct {
 	Endpoint string `yaml:"endpoint" json:"endpoint"`
 	Revision string `yaml:"revision" json:"revision"`
 	CacheKey string `yaml:"cache_key" json:"cache_key"`
+	// PrimaryFile is the slash-separated path, relative to the snapshot root, of
+	// the single model file to load when the resolved snapshot contains exactly
+	// one file. Single-file backends (llama.cpp, whisper, ...) must be pointed at
+	// this file rather than the snapshot directory. It is empty for multi-file
+	// snapshots, where the snapshot directory itself is the load target (e.g. the
+	// Python/transformers backends consuming a full repo).
+	PrimaryFile string `yaml:"primary_file,omitempty" json:"primary_file,omitempty"`
 }
 
 func (s Spec) Normalize() (Spec, error) {
@@ -102,6 +109,12 @@ func (s Spec) Normalize() (Spec, error) {
 		}
 		if resolved.CacheKey != "" && !cacheKeyPattern.MatchString(resolved.CacheKey) {
 			return Spec{}, fmt.Errorf("resolved cache key must be 64 lowercase hexadecimal characters")
+		}
+		resolved.PrimaryFile = strings.TrimSpace(resolved.PrimaryFile)
+		if resolved.PrimaryFile != "" {
+			if err := ValidateRelativeHubPath(resolved.PrimaryFile); err != nil {
+				return Spec{}, err
+			}
 		}
 		s.Resolved = &resolved
 	}
