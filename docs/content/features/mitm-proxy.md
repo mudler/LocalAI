@@ -82,27 +82,41 @@ and run `codex`.
 
 ## Configuration
 
+The proxy is enabled with two startup settings:
+
 | Flag / env | Default | Purpose |
 |---|---|---|
 | `--mitm-listen` / `LOCALAI_MITM_LISTEN` | empty (disabled) | Address to bind the proxy listener on |
 | `--mitm-ca-dir` / `LOCALAI_MITM_CA_DIR` | `<data-path>/mitm-ca` | Where to persist the CA cert + key |
-| `--mitm-intercept-hosts` / `LOCALAI_MITM_INTERCEPT_HOSTS` | `api.anthropic.com,api.openai.com` | Hosts to terminate TLS for; everything else tunnels |
+
+There is no global intercept-hosts flag. The hosts whose TLS is terminated
+and scanned are declared **per model**, in the model YAML `mitm.hosts:`
+block. Each model that names one or more hosts owns those hosts; everything
+not listed by any model tunnels through untouched. A cloud-proxy model that
+should intercept Anthropic traffic looks like:
+
+```yaml
+name: claude
+backend: cloud-proxy
+mitm:
+  hosts:
+    - api.anthropic.com
+```
 
 Hostnames are case-insensitive. Add custom upstreams (e.g. an
-OpenAI-compatible third-party provider) by extending the allowlist and
-ensuring their endpoint paths match `/v1/chat/completions` or
-`/v1/messages`.
+OpenAI-compatible third-party provider) by adding their hostname to a
+model's `mitm.hosts:` list and ensuring their endpoint paths match
+`/v1/chat/completions` or `/v1/messages`. You can create these models from
+the Add Model UI.
 
 ## What gets redacted
 
-Same patterns the regular request middleware uses:
-
-- Email addresses → masked
-- Phone numbers → masked
-- US Social Security Numbers → masked
-- Credit card numbers (Luhn-verified) → masked
-- IPv4 addresses → masked
-- API key prefixes (`sk-`, `pk-`, `ghp_`, `github_pat_`, `xoxb-`) → **blocked**
+The MITM proxy runs the same PII detection as the regular request
+middleware. Detection is **NER-based** (a token-classification detector
+model), not a fixed regex list: the older pattern tier has been removed.
+See {{% relref "features/middleware" %}} for how detector models, entity
+groups, and the `mask` / `block` actions are configured, and for the
+instance-wide default detector.
 
 A `block` action returns HTTP 400 with `error.type=pii_blocked` to the
 client. The CLI sees the rejection and shows it as a request error.
