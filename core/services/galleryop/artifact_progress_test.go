@@ -30,4 +30,23 @@ var _ = Describe("artifact operation progress", func() {
 		Expect(statuses[5].Progress).To(Equal(float64(99)))
 		Expect(statuses[5].CurrentBytes).To(Equal(int64(100)))
 	})
+
+	It("keeps a per-file verify proportional to bytes, not a flat 95%", func() {
+		// A multi-file model (e.g. a 70GB checkpoint) downloads sequentially and
+		// verifies each file from its AfterDownload hook. When the first small
+		// file finishes, a PhaseVerifying event fires while nearly all bytes are
+		// still to download — the reported percentage must reflect the tiny
+		// fraction completed, not slam the bar to 95% for the rest of the run.
+		var last *OpStatus
+		bridge := newArtifactProgressBridge(func(status *OpStatus) {
+			copy := *status
+			last = &copy
+		})
+		bridge.Sink(modelartifacts.ProgressEvent{Phase: modelartifacts.PhaseResolving, TotalBytes: 70000})
+		bridge.Sink(modelartifacts.ProgressEvent{Phase: modelartifacts.PhaseDownloading, File: "config.json", CurrentBytes: 400, TotalBytes: 70000})
+		bridge.Sink(modelartifacts.ProgressEvent{Phase: modelartifacts.PhaseVerifying, File: "config.json", CurrentBytes: 400, TotalBytes: 70000})
+
+		Expect(last.Phase).To(Equal("verifying"))
+		Expect(last.Progress).To(BeNumerically("<", 5))
+	})
 })
