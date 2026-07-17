@@ -56,7 +56,7 @@ func parseCgroupV1Limit(raw string) uint64 {
 // /proc/meminfo contents. MemTotal is reported in kibibytes, so the parsed
 // value is multiplied by 1024. Returns 0 when the field is missing.
 func parseMemTotal(raw string) uint64 {
-	for _, line := range strings.Split(raw, "\n") {
+	for line := range strings.SplitSeq(raw, "\n") {
 		if !strings.HasPrefix(line, "MemTotal:") {
 			continue
 		}

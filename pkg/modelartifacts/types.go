@@ -142,7 +142,7 @@ func validatePattern(pattern string) error {
 	if pattern == "" || path.IsAbs(pattern) || strings.ContainsAny(pattern, "\\\x00") {
 		return fmt.Errorf("invalid artifact pattern %q", pattern)
 	}
-	for _, part := range strings.Split(pattern, "/") {
+	for part := range strings.SplitSeq(pattern, "/") {
 		if part == ".." {
 			return fmt.Errorf("invalid artifact pattern %q", pattern)
 		}

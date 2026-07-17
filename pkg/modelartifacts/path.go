@@ -76,8 +76,8 @@ func ValidateRelativeHubPath(candidate string) error {
 	if candidate == "" || filepath.IsAbs(candidate) || strings.ContainsAny(candidate, "\\\x00") {
 		return fmt.Errorf("unsafe Hub path %q", candidate)
 	}
-	parts := strings.Split(candidate, "/")
-	for _, part := range parts {
+	parts := strings.SplitSeq(candidate, "/")
+	for part := range parts {
 		if part == "" || part == "." || part == ".." {
 			return fmt.Errorf("unsafe Hub path %q", candidate)
 		}

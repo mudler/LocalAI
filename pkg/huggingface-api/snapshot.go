@@ -218,7 +218,7 @@ func (c *Client) decodeTreePage(req *http.Request) ([]snapshotTreeItem, string, 
 }
 
 func nextPage(link string, current *url.URL) (string, error) {
-	for _, entry := range strings.Split(link, ",") {
+	for entry := range strings.SplitSeq(link, ",") {
 		parts := strings.Split(entry, ";")
 		if len(parts) >= 2 && strings.TrimSpace(parts[1]) == `rel="next"` {
 			raw := strings.Trim(strings.TrimSpace(parts[0]), "<>")
