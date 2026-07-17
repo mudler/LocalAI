@@ -32,29 +32,42 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         device = "cpu"
         if request.CUDA and torch.cuda.is_available():
             device = "cuda"
-        xpu_available = hasattr(torch, "xpu") and torch.xpu.is_available()
-        if xpu_available:
+        elif hasattr(torch, "xpu") and torch.xpu.is_available():
             device = "xpu"
-        mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-        if mps_available:
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             device = "mps"
 
         model_id = request.Model or "iic/SenseVoiceSmall"
+        candidate_devices = [device]
+        if device in ("xpu", "mps"):
+            candidate_devices.append("cpu")
 
-        try:
-            print(f"Loading FunASR model: {model_id} on {device}", file=sys.stderr)
-            self.model = AutoModel(
-                model=model_id,
-                vad_model="fsmn-vad",
-                device=device,
-                disable_update=True,
-            )
-            print("FunASR model loaded successfully", file=sys.stderr)
-        except Exception as err:
-            print(f"[ERROR] LoadModel failed: {err}", file=sys.stderr)
-            import traceback
-            traceback.print_exc(file=sys.stderr)
-            return backend_pb2.Result(success=False, message=str(err))
+        for candidate_device in candidate_devices:
+            try:
+                print(
+                    f"Loading FunASR model: {model_id} on {candidate_device}",
+                    file=sys.stderr,
+                )
+                self.model = AutoModel(
+                    model=model_id,
+                    vad_model="fsmn-vad",
+                    device=candidate_device,
+                    disable_update=True,
+                )
+                print("FunASR model loaded successfully", file=sys.stderr)
+                break
+            except Exception as err:
+                if candidate_device != candidate_devices[-1]:
+                    print(
+                        f"[WARN] FunASR {candidate_device} initialization failed: "
+                        f"{err}; retrying on cpu",
+                        file=sys.stderr,
+                    )
+                    continue
+                print(f"[ERROR] LoadModel failed: {err}", file=sys.stderr)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+                return backend_pb2.Result(success=False, message=str(err))
 
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
