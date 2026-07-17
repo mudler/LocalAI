@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Embeddings"
-weight = 13
+weight = 60
 url = "/features/embeddings/"
 +++
 

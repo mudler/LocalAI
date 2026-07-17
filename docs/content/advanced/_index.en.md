@@ -1,5 +1,5 @@
 ---
-weight: 20
+weight: 5
 title: "Advanced"
 description: "Advanced usage"
 type: chapter

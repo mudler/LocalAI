@@ -2,7 +2,7 @@
 disableToc = false
 title = "Build LocalAI"
 icon = "model_training"
-weight = 5
+weight = 12
 url = '/basics/build/'
 +++
 

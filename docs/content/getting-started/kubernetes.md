@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Run with Kubernetes"
-weight = 4
+weight = 11
 url = '/basics/kubernetes/'
 ico = "rocket_launch"
 +++

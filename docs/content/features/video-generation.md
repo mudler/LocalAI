@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Video Generation"
-weight = 18
+weight = 51
 url = "/features/video-generation/"
 aliases = ["/features/longcat-video/"]
 +++

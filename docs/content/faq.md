@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "FAQ"
-weight = 24
+weight = 9
 icon = "quiz"
 url = "/faq/"
 +++

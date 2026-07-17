@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Build your first agent"
-weight = 6
+weight = 7
 icon = "smart_toy"
 +++
 

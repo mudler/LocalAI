@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Agents"
-weight = 21
+weight = 20
 url = '/features/agents'
 +++
 

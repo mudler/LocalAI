@@ -1,7 +1,7 @@
 ---
 title: "macOS Installation"
 description: "Install LocalAI on macOS using the DMG application"
-weight: 1
+weight: 10
 ---
 
 

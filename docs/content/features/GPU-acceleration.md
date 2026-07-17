@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "GPU Acceleration"
-weight = 9
+weight = 73
 url = "/features/gpu-acceleration/"
 +++
 

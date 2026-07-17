@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Voice Recognition"
-weight = 15
+weight = 36
 url = "/features/voice-recognition/"
 +++
 

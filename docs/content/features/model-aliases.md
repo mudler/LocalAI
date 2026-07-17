@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Model Aliases"
-weight = 24
+weight = 14
 url = "/features/model-aliases/"
 +++
 

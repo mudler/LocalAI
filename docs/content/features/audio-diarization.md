@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Speaker Diarization"
-weight = 17
+weight = 33
 url = "/features/audio-diarization/"
 +++
 

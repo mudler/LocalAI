@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Object Detection"
-weight = 13
+weight = 41
 url = "/features/object-detection/"
 +++
 

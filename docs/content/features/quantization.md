@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Model Quantization"
-weight = 19
+weight = 83
 url = '/features/quantization/'
 +++
 

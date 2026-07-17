@@ -1,7 +1,7 @@
 ---
 title: "Backends"
 description: "Learn how to use, manage, and develop backends in LocalAI"
-weight: 4
+weight: 80
 url: "/backends/"
 ---
 

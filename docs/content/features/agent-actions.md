@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Agent actions"
-weight = 22
+weight = 21
 url = '/features/agent-actions'
 +++
 

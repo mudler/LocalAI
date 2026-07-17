@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Sound Classification"
-weight = 18
+weight = 32
 url = "/features/audio-classification/"
 +++
 

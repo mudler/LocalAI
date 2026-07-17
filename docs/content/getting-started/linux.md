@@ -1,7 +1,7 @@
 ---
 title: "Linux Installation"
 description: "Install LocalAI on Linux using binaries"
-weight: 3
+weight: 9
 url: '/installation/linux/'
 ---
 

@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Voice Activity Detection (VAD)"
-weight = 17
+weight = 35
 url = "/features/voice-activity-detection/"
 +++
 

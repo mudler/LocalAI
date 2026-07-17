@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Distributed Mode"
-weight = 14
+weight = 71
 url = "/features/distributed-mode/"
 +++
 

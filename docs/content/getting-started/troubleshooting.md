@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Troubleshooting"
-weight = 9
+weight = 6
 url = '/basics/troubleshooting/'
 icon = "build"
 +++

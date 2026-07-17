@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Text to Audio (TTS)"
-weight = 11
+weight = 31
 url = "/features/text-to-audio/"
 aliases = ["/features/sound-generation/"]
 +++

@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Authentication & Authorization"
-weight = 26
+weight = 85
 url = '/features/authentication'
 +++
 

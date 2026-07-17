@@ -1,6 +1,6 @@
 +++
 title = "Model Context Protocol (MCP)"
-weight = 20
+weight = 22
 toc = true
 description = "Agentic capabilities with Model Context Protocol integration"
 tags = ["MCP", "Agents", "Tools", "Advanced"]

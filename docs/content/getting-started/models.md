@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Setting Up Models"
-weight = 2
+weight = 3
 icon = "hub"
 description = "Learn how to install, configure, and manage models in LocalAI"
 +++

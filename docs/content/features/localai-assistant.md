@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "LocalAI Assistant"
-weight = 27
+weight = 23
 url = '/features/localai-assistant'
 +++
 

@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Getting started"
-weight = 3
+weight = 2
 icon = "rocket_launch"
 type = "chapter"
 +++

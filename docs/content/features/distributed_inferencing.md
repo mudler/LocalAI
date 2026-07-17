@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "P2P / Federated Inference"
-weight = 15
+weight = 70
 url = "/features/distribute/"
 aliases = ["/features/distribution/"]
 +++

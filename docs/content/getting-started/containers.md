@@ -1,7 +1,7 @@
 ---
 title: Containers
 description: Install and use LocalAI with container engines (Docker, Podman)
-weight: 1
+weight: 8
 url: '/installation/containers/'
 aliases:
 - '/basics/container/'

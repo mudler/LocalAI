@@ -1,6 +1,6 @@
 +++
 title = "API Discovery & Instructions"
-weight = 27
+weight = 15
 toc = true
 description = "Programmatic API discovery for agents, tools, and automation"
 tags = ["API", "Agents", "Instructions", "Configuration", "Advanced"]

@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Interleaved Thinking with Tool Calls"
-weight = 17
+weight = 13
 url = "/features/interleaved-thinking/"
 +++
 

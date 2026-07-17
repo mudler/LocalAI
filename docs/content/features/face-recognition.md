@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Face Recognition"
-weight = 14
+weight = 42
 url = "/features/face-recognition/"
 +++
 

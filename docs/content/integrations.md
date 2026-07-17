@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Integrations"
-weight = 19
+weight = 8
 icon = "sync"
 
 +++

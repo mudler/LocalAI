@@ -1,7 +1,7 @@
 
 ---
 title: "Realtime API"
-weight: 60
+weight: 37
 ---
 
 ![The realtime voice loop: VAD to STT to LLM to TTS, over WebSocket or WebRTC](/images/diagrams/realtime-pipeline.png)
