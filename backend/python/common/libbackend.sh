@@ -333,12 +333,58 @@ _activateVenv() {
     unset PYTHONHOME
 }
 
+# ensureUv makes sure the `uv` package manager is on PATH before we try to build
+# or populate a venv with it.
+#
+# Minimal base images (notably the nvidia-l4t variants) ship neither uv nor pip.
+# A backend installed onto a persistent /backends volume there can therefore
+# never build its venv: `uv venv` aborts with "uv: command not found" and
+# install.sh leaves a half-installed backend, with no way to recover from inside
+# the container. See mudler/LocalAI#10720.
+#
+# When uv is missing (and we are not in USE_PIP mode) bootstrap a private copy
+# into the backend directory itself, which lives on the same persistent volume,
+# so it survives image upgrades and is only downloaded once.
+function ensureUv() {
+    # pip mode never invokes uv.
+    if [ "x${USE_PIP}" == "xtrue" ]; then
+        return 0
+    fi
+    if command -v uv >/dev/null 2>&1; then
+        return 0
+    fi
+    local uv_dir="${EDIR}/uv-bin"
+    if [ -x "${uv_dir}/uv" ]; then
+        export PATH="${uv_dir}:${PATH}"
+        return 0
+    fi
+    echo "uv not found; bootstrapping a private copy into ${uv_dir}"
+    mkdir -p "${uv_dir}"
+    # The official installer picks the right binary for the current platform and
+    # honors UV_INSTALL_DIR. This is the same mechanism the base images use to
+    # install uv (see backend/Dockerfile.python). INSTALLER_NO_MODIFY_PATH keeps
+    # it from editing shell profiles we don't control.
+    if command -v curl >/dev/null 2>&1; then
+        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="${uv_dir}" INSTALLER_NO_MODIFY_PATH=1 sh
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="${uv_dir}" INSTALLER_NO_MODIFY_PATH=1 sh
+    else
+        echo "ERROR: uv is missing and neither curl nor wget is available to bootstrap it" >&2
+        return 1
+    fi
+    export PATH="${uv_dir}:${PATH}"
+    command -v uv >/dev/null 2>&1
+}
+
 # ensureVenv makes sure that the venv for the backend both exists, and is activated.
 #
 # This function is idempotent, so you can call it as many times as you want and it will
 # always result in an activated virtual environment
 function ensureVenv() {
     local interpreter=""
+
+    # Make sure uv is available before any uv-based venv work below.
+    ensureUv
 
     if [ "x${PORTABLE_PYTHON}" == "xtrue" ] || [ -e "$(_portable_python)" ]; then
         echo "Using portable Python"
