@@ -5,7 +5,7 @@ weight = 19
 url = "/features/3d-generation/"
 +++
 
-LocalAI can generate textured 3D meshes from a single conditioning image via the `/v1/3d/generations` endpoint, powered by the `trellis2cpp` backend — a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
+LocalAI can generate textured 3D meshes from a single conditioning image via the `/3d/generations` endpoint, powered by the `trellis2cpp` backend — a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
 
 Generation is image-conditioned only — there is no text-prompt path. Provide a photo or rendering of a single object (ideally on a plain background) and TRELLIS.2 reconstructs a full 3D mesh from it.
 
@@ -24,7 +24,7 @@ The backend detects which component GGUFs are present and degrades gracefully: w
 ## API
 
 - **Method:** `POST`
-- **Endpoint:** `/v1/3d/generations` (alias: `/3d/generations`)
+- **Endpoint:** `/3d/generations`
 
 ### Request
 
@@ -53,7 +53,7 @@ For 3D printing, `params.print_remesh: "true"` wraps the generated mesh with CGA
 
 ### Response
 
-Returns an OpenAI-compatible JSON response:
+Returns a JSON response using LocalAI's OpenAI-style generation envelope:
 
 | Field             | Type     | Description                                                    |
 |-------------------|----------|----------------------------------------------------------------|
@@ -68,7 +68,7 @@ Returns an OpenAI-compatible JSON response:
 ### Generate a 3D model from an image
 
 ```bash
-curl http://localhost:8080/v1/3d/generations \
+curl http://localhost:8080/3d/generations \
   -H "Content-Type: application/json" \
   -d '{
     "model": "trellis2-4b",
@@ -82,7 +82,7 @@ The response contains a URL such as `/generated-3d/b64123456789.glb`; fetch it f
 ### Base64 input and output
 
 ```bash
-curl http://localhost:8080/v1/3d/generations \
+curl http://localhost:8080/3d/generations \
   -H "Content-Type: application/json" \
   -d "{
     \"model\": \"trellis2-4b\",

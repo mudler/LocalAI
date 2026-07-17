@@ -92,7 +92,6 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/video", FeatureVideo},
 
 	// 3D generation
-	{"POST", "/v1/3d/generations", Feature3D},
 	{"POST", "/3d/generations", Feature3D},
 
 	// Sound generation

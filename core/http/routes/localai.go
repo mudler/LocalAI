@@ -209,12 +209,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
 
 	model3dHandler := localai.Model3DEndpoint(cl, ml, appConfig)
-	for _, path := range []string{"/v1/3d/generations", "/3d/generations"} {
-		router.POST(path,
-			model3dHandler,
-			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),
-			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DRequest) }))
-	}
+	router.POST("/3d/generations",
+		model3dHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DRequest) }))
 
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
@@ -341,7 +339,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"voice_profiles": "/api/voice-profiles",
 					"vad":            "/vad",
 					"video":          "/video",
-					"3d_generation":  "/v1/3d/generations",
+					"3d_generation":  "/3d/generations",
 					"detection":      "/v1/detection",
 					"tokenize":       "/v1/tokenize",
 				},

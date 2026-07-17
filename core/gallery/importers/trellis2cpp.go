@@ -82,8 +82,8 @@ func (i *Trellis2CppImporter) Match(details Details) bool {
 		}
 	}
 
-	if b, ok := preferencesMap["backend"].(string); ok && b == "trellis2cpp" {
-		return true
+	if b, ok := preferencesMap["backend"].(string); ok && b != "" {
+		return b == "trellis2cpp"
 	}
 
 	// Raw .gguf URL named after a distinctive pipeline component.

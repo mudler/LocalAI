@@ -85,7 +85,7 @@ var instructionDefs = []instructionDef{
 		Name:        "3d",
 		Description: "Image-to-3D asset generation (binary glTF / GLB) via TRELLIS.2",
 		Tags:        []string{"3d"},
-		Intro:       "POST /v1/3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling.",
+		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling.",
 	},
 	{
 		Name:        "face-recognition",

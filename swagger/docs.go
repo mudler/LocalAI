@@ -22,6 +22,33 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/3d/generations": {
+            "post": {
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Creates a 3D asset (binary glTF / GLB) from a conditioning image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Model3DRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [
@@ -2365,33 +2392,6 @@ const docTemplate = `{
                         "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/3d/generations": {
-            "post": {
-                "tags": [
-                    "3d"
-                ],
-                "summary": "Creates a 3D asset (binary glTF / GLB) from a conditioning image.",
-                "parameters": [
-                    {
-                        "description": "query params",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.Model3DRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/schema.OpenAIResponse"
                         }
                     }
                 }

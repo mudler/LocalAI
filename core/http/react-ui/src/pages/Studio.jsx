@@ -31,19 +31,23 @@ export default function Studio() {
   const { t } = useTranslation('media')
   const { hasFeature } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'images'
+  const requestedTab = searchParams.get('tab') || 'images'
+  const threeDEnabled = hasFeature('3d')
+  const transformEnabled = hasFeature('audio_transform')
+  const activeTab =
+    ((requestedTab === 'threed' && !threeDEnabled) ||
+      (requestedTab === 'transform' && !transformEnabled))
+      ? 'images'
+      : requestedTab
 
-  // Transform is a distinct capability; only show its tab when enabled.
-  const tabs = hasFeature('audio_transform') ? [...BASE_TABS, TRANSFORM_TAB] : BASE_TABS
+  const enabledTabs = BASE_TABS.filter(tab => tab.key !== 'threed' || threeDEnabled)
+  const tabs = transformEnabled ? [...enabledTabs, TRANSFORM_TAB] : enabledTabs
 
   const setTab = (key) => {
     setSearchParams({ tab: key }, { replace: true })
   }
 
-  const ActiveComponent =
-    (activeTab === 'transform' && !hasFeature('audio_transform'))
-      ? ImageGen
-      : (TAB_COMPONENTS[activeTab] || ImageGen)
+  const ActiveComponent = TAB_COMPONENTS[activeTab] || ImageGen
 
   return (
     <div>

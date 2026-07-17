@@ -238,7 +238,7 @@ func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DReq
 
 	if frontendDst != "" && in.Dst != frontendDst {
 		if err := f.retrieveOutputFile(ctx, in.Dst, frontendDst); err != nil {
-			xlog.Warn("Failed to retrieve generated 3D asset", "error", err)
+			return result, fmt.Errorf("retrieving generated 3D asset: %w", err)
 		}
 	}
 

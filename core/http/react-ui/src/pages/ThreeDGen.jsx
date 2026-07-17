@@ -17,6 +17,7 @@ import useObjectUrl from '../hooks/useObjectUrl'
 
 const QUALITIES = ['auto', 'coarse', '512', '1024']
 const BACKGROUNDS = ['auto', 'keep', 'black', 'white']
+const MAX_3D_INPUT_BYTES = 32 * 1024 * 1024
 
 // Small thumbnail of the conditioning image for the history list — full-size
 // data URLs would bloat every IndexedDB entry for no visual gain.
@@ -119,6 +120,8 @@ export default function ThreeDGen() {
             label={t('threed.labels.image')}
             value={image}
             onChange={setImage}
+            onError={(err) => addToast(err.message, 'error')}
+            maxBytes={MAX_3D_INPUT_BYTES}
             idPrefix="threed"
           />
 
