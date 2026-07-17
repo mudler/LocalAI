@@ -253,9 +253,9 @@ curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -
 }' --output music.flac
 ```
 
-**Advanced mode** (using the `/sound` endpoint):
+**Advanced mode** (using the `/v1/sound-generation` endpoint):
 ```bash
-curl http://localhost:8080/sound -H "Content-Type: application/json" -d '{
+curl http://localhost:8080/v1/sound-generation -H "Content-Type: application/json" -d '{
   "model": "ace-step-turbo",
   "caption": "A funky Japanese disco track",
   "lyrics": "[Verse 1]\n...",
@@ -323,14 +323,14 @@ tts:
   # Available English voices: Carter, Davis, Emma, Frank, Grace, Mike
 ```
 
-Then you can use the model:
-
-```
-
 {{% notice note %}}
 The realtime 0.5B preset model is not advertised to the Voice Library because it does not accept a raw reference WAV per request. For Voice Library profiles, use a `vibevoice-cpp` 1.5B reference-WAV model; LocalAI detects the 1.5B variant automatically, or a custom name can set `tts.voice_cloning: true`.
 {{% /notice %}}
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+
+Then you can use the model:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "vibevoice",
      "input":"Hello!"
    }' | aplay
