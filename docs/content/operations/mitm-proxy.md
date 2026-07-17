@@ -2,6 +2,7 @@
 title = "MITM proxy for Claude Code / Codex CLI"
 weight = 29
 toc = true
+url = "/features/mitm-proxy/"
 description = "Redact PII from cloud-AI traffic without LocalAI holding API keys"
 tags = ["Proxy", "MITM", "Privacy", "Routing", "Advanced"]
 categories = ["Features"]
@@ -114,7 +115,7 @@ the Add Model UI.
 The MITM proxy runs the same PII detection as the regular request
 middleware. Detection is **NER-based** (a token-classification detector
 model), not a fixed regex list: the older pattern tier has been removed.
-See {{% relref "features/middleware" %}} for how detector models, entity
+See {{% relref "operations/middleware" %}} for how detector models, entity
 groups, and the `mask` / `block` actions are configured, and for the
 instance-wide default detector.
 

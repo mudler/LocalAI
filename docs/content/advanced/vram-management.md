@@ -424,7 +424,7 @@ curl -X POST http://localhost:8080/backend/shutdown \
 
 To stop all models, you'll need to call the endpoint for each loaded model individually, or use the web UI to stop all models at once.
 
-Conversely, you can pre-load a model into memory ahead of its first request with `POST /backend/load` (the inverse of shutdown) — see [Backend Monitor]({{%relref "features/backend-monitor" %}}).
+Conversely, you can pre-load a model into memory ahead of its first request with `POST /backend/load` (the inverse of shutdown) — see [Backend Monitor]({{%relref "operations/backend-monitor" %}}).
 
 ### Best Practices
 

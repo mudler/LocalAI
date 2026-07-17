@@ -2,6 +2,7 @@
 title = "Cloud passthrough proxy"
 weight = 28
 toc = true
+url = "/features/cloud-proxy/"
 description = "Forward requests to OpenAI, Anthropic, or any compatible provider"
 tags = ["Proxy", "Cloud", "Routing", "Advanced"]
 categories = ["Features"]

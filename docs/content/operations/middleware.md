@@ -2,6 +2,7 @@
 title = "Middleware: PII filtering and intelligent routing"
 weight = 27
 toc = true
+url = "/features/middleware/"
 description = "Per-model PII redaction and policy-based request routing"
 tags = ["Routing", "Privacy", "PII", "Middleware", "Advanced"]
 categories = ["Features"]

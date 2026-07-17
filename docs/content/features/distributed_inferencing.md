@@ -22,7 +22,7 @@ LocalAI can spread inference across multiple machines in three ways. Pick the on
 | **Distributed Mode (PostgreSQL + NATS)** | Production deployments, Kubernetes, and managed infrastructure. Stateless frontends behind a load balancer, workers self-register, and state lives in PostgreSQL. | [Distributed Mode]({{% relref "features/distributed-mode" %}}) |
 | **MLX distributed** | Apple Silicon clusters running MLX models over the MLX distributed runtime. | [MLX Distributed]({{% relref "features/mlx-distributed" %}}) |
 
-For the low-level protocol and endpoints used by P2P workers, see the [P2P API reference]({{% relref "features/p2p" %}}).
+For the low-level protocol and endpoints used by P2P workers, see the [P2P API reference]({{% relref "reference/p2p-api" %}}).
 
 This functionality enables LocalAI to distribute inference requests across multiple worker nodes, improving efficiency and performance. Nodes are automatically discovered and connect via p2p by using a shared token which makes sure the communication is secure and private between the nodes of the network.
 

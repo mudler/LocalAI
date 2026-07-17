@@ -87,7 +87,7 @@ curl -X POST http://localhost:8080/backend/load \
   -d '{"model": "gpt-realtime"}'
 ```
 
-The endpoint is not realtime-specific — it pre-loads any model. See [Backend Monitor]({{%relref "features/backend-monitor" %}}) for the full request/response reference (it is the inverse of `/backend/shutdown`).
+The endpoint is not realtime-specific — it pre-loads any model. See [Backend Monitor]({{%relref "operations/backend-monitor" %}}) for the full request/response reference (it is the inverse of `/backend/shutdown`).
 
 ### Turn detection
 

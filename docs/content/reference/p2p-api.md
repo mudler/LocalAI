@@ -1,6 +1,6 @@
 +++
 disableToc = false
-title = "P2P API"
+title = "P2P API reference"
 weight = 22
 url = "/features/p2p/"
 +++

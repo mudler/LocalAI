@@ -78,4 +78,4 @@ its own, so swapping its target stays a valid pure redirect.
 
 Aliases are a static 1:1 redirect. For classifier-based or load-balanced
 selection across several downstream models, use the intelligent router in the
-[Middleware]({{%relref "features/middleware" %}}) feature instead.
+[Middleware]({{%relref "operations/middleware" %}}) feature instead.
