@@ -10,7 +10,7 @@ icon = "rocket_launch"
 
 **LocalAI** is a free, open-source alternative to OpenAI (Anthropic, etc.), functioning as a drop-in replacement REST API for local inferencing. It allows you to run [LLMs]({{% relref "features/text-generation" %}}), generate images, and produce audio, all locally or on-premises with consumer-grade hardware, supporting multiple model families and architectures.
 
-LocalAI comes with a **built-in web interface** for chatting with models, managing installations, configuring AI agents, and more — no extra tools needed.
+LocalAI comes with a **built-in web interface** for chatting with models, managing installations, configuring AI agents, and more, with no extra tools needed.
 
 {{% notice tip %}}
 
@@ -58,14 +58,17 @@ Open **http://localhost:8080** in your browser. The web interface lets you:
 - **Monitor system resources** and loaded models
 - **Configure settings** including GPU acceleration
 
-To get started, navigate to the **Models** page, browse the gallery, and install a model. Once installed, head to the **Chat** page to start a conversation.
+To get your first chat working:
+
+1. Open the **Models** page and search for `qwen3-4b`. Click **Install** on the `qwen3-4b` entry and wait for the download to finish. (`qwen3-4b` is a small, CPU-friendly Qwen3 model that also supports tool calling, so you can reuse it later in the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough.)
+2. Open the **Chat** page, select `qwen3-4b` from the model dropdown, type a message, and send it. You should get a reply within a few seconds.
 
 ### Downloading models from the CLI
 
 When starting LocalAI (either via Docker or via CLI) you can specify as argument a list of models to install automatically before starting the API, for example:
 
 ```bash
-local-ai run llama-3.2-1b-instruct:q4_k_m
+local-ai run qwen3-4b
 local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 local-ai run ollama://gemma:2b
 local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
@@ -83,7 +86,7 @@ local-ai models install <name> # Install a model
 **Automatic Backend Detection**: When you install models from the gallery or YAML files, LocalAI automatically detects your system's GPU capabilities (NVIDIA, AMD, Intel) and downloads the appropriate backend. For advanced configuration options, see [GPU Acceleration]({{% relref "features/gpu-acceleration#automatic-backend-detection" %}}).
  {{% /notice %}}
 
-For a full list of options, you can run LocalAI with `--help` or refer to the [Linux Installation guide]({{% relref "installation/linux" %}}) for installer configuration options.
+For a full list of options, run LocalAI with `--help`, or see the [Linux Installation guide]({{% relref "installation/linux" %}}).
 
 ### Using the API
 
@@ -93,7 +96,7 @@ LocalAI exposes an OpenAI-compatible API. You can use it with any OpenAI SDK or 
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "llama-3.2-1b-instruct:q4_k_m",
+    "model": "qwen3-4b",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -102,16 +105,16 @@ LocalAI also supports the **Anthropic Messages API**, the **Open Responses API**
 
 ## Built-in AI Agents
 
-LocalAI includes a built-in AI agent platform with support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). You can create agents that use tools, browse the web, execute code, and interact with external services — all from the web interface.
+LocalAI includes a built-in AI agent platform with support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). You can create agents that use tools, browse the web, execute code, and interact with external services, all from the web interface.
 
 To get started with agents:
 
 1. Install a model that supports tool calling (most modern LLMs do)
 2. Navigate to the **Agents** page in the web interface
 3. Create a new agent, configure its tools and system prompt
-4. Start chatting — the agent will use tools autonomously
+4. Start chatting; the agent will use tools autonomously
 
-No separate installation required — agents are part of LocalAI.
+No separate installation required: agents are part of LocalAI. For a full step-by-step walkthrough, see [Build your first agent]({{% relref "getting-started/first-agent" %}}).
 
 ## Scaling with Distributed Mode
 
