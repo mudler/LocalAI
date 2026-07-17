@@ -7,6 +7,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func init() {
+	// The real LLM-capability table lives in core/config, which pkg/model must
+	// not import (cycle). Register a fake predicate so the selection algorithm
+	// is exercised here independent of the capability table (#9287).
+	model.RegisterLLMCapableBackendFunc(func(name string) bool {
+		return name == "llama-cpp" || name == "vllm"
+	})
+}
+
 var _ = Describe("SelectAutoLoadBackends (#9287)", func() {
 	Describe("GGUF model auto-detection", func() {
 		It("excludes incompatible audio/codec backends (e.g. opus) for a .gguf model", func() {
