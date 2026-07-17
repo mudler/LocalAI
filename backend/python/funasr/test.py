@@ -43,8 +43,13 @@ class _FakeTorch:
 
 class _FakeAutoModel:
     instances = []
+    attempts = []
+    fail_devices = set()
 
     def __init__(self, **kwargs):
+        _FakeAutoModel.attempts.append(kwargs)
+        if kwargs.get("device") in _FakeAutoModel.fail_devices:
+            raise RuntimeError(f"unsupported device: {kwargs['device']}")
         self.kwargs = kwargs
         self.generate_calls = []
         self.results = [{"text": "hello"}, {"text": " world"}]
@@ -92,6 +97,8 @@ def _load_backend():
     _install_stubs()
     sys.modules.pop("backend", None)
     _FakeAutoModel.instances.clear()
+    _FakeAutoModel.attempts.clear()
+    _FakeAutoModel.fail_devices.clear()
     return importlib.import_module("backend")
 
 
@@ -179,6 +186,66 @@ class TestFunASRBackend(unittest.TestCase):
 
         self.assertTrue(result.success, result.message)
         self.assertEqual(_FakeAutoModel.instances[0].kwargs["device"], "xpu")
+
+    def test_load_model_prefers_requested_cuda_over_xpu_and_mps(self):
+        backend = _load_backend()
+        servicer = backend.BackendServicer()
+        original_cuda = _FakeTorch.cuda
+        original_xpu = _FakeTorch.xpu
+        original_mps = _FakeTorch.backends.mps
+        _FakeTorch.cuda = types.SimpleNamespace(is_available=lambda: True)
+        _FakeTorch.xpu = types.SimpleNamespace(is_available=lambda: True)
+        _FakeTorch.backends.mps = types.SimpleNamespace(is_available=lambda: True)
+        self.addCleanup(setattr, _FakeTorch, "cuda", original_cuda)
+        self.addCleanup(setattr, _FakeTorch, "xpu", original_xpu)
+        self.addCleanup(setattr, _FakeTorch.backends, "mps", original_mps)
+
+        result = servicer.LoadModel(
+            types.SimpleNamespace(Model="iic/SenseVoiceSmall", CUDA=True), None
+        )
+
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(
+            [attempt["device"] for attempt in _FakeAutoModel.attempts], ["cuda"]
+        )
+
+    def test_load_model_retries_cpu_when_xpu_initialization_fails(self):
+        backend = _load_backend()
+        servicer = backend.BackendServicer()
+        original_xpu = _FakeTorch.xpu
+        _FakeTorch.xpu = types.SimpleNamespace(is_available=lambda: True)
+        _FakeAutoModel.fail_devices.add("xpu")
+        self.addCleanup(setattr, _FakeTorch, "xpu", original_xpu)
+
+        result = servicer.LoadModel(
+            types.SimpleNamespace(Model="iic/SenseVoiceSmall", CUDA=False), None
+        )
+
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(
+            [attempt["device"] for attempt in _FakeAutoModel.attempts],
+            ["xpu", "cpu"],
+        )
+        self.assertEqual(_FakeAutoModel.instances[0].kwargs["device"], "cpu")
+
+    def test_load_model_retries_cpu_when_mps_initialization_fails(self):
+        backend = _load_backend()
+        servicer = backend.BackendServicer()
+        original_mps = _FakeTorch.backends.mps
+        _FakeTorch.backends.mps = types.SimpleNamespace(is_available=lambda: True)
+        _FakeAutoModel.fail_devices.add("mps")
+        self.addCleanup(setattr, _FakeTorch.backends, "mps", original_mps)
+
+        result = servicer.LoadModel(
+            types.SimpleNamespace(Model="iic/SenseVoiceSmall", CUDA=False), None
+        )
+
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(
+            [attempt["device"] for attempt in _FakeAutoModel.attempts],
+            ["mps", "cpu"],
+        )
+        self.assertEqual(_FakeAutoModel.instances[0].kwargs["device"], "cpu")
 
     def test_audio_transcription_passes_language_and_builds_segments(self):
         backend = _load_backend()
