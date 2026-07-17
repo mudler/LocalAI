@@ -6173,6 +6173,69 @@
     - filename: qwen3-tts-cpp-1.7b-voicedesign-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
       sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- &mossttscpp_gallery
+  name: moss-tts-cpp-v1_5-q8_0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF
+    - https://github.com/mudler/moss-tts.cpp
+    - https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Local-Transformer-v1.5
+  description: |
+    MOSS-TTS-Local v1.5 (C++/ggml, moss-tts.cpp), Q8_0 (~6 GB), near-lossless. Native
+    C++ text-to-speech for the OpenMOSS MOSS-TTS-Local Transformer v1.5 (a GPT-J local
+    transformer decoded through the MOSS-Audio-Tokenizer-v2 neural codec), 48kHz stereo
+    output with reference-audio voice cloning (set `voice` to a reference .wav). Verified
+    per component against the reference PyTorch and about 2x faster per frame on CPU.
+  license: apache-2.0
+  tags:
+    - moss
+    - moss-tts
+    - moss-tts-cpp
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - gguf
+    - ggml
+  last_checked: "2026-07-16"
+  overrides:
+    backend: moss-tts-cpp
+    known_usecases:
+      - tts
+    name: moss-tts-cpp-v1_5-q8_0
+    parameters:
+      model: moss-tts-cpp-v1_5-q8_0/moss-tts-local-v1_5-q8_0.gguf
+  files:
+    - filename: moss-tts-cpp-v1_5-q8_0/moss-tts-local-v1_5-q8_0.gguf
+      sha256: b3988a118ff5eebb56aaab146ec8d43aa89ff88e6cbe3823d87c1d9abba5247c
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tts-local-v1_5-q8_0.gguf
+    - filename: moss-tts-cpp-v1_5-q8_0/moss-audio-tokenizer-v2-f32.gguf
+      sha256: e5effe67b4307c732e3a66c3405084b1d13091107b62283d36029b7fce90ceb3
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-audio-tokenizer-v2-f32.gguf
+    - filename: moss-tts-cpp-v1_5-q8_0/moss-tokenizer-v1_5.gguf
+      sha256: d0f4f371f80ff32ba222b1b39c192df8285c7b88986a55f954454db69618479e
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tokenizer-v1_5.gguf
+- !!merge <<: *mossttscpp_gallery
+  name: moss-tts-cpp-v1_5-f16
+  description: |
+    MOSS-TTS-Local v1.5 (C++/ggml, moss-tts.cpp), F16 (~9.4 GB), code-exact versus the
+    reference. 48kHz stereo text-to-speech with reference-audio voice cloning.
+  overrides:
+    backend: moss-tts-cpp
+    known_usecases:
+      - tts
+    name: moss-tts-cpp-v1_5-f16
+    parameters:
+      model: moss-tts-cpp-v1_5-f16/moss-tts-local-v1_5-f16.gguf
+  files:
+    - filename: moss-tts-cpp-v1_5-f16/moss-tts-local-v1_5-f16.gguf
+      sha256: 659ff3641c2da2d0d04a1de064d29058ede5491ad100a24ec5f101ef18ce20fe
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tts-local-v1_5-f16.gguf
+    - filename: moss-tts-cpp-v1_5-f16/moss-audio-tokenizer-v2-f32.gguf
+      sha256: e5effe67b4307c732e3a66c3405084b1d13091107b62283d36029b7fce90ceb3
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-audio-tokenizer-v2-f32.gguf
+    - filename: moss-tts-cpp-v1_5-f16/moss-tokenizer-v1_5.gguf
+      sha256: d0f4f371f80ff32ba222b1b39c192df8285c7b88986a55f954454db69618479e
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tokenizer-v1_5.gguf
 - name: omnivoice-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
