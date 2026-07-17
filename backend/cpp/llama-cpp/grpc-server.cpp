@@ -690,6 +690,20 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep default value (0)
                 }
             }
+        } else if (!strcmp(optname, "n_rs_seq") || !strcmp(optname, "rs_seq")) {
+            // Recurrent-state rollback snapshots per sequence. Hybrid models
+            // (deltanet/conv layers) cannot rewind their state, so without
+            // snapshots any prompt-cache reuse that needs a rewind — e.g. a
+            // score task whose probe changed under a stable option-list
+            // prefix — falls back to a full re-prefill. Costs recurrent-state
+            // memory x (1 + N) per sequence; unsupported archs clamp to 0.
+            if (optval != NULL) {
+                try {
+                    params.n_rs_seq = std::stoi(optval_str);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (0)
+                }
+            }
         } else if (!strcmp(optname, "slot_prompt_similarity") || !strcmp(optname, "sps")) {
             if (optval != NULL) {
                 try {
@@ -2999,11 +3013,31 @@ public:
                 n_score_prompt = std::min(n_score_prompt, cand_divergence[ci]);
             }
 
+            // Map the caller's stable-prefix byte length onto a token
+            // index: the last prompt token that ends at or before the
+            // boundary. A checkpoint forced there survives every future
+            // probe under the same option list, which is what keeps
+            // repeat scoring cheap on models that cannot rewind state.
+            int32_t n_stable_prompt = 0;
+            if (request->stable_prefix_len() > 0) {
+                size_t consumed = 0;
+                for (int32_t ti = 0; ti < n_score_prompt; ti++) {
+                    const size_t piece_len = common_token_to_piece(vocab, prompt_tokens[ti]).size();
+                    // BOS and other zero-length specials consume no prompt bytes
+                    if (consumed + piece_len > (size_t) request->stable_prefix_len()) {
+                        break;
+                    }
+                    consumed += piece_len;
+                    n_stable_prompt = ti + 1;
+                }
+            }
+
             server_task task(SERVER_TASK_TYPE_SCORE);
             task.id             = rd.queue_tasks.get_new_id();
             task.index          = 0;
             task.tokens         = server_tokens(llama_tokens(first.begin(), first.begin() + n_shared), false);
             task.n_score_prompt = n_score_prompt;
+            task.n_stable_prompt = n_stable_prompt;
             task.score_suffixes.reserve(included.size());
             for (int32_t ci : included) {
                 task.score_suffixes.emplace_back(cand_tokens[ci].begin() + n_shared, cand_tokens[ci].end());

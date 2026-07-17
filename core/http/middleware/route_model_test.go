@@ -340,7 +340,7 @@ type stubScorer struct {
 	lastCandidates []string
 }
 
-func (s *stubScorer) Score(_ context.Context, prompt string, candidates []string) ([]backend.CandidateScore, error) {
+func (s *stubScorer) Score(_ context.Context, prompt string, _ int, candidates []string) ([]backend.CandidateScore, error) {
 	s.lastPrompt = prompt
 	s.lastCandidates = append([]string(nil), candidates...)
 	out := make([]backend.CandidateScore, len(candidates))

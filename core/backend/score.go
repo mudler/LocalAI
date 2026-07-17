@@ -23,6 +23,10 @@ type ScoreOptions struct {
 	// token count. Useful when comparing candidates of different
 	// lengths — without it, longer candidates score lower by default.
 	LengthNormalize bool
+	// StablePrefixLen is the byte length of the prompt prefix that stays
+	// identical across repeated scoring calls (0 = unknown); forwarded to
+	// the backend as a state-reuse boundary hint.
+	StablePrefixLen int
 }
 
 // CandidateScore is the per-candidate result. Mirrors pb.CandidateScore
@@ -42,9 +46,13 @@ type TokenLogProb struct {
 // Scorer evaluates a model's joint log-probability of each candidate
 // continuation given a shared prompt. Implemented by NewScorer over a
 // model-loaded backend; the router's score classifier consumes this
-// for multi-label policy selection.
+// for multi-label policy selection. stablePrefixLen is the byte length
+// of the prompt prefix that stays identical across calls (0 = unknown)
+// — backends use it to place a state-reuse point at the boundary, which
+// is what keeps repeat scoring fast on models that cannot rewind
+// (hybrid/recurrent architectures).
 type Scorer interface {
-	Score(ctx context.Context, prompt string, candidates []string) ([]CandidateScore, error)
+	Score(ctx context.Context, prompt string, stablePrefixLen int, candidates []string) ([]CandidateScore, error)
 }
 
 // NewScorer binds (loader, modelConfig, appConfig) into a Scorer. The
@@ -61,8 +69,8 @@ type modelScorer struct {
 	appConfig   *config.ApplicationConfig
 }
 
-func (m *modelScorer) Score(ctx context.Context, prompt string, candidates []string) ([]CandidateScore, error) {
-	fn, err := ModelScore(prompt, candidates, ScoreOptions{LengthNormalize: true}, m.loader, m.modelConfig, m.appConfig)
+func (m *modelScorer) Score(ctx context.Context, prompt string, stablePrefixLen int, candidates []string) ([]CandidateScore, error) {
+	fn, err := ModelScore(prompt, candidates, ScoreOptions{LengthNormalize: true, StablePrefixLen: stablePrefixLen}, m.loader, m.modelConfig, m.appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +110,7 @@ func ModelScore(prompt string, candidates []string, opts ScoreOptions, loader *m
 			Candidates:           candidates,
 			IncludeTokenLogprobs: opts.IncludeTokenLogprobs,
 			LengthNormalize:      opts.LengthNormalize,
+			StablePrefixLen:      int32(opts.StablePrefixLen),
 		})
 		results := scoreResponseToCandidates(resp, opts.IncludeTokenLogprobs)
 		if appConfig.EnableTracing {
