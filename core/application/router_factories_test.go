@@ -109,7 +109,7 @@ var _ = Describe("router_factories lazy config resolution", func() {
 			Expect(lazy.modelName).To(Equal("score-test"))
 
 			removeCfg("score-test")
-			_, err := sc.Score(context.Background(), "prompt", []string{"a"})
+			_, err := sc.Score(context.Background(), "prompt", 0, []string{"a"})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no longer available"))
 		})

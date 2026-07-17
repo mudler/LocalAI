@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -144,6 +145,17 @@ type ScoreClassifier struct {
 	budget *lazyBudget
 
 	cache *labelSetCache
+
+	// stablePrefix is the rendered-prompt prefix shared by every probe:
+	// the chat template's preamble plus the option-list system prompt,
+	// up to where the per-turn text begins. Computed once (the byte-wise
+	// common prefix of two synthetic probes) and sent with each Score
+	// call as a state-reuse boundary hint — on backends whose models
+	// cannot rewind state (hybrid/recurrent), a snapshot at this
+	// boundary is what keeps repeat scoring at probe-size cost instead
+	// of a full option-list re-prefill.
+	stablePrefixOnce sync.Once
+	stablePrefix     string
 }
 
 // NewScoreClassifier panics on caller errors at construction (empty
@@ -252,6 +264,32 @@ func (c *ScoreClassifier) renderProbe(p Probe) (prompt, userText string, err err
 	return prompt, userText, err
 }
 
+// stablePrefixLen returns the byte length of prompt's leading run that
+// is invariant across probes, by rendering two synthetic probes with no
+// common text and taking their byte-wise common prefix. Clamped against
+// the actual prompt so a template that (unexpectedly) varies its
+// preamble degrades to a shorter hint, never a wrong one.
+func (c *ScoreClassifier) stablePrefixLen(prompt string) int {
+	c.stablePrefixOnce.Do(func() {
+		a, aErr := c.renderer(c.systemPrompt, "\x02")
+		b, bErr := c.renderer(c.systemPrompt, "\x03")
+		if aErr != nil || bErr != nil {
+			return
+		}
+		n := 0
+		for n < len(a) && n < len(b) && a[n] == b[n] {
+			n++
+		}
+		c.stablePrefix = a[:n]
+	})
+	n := 0
+	limit := min(len(c.stablePrefix), len(prompt))
+	for n < limit && prompt[n] == c.stablePrefix[n] {
+		n++
+	}
+	return n
+}
+
 // SlotFillPrompt returns the completion prompt for filling a chosen
 // label's argument slots: the identical prompt Classify scored — so the
 // backend's prompt cache is already warm with it — continued by the
@@ -281,7 +319,7 @@ func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, erro
 	if hit, ok := c.cache.get(key); ok {
 		return Decision{Labels: hit, Score: 1.0, Latency: time.Since(start)}, nil
 	}
-	results, err := c.scorer.Score(ctx, prompt, c.candidates)
+	results, err := c.scorer.Score(ctx, prompt, c.stablePrefixLen(prompt), c.candidates)
 	if err != nil {
 		xlog.Warn("router: score classifier failed", "error", err, "labels", c.labelOrder)
 		return errDecision(start, fmt.Errorf("score classify: %w", err))
