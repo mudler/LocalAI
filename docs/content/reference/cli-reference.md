@@ -106,7 +106,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--auth-enabled` | `false` | Enable user authentication and authorization | `$LOCALAI_AUTH` |
-| `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth — `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
+| `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth - `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
 | `--github-client-id` | | GitHub OAuth App Client ID (auto-enables auth when set) | `$GITHUB_CLIENT_ID` |
 | `--github-client-secret` | | GitHub OAuth App Client Secret | `$GITHUB_CLIENT_SECRET` |
 | `--oidc-issuer` | | OIDC issuer URL for auto-discovery | `$LOCALAI_OIDC_ISSUER` |

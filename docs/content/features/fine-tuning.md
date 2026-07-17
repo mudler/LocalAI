@@ -140,12 +140,12 @@ GRPO training requires reward functions to evaluate model completions. Specify t
 
 | Name | Description | Parameters |
 |------|-------------|-----------|
-| `format_reward` | Checks `<think>...</think>` then answer format (1.0/0.0) | — |
-| `reasoning_accuracy_reward` | Extracts `<answer>` content, compares to dataset's `answer` column | — |
+| `format_reward` | Checks `<think>...</think>` then answer format (1.0/0.0) | - |
+| `reasoning_accuracy_reward` | Extracts `<answer>` content, compares to dataset's `answer` column | - |
 | `length_reward` | Score based on proximity to target length [0, 1] | `target_length` (default: 200) |
-| `xml_tag_reward` | Scores properly opened/closed `<think>` and `<answer>` tags | — |
-| `no_repetition_reward` | Penalizes n-gram repetition [0, 1] | — |
-| `code_execution_reward` | Checks Python code block syntax validity (1.0/0.0) | — |
+| `xml_tag_reward` | Scores properly opened/closed `<think>` and `<answer>` tags | - |
+| `no_repetition_reward` | Penalizes n-gram repetition [0, 1] | - |
+| `code_execution_reward` | Checks Python code block syntax validity (1.0/0.0) | - |
 
 #### Inline Custom Reward Functions
 
@@ -201,10 +201,10 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs \
 
 When fine-tuning is enabled, a "Fine-Tune" page appears in the sidebar under the Agents section. The UI provides:
 
-1. **Job Configuration** — Select backend, model, training method, adapter type, and hyperparameters
-2. **Dataset Upload** — Upload local datasets or reference HuggingFace datasets
-3. **Training Monitor** — Real-time loss chart, progress bar, metrics display
-4. **Export** — Export trained models in various formats
+1. **Job Configuration** - Select backend, model, training method, adapter type, and hyperparameters
+2. **Dataset Upload** - Upload local datasets or reference HuggingFace datasets
+3. **Training Monitor** - Real-time loss chart, progress bar, metrics display
+4. **Export** - Export trained models in various formats
 
 ## Dataset Formats
 

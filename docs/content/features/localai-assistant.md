@@ -19,7 +19,7 @@ The same MCP server is published as a Go package and can also be served over **s
 
 ## Enabling the assistant in chat
 
-Open the chat UI as an **admin** user and pick a chat-capable model in the model selector. The header shows a **Manage** toggle — flip it on, and a `Manage mode` badge appears next to the chat title. Starter chips ("What is installed?", "Install a chat model", "Show system status", "Update a backend") help you get going.
+Open the chat UI as an **admin** user and pick a chat-capable model in the model selector. The header shows a **Manage** toggle - flip it on, and a `Manage mode` badge appears next to the chat title. Starter chips ("What is installed?", "Install a chat model", "Show system status", "Update a backend") help you get going.
 
 The home page also exposes a **Manage by chat** CTA that opens a fresh chat already in Manage mode.
 
@@ -43,7 +43,7 @@ When disabled, the chat handler refuses requests with `metadata.localai_assistan
 
 - The chat toggle is hidden for non-admin users.
 - The chat handler re-checks admin role at request time even when auth is configured to skip the assistant feature gate (defense in depth).
-- The MCP server itself is in-process — there is no localhost loopback, no synthetic API key, and no extra TCP socket.
+- The MCP server itself is in-process - there is no localhost loopback, no synthetic API key, and no extra TCP socket.
 - Mutating tools (`install_model`, `delete_model`, `edit_model_config`, `upgrade_backend`, …) are guarded by a system-prompt rule that requires the LLM to confirm the action with the user before calling them. There is no separate code-side preview/apply step.
 
 ## Standalone stdio MCP server
@@ -52,7 +52,7 @@ You can run the same admin tool surface as a stdio MCP server pointed at any Loc
 
 ```bash
 local-ai mcp-server --target http://remote.localai:8080 --api-key <admin-key>
-# read-only mode — skips registration of every mutating tool
+# read-only mode - skips registration of every mutating tool
 local-ai mcp-server --target http://remote.localai:8080 --read-only
 ```
 

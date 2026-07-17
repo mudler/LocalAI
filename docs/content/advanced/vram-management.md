@@ -141,7 +141,7 @@ LOCALAI_SINGLE_ACTIVE_BACKEND=true ./local-ai
 
 ## Solution 1b: Concurrency Groups (per-model anti-affinity)
 
-`--max-active-backends` is a global count — three loaded models is fine, but it
+`--max-active-backends` is a global count - three loaded models is fine, but it
 doesn't know that two of them are 120B and shouldn't share a GPU.
 **Concurrency groups** give per-model rules: any two models that share a group
 name are mutually exclusive on the same node. Loading one evicts the others.
@@ -154,7 +154,7 @@ This addresses [issue #9659](https://github.com/mudler/LocalAI/issues/9659):
 
 ### Configuration
 
-Declare groups per model in the YAML config — no CLI flag, no env var:
+Declare groups per model in the YAML config - no CLI flag, no env var:
 
 ```yaml
 # llama-120b-a.yaml
@@ -175,7 +175,7 @@ concurrency_groups: ["vram-heavy"]
 ```
 
 ```yaml
-# zed-predict.yaml — no groups, runs alongside anything
+# zed-predict.yaml - no groups, runs alongside anything
 name: zed-predict
 backend: llama-cpp
 parameters:
@@ -190,7 +190,7 @@ With this configuration:
    `vram-heavy`); `zed-predict` stays loaded.
 
 A model can declare multiple groups; two models conflict if they share **any**
-group name. Group names are arbitrary strings — pick names that make sense for
+group name. Group names are arbitrary strings - pick names that make sense for
 your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
 
 ### Interaction with other knobs
@@ -198,7 +198,7 @@ your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
 - **`--max-active-backends`**: groups are checked *before* the LRU cap. Group
   evictions may already make room; LRU then enforces the global count.
 - **`pinned: true`**: a pinned model is never evicted, including by a group
-  conflict. The new request is loaded with a warning logged — pinning two
+  conflict. The new request is loaded with a warning logged - pinning two
   models in the same group is a configuration mismatch.
 - **`--force-eviction-when-busy`**: same retry semantics as LRU. A busy
   conflict is skipped and retried (`--lru-eviction-max-retries`,
@@ -207,7 +207,7 @@ your hardware (`vram-heavy`, `gpu-1`, `large-context`, ...).
 
 ### Distributed mode
 
-`concurrency_groups` is enforced **per node**, not cluster-wide — VRAM is a
+`concurrency_groups` is enforced **per node**, not cluster-wide - VRAM is a
 node-local resource, so two heavy models on different nodes is fine. The
 distributed scheduler additionally uses the rule as a placement hint: when
 choosing where to load a new model, it prefers nodes that don't already host a
@@ -215,7 +215,7 @@ same-group model, falling back to eviction only if every candidate has a
 conflict.
 
 `concurrency_groups` composes with `NodeSelector` (which decides *which
-nodes* a model is eligible for) — the two filters apply in sequence. Use
+nodes* a model is eligible for) - the two filters apply in sequence. Use
 `NodeSelector` to target hardware classes; use `concurrency_groups` to keep
 specific models from co-residing on whichever node hosts them.
 
@@ -424,7 +424,7 @@ curl -X POST http://localhost:8080/backend/shutdown \
 
 To stop all models, you'll need to call the endpoint for each loaded model individually, or use the web UI to stop all models at once.
 
-Conversely, you can pre-load a model into memory ahead of its first request with `POST /backend/load` (the inverse of shutdown) — see [Backend Monitor]({{%relref "operations/backend-monitor" %}}).
+Conversely, you can pre-load a model into memory ahead of its first request with `POST /backend/load` (the inverse of shutdown) - see [Backend Monitor]({{%relref "operations/backend-monitor" %}}).
 
 ### Best Practices
 

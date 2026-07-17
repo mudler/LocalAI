@@ -172,7 +172,7 @@ If your GPU is not in the default target list, open up an Issue. Supported targe
 docker run --device /dev/dri ...
 ```
 
-Use container images with `gpu-intel` in the tag. **Known issue:** SYCL hangs when `mmap: true` is set — disable it in your model config:
+Use container images with `gpu-intel` in the tag. **Known issue:** SYCL hangs when `mmap: true` is set - disable it in your model config:
 
 ```yaml
 mmap: false
@@ -429,7 +429,7 @@ LOCALAI_P2P_DISABLE_DHT=true local-ai run
 ### P2P Limitations
 
 - Only a single model is currently supported for distributed inference
-- Workers must be detected before inference starts — you cannot add workers mid-inference
+- Workers must be detected before inference starts - you cannot add workers mid-inference
 - Workers mode supports llama-cpp compatible models only
 
 See the [Distributed Inferencing guide](/features/distributed-inferencing/) for full setup instructions.

@@ -14,7 +14,7 @@ LocalAI can forward chat-completion and Anthropic Messages requests to an
 external provider instead of running them through the local gRPC backend
 pipeline. Configure a model with `backend: cloud-proxy` and a `proxy.upstream_url`,
 and LocalAI bypasses templating, MCP injection, and the local model loader
-entirely — the upstream sees the body the client sent (with only the top-level
+entirely - the upstream sees the body the client sent (with only the top-level
 `model` field optionally rewritten).
 
 The streaming PII filter still runs over the upstream's SSE stream, so cloud
@@ -22,7 +22,7 @@ egress remains subject to the same redaction rules a local model would apply.
 
 ## When to use this
 
-- Mix local and cloud models in the same LocalAI instance — clients hit one
+- Mix local and cloud models in the same LocalAI instance - clients hit one
   endpoint, LocalAI dispatches per model.
 - Apply LocalAI's auth, usage tracking, and PII redaction to cloud traffic
   before the body leaves the network.
@@ -42,15 +42,15 @@ egress remains subject to the same redaction rules a local model would apply.
 6. The streaming PII filter rewrites per-token text in flight; the upstream's
    event names and metadata pass through unchanged.
 
-Passthrough mode is **wire-format-faithful** — it does not translate request
+Passthrough mode is **wire-format-faithful** - it does not translate request
 shapes between providers. A client posting an OpenAI-shaped body to an
 Anthropic upstream will get a confused upstream. Use the matching wire format,
 or switch to translate mode (below).
 
 ## Configuration
 
-The cloud-proxy backend has one knob — the provider it should authenticate
-against — and two modes:
+The cloud-proxy backend has one knob - the provider it should authenticate
+against - and two modes:
 
 | `proxy.mode` | What it does | When to use |
 |---|---|---|
@@ -113,7 +113,7 @@ proxy:
 
 pii:
   enabled: true
-  # Block — not just mask — leaked credentials before they reach the upstream.
+  # Block - not just mask - leaked credentials before they reach the upstream.
   patterns:
     - id: api_key_prefix
       action: block
@@ -159,7 +159,7 @@ proxy:
   upstream_model: claude-3-5-sonnet-20241022
 ```
 
-Translate mode currently routes only pure-text completions — tool calls,
+Translate mode currently routes only pure-text completions - tool calls,
 image blocks, and per-request usage tokens are dropped through the
 internal `Predict()` signature. Use passthrough mode when your clients need
 the upstream's full feature set.
@@ -226,10 +226,10 @@ for the full router and PII-filter reference.
 
 ## Operational notes
 
-- Cloud-proxy backends load like any other gRPC backend — they consume one
+- Cloud-proxy backends load like any other gRPC backend - they consume one
   process per loaded model and appear in the backend management view, but
   they hold no GPU memory.
 - Usage stats and the trace log capture cloud-proxy requests like any other
   request. Token counts come from the upstream's `usage` field when present.
-- Set `request_timeout_seconds` defensively — a hung upstream otherwise ties
+- Set `request_timeout_seconds` defensively - a hung upstream otherwise ties
   up an HTTP handler until the client disconnects.

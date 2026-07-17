@@ -13,8 +13,8 @@ categories = ["Features"]
 LocalAI can act as a local HTTPS proxy that **redacts PII from your Claude
 Code, OpenAI Codex CLI, or any HTTPS client** without holding their API keys.
 The proxy intercepts only the LLM API endpoints you allowlist (default:
-`api.anthropic.com`, `api.openai.com`); everything else — OAuth, telemetry,
-package fetches — passes through as a plain TCP tunnel.
+`api.anthropic.com`, `api.openai.com`); everything else - OAuth, telemetry,
+package fetches - passes through as a plain TCP tunnel.
 
 Use this when:
 
@@ -40,11 +40,11 @@ and distributing the generated CA cert.
    to the real upstream over its own TLS connection.
 5. The streaming SSE response runs through the same `pii.StreamFilter`
    the cloud-proxy backend uses.
-6. For non-allowlisted hosts, the proxy is a plain CONNECT tunnel — no
+6. For non-allowlisted hosts, the proxy is a plain CONNECT tunnel - no
    TLS termination, no inspection, no CA trust required.
 
 The CLI authenticates with its own subscription / API key as it normally
-would. LocalAI never holds the credential — it just observes and rewrites
+would. LocalAI never holds the credential - it just observes and rewrites
 the request body.
 
 ## Quick start
@@ -78,7 +78,7 @@ PII the model emits in its streaming response is masked before reaching
 your terminal. Events appear in the LocalAI middleware admin page under
 **Filtering → Recent events**.
 
-The same works for Codex CLI — set `HTTPS_PROXY` and `NODE_EXTRA_CA_CERTS`
+The same works for Codex CLI - set `HTTPS_PROXY` and `NODE_EXTRA_CA_CERTS`
 and run `codex`.
 
 ## Configuration
@@ -131,7 +131,7 @@ include MITM events alongside direct-API events.
 - **The CA private key is the master credential.** Anyone with read
   access to `<data-path>/mitm-ca/ca.key` can forge TLS for any host the
   proxy could intercept. The file is mode 0600; keep it that way.
-- The proxy listener accepts plaintext HTTP `CONNECT` requests — bind it
+- The proxy listener accepts plaintext HTTP `CONNECT` requests - bind it
   to localhost (`--mitm-listen 127.0.0.1:8443`) unless you've added auth
   in front of the listener. There is no built-in API-key check on this
   port.

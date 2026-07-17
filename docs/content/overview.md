@@ -29,15 +29,15 @@ In today's AI landscape, privacy, control, and flexibility are paramount. LocalA
 
 The LocalAI core is a single small binary (or container). It gives you everything you need to serve models, and pulls each model backend on demand, so you install only what you use:
 
-- **OpenAI-compatible API** — Drop-in replacement for OpenAI, Anthropic, and Open Responses APIs
-- **Built-in Web Interface** — Chat, model management, agent creation, image generation, and system monitoring
-- **AI Agents** — Create autonomous agents with MCP (Model Context Protocol) tool support, directly from the UI
+- **OpenAI-compatible API** - Drop-in replacement for OpenAI, Anthropic, and Open Responses APIs
+- **Built-in Web Interface** - Chat, model management, agent creation, image generation, and system monitoring
+- **AI Agents** - Create autonomous agents with MCP (Model Context Protocol) tool support, directly from the UI
 - **Any Model, Any Modality**: LLMs, image and video, text-to-speech, speech-to-text, vision, and embeddings, each on its own backend, pulled automatically when you load a model
-- **GPU Acceleration** — Automatic detection and support for NVIDIA, AMD, Intel, and Vulkan GPUs
-- **Distributed Mode** — Scale horizontally with worker nodes, P2P federation, and model sharding
-- **No GPU Required** — Runs on CPU with consumer-grade hardware
+- **GPU Acceleration** - Automatic detection and support for NVIDIA, AMD, Intel, and Vulkan GPUs
+- **Distributed Mode** - Scale horizontally with worker nodes, P2P federation, and model sharding
+- **No GPU Required** - Runs on CPU with consumer-grade hardware
 
-LocalAI integrates [LocalAGI](https://github.com/mudler/LocalAGI) (agent platform) and [LocalRecall](https://github.com/mudler/LocalRecall) (semantic memory) as built-in libraries — no separate installation needed.
+LocalAI integrates [LocalAGI](https://github.com/mudler/LocalAGI) (agent platform) and [LocalRecall](https://github.com/mudler/LocalRecall) (semantic memory) as built-in libraries - no separate installation needed.
 
 Each backend is a dedicated gRPC service that LocalAI builds around a best-in-class engine (llama.cpp, vLLM, whisper.cpp, stable-diffusion, MLX, and more), exposing it through the unified API. Backends ship as standard OCI images and run as isolated processes, so each one can be installed, upgraded, or removed without touching the core, can even run on a separate machine, and a fault in one never brings down the rest.
 
@@ -97,8 +97,8 @@ Ready to dive in? Here are some recommended next steps:
 
 LocalAI is created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the LocalAI team:
 
-- **[Ettore Di Giacinto](https://github.com/mudler)** — original author and project lead
-- **[Richard Palethorpe](https://github.com/richiejp)** — maintainer
+- **[Ettore Di Giacinto](https://github.com/mudler)** - original author and project lead
+- **[Richard Palethorpe](https://github.com/richiejp)** - maintainer
 
 LocalAI is helped by the wider community of contributors. See the full [contributors list](https://github.com/mudler/LocalAI/graphs/contributors).
 

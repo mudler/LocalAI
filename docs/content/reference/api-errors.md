@@ -94,7 +94,7 @@ The `/v1/responses` endpoint returns errors with this structure:
 
 ### Authentication Errors (401)
 
-When authentication is enabled — either via API keys (`LOCALAI_API_KEY`) or the user auth system (`LOCALAI_AUTH=true`) — API requests must include valid credentials. Credentials can be provided through:
+When authentication is enabled - either via API keys (`LOCALAI_API_KEY`) or the user auth system (`LOCALAI_AUTH=true`) - API requests must include valid credentials. Credentials can be provided through:
 
 - `Authorization: Bearer <key>` header (API key, user API key, or session ID)
 - `x-api-key: <key>` header
@@ -160,7 +160,7 @@ When `LOCALAI_OPAQUE_ERRORS=true` is set, all error responses return an empty bo
 
 ## Per-Endpoint Error Scenarios
 
-### Chat Completions — `POST /v1/chat/completions`
+### Chat Completions - `POST /v1/chat/completions`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -177,14 +177,14 @@ curl http://localhost:8080/v1/chat/completions \
 
 See also: [Text Generation]({{%relref "features/text-generation" %}})
 
-### Completions — `POST /v1/completions`
+### Completions - `POST /v1/completions`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-### Embeddings — `POST /v1/embeddings`
+### Embeddings - `POST /v1/embeddings`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -194,7 +194,7 @@ See also: [Text Generation]({{%relref "features/text-generation" %}})
 
 See also: [Embeddings]({{%relref "features/embeddings" %}})
 
-### Image Generation — `POST /v1/images/generations`
+### Image Generation - `POST /v1/images/generations`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -204,7 +204,7 @@ See also: [Embeddings]({{%relref "features/embeddings" %}})
 
 See also: [Image Generation]({{%relref "features/image-generation" %}})
 
-### Image Editing (Inpainting) — `POST /v1/images/edits`
+### Image Editing (Inpainting) - `POST /v1/images/edits`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -213,7 +213,7 @@ See also: [Image Generation]({{%relref "features/image-generation" %}})
 | 400    | Missing `mask` file             | `missing mask file`                   |
 | 500    | Storage preparation failure     | `failed to prepare storage`           |
 
-### Audio Transcription — `POST /v1/audio/transcriptions`
+### Audio Transcription - `POST /v1/audio/transcriptions`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -223,7 +223,7 @@ See also: [Image Generation]({{%relref "features/image-generation" %}})
 
 See also: [Audio to Text]({{%relref "features/audio-to-text" %}})
 
-### Text to Speech — `POST /v1/audio/speech`, `POST /tts`
+### Text to Speech - `POST /v1/audio/speech`, `POST /tts`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -233,7 +233,7 @@ See also: [Audio to Text]({{%relref "features/audio-to-text" %}})
 
 See also: [Text to Audio]({{%relref "features/text-to-audio" %}})
 
-### ElevenLabs TTS — `POST /v1/text-to-speech/:voice-id`
+### ElevenLabs TTS - `POST /v1/text-to-speech/:voice-id`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -241,7 +241,7 @@ See also: [Text to Audio]({{%relref "features/text-to-audio" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-### ElevenLabs Sound Generation — `POST /v1/sound-generation`
+### ElevenLabs Sound Generation - `POST /v1/sound-generation`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -249,7 +249,7 @@ See also: [Text to Audio]({{%relref "features/text-to-audio" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-### Reranking — `POST /v1/rerank`, `POST /jina/v1/rerank`
+### Reranking - `POST /v1/rerank`, `POST /jina/v1/rerank`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -259,7 +259,7 @@ See also: [Text to Audio]({{%relref "features/text-to-audio" %}})
 
 See also: [Reranker]({{%relref "features/reranker" %}})
 
-### Anthropic Messages — `POST /v1/messages`
+### Anthropic Messages - `POST /v1/messages`
 
 | Status | Cause                            | Error Type              | Example Message                                |
 |--------|----------------------------------|-------------------------|-------------------------------------------------|
@@ -286,7 +286,7 @@ curl http://localhost:8080/v1/messages \
 }
 ```
 
-### Open Responses — `POST /v1/responses`
+### Open Responses - `POST /v1/responses`
 
 | Status | Cause                               | Error Type              | Example Message                                        |
 |--------|-------------------------------------|-------------------------|--------------------------------------------------------|
@@ -319,14 +319,14 @@ curl http://localhost:8080/v1/responses \
 }
 ```
 
-### Open Responses — `GET /v1/responses/:id`
+### Open Responses - `GET /v1/responses/:id`
 
 | Status | Cause                     | Error Type              | Example Message                  |
 |--------|---------------------------|-------------------------|----------------------------------|
 | 400    | Missing response ID       | `invalid_request_error` | `response ID is required`        |
 | 404    | Response not found        | `not_found`             | `response not found: <id>`       |
 
-### Open Responses Events — `GET /v1/responses/:id/events`
+### Open Responses Events - `GET /v1/responses/:id/events`
 
 | Status | Cause                                | Error Type              | Example Message                                         |
 |--------|--------------------------------------|-------------------------|---------------------------------------------------------|
@@ -336,7 +336,7 @@ curl http://localhost:8080/v1/responses \
 | 404    | Response not found                   | `not_found`             | `response not found: <id>`                              |
 | 500    | Failed to retrieve events            | `server_error`          | `failed to get events: <details>`                       |
 
-### Object Detection — `POST /v1/detection`
+### Object Detection - `POST /v1/detection`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -346,7 +346,7 @@ curl http://localhost:8080/v1/responses \
 
 See also: [Object Detection]({{%relref "features/object-detection" %}})
 
-### Video Generation — `POST /v1/video/generations`
+### Video Generation - `POST /v1/video/generations`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -354,7 +354,7 @@ See also: [Object Detection]({{%relref "features/object-detection" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-### Voice Activity Detection — `POST /v1/audio/vad`
+### Voice Activity Detection - `POST /v1/audio/vad`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
@@ -362,14 +362,14 @@ See also: [Object Detection]({{%relref "features/object-detection" %}})
 | 400    | Model not found in configuration | `Bad Request`                       |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
-### Tokenize — `POST /v1/tokenize`
+### Tokenize - `POST /v1/tokenize`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 400    | Model not found in configuration | `Bad Request`                       |
 
-### Models — `GET /v1/models`, `GET /models`
+### Models - `GET /v1/models`, `GET /models`
 
 | Status | Cause                          | Example Message                       |
 |--------|--------------------------------|---------------------------------------|

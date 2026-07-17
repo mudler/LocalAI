@@ -28,13 +28,13 @@ New to agents? The [Build your first agent]({{% relref "getting-started/first-ag
 The agent system provides:
 
 - **Autonomous agents** with configurable goals, personalities, and capabilities
-- **Tool/Action support** — agents can execute actions (web search, code execution, API calls, etc.)
-- **Knowledge base (RAG)** — per-agent collections with document upload, chunking, and semantic search
-- **Skills system** — reusable skill definitions that agents can leverage, with git-based skill repositories
-- **SSE streaming** — real-time chat with agents via Server-Sent Events
-- **Import/Export** — share agent configurations as JSON files
-- **Agent Hub** — browse and download ready-made agents from [agenthub.localai.io](https://agenthub.localai.io)
-- **Web UI** — full management interface for creating, editing, chatting with, and monitoring agents
+- **Tool/Action support** - agents can execute actions (web search, code execution, API calls, etc.)
+- **Knowledge base (RAG)** - per-agent collections with document upload, chunking, and semantic search
+- **Skills system** - reusable skill definitions that agents can leverage, with git-based skill repositories
+- **SSE streaming** - real-time chat with agents via Server-Sent Events
+- **Import/Export** - share agent configurations as JSON files
+- **Agent Hub** - browse and download ready-made agents from [agenthub.localai.io](https://agenthub.localai.io)
+- **Web UI** - full management interface for creating, editing, chatting with, and monitoring agents
 
 ## Getting Started
 
@@ -57,7 +57,7 @@ You can import agent configurations from JSON files:
 
 1. Download an agent configuration from the [Agent Hub](https://agenthub.localai.io) or export one from another LocalAI instance
 2. On the **Agents** page, click **Import**
-3. Select the JSON file — you'll be taken to the edit form to review and adjust the configuration before saving
+3. Select the JSON file - you'll be taken to the edit form to review and adjust the configuration before saving
 4. Click **Create Agent** to finalize the import
 
 ## Configuration
@@ -91,7 +91,7 @@ All agent-related settings can be configured via environment variables:
 
 ### Knowledge Base Storage
 
-By default, the knowledge base uses **chromem** — an in-process vector store that requires no external dependencies. For production deployments with larger knowledge bases, you can switch to **PostgreSQL** with pgvector support:
+By default, the knowledge base uses **chromem** - an in-process vector store that requires no external dependencies. For production deployments with larger knowledge bases, you can switch to **PostgreSQL** with pgvector support:
 
 ```bash
 LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
@@ -102,7 +102,7 @@ The PostgreSQL image `quay.io/mudler/localrecall:v0.5.2-postgresql` is pre-confi
 
 #### Connection safety timeouts (PostgreSQL only)
 
-The embedded vector store sets per-connection timeouts so a single stuck or corrupt index can never hold a lock indefinitely and stall every other collection operation. Safe defaults are applied automatically — you only need to set these to override them:
+The embedded vector store sets per-connection timeouts so a single stuck or corrupt index can never hold a lock indefinitely and stall every other collection operation. Safe defaults are applied automatically - you only need to set these to override them:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -187,13 +187,13 @@ volumes:
 
 Each agent has its own configuration that controls its behavior. Key settings include:
 
-- **Name** — unique identifier for the agent
-- **Model** — the LLM model the agent uses for reasoning
-- **System Prompt** — defines the agent's personality and instructions
-- **Actions** — tools the agent can use (web search, code execution, etc.). See the {{% relref "features/agent-actions" %}} for the full catalog of built-in actions and how to configure each one.
-- **Connectors** — external integrations (Slack, Discord, etc.)
-- **Knowledge Base** — collections of documents for RAG
-- **MCP Servers** — Model Context Protocol servers for additional tool access
+- **Name** - unique identifier for the agent
+- **Model** - the LLM model the agent uses for reasoning
+- **System Prompt** - defines the agent's personality and instructions
+- **Actions** - tools the agent can use (web search, code execution, etc.). See the {{% relref "features/agent-actions" %}} for the full catalog of built-in actions and how to configure each one.
+- **Connectors** - external integrations (Slack, Discord, etc.)
+- **Knowledge Base** - collections of documents for RAG
+- **MCP Servers** - Model Context Protocol servers for additional tool access
 
 The pool-level defaults (API URL, API key, models) can be set via environment variables. Individual agents can further override these in their configuration, allowing them to use different LLM providers (OpenAI, other LocalAI instances, etc.) on a per-agent basis.
 
@@ -375,10 +375,10 @@ curl -N http://localhost:8080/api/agents/my-agent/sse
 
 The SSE stream emits the following event types:
 
-- `json_message` — agent/user messages
-- `json_message_status` — processing status updates (`processing` / `completed`)
-- `status` — system messages (reasoning steps, action results)
-- `json_error` — error notifications
+- `json_message` - agent/user messages
+- `json_message_status` - processing status updates (`processing` / `completed`)
+- `status` - system messages (reasoning steps, action results)
+- `json_error` - error notifications
 
 ## Generated Files and Outputs
 
@@ -393,7 +393,7 @@ Some agent actions (image generation, PDF creation, audio synthesis) produce fil
 
 This design ensures that:
 - Actions can write files to any directory they need
-- The file-serving endpoint is confined to a single trusted directory — no arbitrary filesystem access
+- The file-serving endpoint is confined to a single trusted directory - no arbitrary filesystem access
 - Symlink traversal is blocked via `filepath.EvalSymlinks` validation
 
 ### Accessing Generated Files
@@ -440,7 +440,7 @@ This returns a JSON object including the `outputsDir` field.
 
 Agents run in-process within LocalAI. By default, each agent calls back into LocalAI's own API (`http://127.0.0.1:<port>/v1/chat/completions`) for LLM inference. This means:
 
-- No external dependencies — everything runs in a single binary
+- No external dependencies - everything runs in a single binary
 - Agents use the same models loaded in LocalAI
 - Per-agent overrides allow pointing individual agents to external providers
 - Agent state is persisted to disk and restored on restart

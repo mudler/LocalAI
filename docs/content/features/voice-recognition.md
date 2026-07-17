@@ -96,11 +96,11 @@ under one image.
 
 | Gallery entry | Model | Size | License |
 |---|---|---|---|
-| `speechbrain-ecapa-tdnn` | ECAPA-TDNN on VoxCeleb (SpeechBrain) | ~17 MB | **Apache 2.0 — commercial-safe** |
-| `wespeaker-resnet34` | WeSpeaker ResNet34 ONNX | ~26 MB | **Apache 2.0 — commercial-safe** |
+| `speechbrain-ecapa-tdnn` | ECAPA-TDNN on VoxCeleb (SpeechBrain) | ~17 MB | **Apache 2.0 - commercial-safe** |
+| `wespeaker-resnet34` | WeSpeaker ResNet34 ONNX | ~26 MB | **Apache 2.0 - commercial-safe** |
 
 Both entries are commercial-safe Apache-2.0. SpeechBrain is the
-default — it's a lightweight pure-PyTorch checkpoint that auto-
+default - it's a lightweight pure-PyTorch checkpoint that auto-
 downloads on first use. The `wespeaker-resnet34` entry wires the
 direct-ONNX path for CPU-only deployments that don't want the torch
 runtime.
@@ -181,7 +181,7 @@ hood.
 **Storage caveat.** The default vector store is in-memory. All
 registered speakers are lost when LocalAI restarts. Persistent storage
 (pgvector) is a tracked future enhancement shared with face
-recognition — the voice-recognition HTTP API is designed to swap the
+recognition - the voice-recognition HTTP API is designed to swap the
 backing store without changing the wire format.
 {{% /notice %}}
 
@@ -194,7 +194,7 @@ backing store without changing the wire format.
 | `model` | string | gallery entry name (e.g. `speechbrain-ecapa-tdnn`) |
 | `audio1`, `audio2` | string | URL, base64, or data-URI of an audio file |
 | `threshold` | float, optional | cosine-distance cutoff; default 0.25 for ECAPA-TDNN |
-| `anti_spoofing` | bool, optional | reserved — unused in the current release |
+| `anti_spoofing` | bool, optional | reserved - unused in the current release |
 
 Returns `verified`, `distance`, `threshold`, `confidence`, `model`,
 and `processing_time_ms`.
@@ -211,7 +211,7 @@ speech:
 | `actions` | string[] | subset of `["age","gender","emotion"]`; empty = all supported |
 
 Emotion is inferred from the SUPERB emotion-recognition checkpoint
-(`superb/wav2vec2-base-superb-er`, Apache 2.0) — 4-way categorical
+(`superb/wav2vec2-base-superb-er`, Apache 2.0) - 4-way categorical
 neutral / happy / angry / sad. The model auto-downloads on the first
 analyze call.
 
@@ -232,7 +232,7 @@ attributes it could compute. When nothing can be computed the backend
 returns `501 Unimplemented`.
 
 Analyze is supported by both `speechbrain-ecapa-tdnn` and
-`wespeaker-resnet34` — the speaker recognizer and the analysis head
+`wespeaker-resnet34` - the speaker recognizer and the analysis head
 are independent.
 
 ### `POST /v1/voice/register` (1:N enrollment)
@@ -285,7 +285,7 @@ depends on the recognizer: 192 for ECAPA-TDNN, 256 for WeSpeaker
 ResNet34.
 
 > **Note:** the OpenAI-compatible `/v1/embeddings` endpoint is
-> intentionally text-only — it does nothing useful with audio input.
+> intentionally text-only - it does nothing useful with audio input.
 > Use `/v1/voice/embed` for audio.
 
 ## Audio input
@@ -298,7 +298,7 @@ before the gRPC call. All audio fields accept:
 - Raw base64 (no prefix).
 - Data URIs (`data:audio/wav;base64,...`).
 
-The backend itself always receives a filesystem path — the same
+The backend itself always receives a filesystem path - the same
 convention the Whisper / Voxtral transcription backends use.
 
 ## Threshold reference
@@ -309,17 +309,17 @@ convention the Whisper / Voxtral transcription backends use.
 | WeSpeaker ResNet34 | ~0.30 |
 | 3D-Speaker ERes2Net | ~0.28 |
 
-Pass `threshold` explicitly when switching recognizers — the per-model
+Pass `threshold` explicitly when switching recognizers - the per-model
 default only applies when omitted.
 
 ## Related features
 
-- [Face Recognition](/features/face-recognition/) — the image analog;
+- [Face Recognition](/features/face-recognition/) - the image analog;
   the two share a registry design.
-- [Audio to Text](/features/audio-to-text/) — transcription (Whisper,
+- [Audio to Text](/features/audio-to-text/) - transcription (Whisper,
   Voxtral, faster-whisper). Runs in addition to, not instead of,
   voice recognition.
-- [Stores](/features/stores/) — the generic vector store powering
+- [Stores](/features/stores/) - the generic vector store powering
   both the face and voice 1:N recognition pipelines.
-- [Embeddings](/features/embeddings/) — text-only OpenAI-compatible
+- [Embeddings](/features/embeddings/) - text-only OpenAI-compatible
   embedding endpoint; for audio embeddings use `/v1/voice/embed`.

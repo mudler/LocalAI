@@ -39,7 +39,7 @@ Administrators can manage reusable voice-cloning references from **Operate → V
 3. Confirm that you have permission to clone the voice, then save the profile.
 4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
 
-The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6–30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
 
 ### Voice profile API
 

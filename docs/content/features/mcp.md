@@ -405,7 +405,7 @@ MCP sessions are automatically managed by LocalAI:
 - **Cleanup on model unload**: When a model is unloaded (idle watchdog eviction, manual stop, or shutdown), all associated MCP sessions are closed and resources freed
 - **Graceful shutdown**: All MCP sessions are closed when LocalAI shuts down
 
-This means you don't need to manually manage MCP connections — they follow the model's lifecycle automatically.
+This means you don't need to manually manage MCP connections - they follow the model's lifecycle automatically.
 
 ## Supported MCP Servers
 
