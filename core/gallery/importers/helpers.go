@@ -12,13 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var managedArtifactBackends = map[string]struct{}{
-	"transformers": {}, "huggingface-embeddings": {}, "sentencetransformers": {},
-	"transformers-musicgen": {}, "mamba": {}, "diffusers": {}, "qwen-asr": {},
-	"fish-speech": {}, "nemo": {}, "voxcpm": {}, "qwen-tts": {},
-	"liquid-audio": {}, "vllm": {}, "vllm-omni": {}, "sglang": {},
-}
-
 // AttachPrimaryArtifact adds the controller-managed source only when the
 // importer selected the same repository and a migrated backend.
 func AttachPrimaryArtifact(model gallery.ModelConfig, details Details) (gallery.ModelConfig, error) {
@@ -29,7 +22,7 @@ func AttachPrimaryArtifact(model gallery.ModelConfig, details Details) (gallery.
 	if err := yaml.Unmarshal([]byte(model.ConfigFile), &cfg); err != nil {
 		return gallery.ModelConfig{}, err
 	}
-	if _, supported := managedArtifactBackends[cfg.Backend]; !supported {
+	if !config.IsManagedArtifactBackend(cfg.Backend) {
 		return model, nil
 	}
 	if len(cfg.Artifacts) != 0 || cfg.Model != details.HuggingFace.ModelID {
