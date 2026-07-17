@@ -32,7 +32,15 @@ export default defineConfig({
         ]
       : []),
   ],
-  base: '/',
+  // Relative base so every generated URL (entry scripts in index.html, CSS
+  // `url()` font references, and lazily-imported route chunks) resolves against
+  // the file that references it rather than the origin root. When LocalAI is
+  // served under a reverse-proxy subpath (X-Forwarded-Prefix, e.g. `/llm/`),
+  // an absolute `/assets/...` bypasses the prefix and 404s — breaking fonts
+  // ("tofu" glyphs) and lazy-loaded chunks. index.html's now-relative refs
+  // resolve via the `<base href>` that serveIndex always injects (see
+  // core/http/app.go), so both proxied and root deployments load correctly.
+  base: './',
   server: {
     port: 3000,
     proxy: {
