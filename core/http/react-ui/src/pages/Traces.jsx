@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { tracesApi, settingsApi } from '../utils/api'
-import { formatTimestamp } from '../utils/format'
+import { formatDateTime } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import ResponsiveTable from '../components/ResponsiveTable'
@@ -663,7 +663,7 @@ export default function Traces() {
                   <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatTimestamp(trace.timestamp)}</td>
+                    <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{formatDateTime(trace.timestamp)}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {trace.summary || '-'}
