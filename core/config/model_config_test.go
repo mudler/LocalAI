@@ -65,6 +65,24 @@ parameters:
 		Expect(cfg.ModelFileName()).To(Equal(filepath.Join(".artifacts", "huggingface", cacheKey, "snapshot")))
 	})
 
+	It("resolves a single-file managed snapshot to the file inside the snapshot", func() {
+		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		cfg := ModelConfig{
+			Artifacts: []modelartifacts.Spec{{
+				Source: modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"},
+				Resolved: &modelartifacts.Resolved{
+					CacheKey:    cacheKey,
+					PrimaryFile: "nomic-embed-text-v1.5.f16.gguf",
+				},
+			}},
+		}
+		cfg.Model = "huggingface://owner/repo/nomic-embed-text-v1.5.f16.gguf"
+		// A single-file GGUF must resolve to the file itself, never the snapshot
+		// directory, or the backend fails with "failed to read magic".
+		Expect(cfg.ModelFileName()).To(Equal(
+			filepath.Join(".artifacts", "huggingface", cacheKey, "snapshot", "nomic-embed-text-v1.5.f16.gguf")))
+	})
+
 	Context("Test Read configuration functions", func() {
 		It("Test Validate", func() {
 			tmp, err := os.CreateTemp("", "config.yaml")

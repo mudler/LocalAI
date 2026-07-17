@@ -127,6 +127,14 @@ func (m *Manager) Ensure(ctx context.Context, modelsPath string, spec Spec) (Res
 		return Result{}, fmt.Errorf("resolved artifact identity changed; reinstall the model")
 	}
 	normalized.Resolved = &Resolved{Endpoint: snapshot.Endpoint, Revision: snapshot.ResolvedRevision}
+	// A snapshot with exactly one file is a single-file model (e.g. a GGUF for
+	// llama.cpp/whisper). Record it so the load target resolves to the file
+	// itself rather than the snapshot directory. PrimaryFile is deliberately not
+	// part of the cache key: it is derived from the resolved contents, not the
+	// request identity.
+	if len(snapshot.Files) == 1 {
+		normalized.Resolved.PrimaryFile = snapshot.Files[0].Path
+	}
 	cacheKey, err := CacheKey(normalized)
 	if err != nil {
 		return Result{}, err
