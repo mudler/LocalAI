@@ -1,33 +1,45 @@
 diff --git a/common/common.cpp b/common/common.cpp
-index 8f13217..fc0a164 100644
+index 8f13217..fc584e1 100644
 --- a/common/common.cpp
 +++ b/common/common.cpp
-@@ -1591,7 +1591,9 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+@@ -1591,8 +1591,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
      auto cparams = llama_context_default_params();
  
      cparams.n_ctx             = params.n_ctx;
 -    cparams.n_seq_max         = params.n_parallel;
+-    cparams.n_rs_seq          = params.speculative.need_n_rs_seq();
 +    // score-task forks need seq ids (and recurrent-state cells) of their
 +    // own beyond the parallel slots
 +    cparams.n_seq_max         = params.n_parallel + params.n_seq_score_forks;
-     cparams.n_rs_seq          = params.speculative.need_n_rs_seq();
++    cparams.n_rs_seq          = std::max(params.speculative.need_n_rs_seq(), (uint32_t) std::max(0, params.n_rs_seq));
      cparams.n_outputs_max     = std::max(params.n_outputs_max, 0);
      cparams.n_batch           = params.n_batch;
+     cparams.n_ubatch          = params.n_ubatch;
 diff --git a/common/common.h b/common/common.h
-index 1535317..8cdd664 100644
+index bffc176..e313bd6 100644
 --- a/common/common.h
 +++ b/common/common.h
-@@ -454,6 +454,8 @@ struct common_params {
+@@ -455,6 +455,9 @@ struct common_params {
      int32_t n_keep                =     0; // number of tokens to keep from initial prompt
      int32_t n_chunks              =    -1; // max number of chunks to process (-1 = unlimited)
      int32_t n_parallel            =     1; // number of parallel sequences to decode
 +    int32_t n_seq_score_forks     =     0; // extra seq ids beyond n_parallel, reserved for server score-task forks
++    int32_t n_rs_seq              =     0; // recurrent-state rollback snapshots per seq (hybrid models cannot rewind without them; lets score tasks reuse a cached prompt across probe changes)
 +    bool    score_enabled          = false; // reserve server resources for the Score task type
      int32_t n_sequences           =     1; // number of sequences to decode
      int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
      int32_t grp_attn_n            =     1; // group-attention factor
+diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
+index 780df32..1d2fe8f 100644
+--- a/tools/CMakeLists.txt
++++ b/tools/CMakeLists.txt
+@@ -41,3 +41,4 @@ else()
+     add_subdirectory(fit-params)
+     add_subdirectory(results)
+ endif()
++add_subdirectory(grpc-server)
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 98d0cca..ac9bcac 100644
+index 715477e..de5bed8 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
 @@ -49,7 +49,16 @@ static uint32_t server_n_outputs_max(const common_params & params) {
@@ -48,7 +60,7 @@ index 98d0cca..ac9bcac 100644
  
      return std::max<uint32_t>(1, std::min<uint64_t>(n_batch, n_outputs));
  }
-@@ -202,6 +206,26 @@ struct server_slot {
+@@ -202,6 +211,26 @@ struct server_slot {
  
      std::vector<completion_token_output> generated_token_probs;
  
@@ -75,7 +87,7 @@ index 98d0cca..ac9bcac 100644
      bool has_next_token = true;
      bool has_new_line   = false;
      bool truncated      = false;
-@@ -317,6 +341,10 @@ struct server_slot {
+@@ -311,6 +340,10 @@ struct server_slot {
          }
          generated_tokens.clear();
          generated_token_probs.clear();
@@ -86,7 +98,7 @@ index 98d0cca..ac9bcac 100644
          json_schema = json();
  
          // clear speculative decoding stats
-@@ -2208,6 +2236,229 @@ private:
+@@ -2205,6 +2238,229 @@ private:
          queue_results.send(std::move(res));
      }
  
@@ -316,7 +328,7 @@ index 98d0cca..ac9bcac 100644
      //
      // Functions to process the task
      //
-@@ -2324,6 +2575,7 @@ private:
+@@ -2341,6 +2597,7 @@ private:
              case SERVER_TASK_TYPE_INFILL:
              case SERVER_TASK_TYPE_EMBEDDING:
              case SERVER_TASK_TYPE_RERANK:
@@ -324,9 +336,9 @@ index 98d0cca..ac9bcac 100644
                  {
                      // special case: if input is provided via CLI, tokenize it first
                      // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -2796,6 +3048,13 @@ private:
+@@ -2832,6 +3089,13 @@ private:
+                 break; // stop any further processing
              }
- 
          }
 +
 +        try {
@@ -338,7 +350,7 @@ index 98d0cca..ac9bcac 100644
      }
  
      void pre_decode() {
-@@ -3118,6 +3377,16 @@ private:
+@@ -3154,6 +3418,16 @@ private:
                                      n_past = std::min(n_past, slot.alora_invocation_start - 1);
                                  }
  
@@ -355,7 +367,7 @@ index 98d0cca..ac9bcac 100644
                                  const auto n_cache_reuse = slot.task->params.n_cache_reuse;
  
                                  const bool can_cache_reuse =
-@@ -3359,8 +3628,12 @@ private:
+@@ -3395,8 +3669,12 @@ private:
  
                      bool do_checkpoint = params_base.n_ctx_checkpoints > 0;
  
@@ -370,7 +382,7 @@ index 98d0cca..ac9bcac 100644
  
                      // make a checkpoint of the parts of the memory that cannot be rolled back.
                      // checkpoints are created only if:
-@@ -3427,10 +3700,17 @@ private:
+@@ -3463,10 +3741,17 @@ private:
                          // embedding requires all tokens in the batch to be output;
                          // MTP also wants logits at every prompt position so the
                          // streaming hook can mirror t_h_nextn into ctx_dft.
@@ -389,7 +401,7 @@ index 98d0cca..ac9bcac 100644
                          slot.prompt.tokens.push_back(cur_tok);
  
                          slot.n_prompt_tokens_processed++;
-@@ -3445,6 +3725,25 @@ private:
+@@ -3481,6 +3766,32 @@ private:
                              }
                          }
  
@@ -399,8 +411,15 @@ index 98d0cca..ac9bcac 100644
 +                        // point where this task diverged from the previous cache: after a
 +                        // forced re-prefill a checkpoint there serves the next scoring call
 +                        // over the same stable prefix (e.g. a classifier's option list).
++                        // The caller-declared stable-prefix boundary is the strongest of
++                        // these: a checkpoint there is at or before every future task's
++                        // divergence within the same option list, so it always survives
++                        // and always restores.
 +                        if (do_checkpoint && slot.task->type == SERVER_TASK_TYPE_SCORE &&
 +                            (slot.prompt.n_tokens() == slot.task->n_score_prompt - 1 ||
++                             (slot.task->n_stable_prompt > 0 &&
++                              slot.prompt.n_tokens() == slot.task->n_stable_prompt &&
++                              slot.prompt.n_tokens() <  slot.task->n_score_prompt - 1) ||
 +                             (slot.prompt.n_tokens() == slot.score_divergence &&
 +                              slot.prompt.n_tokens() <  slot.task->n_score_prompt - 1))) {
 +                            bool have_ckpt = false;
@@ -415,7 +434,7 @@ index 98d0cca..ac9bcac 100644
                          // process the last few tokens of the prompt separately in order to allow for a checkpoint to be created.
                          // create checkpoints that many tokens before the end of the prompt:
                          //  - 4 + n_ubatch
-@@ -3477,6 +3776,13 @@ private:
+@@ -3513,6 +3824,15 @@ private:
                      const bool is_user_start = spans.is_user_start(n_tokens_start);
                      const bool is_last_user_message = n_tokens_start == last_user_pos;
  
@@ -424,12 +443,14 @@ index 98d0cca..ac9bcac 100644
 +                    // and every candidate / next scoring call would re-process the prompt
 +                    const bool is_score_boundary = slot.task->type == SERVER_TASK_TYPE_SCORE &&
 +                                                   (n_tokens_start == slot.task->n_score_prompt - 1 ||
++                                                    (slot.task->n_stable_prompt > 0 &&
++                                                     n_tokens_start == slot.task->n_stable_prompt) ||
 +                                                    n_tokens_start == slot.score_divergence);
 +
                      // entire prompt has been processed
                      if (slot.prompt.n_tokens() == slot.task->n_tokens()) {
                          slot.state = SLOT_STATE_DONE_PROMPT;
-@@ -3492,8 +3798,8 @@ private:
+@@ -3528,8 +3848,8 @@ private:
                          slot.init_sampler();
                      } else {
                          // skip ordinary mid-prompt checkpoints, unless the batch starts a user
@@ -440,18 +461,20 @@ index 98d0cca..ac9bcac 100644
                              do_checkpoint = false;
                          }
                      }
-@@ -3510,8 +3816,8 @@ private:
+@@ -3546,10 +3866,10 @@ private:
                      // do not checkpoint after mtmd chunks
                      do_checkpoint = do_checkpoint && !has_mtmd;
  
 -                    // no need to create checkpoints that are too close together, unless it's the last user message
--                    do_checkpoint = do_checkpoint && (slot.prompt.checkpoints.empty() || is_last_user_message || n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
 +                    // no need to create checkpoints that are too close together, unless it's the last user message or the score boundary
-+                    do_checkpoint = do_checkpoint && (slot.prompt.checkpoints.empty() || is_last_user_message || is_score_boundary || n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
+                     do_checkpoint = do_checkpoint && (
+                             slot.prompt.checkpoints.empty() ||
+-                            is_last_user_message || near_prompt_end ||
++                            is_last_user_message || near_prompt_end || is_score_boundary ||
+                             n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
                      SLT_DBG(slot, "main/do_checkpoint = %s, pos_min = %d, pos_max = %d\n", do_checkpoint ? "yes" : "no", pos_min, pos_max);
  
-                     // note: we create the checkpoint before calling llama_decode(), so the current batch is not
-@@ -3683,6 +3989,13 @@ private:
+@@ -3703,6 +4023,13 @@ private:
                  }
              }
  
@@ -465,7 +488,7 @@ index 98d0cca..ac9bcac 100644
              if (!is_inside_view(slot.i_batch)) {
                  // the required token not in this sub-batch, skip
                  return;
-@@ -3704,6 +4017,25 @@ private:
+@@ -3724,6 +4051,25 @@ private:
                      return;
                  }
  
@@ -492,7 +515,7 @@ index 98d0cca..ac9bcac 100644
  
                  // prompt evaluated for next-token prediction
 diff --git a/tools/server/server-task.h b/tools/server/server-task.h
-index dc6b2da..935ead1 100644
+index c3eea2e..fb3c178 100644
 --- a/tools/server/server-task.h
 +++ b/tools/server/server-task.h
 @@ -13,10 +13,25 @@
@@ -521,7 +544,7 @@ index dc6b2da..935ead1 100644
      SERVER_TASK_TYPE_INFILL,
      SERVER_TASK_TYPE_CANCEL,
      SERVER_TASK_TYPE_CONTROL,
-@@ -153,6 +168,13 @@ struct server_task {
+@@ -153,6 +168,18 @@ struct server_task {
      task_params   params;
      server_tokens tokens;
  
@@ -531,11 +554,16 @@ index dc6b2da..935ead1 100644
 +    // tokens beyond the shared prefix ride a forked sequence.
 +    int32_t n_score_prompt = 0;
 +    std::vector<llama_tokens> score_suffixes;
++    // token index where the caller-declared stable prompt prefix ends
++    // (0 = no hint): the option-list system prompt that repeats across
++    // scoring calls. A context checkpoint is forced there so models that
++    // cannot rewind state re-process only the per-call tail next time.
++    int32_t n_stable_prompt = 0;
 +
      // only used by CLI, this allow tokenizing CLI inputs on server side
      // we need this because mtmd_context and vocab are not accessible outside of server_context
      bool                    cli = false;
-@@ -197,6 +219,7 @@ struct server_task {
+@@ -197,6 +224,7 @@ struct server_task {
          switch (type) {
              case SERVER_TASK_TYPE_COMPLETION:
              case SERVER_TASK_TYPE_INFILL:
@@ -543,7 +571,7 @@ index dc6b2da..935ead1 100644
                  return true;
              default:
                  return false;
-@@ -494,6 +517,25 @@ struct server_task_result_rerank : server_task_result {
+@@ -494,6 +522,25 @@ struct server_task_result_rerank : server_task_result {
      virtual json to_json() override;
  };
  

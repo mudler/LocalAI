@@ -58,9 +58,19 @@ type wrappedModel struct {
 	classifier     *router.ScoreClassifier
 	classifierKey  string
 	classifierWarn sync.Once
-	// prewarmKey remembers the option set whose scoring prompt was last
-	// prewarmed, so re-pushing an unchanged config doesn't re-score.
-	prewarmKey string
+	// Prewarm FIFO: a single worker drains warms in registration order —
+	// a plain mutex proved unfair under a burst of registrations (Go
+	// mutexes barge), running the most recently registered list last,
+	// long after the user's first command for it arrived. Pending
+	// duplicates coalesce (a connect-time barrage registers the same
+	// list several times), but completed warms are deliberately NOT
+	// memoized: a rewarm on a still-resident list costs one probe-sized
+	// decode, and on an evicted list it is exactly the re-prefill the
+	// next turn would otherwise pay in the foreground.
+	prewarmMu      sync.Mutex
+	prewarmQueue   []prewarmJob
+	prewarmPending map[string]bool
+	prewarmActive  bool
 
 	// Routing — populated by newModel when the application wires routing
 	// deps in. nil-safe: with classifierRegistry == nil the per-turn
@@ -511,26 +521,63 @@ func (m *wrappedModel) PrewarmClassifier(ctx context.Context, options []types.Cl
 	}
 	m.classifierMu.Lock()
 	key := m.classifierKey
-	done := m.prewarmKey == key
 	m.classifierMu.Unlock()
-	if done {
+
+	m.prewarmMu.Lock()
+	defer m.prewarmMu.Unlock()
+	if m.prewarmPending == nil {
+		m.prewarmPending = make(map[string]bool)
+	}
+	if m.prewarmPending[key] {
 		return
 	}
-	start := time.Now()
-	for _, probe := range []string{"warmup", "standing by"} {
-		if ctx.Err() != nil {
-			return
-		}
-		if _, err := classifier.Classify(ctx, router.Probe{Prompt: probe, Messages: []string{probe}}); err != nil {
-			xlog.Warn("realtime classifier: prewarm scoring failed", "error", err)
-			return
-		}
+	m.prewarmPending[key] = true
+	m.prewarmQueue = append(m.prewarmQueue, prewarmJob{classifier: classifier, key: key, options: len(options)})
+	if !m.prewarmActive {
+		m.prewarmActive = true
+		go m.prewarmWorker()
 	}
-	m.classifierMu.Lock()
-	m.prewarmKey = key
-	m.classifierMu.Unlock()
-	xlog.Debug("realtime classifier: prewarmed scoring prompt cache",
-		"options", len(options), "latency_ms", time.Since(start).Milliseconds())
+}
+
+type prewarmJob struct {
+	classifier *router.ScoreClassifier
+	key        string
+	options    int
+}
+
+// prewarmWorker drains queued warms one at a time, in order. One
+// throwaway score per list is enough: the scoring call itself plants the
+// backend's reuse point at the stable-prefix boundary it declares, so
+// the real turns that follow restore from it no matter how their probe
+// differs. The worker exits when the queue drains and restarts on the
+// next registration.
+func (m *wrappedModel) prewarmWorker() {
+	for {
+		m.prewarmMu.Lock()
+		if len(m.prewarmQueue) == 0 {
+			m.prewarmActive = false
+			m.prewarmMu.Unlock()
+			return
+		}
+		job := m.prewarmQueue[0]
+		m.prewarmQueue = m.prewarmQueue[1:]
+		m.prewarmMu.Unlock()
+
+		start := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		const probe = "warmup"
+		_, err := job.classifier.Classify(ctx, router.Probe{Prompt: probe, Messages: []string{probe}})
+		cancel()
+		if err != nil {
+			xlog.Warn("realtime classifier: prewarm scoring failed", "error", err)
+		} else {
+			xlog.Debug("realtime classifier: prewarmed scoring prompt cache",
+				"options", job.options, "latency_ms", time.Since(start).Milliseconds())
+		}
+		m.prewarmMu.Lock()
+		delete(m.prewarmPending, job.key)
+		m.prewarmMu.Unlock()
+	}
 }
 
 func (m *wrappedModel) ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error) {
