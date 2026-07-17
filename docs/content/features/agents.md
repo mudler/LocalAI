@@ -11,6 +11,14 @@ LocalAI includes a built-in agent platform powered by [LocalAGI](https://github.
 
 LocalAGI is embedded in LocalAI. There is nothing separate to install or run.
 
+{{% notice info %}}
+**Looking for something else?** LocalAI has three related agentic features that are easy to confuse:
+
+- **Agents** (this page): autonomous agents you build that reason, use tools, and act on their own. Start here if you want to create an agent.
+- **LocalAI Assistant** ({{% relref "features/localai-assistant" %}}): an admin chat modality for administering LocalAI itself (install models, manage backends) by chatting.
+- **MCP** ({{% relref "features/mcp" %}}): a way to give a model external tools through the Model Context Protocol.
+{{% /notice %}}
+
 {{% notice tip %}}
 New to agents? The [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough takes you from an empty Agents page to an agent that answers a message and uses one tool.
 {{% /notice %}}
@@ -188,6 +196,57 @@ Each agent has its own configuration that controls its behavior. Key settings in
 - **MCP Servers** — Model Context Protocol servers for additional tool access
 
 The pool-level defaults (API URL, API key, models) can be set via environment variables. Individual agents can further override these in their configuration, allowing them to use different LLM providers (OpenAI, other LocalAI instances, etc.) on a per-agent basis.
+
+## Skills
+
+Skills are reusable instruction sets (a name, a description, and the skill's content, optionally with attached resource files) that an agent can draw on while it works. They can be authored directly or imported from git-based skill repositories, so a set of skills can be shared across agents and machines.
+
+{{% notice warning %}}
+Skills are **disabled by default**. The skills service only runs when you start LocalAI with `LOCALAI_AGENT_POOL_ENABLE_SKILLS=true`. With the default `LOCALAI_AGENT_POOL_ENABLE_SKILLS=false`, the Skills UI and the `/api/agents/skills` endpoints are inactive, and an imported agent that expects a skill will not find it.
+{{% /notice %}}
+
+### Enable skills
+
+Start LocalAI with the skills service turned on:
+
+```bash
+LOCALAI_AGENT_POOL_ENABLE_SKILLS=true local-ai run
+```
+
+In Docker, add the same variable to the container environment.
+
+### Create a skill
+
+With skills enabled, open the **Agents** section in the web interface and go to the Skills area. Create a skill by giving it:
+
+- a **name** (used to reference the skill),
+- a **description** (what the skill is for),
+- the skill **content** (the instructions the agent follows when the skill applies),
+- optionally, resource files the skill needs.
+
+The same operation is available over REST:
+
+```bash
+curl http://localhost:8080/api/agents/skills \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "changelog-writer",
+    "description": "Write a release changelog from a list of merged PRs",
+    "content": "When asked for a changelog, group the PRs by type (feature, fix, docs) and write one concise bullet per PR."
+  }'
+```
+
+You can also import a skill archive with `POST /api/agents/skills/import`, or add a git skill repository so its skills are pulled in.
+
+### Use a skill
+
+Once a skill exists and the skills service is enabled, agents can use it as part of their reasoning. List the skills currently available with:
+
+```bash
+curl http://localhost:8080/api/agents/skills
+```
+
+If a skill you expect is missing, confirm LocalAI was started with `LOCALAI_AGENT_POOL_ENABLE_SKILLS=true`.
 
 ## API Endpoints
 

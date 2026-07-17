@@ -12,6 +12,14 @@ categories = ["Features"]
 
 LocalAI now supports the **Model Context Protocol (MCP)**, enabling powerful agentic capabilities by connecting AI models to external tools and services. This feature allows your LocalAI models to interact with various MCP servers, providing access to real-time data, APIs, and specialized tools.
 
+{{% notice info %}}
+**Looking for something else?** LocalAI has three related agentic features that are easy to confuse:
+
+- **MCP** (this page): a way to give a model external tools through the Model Context Protocol.
+- **Agents** ({{% relref "features/agents" %}}): autonomous agents you build that reason, use tools, and act on their own.
+- **LocalAI Assistant** ({{% relref "features/localai-assistant" %}}): an admin chat modality for administering LocalAI itself (install models, manage backends) by chatting.
+{{% /notice %}}
+
 ## What is MCP?
 
 The Model Context Protocol is a standard for connecting AI models to external tools and data sources. It enables AI agents to:
@@ -101,6 +109,19 @@ Configure local command-based MCP servers:
 #### Agent Configuration (`agent`)
 
 - **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
+
+## Agent-scoped MCP servers
+
+The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. LocalAI's [agents]({{% relref "features/agents" %}}) can also attach MCP servers to a single **agent**, independent of the model it runs on. This is the mechanism the Agents feature advertises as "MCP Servers".
+
+Use model-scoped MCP (the `mcp:` block in a model YAML) when the tools belong to the model itself and every caller of that model should get them. Use agent-scoped MCP when only one agent should have a given tool, or when different agents sharing the same model need different tools.
+
+Agent-scoped MCP servers are configured per agent, not in a model YAML:
+
+- **In the web UI:** open the **Agents** page, edit an agent, and fill in its **MCP Servers** (remote HTTP servers) and **MCP STDIO Servers** (local command servers) fields. The JSON shape is the same `mcpServers` map used above.
+- **In an agent config (JSON):** the agent stores remote servers under `mcp_servers` and local command servers under `mcp_stdio_servers`, so an exported/imported agent carries its MCP servers with it.
+
+An agent-scoped MCP server that is unreachable is a common reason an imported agent's tool "times out or is unavailable"; see the checklist in {{% relref "getting-started/first-agent" %}}.
 
 ## Usage
 
