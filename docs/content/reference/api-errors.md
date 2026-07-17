@@ -7,6 +7,10 @@ weight = 26
 
 This page documents the error responses returned by the LocalAI API. LocalAI supports multiple API formats (OpenAI, Anthropic, Open Responses), each with its own error structure.
 
+{{% notice note %}}
+For backend and runtime failure messages (a model that will not load, `could not load model`, `grpc service not ready`, `SIGILL`, VRAM out of memory, the model-load cooldown `503`), rather than API-envelope errors, see {{% relref "reference/runtime-errors" %}}.
+{{% /notice %}}
+
 ## Error Response Formats
 
 ### OpenAI-Compatible Format

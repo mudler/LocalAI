@@ -66,11 +66,7 @@ LocalAI applies a set of defaults when loading models with the llama.cpp backend
 
 ### Everything is slow, how is it possible?
 
-There are few situation why this could occur. Some tips are:
-- Don't use HDD to store your models. Prefer SSD over HDD. In case you are stuck with HDD, disable `mmap` in the model config file so it loads everything in memory.
-- Watch out CPU overbooking. Ideally the `--threads` should match the number of physical cores. For instance if your CPU has 4 cores, you would ideally allocate `<= 4` threads to a model.
-- Run LocalAI with `DEBUG=true`. This gives more information, including stats on the token inference speed.
-- Check that you are actually getting an output: run a simple curl request with `"stream": true` to see how fast the model is responding. 
+See the performance section of the runtime errors reference: {{% relref "reference/runtime-errors" %}}.
 
 ### Can I use it with a Discord bot, or XXX?
 
@@ -87,12 +83,8 @@ LocalAI ships with a built-in web interface. Once LocalAI is running, open `http
 ### How can I troubleshoot when something is wrong?
 
 Enable the debug mode by setting `DEBUG=true` in the environment variables. This will give you more information on what's going on.
-You can also specify `--debug` in the command line.
+You can also specify `--debug` in the command line. For matching a specific runtime or backend error message to its cause and fix, see the runtime errors reference: {{% relref "reference/runtime-errors" %}}.
 
-### I'm getting 'invalid pitch' error when running with CUDA, what's wrong?
+### I'm getting 'invalid pitch', 'SIGILL', a CUDA out-of-memory error, or a model that will not load
 
-This typically happens when your prompt exceeds the context size. Try to reduce the prompt size, or increase the context size.
-
-### I'm getting a 'SIGILL' error, what's wrong?
-
-Your CPU probably does not have support for certain instructions that are compiled by default in the pre-built binaries. If you are running in a container, try setting `REBUILD=true` and disable the CPU instructions that are not compatible with your CPU. For instance: `CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make build`
+These runtime and backend failures, and how to read the real error behind an HTTP `500`, are documented in the runtime errors reference: {{% relref "reference/runtime-errors" %}}.
