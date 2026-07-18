@@ -165,7 +165,7 @@ var _ = Describe("CapabilityFilterDisabled", func() {
 	})
 })
 
-var _ = Describe("ReportedCapability", func() {
+var _ = Describe("DetectedCapability", func() {
 	var previous string
 
 	BeforeEach(func() {
@@ -179,13 +179,13 @@ var _ = Describe("ReportedCapability", func() {
 	It("returns the forced capability verbatim without map fallback", func() {
 		Expect(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia-cuda-12")).To(Succeed())
 		state := &SystemState{}
-		Expect(state.ReportedCapability()).To(Equal("nvidia-cuda-12"))
+		Expect(state.DetectedCapability()).To(Equal("nvidia-cuda-12"))
 	})
 
 	It("does not fall back to default when the capability is unusual", func() {
 		Expect(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "metal")).To(Succeed())
 		state := &SystemState{}
-		Expect(state.ReportedCapability()).To(Equal("metal"))
-		Expect(state.ReportedCapability()).NotTo(Equal("default"))
+		Expect(state.DetectedCapability()).To(Equal("metal"))
+		Expect(state.DetectedCapability()).NotTo(Equal("default"))
 	})
 })

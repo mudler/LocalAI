@@ -63,17 +63,6 @@ func (s *SystemState) CapabilityFilterDisabled() bool {
 	return s.getSystemCapabilities() == disableCapability
 }
 
-// ReportedCapability returns the raw detected capability string (e.g. "metal",
-// "nvidia-cuda-12", "default") with no map-membership fallback applied.
-//
-// Why this exists alongside Capability: Capability resolves against a caller
-// supplied map and falls back to "default" then "cpu" when the detected value
-// is absent. Model meta entries express fallback through candidate ordering
-// instead, so they need the undecorated value.
-func (s *SystemState) ReportedCapability() string {
-	return s.getSystemCapabilities()
-}
-
 func (s *SystemState) Capability(capMap map[string]string) string {
 	reportedCapability := s.getSystemCapabilities()
 
@@ -217,8 +206,14 @@ func (s *SystemState) BackendPreferenceTokens() []string {
 	}
 }
 
-// DetectedCapability returns the detected system capability string.
+// DetectedCapability returns the raw detected capability string (e.g. "metal",
+// "nvidia-cuda-12", "default") with no map-membership fallback applied.
 // This can be used by the UI to display what capability was detected.
+//
+// Why this exists alongside Capability: Capability resolves against a caller
+// supplied map and falls back to "default" then "cpu" when the detected value
+// is absent from that map. Callers that express fallback themselves, such as
+// model meta entries ordering their own candidates, need the undecorated value.
 func (s *SystemState) DetectedCapability() string {
 	return s.getSystemCapabilities()
 }
