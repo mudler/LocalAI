@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -129,13 +128,59 @@ func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv
 	// the URL and tag slices, which would write the caller's request into the
 	// gallery catalog itself and leak between installs the moment this path
 	// reads from a cached, long-lived gallery listing. Detach them here.
-	resolved.Overrides = maps.Clone(concrete.Overrides)
-	resolved.ConfigFile = maps.Clone(concrete.ConfigFile)
+	//
+	// Overrides and ConfigFile are copied all the way down rather than cloned at
+	// the top level only: gallery overrides are nested in practice (a
+	// parameters.model map is near-universal), and mergo recurses into nested
+	// maps and overwrites them in place, so a top-level clone would still hand
+	// the caller the gallery's own inner maps. The slices below hold value types,
+	// so cloning them once fully detaches them.
+	resolved.Overrides = deepCopyStringMap(concrete.Overrides)
+	resolved.ConfigFile = deepCopyStringMap(concrete.ConfigFile)
 	resolved.AdditionalFiles = slices.Clone(concrete.AdditionalFiles)
 	resolved.URLs = slices.Clone(meta.URLs)
 	resolved.Tags = slices.Clone(meta.Tags)
 
 	return &resolved, candidate, nil
+}
+
+// deepCopyStringMap copies a decoded YAML map so no part of the result, at any
+// depth, is reachable from the original.
+func deepCopyStringMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = deepCopyYAMLValue(v)
+	}
+	return out
+}
+
+// deepCopyYAMLValue recurses through the only container shapes a YAML decoder
+// produces. Scalars are returned as-is because they cannot be mutated through
+// the copy. map[any]any is handled as well because gopkg.in/yaml.v2 decodes
+// non-string keys into it, and gallery documents are not guaranteed to have
+// passed through the v3 decoder.
+func deepCopyYAMLValue(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		return deepCopyStringMap(t)
+	case map[any]any:
+		out := make(map[any]any, len(t))
+		for k, val := range t {
+			out[k] = deepCopyYAMLValue(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = deepCopyYAMLValue(val)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // Installs a model from the gallery

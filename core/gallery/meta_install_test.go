@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"dario.cat/mergo"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -121,6 +122,43 @@ var _ = Describe("ResolveMetaModel", func() {
 		Expect(meta.Tags).To(ConsistOf("llm"))
 	})
 
+	It("detaches nested override maps from the gallery's own entry", func() {
+		models[0].Overrides = map[string]any{
+			"parameters": map[string]any{"model": "real-variant.gguf"},
+			"stopwords":  []any{"</s>"},
+		}
+
+		resolved, _, err := gallery.ResolveMetaModel(models, meta, gallery.ResolveEnv{Capability: "nvidia", VRAM: gib(24)}, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		// Cloning only the top level would leave this inner map shared with the
+		// gallery entry, so writing through the resolved copy would rewrite the
+		// catalog's own payload.
+		resolved.Overrides["parameters"].(map[string]any)["model"] = "callers-choice.gguf"
+		resolved.Overrides["stopwords"].([]any)[0] = "<|im_end|>"
+
+		Expect(models[0].Overrides["parameters"]).To(HaveKeyWithValue("model", "real-variant.gguf"))
+		Expect(models[0].Overrides["stopwords"]).To(Equal([]any{"</s>"}))
+	})
+
+	It("does not write the caller's overrides back into the gallery entry", func() {
+		models[0].Overrides = map[string]any{"parameters": map[string]any{"model": "real-variant.gguf"}}
+
+		resolved, _, err := gallery.ResolveMetaModel(models, meta, gallery.ResolveEnv{Capability: "nvidia", VRAM: gib(24)}, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		// This is exactly what the install path does with the caller's request
+		// overrides, and mergo recurses into nested maps and overwrites them in
+		// place. Asserting against the in-memory catalog is the only way to
+		// observe the leak: re-reading the gallery from disk re-unmarshals fresh
+		// maps and would pass whether or not the resolved entry was detached.
+		requestOverrides := map[string]any{"parameters": map[string]any{"model": "callers-choice.gguf"}}
+		Expect(mergo.Merge(&resolved.Overrides, requestOverrides, mergo.WithOverride)).To(Succeed())
+
+		Expect(resolved.Overrides["parameters"]).To(HaveKeyWithValue("model", "callers-choice.gguf"))
+		Expect(models[0].Overrides["parameters"]).To(HaveKeyWithValue("model", "real-variant.gguf"))
+	})
+
 	It("errors when a candidate references a missing entry", func() {
 		meta.Candidates = []gallery.Candidate{{Model: "does-not-exist"}}
 		_, _, err := gallery.ResolveMetaModel(models, meta, gallery.ResolveEnv{Capability: "default", VRAM: gib(8)}, "")
@@ -184,6 +222,30 @@ var _ = Describe("InstallModelFromGallery with meta entries", func() {
 		return m
 	}
 
+	// urlVariant describes a variant through a url rather than an inline
+	// config_file. The distinction matters for the recorded name: the url branch
+	// reads a name out of the fetched config, and that name is the variant's own,
+	// so only the meta-name overlay can keep the record under the meta's name.
+	// The inline config_file branch seeds the name from the already-renamed
+	// resolved entry and so cannot observe the overlay at all.
+	urlVariant := func(name, backend string) gallery.GalleryModel {
+		payload := gallery.ModelConfig{
+			Name:        name,
+			Description: "variant " + name,
+			ConfigFile:  "backend: " + backend + "\n",
+		}
+		out, err := yaml.Marshal(payload)
+		Expect(err).ToNot(HaveOccurred())
+		payloadPath := filepath.Join(tempdir, "payload-"+name+".yaml")
+		Expect(os.WriteFile(payloadPath, out, 0600)).To(Succeed())
+
+		m := gallery.GalleryModel{}
+		m.Name = name
+		m.Description = "variant " + name
+		m.URL = "file://" + payloadPath
+		return m
+	}
+
 	metaEntry := func(name string, candidates ...string) gallery.GalleryModel {
 		m := gallery.GalleryModel{}
 		m.Name = name
@@ -235,6 +297,16 @@ var _ = Describe("InstallModelFromGallery with meta entries", func() {
 	})
 
 	It("round-trips the resolution record to disk under the meta's name", func() {
+		// The variant is described by url so its payload carries its own name.
+		// Without the meta-name overlay the record persists as
+		// "qwen3-8b-variant-a", and the stable name a meta entry exists to
+		// provide is lost the moment anything reads the record back.
+		newGallery(
+			metaEntry("qwen3-8b", "qwen3-8b-variant-a", "qwen3-8b-variant-b"),
+			urlVariant("qwen3-8b-variant-a", "variant-a-backend"),
+			urlVariant("qwen3-8b-variant-b", "variant-b-backend"),
+		)
+
 		Expect(install("qwen3-8b", gallery.GalleryModel{})).To(Succeed())
 
 		record, err := gallery.GetLocalModelConfiguration(tempdir, "qwen3-8b")
@@ -244,6 +316,7 @@ var _ = Describe("InstallModelFromGallery with meta entries", func() {
 		Expect(record.PinnedVariant).To(BeEmpty())
 		Expect(record.Name).To(Equal("qwen3-8b"))
 		Expect(record.Description).To(Equal("the meta entry"))
+		Expect(installedBackend("qwen3-8b")).To(Equal("variant-a-backend"))
 	})
 
 	It("records a pin and honors it on a plain reinstall", func() {
@@ -281,17 +354,6 @@ var _ = Describe("InstallModelFromGallery with meta entries", func() {
 
 		Expect(install("qwen3-8b", req)).To(Succeed())
 		Expect(installedBackend("prod-llm")).To(Equal("variant-b-backend"))
-	})
-
-	It("does not write the caller's overrides back into the gallery entry", func() {
-		req := gallery.GalleryModel{Overrides: map[string]any{"f16": true}}
-		Expect(install("qwen3-8b", req)).To(Succeed())
-
-		models, err := gallery.AvailableGalleryModels(galleries, systemState)
-		Expect(err).ToNot(HaveOccurred())
-		entry := gallery.FindGalleryElement(models, "qwen3-8b-variant-a")
-		Expect(entry).ToNot(BeNil())
-		Expect(entry.Overrides).ToNot(HaveKey("f16"))
 	})
 
 	It("writes each declared url only once into the persisted gallery file", func() {
