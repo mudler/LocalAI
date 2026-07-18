@@ -173,6 +173,7 @@ type RunCMD struct {
 	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
 	BackendInstallTimeout     string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
 	BackendUpgradeTimeout     string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
+	ModelLoadTimeout          string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged (default 5m). Increase for very large checkpoints (multi-tens-of-GB diffusion/video models) whose load and pipeline init exceed 5 minutes. Raising it also widens the cold-load lock ceiling." group:"distributed"`
 	NatsAccountSeed           string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
 	NatsServiceJWT            string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
 	NatsServiceSeed           string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
@@ -217,6 +218,18 @@ func DefaultGeneratedContentPath() string {
 // DefaultUploadPath returns the default location for uploads from the files API.
 func DefaultUploadPath() string {
 	return filepath.Join(userScopedTempDir(), "upload")
+}
+
+// parseDistributedDuration parses an operator-supplied duration for a
+// distributed timeout knob. The env var and the rejected value are both named
+// in the error: these knobs are usually set from a compose file or a K8s
+// manifest, where a bare "invalid duration" gives the operator nothing to grep.
+func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", envVar, raw, err)
+	}
+	return d, nil
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
@@ -326,18 +339,25 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		opts = append(opts, config.WithStorageSecretKey(r.StorageSecretKey))
 	}
 	if r.BackendInstallTimeout != "" {
-		d, err := time.ParseDuration(r.BackendInstallTimeout)
+		d, err := parseDistributedDuration("LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT", r.BackendInstallTimeout)
 		if err != nil {
-			return fmt.Errorf("invalid LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT %q: %w", r.BackendInstallTimeout, err)
+			return err
 		}
 		opts = append(opts, config.WithBackendInstallTimeout(d))
 	}
 	if r.BackendUpgradeTimeout != "" {
-		d, err := time.ParseDuration(r.BackendUpgradeTimeout)
+		d, err := parseDistributedDuration("LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT", r.BackendUpgradeTimeout)
 		if err != nil {
-			return fmt.Errorf("invalid LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT %q: %w", r.BackendUpgradeTimeout, err)
+			return err
 		}
 		opts = append(opts, config.WithBackendUpgradeTimeout(d))
+	}
+	if r.ModelLoadTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_NATS_MODEL_LOAD_TIMEOUT", r.ModelLoadTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelLoadTimeout(d))
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
