@@ -212,8 +212,10 @@ func (s *SystemState) BackendPreferenceTokens() []string {
 //
 // Why this exists alongside Capability: Capability resolves against a caller
 // supplied map and falls back to "default" then "cpu" when the detected value
-// is absent from that map. Callers that express fallback themselves, such as
-// model meta entries ordering their own candidates, need the undecorated value.
+// is absent from that map, so its answer describes what that caller can serve
+// rather than what the hardware is. A caller reasoning about the hardware
+// itself, or reporting it to a human, cannot tell a genuinely detected
+// "default" apart from a substituted one and needs the undecorated value.
 func (s *SystemState) DetectedCapability() string {
 	return s.getSystemCapabilities()
 }

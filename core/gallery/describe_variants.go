@@ -12,9 +12,10 @@ type VariantView struct {
 	// it, and it is also the reason Fits may be false on a host whose memory
 	// would be ample.
 	Backend string `json:"backend"`
-	// MemoryBytes is the measured footprint, or 0 when it could not be
-	// determined. Zero is unknown, never "needs nothing", so a client must
-	// render it as unknown rather than as a free option.
+	// MemoryBytes is the measured footprint. It is omitted from the JSON
+	// entirely when the size could not be determined, rather than serialized as
+	// a zero that a client would have to know to read as unknown. An absent key
+	// never means "needs nothing".
 	MemoryBytes uint64 `json:"memory_bytes,omitempty"`
 	// Fits reports whether auto-selection would consider this variant on this
 	// host: its backend can run here and its known footprint is within budget.

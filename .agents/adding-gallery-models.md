@@ -114,11 +114,15 @@ Rules:
   and must not declare `variants` of its own.
 - **Order carries no meaning.** Do not try to encode a preference; write the
   list in whatever order reads best.
+- **A variant may be smaller than the declaring entry.** Offering a downgrade
+  for small hosts is a normal shape: the declaring entry's own build competes on
+  size like every other candidate, so a large host keeps the large build.
 - **Do not describe hardware.** At install time LocalAI drops variants whose
   backend cannot run on the host, drops those that do not fit available memory,
-  and installs the largest survivor, falling back to the declaring entry's own
-  build. Sizes are measured live from the weights and cached, so nothing has to
-  be written down.
+  and installs the largest of what is left, the declaring entry's own build
+  included. That build is never dropped, so selection always terminates on
+  something installable. Sizes are measured live from the weights and cached, so
+  nothing has to be written down.
 - A variant is nothing but a name; there is no per-variant memory field. When
   the measured size for a build is wrong, correct it on the referenced entry by
   setting that entry's own `size:` (e.g. `size: "20GiB"`). The estimator prefers

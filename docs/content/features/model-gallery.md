@@ -160,10 +160,19 @@ carries a `variants` list, and installing it normally lets LocalAI choose:
 - variants whose backend cannot run on this machine are dropped;
 - variants that do not fit the available memory (VRAM on a GPU host, otherwise
   system RAM) are dropped;
-- the largest remaining variant wins, because a bigger footprint means a higher
+- the entry's own build is never dropped. It competes with whatever survived
+  rather than waiting for everything else to fail, so an entry that is itself
+  the largest build that fits keeps its own payload;
+- the largest remaining build wins, because a bigger footprint means a higher
   quality build of the same model;
-- if nothing survives, the entry's own build is installed. The entry is always
-  installable, on any machine.
+- a build whose size could not be measured ranks below the entry's own build,
+  so an unreadable size never quietly displaces the payload the entry ships;
+- if nothing else survives, the entry's own build is installed. The entry is
+  always installable, on any machine.
+
+Because the entry's own build competes on size like every other candidate, the
+order of the list means nothing and a `variants` list may offer smaller builds,
+larger ones, or both.
 
 Sizes are measured from the model's weights rather than downloaded, and cached.
 
@@ -181,15 +190,16 @@ curl http://localhost:8080/api/models | jq '.models[] | select(.variants) |
   "auto_variant": "nanbeige4.1-3b-q8",
   "variants": [
     { "model": "nanbeige4.1-3b-q8", "backend": "llama-cpp", "memory_bytes": 4187593113, "fits": true, "is_base": false },
-    { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "memory_bytes": 0, "fits": true, "is_base": true }
+    { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "fits": true, "is_base": true }
   ]
 }
 ```
 
 `auto_variant` is what installing without a choice would pick right now. `fits`
-is whether auto-selection would consider that variant on this machine, and a
-`memory_bytes` of 0 means the size could not be determined, not that the build
-is free. `is_base` marks the entry's own build.
+is whether auto-selection would consider that variant on this machine, and
+`is_base` marks the entry's own build. `memory_bytes` is omitted entirely, as on
+the second entry above, when the size could not be measured; read a missing
+`memory_bytes` as unknown rather than as a free build.
 
 To install a specific one, pass its name as `variant`:
 

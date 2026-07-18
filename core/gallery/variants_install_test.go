@@ -2,6 +2,7 @@ package gallery_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -168,15 +169,17 @@ var _ = Describe("ResolveVariant", func() {
 			Expect(resolved.URL).To(Equal("file://gguf.yaml"))
 		})
 
-		It("completes the install when the probe cannot determine a size", func() {
-			// A failed probe reports 0. That is an unknown, so the variant is
-			// not filtered out, and above all the resolution does not fail: a
-			// network hiccup must never be able to break an install.
+		It("completes the install on the entry's own payload when no probe answers", func() {
+			// A failed probe reports 0. That is an unknown, so nothing is filtered
+			// out and above all the resolution does not fail: a network hiccup
+			// must never be able to break an install. It must not be able to
+			// change what gets installed either, so an unmeasurable variant does
+			// not displace the payload the entry itself ships.
 			resolved, variant, err := gallery.ResolveVariant(models, base,
 				probing(gib(24), map[string]uint64{}), "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(variant.Model).To(Equal("qwen3-8b-vllm-awq"))
-			Expect(resolved.URL).To(Equal("file://vllm.yaml"))
+			Expect(variant.Model).To(Equal("qwen3-8b-gguf-q4"))
+			Expect(resolved.URL).To(Equal("file://gguf.yaml"))
 		})
 
 		It("still installs the base when every probe fails and nothing else survives", func() {
@@ -317,16 +320,27 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	var tempdir string
 	var galleries []config.Gallery
 	var systemState *system.SystemState
+	// galleryRevision keeps every gallery this suite writes distinct from every
+	// other, so the process-wide gallery cache cannot serve one spec's catalog
+	// to another.
+	galleryRevision := 0
 
 	// Every entry is described with an inline config_file rather than a URL so
 	// the whole install runs off the local filesystem with no network access.
+	//
+	// Each call writes a fresh path and a fresh gallery name because the gallery
+	// listing is cached on the name and URL pair. A spec that edits its gallery
+	// mid-flight would otherwise keep reading the version it started with, and
+	// would silently prove nothing.
 	newGallery := func(entries ...gallery.GalleryModel) {
 		out, err := yaml.Marshal(entries)
 		Expect(err).ToNot(HaveOccurred())
-		galleryPath := filepath.Join(tempdir, "gallery.yaml")
+		name := fmt.Sprintf("test-%d", galleryRevision)
+		galleryRevision++
+		galleryPath := filepath.Join(tempdir, name+".yaml")
 		Expect(os.WriteFile(galleryPath, out, 0600)).To(Succeed())
 
-		galleries = []config.Gallery{{Name: "test", URL: "file://" + galleryPath}}
+		galleries = []config.Gallery{{Name: name, URL: "file://" + galleryPath}}
 	}
 
 	entry := func(name, backend string) gallery.GalleryModel {
@@ -352,7 +366,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	// entry's own, so only the entry-name overlay can keep the record under the
 	// name the user asked for. The inline config_file branch seeds the name from
 	// the already-renamed resolved entry and so cannot observe the overlay.
-	urlEntry := func(name, backend string) gallery.GalleryModel {
+	urlEntry := func(name, backend, size string) gallery.GalleryModel {
 		payload := gallery.ModelConfig{
 			Name:        name,
 			Description: "entry " + name,
@@ -367,6 +381,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		m.Name = name
 		m.Description = "entry " + name
 		m.URL = "file://" + payloadPath
+		m.Size = size
 		return m
 	}
 
@@ -484,10 +499,13 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		// Without the entry-name overlay the record persists as "qwen3-8b-q8",
 		// and the stable name the entry exists to provide is lost the moment
 		// anything reads the record back.
+		// The declared sizes make the upgrade the largest build that fits, so
+		// resolution lands on the variant and the record it writes is the one
+		// under test here.
 		newGallery(
-			withVariants(urlEntry("qwen3-8b-q4", "base-backend"),
+			withVariants(urlEntry("qwen3-8b-q4", "base-backend", "16MiB"),
 				gallery.Variant{Model: "qwen3-8b-q8"}),
-			urlEntry("qwen3-8b-q8", "upgrade-backend"),
+			urlEntry("qwen3-8b-q8", "upgrade-backend", "256MiB"),
 		)
 
 		Expect(install("qwen3-8b-q4", gallery.GalleryModel{})).To(Succeed())
@@ -533,10 +551,14 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	})
 
 	It("records a pin and honors it on a plain reinstall", func() {
+		// The upgrade declares a size and the base does not, so auto-selection
+		// genuinely prefers the upgrade here. Without that the second install
+		// below would land on the base whether or not the pin was recalled, and
+		// the spec would prove nothing.
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
 				gallery.Variant{Model: "qwen3-8b-q8"}),
-			entry("qwen3-8b-q8", "upgrade-backend"),
+			sizedEntry("qwen3-8b-q8", "upgrade-backend", "16MiB"),
 		)
 
 		Expect(install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q4"))).To(Succeed())
@@ -558,10 +580,12 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	})
 
 	It("honors a pin recorded under a custom install name", func() {
+		// Sized as above so auto-selection would take the upgrade, which is what
+		// makes the recall observable in the second install.
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
 				gallery.Variant{Model: "qwen3-8b-q8"}),
-			entry("qwen3-8b-q8", "upgrade-backend"),
+			sizedEntry("qwen3-8b-q8", "upgrade-backend", "16MiB"),
 		)
 
 		req := gallery.GalleryModel{}
@@ -579,6 +603,57 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 
 		Expect(install("qwen3-8b-q4", req)).To(Succeed())
 		Expect(installedBackend("prod-llm")).To(Equal("base-backend"))
+	})
+
+	It("re-selects automatically when a recorded pin no longer exists in the gallery", func() {
+		// A pin is recorded, then the gallery is edited to rename the build it
+		// named. Without dropping the stale pin every later reinstall and every
+		// upgrade of this model fails forever, and the only remedy is deleting a
+		// dotfile the user has never heard of.
+		newGallery(
+			withVariants(entry("qwen3-8b-q4", "base-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
+			sizedEntry("qwen3-8b-q8", "upgrade-backend", "16MiB"),
+		)
+		Expect(install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q8"))).To(Succeed())
+
+		record, err := gallery.GetLocalModelConfiguration(tempdir, "qwen3-8b-q4")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(record.PinnedVariant).To(Equal("qwen3-8b-q8"))
+
+		// The gallery edit: the same build under a new name.
+		newGallery(
+			withVariants(entry("qwen3-8b-q4", "base-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8-v2"}),
+			sizedEntry("qwen3-8b-q8-v2", "renamed-backend", "16MiB"),
+		)
+
+		Expect(install("qwen3-8b-q4", gallery.GalleryModel{})).To(Succeed())
+		// Auto-selection ran: the renamed build is the largest that fits.
+		Expect(installedBackend("qwen3-8b-q4")).To(Equal("renamed-backend"))
+
+		// The stale pin is cleared rather than carried forward, so the next
+		// install does not have to rediscover that it is unusable.
+		record, err = gallery.GetLocalModelConfiguration(tempdir, "qwen3-8b-q4")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(record.PinnedVariant).To(BeEmpty())
+		Expect(record.ResolvedVariant).To(Equal("qwen3-8b-q8-v2"))
+	})
+
+	It("still refuses a variant the caller names on this request, recorded pin or not", func() {
+		// The caller-supplied pin and the recalled one must fail differently.
+		// This one is a request that cannot be honored, so reporting success
+		// for it would make a typo indistinguishable from a working choice.
+		newGallery(
+			withVariants(entry("qwen3-8b-q4", "base-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
+			sizedEntry("qwen3-8b-q8", "upgrade-backend", "16MiB"),
+		)
+		Expect(install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q8"))).To(Succeed())
+
+		err := install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q6"))
+		Expect(err).To(MatchError(gallery.ErrPinNotFound))
+		Expect(err.Error()).To(ContainSubstring("qwen3-8b-q6"))
 	})
 
 	It("writes each declared url only once into the persisted gallery file", func() {

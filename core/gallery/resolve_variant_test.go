@@ -47,7 +47,8 @@ var _ = Describe("SelectVariant", func() {
 	}
 
 	// The base is exempt from every filter, which the fallback specs below pin
-	// down; its size is carried only so ranking has nothing special to do.
+	// down, but it is ranked against the variants like any other candidate, so
+	// its size is load-bearing.
 	base := func(model string, probed uint64) gallery.VariantOption {
 		o := option(model, "llama-cpp", probed)
 		o.IsBase = true
@@ -159,8 +160,62 @@ var _ = Describe("SelectVariant", func() {
 
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{AvailableMemory: gib(4)}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-unknown"))
+			// Surviving is observable through the rejection reasons: a dropped
+			// variant is always accounted for there, and this one is not.
+			Expect(selection.Reasons).ToNot(ContainElement(ContainSubstring("m-unknown")))
+			// It survives, but it does not win: the base is a sized, guaranteed
+			// payload and an unmeasurable variant is a guess.
+			Expect(selection.Option.Variant.Model).To(Equal("m-base"))
 			Expect(selection.FellBackToBase).To(BeFalse())
+		})
+
+		It("installs the base rather than an unsized variant on a host too small for either", func() {
+			// The exact shape 241 of the current index entries have: a referenced
+			// entry with no files and no size, whose probe can only answer
+			// "unknown". Ranking it above the base would install an unmeasured
+			// download on a machine with 2GiB, and would do so silently.
+			options := []gallery.VariantOption{
+				option("m-unknown", "llama-cpp", 0),
+				base("m-base-q4", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{AvailableMemory: gib(2)}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-base-q4"))
+			Expect(selection.Option.IsBase).To(BeTrue())
+		})
+
+		It("selects the base when the base is the largest option that fits", func() {
+			// A Q8 base offering a Q4 downgrade for small hosts is a natural
+			// authoring shape. Treating the base as a last resort would install
+			// the Q4 on every host large enough for the Q8 and permanently
+			// downgrade the user.
+			options := []gallery.VariantOption{
+				option("m-q4", "llama-cpp", gib(4)),
+				base("m-base-q8", gib(8)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{AvailableMemory: gib(16)}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-base-q8"))
+			// The Q4 survived every filter, so this is the base winning on rank
+			// and not the base being fallen back to.
+			Expect(selection.FellBackToBase).To(BeFalse())
+			Expect(selection.Reasons).To(BeEmpty())
+		})
+
+		It("selects a smaller variant when the base does not fit but the variant does", func() {
+			// The mirror of the spec above: the base competes, it does not win by
+			// default, so a host that cannot hold it must still take the downgrade
+			// the entry offers for exactly that case.
+			options := []gallery.VariantOption{
+				option("m-q4", "llama-cpp", gib(4)),
+				base("m-base-q8", gib(8)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{AvailableMemory: gib(6)}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-q4"))
 		})
 
 		It("reports why a probed size that does not fit was rejected", func() {
@@ -211,6 +266,21 @@ var _ = Describe("SelectVariant", func() {
 			options := []gallery.VariantOption{option("m-q8", "llama-cpp", gib(12)), base("m-base", gib(2))}
 
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{AvailableMemory: 0}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-base"))
+			Expect(selection.Option.IsBase).To(BeTrue())
+			Expect(selection.FellBackToBase).To(BeTrue())
+		})
+
+		It("prefers the base to an unsized variant even when the base itself is unsized", func() {
+			// Neither can be shown to fit, so nothing separates them on size. The
+			// base is still the payload the entry is guaranteed to install.
+			options := []gallery.VariantOption{
+				option("m-unknown", "llama-cpp", 0),
+				base("m-base", 0),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{AvailableMemory: gib(8)}, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(selection.Option.Variant.Model).To(Equal("m-base"))
 		})

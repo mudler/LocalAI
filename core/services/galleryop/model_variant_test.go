@@ -62,13 +62,16 @@ var _ = Describe("LocalModelManager variant selection", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { Expect(os.RemoveAll(modelsDir)).To(Succeed()) })
 
-		// The upgrade declares no size and carries no weight files, so the probe
-		// reports an unknown, the variant survives the filter and auto-selection
-		// would take it on any machine. Only an honored pin can land the install
-		// on the base.
+		// The upgrade declares a size no machine fails to clear and the base
+		// declares none, so the upgrade is the only measured fit and
+		// auto-selection takes it everywhere. Only an honored pin can land the
+		// install on the base. The size is read from the entry itself, so
+		// nothing here reaches the network.
+		upgrade := entry("qwen3-8b-q8", "upgrade-backend")
+		upgrade.Size = "16MiB"
 		entries := []gallery.GalleryModel{
 			entry("qwen3-8b-q4", "base-backend", gallery.Variant{Model: "qwen3-8b-q8"}),
-			entry("qwen3-8b-q8", "upgrade-backend"),
+			upgrade,
 		}
 		out, err := yaml.Marshal(entries)
 		Expect(err).ToNot(HaveOccurred())

@@ -27,8 +27,10 @@ type VariantOption struct {
 	// precisely why a gallery author never has to describe hardware.
 	Backend string
 	// IsBase marks the declaring entry's own payload. It is exempt from every
-	// filter and is the answer when nothing else survives, because the entry
-	// must stay installable on every host and for every client.
+	// filter, because the entry must stay installable on every host and for
+	// every client, but it is otherwise an ordinary candidate: it is ranked
+	// against the declared variants rather than consulted only once they have
+	// all been rejected.
 	IsBase bool
 	// ProbedMemory is the footprint measured live from the referenced entry's
 	// weights, in bytes. It is the only source of a variant's size. An author
@@ -87,9 +89,14 @@ func (e ResolveEnv) backendRuns(backend string) bool {
 // VariantSelection is the outcome of a selection pass.
 type VariantSelection struct {
 	Option VariantOption
-	// FellBackToBase reports that no declared variant survived and the entry's
-	// own payload was chosen instead. Callers log this, because a host quietly
-	// taking the base when upgrades were on offer is worth being able to see.
+	// FellBackToBase reports that no declared variant survived the filters and
+	// the entry's own payload was all that remained. Callers log this, because a
+	// host quietly taking the base when upgrades were on offer is worth being
+	// able to see.
+	//
+	// It is deliberately narrower than "the base was selected": the base also
+	// wins on merit whenever it outranks every surviving variant, and that is an
+	// ordinary, uninteresting outcome rather than something to warn about.
 	FellBackToBase bool
 	// Reasons explains, one line per rejected variant, why it was dropped.
 	Reasons []string
@@ -107,11 +114,13 @@ type VariantSelection struct {
 //     dropped. A variant with an UNKNOWN requirement survives, because nothing
 //     proves it does not fit and refusing on a size the probe could not read
 //     would let a network hiccup silently downgrade what gets installed.
-//  4. The largest survivor wins. A bigger footprint is a higher quality
-//     quantization of the same model, so among things that fit, more is better.
-//     Unknown requirements rank last, so a proven fit always beats a guess.
-//  5. With no survivor the base option wins. The base always installs; this
-//     never refuses.
+//  4. The base survives both filters unconditionally, and then competes. It is
+//     a candidate like any other, not a last resort: an entry whose own build is
+//     the largest thing that fits must win against a smaller variant, and a base
+//     of known size must win against a variant whose size nothing could measure.
+//  5. The survivors are ranked and the best one wins, by rankOf below.
+//  6. With no survivor at all, which can only happen when the caller supplied no
+//     base, there is nothing to install and this reports ErrNoVariantMatch.
 func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (VariantSelection, error) {
 	if pin != "" {
 		for _, o := range options {
@@ -125,54 +134,88 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 	type ranked struct {
 		option VariantOption
 		memory uint64
-		known  bool
+		rank   int
 	}
 
-	var base *VariantOption
 	survivors := make([]ranked, 0, len(options))
 	reasons := make([]string, 0, len(options))
+	survivingVariants := 0
 
 	for i := range options {
 		o := options[i]
-		if o.IsBase {
-			base = &options[i]
-			continue
-		}
-
-		if !env.backendRuns(o.Backend) {
-			reasons = append(reasons, fmt.Sprintf("%s needs backend %q, which cannot run on this system", o.Variant.Model, o.Backend))
-			continue
-		}
-
 		memory, known := o.EffectiveMemory()
-		if known && memory > env.AvailableMemory {
-			reasons = append(reasons, fmt.Sprintf("%s needs %s of memory", o.Variant.Model, humanBytes(memory)))
-			continue
+
+		// The base skips both gates. There is nothing below it, so refusing it
+		// would make an entry every older LocalAI installs fine uninstallable on
+		// newer ones.
+		if !o.IsBase {
+			if !env.backendRuns(o.Backend) {
+				reasons = append(reasons, fmt.Sprintf("%s needs backend %q, which cannot run on this system", o.Variant.Model, o.Backend))
+				continue
+			}
+			if known && memory > env.AvailableMemory {
+				reasons = append(reasons, fmt.Sprintf("%s needs %s of memory", o.Variant.Model, humanBytes(memory)))
+				continue
+			}
+			survivingVariants++
 		}
 
-		survivors = append(survivors, ranked{option: o, memory: memory, known: known})
+		survivors = append(survivors, ranked{option: o, memory: memory, rank: rankOf(o, env)})
 	}
 
-	if len(survivors) > 0 {
-		// Stable so that variants with identical requirements keep their
-		// authored order, which is the only thing order still decides.
-		sort.SliceStable(survivors, func(i, j int) bool {
-			if survivors[i].known != survivors[j].known {
-				return survivors[i].known
-			}
-			return survivors[i].memory > survivors[j].memory
-		})
-		return VariantSelection{Option: survivors[0].option, Reasons: reasons}, nil
+	if len(survivors) == 0 {
+		return VariantSelection{}, fmt.Errorf(
+			"%w: %s of memory available; variants: %s",
+			ErrNoVariantMatch, humanBytes(env.AvailableMemory), strings.Join(reasons, "; "),
+		)
 	}
 
-	if base != nil {
-		return VariantSelection{Option: *base, FellBackToBase: true, Reasons: reasons}, nil
-	}
+	// Stable so that options within one rank and of identical size keep their
+	// authored order, which is the only thing order still decides.
+	sort.SliceStable(survivors, func(i, j int) bool {
+		if survivors[i].rank != survivors[j].rank {
+			return survivors[i].rank < survivors[j].rank
+		}
+		return survivors[i].memory > survivors[j].memory
+	})
 
-	return VariantSelection{}, fmt.Errorf(
-		"%w: %s of memory available; variants: %s",
-		ErrNoVariantMatch, humanBytes(env.AvailableMemory), strings.Join(reasons, "; "),
-	)
+	winner := survivors[0].option
+	return VariantSelection{
+		Option: winner,
+		// Only a base that won by default is worth reporting. A base that
+		// outranked live competition is an ordinary selection.
+		FellBackToBase: winner.IsBase && survivingVariants == 0,
+		Reasons:        reasons,
+	}, nil
+}
+
+// Ranks, best first. Within a rank the larger footprint wins, because a bigger
+// build is a higher quality quantization of the same model.
+const (
+	// rankProvenFit is a measured size that the host is measured to satisfy.
+	rankProvenFit = iota
+	// rankBase is the entry's own build when it is not a proven fit: either it
+	// needs more memory than the host reports, or its size could not be
+	// measured either. It still outranks any unsized variant, because it is the
+	// payload the entry is guaranteed to be able to install and a variant of
+	// unmeasurable size is a guess. Taking the guess on a host that cannot be
+	// shown to accommodate it is how an unreachable network silently changes
+	// what gets installed.
+	rankBase
+	// rankUnknownFit is a variant whose size nothing could measure. Nothing
+	// proves it does not fit, so it is not dropped, but nothing proves it does
+	// either, so it ranks last.
+	rankUnknownFit
+)
+
+func rankOf(o VariantOption, env ResolveEnv) int {
+	if memory, known := o.EffectiveMemory(); known && memory <= env.AvailableMemory {
+		return rankProvenFit
+	}
+	if o.IsBase {
+		return rankBase
+	}
+	return rankUnknownFit
 }
 
 func humanBytes(b uint64) string {

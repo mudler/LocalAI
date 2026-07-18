@@ -111,13 +111,18 @@ func variantOptions(models []*GalleryModel, entry *GalleryModel, env ResolveEnv)
 		options = append(options, option)
 	}
 
-	// The base is never filtered nor ranked, so its size would change nothing
-	// and probing it would spend a round trip on a discarded answer.
-	return append(options, VariantOption{
+	// The base is probed like any other candidate. It is never filtered out, but
+	// it IS ranked against the variants, and an unsized base would lose every
+	// contest to a variant whose size nothing could measure.
+	base := VariantOption{
 		Variant: Variant{Model: entry.Name},
 		Backend: entry.Backend,
 		IsBase:  true,
-	}), nil
+	}
+	if env.ProbeMemory != nil {
+		base.ProbedMemory = env.ProbeMemory(entry)
+	}
+	return append(options, base), nil
 }
 
 // probeContextLength is the context size the footprint estimate is taken at.
@@ -180,9 +185,10 @@ func probeEntryMemory(ctx context.Context, entry *GalleryModel) uint64 {
 //
 // The base entry always resolves, whatever the host has. It is a complete entry
 // that every older LocalAI release installs unconditionally, so refusing it here
-// would make the gallery behave worse the newer the client is. That is also why
-// the base declares no memory requirement of its own: a floor that can only
-// warn cannot change any outcome.
+// would make the gallery behave worse the newer the client is. Being exempt from
+// the filters does not make it exempt from ranking: it is measured and compared
+// like every declared variant, and wins by default only once they have all been
+// ruled out.
 func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Variant, error) {
 	options, err := variantOptions(models, entry, env)
 	if err != nil {
@@ -462,19 +468,40 @@ func InstallModelFromGallery(
 	// back under the entry's own name would miss the record for every custom-named
 	// install and silently re-resolve a deliberately pinned model onto a
 	// different variant, possibly swapping its backend.
+	//
+	// recalledPin tracks where the pin came from, because the two sources must
+	// fail differently when the name no longer resolves. See below.
+	recalledPin := ""
 	if pin == "" {
 		installName := model.Name
 		if req.Name != "" {
 			installName = req.Name
 		}
 		if previous, err := GetLocalModelConfiguration(systemState.Model.ModelsPath, installName); err == nil && previous != nil {
-			pin = previous.PinnedVariant
+			recalledPin = previous.PinnedVariant
+			pin = recalledPin
 		}
 	}
 
 	env := HostResolveEnv(ctx, systemState)
 
 	resolved, variant, err := ResolveVariant(models, model, env, pin)
+	// A pin the caller supplied on this request must stay fatal: they named
+	// something this entry cannot give, and installing anything else would
+	// report success for a request that was not honored.
+	//
+	// A pin recalled from disk is different. The gallery can rename or withdraw
+	// a variant long after it was pinned, and the user is not asking for it
+	// again on this call. Failing here would turn one gallery edit into a
+	// permanently unrepairable model whose only remedy is deleting a dotfile
+	// they have never heard of, so the stale pin is dropped and selection runs
+	// as if it had never been recorded.
+	if err != nil && recalledPin != "" && errors.Is(err, ErrPinNotFound) {
+		xlog.Warn("The recorded variant pin for this model no longer exists in the gallery; re-selecting automatically",
+			"model", model.Name, "dropped_pin", recalledPin)
+		pin = ""
+		resolved, variant, err = ResolveVariant(models, model, env, "")
+	}
 	if err != nil {
 		return err
 	}
