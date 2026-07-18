@@ -1,5 +1,3 @@
-//go:build ignore
-
 // Command gallery_denormalize fills the read-only denormalized fields on meta
 // model entries: backend, quantization, and inferred_min_vram.
 //
@@ -9,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -80,7 +79,12 @@ func main() {
 
 			// Authored values win, and the final unconstrained candidate is
 			// deliberately floorless, so neither gets an inferred value.
+			// Clearing first matters: a candidate that gained an authored
+			// min_vram, or that became the last resort after a reorder, would
+			// otherwise keep a stale inferred floor that makes
+			// EffectiveMinVRAM report a constraint the entry no longer has.
 			if c.MinVRAM != "" || j == len(entries[i].Candidates)-1 {
+				c.InferredMinVRAM = ""
 				continue
 			}
 
@@ -125,13 +129,14 @@ func main() {
 // writeCandidates writes back only the three derived keys on each candidate,
 // leaving every other byte of the index alone.
 //
-// Marshalling the whole document back out would reflow all 1200+ entries
-// (quoting, indentation, key order, line wrapping), burying the handful of
-// real changes in reformatting noise and making the nightly PR unreviewable.
-// Even re-encoding just the candidates subtree would restyle authored fields
-// such as min_vram, so the rewrite reaches down to individual mapping keys.
-// That also makes the job idempotent: a run that computes the same values
-// leaves the file untouched and opens no PR.
+// Round-tripping through []GalleryModel would reflow all 1200+ entries
+// (quoting, key order, line wrapping), burying the handful of real changes in
+// reformatting noise and making the nightly PR unreviewable. Even re-encoding
+// just the candidates subtree would restyle authored fields such as min_vram,
+// so the rewrite reaches down to individual mapping keys and the node tree is
+// re-encoded at the index's authored indent. That also makes the job
+// idempotent: a run that computes the same values leaves the file untouched
+// and opens no PR.
 func writeCandidates(path string, data []byte, entries []gallery.GalleryModel) error {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
@@ -180,17 +185,50 @@ func writeCandidates(path string, data []byte, entries []gallery.GalleryModel) e
 		}
 	}
 
-	// Re-encoding an untouched document still normalizes indentation, so skip
-	// the write entirely when there was nothing to rewrite.
+	// Nothing to rewrite means nothing to encode: leave the file, and its
+	// mtime, alone.
 	if !changed {
 		return nil
 	}
 
-	out, err := yaml.Marshal(&doc)
-	if err != nil {
-		return fmt.Errorf("marshal: %w", err)
+	// yaml.Marshal encodes at yaml.v3's default 4-space indent, which reflows
+	// every nested block in the file (~6000 lines against the real index) and
+	// drowns the handful of rewritten keys. The index is authored at 2, so
+	// encode at 2 and the diff stays limited to what actually changed.
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(&doc); err != nil {
+		return fmt.Errorf("encode: %w", err)
 	}
-	return os.WriteFile(path, out, 0644)
+	if err := enc.Close(); err != nil {
+		return fmt.Errorf("flush encoder: %w", err)
+	}
+
+	// The encoder does not emit a document start marker, so restore the one the
+	// file was authored with rather than deleting it on every run.
+	out := buf.Bytes()
+	if header := documentHeader(data); header != nil && !bytes.HasPrefix(out, header) {
+		out = append(header, out...)
+	}
+
+	// Preserve the file's existing mode instead of forcing 0644.
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat: %w", err)
+	}
+	return os.WriteFile(path, out, info.Mode().Perm())
+}
+
+// documentHeader returns the leading document start marker line, or nil when the
+// file was authored without one.
+func documentHeader(data []byte) []byte {
+	for _, marker := range [][]byte{[]byte("---\n"), []byte("---\r\n")} {
+		if bytes.HasPrefix(data, marker) {
+			return marker
+		}
+	}
+	return nil
 }
 
 // mappingValue returns the value node for key, or nil when absent.
