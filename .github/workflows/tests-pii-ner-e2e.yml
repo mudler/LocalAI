@@ -68,7 +68,7 @@ jobs:
       - name: Configure apt mirror on runner
         uses: ./.github/actions/configure-apt-mirror
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go-version }}
           cache: false

@@ -62,7 +62,7 @@ jobs:
           submodules: true
 
       - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go-version }}
           # Caches ~/go/pkg/mod and ~/Library/Caches/go-build keyed on go.sum.
