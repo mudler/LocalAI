@@ -15,6 +15,10 @@ type GalleryModel struct {
 	ConfigFile map[string]any `json:"config_file,omitempty" yaml:"config_file,omitempty"`
 	// Overrides are used to override the configuration of the model located at URL
 	Overrides map[string]any `json:"overrides,omitempty" yaml:"overrides,omitempty"`
+	// Candidates, when non-empty, makes this a meta entry: an ordered list of
+	// concrete gallery entries, the first of which the host satisfies is what
+	// gets installed. Mirrors GalleryBackend's capabilities map one level up.
+	Candidates []Candidate `json:"candidates,omitempty" yaml:"candidates,omitempty"`
 }
 
 func (m *GalleryModel) GetInstalled() bool {
@@ -43,6 +47,12 @@ func (m *GalleryModel) GetGallery() config.Gallery {
 
 func (m GalleryModel) ID() string {
 	return fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
+}
+
+// IsMeta reports whether this entry resolves to one of several concrete
+// entries based on host hardware, rather than describing files directly.
+func (m GalleryModel) IsMeta() bool {
+	return len(m.Candidates) > 0
 }
 
 func (m *GalleryModel) GetTags() []string {
