@@ -58,6 +58,23 @@ var _ = Describe("ModelLoader", func() {
 		})
 	})
 
+	Context("HasKnownModelFileExtension", func() {
+		It("returns true for concrete weight/asset file paths", func() {
+			Expect(model.HasKnownModelFileExtension("local/model.gguf")).To(BeTrue())
+			Expect(model.HasKnownModelFileExtension("model.safetensors")).To(BeTrue())
+			Expect(model.HasKnownModelFileExtension("foo/bar.GGUF")).To(BeTrue())
+			Expect(model.HasKnownModelFileExtension("config.json")).To(BeTrue())
+		})
+
+		It("returns false for HuggingFace-style repository IDs", func() {
+			// org/repo carries no recognized file extension...
+			Expect(model.HasKnownModelFileExtension("bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF")).To(BeFalse())
+			// ...and a version suffix like ".0" is not a known model extension.
+			Expect(model.HasKnownModelFileExtension("stabilityai/stable-diffusion-xl-base-1.0")).To(BeFalse())
+			Expect(model.HasKnownModelFileExtension("plain-model-name")).To(BeFalse())
+		})
+	})
+
 	Context("ListFilesInModelPath", func() {
 		It("should list all valid model files in the model path", func() {
 			os.Create(filepath.Join(modelPath, "test.model"))
