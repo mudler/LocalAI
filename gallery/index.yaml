@@ -4234,6 +4234,35 @@
     - filename: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
       sha256: 83481c75cc6c0837ba9afa52b59b4cd3f85f55dd7aa6c60e27230ff329c81367
       uri: https://huggingface.co/bartowski/Qwen_Qwen3-Next-80B-A3B-Thinking-GGUF/resolve/main/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
+- name: nanbeige4.1-3b
+  description: |
+    Nanbeige4.1-3B is built upon Nanbeige4-3B-Base and represents an enhanced iteration of our previous reasoning model, Nanbeige4-3B-Thinking-2511, achieved through further post-training optimization with supervised fine-tuning (SFT) and reinforcement learning (RL). As a highly competitive open-source model at a small parameter scale, Nanbeige4.1-3B illustrates that compact models can simultaneously achieve robust reasoning, preference alignment, and effective agentic behaviors.
+
+    Automatically resolves to the best variant for your hardware: the Q8_0 build where there is enough VRAM for it, the Q4_K_M build otherwise.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/646f0d118ff94af23bc44aab/GXHCollpMRgvYqUXQ2BQ7.png
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.1-3B
+  tags:
+    - nanbeige
+    - 3b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - reasoning
+    - agent
+    - multilingual
+    - instruction-tuned
+  # url is the fallback for LocalAI releases that predate candidates support:
+  # they drop the candidates key silently and would otherwise install nothing.
+  # Lint requires it to equal the final candidate's url exactly, so old and new
+  # clients agree on the least demanding option.
+  url: github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master
+  candidates:
+    - model: nanbeige4.1-3b-q8
+      min_vram: 6GiB
+    - model: nanbeige4.1-3b-q4
 - name: nanbeige4.1-3b-q8
   url: github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master
   urls:

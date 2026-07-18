@@ -368,3 +368,40 @@ var _ = Describe("InstallModelFromGallery with meta entries", func() {
 		Expect(record.URLs).To(ConsistOf("https://example.invalid/qwen3"))
 	})
 })
+
+var _ = Describe("legacy client compatibility", func() {
+	It("exposes a url on every meta entry to clients that ignore candidates", func() {
+		data, err := os.ReadFile(filepath.Join("..", "..", "gallery", "index.yaml"))
+		Expect(err).ToNot(HaveOccurred())
+
+		// Parse exactly as an older LocalAI release would: non-strictly, with
+		// no knowledge of the candidates key.
+		var legacy []struct {
+			Name string `yaml:"name"`
+			URL  string `yaml:"url"`
+		}
+		Expect(yaml.Unmarshal(data, &legacy)).To(Succeed())
+
+		var current []gallery.GalleryModel
+		Expect(yaml.Unmarshal(data, &current)).To(Succeed())
+
+		urlByName := map[string]string{}
+		for _, e := range legacy {
+			urlByName[e.Name] = e.URL
+		}
+
+		metaCount := 0
+		for _, e := range current {
+			if !e.IsMeta() {
+				continue
+			}
+			metaCount++
+			// Without a url an old client lists the entry and installs an
+			// empty model, because it silently drops candidates.
+			Expect(urlByName[e.Name]).ToNot(BeEmpty(),
+				"meta entry %q is invisible payload-wise to older clients", e.Name)
+		}
+		Expect(metaCount).To(BeNumerically(">", 0),
+			"expected at least one meta entry in the gallery index")
+	})
+})

@@ -56,6 +56,42 @@
         "additionalProperties": false
       }
     },
+    "candidates": {
+      "type": "array",
+      "description": "Ordered variant list of a meta entry. The first candidate the host satisfies is installed, under the meta entry's own name. An entry carrying candidates must not also carry files or config_file.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["model"],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Name of a concrete (non-meta) gallery entry"
+          },
+          "capability": {
+            "type": "string",
+            "description": "Host capability this candidate requires, matched exactly and case-sensitively (for example metal, nvidia-cuda-12). Absent matches any host."
+          },
+          "min_vram": {
+            "type": "string",
+            "description": "Authored VRAM floor, for example 20GiB. Authoritative: inference never overwrites it."
+          },
+          "backend": {
+            "type": "string",
+            "description": "Denormalized by the nightly job for display. Never authored by hand."
+          },
+          "quantization": {
+            "type": "string",
+            "description": "Denormalized by the nightly job for display. Never authored by hand."
+          },
+          "inferred_min_vram": {
+            "type": "string",
+            "description": "Denormalized by the nightly job as a fallback floor. Never authored by hand; min_vram wins."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "prompt_templates": {
       "type": "array",
       "description": "Prompt templates written as .tmpl files",
