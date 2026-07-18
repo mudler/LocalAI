@@ -67,10 +67,6 @@
           "model": {
             "type": "string",
             "description": "Name of a gallery entry that declares no variants of its own"
-          },
-          "min_memory": {
-            "type": "string",
-            "description": "Authored memory requirement, for example 20GiB. Optional, and only needed to override the size the installer probes live from the model's weights when that figure is wrong. Authoritative: an authored figure suppresses the probe entirely."
           }
         },
         "additionalProperties": false

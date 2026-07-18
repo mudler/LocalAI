@@ -124,17 +124,6 @@ var _ = Describe("DescribeVariants", func() {
 			Expect(byName(view, "qwen3-8b-gguf-q8").MemoryBytes).To(Equal(gib(9)))
 		})
 
-		It("lets an authored min_memory win over the probe and skips that probe", func() {
-			base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq", MinMemory: "20GiB"}}
-
-			view, err := gallery.DescribeVariants(models, base, probing(gib(24), map[string]uint64{
-				"qwen3-8b-vllm-awq": gib(2),
-			}))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(byName(view, "qwen3-8b-vllm-awq").MemoryBytes).To(Equal(gib(20)))
-			Expect(probed).ToNot(ContainElement("qwen3-8b-vllm-awq"))
-		})
-
 		It("reports a size it could not determine as unknown rather than as free", func() {
 			// Zero on the wire means unknown. Rendering it as a zero-byte model
 			// would advertise the largest download on offer as costless.

@@ -31,9 +31,10 @@ type VariantOption struct {
 	// must stay installable on every host and for every client.
 	IsBase bool
 	// ProbedMemory is the footprint measured live from the referenced entry's
-	// weights, in bytes. It is only consulted when the variant declares no
-	// min_memory of its own, because a human who measured a real load knows
-	// more than a pre-download estimate does.
+	// weights, in bytes. It is the only source of a variant's size. An author
+	// who needs to correct a bad estimate sets `size:` on the referenced entry,
+	// which the estimator behind the probe already prefers over its own
+	// guesswork, so the correction lands everywhere the size is used.
 	//
 	// Zero means the probe could not determine a size. That is an unknown, not
 	// a zero requirement: a probe that cannot reach the network must never be
@@ -42,17 +43,12 @@ type VariantOption struct {
 }
 
 // EffectiveMemory returns this option's memory requirement in bytes and whether
-// one is known at all: the authored figure when there is one, else the live
-// probe result, else nothing.
-func (o VariantOption) EffectiveMemory() (uint64, bool, error) {
-	size, known, err := o.Variant.AuthoredMinMemory()
-	if err != nil || known {
-		return size, known, err
-	}
+// one is known at all.
+func (o VariantOption) EffectiveMemory() (uint64, bool) {
 	if o.ProbedMemory > 0 {
-		return o.ProbedMemory, true, nil
+		return o.ProbedMemory, true
 	}
-	return 0, false, nil
+	return 0, false
 }
 
 // ResolveEnv describes the host a variant is selected for.
@@ -69,13 +65,12 @@ type ResolveEnv struct {
 	// caller with no view of the hardware.
 	BackendCompatible func(backend string) bool
 	// ProbeMemory measures how much memory a referenced gallery entry needs,
-	// without downloading it. It is consulted only for variants that declare no
-	// min_memory, and a zero result means "could not tell", never "needs
-	// nothing".
+	// without downloading it. A zero result means "could not tell", never
+	// "needs nothing".
 	//
 	// It is a func field rather than a live network handle so specs can pin an
 	// exact size, or an exact failure, without reaching the internet. A nil func
-	// leaves every unauthored variant unknown, which selection already handles.
+	// leaves every variant unknown, which selection already handles.
 	//
 	// SelectVariant never calls this: the install layer resolves every size into
 	// VariantOption.ProbedMemory first, so the selector stays pure.
@@ -149,10 +144,7 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 			continue
 		}
 
-		memory, known, err := o.EffectiveMemory()
-		if err != nil {
-			return VariantSelection{}, err
-		}
+		memory, known := o.EffectiveMemory()
 		if known && memory > env.AvailableMemory {
 			reasons = append(reasons, fmt.Sprintf("%s needs %s of memory", o.Variant.Model, humanBytes(memory)))
 			continue

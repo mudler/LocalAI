@@ -75,28 +75,6 @@ func checkVariantReferences(entries []gallery.GalleryModel) []variantViolation {
 	return violations
 }
 
-// checkVariantMemory verifies every authored memory figure parses.
-//
-// Absence is fine and deliberately not flagged: a variant that declares nothing
-// gets its size from a live probe, and even a probe that fails leaves a
-// legitimate unknown that selection handles by ranking the variant last. An
-// UNPARSEABLE figure is different, because it makes selection fail outright for
-// the whole entry rather than degrade.
-func checkVariantMemory(entries []gallery.GalleryModel) []variantViolation {
-	var violations []variantViolation
-	for _, e := range entries {
-		if !e.HasVariants() {
-			continue
-		}
-		for _, v := range e.Variants {
-			if _, _, err := v.AuthoredMinMemory(); err != nil {
-				violations = append(violations, variantViolation{Entry: e.Name, Variant: v.Model, Detail: "has a bad min_memory: " + err.Error()})
-			}
-		}
-	}
-	return violations
-}
-
 // loadGalleryIndex parses gallery/index.yaml once for the whole suite. The
 // index carries well over a thousand entries, so re-parsing it per spec is
 // pure overhead.
@@ -145,11 +123,13 @@ var _ = Describe("gallery variant lint helpers", func() {
 	})
 
 	It("passes every invariant on a valid entry", func() {
+		// Authoring is nothing but a list of names, so a bare list of them must
+		// be entirely valid.
 		entries := variantFixture(
 			entryWithVariants("base", "u://base",
-				gallery.Variant{Model: "big", MinMemory: "24GiB"},
-				gallery.Variant{Model: "mid", MinMemory: "12GiB"},
-				gallery.Variant{Model: "metal-big", MinMemory: "32GiB"},
+				gallery.Variant{Model: "big"},
+				gallery.Variant{Model: "mid"},
+				gallery.Variant{Model: "metal-big"},
 				gallery.Variant{Model: "small"},
 			),
 			plainEntry("big", "u://big"),
@@ -159,19 +139,6 @@ var _ = Describe("gallery variant lint helpers", func() {
 		)
 
 		Expect(checkVariantReferences(entries)).To(BeEmpty())
-		Expect(checkVariantMemory(entries)).To(BeEmpty())
-	})
-
-	It("passes every invariant on an entry that declares no memory at all", func() {
-		// Authoring is meant to be nothing but a list of names, so an entry
-		// whose variants carry no figures must be entirely valid.
-		entries := variantFixture(
-			entryWithVariants("base", "u://base", gallery.Variant{Model: "big"}),
-			plainEntry("big", "u://big"),
-		)
-
-		Expect(checkVariantReferences(entries)).To(BeEmpty())
-		Expect(checkVariantMemory(entries)).To(BeEmpty())
 	})
 
 	Describe("checkVariantReferences", func() {
@@ -212,31 +179,6 @@ var _ = Describe("gallery variant lint helpers", func() {
 		})
 	})
 
-	Describe("checkVariantMemory", func() {
-		It("flags a variant whose memory figure cannot be parsed", func() {
-			entries := variantFixture(
-				entryWithVariants("base", "u://base", gallery.Variant{Model: "a", MinMemory: "lots"}),
-				plainEntry("a", "u://a"),
-			)
-
-			violations := checkVariantMemory(entries)
-			Expect(violations).To(HaveLen(1))
-			Expect(violations[0].Variant).To(Equal("a"))
-			Expect(violations[0].Detail).To(ContainSubstring("bad min_memory"))
-		})
-
-		It("accepts a variant that declares no figure at all", func() {
-			// The overwhelmingly common shape: a bare name, whose size the
-			// installer probes live. Flagging it would make the rule reject the
-			// authoring style the design exists to enable.
-			entries := variantFixture(
-				entryWithVariants("base", "u://base", gallery.Variant{Model: "a"}),
-				plainEntry("a", "u://a"),
-			)
-
-			Expect(checkVariantMemory(entries)).To(BeEmpty())
-		})
-	})
 })
 
 var _ = Describe("gallery/index.yaml variant invariants", Ordered, func() {
@@ -253,11 +195,6 @@ var _ = Describe("gallery/index.yaml variant invariants", Ordered, func() {
 
 	It("references only existing entries that declare no variants themselves", func() {
 		v := checkVariantReferences(entries)
-		Expect(v).To(BeEmpty(), formatViolations(v))
-	})
-
-	It("declares only parseable memory figures", func() {
-		v := checkVariantMemory(entries)
 		Expect(v).To(BeEmpty(), formatViolations(v))
 	})
 })

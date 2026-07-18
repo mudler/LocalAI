@@ -119,10 +119,11 @@ Rules:
   and installs the largest survivor, falling back to the declaring entry's own
   build. Sizes are measured live from the weights and cached, so nothing has to
   be written down.
-- `min_memory` on a single variant (e.g. `min_memory: 20GiB`) overrides the
-  measured size and suppresses the measurement for that variant. Use it only
-  when you have measured a real load and know the estimate is wrong; most
-  variants should not carry it.
+- A variant is nothing but a name; there is no per-variant memory field. When
+  the measured size for a build is wrong, correct it on the referenced entry by
+  setting that entry's own `size:` (e.g. `size: "20GiB"`). The estimator prefers
+  a declared size over its own guesswork, so the fix applies everywhere the size
+  is shown or compared rather than only to variant selection.
 
 Users can override the automatic choice with `variant` on `POST /models/apply`,
 `local-ai models install --variant`, or the `install_model` MCP tool. See

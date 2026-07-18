@@ -63,10 +63,7 @@ func DescribeVariants(models []*GalleryModel, entry *GalleryModel, env ResolveEn
 
 	views := make([]VariantView, 0, len(options))
 	for _, o := range options {
-		memory, known, err := o.EffectiveMemory()
-		if err != nil {
-			return nil, err
-		}
+		memory, known := o.EffectiveMemory()
 		view := VariantView{
 			Model:   o.Variant.Model,
 			Backend: o.Backend,

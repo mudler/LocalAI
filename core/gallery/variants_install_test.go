@@ -36,19 +36,16 @@ url: "github:example/repo/qwen3.6-27b.yaml@master"
 variants:
   - model: qwen3.6-27b-mlx-8bit
   - model: qwen3.6-27b-gguf-q8
-    min_memory: 28GiB
 `), &m)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(m.Name).To(Equal("qwen3.6-27b"))
 		Expect(m.URL).To(Equal("github:example/repo/qwen3.6-27b.yaml@master"))
 		Expect(m.HasVariants()).To(BeTrue())
 		Expect(m.Variants).To(HaveLen(2))
-		// The first variant is nothing but a name, which is the shape authoring
-		// is meant to reach for.
+		// A variant is nothing but a name, which is the whole of the authoring
+		// surface.
 		Expect(m.Variants[0].Model).To(Equal("qwen3.6-27b-mlx-8bit"))
-		Expect(m.Variants[0].MinMemory).To(BeEmpty())
 		Expect(m.Variants[1].Model).To(Equal("qwen3.6-27b-gguf-q8"))
-		Expect(m.Variants[1].MinMemory).To(Equal("28GiB"))
 	})
 })
 
@@ -79,12 +76,24 @@ var _ = Describe("ResolveVariant", func() {
 		base = newModel("qwen3-8b-gguf-q4", "file://gguf.yaml", "Qwen3 8B Q4", "qwen.png")
 		base.Backend = "llama-cpp"
 		base.Tags = []string{"llm"}
-		base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq", MinMemory: "20GiB"}}
+		base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq"}}
 		models = []*gallery.GalleryModel{upgrade, base}
 	})
 
+	// The AWQ build measures 20GiB, so the specs below vary only the host and
+	// read off which payload resolution lands on. The probe is injected rather
+	// than performed, so nothing here reaches the network.
 	env := func(memory uint64) gallery.ResolveEnv {
-		return gallery.ResolveEnv{AvailableMemory: memory, BackendCompatible: runsEverything}
+		return gallery.ResolveEnv{
+			AvailableMemory:   memory,
+			BackendCompatible: runsEverything,
+			ProbeMemory: func(target *gallery.GalleryModel) uint64 {
+				if target.Name == "qwen3-8b-vllm-awq" {
+					return 20 * 1024 * 1024 * 1024
+				}
+				return 0
+			},
+		}
 	}
 
 	It("installs a fitting variant's payload under the entry's name", func() {
@@ -141,12 +150,6 @@ var _ = Describe("ResolveVariant", func() {
 			return e
 		}
 
-		BeforeEach(func() {
-			// No authored figure anywhere, so every size below comes from the
-			// probe. This is the shape authoring is meant to reach for.
-			base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq"}}
-		})
-
 		It("selects a variant the probe shows to fit", func() {
 			resolved, variant, err := gallery.ResolveVariant(models, base,
 				probing(gib(24), map[string]uint64{"qwen3-8b-vllm-awq": gib(20)}), "")
@@ -187,23 +190,6 @@ var _ = Describe("ResolveVariant", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(variant.Model).To(Equal("qwen3-8b-gguf-q4"))
 			Expect(resolved.URL).To(Equal("file://gguf.yaml"))
-		})
-
-		It("does not probe a variant that declares its own min_memory", func() {
-			// Probing costs a network round trip, so an authored figure has to
-			// suppress it outright rather than merely outrank it.
-			base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq", MinMemory: "20GiB"}}
-			probed := []string{}
-			e := env(gib(24))
-			e.ProbeMemory = func(target *gallery.GalleryModel) uint64 {
-				probed = append(probed, target.Name)
-				return gib(80)
-			}
-
-			_, variant, err := gallery.ResolveVariant(models, base, e, "")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(probed).To(BeEmpty())
-			Expect(variant.Model).To(Equal("qwen3-8b-vllm-awq"))
 		})
 	})
 
@@ -350,6 +336,16 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		return m
 	}
 
+	// sizedEntry declares its footprint through the entry's own size:, which is
+	// the only way an author influences a variant's measured size. The estimator
+	// prefers a declared size over its own guesswork and parses it locally, so
+	// these specs pin an exact figure without touching the network.
+	sizedEntry := func(name, backend, size string) gallery.GalleryModel {
+		m := entry(name, backend)
+		m.Size = size
+		return m
+	}
+
 	// urlEntry describes an entry through a url rather than an inline
 	// config_file. The distinction matters for the recorded name: the url branch
 	// reads a name out of the fetched config, and that name is the referenced
@@ -375,9 +371,10 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	}
 
 	// withVariants attaches alternative builds to an otherwise ordinary entry.
-	// The figures are absolute rather than relative to the host: "0GiB" always
-	// fits and "10000GiB" never does, so these specs assert on selection rather
-	// than on whatever memory the machine running them happens to have.
+	// Where a spec needs a definite size it declares it on the referenced entry
+	// with sizedEntry, in absolute terms rather than relative to the host, so
+	// these specs assert on selection rather than on whatever memory the machine
+	// running them happens to have.
 	withVariants := func(m gallery.GalleryModel, variants ...gallery.Variant) gallery.GalleryModel {
 		m.Variants = variants
 		return m
@@ -410,8 +407,8 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	It("installs the entry's own payload when no variant fits the host", func() {
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "10000GiB"}),
-			entry("qwen3-8b-q8", "upgrade-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
+			sizedEntry("qwen3-8b-q8", "upgrade-backend", "10000GiB"),
 		)
 
 		// No machine clears 10000GiB, so this asserts the base is the last
@@ -423,8 +420,8 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	It("installs a fitting variant's payload under the entry's own name", func() {
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"}),
-			entry("qwen3-8b-q8", "upgrade-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
+			sizedEntry("qwen3-8b-q8", "upgrade-backend", "16MiB"),
 		)
 
 		Expect(install("qwen3-8b-q4", gallery.GalleryModel{})).To(Succeed())
@@ -454,11 +451,11 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		// would take the small one.
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-small", MinMemory: "0GiB"},
-				gallery.Variant{Model: "qwen3-8b-large", MinMemory: "1KiB"},
+				gallery.Variant{Model: "qwen3-8b-small"},
+				gallery.Variant{Model: "qwen3-8b-large"},
 			),
-			entry("qwen3-8b-small", "small-backend"),
-			entry("qwen3-8b-large", "large-backend"),
+			sizedEntry("qwen3-8b-small", "small-backend", "16MiB"),
+			sizedEntry("qwen3-8b-large", "large-backend", "256MiB"),
 		)
 
 		Expect(install("qwen3-8b-q4", gallery.GalleryModel{})).To(Succeed())
@@ -474,7 +471,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		// the only thing that can send this to the base.
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-mlx", MinMemory: "0GiB"}),
+				gallery.Variant{Model: "qwen3-8b-mlx"}),
 			entry("qwen3-8b-mlx", "mlx"),
 		)
 
@@ -489,7 +486,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		// anything reads the record back.
 		newGallery(
 			withVariants(urlEntry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"}),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
 			urlEntry("qwen3-8b-q8", "upgrade-backend"),
 		)
 
@@ -508,7 +505,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	It("refuses a variant name the entry does not declare, naming what was asked for", func() {
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"}),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
 			entry("qwen3-8b-q8", "upgrade-backend"),
 		)
 
@@ -538,7 +535,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	It("records a pin and honors it on a plain reinstall", func() {
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"}),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
 			entry("qwen3-8b-q8", "upgrade-backend"),
 		)
 
@@ -563,7 +560,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 	It("honors a pin recorded under a custom install name", func() {
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),
-				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"}),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
 			entry("qwen3-8b-q8", "upgrade-backend"),
 		)
 
@@ -586,7 +583,7 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 
 	It("writes each declared url only once into the persisted gallery file", func() {
 		base := withVariants(entry("qwen3-8b-q4", "base-backend"),
-			gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"})
+			gallery.Variant{Model: "qwen3-8b-q8"})
 		base.URLs = []string{"https://example.invalid/qwen3"}
 		newGallery(base, entry("qwen3-8b-q8", "upgrade-backend"))
 

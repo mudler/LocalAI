@@ -105,9 +105,7 @@ func variantOptions(models []*GalleryModel, entry *GalleryModel, env ResolveEnv)
 		}
 
 		option := VariantOption{Variant: v, Backend: target.Backend}
-		// An authored figure short circuits the probe: the author already
-		// answered the question the probe would spend a round trip asking.
-		if v.MinMemory == "" && env.ProbeMemory != nil {
+		if env.ProbeMemory != nil {
 			option.ProbedMemory = env.ProbeMemory(target)
 		}
 		options = append(options, option)
@@ -206,7 +204,7 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	// checks, but a silent bypass makes a later out-of-memory failure
 	// impossible to trace back to the pin, so it is recorded loudly here.
 	if pin != "" {
-		if need, known, verr := selected.EffectiveMemory(); verr == nil && known && env.AvailableMemory < need {
+		if need, known := selected.EffectiveMemory(); known && env.AvailableMemory < need {
 			xlog.Warn("Pinned model variant declares more memory than this system reports; installing anyway because the pin overrides hardware resolution",
 				"model", entry.Name, "variant", selected.Variant.Model, "required_memory", need, "available_memory", env.AvailableMemory)
 		}
