@@ -1,6 +1,6 @@
 torch==2.7.1
 llvmlite==0.43.0
-numba==0.60.0
+numba==0.66.0
 accelerate
 transformers>=5.14.1
 bitsandbytes
