@@ -252,6 +252,9 @@ func (c *Client) InstallModel(ctx context.Context, req localaitools.InstallModel
 	if len(req.Overrides) > 0 {
 		body["overrides"] = req.Overrides
 	}
+	if req.Variant != "" {
+		body["variant"] = req.Variant
+	}
 	var resp struct {
 		ID        string `json:"uuid"`
 		StatusURL string `json:"status"`

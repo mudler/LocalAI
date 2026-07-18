@@ -252,6 +252,31 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	return &resolved, selected.Variant, nil
 }
 
+// HostResolveEnv describes this machine to variant selection.
+//
+// It exists so the install path and every read-only surface that reports what
+// selection WOULD choose derive the host from one place. Two copies of this
+// wiring would eventually disagree, and a picker that shows a different answer
+// than the installer produces is worse than no picker at all.
+func HostResolveEnv(ctx context.Context, systemState *system.SystemState) ResolveEnv {
+	return ResolveEnv{
+		AvailableMemory: availableModelMemory(systemState),
+		// The whole hardware gate. IsBackendCompatible already derives
+		// Darwin-only, NVIDIA-only, ROCm-only and SYCL-only from the backend
+		// name, so a gallery author never has to describe hardware.
+		//
+		// The uri argument is deliberately empty: it exists for backend OCI
+		// images, and passing a model's gallery url here would let an unrelated
+		// substring in a download link decide hardware compatibility.
+		BackendCompatible: func(backend string) bool {
+			return systemState.IsBackendCompatible(backend, "")
+		},
+		ProbeMemory: func(target *GalleryModel) uint64 {
+			return probeEntryMemory(ctx, target)
+		},
+	}
+}
+
 // noGPUDetected is what SystemState.DetectedCapability() reports when no
 // usable GPU was found. The constant is unexported in pkg/system.
 const noGPUDetected = "default"
@@ -419,6 +444,12 @@ func InstallModelFromGallery(
 	// still installable as-is; selection below only decides whether one of its
 	// declared alternatives suits this host better.
 	if !model.HasVariants() {
+		// A caller who named a variant asked for something this entry cannot
+		// give. Installing the entry anyway would look like success while
+		// quietly ignoring the choice, so it is refused by name instead.
+		if installOpts.variant != "" {
+			return fmt.Errorf("%w: %q was requested but model %q declares no variants", ErrPinNotFound, installOpts.variant, model.Name)
+		}
 		return applyModel(model, nil)
 	}
 
@@ -443,22 +474,7 @@ func InstallModelFromGallery(
 		}
 	}
 
-	env := ResolveEnv{
-		AvailableMemory: availableModelMemory(systemState),
-		// The whole hardware gate. IsBackendCompatible already derives
-		// Darwin-only, NVIDIA-only, ROCm-only and SYCL-only from the backend
-		// name, so a gallery author never has to describe hardware.
-		//
-		// The uri argument is deliberately empty: it exists for backend OCI
-		// images, and passing a model's gallery url here would let an unrelated
-		// substring in a download link decide hardware compatibility.
-		BackendCompatible: func(backend string) bool {
-			return systemState.IsBackendCompatible(backend, "")
-		},
-		ProbeMemory: func(target *GalleryModel) uint64 {
-			return probeEntryMemory(ctx, target)
-		},
-	}
+	env := HostResolveEnv(ctx, systemState)
 
 	resolved, variant, err := ResolveVariant(models, model, env, pin)
 	if err != nil {

@@ -505,6 +505,36 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		Expect(installedBackend("qwen3-8b-q4")).To(Equal("upgrade-backend"))
 	})
 
+	It("refuses a variant name the entry does not declare, naming what was asked for", func() {
+		newGallery(
+			withVariants(entry("qwen3-8b-q4", "base-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8", MinMemory: "0GiB"}),
+			entry("qwen3-8b-q8", "upgrade-backend"),
+		)
+
+		err := install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q6"))
+
+		// Auto-selecting instead would report success while silently
+		// installing something other than what the caller asked for, and a
+		// typo'd variant name would be indistinguishable from a working one.
+		Expect(err).To(MatchError(gallery.ErrPinNotFound))
+		Expect(err.Error()).To(ContainSubstring("qwen3-8b-q6"))
+		Expect(filepath.Join(tempdir, "qwen3-8b-q4.yaml")).ToNot(BeAnExistingFile())
+	})
+
+	It("refuses a variant name when the entry declares no variants at all", func() {
+		// The entry is installable and selection never runs for it, so without
+		// an explicit refusal the requested variant would be dropped on the
+		// floor and the install would look like it honored the choice.
+		newGallery(entry("qwen3-8b-q4", "base-backend"))
+
+		err := install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q8"))
+
+		Expect(err).To(MatchError(gallery.ErrPinNotFound))
+		Expect(err.Error()).To(ContainSubstring("qwen3-8b-q8"))
+		Expect(filepath.Join(tempdir, "qwen3-8b-q4.yaml")).ToNot(BeAnExistingFile())
+	})
+
 	It("records a pin and honors it on a plain reinstall", func() {
 		newGallery(
 			withVariants(entry("qwen3-8b-q4", "base-backend"),

@@ -91,6 +91,46 @@ To add a variant (e.g., different quantization), use YAML merge:
       uri: huggingface://<gguf-org>/<gguf-repo>/<filename>-Q8_0.gguf
 ```
 
+## Offering several builds of one model (`variants`)
+
+When the same model is published in more than one quantization, or is also
+servable by another engine, add each build as its own ordinary gallery entry and
+then point one of them at the others with `variants`:
+
+```yaml
+- !!merge <<: *chatml
+  name: "nanbeige4.1-3b-q4"
+  # ... the usual urls / overrides / files for the Q4 build ...
+  variants:
+    - model: nanbeige4.1-3b-q8
+```
+
+Rules:
+
+- The declaring entry is a **complete, normal entry**. It keeps its own
+  `files`/`overrides` and stays installable on every host and by every older
+  LocalAI release, which simply ignore `variants`.
+- A variant references another gallery entry **by name**. That entry must exist
+  and must not declare `variants` of its own.
+- **Order carries no meaning.** Do not try to encode a preference; write the
+  list in whatever order reads best.
+- **Do not describe hardware.** At install time LocalAI drops variants whose
+  backend cannot run on the host, drops those that do not fit available memory,
+  and installs the largest survivor, falling back to the declaring entry's own
+  build. Sizes are measured live from the weights and cached, so nothing has to
+  be written down.
+- `min_memory` on a single variant (e.g. `min_memory: 20GiB`) overrides the
+  measured size and suppresses the measurement for that variant. Use it only
+  when you have measured a real load and know the estimate is wrong; most
+  variants should not carry it.
+
+Users can override the automatic choice with `variant` on `POST /models/apply`,
+`local-ai models install --variant`, or the `install_model` MCP tool. See
+`docs/content/features/model-gallery.md`.
+
+The gallery lint specs live in `core/gallery`, so run that suite after adding a
+`variants` list.
+
 ## Available template configs
 
 Look at existing `.yaml` files in `gallery/` to find the right prompt template for your model architecture:

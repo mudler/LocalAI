@@ -6,7 +6,7 @@ Use this when the user wants to install a chat-capable model — including the c
 2. Show the top results as a numbered list with name, gallery, short description, and license. If none match, say so and ask whether to broaden the search.
 3. Wait for the user to pick.
 4. Summarise the chosen install ("I'll install **`<gallery>/<name>`** — confirm?") and wait for confirmation.
-5. On confirmation, call `install_model` with `gallery_name` and `model_name` from the chosen hit.
+5. On confirmation, call `install_model` with `gallery_name` and `model_name` from the chosen hit. Leave `variant` empty: LocalAI then auto-selects the largest build this machine's engines and free memory can actually run. Only set `variant` when the user names a specific build (e.g. "the Q8 one"), and pass the name exactly as the entry lists it — an unknown name fails the install rather than falling back to auto-selection.
 6. Poll `get_job_status` with the returned job id. Report meaningful progress changes (every ~10–20%, plus completion).
 7. When the job reports `processed: true` and no error, call `reload_models`, then `list_installed_models` with `capability: "chat"` to confirm the model is now visible.
 8. Tell the user the model is ready and how to use it (its name as the `model` field in chat completions).

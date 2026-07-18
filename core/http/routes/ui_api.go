@@ -413,6 +413,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
+		// Kept before the filters and pagination below narrow `models`: a
+		// variant references another gallery entry by name, and that entry may
+		// well have been filtered off this page.
+		allModels := models
+
 		// Get all available tags
 		allTags := map[string]struct{}{}
 		tags := []string{}
@@ -583,6 +588,26 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"additionalFiles": m.AdditionalFiles,
 				"backend":         m.Backend,
 				"voice_cloning":   m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath),
+			}
+
+			// Variants are described only for the entries that declare them.
+			// DescribeVariants is what probes model sizes, so calling it for
+			// every entry would put a network round trip behind each of the
+			// ~1200 entries in the gallery. The HasVariants guard keeps an
+			// ordinary entry exactly as cheap as it was before variants
+			// existed; only a declaring entry pays, and only on the page it
+			// appears on.
+			if m.HasVariants() {
+				env := gallery.HostResolveEnv(c.Request().Context(), appConfig.SystemState)
+				view, describeErr := gallery.DescribeVariants(allModels, m, env)
+				if describeErr != nil {
+					// A malformed variant list must not blank the whole gallery
+					// page; that entry just renders without a picker.
+					xlog.Warn("could not describe model variants", "model", m.Name, "error", describeErr)
+				} else if view != nil {
+					obj["variants"] = view.Variants
+					obj["auto_variant"] = view.AutoSelected
+				}
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -809,7 +834,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid model ID",
 			})
 		}
-		xlog.Debug("API job submitted to install", "galleryID", galleryID)
+		// Optional: one of the variants the listing reported for this entry.
+		// Absent means auto-select, which is what the listing's auto_variant
+		// already told the client would happen.
+		variant := c.QueryParam("variant")
+		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant)
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -825,6 +854,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
+			Variant:            variant,
 			Galleries:          appConfig.Galleries,
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,

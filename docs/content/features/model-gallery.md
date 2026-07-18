@@ -151,6 +151,70 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
+### Model variants
+
+Some gallery entries offer several builds of the same model: different
+quantizations, or the same weights served by a different engine. Such an entry
+carries a `variants` list, and installing it normally lets LocalAI choose:
+
+- variants whose backend cannot run on this machine are dropped;
+- variants that do not fit the available memory (VRAM on a GPU host, otherwise
+  system RAM) are dropped;
+- the largest remaining variant wins, because a bigger footprint means a higher
+  quality build of the same model;
+- if nothing survives, the entry's own build is installed. The entry is always
+  installable, on any machine.
+
+Sizes are measured from the model's weights rather than downloaded, and cached.
+
+The gallery listing reports what an entry offers. Entries with variants carry
+two extra fields, `variants` and `auto_variant`:
+
+```bash
+curl http://localhost:8080/api/models | jq '.models[] | select(.variants) |
+  {name, auto_variant, variants}'
+```
+
+```json
+{
+  "name": "nanbeige4.1-3b-q4",
+  "auto_variant": "nanbeige4.1-3b-q8",
+  "variants": [
+    { "model": "nanbeige4.1-3b-q8", "backend": "llama-cpp", "memory_bytes": 4187593113, "fits": true, "is_base": false },
+    { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "memory_bytes": 0, "fits": true, "is_base": true }
+  ]
+}
+```
+
+`auto_variant` is what installing without a choice would pick right now. `fits`
+is whether auto-selection would consider that variant on this machine, and a
+`memory_bytes` of 0 means the size could not be determined, not that the build
+is free. `is_base` marks the entry's own build.
+
+To install a specific one, pass its name as `variant`:
+
+```bash
+curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
+     "id": "localai@nanbeige4.1-3b-q4",
+     "variant": "nanbeige4.1-3b-q8"
+   }'
+```
+
+An explicit choice is honored even when the machine looks too small for it, so
+you can deliberately install a build LocalAI would not have picked. A `variant`
+the entry does not declare fails the install and names what was requested; it
+never quietly falls back to auto-selection. The choice is recorded, so a later
+reinstall or upgrade of the same model stays on the variant you picked.
+
+The same option exists on the CLI:
+
+```bash
+local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
+```
+
+Entries without a `variants` list are unaffected by any of this and install
+exactly as they always have.
+
 ### Artifact-backed models
 
 Gallery models with an `artifacts` declaration are fully materialized during
