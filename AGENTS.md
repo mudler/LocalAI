@@ -39,7 +39,7 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 - **Logging**: Use `github.com/mudler/xlog` (same API as slog)
 - **Go style**: Prefer `any` over `interface{}`
 - **Comments**: Explain *why*, not *what*
-- **Docs**: Update `docs/content/` when adding features or changing config
+- **Docs (docs-with-code rule)**: When you change user-facing behavior (API endpoints, CLI flags, config keys, or features), update the corresponding page under `docs/content/` in the SAME change, not as a follow-up. A user-facing change without a matching docs update is incomplete. See also the documentation conventions in [.agents/coding-style.md](.agents/coding-style.md).
 - **New API endpoints**: LocalAI advertises its capability surface in several independent places — swagger `@Tags`, `/api/instructions` registry, auth `RouteFeatureRegistry`, React UI `capabilities.js`, docs. Read [.agents/api-endpoints-and-auth.md](.agents/api-endpoints-and-auth.md) and follow its checklist — missing any surface means clients, admins, and the UI won't know the endpoint exists.
 - **Admin endpoints → MCP tool**: every admin endpoint that an admin would manage conversationally (install/list/edit/toggle/upgrade) MUST also be exposed as an MCP tool in `pkg/mcp/localaitools/`. The LocalAI Assistant chat modality and the standalone `local-ai mcp-server` consume that package; drift between REST and MCP is a real risk. Read [.agents/localai-assistant-mcp.md](.agents/localai-assistant-mcp.md) — the `TestToolHTTPRouteMappingComplete` test fails until you wire the new tool and update the route map.
 - **Build**: Inspect `Makefile` and `.github/workflows/` — ask the user before running long builds

@@ -11,9 +11,9 @@ This document provides guidance for AI tools and developers using AI assistance 
 
 AI tools helping with LocalAI development should follow the standard project development process:
 
-- [CONTRIBUTING.md](https://github.com/mudler/LocalAI/blob/master/CONTRIBUTING.md) — development workflow, commit conventions, and PR guidelines
-- [AGENTS.md](https://github.com/mudler/LocalAI/blob/master/AGENTS.md) — the agent entry point with links to all detailed topic guides
-- [.agents/ai-coding-assistants.md](https://github.com/mudler/LocalAI/blob/master/.agents/ai-coding-assistants.md) — the full policy source of truth
+- [CONTRIBUTING.md](https://github.com/mudler/LocalAI/blob/master/CONTRIBUTING.md) - development workflow, commit conventions, and PR guidelines
+- [AGENTS.md](https://github.com/mudler/LocalAI/blob/master/AGENTS.md) - the agent entry point with links to all detailed topic guides
+- [.agents/ai-coding-assistants.md](https://github.com/mudler/LocalAI/blob/master/.agents/ai-coding-assistants.md) - the full policy source of truth
 
 ## Licensing and Legal Requirements
 
@@ -44,9 +44,9 @@ Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]
 
 Where:
 
-- `AGENT_NAME` — name of the AI tool or framework (e.g., `Claude`, `Copilot`, `Cursor`)
-- `MODEL_VERSION` — specific model version used (e.g., `claude-opus-4-7`, `gpt-5`)
-- `[TOOL1] [TOOL2]` — optional specialized analysis tools invoked by the agent (e.g., `golangci-lint`, `staticcheck`, `go vet`)
+- `AGENT_NAME` - name of the AI tool or framework (e.g., `Claude`, `Copilot`, `Cursor`)
+- `MODEL_VERSION` - specific model version used (e.g., `claude-opus-4-7`, `gpt-5`)
+- `[TOOL1] [TOOL2]` - optional specialized analysis tools invoked by the agent (e.g., `golangci-lint`, `staticcheck`, `go vet`)
 
 Basic development tools (git, go, make, editors) should **not** be listed.
 

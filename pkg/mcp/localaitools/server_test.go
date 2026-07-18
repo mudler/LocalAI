@@ -104,6 +104,7 @@ var expectedFullCatalog = sortedStrings(
 	ToolVRAMEstimate,
 	ToolCreateVoiceProfile,
 	ToolDeleteVoiceProfile,
+	ToolSetNodeVRAMBudget,
 )
 
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.

@@ -35,7 +35,7 @@ parameters:
 
 context_size: 512
 threads: 10
-backend: llama-stable
+backend: llama-cpp
 
 template:
   completion: completion
@@ -51,13 +51,13 @@ When using `--models-config-file`, you can define multiple models as a list:
   parameters:
     model: model1.bin
   context_size: 512
-  backend: llama-stable
+  backend: llama-cpp
 
 - name: model2
   parameters:
     model: model2.bin
   context_size: 1024
-  backend: llama-stable
+  backend: llama-cpp
 ```
 
 ## Core Configuration Fields
@@ -88,6 +88,62 @@ download_files:
     uri: https://example.com/model.gguf
     sha256: abc123...
 ```
+
+## Model artifacts
+
+The `artifacts` section makes installation of a Hugging Face model eager and
+repeatable. LocalAI resolves the requested revision to an immutable commit,
+downloads the selected repository files, and commits the complete snapshot
+before the model installation succeeds.
+
+```yaml
+artifacts:
+  - name: model
+    target: model
+    source:
+      type: huggingface
+      repo: Qwen/Qwen3-ASR-1.7B
+      revision: main
+      token_env: HF_TOKEN
+    resolved:
+      endpoint: https://huggingface.co
+      revision: 0123456789abcdef0123456789abcdef01234567
+      cache_key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+parameters:
+  model: Qwen/Qwen3-ASR-1.7B
+```
+
+Declare `source` when authoring a configuration. LocalAI owns the `resolved`
+block and writes it after installation; do not choose its values manually.
+For a public repository, omit `token_env`. For a private or gated repository,
+set it to `HF_TOKEN` and provide that environment variable to the LocalAI
+controller.
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Logical artifact name; `model` for the initial primary artifact |
+| `target` | Binding target; only `model` is supported initially |
+| `source.type` | `huggingface` |
+| `source.repo` | `owner/repository` or `hf://owner/repository` |
+| `source.revision` | Branch, tag, or commit; defaults to `main` and resolves to a commit |
+| `source.token_env` | Empty or `HF_TOKEN`; the secret value is never persisted |
+| `source.allow_patterns` | Optional slash-separated glob allow-list |
+| `source.ignore_patterns` | Optional slash-separated glob deny-list |
+| `resolved` | Installer-owned immutable endpoint, revision, and cache key |
+
+Managed installation finishes only after every selected file is committed
+locally. `parameters.model` remains the logical repository ID. Once
+`resolved.cache_key` is present, LocalAI derives
+`.artifacts/huggingface/<cache-key>/snapshot` as the runtime `ModelFile`.
+Configurations without `artifacts` keep the existing lazy repository-ID
+behavior.
+
+The initially migrated backend families are `transformers` and its aliases,
+`diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
+`liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+artifact declarations only for this set. Compatible external backends may opt
+in by declaring the artifact explicitly.
 
 ## Parameters Section
 
@@ -213,7 +269,7 @@ YARN (Yet Another RoPE extensioN) settings for context extension:
 
 ### Speculative Decoding
 
-Speculative decoding speeds up text generation by predicting multiple tokens ahead and verifying them in a single forward pass. The output is identical to normal decoding — only faster. This feature is only available with the `llama-cpp` backend.
+Speculative decoding speeds up text generation by predicting multiple tokens ahead and verifying them in a single forward pass. The output is identical to normal decoding - only faster. This feature is only available with the `llama-cpp` backend.
 
 There are two approaches:
 
@@ -235,7 +291,7 @@ options:
 
 #### N-gram Self-Speculative Decoding
 
-Uses patterns from the token history to predict future tokens — no extra model required. Works well for repetitive or structured output (code, JSON, lists).
+Uses patterns from the token history to predict future tokens - no extra model required. Works well for repetitive or structured output (code, JSON, lists).
 
 ```yaml
 name: my-model
@@ -420,7 +476,7 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 
 #### `reasoning_effort` as a chat-template kwarg
 
-`reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it — e.g. gpt-oss (Harmony) or LFM2.5 — honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
+`reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it - e.g. gpt-oss (Harmony) or LFM2.5 - honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
 
 Set a per-model default in the config so every request inherits it (a per-request `reasoning_effort` still overrides):
 
@@ -573,7 +629,7 @@ These options apply when using the `vllm` backend:
 | `disable_log_stats` | bool | Disable logging statistics |
 | `dtype` | string | Data type (e.g., `float16`, `bfloat16`) |
 | `flash_attention` | string | Flash attention configuration |
-| `cache_type_k` | string | Key cache quantization type. Maps to llama.cpp's `-ctk`. Accepted values for llama.cpp-family backends (`llama-cpp`, `ik-llama-cpp`, `turboquant`): `f16`, `f32`, `q8_0`, `q4_0`, `q4_1`, `q5_0`, `q5_1`. The `turboquant` backend additionally accepts `turbo2`, `turbo3`, `turbo4` — the fork's TurboQuant KV-cache schemes. `turbo3`/`turbo4` auto-enable flash_attention. |
+| `cache_type_k` | string | Key cache quantization type. Maps to llama.cpp's `-ctk`. Accepted values for llama.cpp-family backends (`llama-cpp`, `ik-llama-cpp`, `turboquant`): `f16`, `f32`, `q8_0`, `q4_0`, `q4_1`, `q5_0`, `q5_1`. The `turboquant` backend additionally accepts `turbo2`, `turbo3`, `turbo4` - the fork's TurboQuant KV-cache schemes. `turbo3`/`turbo4` auto-enable flash_attention. |
 | `cache_type_v` | string | Value cache quantization type. Maps to llama.cpp's `-ctv`. Same accepted values as `cache_type_k`. Note: any quantized V cache requires flash_attention to be enabled. |
 | `limit_mm_per_prompt` | object | Limit multimodal content per prompt: `{image: int, video: int, audio: int}` |
 
@@ -858,12 +914,40 @@ Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref 
 
 ## gRPC Configuration
 
-Backend gRPC communication settings:
+Backend gRPC communication settings. These control the readiness handshake
+between LocalAI and a freshly spawned backend process - LocalAI polls the
+backend's `Health` gRPC method up to `grpc.attempts` times, sleeping
+`grpc.attempts_sleep_time` seconds between polls, before giving up and
+terminating the backend as unresponsive.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `grpc.attempts` | int | Number of retry attempts |
-| `grpc.attempts_sleep_time` | int | Sleep time between retries (seconds) |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `grpc.attempts` | int | 20 | Number of health-check attempts before the backend is killed as unresponsive |
+| `grpc.attempts_sleep_time` | int | 2 | Sleep time between health-check attempts (seconds) |
+
+**Total load window ≈ `grpc.attempts × (grpc.attempts_sleep_time + per-call gRPC dial timeout)`.**
+The default of `20 × 2 s ≈ 40 s` is fine for typical backends but is too
+short for large models that need substantial time to become gRPC-ready
+after the process starts - for example NVFP4 / FP8 models whose shard
+loading and CUDA-graph capture can take several minutes, or slow storage
+backends. If the backend keeps getting killed while still legitimately
+loading (visible as `exitCode=120` + `rpc error: code = Canceled desc =
+context canceled` in the LocalAI log, while the backend's own stderr
+shows continued forward progress), raise these values.
+
+Example configuration for a model that needs up to ~10 minutes to become
+gRPC-ready (large NVFP4 model, cold shard load + CUDA-graph capture):
+
+```yaml
+grpc:
+  attempts: 140
+  attempts_sleep_time: 5
+```
+
+This gives a ~700 s window while keeping health-check polling frequent
+enough to detect real backend crashes quickly. The values only affect
+the initial readiness handshake - inference-request timeouts and the
+watchdog are unchanged.
 
 ## Overrides
 
@@ -890,7 +974,7 @@ known_usecases:
 
 Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
 
-`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family — separate from `llama-cpp`, which no longer carries the token-classification path.
+`token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family - separate from `llama-cpp`, which no longer carries the token-classification path.
 
 ### Known input and output modalities
 
@@ -923,7 +1007,7 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
     - token_classify
   pii_detection:
     min_score: 0.5            # drop detections below this confidence
-    default_action: mask      # mask | block | allow — applied to any detected
+    default_action: mask      # mask | block | allow - applied to any detected
                               # group with no explicit entry (empty = mask)
     entity_actions:           # which PII to block vs mask vs allow-log
       PASSWORD: block
@@ -931,7 +1015,7 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
       EMAIL: mask
   ```
 
-- **Consuming models** opt in and reference one or more detectors by name — no per-consumer policy:
+- **Consuming models** opt in and reference one or more detectors by name - no per-consumer policy:
 
   ```yaml
   name: my-assistant
@@ -952,7 +1036,7 @@ Here's a comprehensive example combining many options:
 ```yaml
 name: my-llm-model
 description: A high-performance LLM model
-backend: llama-stable
+backend: llama-cpp
 
 parameters:
   model: my-model.gguf

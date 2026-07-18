@@ -4,9 +4,49 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"gopkg.in/yaml.v3"
 )
+
+// AttachPrimaryArtifact adds the controller-managed source only when the
+// importer selected the same repository and a migrated backend.
+func AttachPrimaryArtifact(model gallery.ModelConfig, details Details) (gallery.ModelConfig, error) {
+	if len(model.Files) != 0 || details.HuggingFace == nil || details.HuggingFace.ModelID == "" {
+		return model, nil
+	}
+	var cfg config.ModelConfig
+	if err := yaml.Unmarshal([]byte(model.ConfigFile), &cfg); err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	if !config.IsManagedArtifactBackend(cfg.Backend) {
+		return model, nil
+	}
+	if len(cfg.Artifacts) != 0 || cfg.Model != details.HuggingFace.ModelID {
+		return model, nil
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal([]byte(model.ConfigFile), &document); err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	document["artifacts"] = []map[string]any{{
+		"name":   modelartifacts.TargetModel,
+		"target": modelartifacts.TargetModel,
+		"source": map[string]any{
+			"type": modelartifacts.SourceTypeHuggingFace,
+			"repo": details.HuggingFace.ModelID,
+		},
+	}}
+	encoded, err := yaml.Marshal(document)
+	if err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	model.ConfigFile = string(encoded)
+	return model, nil
+}
 
 // LocalModelPath normalizes a model URI for backends that treat the model
 // field as a HuggingFace repo id or local filesystem path (mlx, mlx-vlm,

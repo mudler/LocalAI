@@ -12,9 +12,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
-	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 )
@@ -93,8 +94,9 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 	seen := make(map[string]bool)
 	input := vram.ModelEstimateInput{}
+	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
 
-	addFile := func(uri string) {
+	addFile := func(uri string, size int64) {
 		if !vram.IsWeightFile(uri) {
 			return
 		}
@@ -106,7 +108,7 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 			return
 		}
 		seen[resolved] = true
-		input.Files = append(input.Files, vram.FileInput{URI: resolved})
+		input.Files = append(input.Files, vram.FileInput{URI: resolved, Size: size})
 	}
 
 	// tryHFRepo resolves any huggingface:// or hf:// URI to an HTTPS URL and
@@ -123,13 +125,30 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 
 	for _, f := range c.DownloadFiles {
 		uriStr := string(f.URI)
-		addFile(uriStr)
-		tryHFRepo(uriStr)
+		addFile(uriStr, 0)
+		if !managedPrimary {
+			tryHFRepo(uriStr)
+		}
 	}
-	addFile(c.Model)
-	tryHFRepo(c.Model)
+	if managedPrimary {
+		// The snapshot directory is derived from the cache key, not from
+		// ModelFileName(): for a single-file artifact ModelFileName() resolves to
+		// the file inside the snapshot, whereas the manifest and every artifact
+		// file live relative to the snapshot directory itself.
+		if snapshotDir, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey); err == nil {
+			manifest, err := modelartifacts.ReadManifest(filepath.Join(modelsPath, filepath.Dir(snapshotDir), "manifest.json"))
+			if err == nil {
+				for _, file := range manifest.Files {
+					addFile(filepath.Join(snapshotDir, filepath.FromSlash(file.Path)), file.Size)
+				}
+			}
+		}
+	} else {
+		addFile(c.Model, 0)
+		tryHFRepo(c.Model)
+	}
 	if c.MMProj != "" {
-		addFile(c.MMProj)
+		addFile(c.MMProj, 0)
 	}
 
 	if len(input.Files) == 0 && input.HFRepo == "" {
@@ -152,6 +171,10 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithModel(c.Model),
 		model.WithContext(so.Context),
 		model.WithModelID(c.ModelID()),
+	}
+	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
+	if managedPrimary {
+		defOpts = append(defOpts, model.WithModelFile(c.ModelFileName()))
 	}
 
 	threads := 1

@@ -173,6 +173,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			isCancelled := false
 			isCancellable := false
 			message := ""
+			phase := ""
+			currentBytes := int64(0)
+			totalBytes := int64(0)
 
 			if status != nil {
 				// Skip successfully completed operations
@@ -189,6 +192,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				isCancelled = status.Cancelled
 				isCancellable = status.Cancellable
 				message = status.Message
+				phase = status.Phase
+				currentBytes = status.CurrentBytes
+				totalBytes = status.TotalBytes
 				if isDeletion {
 					taskType = "deletion"
 				}
@@ -256,6 +262,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// existed in the first place.
 			if scopedNodeID != "" {
 				opData["nodeID"] = scopedNodeID
+			}
+			if phase != "" {
+				opData["phase"] = phase
+			}
+			if currentBytes > 0 {
+				opData["currentBytes"] = currentBytes
+			}
+			if totalBytes > 0 {
+				opData["totalBytes"] = totalBytes
 			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
@@ -909,7 +924,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
+		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
+			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": err.Error(),

@@ -1,4 +1,319 @@
 ---
+- name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF
+  description: |
+    # MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking
+
+    GGUF quantizations for local deployment: **MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF**
+
+    中文说明
+
+    **MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking** is a compact 1B **Thinking** language model built on openbmb/MiniCPM5-1B. Compared with V1, this V2 release is further fine-tuned on **Fable 5** data with a stronger focus on **tool calling / function calling**, while also improving **coding** and **instruction-following**. It keeps MiniCPM5's native Thinking chat template and XML tool-call format.
+
+    Previous version: **MiniCPM5-1B-Claude-Opus-Fable5-Thinking** (V1)
+
+    For llama.cpp / Ollama / LM Studio deployment, see the **GGUF repository**.
+
+    ## Overview
+
+    ## Capabilities
+
+      - **Tool calling (enhanced in V2)** — more reliable XML / function-calling style tool use on top of MiniCPM5's native format
+      - **Coding** — code generation, debugging, and software-engineering-style tasks
+      - **Instruction following** — more reliable adherence to user prompts and structured constraints
+      - **Thinking mode** — chain-of-thought reasoning via the MiniCPM5 chat template
+      - **Long context** — up to **128K tokens** (131,072 tokens per `config.json`)
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0.gguf
+      sha256: fc3ee1eddd305c155f63b6bd7bb189daa4d5f226ca325ab219bd7acd3b00ec77
+      uri: https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF/resolve/main/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-Q8_0.gguf
+- name: "hy3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AngelSlim/Hy3-GGUF
+  description: "中文&nbsp;｜&nbsp;English\n\n[](#license)\n&nbsp;&nbsp;\n[](https://huggingface.co/tencent/Hy3)\n&nbsp;&nbsp;\n[](https://modelscope.cn/models/Tencent-Hunyuan/Hy3)\n&nbsp;&nbsp;\n[](https://cnb.cool/ai-models/tencent/Hy3)\n&nbsp;&nbsp;\n[](https://ai.gitcode.com/tencent_hunyuan/Hy3)\n\n\U0001F5A5️&nbsp;Official Website&nbsp;&nbsp;|&nbsp;&nbsp;\n\U0001F4AC&nbsp;GitHub\n\n## Table of Contents\n\n  - Model Introduction\n  - Stronger Agent Capabilities\n  - More Reliable Product Experiences\n  - Benchmark Appendix\n  - News\n  - Model Links\n  - Quickstart\n  - Deployment\n  - vLLM\n  - SGLang\n  - Finetuning\n  - RL Post-training\n  - Quantization\n  - License\n  - Contact Us\n\n## Model Introduction\n\n**Hy3** is a 295B-parameter Mixture-of-Experts (MoE) model with 21B active parameters and 3.8B MTP layer parameters, developed by the Tencent Hy Team. Following the Hy3 Preview launch in late April, we gathered feedback from 50+ products and scaled up post-training with higher quality data. Today, we introduce Hy3, which outperforms similar-size models and rivals flagship open-source models with 2-5x parameters. It also shows significant gains in utility across various products and productivity tasks.\n\n## Stronger Agent Capabilities\n\n...\n"
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Hy3-Q4_K_M-mtp/Hy3-Q4_K_M-mtp.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hy3-Q4_K_M-mtp/Hy3-Q4_K_M-mtp.gguf
+      uri: https://huggingface.co/AngelSlim/Hy3-GGUF/resolve/main/Hy3-Q4_K_M-mtp.gguf
+      sha256: 95adea74e07533bef7c94b4baabb0c5028cc1000de0e39f0a085aea22e06cd5e
+- &bonsai-8b
+  name: "bonsai-8b-1bit"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Bonsai-8B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Bonsai 8B (PrismML) is an end-to-end 1-bit language model built on the Qwen3-8B dense
+    architecture (GQA, SwiGLU, RoPE, RMSNorm, 36 layers, 65,536 context). Every weight is a
+    single sign bit (`-scale` / `+scale`) with one FP16 scale per group of 128 weights, for
+    an effective 1.125 bits/weight and a ~1.15 GB footprint (14.2x smaller than FP16) while
+    matching full-precision 8B instruct models at ~70.5 average across 6 benchmark
+    categories.
+
+    The Q1_0 quantization is only decodable by the PrismML llama.cpp fork, so this entry
+    runs on LocalAI's `bonsai` backend (that fork), not the stock `llama-cpp` backend.
+    License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - qwen
+    - bonsai
+    - 1-bit
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Bonsai-8B-gguf/Bonsai-8B-Q1_0.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Bonsai-8B-gguf/Bonsai-8B-Q1_0.gguf
+      sha256: 284a335aa3fb2ced3b1b01fcb40b08aa783e3b70832767f0dd2e3fdfa134bd54
+      uri: huggingface://prism-ml/Bonsai-8B-gguf/Bonsai-8B-Q1_0.gguf
+- &ternary-bonsai-8b
+  name: "ternary-bonsai-8b"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Ternary Bonsai 8B (PrismML) is a 1.58-bit ternary language model on the Qwen3-8B dense
+    architecture. Each weight takes a value from {-1, 0, +1} with one shared FP16 scale per
+    group of 128 weights (GGUF Q2_0, ~2.18 GB deployed, 7.5x smaller than FP16). The extra
+    zero state recovers more of the full-precision model than the 1-bit build: it ranks 2nd
+    among compared 6-9B models at 75.5 average despite being ~1/8th their size.
+
+    Q2_0 is the recommended, ternary-lossless variant. The Q2_0 kernels are only in the
+    PrismML llama.cpp fork, so this runs on LocalAI's `bonsai` backend. License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - qwen
+    - bonsai
+    - ternary
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0.gguf
+      sha256: 3c8d70470a5d97e5a2b9410ddd899cb740116591462626c60cb2fead6448f60b
+      uri: huggingface://prism-ml/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0.gguf
+- !!merge <<: *ternary-bonsai-8b
+  name: "ternary-bonsai-8b-q2-g64"
+  description: |
+    Ternary Bonsai 8B (PrismML), GGUF Q2_0 with group-64 packing (each FP16 scale shared
+    across 64 weights instead of 128). Slightly larger (~2.31 GB) but matches llama.cpp's
+    native 64-value Q2_0 block layout. Runs on LocalAI's `bonsai` backend. License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0_g64.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0_g64.gguf
+      sha256: e17b298d84ee78797916ae5c2ecc8211469cc65cccfe3080cd9a9bb503fbc55e
+      uri: huggingface://prism-ml/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-Q2_0_g64.gguf
+- !!merge <<: *ternary-bonsai-8b
+  name: "ternary-bonsai-8b-pq2"
+  description: |
+    Ternary Bonsai 8B (PrismML), GGUF PQ2_0 (packed Q2_0) ternary variant (~2.18 GB).
+    Same {-1, 0, +1} weight alphabet as Q2_0. Runs on LocalAI's `bonsai` backend.
+    License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-PQ2_0.gguf
+      temperature: 0.5
+      top_p: 0.9
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-PQ2_0.gguf
+      sha256: 1376f942aa90e60f7b570c1d81b3916fea1315ff85aa1c4d19006af68fb4b922
+      uri: huggingface://prism-ml/Ternary-Bonsai-8B-gguf/Ternary-Bonsai-8B-PQ2_0.gguf
+- &bonsai-27b
+  name: "bonsai-27b-1bit"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Bonsai-27B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Bonsai 27B (PrismML) is a full 27B-class reasoning model in end-to-end 1-bit weights,
+    derived from the Qwen3.6-27B hybrid-attention backbone (~75% linear attention, 262K
+    context). At a true 1.125 bits/weight it deploys in ~3.9 GB (~14.2x smaller than FP16)
+    while retaining 89.5% of FP16 intelligence across 15 thinking-mode benchmarks (math
+    91.66, coding 81.88). Ships an optional 4-bit vision tower (mmproj) for image input,
+    included here.
+
+    The Q1_0_g128 weights and hybrid-attention kernels are only in the PrismML llama.cpp
+    fork, so this runs on LocalAI's `bonsai` backend. A GPU is recommended. License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - bonsai
+    - 1-bit
+    - vision
+    - multimodal
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Bonsai-27B-gguf/Bonsai-27B-Q1_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Bonsai-27B-gguf/Bonsai-27B-Q1_0.gguf
+      sha256: 17ef842e47450caeb8eaa3ebfbbab5d2f2278b62b79be107985fb69a2f819aa0
+      uri: huggingface://prism-ml/Bonsai-27B-gguf/Bonsai-27B-Q1_0.gguf
+    - filename: bonsai/mmproj/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+- &ternary-bonsai-27b
+  name: "ternary-bonsai-27b"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  license: apache-2.0
+  icon: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/assets/bonsai-logo.svg
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Ternary Bonsai 27B (PrismML) is the quality-oriented operating point of the Bonsai 27B
+    family: full 27B-class reasoning in ternary {-1, 0, +1} weights on the Qwen3.6-27B
+    hybrid-attention backbone (262K context). At a true 1.71 bits/weight it deploys in
+    ~7.2 GB (GGUF Q2_0_g128) and retains 95% of FP16 intelligence (80.49 average across 15
+    thinking-mode benchmarks) - a higher score than a conventional IQ2_XXS build at less
+    than two-thirds its footprint. Ships an optional 4-bit vision tower (mmproj), included.
+
+    The Q2_0 weights and hybrid-attention kernels are only in the PrismML llama.cpp fork,
+    so this runs on LocalAI's `bonsai` backend. A GPU is recommended. License: Apache 2.0.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - bonsai
+    - ternary
+    - vision
+    - multimodal
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_0.gguf
+      sha256: 868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_0.gguf
+    - filename: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+- !!merge <<: *ternary-bonsai-27b
+  name: "ternary-bonsai-27b-pq2"
+  description: |
+    Ternary Bonsai 27B (PrismML), GGUF PQ2_0 (packed Q2_0) ternary variant (~7.17 GB) with
+    the 4-bit vision tower (mmproj) included. Runs on LocalAI's `bonsai` backend.
+    License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-PQ2_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-PQ2_0.gguf
+      sha256: e4781999f1997ef97ce0c58d05750835acc999d18d83ee6489ba7ac7b14cb5f6
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-PQ2_0.gguf
+    - filename: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+- !!merge <<: *ternary-bonsai-27b
+  name: "ternary-bonsai-27b-q2-g64"
+  description: |
+    Ternary Bonsai 27B (PrismML), GGUF Q2_0 with group-64 packing (~7.59 GB), matching
+    llama.cpp's native 64-value Q2_0 block layout, with the 4-bit vision tower (mmproj)
+    included. Runs on LocalAI's `bonsai` backend. License: Apache 2.0.
+  overrides:
+    backend: bonsai
+    mmproj: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+    parameters:
+      model: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_g64.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: bonsai/models/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_g64.gguf
+      sha256: 59a45d1ecef702b14531b06d22949f33b25c1897da31a8c0b298e01e4d9138eb
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-Q2_g64.gguf
+    - filename: bonsai/mmproj/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://prism-ml/Ternary-Bonsai-27B-gguf/Ternary-Bonsai-27B-mmproj-Q8_0.gguf
 - name: "minicpm5-1b-claude-opus-fable5-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -81,7 +396,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 0fd657210e4773042c44fa185eba27dff4017cfc5dea0370685268957b0d3da9
+      sha256: 6e63d9aef3cae8f0132d907c004f1257614f2ac13c82feb9452c409063065b1c
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -277,7 +592,7 @@
     2.  Load target.
     3.  Load settings → Speculative Decoding → select mtp file file.
 
-    (Requires LM Studio with am17an's PR merged or custom llama.cpp runtime. As of 2026-05, mainline LM Studio runtime doesn't yet have `draft-mtp` for Gemma-4 — track upstream merge.)
+    (Requires a llama.cpp runtime with Gemma 4 MTP support from ggml-org/llama.cpp#23398. LocalAI's pinned llama.cpp backend already carries it, so this entry runs draft-mtp out of the box.)
 
     ## GGUF / local inference notes
 
@@ -289,6 +604,7 @@
   icon: https://storage.ko-fi.com/cdn/kofi6.png
   overrides:
     backend: llama-cpp
+    draft_model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -297,11 +613,17 @@
       - chat
     options:
       - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-      model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
+      model: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
   files:
+    - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M.gguf
+      sha256: bd15b283c2b564cb59a35b1d52ecb00fa33183aeac645a9cb41a82c86e656556
+      uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M.gguf
     - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
       sha256: 217dc0ed177ecc733f801a851c3e3854cf1b17a1f86cd5430c0a7f82d93027bc
       uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M-mtp.gguf
@@ -429,6 +751,55 @@
     - filename: llama-cpp/models/Qwen3-4B-DFlash-GGUF-Test/Qwen3-4B-DFlash-q8_0.gguf
       sha256: 5ecf02bb269fc42277f43961794387fea11ecc367ea2d99e86b2b71cc249aff6
       uri: https://huggingface.co/lym00/Qwen3-4B-DFlash-GGUF-Test/resolve/main/Qwen3-4B-DFlash-q8_0.gguf
+- name: "qwen3.5-4b-dflash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
+    - https://huggingface.co/z-lab/Qwen3.5-4B-DFlash
+    - https://huggingface.co/AtomicChat/Qwen3.5-4B-DFlash-GGUF
+  description: |
+    Qwen3.5-4B paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend.
+
+    DFlash produces a whole block of draft tokens in a single forward pass and injects the target model's hidden states into the drafter's attention, which keeps the drafter tiny while making drafting GPU-friendly. The Q4_K_M file carries the full Qwen3.5-4B target; the ~0.6 GB Q8_0 drafter (`draft-dflash`) accelerates generation without changing the target's outputs. The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
+
+    Flash attention is required for DFlash and is enabled in this config. A GPU is recommended.
+
+    License: Apache 2.0 (Qwen3.5-4B target) / MIT (z-lab DFlash drafter).
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Qwen3.5-4B-DFlash-GGUF/Qwen3.5-4B-DFlash.Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-GGUF/Qwen3.5-4B-Q4_K_M.gguf
+      sha256: 00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4
+      uri: https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen3.5-4B-DFlash-GGUF/Qwen3.5-4B-DFlash.Q8_0.gguf
+      sha256: f0689eadab0d46468bc2629bb2706f4aba7f794b63e1c9f6eb291269d572a52b
+      uri: https://huggingface.co/AtomicChat/Qwen3.5-4B-DFlash-GGUF/resolve/main/Qwen3.5-4B-DFlash.Q8_0.gguf
 - name: "qwen3.5-9b-dflash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -752,7 +1123,7 @@
   files:
     - filename: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
-      sha256: 671c430bf18c961251338d639a3c02aac7451c39eed25874cad74287ac6cd38a
+      sha256: 318caed45110f5e3c60bff1142e0d1e658e046e670830d9be643df33940f4f98
     - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
       sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
@@ -1400,8 +1771,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-qat-GGUF/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
-      sha256: dcf179a91153e3a7ece792e48ef872180d9d6ef9b7677f0a0bd3e83cfe624d5e
       uri: https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
+      sha256: a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891
     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-GGUF/mmproj-F32.gguf
       sha256: ef269e294502d6ee3722cbf129681b2586c2e6ceb79d0507963c92146e058cd4
       uri: https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/mmproj-F32.gguf
@@ -1453,8 +1824,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-12B-it-qat-q4_0-gguf/gemma-4-12b-it-qat-q4_0.gguf
-      sha256: faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1
       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf
+      sha256: 1e76e46623deaa4db97d4ef272ceab0dfb767c0f34c2c76524837edf2b57a510
     - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
       sha256: e70b0e5cd80323d5d588b4ed06780356b7b1ba03995a4b8164c6ae9db0ff5989
       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/mmproj-gemma-4-12b-it-qat-q4_0.gguf
@@ -1495,8 +1866,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-qat-q4_0-gguf/gemma-4-E2B_q4_0-it.gguf
-      sha256: 3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B_q4_0-it.gguf
+      sha256: 25194efbf8a53268241e5ffa6d5490edc08b3faaa6ead24478c8b025a986d556
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-q4_0-gguf/gemma-4-E2B-it-mmproj.gguf
       sha256: 58c187648007cab392bd5678b87e862c3e8794017deb945feea2cf256195e96a
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B-it-mmproj.gguf
@@ -1537,8 +1908,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B_q4_0-it.gguf
-      sha256: e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B_q4_0-it.gguf
+      sha256: 09f6f2a1d9ff4a1b7db9cc1aad9c55a9df2f5ec133327a92eab593fcf4360ed0
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf
       sha256: c6398448d84a4836fdedf58f9775979e69ae0cc4dfdf4d697b5597693a555b12
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B-it-mmproj.gguf
@@ -1580,8 +1951,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B_q4_0-it.gguf
-      sha256: 4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5
       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B_q4_0-it.gguf
+      sha256: 17e6bd3ade3c6bfc57165bf6790a5d27166961d5d663fdb20decd0bd357883c8
     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B-it-mmproj.gguf
       sha256: d8e2de16e17515d9061b23c9a002715f996f9e0c87b93a9354264611bfab9239
       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B-it-mmproj.gguf
@@ -1622,177 +1993,231 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B_q4_0-it.gguf
-      sha256: 0374ce7b0124db9ba96fc649e835c531223ee224a497ce88a374baaea10932ec
       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B_q4_0-it.gguf
+      sha256: 561b08eeb83b5fa9fc2d39e3330270cf1d94979fb82af4a8822a76367d471564
     - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
       sha256: 8e239c9c592541c9f537fff75677ea30d8af1e14ba63d27cf245423b7d0a688b
       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B-it-mmproj.gguf
-# Temporarily disabled: Gemma 4 QAT MTP assistant-head entries are hidden
-# until the assistant GGUFs are verified against the stock llama.cpp backend.
-# - name: "gemma-4-12b-it-qat-mtp"
-#   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-#   urls:
-#     - https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf
-#     - https://huggingface.co/Janvitos/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF
-#   description: |
-#     Gemma 4 12B IT QAT (Google DeepMind) paired with the official QAT assistant/drafter head for Multi-Token Prediction (MTP) speculative decoding. The Q4_0 target carries the full multimodal (text + image) model, while the Q8_0 assistant GGUF (from Janvitos, converted from Google's `gemma-4-12B-it-qat-q4_0-unquantized-assistant` checkpoint) acts as the draft model. With llama.cpp's `draft-mtp` speculative path enabled, this combination accelerates generation while keeping the target model's quality. The assistant head is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
-#
-#     License: Apache 2.0 | Authors: Google DeepMind (target/assistant checkpoints), Janvitos (GGUF conversion)
-#   license: "apache-2.0"
-#   tags:
-#     - llm
-#     - gguf
-#     - qat
-#     - multimodal
-#     - mtp
-#   icon: https://ai.google.dev/gemma/images/gemma4_banner.png
-#   overrides:
-#     backend: llama-cpp
-#     function:
-#       automatic_tool_parsing_fallback: true
-#       grammar:
-#         disable: true
-#     known_usecases:
-#       - chat
-#     mmproj: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
-#     draft_model: llama-cpp/models/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF/gemma-4-12B-it-qat-assistant-MTP-Q8_0.gguf
-#     options:
-#       - use_jinja:true
-#       - spec_type:draft-mtp
-#       - spec_n_max:6
-#       - spec_p_min:0.75
-#     parameters:
-#       min_p: 0
-#       model: llama-cpp/models/gemma-4-12B-it-qat-q4_0-gguf/gemma-4-12b-it-qat-q4_0.gguf
-#       repeat_penalty: 1
-#       temperature: 1
-#       top_k: 64
-#       top_p: 0.95
-#     template:
-#       use_tokenizer_template: true
-#   files:
-#     - filename: llama-cpp/models/gemma-4-12B-it-qat-q4_0-gguf/gemma-4-12b-it-qat-q4_0.gguf
-#       sha256: faff1a63667fac17ac5e777f47114688fcefea96e220e211aaa8d62c2c4561f1
-#       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf
-#     - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
-#       sha256: e70b0e5cd80323d5d588b4ed06780356b7b1ba03995a4b8164c6ae9db0ff5989
-#       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/mmproj-gemma-4-12b-it-qat-q4_0.gguf
-#     - filename: llama-cpp/models/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF/gemma-4-12B-it-qat-assistant-MTP-Q8_0.gguf
-#       sha256: 13331068b6af643c3dc75e619373b674c1f75a1958e7c82e2020d96a17c63809
-#       uri: https://huggingface.co/Janvitos/gemma-4-12B-it-qat-assistant-MTP-Q8_0-GGUF/resolve/main/gemma-4-12B-it-qat-assistant-MTP-Q8_0.gguf
-# Temporarily disabled: these Gemma 4 MTP assistant-head GGUFs currently fail
-# to load in stock llama.cpp with unknown architecture `gemma4_assistant`.
-# Re-enable after the published GGUFs use the upstream `gemma4-assistant`
-# architecture spelling or the backend carries a vetted compatibility fix.
-# - name: "gemma-4-26b-a4b-it-qat-mtp"
-#   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-#   urls:
-#     - https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf
-#     - https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads
-#   description: |
-#     Gemma 4 26B-A4B IT QAT (Google DeepMind), a multimodal Mixture-of-Experts model (26B total, ~4B active per token), paired with the QAT-matched MTP assistant/drafter head for Multi-Token Prediction speculative decoding. The Q4_0 target carries the full multimodal (text + image) model, while the Q8_0 assistant GGUF (from boxwrench, converted from Google's `gemma-4-26B-A4B-it-qat-q4_0-unquantized-assistant` checkpoint) acts as the draft model. Using a QAT-matched head instead of a generic non-QAT head raised draft acceptance from ~57% to ~92% on this model. The assistant head is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
-#
-#     > [!Note]
-#     > The assistant head uses the early `gemma4_assistant` architecture spelling; LocalAI patches the llama.cpp backend to accept it as the upstream `gemma4-assistant` architecture. Until the upstream `n_tokens` reshape fix lands, run with a single parallel slot.
-#
-#     License: Apache 2.0 | Authors: Google DeepMind (target/assistant checkpoints), boxwrench (GGUF conversion)
-#   license: "apache-2.0"
-#   tags:
-#     - llm
-#     - gguf
-#     - qat
-#     - multimodal
-#     - moe
-#     - mtp
-#   icon: https://ai.google.dev/gemma/images/gemma4_banner.png
-#   overrides:
-#     backend: llama-cpp
-#     function:
-#       automatic_tool_parsing_fallback: true
-#       grammar:
-#         disable: true
-#     known_usecases:
-#       - chat
-#     mmproj: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B-it-mmproj.gguf
-#     draft_model: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-26B-A4B-it-qat-assistant-MTP-Q8_0.gguf
-#     options:
-#       - use_jinja:true
-#       - spec_type:draft-mtp
-#       - spec_n_max:6
-#       - spec_p_min:0.75
-#     parameters:
-#       min_p: 0
-#       model: llama-cpp/models/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B_q4_0-it.gguf
-#       repeat_penalty: 1
-#       temperature: 1
-#       top_k: 64
-#       top_p: 0.95
-#     template:
-#       use_tokenizer_template: true
-#   files:
-#     - filename: llama-cpp/models/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B_q4_0-it.gguf
-#       sha256: 4c856523d61d77922dbc0b26753a6bf6208e5d69d80db0c04dcd776832d054c5
-#       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B_q4_0-it.gguf
-#     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-q4_0-gguf/gemma-4-26B-it-mmproj.gguf
-#       sha256: d8e2de16e17515d9061b23c9a002715f996f9e0c87b93a9354264611bfab9239
-#       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B-it-mmproj.gguf
-#     - filename: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-26B-A4B-it-qat-assistant-MTP-Q8_0.gguf
-#       sha256: 86f156403d9148aeffa765411f1373d1a2f9c840d62f5e088701153a35ecff73
-#       uri: https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads/resolve/main/gemma-4-26B-A4B-it-qat-assistant-MTP-Q8_0.gguf
-# - name: "gemma-4-31b-it-qat-mtp"
-#   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-#   urls:
-#     - https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf
-#     - https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads
-#   description: |
-#     Gemma 4 31B IT QAT (Google DeepMind), the largest dense multimodal model in the family, paired with the QAT-matched MTP assistant/drafter head for Multi-Token Prediction speculative decoding. The Q4_0 target carries the full multimodal (text + image) model, while the Q8_0 assistant GGUF (from boxwrench, converted from Google's `gemma-4-31B-it-qat-q4_0-unquantized-assistant` checkpoint) acts as the draft model. Using a QAT-matched head instead of a generic non-QAT head substantially raises draft acceptance and end-to-end throughput. The assistant head is not a standalone chat model: it only runs paired with the target, which is why both are bundled here.
-#
-#     > [!Note]
-#     > The assistant head uses the early `gemma4_assistant` architecture spelling; LocalAI patches the llama.cpp backend to accept it as the upstream `gemma4-assistant` architecture. Until the upstream `n_tokens` reshape fix lands, run with a single parallel slot.
-#
-#     License: Apache 2.0 | Authors: Google DeepMind (target/assistant checkpoints), boxwrench (GGUF conversion)
-#   license: "apache-2.0"
-#   tags:
-#     - llm
-#     - gguf
-#     - qat
-#     - multimodal
-#     - mtp
-#   icon: https://ai.google.dev/gemma/images/gemma4_banner.png
-#   overrides:
-#     backend: llama-cpp
-#     function:
-#       automatic_tool_parsing_fallback: true
-#       grammar:
-#         disable: true
-#     known_usecases:
-#       - chat
-#     mmproj: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
-#     draft_model: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-31B-it-qat-assistant-MTP-Q8_0.gguf
-#     options:
-#       - use_jinja:true
-#       - spec_type:draft-mtp
-#       - spec_n_max:6
-#       - spec_p_min:0.75
-#     parameters:
-#       min_p: 0
-#       model: llama-cpp/models/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B_q4_0-it.gguf
-#       repeat_penalty: 1
-#       temperature: 1
-#       top_k: 64
-#       top_p: 0.95
-#     template:
-#       use_tokenizer_template: true
-#   files:
-#     - filename: llama-cpp/models/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B_q4_0-it.gguf
-#       sha256: 0374ce7b0124db9ba96fc649e835c531223ee224a497ce88a374baaea10932ec
-#       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B_q4_0-it.gguf
-#     - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-q4_0-gguf/gemma-4-31B-it-mmproj.gguf
-#       sha256: 8e239c9c592541c9f537fff75677ea30d8af1e14ba63d27cf245423b7d0a688b
-#       uri: https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf/resolve/main/gemma-4-31B-it-mmproj.gguf
-#     - filename: llama-cpp/models/gemma-4-qat-mtp-assistant-heads/gemma-4-31B-it-qat-assistant-MTP-Q8_0.gguf
-#       sha256: 7a7cdd65a93536f3bf324e97ddf60cc8d482510eaa0837873aef0fd7e0b493a5
-#       uri: https://huggingface.co/boxwrench/gemma-4-qat-mtp-assistant-heads/resolve/main/gemma-4-31B-it-qat-assistant-MTP-Q8_0.gguf
+- name: "gemma-4-e2b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it
+    - https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 E2B IT QAT (Google DeepMind) paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-E2B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. E2B is a MatFormer "effective 2B" elastic variant, well suited to lightweight and on-device deployments.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/mtp-gemma-4-E2B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-E2B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+      sha256: e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889
+    - filename: llama-cpp/models/gemma-4-E2B-it-qat-GGUF/mtp-gemma-4-E2B-it.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/mtp-gemma-4-E2B-it.gguf
+      sha256: 586f2460b909008640981ec34060aa864e03c144fbabfb3173c4335087e4aae0
+    - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: 38b33846f56426cd650e0e574d78de125abdfcedf35c0d7f6929f6ffe26efe02
+      uri: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+- name: "gemma-4-e4b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 E4B IT QAT (Google DeepMind) paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-E4B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. E4B is a MatFormer "effective 4B" elastic variant, balancing quality and footprint for on-device and edge deployments.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/mtp-gemma-4-E4B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-E4B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+      sha256: df0fd4ee07072c607c29a0a1cb4f98918426cca12f45a2776bdd6ee6d09a4de3
+    - filename: llama-cpp/models/gemma-4-E4B-it-qat-GGUF/mtp-gemma-4-E4B-it.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/mtp-gemma-4-E4B-it.gguf
+      sha256: 423074e537504b4f9ec5eafed5c639fac82c96631626efccacdd3c4039b20605
+    - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: 7c9bafa27f82d658eda805c1d82ef62bb0368e1ff75f64f77de58ad318beaaf9
+      uri: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+- name: "gemma-4-12b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-12B-it
+    - https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 12B IT QAT (Google DeepMind) paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-12B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. As a dense model, Gemma 4 12B is among the sizes that benefit most from MTP, with the llama.cpp PR reporting well over 1.4x decode speedup.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-12B-it-qat-GGUF/mtp-gemma-4-12B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-12B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-12B-it-qat-GGUF/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12B-it-qat-GGUF/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      sha256: 90fd44e29e0d7cffeb0fd00dc73cfdab9ed0b0e95306ecf7821ea634c940c370
+    - filename: llama-cpp/models/gemma-4-12B-it-qat-GGUF/mtp-gemma-4-12B-it.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/mtp-gemma-4-12B-it.gguf
+      sha256: fcb35dea42c71333db904cee11baac525c9ef872818ee3753f6cb156f3c6f4f6
+    - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-GGUF/mmproj-BF16.gguf
+      sha256: dcb8103adad042b1bf99df767aaf34eb37c5a73a4a2f0417e4d7ba557e91664f
+      uri: https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+- name: "gemma-4-31b-it-qat-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-31B-it
+    - https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/23398
+  description: |
+    Gemma 4 31B IT QAT (Google DeepMind), the largest dense model in the family, paired with its Multi-Token Prediction (MTP) drafter head for speculative decoding on the llama.cpp backend. The Q4_K_XL target carries the full multimodal (text + image) model; the small `mtp-gemma-4-31B-it` head predicts several tokens ahead which the target verifies in parallel, accelerating generation with no change to output quality. Dense models like 31B are the sizes that benefit most from MTP.
+
+    The drafter is not a standalone chat model: it only runs paired with the target, which is why both are bundled here. It uses the upstream `gemma4-assistant` architecture registered by llama.cpp PR #23398, so it loads on stock llama.cpp without any patch.
+
+    License: Apache 2.0 | Authors: Google DeepMind (target/drafter checkpoints), Unsloth (GGUF conversion)
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qat
+    - multimodal
+    - mtp
+    - speculative-decoding
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  overrides:
+    backend: llama-cpp
+    draft_model: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-31B-it-qat-GGUF/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/gemma-4-31B-it-qat-UD-Q4_K_XL.gguf
+      sha256: 00b5a7c497f0c8934033088c10a7fa9a4c015e46ee6d89e9c6890650ba5d0e71
+    - filename: llama-cpp/models/gemma-4-31B-it-qat-GGUF/mtp-gemma-4-31B-it.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mtp-gemma-4-31B-it.gguf
+      sha256: 3a5e99fd8d0b23afb1fccd1ee0c9ebd1f571d00399c2dae2292d217feeec0f6b
+    - filename: llama-cpp/mmproj/gemma-4-31B-it-qat-GGUF/mmproj-BF16.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-31B-it-qat-GGUF/resolve/main/mmproj-BF16.gguf
+      sha256: d904b3579a9fbfbd50bc9bf40cb7384909edbd69fa9276db5ddc853e80f0edca
 - name: "step-3.7-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -2424,6 +2849,12 @@
       - torch_dtype:bf16
     parameters:
       model: lodestones/Chroma1-HD
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: lodestones/Chroma1-HD
     step: 40
 - name: nemotron-3-nano-omni-30b-a3b-reasoning-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -2473,6 +2904,12 @@
       temperature: 1
       top_k: -1
       top_p: 1
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF
     template:
       use_tokenizer_template: true
 - name: carnice-v2-27b
@@ -3157,8 +3594,8 @@
       use_tokenizer_template: true
   files:
     - filename: gemma-4-E2B-it-Q8_0.gguf
-      sha256: e049411c01fb7a81161768c52e38828970e55a64e22738957adcbe51d20f1c8e
       uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/gemma-4-E2B-it-Q8_0.gguf
+      sha256: 996d08777aadc6bfd3c7375ef70ba25a0f55240075860754fdb18d6d860aa63a
     - filename: mmproj-gemma-4-E2B-it-bf16.gguf
       sha256: e42083b71a9e31e0f722171d551f6d92b101544001c4dde040306a8f2160fe8c
       uri: huggingface://ggml-org/gemma-4-E2B-it-GGUF/mmproj-gemma-4-E2B-it-bf16.gguf
@@ -3241,8 +3678,8 @@
       use_tokenizer_template: true
   files:
     - filename: gemma-4-31B-it-Q4_K_M.gguf
-      sha256: 9fdf3dc8b0384830b4402d151388c140bd8eb2abf8d60588d8224231198254a1
       uri: huggingface://unsloth/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
+      sha256: 38bd64c852c4b460434cc7162fa9bdcf242faf86502581a754cb72956bb17f84
     - filename: mmproj-F16.gguf
       sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
@@ -3890,6 +4327,14 @@
       - transcript
     parameters:
       model: nvidia/parakeet-tdt-0.6b-v3
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: nvidia/parakeet-tdt-0.6b-v3
+          allow_patterns:
+            - "*.nemo"
 - name: voxtral-mini-4b-realtime
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5080,6 +5525,12 @@
       voice_cloning: true
     parameters:
       model: openbmb/VoxCPM1.5
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: openbmb/VoxCPM1.5
 - name: neutts-air
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5124,6 +5575,12 @@
       - image
     parameters:
       model: Tongyi-MAI/Z-Image-Turbo
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Tongyi-MAI/Z-Image-Turbo
 - name: vllm-omni-wan2.2-t2v
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5146,6 +5603,12 @@
       - video
     parameters:
       model: Wan-AI/Wan2.2-T2V-A14B-Diffusers
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Wan-AI/Wan2.2-T2V-A14B-Diffusers
 - name: vllm-omni-wan2.2-i2v
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5168,6 +5631,12 @@
       - video
     parameters:
       model: Wan-AI/Wan2.2-I2V-A14B-Diffusers
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Wan-AI/Wan2.2-I2V-A14B-Diffusers
 - name: longcat-video
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5273,6 +5742,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-Omni-30B-A3B-Instruct
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-Omni-30B-A3B-Instruct
 - name: vllm-omni-qwen3-tts-custom-voice
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5296,6 +5771,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
 - name: ace-step-turbo
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5773,6 +6254,69 @@
     - filename: qwen3-tts-cpp-1.7b-voicedesign-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
       sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- &mossttscpp_gallery
+  name: moss-tts-cpp-v1_5-q8_0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF
+    - https://github.com/mudler/moss-tts.cpp
+    - https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Local-Transformer-v1.5
+  description: |
+    MOSS-TTS-Local v1.5 (C++/ggml, moss-tts.cpp), Q8_0 (~6 GB), near-lossless. Native
+    C++ text-to-speech for the OpenMOSS MOSS-TTS-Local Transformer v1.5 (a GPT-J local
+    transformer decoded through the MOSS-Audio-Tokenizer-v2 neural codec), 48kHz stereo
+    output with reference-audio voice cloning (set `voice` to a reference .wav). Verified
+    per component against the reference PyTorch and about 2x faster per frame on CPU.
+  license: apache-2.0
+  tags:
+    - moss
+    - moss-tts
+    - moss-tts-cpp
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - gguf
+    - ggml
+  last_checked: "2026-07-16"
+  overrides:
+    backend: moss-tts-cpp
+    known_usecases:
+      - tts
+    name: moss-tts-cpp-v1_5-q8_0
+    parameters:
+      model: moss-tts-cpp-v1_5-q8_0/moss-tts-local-v1_5-q8_0.gguf
+  files:
+    - filename: moss-tts-cpp-v1_5-q8_0/moss-tts-local-v1_5-q8_0.gguf
+      sha256: b3988a118ff5eebb56aaab146ec8d43aa89ff88e6cbe3823d87c1d9abba5247c
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tts-local-v1_5-q8_0.gguf
+    - filename: moss-tts-cpp-v1_5-q8_0/moss-audio-tokenizer-v2-f32.gguf
+      sha256: e5effe67b4307c732e3a66c3405084b1d13091107b62283d36029b7fce90ceb3
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-audio-tokenizer-v2-f32.gguf
+    - filename: moss-tts-cpp-v1_5-q8_0/moss-tokenizer-v1_5.gguf
+      sha256: d0f4f371f80ff32ba222b1b39c192df8285c7b88986a55f954454db69618479e
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tokenizer-v1_5.gguf
+- !!merge <<: *mossttscpp_gallery
+  name: moss-tts-cpp-v1_5-f16
+  description: |
+    MOSS-TTS-Local v1.5 (C++/ggml, moss-tts.cpp), F16 (~9.4 GB), code-exact versus the
+    reference. 48kHz stereo text-to-speech with reference-audio voice cloning.
+  overrides:
+    backend: moss-tts-cpp
+    known_usecases:
+      - tts
+    name: moss-tts-cpp-v1_5-f16
+    parameters:
+      model: moss-tts-cpp-v1_5-f16/moss-tts-local-v1_5-f16.gguf
+  files:
+    - filename: moss-tts-cpp-v1_5-f16/moss-tts-local-v1_5-f16.gguf
+      sha256: 659ff3641c2da2d0d04a1de064d29058ede5491ad100a24ec5f101ef18ce20fe
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tts-local-v1_5-f16.gguf
+    - filename: moss-tts-cpp-v1_5-f16/moss-audio-tokenizer-v2-f32.gguf
+      sha256: e5effe67b4307c732e3a66c3405084b1d13091107b62283d36029b7fce90ceb3
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-audio-tokenizer-v2-f32.gguf
+    - filename: moss-tts-cpp-v1_5-f16/moss-tokenizer-v1_5.gguf
+      sha256: d0f4f371f80ff32ba222b1b39c192df8285c7b88986a55f954454db69618479e
+      uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tokenizer-v1_5.gguf
 - name: omnivoice-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6027,6 +6571,12 @@
       - torch_dtype:bf16
     parameters:
       model: Tongyi-MAI/Z-Image
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Tongyi-MAI/Z-Image
     step: 35
 - name: z-image-turbo-diffusers
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -6052,6 +6602,12 @@
       - torch_dtype:bf16
     parameters:
       model: Tongyi-MAI/Z-Image-Turbo
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Tongyi-MAI/Z-Image-Turbo
     step: 9
 - name: glm-4.7-flash-derestricted
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -6110,6 +6666,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
     tts:
       voice: Aiden
 - name: qwen3-tts-0.6b-custom-voice
@@ -6130,6 +6692,12 @@
       - tts
     parameters:
       model: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
     tts:
       voice: Aiden
 - name: fish-speech-s2-pro
@@ -6153,6 +6721,12 @@
       voice_cloning: true
     parameters:
       model: fishaudio/s2-pro
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: fishaudio/s2-pro
 - name: qwen3-asr-1.7b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6171,6 +6745,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-1.7B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-1.7B
 - name: qwen3-asr-0.6b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6189,6 +6769,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-0.6B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-0.6B
 - name: huihui-glm-4.7-flash-abliterated-i1
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -7635,6 +8221,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-0.6B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-0.6B
 - name: qwen3-asr-1.7b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -7653,6 +8245,12 @@
       - transcript
     parameters:
       model: Qwen/Qwen3-ASR-1.7B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-ASR-1.7B
 - name: glm-ocr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -8830,6 +9428,12 @@
       - torch_dtype:bf16
     parameters:
       model: Lightricks/LTX-2
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Lightricks/LTX-2
 - name: gpt-oss-20b
   url: github:mudler/LocalAI/gallery/harmony.yaml@master
   urls:
@@ -9078,6 +9682,12 @@
     name: dia
     parameters:
       model: nari-labs/Dia-1.6B-0626
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: nari-labs/Dia-1.6B-0626
     type: DiaForConditionalGeneration
 - name: outetts
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -35853,6 +36463,12 @@
       - torch_dtype:bf16
     parameters:
       model: Lightricks/LTX-2.3
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Lightricks/LTX-2.3
 - &ltx-2-3-dev-ggml
   name: ltx-2.3-22b-dev-ggml
   url: github:mudler/LocalAI/gallery/ltx-ggml.yaml@master

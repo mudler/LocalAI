@@ -59,6 +59,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Chatterbox](https://github.com/resemble-ai/chatterbox) | Production-grade TTS with emotion control | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [VibeVoice](https://github.com/microsoft/VibeVoice) | Real-time TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [vibevoice.cpp](https://github.com/mudler/vibevoice.cpp) | Native C++/GGML port of VibeVoice for TTS (voice cloning) and long-form ASR with diarization | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [moss-tts.cpp](https://github.com/mudler/moss-tts.cpp) | Native C++/GGML port of OpenMOSS MOSS-TTS-Local v1.5: 48 kHz stereo TTS with reference-audio voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) | TTS with custom voice, voice design, and voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [qwentts.cpp](https://github.com/ServeurpersoCom/qwentts.cpp) | Native C++/GGML Qwen3-TTS with streaming, named speakers, and voice design | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [OmniVoice](https://github.com/ServeurpersoCom/omnivoice.cpp) | Native C++/GGML TTS with voice cloning, voice design, and streaming | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |

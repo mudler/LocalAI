@@ -63,6 +63,25 @@ func (s *RuntimeSettings) MergeNonNil(overlay RuntimeSettings) {
 	}
 }
 
+// MergeAPIKeys returns the env/CLI-provided keys followed by the
+// runtime-managed (settings) keys, dropping runtime entries that duplicate
+// an env key so repeated saves cannot stack the env keys (#9071). Env keys
+// always survive: the settings file owns only the runtime tail.
+func MergeAPIKeys(envKeys, runtimeKeys []string) []string {
+	merged := append([]string(nil), envKeys...)
+	seen := make(map[string]struct{}, len(envKeys))
+	for _, k := range envKeys {
+		seen[k] = struct{}{}
+	}
+	for _, k := range runtimeKeys {
+		if _, dup := seen[k]; dup {
+			continue
+		}
+		merged = append(merged, k)
+	}
+	return merged
+}
+
 // WritePersistedSettings serialises the given RuntimeSettings to
 // runtime_settings.json with restricted permissions (it may carry API
 // keys and P2P tokens).

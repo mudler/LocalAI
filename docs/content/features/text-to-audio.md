@@ -2,8 +2,9 @@
 +++
 disableToc = false
 title = "Text to Audio (TTS)"
-weight = 11
+weight = 31
 url = "/features/text-to-audio/"
+aliases = ["/features/sound-generation/"]
 +++
 
 ## API Compatibility
@@ -38,7 +39,7 @@ Administrators can manage reusable voice-cloning references from **Operate → V
 3. Confirm that you have permission to clone the voice, then save the profile.
 4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
 
-The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6–30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
 
 ### Voice profile API
 
@@ -127,7 +128,7 @@ When a saved profile is selected, LocalAI supplies both its private WAV and exac
 
 | Backend | Automatically compatible variants |
 | --- | --- |
-| `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
+| `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `moss-tts-cpp`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
 | `qwen-tts`, `qwen3-tts-cpp`, `vllm-omni` | Base or VoiceClone variants. CustomVoice and VoiceDesign variants are not raw reference-audio models. |
 | `vibevoice-cpp` | 1.5B reference-WAV variants. The realtime 0.5B preset-prompt model is excluded. |
 | `coqui` | XTTS and YourTTS variants. |
@@ -253,9 +254,9 @@ curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -
 }' --output music.flac
 ```
 
-**Advanced mode** (using the `/sound` endpoint):
+**Advanced mode** (using the `/v1/sound-generation` endpoint):
 ```bash
-curl http://localhost:8080/sound -H "Content-Type: application/json" -d '{
+curl http://localhost:8080/v1/sound-generation -H "Content-Type: application/json" -d '{
   "model": "ace-step-turbo",
   "caption": "A funky Japanese disco track",
   "lyrics": "[Verse 1]\n...",
@@ -265,6 +266,40 @@ curl http://localhost:8080/sound -H "Content-Type: application/json" -d '{
   "duration_seconds": 225
 }' --output music.flac
 ```
+
+#### Music and sound generation API (`/v1/sound-generation`)
+
+The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound generation API](https://elevenlabs.io/docs/api-reference/sound-generation) and can produce music, sound effects, and other audio content. It responds with a binary audio file and the appropriate `Content-Type` header (for example `audio/wav`, `audio/mpeg`, `audio/flac`, or `audio/ogg`). The request body is JSON and supports two usage modes.
+
+**Simple mode:**
+
+| Parameter        | Type     | Required | Description                                  |
+|------------------|----------|----------|----------------------------------------------|
+| `model_id`       | `string` | Yes      | Model identifier (for example `ace-step-turbo`) |
+| `text`           | `string` | Yes      | Audio description or prompt                  |
+| `instrumental`   | `bool`   | No       | Generate instrumental audio (no vocals)      |
+| `vocal_language` | `string` | No       | Language code for vocals (for example `bn`, `ja`) |
+
+**Advanced mode:**
+
+| Parameter           | Type     | Required | Description                                     |
+|---------------------|----------|----------|-------------------------------------------------|
+| `model_id`          | `string` | Yes      | Model identifier (for example `ace-step-turbo`) |
+| `text`              | `string` | Yes      | Text prompt or description                      |
+| `duration_seconds`  | `float`  | No       | Target duration in seconds                      |
+| `prompt_influence`  | `float`  | No       | Temperature / prompt influence parameter        |
+| `do_sample`         | `bool`   | No       | Enable sampling                                 |
+| `think`             | `bool`   | No       | Enable extended thinking for generation         |
+| `caption`           | `string` | No       | Caption describing the audio                    |
+| `lyrics`            | `string` | No       | Lyrics for the generated audio                  |
+| `bpm`               | `int`    | No       | Beats per minute                                |
+| `keyscale`          | `string` | No       | Musical key/scale (for example `Ab major`)      |
+| `language`          | `string` | No       | Language code                                   |
+| `vocal_language`    | `string` | No       | Vocal language (fallback if `language` is empty) |
+| `timesignature`     | `string` | No       | Time signature (for example `4`)                |
+| `instrumental`      | `bool`   | No       | Generate instrumental audio (no vocals)         |
+
+Error responses: `400` for a missing or invalid model or request parameters, and `500` for a backend error during sound generation.
 
 #### Configuration
 
@@ -323,14 +358,14 @@ tts:
   # Available English voices: Carter, Davis, Emma, Frank, Grace, Mike
 ```
 
-Then you can use the model:
-
-```
-
 {{% notice note %}}
 The realtime 0.5B preset model is not advertised to the Voice Library because it does not accept a raw reference WAV per request. For Voice Library profiles, use a `vibevoice-cpp` 1.5B reference-WAV model; LocalAI detects the 1.5B variant automatically, or a custom name can set `tts.voice_cloning: true`.
 {{% /notice %}}
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+
+Then you can use the model:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "vibevoice",
      "input":"Hello!"
    }' | aplay

@@ -73,6 +73,22 @@ var _ = Describe("ModelLoader", func() {
 	})
 
 	Context("LoadModel", func() {
+		It("passes a logical model and managed model file independently", func() {
+			const relative = ".artifacts/huggingface/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/snapshot"
+			var receivedName, receivedFile string
+			mockModel = model.NewModel("managed", "test.model", nil)
+			mockModel.MarkHealthy()
+			mockLoader := func(_ string, modelName, modelFile string) (*model.Model, error) {
+				receivedName, receivedFile = modelName, modelFile
+				return mockModel, nil
+			}
+
+			_, err := modelLoader.LoadModelWithFile("managed", "owner/repo", relative, mockLoader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receivedName).To(Equal("owner/repo"))
+			Expect(receivedFile).To(Equal(filepath.Join(modelPath, filepath.FromSlash(relative))))
+		})
+
 		It("should load a model and keep it in memory", func() {
 			mockModel = model.NewModel("foo", "test.model", nil)
 			mockModel.MarkHealthy() // skip gRPC health check (no real server)

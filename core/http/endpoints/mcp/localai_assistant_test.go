@@ -84,6 +84,10 @@ func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (stubClient) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	return &vram.EstimateResult{SizeDisplay: "stub"}, nil
 }

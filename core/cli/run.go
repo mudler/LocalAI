@@ -16,8 +16,11 @@ import (
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
 
@@ -28,6 +31,9 @@ import (
 
 type RunCMD struct {
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	Color     string   `env:"COLOR" hidden:""`
+	NoColor   string   `env:"NO_COLOR" hidden:""`
+	HFToken   string   `env:"HF_TOKEN" hidden:""`
 
 	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
 	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
@@ -92,6 +98,7 @@ type RunCMD struct {
 	WatchdogInterval                   string   `env:"LOCALAI_WATCHDOG_INTERVAL,WATCHDOG_INTERVAL" default:"500ms" help:"Interval between watchdog checks (e.g., 500ms, 5s, 1m) (default: 500ms)" group:"backends"`
 	EnableMemoryReclaimer              bool     `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
 	MemoryReclaimerThreshold           float64  `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
+	VRAMBudget                         string   `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty uses all detected VRAM." group:"backends"`
 	ForceEvictionWhenBusy              bool     `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
 	SizeAwareEviction                  bool     `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
 	LRUEvictionMaxRetries              int      `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
@@ -238,6 +245,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	opts := []config.AppOption{
 		config.WithContext(context.Background()),
+		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
+			modelartifacts.WithHuggingFaceToken(r.HFToken),
+		)),
+		config.WithModelPreloadDisplay(r.Color, r.NoColor != ""),
 		config.WithConfigFile(r.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
@@ -584,10 +595,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 	}
 
-	// Handle memory reclaimer (uses GPU VRAM if available, otherwise RAM)
-	if r.EnableMemoryReclaimer {
-		opts = append(opts, config.WithMemoryReclaimer(true, r.MemoryReclaimerThreshold))
-	}
+	// Memory reclaimer (GPU VRAM if available, otherwise RAM). Injected
+	// unconditionally so the kong threshold default always reaches the
+	// config: DefaultRuntimeBaseline models an option-less boot with
+	// threshold 0.95, and the settings loader treats a live value equal
+	// to the baseline as "not env-set" (file may apply). Gating this on
+	// EnableMemoryReclaimer left the threshold at 0 and made a UI-saved
+	// threshold look env-set at boot.
+	opts = append(opts, config.WithMemoryReclaimer(r.EnableMemoryReclaimer, r.MemoryReclaimerThreshold))
 
 	// Handle max active backends (LRU eviction)
 	// MaxActiveBackends takes precedence over SingleActiveBackend
@@ -657,6 +672,20 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	if r.PreferDevelopmentBackends {
 		opts = append(opts, config.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends))
+	}
+
+	// Per-node VRAM allocation budget. Record it on the ApplicationConfig and,
+	// fail-open, install it as the process-global xsysinfo default so allocation
+	// heuristics cap at it. A malformed value must never block startup: it is
+	// logged and treated as unset (full detected VRAM).
+	if r.VRAMBudget != "" {
+		opts = append(opts, config.SetVRAMBudget(r.VRAMBudget))
+		if b, err := vrambudget.Parse(r.VRAMBudget); err != nil {
+			xlog.Warn("Ignoring invalid LOCALAI_VRAM_BUDGET", "value", r.VRAMBudget, "error", err)
+		} else {
+			xsysinfo.SetDefaultVRAMBudget(b)
+			xlog.Info("VRAM allocation budget set", "budget", b.String())
+		}
 	}
 
 	if r.PreloadBackendOnly {

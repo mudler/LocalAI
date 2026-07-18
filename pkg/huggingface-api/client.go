@@ -1,6 +1,7 @@
 package hfapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,6 +111,17 @@ func NewClient() *Client {
 		maxBackoff:   30 * time.Second,
 		sleepFn:      time.Sleep,
 	}
+}
+
+func (c *Client) newRequest(ctx context.Context, method, rawURL, token string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return req, nil
 }
 
 // SearchModels searches for models using the Hugging Face API

@@ -27,22 +27,26 @@ You can test chat models from the CLI without keeping a separate `curl` command 
 local-ai run
 
 # Terminal 2
-local-ai chat --model gpt-4
+local-ai chat --model qwen3-4b
 ```
 
 `local-ai chat` connects to a running LocalAI server, opens an interactive chat prompt, and exits when you type `/exit`, `/quit`, or `/bye`. Use `/models` to list installed models, `/model <name>` to switch models, and `/clear` to reset the current conversation. If the server exposes exactly one model, LocalAI uses that model automatically:
 
 ```bash
 # Terminal 1
-local-ai run llama-3.2-1b-instruct:q4_k_m
+local-ai run qwen3-4b
 
 # Terminal 2
 local-ai chat
 ```
 
-When more than one model is configured, pass `--model` with the installed model name to avoid ambiguity. Use `--endpoint` to connect to a non-default server, for example `local-ai chat --endpoint http://127.0.0.1:8081 --model gpt-4`.
+When more than one model is configured, pass `--model` with the installed model name to avoid ambiguity. Use `--endpoint` to connect to a non-default server, for example `local-ai chat --endpoint http://127.0.0.1:8081 --model qwen3-4b`.
 
-You can also test out the API endpoints using `curl`, few examples are listed below. The models we are referring here (`gpt-4`, `gpt-4-vision-preview`, `tts-1`, `whisper-1`) are examples - replace them with the model names you have installed.
+You can also test out the API endpoints using `curl`. A few examples are listed below.
+
+{{% notice note %}}
+Each example assumes you have already installed the model it names. The chat and function-calling examples below use `qwen3-4b` (install it from the Models page or with `local-ai run qwen3-4b`). The other examples name a model for the task they show (`gpt-4-vision-preview` for vision, `tts-1` for text to speech, `whisper-1` for transcription, `text-embedding-ada-002` for embeddings); replace each with the name of a model you have installed for that task.
+{{% /notice %}}
 
 ### Text Generation
 
@@ -53,7 +57,7 @@ Creates a model response for the given chat conversation. [OpenAI documentation]
 ```bash
 curl http://localhost:8080/v1/chat/completions \
       -H "Content-Type: application/json" \
-      -d '{ "model": "gpt-4", "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}] }' 
+      -d '{ "model": "qwen3-4b", "messages": [{"role": "user", "content": "How are you doing?", "temperature": 0.1}] }' 
 ```
 
 </details>
@@ -98,7 +102,7 @@ Call functions
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-4",
+    "model": "qwen3-4b",
     "messages": [
       {
         "role": "user",
@@ -273,6 +277,6 @@ curl http://localhost:8080/embeddings \
 
 Don't use the model file as `model` in the request unless you want to handle the prompt template for yourself.
 
-Use the model names like you would do with OpenAI like in the examples below. For instance `gpt-4-vision-preview`, or `gpt-4`.
+Use the installed model's own name as the `model` value, the same way you would pass a model name to OpenAI. For instance `qwen3-4b` for chat, or `gpt-4-vision-preview` for a vision model you have installed under that name.
 
  {{% /notice %}}

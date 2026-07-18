@@ -1,6 +1,6 @@
 # moss-transcribe-cpp backend Makefile.
 #
-# Upstream pin lives below as MOSS_VERSION?=92a923dca88a41a34e47a364d55ee25731a9a0a2
+# Upstream pin lives below as MOSS_VERSION?=190a569c13b4b247450f2fb3b2a431244e84833e
 # (.github/bump_deps.sh) can find and update it - matches the
 # whisper.cpp / parakeet-cpp / ds4 convention.
 #
@@ -15,7 +15,7 @@
 # That's what the L0 smoke test uses. The default target below does the proper
 # clone-at-pin + cmake build so CI doesn't need a side-checkout.
 
-MOSS_VERSION?=92a923dca88a41a34e47a364d55ee25731a9a0a2
+MOSS_VERSION?=190a569c13b4b247450f2fb3b2a431244e84833e
 MOSS_REPO?=https://github.com/mudler/moss-transcribe.cpp
 
 GOCMD?=go

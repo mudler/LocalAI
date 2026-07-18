@@ -62,3 +62,7 @@ func routeToggleModelPinned(name, action string) string {
 func routeVoiceProfileDelete(id string) string {
 	return "/api/voice-profiles/" + url.PathEscape(id)
 }
+
+func routeNodeVRAMBudget(id string) string {
+	return "/api/nodes/" + url.PathEscape(id) + "/vram-budget"
+}

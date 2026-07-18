@@ -116,7 +116,11 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	ml.SetLoadObserver(corebackend.ModelLoadTraceObserver(appConfig))
 
 	app := &Application{
-		backendLoader:      config.NewModelConfigLoader(appConfig.SystemState.Model.ModelsPath),
+		backendLoader: config.NewModelConfigLoader(
+			appConfig.SystemState.Model.ModelsPath,
+			config.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			config.WithPreloadDisplay(appConfig.ModelPreloadRenderMode, appConfig.DisableModelPreloadColor),
+		),
 		modelLoader:        ml,
 		applicationConfig:  appConfig,
 		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),

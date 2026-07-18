@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Model Gallery"
-weight = 18
+weight = 81
 url = '/models'
 +++
 
@@ -150,6 +150,25 @@ where:
 - `localai` is the repository. It is optional and can be omitted. If the repository is omitted LocalAI will search the model by name in all the repositories. In the case the same model name is present in both galleries the first match wins.
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
+
+### Artifact-backed models
+
+Gallery models with an `artifacts` declaration are fully materialized during
+installation. Their operation progresses through these phases:
+
+```text
+resolving -> downloading -> verifying -> committing -> persisting
+```
+
+The admin Operations Bar and `GET /api/operations` expose `currentBytes` and
+`totalBytes` as raw transport bytes. Cancelling an active download leaves its
+partial files in place so a retry can resume. A verification failure never
+exposes a completed snapshot, while a retry or another installation reuses an
+already verified content-addressed snapshot.
+
+Deleting a model configuration does not delete its content-addressed snapshot
+bytes. This allows another configuration or a later reinstall to reuse the
+cache; safe cache garbage collection is deferred.
 
 ### How to install a model not part of a gallery
 

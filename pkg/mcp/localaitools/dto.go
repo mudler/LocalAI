@@ -105,6 +105,15 @@ type Node struct {
 	LastSeen    string `json:"last_seen,omitempty"`
 }
 
+// SetNodeVRAMBudgetRequest is the input for set_node_vram_budget. It PUTs
+// the value to /api/nodes/{node_id}/vram-budget, where the server validates
+// and resolves the budget against the node's total VRAM. An empty Budget
+// clears the admin override so the worker's own default takes over again.
+type SetNodeVRAMBudgetRequest struct {
+	NodeID string `json:"node_id"          jsonschema:"The federated node id (from list_nodes) whose VRAM budget to set."`
+	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
+}
+
 // ImportModelURIRequest is the input for import_model_uri. It mirrors the
 // REST surface (`/models/import-uri`) closely so both clients can produce
 // identical responses; the BackendPreference is a flat field rather than the

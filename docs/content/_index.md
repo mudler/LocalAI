@@ -9,7 +9,7 @@ type = "home"
     <div class="lai-hero__copy">
       <p class="lai-signal"><span></span> Open source · MIT licensed</p>
       <h1>One runtime.<br><strong>Every kind of AI.</strong><br>Your hardware.</h1>
-      <p class="lai-hero__lede">LocalAI runs text, vision, speech, sound, images, video, embeddings, reranking, and autonomous agents behind one modular stack—from a CPU laptop to a distributed GPU cluster.</p>
+      <p class="lai-hero__lede">LocalAI runs text, vision, speech, sound, images, video, embeddings, reranking, and autonomous agents behind one modular stack-from a CPU laptop to a distributed GPU cluster.</p>
       <div class="lai-actions">
         <a class="lai-button" href="/installation/">Install LocalAI <b>→</b></a>
         <a class="lai-link" href="https://github.com/mudler/LocalAI">View on GitHub ↗</a>
@@ -33,7 +33,7 @@ type = "home"
     <div class="lai-architecture__copy">
       <p>A small core, not a giant bundle.</p>
       <h2>Backends arrive when the model needs them.</h2>
-      <p>LocalAI keeps the core lean. Each backend wraps a best-in-class engine—llama.cpp, vLLM, SGLang, MLX, whisper.cpp, diffusion engines, and many more—as an isolated service pulled on demand.</p>
+      <p>LocalAI keeps the core lean. Each backend wraps a best-in-class engine-llama.cpp, vLLM, SGLang, MLX, whisper.cpp, diffusion engines, and many more-as an isolated service pulled on demand.</p>
       <ul><li>Install, update, or remove engines independently.</li><li>Mix CPU, NVIDIA, AMD, Intel, Apple Silicon, Vulkan, and Jetson.</li><li>Build your own backend in any language through an open gRPC contract.</li></ul>
       <a href="/reference/architecture/">Explore the architecture →</a>
     </div>

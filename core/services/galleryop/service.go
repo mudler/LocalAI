@@ -94,6 +94,15 @@ func (g *GalleryService) BackendManager() BackendManager {
 	return g.backendManager
 }
 
+// ModelArtifactMaterializer returns the controller-only acquisition capability
+// used by startup paths that install gallery entries outside the operation loop.
+func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer {
+	if g == nil || g.appConfig == nil {
+		return nil
+	}
+	return g.appConfig.ModelArtifactMaterializer
+}
+
 // SetNATSClient sets the NATS client for distributed progress publishing.
 // Accepting the wider MessagingClient (vs. plain Publisher) lets
 // SubscribeBroadcasts wire the wildcard subscriptions that keep peer
@@ -167,7 +176,10 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
-			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable); err != nil {
+			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable,
+				distributed.OperationProgressDetails{
+					Phase: op.Phase, CurrentBytes: op.CurrentBytes, TotalBytes: op.TotalBytes,
+				}); err != nil {
 				xlog.Warn("Failed to persist gallery operation progress", "op_id", s, "error", err)
 			}
 		}
@@ -662,6 +674,9 @@ func (g *GalleryService) Hydrate() error {
 		st := &OpStatus{
 			Message:            op.Message,
 			Progress:           op.Progress,
+			Phase:              op.Phase,
+			CurrentBytes:       op.CurrentBytes,
+			TotalBytes:         op.TotalBytes,
 			FileName:           op.FileName,
 			TotalFileSize:      op.TotalFileSize,
 			DownloadedFileSize: op.DownloadedFileSize,

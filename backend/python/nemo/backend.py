@@ -17,6 +17,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import require_snapshot_file, resolve_model_reference
 
 
 
@@ -70,11 +71,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 value = value.lower() == "true"
             self.options[key] = value
 
-        model_name = request.Model or "nvidia/parakeet-tdt-0.6b-v3"
+        model_ref, local_only = resolve_model_reference(
+            request, "nvidia/parakeet-tdt-0.6b-v3"
+        )
 
         try:
-            print(f"Loading NEMO ASR model from {model_name}", file=sys.stderr)
-            self.model = nemo_asr.models.ASRModel.from_pretrained(model_name=model_name)
+            print(f"Loading NEMO ASR model from {model_ref}", file=sys.stderr)
+            if local_only:
+                checkpoint = require_snapshot_file(model_ref, ".nemo")
+                self.model = nemo_asr.models.ASRModel.restore_from(
+                    restore_path=checkpoint
+                )
+            else:
+                self.model = nemo_asr.models.ASRModel.from_pretrained(
+                    model_name=model_ref
+                )
             print("NEMO ASR model loaded successfully", file=sys.stderr)
         except Exception as err:
             print(f"[ERROR] LoadModel failed: {err}", file=sys.stderr)

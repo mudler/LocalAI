@@ -90,6 +90,10 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	// Backend management on workers
 	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))
 	admin.POST("/:id/backends/install", localai.InstallBackendOnNodeEndpoint(unloader, galleryService, opcache, appConfig))
+	// Upgrade is a distinct route (not install) because the worker's
+	// backend.install handler short-circuits when the backend already exists
+	// on disk; only the Upgrade op path force-reinstalls.
+	admin.POST("/:id/backends/upgrade", localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 
 	// Model management on workers
@@ -111,6 +115,12 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	// CLI flag takes over again at the next re-registration.
 	admin.PUT("/:id/max-replicas-per-model", localai.UpdateMaxReplicasPerModelEndpoint(registry))
 	admin.DELETE("/:id/max-replicas-per-model", localai.ResetMaxReplicasPerModelEndpoint(registry))
+
+	// Per-node VRAM allocation budget. PUT sets a sticky admin override that
+	// survives worker restarts; DELETE clears it so the worker's reported
+	// budget takes over again at the next re-registration.
+	admin.PUT("/:id/vram-budget", localai.UpdateVRAMBudgetEndpoint(registry))
+	admin.DELETE("/:id/vram-budget", localai.ResetVRAMBudgetEndpoint(registry))
 
 	// WebSocket proxy for real-time log streaming from workers
 	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken), readyMw, adminMw)

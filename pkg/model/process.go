@@ -23,50 +23,67 @@ var (
 	modelNotFoundErr = errors.New("model not found")
 )
 
-func (ml *ModelLoader) deleteProcess(s string) error {
+// deleteProcess stops and removes a backend. The force flag trades a graceful
+// shutdown for a prompt one and is meant for the watchdog's busy-killer: a
+// backend that has been busy past the watchdog timeout is, by definition,
+// stuck in an in-flight gRPC call. Waiting for that call to finish before
+// stopping the process (the graceful path) would block forever — and since
+// deleteProcess runs under ml.mu, it would stall every other model load,
+// including the shared opus backend load at the start of every realtime
+// (WebRTC) session, hanging new connections at "Connected, waiting for
+// session...". The force path stops the process first, which drops the
+// in-flight call's gRPC connection and unblocks it, then cleans up.
+func (ml *ModelLoader) deleteProcess(s string, force bool) error {
 	model, ok := ml.store.Get(s)
 	if !ok {
 		xlog.Debug("Model not found", "model", s)
 		return modelNotFoundErr
 	}
 
-	retries := 1
-	for model.GRPC(false, ml.wd).IsBusy() {
-		xlog.Debug("Model busy. Waiting.", "model", s)
-		dur := time.Duration(retries*2) * time.Second
-		if dur > retryTimeout {
-			dur = retryTimeout
-		}
-		time.Sleep(dur)
-		retries++
+	if !force {
+		retries := 1
+		for model.GRPC(false, ml.wd).IsBusy() {
+			xlog.Debug("Model busy. Waiting.", "model", s)
+			dur := time.Duration(retries*2) * time.Second
+			if dur > retryTimeout {
+				dur = retryTimeout
+			}
+			time.Sleep(dur)
+			retries++
 
-		if retries > 10 && forceBackendShutdown {
-			xlog.Warn("Model is still busy after retries. Forcing shutdown.", "model", s, "retries", retries)
-			break
+			if retries > 10 && forceBackendShutdown {
+				xlog.Warn("Model is still busy after retries. Forcing shutdown.", "model", s, "retries", retries)
+				break
+			}
 		}
 	}
 
-	xlog.Debug("Deleting process", "model", s)
+	xlog.Debug("Deleting process", "model", s, "force", force)
 
 	// Run unload hooks (e.g. close MCP sessions)
 	for _, hook := range ml.onUnloadHooks {
 		hook(s)
 	}
 
-	// Free GPU resources before stopping the process to ensure VRAM is released.
-	// Free is optional: backends that don't override it (the generated stub, many
-	// Python/external backends, or a federation proxy in distributed mode) return
-	// gRPC Unimplemented. That is expected, not a failure — VRAM is reclaimed when
-	// the process is stopped below, or by the remote unloader for remote backends —
-	// so don't surface it as an error.
-	xlog.Debug("Calling Free() to release GPU resources", "model", s)
-	if err := model.GRPC(false, ml.wd).Free(context.Background()); err != nil {
-		if grpcerrors.IsUnimplemented(err) {
-			xlog.Debug("Backend does not implement Free(); GPU release handled on process stop", "model", s)
-		} else {
-			// Now that the expected Unimplemented case is filtered out above, a
-			// remaining error is a genuine failure to release VRAM — surface it.
-			xlog.Error("Error freeing GPU resources", "error", err, "model", s)
+	// Free GPU resources before stopping the process to ensure VRAM is
+	// released. Skipped on force-shutdown: a stuck-busy backend won't answer
+	// a Free RPC (it's hung on the same stuck call), and stopping the
+	// process releases its VRAM anyway. Free is optional: backends that
+	// don't override it (the generated stub, many Python/external backends,
+	// or a federation proxy in distributed mode) return gRPC Unimplemented.
+	// That is expected, not a failure — VRAM is reclaimed when the process
+	// is stopped below, or by the remote unloader for remote backends — so
+	// don't surface it as an error.
+	if !force {
+		xlog.Debug("Calling Free() to release GPU resources", "model", s)
+		if err := model.GRPC(false, ml.wd).Free(context.Background()); err != nil {
+			if grpcerrors.IsUnimplemented(err) {
+				xlog.Debug("Backend does not implement Free(); GPU release handled on process stop", "model", s)
+			} else {
+				// Now that the expected Unimplemented case is filtered out above, a
+				// remaining error is a genuine failure to release VRAM — surface it.
+				xlog.Error("Error freeing GPU resources", "error", err, "model", s)
+			}
 		}
 	}
 
@@ -115,7 +132,7 @@ func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 		return true
 	})
 	for _, k := range toDelete {
-		e := ml.deleteProcess(k)
+		e := ml.deleteProcess(k, false)
 		err = errors.Join(err, e)
 	}
 	return err

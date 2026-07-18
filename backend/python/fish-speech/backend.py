@@ -22,6 +22,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 
 
@@ -169,22 +170,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 else None
             )
 
-            # Get model path from request
-            model_path = request.Model
-            if not model_path:
-                model_path = "fishaudio/s2-pro"
-
-            # If model_path looks like a HuggingFace repo ID (e.g. "fishaudio/fish-speech-1.5"),
-            # download it locally first since fish-speech expects a local directory
-            if "/" in model_path and not os.path.exists(model_path):
+            model_path, local_only = resolve_model_reference(
+                request, "fishaudio/s2-pro"
+            )
+            if not local_only and "/" in model_path:
                 from huggingface_hub import snapshot_download
 
                 print(
-                    f"Downloading model from HuggingFace: {model_path}",
+                    f"Downloading legacy unmanaged model from HuggingFace: {model_path}",
                     file=sys.stderr,
                 )
                 model_path = snapshot_download(repo_id=model_path)
-                print(f"Model downloaded to: {model_path}", file=sys.stderr)
 
             # Determine precision
             if device in ("mps", "cpu"):

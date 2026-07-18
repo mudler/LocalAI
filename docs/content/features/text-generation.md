@@ -519,7 +519,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `cache_idle_slots` or `idle_slots_cache` | boolean | On a new task, save the previous slot's KV state into the prompt cache (and clear the slot) so a later request with the same prefix can warm-load it. Default: `true`. Auto-disabled by the server if `kv_unified=false` or `cache_ram=0`. | `cache_idle_slots:false` |
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
 | `checkpoint_min_step` or `checkpoint_min_spacing` (aliases: `checkpoint_every_nt`, `checkpoint_every_n_tokens`) | integer | Minimum spacing in tokens between context checkpoints. `0` disables the minimum-spacing gate. Default: `256`. (Renamed upstream from `checkpoint_every_nt`; semantics shifted from a fixed cadence to a minimum spacing.) | `checkpoint_min_step:1024` |
-| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default — split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism, requires `flash_attention: true`, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378); it historically also required KV-cache quantization to be disabled, but [#23792](https://github.com/ggml-org/llama.cpp/pull/23792) lifts that restriction so `cache_type_k`/`cache_type_v` quantization can be combined with tensor parallelism on builds that include it). | `split_mode:tensor` |
+| `split_mode` or `sm` | string | How to split the model across multiple GPUs: `none` (single GPU only), `layer` (default - split layers and KV across GPUs), `row` (split rows across GPUs), `tensor` (experimental tensor parallelism, requires `flash_attention: true`, manually set `context_size`, and a llama.cpp build that includes [#19378](https://github.com/ggml-org/llama.cpp/pull/19378); it historically also required KV-cache quantization to be disabled, but [#23792](https://github.com/ggml-org/llama.cpp/pull/23792) lifts that restriction so `cache_type_k`/`cache_type_v` quantization can be combined with tensor parallelism on builds that include it). | `split_mode:tensor` |
 
 **Example configuration with options:**
 
@@ -543,7 +543,7 @@ options:
 
 ##### Hardware auto-tuning (and how to override it)
 
-On a detected GPU, LocalAI fills a few performance-relevant defaults the model config leaves unset — a larger physical batch on NVIDIA Blackwell, and a VRAM-scaled `parallel` slot count for concurrent serving. Both are gated on **per-device** VRAM at the model's context: when a large context already fills a single card (e.g. a 27B model with a 200k context across 2×16 GiB), the batch boost and the extra parallel slots are suppressed so they can't tip the tighter GPU into CUDA out-of-memory.
+On a detected GPU, LocalAI fills a few performance-relevant defaults the model config leaves unset - a larger physical batch on NVIDIA Blackwell, and a VRAM-scaled `parallel` slot count for concurrent serving. Both are gated on **per-device** VRAM at the model's context: when a large context already fills a single card (e.g. a 27B model with a 200k context across 2×16 GiB), the batch boost and the extra parallel slots are suppressed so they can't tip the tighter GPU into CUDA out-of-memory.
 
 Anything you set explicitly in the model YAML always wins, so to pin a value just set it (e.g. `batch: 512` or `options: ["parallel:1"]`). The effective values are logged at `INFO` when a model loads (`effective runtime tuning …`). To turn the hardware auto-tuning off entirely and run llama.cpp's stock behavior, set:
 
@@ -579,7 +579,7 @@ Set `cache_ram:0` to opt out of the prompt cache entirely (saves host RAM at the
 
 ### ik_llama.cpp
 
-[ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) is a hard fork of `llama.cpp` by Iwan Kawrakow that focuses on superior CPU and hybrid GPU/CPU performance. It ships additional quantization types (IQK quants), custom quantization mixes, Multi-head Latent Attention (MLA) for DeepSeek models, and fine-grained tensor offload controls — particularly useful for running very large models on commodity CPU hardware.
+[ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) is a hard fork of `llama.cpp` by Iwan Kawrakow that focuses on superior CPU and hybrid GPU/CPU performance. It ships additional quantization types (IQK quants), custom quantization mixes, Multi-head Latent Attention (MLA) for DeepSeek models, and fine-grained tensor offload controls - particularly useful for running very large models on commodity CPU hardware.
 
 {{% notice note %}}
 
@@ -597,7 +597,7 @@ The `ik-llama-cpp` backend supports the following features:
 
 #### Setup
 
-The backend is distributed as a separate container image and can be installed from the LocalAI backend gallery, or specified directly in a model configuration. GGUF models loaded with this backend benefit from ik_llama.cpp's optimized CPU kernels — especially useful for MoE models and large quantized models that would otherwise be GPU-bound.
+The backend is distributed as a separate container image and can be installed from the LocalAI backend gallery, or specified directly in a model configuration. GGUF models loaded with this backend benefit from ik_llama.cpp's optimized CPU kernels - especially useful for MoE models and large quantized models that would otherwise be GPU-bound.
 
 #### YAML configuration
 
@@ -620,7 +620,7 @@ The aliases `ik-llama` and `ik_llama` are also accepted.
 
 ### turboquant (llama.cpp fork with TurboQuant KV-cache)
 
-[llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant) is a `llama.cpp` fork that adds the **TurboQuant KV-cache** quantization scheme. It reuses the upstream `llama.cpp` codebase and ships as a drop-in alternative backend inside LocalAI, sharing the same gRPC server sources as the stock `llama-cpp` backend — so any GGUF model that runs on `llama-cpp` also runs on `turboquant`.
+[llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant) is a `llama.cpp` fork that adds the **TurboQuant KV-cache** quantization scheme. It reuses the upstream `llama.cpp` codebase and ships as a drop-in alternative backend inside LocalAI, sharing the same gRPC server sources as the stock `llama-cpp` backend - so any GGUF model that runs on `llama-cpp` also runs on `turboquant`.
 
 You would pick `turboquant` when you want **smaller KV-cache memory pressure** (longer contexts on the same VRAM) or to experiment with the fork's quantized KV representations on top of the standard `cache_type_k` / `cache_type_v` knobs already supported by upstream `llama.cpp`.
 
@@ -661,7 +661,7 @@ cache_type_v: turbo3
 context_size: 8192
 ```
 
-The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` flags. The stock `llama-cpp` backend only accepts the standard llama.cpp types — to use `turbo2` / `turbo3` / `turbo4` you need this `turboquant` backend, which is where the fork's TurboQuant code paths actually take effect. Pick `q8_0` here and you're just running stock llama.cpp KV quantization; pick `turbo*` and you're running TurboQuant.
+The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` flags. The stock `llama-cpp` backend only accepts the standard llama.cpp types - to use `turbo2` / `turbo3` / `turbo4` you need this `turboquant` backend, which is where the fork's TurboQuant code paths actually take effect. Pick `q8_0` here and you're just running stock llama.cpp KV quantization; pick `turbo*` and you're running TurboQuant.
 
 #### Reference
 
@@ -736,13 +736,13 @@ engine_args:
 
 The shape of `speculative_config` follows vLLM's
 [`SpeculativeConfig`](https://docs.vllm.ai/en/latest/api/vllm/config/speculative.html)
-— `method` picks the algorithm, the remaining keys are method-specific.
+- `method` picks the algorithm, the remaining keys are method-specific.
 Drafters from [z-lab](https://huggingface.co/z-lab) are paired with
 specific target models; pick the one that matches your target. The
 drafter loads in its native precision regardless of the target's
 `quantization:` setting.
 
-Another example — picking a non-default attention backend (e.g. on
+Another example - picking a non-default attention backend (e.g. on
 hardware where the default cutlass kernels aren't supported):
 
 ```yaml
@@ -784,7 +784,7 @@ The backend will pull the model from HuggingFace on first load.
 The same `engine_args:` map that the vLLM backend accepts is also
 honoured by the SGLang backend. Keys are validated against
 [`ServerArgs`](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py)
-— SGLang's central configuration dataclass — and forwarded verbatim to
+- SGLang's central configuration dataclass - and forwarded verbatim to
 `Engine(**kwargs)`. Unknown keys fail at load time with the closest
 valid name as a hint. Unlike vLLM, `ServerArgs` is flat: speculative
 decoding fields are top-level (`speculative_algorithm`,
@@ -805,7 +805,7 @@ candidate tokens per target step, which SGLang then verifies in
 parallel. Flags below are transcribed verbatim from the
 [SGLang Gemma 4 cookbook](https://docs.sglang.io/cookbook/autoregressive/Google/Gemma4#speculative-decoding-mtp-server-commands).
 
-For consumer GPUs in the 16–24 GB range, use **E4B** (8 B total /
+For consumer GPUs in the 16-24 GB range, use **E4B** (8 B total /
 4 B effective parameters):
 
 ```yaml
@@ -828,12 +828,12 @@ engine_args:
   speculative_eagle_topk: 1
 ```
 
-For smaller cards (8–12 GB), drop to **E2B** (5 B total / 2 B effective)
+For smaller cards (8-12 GB), drop to **E2B** (5 B total / 2 B effective)
 by swapping the model paths to `google/gemma-4-E2B-it` and
 `google/gemma-4-E2B-it-assistant`; the rest of the flags stay the same.
 
 `NEXTN` is normalised to `EAGLE` inside `ServerArgs.__post_init__`, so
-either value works — the cookbook uses `NEXTN`. `mem_fraction_static`
+either value works - the cookbook uses `NEXTN`. `mem_fraction_static`
 is the share of GPU memory SGLang reserves for the model + KV pool;
 0.85 is the cookbook's default and adapts to whatever single GPU the
 backend is running on.
@@ -854,14 +854,14 @@ single-GPU recipes.
 EAGLE-style draft head), `DFLASH` (block-diffusion drafters from
 [z-lab](https://huggingface.co/z-lab) for the Qwen3 family), `STANDALONE`
 (a smaller draft LLM verifying a larger target), and `NGRAM` (no draft
-model — pure prefix-history speculation). See SGLang's
+model - pure prefix-history speculation). See SGLang's
 [speculative-decoding docs](https://docs.sglang.io/advanced_features/speculative_decoding.html)
 for the full algorithm matrix.
 
 #### Tool calling and reasoning parsers
 
 SGLang's native parsers stream `tool_calls` and `reasoning_content`
-inside `ChatDelta` — the LocalAI Python backend wires them up
+inside `ChatDelta` - the LocalAI Python backend wires them up
 per-request rather than via `engine_args:`. Pick a parser by name:
 
 ```yaml

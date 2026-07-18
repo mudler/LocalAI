@@ -1,7 +1,7 @@
 ---
 title: "Backends"
 description: "Learn how to use, manage, and develop backends in LocalAI"
-weight: 4
+weight: 80
 url: "/backends/"
 ---
 
@@ -129,7 +129,7 @@ LocalAI supports various types of backends:
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
-- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/longcat-video" %}}))
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/video-generation" %}}))
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE)
 - **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store)

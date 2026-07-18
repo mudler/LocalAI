@@ -397,14 +397,21 @@ func (ml *ModelLoader) ListLoadedModels() []*Model {
 }
 
 func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
-	return ml.loadModel(modelID, modelName, loader, true)
+	return ml.LoadModelWithFile(modelID, modelName, modelName, loader)
 }
 
-// loadModel is the implementation behind LoadModel. checkCooldown gates fresh,
+func (ml *ModelLoader) LoadModelWithFile(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
+	if modelFileName == "" {
+		modelFileName = modelName
+	}
+	return ml.loadModel(modelID, modelName, modelFileName, loader, true)
+}
+
+// loadModel is the implementation behind LoadModelWithFile. checkCooldown gates fresh,
 // independent load triggers behind the per-model failure cooldown; it is set to
 // false for the coalesced retry of an in-flight burst (a follower whose leader
 // just failed), which is not a new trigger and should still get its one retry.
-func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, string, string) (*Model, error), checkCooldown bool) (*Model, error) {
+func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error), checkCooldown bool) (*Model, error) {
 	ml.mu.Lock()
 	distributed := ml.modelRouter != nil
 	ml.mu.Unlock()
@@ -430,7 +437,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, 
 		// per inference. Trade-off: cross-frontend in-flight visibility
 		// becomes eventually consistent, acceptable for 1-3 frontend
 		// deployments.
-		modelFile := filepath.Join(ml.ModelPath, modelName)
+		modelFile := filepath.Join(ml.ModelPath, modelFileName)
 		model, err := loader(modelID, modelName, modelFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to route model with internal loader: %s", err)
@@ -484,7 +491,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, 
 		}
 		// If still not loaded, the other goroutine failed. Retry once as part of
 		// this burst, bypassing the cooldown gate (we are not a new trigger).
-		return ml.loadModel(modelID, modelName, loader, false)
+		return ml.loadModel(modelID, modelName, modelFileName, loader, false)
 	}
 
 	// Mark this model as loading (create a channel that will be closed when done)
@@ -501,7 +508,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName string, loader func(string, 
 	}()
 
 	// Load the model (this can take a long time, no lock held)
-	modelFile := filepath.Join(ml.ModelPath, modelName)
+	modelFile := filepath.Join(ml.ModelPath, modelFileName)
 	xlog.Debug("Loading model in memory from file", "file", modelFile)
 
 	model, err := loader(modelID, modelName, modelFile)
@@ -528,7 +535,19 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 
-	return ml.deleteProcess(modelName)
+	return ml.deleteProcess(modelName, false)
+}
+
+// ShutdownModelForce stops a backend without waiting for an in-flight gRPC
+// call to finish first. It is used by the watchdog's busy-killer, which only
+// fires once a backend has been stuck on a call past the busy timeout — the
+// graceful ShutdownModel would block forever on that stuck call (while
+// holding ml.mu), preventing every other model load. See deleteProcess.
+func (ml *ModelLoader) ShutdownModelForce(modelName string) error {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	return ml.deleteProcess(modelName, true)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
@@ -570,7 +589,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			// Timeouts may mean the node is busy, so keep the model cached.
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
-				if delErr := ml.deleteProcess(s); delErr != nil {
+				if delErr := ml.deleteProcess(s, false); delErr != nil {
 					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
 				}
 				return nil
@@ -581,7 +600,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		if !process.IsAlive() {
 			xlog.Debug("GRPC Process is not responding", "model", s)
 			// stop and delete the process, this forces to re-load the model and re-create again the service
-			err := ml.deleteProcess(s)
+			err := ml.deleteProcess(s, false)
 			if err != nil {
 				xlog.Error("error stopping process", "error", err, "process", s)
 			}
