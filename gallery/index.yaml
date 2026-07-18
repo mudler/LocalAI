@@ -1,4 +1,43 @@
 ---
+- name: "dolphin3-cyber-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF
+  description: |
+    # huihui-ai/Dolphin3.0-Llama3.1-8B-abliterated
+
+    This is an uncensored version of cognitivecomputations/Dolphin3.0-Llama3.1-8B created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+
+    ## Use with ollama
+
+    You can use huihui_ai/dolphin3-abliterated directly
+    ```
+    ollama run huihui_ai/dolphin3-abliterated
+    ```
+  license: "llama3.1"
+  tags:
+    - llm
+    - gguf
+    - llama
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M.gguf
+      sha256: 73da18db1557e19e8ec2d6c1e8ef08e182c735d72f3bd526f6940f4fec96c1cb
+      uri: https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF/resolve/main/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M.gguf
 - name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
