@@ -28,12 +28,11 @@ var _ = Describe("GalleryModel variant declarations", func() {
 		Expect(m.HasVariants()).To(BeTrue())
 	})
 
-	It("parses an entry's own memory figure and its variant list", func() {
+	It("parses a variant list", func() {
 		var m gallery.GalleryModel
 		err := yaml.Unmarshal([]byte(`
 name: qwen3.6-27b
 url: "github:example/repo/qwen3.6-27b.yaml@master"
-min_memory: 4GiB
 variants:
   - model: qwen3.6-27b-mlx-8bit
   - model: qwen3.6-27b-gguf-q8
@@ -42,7 +41,6 @@ variants:
 		Expect(err).ToNot(HaveOccurred())
 		Expect(m.Name).To(Equal("qwen3.6-27b"))
 		Expect(m.URL).To(Equal("github:example/repo/qwen3.6-27b.yaml@master"))
-		Expect(m.MinMemory).To(Equal("4GiB"))
 		Expect(m.HasVariants()).To(BeTrue())
 		Expect(m.Variants).To(HaveLen(2))
 		// The first variant is nothing but a name, which is the shape authoring
@@ -81,7 +79,6 @@ var _ = Describe("ResolveVariant", func() {
 		base = newModel("qwen3-8b-gguf-q4", "file://gguf.yaml", "Qwen3 8B Q4", "qwen.png")
 		base.Backend = "llama-cpp"
 		base.Tags = []string{"llm"}
-		base.MinMemory = "6GiB"
 		base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq", MinMemory: "20GiB"}}
 		models = []*gallery.GalleryModel{upgrade, base}
 	})
@@ -118,20 +115,96 @@ var _ = Describe("ResolveVariant", func() {
 		Expect(resolved.URL).To(Equal("file://gguf.yaml"))
 	})
 
-	It("installs the entry even when the host misses the entry's own requirement", func() {
-		resolved, variant, err := gallery.ResolveVariant(models, base, env(gib(1)), "")
+	It("installs the entry on a host with no memory budget at all", func() {
+		// The base carries no floor of its own precisely so this can never
+		// refuse; an unreadable host reports 0 and must still get the entry.
+		resolved, variant, err := gallery.ResolveVariant(models, base, env(0), "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(variant.Model).To(Equal("qwen3-8b-gguf-q4"))
 		Expect(resolved.URL).To(Equal("file://gguf.yaml"))
 	})
 
-	It("strips the selection fields from the resolved entry", func() {
-		// A resolved entry is a concrete install target. Leaving the fields on
-		// it would let a second selection pass fire on an already-resolved entry.
+	It("strips the variant list from the resolved entry", func() {
+		// A resolved entry is a concrete install target. Leaving the list on it
+		// would let a second selection pass fire on an already-resolved entry.
 		resolved, _, err := gallery.ResolveVariant(models, base, env(gib(8)), "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resolved.HasVariants()).To(BeFalse())
-		Expect(resolved.MinMemory).To(BeEmpty())
+	})
+
+	Describe("the live size probe", func() {
+		// The probe is injected rather than performed, so these specs pin an
+		// exact size, or an exact failure, without reaching the network.
+		probing := func(memory uint64, sizes map[string]uint64) gallery.ResolveEnv {
+			e := env(memory)
+			e.ProbeMemory = func(target *gallery.GalleryModel) uint64 { return sizes[target.Name] }
+			return e
+		}
+
+		BeforeEach(func() {
+			// No authored figure anywhere, so every size below comes from the
+			// probe. This is the shape authoring is meant to reach for.
+			base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq"}}
+		})
+
+		It("selects a variant the probe shows to fit", func() {
+			resolved, variant, err := gallery.ResolveVariant(models, base,
+				probing(gib(24), map[string]uint64{"qwen3-8b-vllm-awq": gib(20)}), "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(variant.Model).To(Equal("qwen3-8b-vllm-awq"))
+			Expect(resolved.URL).To(Equal("file://vllm.yaml"))
+		})
+
+		It("rejects a variant the probe shows to be too large", func() {
+			// Same variant, same host, only the probed size differs, so nothing
+			// but the probe can account for the different answer.
+			resolved, variant, err := gallery.ResolveVariant(models, base,
+				probing(gib(24), map[string]uint64{"qwen3-8b-vllm-awq": gib(80)}), "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(variant.Model).To(Equal("qwen3-8b-gguf-q4"))
+			Expect(resolved.URL).To(Equal("file://gguf.yaml"))
+		})
+
+		It("completes the install when the probe cannot determine a size", func() {
+			// A failed probe reports 0. That is an unknown, so the variant is
+			// not filtered out, and above all the resolution does not fail: a
+			// network hiccup must never be able to break an install.
+			resolved, variant, err := gallery.ResolveVariant(models, base,
+				probing(gib(24), map[string]uint64{}), "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(variant.Model).To(Equal("qwen3-8b-vllm-awq"))
+			Expect(resolved.URL).To(Equal("file://vllm.yaml"))
+		})
+
+		It("still installs the base when every probe fails and nothing else survives", func() {
+			// The one variant this host could otherwise take is ruled out by its
+			// backend and no probe answers, so selection has to terminate on the
+			// base rather than on an error.
+			e := probing(gib(24), map[string]uint64{})
+			e.BackendCompatible = func(backend string) bool { return backend != "vllm" }
+
+			resolved, variant, err := gallery.ResolveVariant(models, base, e, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(variant.Model).To(Equal("qwen3-8b-gguf-q4"))
+			Expect(resolved.URL).To(Equal("file://gguf.yaml"))
+		})
+
+		It("does not probe a variant that declares its own min_memory", func() {
+			// Probing costs a network round trip, so an authored figure has to
+			// suppress it outright rather than merely outrank it.
+			base.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq", MinMemory: "20GiB"}}
+			probed := []string{}
+			e := env(gib(24))
+			e.ProbeMemory = func(target *gallery.GalleryModel) uint64 {
+				probed = append(probed, target.Name)
+				return gib(80)
+			}
+
+			_, variant, err := gallery.ResolveVariant(models, base, e, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(probed).To(BeEmpty())
+			Expect(variant.Model).To(Equal("qwen3-8b-vllm-awq"))
+		})
 	})
 
 	It("presents the entry's metadata, not the variant's", func() {
@@ -358,6 +431,22 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		Expect(installedBackend("qwen3-8b-q4")).To(Equal("upgrade-backend"))
 		_, err := os.Stat(filepath.Join(tempdir, "qwen3-8b-q8.yaml"))
 		Expect(os.IsNotExist(err)).To(BeTrue(), "the variant must not be installed under its own name")
+	})
+
+	It("completes the install when a variant's size cannot be determined", func() {
+		// This runs the REAL probe against an entry that declares no size and no
+		// weight files, which is exactly the shape a probe cannot answer for.
+		// It must yield an unknown, not an error: the variant survives the
+		// filter and the install completes, on the variant or on the base, but
+		// never on a failure. Nothing here touches the network.
+		newGallery(
+			withVariants(entry("qwen3-8b-q4", "base-backend"),
+				gallery.Variant{Model: "qwen3-8b-q8"}),
+			entry("qwen3-8b-q8", "upgrade-backend"),
+		)
+
+		Expect(install("qwen3-8b-q4", gallery.GalleryModel{})).To(Succeed())
+		Expect(installedBackend("qwen3-8b-q4")).To(BeElementOf("base-backend", "upgrade-backend"))
 	})
 
 	It("installs the largest fitting variant, not the first authored", func() {

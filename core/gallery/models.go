@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"dario.cat/mergo"
 	lconfig "github.com/mudler/LocalAI/core/config"
@@ -17,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 
 	"github.com/mudler/xlog"
@@ -88,7 +90,7 @@ type PromptTemplate struct {
 // The base is appended rather than special-cased downstream so there is exactly
 // one selection path, and so an operator can pin the entry's own name to
 // decline an upgrade their hardware would otherwise take.
-func variantOptions(models []*GalleryModel, entry *GalleryModel) ([]VariantOption, error) {
+func variantOptions(models []*GalleryModel, entry *GalleryModel, env ResolveEnv) ([]VariantOption, error) {
 	options := make([]VariantOption, 0, len(entry.Variants)+1)
 	for _, v := range entry.Variants {
 		// Every referenced entry is looked up here rather than lazily after
@@ -101,14 +103,71 @@ func variantOptions(models []*GalleryModel, entry *GalleryModel) ([]VariantOptio
 		if target.HasVariants() {
 			return nil, fmt.Errorf("model %q references variant %q which declares variants of its own; resolution is a single pass, so those would be silently ignored", entry.Name, v.Model)
 		}
-		options = append(options, VariantOption{Variant: v, Backend: target.Backend})
+
+		option := VariantOption{Variant: v, Backend: target.Backend}
+		// An authored figure short circuits the probe: the author already
+		// answered the question the probe would spend a round trip asking.
+		if v.MinMemory == "" && env.ProbeMemory != nil {
+			option.ProbedMemory = env.ProbeMemory(target)
+		}
+		options = append(options, option)
 	}
 
+	// The base is never filtered nor ranked, so its size would change nothing
+	// and probing it would spend a round trip on a discarded answer.
 	return append(options, VariantOption{
-		Variant: Variant{Model: entry.Name, MinMemory: entry.MinMemory},
+		Variant: Variant{Model: entry.Name},
 		Backend: entry.Backend,
 		IsBase:  true,
 	}), nil
+}
+
+// probeContextLength is the context size the footprint estimate is taken at.
+// Selection compares whole models against whole hosts, so this only has to be a
+// consistent, realistic default rather than the context a user will eventually
+// configure.
+const probeContextLength = 8192
+
+// probeTimeout bounds a single entry's probe. An entry with several variants
+// probes each of them, so an unreachable host has to give up quickly: an
+// unknown size only costs a variant its ranking, whereas a stalled probe costs
+// the user the whole install.
+const probeTimeout = 5 * time.Second
+
+// probeEntryMemory measures what a gallery entry will occupy, without
+// downloading it.
+//
+// pkg/vram does the work and caches its results across calls: it range-fetches
+// the GGUF header for a real estimate, falls back to an HTTP HEAD for the
+// content length, and finally to any declared size:. A HuggingFace repo listing
+// is deliberately NOT used as a further fallback, unlike the gallery UI's
+// estimator: a quantization entry's urls routinely point at the base model's
+// repo, and summing every weight file there would overstate one variant badly
+// enough to wrongly filter it out.
+//
+// Zero means the size could not be determined. Callers must read that as
+// unknown rather than as zero, so an unreachable network downgrades a variant's
+// ranking instead of failing the install.
+func probeEntryMemory(ctx context.Context, entry *GalleryModel) uint64 {
+	input := vram.ModelEstimateInput{Size: entry.Size}
+	for _, f := range entry.AdditionalFiles {
+		if vram.IsWeightFile(f.URI) {
+			input.Files = append(input.Files, vram.FileInput{URI: f.URI})
+		}
+	}
+	if len(input.Files) == 0 && input.Size == "" {
+		return 0
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	estimate, err := vram.EstimateModelMultiContext(ctx, input, []uint32{probeContextLength})
+	if err != nil {
+		xlog.Debug("Could not probe a model variant's size; treating it as unknown", "model", entry.Name, "error", err)
+		return 0
+	}
+	return estimate.VRAMForContext(probeContextLength)
 }
 
 // ResolveVariant picks the gallery entry to install for a host, from the
@@ -121,12 +180,13 @@ func variantOptions(models []*GalleryModel, entry *GalleryModel) ([]VariantOptio
 // from the entry the user asked for, so the installed model presents as that
 // model rather than as one of its variants.
 //
-// The base entry always resolves. When even its own requirement falls short
-// this installs it regardless, because the entry is a complete entry that every
-// older LocalAI release installs unconditionally; refusing it here would make
-// the gallery behave worse the newer the client is.
+// The base entry always resolves, whatever the host has. It is a complete entry
+// that every older LocalAI release installs unconditionally, so refusing it here
+// would make the gallery behave worse the newer the client is. That is also why
+// the base declares no memory requirement of its own: a floor that can only
+// warn cannot change any outcome.
 func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Variant, error) {
-	options, err := variantOptions(models, entry)
+	options, err := variantOptions(models, entry, env)
 	if err != nil {
 		return nil, Variant{}, err
 	}
@@ -146,7 +206,7 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	// checks, but a silent bypass makes a later out-of-memory failure
 	// impossible to trace back to the pin, so it is recorded loudly here.
 	if pin != "" {
-		if need, known, verr := selected.Variant.EffectiveMinMemory(); verr == nil && known && env.AvailableMemory < need {
+		if need, known, verr := selected.EffectiveMemory(); verr == nil && known && env.AvailableMemory < need {
 			xlog.Warn("Pinned model variant declares more memory than this system reports; installing anyway because the pin overrides hardware resolution",
 				"model", entry.Name, "variant", selected.Variant.Model, "required_memory", need, "available_memory", env.AvailableMemory)
 		}
@@ -166,10 +226,9 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	resolved.Icon = entry.Icon
 	resolved.License = entry.License
 	// The resolved entry is a concrete install target, so it must not carry the
-	// selection fields any more; leaving them would let a second pass resolve
-	// the already-resolved entry all over again.
+	// variant list any more; leaving it would let a second pass resolve the
+	// already-resolved entry all over again.
 	resolved.Variants = nil
-	resolved.MinMemory = ""
 
 	// The struct copy above is shallow, so every reference-typed field still
 	// aliases the gallery's own entries. The install path mutates Overrides in
@@ -395,6 +454,9 @@ func InstallModelFromGallery(
 		// substring in a download link decide hardware compatibility.
 		BackendCompatible: func(backend string) bool {
 			return systemState.IsBackendCompatible(backend, "")
+		},
+		ProbeMemory: func(target *GalleryModel) uint64 {
+			return probeEntryMemory(ctx, target)
 		},
 	}
 

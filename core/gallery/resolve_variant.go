@@ -30,6 +30,29 @@ type VariantOption struct {
 	// filter and is the answer when nothing else survives, because the entry
 	// must stay installable on every host and for every client.
 	IsBase bool
+	// ProbedMemory is the footprint measured live from the referenced entry's
+	// weights, in bytes. It is only consulted when the variant declares no
+	// min_memory of its own, because a human who measured a real load knows
+	// more than a pre-download estimate does.
+	//
+	// Zero means the probe could not determine a size. That is an unknown, not
+	// a zero requirement: a probe that cannot reach the network must never be
+	// able to break an install.
+	ProbedMemory uint64
+}
+
+// EffectiveMemory returns this option's memory requirement in bytes and whether
+// one is known at all: the authored figure when there is one, else the live
+// probe result, else nothing.
+func (o VariantOption) EffectiveMemory() (uint64, bool, error) {
+	size, known, err := o.Variant.AuthoredMinMemory()
+	if err != nil || known {
+		return size, known, err
+	}
+	if o.ProbedMemory > 0 {
+		return o.ProbedMemory, true, nil
+	}
+	return 0, false, nil
 }
 
 // ResolveEnv describes the host a variant is selected for.
@@ -45,6 +68,18 @@ type ResolveEnv struct {
 	// A nil func treats every backend as runnable, the right default for a
 	// caller with no view of the hardware.
 	BackendCompatible func(backend string) bool
+	// ProbeMemory measures how much memory a referenced gallery entry needs,
+	// without downloading it. It is consulted only for variants that declare no
+	// min_memory, and a zero result means "could not tell", never "needs
+	// nothing".
+	//
+	// It is a func field rather than a live network handle so specs can pin an
+	// exact size, or an exact failure, without reaching the internet. A nil func
+	// leaves every unauthored variant unknown, which selection already handles.
+	//
+	// SelectVariant never calls this: the install layer resolves every size into
+	// VariantOption.ProbedMemory first, so the selector stays pure.
+	ProbeMemory func(entry *GalleryModel) uint64
 }
 
 func (e ResolveEnv) backendRuns(backend string) bool {
@@ -75,8 +110,8 @@ type VariantSelection struct {
 //     the hardware gate, derived from the backend name.
 //  3. Variants whose known memory requirement exceeds what the host has are
 //     dropped. A variant with an UNKNOWN requirement survives, because nothing
-//     proves it does not fit and refusing on a missing estimate would punish
-//     the entries the denormalizer has not reached yet.
+//     proves it does not fit and refusing on a size the probe could not read
+//     would let a network hiccup silently downgrade what gets installed.
 //  4. The largest survivor wins. A bigger footprint is a higher quality
 //     quantization of the same model, so among things that fit, more is better.
 //     Unknown requirements rank last, so a proven fit always beats a guess.
@@ -114,7 +149,7 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 			continue
 		}
 
-		memory, known, err := o.Variant.EffectiveMinMemory()
+		memory, known, err := o.EffectiveMemory()
 		if err != nil {
 			return VariantSelection{}, err
 		}

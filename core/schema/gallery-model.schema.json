@@ -56,10 +56,6 @@
         "additionalProperties": false
       }
     },
-    "min_memory": {
-      "type": "string",
-      "description": "This entry's own memory requirement, for example 2GiB. One figure covers both VRAM and system RAM; the installer compares it against whichever the host will use. Advisory for the entry itself: falling short only warns."
-    },
     "variants": {
       "type": "array",
       "description": "Other builds of the same model (other backends, other quantizations) the installer may pick instead of this entry's own payload. Order carries no meaning: the installer drops what this host cannot run or does not have the memory for, then takes the largest of what is left, installing it under this entry's own name. If nothing is left this entry installs itself. Clients that predate variants support drop this key and install the entry unchanged.",
@@ -74,19 +70,7 @@
           },
           "min_memory": {
             "type": "string",
-            "description": "Authored memory requirement, for example 20GiB. Optional, and only needed to override an inferred estimate that is wrong. Authoritative: inference never overwrites it."
-          },
-          "backend": {
-            "type": "string",
-            "description": "Denormalized by the nightly job for display. Never authored by hand."
-          },
-          "quantization": {
-            "type": "string",
-            "description": "Denormalized by the nightly job for display. Never authored by hand."
-          },
-          "inferred_min_memory": {
-            "type": "string",
-            "description": "Denormalized by the nightly job as a fallback requirement. Never authored by hand; min_memory wins."
+            "description": "Authored memory requirement, for example 20GiB. Optional, and only needed to override the size the installer probes live from the model's weights when that figure is wrong. Authoritative: an authored figure suppresses the probe entirely."
           }
         },
         "additionalProperties": false

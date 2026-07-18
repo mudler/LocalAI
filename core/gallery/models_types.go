@@ -25,10 +25,6 @@ type GalleryModel struct {
 	// stays a complete, installable entry and older LocalAI releases, which drop
 	// this key, install it exactly as before.
 	Variants []Variant `json:"variants,omitempty" yaml:"variants,omitempty"`
-	// MinMemory is this entry's own memory requirement (e.g. "2GiB"), in the
-	// same form as a variant's. It is advisory for the base entry: falling short
-	// only warns, because the base always installs.
-	MinMemory string `json:"min_memory,omitempty" yaml:"min_memory,omitempty"`
 }
 
 func (m *GalleryModel) GetInstalled() bool {
