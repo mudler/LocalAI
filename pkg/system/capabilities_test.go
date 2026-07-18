@@ -164,3 +164,28 @@ var _ = Describe("CapabilityFilterDisabled", func() {
 		Expect(s.IsBackendCompatible("cpu-whisperx", "quay.io/cpu")).To(BeTrue())
 	})
 })
+
+var _ = Describe("ReportedCapability", func() {
+	var previous string
+
+	BeforeEach(func() {
+		previous = os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
+	})
+
+	AfterEach(func() {
+		Expect(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", previous)).To(Succeed())
+	})
+
+	It("returns the forced capability verbatim without map fallback", func() {
+		Expect(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia-cuda-12")).To(Succeed())
+		state := &SystemState{}
+		Expect(state.ReportedCapability()).To(Equal("nvidia-cuda-12"))
+	})
+
+	It("does not fall back to default when the capability is unusual", func() {
+		Expect(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "metal")).To(Succeed())
+		state := &SystemState{}
+		Expect(state.ReportedCapability()).To(Equal("metal"))
+		Expect(state.ReportedCapability()).NotTo(Equal("default"))
+	})
+})
