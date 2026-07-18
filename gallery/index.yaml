@@ -1,4 +1,96 @@
 ---
+- name: "inkling"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/inkling-GGUF
+  description: |
+    # Inkling
+
+    BF16 |
+    NVFP4 |
+    Tinker Cookbook |
+    Documentation |
+    Acceptable Use
+
+    ## 1. General Information
+
+    Inkling is a general-purpose multimodal model that accepts text, image and audio inputs and generates text outputs. It is intended for use in English and other languages, and across multiple coding languages. The model is designed to be used by developers building AI-powered applications, including agentic and tool-use systems, coding assistants, chatbots, and retrieval-augmented generation systems, and is suitable for general-purpose conversational use, instruction-following, and other natural language and multimodal tasks. It is released with open weights to support research, fine-tuning and integration into third-party products by downstream developers.
+
+    **Languages:** English, with general multilingual capabilities across other languages.
+
+    ## 2. Getting Started
+
+    For accessing Inkling via Tinker: You can get started by referring to the Tinker Cookbook here and associated documentation here.
+
+    Inkling supports local deployment using the following open-source libraries:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/inkling-UD-Q4_K_XL/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00001-of-00014.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00001-of-00014.gguf
+      sha256: 357731bfbcfc9b8f4cc19d6d344ee02795785f06cb33f2084b7783eebcdd86f8
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00001-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00002-of-00014.gguf
+      sha256: a9493e151f5f332395908575cca9fd695ed4d416aad21bbeb9ee5f68194074d1
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00002-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00003-of-00014.gguf
+      sha256: 99b485f3e7a35213defd8e49c24afa98264ca439e800fa8611079362a210cbd4
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00003-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00004-of-00014.gguf
+      sha256: 831e843b4d8be4cbb92f7467c6df11f9f96f8f0d937ae03cd507b0f6dca19267
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00004-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00005-of-00014.gguf
+      sha256: 1ba50f8527ca6ff186e0825c21df5f870af9a6ba896187572cf560aab9164081
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00005-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00006-of-00014.gguf
+      sha256: 3a40f15f380090460b04b1f2f9ad30ba22f07e178be9230900ab278edcb13b34
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00006-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00007-of-00014.gguf
+      sha256: 0ae846f4ed59aa2c4d5f5de6776a2f86baa1edd1ded103a57dca54c4e5a7c6ed
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00007-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00008-of-00014.gguf
+      sha256: e1b004ff002d4551ebcf53021a43a2bf8f12a044d238b805879b9a4bc86aad7d
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00008-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00009-of-00014.gguf
+      sha256: fd9144da92f908c1b2f7969db8cb037dfeb51260db2e5b1e9b236a5bfb844896
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00009-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00010-of-00014.gguf
+      sha256: 665063b2386964133555c3e215d8c942bfba806a40a6c3bf595b518e1217220b
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00010-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00011-of-00014.gguf
+      sha256: 036558f8e8e9afad993f221d62679af01cd9956ff403e98709820da3b497e90b
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00011-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00012-of-00014.gguf
+      sha256: 3591a13899b1938d7313d6881c37cc06d139831082aedb57762dd160430434a4
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00012-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00013-of-00014.gguf
+      sha256: 31f9c05516ca08cca8538d46b8f144cc106481bcab0beb1310457ce0eeb6bf0a
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00013-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00014-of-00014.gguf
+      sha256: bc4aaa9dd7f71da45ad7e0314dca8b78fc09bf1f767e6aed1d71743c62440a1b
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00014-of-00014.gguf
+    - filename: llama-cpp/mmproj/inkling-UD-Q4_K_XL/mmproj-BF16.gguf
+      sha256: 662c925e1df293cfba16ffd6bd53dac31d3c73160ba65dff7270d7a70f351e91
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/mmproj-BF16.gguf
 - name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
