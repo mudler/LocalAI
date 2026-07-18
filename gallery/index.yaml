@@ -1,4 +1,146 @@
 ---
+- name: "parable-granite-4.1-3b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Granite-4.1-3B-Claude-Fable-5
+
+    Granite 4.1 3B fine-tuned on genuine Claude Fable 5 and GPT-5.5 agent
+    traces (planning, tool use, <think> reasoning from real agent sessions).
+    Agent-flavored small model: terminal workflows, idiomatic code fixes,
+    explanations. v2 recipe: completion-masked SFT, replay mix, seed-averaged
+    weights. Published corpus and eval harness.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+    - tool-use
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Granite-4.1-3B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Granite-4.1-3B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: 67dc7695d92939c713165761f115c9d892fdff74fcbd987c8bb453b9b8ab645d
+- name: "parable-qwen3-4b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Qwen3-4B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Qwen3-4B-Claude-Fable-5
+
+    Qwen3 4B fine-tuned on genuine Claude Fable 5 agent traces. Thinking-mode
+    reasoning, agent/terminal task flavor, tool-call formatting.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Qwen3-4B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Qwen3-4B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Qwen3-4B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: c6f991bd243fd1449d50a58a8de7d26bcad35d908bc0193e5a2c2c56ac6b8d5f
+- name: "parable-granite-4.1-8b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Granite-4.1-8B-Claude-Fable-5
+
+    Granite 4.1 8B fine-tuned on genuine Claude Fable 5 and GPT-5.5 agent
+    traces. Strongest Parable model: multi-step scripts, configs, terminal
+    workflows, <think> reasoning.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+    - tool-use
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Granite-4.1-8B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Granite-4.1-8B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: 61a8133c344a0d0a00188395afe33c803e3b973cb4bbfd5ef1fa7110e80bc1c3
+- name: "parable-qwen3-8b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Qwen3-8B-Claude-Fable-5
+
+    Qwen3 8B fine-tuned on genuine Claude Fable 5 agent traces. Thinking-mode
+    reasoning with agent/terminal flavor and tool-call formatting.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: 956070afc8023b8665fe450842f7be76b505b53d142460fd9b588222f4e16112
 - name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
