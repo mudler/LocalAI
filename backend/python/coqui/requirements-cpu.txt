@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 transformers==4.48.3
 accelerate
-torch==2.4.1
+torch==2.13.0+xpu
 torchaudio==2.4.1
 coqui-tts
