@@ -1,7 +1,7 @@
 ---
 title: "Docker Installation"
 description: "Install LocalAI using Docker containers - the recommended installation method"
-weight: 2
+weight: 13
 url: '/installation/docker/'
 redirectURI: '/installation/containers/'
 ---

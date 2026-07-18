@@ -74,6 +74,9 @@ var _ = Describe("controller artifact materializer", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.CacheHit).To(BeFalse())
 		Expect(result.Spec.Resolved.Revision).To(Equal("0123456789abcdef0123456789abcdef01234567"))
+		// A snapshot with a single file records it as the primary file so the
+		// load target is the file, not the snapshot directory.
+		Expect(result.Spec.Resolved.PrimaryFile).To(Equal("nested/model.safetensors"))
 		Expect(result.RelativePath).To(HavePrefix(".artifacts/huggingface/"))
 		Expect(os.ReadFile(filepath.Join(modelsPath, filepath.FromSlash(result.RelativePath), "nested", "model.safetensors"))).To(Equal(weight))
 
@@ -86,6 +89,25 @@ var _ = Describe("controller artifact materializer", func() {
 		Expect(cached.CacheHit).To(BeTrue())
 		Expect(requests.Load()).To(Equal(int32(1)))
 		Expect(resolver.callCount()).To(Equal(1))
+	})
+
+	It("leaves the primary file unset for a multi-file snapshot", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("x")) }))
+		DeferCleanup(server.Close)
+		resolver := &fakeSnapshotResolver{snapshot: hfapi.Snapshot{
+			Endpoint: "https://huggingface.co", Repo: "owner/repo",
+			ResolvedRevision: "0123456789abcdef0123456789abcdef01234567",
+			Files: []hfapi.SnapshotFile{
+				{Path: "config.json", Size: 1, URL: server.URL + "/config"},
+				{Path: "model.safetensors", Size: 1, URL: server.URL + "/model"},
+			},
+		}}
+		result, err := modelartifacts.NewManager(resolver).Ensure(context.Background(), GinkgoT().TempDir(),
+			modelartifacts.Spec{Source: modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"}})
+		Expect(err).NotTo(HaveOccurred())
+		// Multi-file snapshots are consumed as a directory (e.g. transformers), so
+		// no single file is promoted.
+		Expect(result.Spec.Resolved.PrimaryFile).To(BeEmpty())
 	})
 
 	It("rejects a path escape before opening a destination", func() {

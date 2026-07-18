@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Audio Transform"
-weight = 17
+weight = 34
 url = "/features/audio-transform/"
 +++
 
@@ -9,7 +9,7 @@ url = "/features/audio-transform/"
 
 The audio-transform endpoints take **audio in** and emit **audio out**, optionally
 conditioned on a second reference audio signal. The category is generic by
-design — concrete operations include joint **acoustic echo cancellation +
+design - concrete operations include joint **acoustic echo cancellation +
 noise suppression + dereverberation** (LocalVQE), voice conversion (reference
 = target speaker), pitch shifting, audio super-resolution, and so on.
 
@@ -22,14 +22,14 @@ is a derivative of the Microsoft DeepVQE paper.
 
 Every audio-transform request carries:
 
-- **`audio`** — the primary input file (required).
-- **`reference`** — an auxiliary signal whose meaning is backend-specific (optional).
+- **`audio`** - the primary input file (required).
+- **`reference`** - an auxiliary signal whose meaning is backend-specific (optional).
   - For echo cancellation: the loopback / far-end signal played through the speakers.
   - For voice conversion: the target speaker's reference clip.
   - For pitch / style transfer: a tonal or style reference.
   - When omitted, the backend treats it as silence and degrades gracefully (LocalVQE,
     for example, does denoise + dereverb only when ref is empty).
-- **`params`** — a generic `key=value` map forwarded to the backend.
+- **`params`** - a generic `key=value` map forwarded to the backend.
   - LocalVQE keys: `noise_gate=true|false`, `noise_gate_threshold_dbfs=<float>`.
 
 This shape mirrors WebRTC's `ProcessStream(near)` / `ProcessReverseStream(far)`
@@ -38,23 +38,29 @@ AEC challenge 2-channel WAV convention.
 
 ## Batch endpoint
 
-`POST /audio/transformations` (alias `POST /audio/transform`) — multipart
+`POST /audio/transformations` (alias `POST /audio/transform`) - multipart
 form-data, returns audio bytes.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `model` | string | yes | Audio-transform model id (e.g. `localvqe`) |
+| `model` | string | yes | Audio-transform model id (e.g. `localvqe-v1.3-4.8m`) |
 | `audio` | file   | yes | Primary input audio |
 | `reference` | file | no | Optional auxiliary signal |
 | `response_format` | string | no | `wav` (default), `mp3`, `ogg`, `flac` |
 | `sample_rate` | int | no | Desired output sample rate |
 | `params[<key>]` | string | no | Repeated; forwarded to backend |
 
+First install an audio-transform model from the gallery (the examples below use `localvqe-v1.3-4.8m`):
+
+```bash
+local-ai run localvqe-v1.3-4.8m
+```
+
 Example (LocalVQE: cancel echo, suppress noise, gate residual):
 
 ```bash
 curl -X POST http://localhost:8080/audio/transformations \
-  -F model=localvqe \
+  -F model=localvqe-v1.3-4.8m \
   -F audio=@mic.wav \
   -F reference=@loopback.wav \
   -F 'params[noise_gate]=true' \
@@ -67,7 +73,7 @@ the operation reduces to noise suppression + dereverberation.
 
 ## Streaming endpoint
 
-`GET /audio/transformations/stream` — bidirectional WebSocket. The first
+`GET /audio/transformations/stream` - bidirectional WebSocket. The first
 client message is a JSON envelope; subsequent client messages are binary
 PCM frames; server emits binary PCM frames at the same cadence.
 
@@ -78,7 +84,7 @@ PCM frames; server emits binary PCM frames at the same cadence.
 ```json
 {
   "type": "session.update",
-  "model": "localvqe",
+  "model": "localvqe-v1.3-4.8m",
   "sample_format": "S16_LE",
   "sample_rate": 16000,
   "frame_samples": 256,
@@ -125,8 +131,8 @@ A reasonable starting point is `-50` dBFS.
 ## Configuring a model
 
 LocalVQE ships several weight releases in the gallery: `localvqe-v1.3-4.8m`
-(current default — best quality), `localvqe-v1.2-1.3m` and `localvqe-v1.1-1.3m`
-(compact, ~¼ the per-hop cost — good for low-core or power-constrained hosts).
+(current default - best quality), `localvqe-v1.2-1.3m` and `localvqe-v1.1-1.3m`
+(compact, ~¼ the per-hop cost - good for low-core or power-constrained hosts).
 All share the same backend and request API; only the `model` filename differs.
 
 ```yaml

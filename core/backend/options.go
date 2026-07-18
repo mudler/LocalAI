@@ -131,11 +131,16 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 		}
 	}
 	if managedPrimary {
-		relative := c.ModelFileName()
-		manifest, err := modelartifacts.ReadManifest(filepath.Join(modelsPath, filepath.Dir(relative), "manifest.json"))
-		if err == nil {
-			for _, file := range manifest.Files {
-				addFile(filepath.Join(relative, filepath.FromSlash(file.Path)), file.Size)
+		// The snapshot directory is derived from the cache key, not from
+		// ModelFileName(): for a single-file artifact ModelFileName() resolves to
+		// the file inside the snapshot, whereas the manifest and every artifact
+		// file live relative to the snapshot directory itself.
+		if snapshotDir, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey); err == nil {
+			manifest, err := modelartifacts.ReadManifest(filepath.Join(modelsPath, filepath.Dir(snapshotDir), "manifest.json"))
+			if err == nil {
+				for _, file := range manifest.Files {
+					addFile(filepath.Join(snapshotDir, filepath.FromSlash(file.Path)), file.Size)
+				}
 			}
 		}
 	} else {

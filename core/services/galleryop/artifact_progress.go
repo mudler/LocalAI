@@ -33,7 +33,15 @@ func (b *artifactProgressBridge) Sink(event modelartifacts.ProgressEvent) {
 		}
 		message = fmt.Sprintf("Downloading model file: %s", event.File)
 	case modelartifacts.PhaseVerifying:
-		progress = max(progress, 95)
+		// Verification runs per file — the materializer emits this from each
+		// file's AfterDownload hook, not once at the end. CurrentBytes is the
+		// running aggregate (completed files + this file), so track it
+		// proportionally like downloading. A flat 95% here pinned the bar the
+		// moment the first file finished, leaving a multi-file (e.g. 70GB)
+		// install stuck at 95% for the entire remaining download.
+		if event.TotalBytes > 0 {
+			progress = max(progress, min(90, float64(event.CurrentBytes)*90/float64(event.TotalBytes)))
+		}
 		message = "Verifying model files"
 	case modelartifacts.PhaseCommitting:
 		progress = max(progress, 99)

@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Model Quantization"
-weight = 19
+weight = 83
 url = '/features/quantization/'
 +++
 
@@ -144,10 +144,10 @@ The UI also supports entering a custom quantization type string for any format s
 
 A "Quantize" page appears in the sidebar under the Tools section. The UI provides:
 
-1. **Job Configuration** — Select model, quantization type (dropdown with presets or custom input), backend, and HuggingFace token
-2. **Progress Monitor** — Real-time progress bar and log output via SSE
-3. **Jobs List** — View all quantization jobs with status, stop/delete actions
-4. **Output** — Download the quantized GGUF file or import it directly into LocalAI for immediate use
+1. **Job Configuration** - Select model, quantization type (dropdown with presets or custom input), backend, and HuggingFace token
+2. **Progress Monitor** - Real-time progress bar and log output via SSE
+3. **Jobs List** - View all quantization jobs with status, stop/delete actions
+4. **Output** - Download the quantized GGUF file or import it directly into LocalAI for immediate use
 
 ## Architecture
 

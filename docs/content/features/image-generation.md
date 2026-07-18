@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "Image Generation"
-weight = 12
+weight = 50
 url = "/features/image-generation/"
 +++
 
@@ -156,7 +156,7 @@ diffusers:
 
 #### Dependencies
 
-This is an extra backend - in the container is already available and there is nothing to do for the setup. Do not use *core* images (ending with `-core`). If you are building manually, see the [build instructions]({{%relref "installation/build" %}}).
+This is an extra backend - in the container is already available and there is nothing to do for the setup. Do not use *core* images (ending with `-core`). If you are building manually, see the [build instructions]({{%relref "getting-started/build" %}}).
 
 #### Model setup
 

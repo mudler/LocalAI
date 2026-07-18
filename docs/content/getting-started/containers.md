@@ -1,8 +1,10 @@
 ---
 title: Containers
 description: Install and use LocalAI with container engines (Docker, Podman)
-weight: 1
+weight: 8
 url: '/installation/containers/'
+aliases:
+- '/basics/container/'
 ---
 
 LocalAI supports Docker, Podman, and other OCI-compatible container engines. This guide covers the common aspects of running LocalAI in containers.
@@ -231,7 +233,7 @@ After installation:
 ### GPU not detected
 
 - Ensure Docker has GPU access: `docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi`
-- For Podman, see the [Podman installation guide](/installation/podman/#gpu-not-detected)
+- For Podman, pass the GPU with the `--device` flags shown in the GPU sections above (for example `--device nvidia.com/gpu=all`)
 - For NVIDIA: Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 - For AMD: Ensure devices are accessible: `ls -la /dev/kfd /dev/dri`
 
@@ -270,9 +272,100 @@ This indicates a Docker/NVIDIA Container Toolkit configuration issue. The contai
 - Verify disk space: `df -h`
 - Check container logs for errors: `docker logs local-ai` or `podman logs local-ai`
 
+## Full image reference
+
+The quick-start examples above use the Docker Hub image names. Every image is published to both [Docker Hub](https://hub.docker.com/r/localai/localai) and [Quay](https://quay.io/repository/go-skynet/local-ai?tab=tags). The tables below map the Docker Hub tag to its Quay equivalent for each variant. Replace `{{< version >}}` with a released version to pin a specific build.
+
+{{< tabs >}}
+{{% tab title="Vanilla / CPU Images" %}}
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master` | `localai/localai:master` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest` | `localai/localai:latest` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}` | `localai/localai:{{< version >}}` |
+
+{{% /tab %}}
+
+{{% tab title="GPU Images CUDA 12" %}}
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-12` | `localai/localai:master-gpu-nvidia-cuda-12` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-12` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-12` |
+
+{{% /tab %}}
+
+{{% tab title="GPU Images CUDA 13" %}}
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-13` | `localai/localai:master-gpu-nvidia-cuda-13` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-13` | `localai/localai:latest-gpu-nvidia-cuda-13` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-13` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-13` |
+
+{{% /tab %}}
+
+{{% tab title="Intel GPU" %}}
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel` | `localai/localai:master-gpu-intel` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel` | `localai/localai:latest-gpu-intel` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel` | `localai/localai:{{< version >}}-gpu-intel` |
+
+{{% /tab %}}
+
+{{% tab title="AMD GPU" %}}
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-hipblas` | `localai/localai:master-gpu-hipblas` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `localai/localai:latest-gpu-hipblas` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-hipblas` | `localai/localai:{{< version >}}-gpu-hipblas` |
+
+{{% /tab %}}
+
+{{% tab title="Vulkan Images" %}}
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-vulkan` | `localai/localai:master-gpu-vulkan` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-vulkan` | `localai/localai:latest-gpu-vulkan` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-vulkan` | `localai/localai:{{< version >}}-gpu-vulkan` |
+
+{{% /tab %}}
+
+{{% tab title="Nvidia Linux for tegra (CUDA 12)" %}}
+
+These images are compatible with Nvidia ARM64 devices with CUDA 12, such as the Jetson Nano, Jetson Xavier NX, and Jetson AGX Orin. For more information, see the [Nvidia L4T guide]({{%relref "reference/nvidia-l4t" %}}).
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64` | `localai/localai:master-nvidia-l4t-arm64` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64` | `localai/localai:latest-nvidia-l4t-arm64` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64` | `localai/localai:{{< version >}}-nvidia-l4t-arm64` |
+
+{{% /tab %}}
+
+{{% tab title="Nvidia Linux for tegra (CUDA 13)" %}}
+
+These images are compatible with Nvidia ARM64 devices with CUDA 13, such as the Nvidia DGX Spark. For more information, see the [Nvidia L4T guide]({{%relref "reference/nvidia-l4t" %}}).
+
+| Description | Quay | Docker Hub |
+| --- | --- | --- |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-cuda-13` | `localai/localai:master-nvidia-l4t-arm64-cuda-13` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13` | `localai/localai:latest-nvidia-l4t-arm64-cuda-13` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64-cuda-13` | `localai/localai:{{< version >}}-nvidia-l4t-arm64-cuda-13` |
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
 ## See Also
 
-- [Container Images Reference](/getting-started/container-images/) - Complete image reference
+- [Full image reference](#full-image-reference) - Complete Quay and Docker Hub image matrix
 - [Install Models](/getting-started/models/) - Install and configure models
 - [GPU Acceleration](/features/gpu-acceleration/) - GPU setup and optimization
 - [Kubernetes Installation](/installation/kubernetes/) - Deploy on Kubernetes

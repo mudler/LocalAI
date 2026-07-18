@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "(experimental) MLX Distributed Inference"
-weight = 18
+weight = 72
 url = '/features/mlx-distributed/'
 +++
 
@@ -77,16 +77,16 @@ options:
 
 The **hostfile** is a JSON array where entry `i` is the `"ip:port"` that **rank `i` listens on** for ring communication. All ranks must use the same hostfile so they know how to reach each other.
 
-**Example:** Two Macs — Mac A (`192.168.1.10`) and Mac B (`192.168.1.11`):
+**Example:** Two Macs - Mac A (`192.168.1.10`) and Mac B (`192.168.1.11`):
 
 ```json
 ["192.168.1.10:5555", "192.168.1.11:5555"]
 ```
 
-- Entry 0 (`192.168.1.10:5555`) — the address rank 0 (Mac A) listens on for ring communication
-- Entry 1 (`192.168.1.11:5555`) — the address rank 1 (Mac B) listens on for ring communication
+- Entry 0 (`192.168.1.10:5555`) - the address rank 0 (Mac A) listens on for ring communication
+- Entry 1 (`192.168.1.11:5555`) - the address rank 1 (Mac B) listens on for ring communication
 
-Port 5555 is arbitrary — use any available port, but it must be open in your firewall.
+Port 5555 is arbitrary - use any available port, but it must be open in your firewall.
 
 ### JACCL Backend (RDMA/Thunderbolt)
 
@@ -109,7 +109,7 @@ The **device matrix** is a JSON 2D array describing the RDMA device name between
 ]
 ```
 
-JACCL requires a **coordinator** — a TCP service that helps all ranks establish RDMA connections. Rank 0 (the LocalAI machine) is always the coordinator. Workers are told the coordinator address via their `--coordinator` CLI flag (see [Starting Workers](#jaccl-workers) below).
+JACCL requires a **coordinator** - a TCP service that helps all ranks establish RDMA connections. Rank 0 (the LocalAI machine) is always the coordinator. Workers are told the coordinator address via their `--coordinator` CLI flag (see [Starting Workers](#jaccl-workers) below).
 
 ### Without hostfile (single-node)
 
@@ -130,7 +130,7 @@ These can also be set via environment variables (`MLX_DISTRIBUTED_HOSTFILE`, `ML
 
 ## Starting Workers
 
-LocalAI starts the rank 0 process (gRPC server) automatically when the model is loaded. But you still need to start **worker processes** (ranks 1, 2, ...) on the other machines. These workers participate in every forward pass but don't serve any API — they wait for commands from rank 0.
+LocalAI starts the rank 0 process (gRPC server) automatically when the model is loaded. But you still need to start **worker processes** (ranks 1, 2, ...) on the other machines. These workers participate in every forward pass but don't serve any API - they wait for commands from rank 0.
 
 ### Ring Workers
 
@@ -190,11 +190,11 @@ Starts a worker or manual rank 0 process.
 | `--rank` | `MLX_RANK` | *(required)* | Rank of this process (0 = gRPC server + ring participant, >0 = worker only) |
 | `--backend` | `MLX_DISTRIBUTED_BACKEND` | `ring` | `ring` (TCP pipeline parallelism) or `jaccl` (RDMA tensor parallelism) |
 | `--addr` | `MLX_DISTRIBUTED_ADDR` | `localhost:50051` | gRPC API listen address (rank 0 only, for LocalAI or external access) |
-| `--coordinator` | `MLX_JACCL_COORDINATOR` | | JACCL coordinator `ip:port` — rank 0's address for RDMA setup (all ranks must use the same value) |
+| `--coordinator` | `MLX_JACCL_COORDINATOR` | | JACCL coordinator `ip:port` - rank 0's address for RDMA setup (all ranks must use the same value) |
 
 ### `worker p2p-mlx`
 
-P2P mode — auto-discovers peers and generates hostfile.
+P2P mode - auto-discovers peers and generates hostfile.
 
 | Flag | Env | Default | Description |
 |------|-----|---------|-------------|

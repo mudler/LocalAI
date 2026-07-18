@@ -2,6 +2,7 @@
 title = "MITM proxy for Claude Code / Codex CLI"
 weight = 29
 toc = true
+url = "/features/mitm-proxy/"
 description = "Redact PII from cloud-AI traffic without LocalAI holding API keys"
 tags = ["Proxy", "MITM", "Privacy", "Routing", "Advanced"]
 categories = ["Features"]
@@ -12,8 +13,8 @@ categories = ["Features"]
 LocalAI can act as a local HTTPS proxy that **redacts PII from your Claude
 Code, OpenAI Codex CLI, or any HTTPS client** without holding their API keys.
 The proxy intercepts only the LLM API endpoints you allowlist (default:
-`api.anthropic.com`, `api.openai.com`); everything else — OAuth, telemetry,
-package fetches — passes through as a plain TCP tunnel.
+`api.anthropic.com`, `api.openai.com`); everything else - OAuth, telemetry,
+package fetches - passes through as a plain TCP tunnel.
 
 Use this when:
 
@@ -39,11 +40,11 @@ and distributing the generated CA cert.
    to the real upstream over its own TLS connection.
 5. The streaming SSE response runs through the same `pii.StreamFilter`
    the cloud-proxy backend uses.
-6. For non-allowlisted hosts, the proxy is a plain CONNECT tunnel — no
+6. For non-allowlisted hosts, the proxy is a plain CONNECT tunnel - no
    TLS termination, no inspection, no CA trust required.
 
 The CLI authenticates with its own subscription / API key as it normally
-would. LocalAI never holds the credential — it just observes and rewrites
+would. LocalAI never holds the credential - it just observes and rewrites
 the request body.
 
 ## Quick start
@@ -77,32 +78,46 @@ PII the model emits in its streaming response is masked before reaching
 your terminal. Events appear in the LocalAI middleware admin page under
 **Filtering → Recent events**.
 
-The same works for Codex CLI — set `HTTPS_PROXY` and `NODE_EXTRA_CA_CERTS`
+The same works for Codex CLI - set `HTTPS_PROXY` and `NODE_EXTRA_CA_CERTS`
 and run `codex`.
 
 ## Configuration
+
+The proxy is enabled with two startup settings:
 
 | Flag / env | Default | Purpose |
 |---|---|---|
 | `--mitm-listen` / `LOCALAI_MITM_LISTEN` | empty (disabled) | Address to bind the proxy listener on |
 | `--mitm-ca-dir` / `LOCALAI_MITM_CA_DIR` | `<data-path>/mitm-ca` | Where to persist the CA cert + key |
-| `--mitm-intercept-hosts` / `LOCALAI_MITM_INTERCEPT_HOSTS` | `api.anthropic.com,api.openai.com` | Hosts to terminate TLS for; everything else tunnels |
+
+There is no global intercept-hosts flag. The hosts whose TLS is terminated
+and scanned are declared **per model**, in the model YAML `mitm.hosts:`
+block. Each model that names one or more hosts owns those hosts; everything
+not listed by any model tunnels through untouched. A cloud-proxy model that
+should intercept Anthropic traffic looks like:
+
+```yaml
+name: claude
+backend: cloud-proxy
+mitm:
+  hosts:
+    - api.anthropic.com
+```
 
 Hostnames are case-insensitive. Add custom upstreams (e.g. an
-OpenAI-compatible third-party provider) by extending the allowlist and
-ensuring their endpoint paths match `/v1/chat/completions` or
-`/v1/messages`.
+OpenAI-compatible third-party provider) by adding their hostname to a
+model's `mitm.hosts:` list and ensuring their endpoint paths match
+`/v1/chat/completions` or `/v1/messages`. You can create these models from
+the Add Model UI.
 
 ## What gets redacted
 
-Same patterns the regular request middleware uses:
-
-- Email addresses → masked
-- Phone numbers → masked
-- US Social Security Numbers → masked
-- Credit card numbers (Luhn-verified) → masked
-- IPv4 addresses → masked
-- API key prefixes (`sk-`, `pk-`, `ghp_`, `github_pat_`, `xoxb-`) → **blocked**
+The MITM proxy runs the same PII detection as the regular request
+middleware. Detection is **NER-based** (a token-classification detector
+model), not a fixed regex list: the older pattern tier has been removed.
+See {{% relref "operations/middleware" %}} for how detector models, entity
+groups, and the `mask` / `block` actions are configured, and for the
+instance-wide default detector.
 
 A `block` action returns HTTP 400 with `error.type=pii_blocked` to the
 client. The CLI sees the rejection and shows it as a request error.
@@ -116,7 +131,7 @@ include MITM events alongside direct-API events.
 - **The CA private key is the master credential.** Anyone with read
   access to `<data-path>/mitm-ca/ca.key` can forge TLS for any host the
   proxy could intercept. The file is mode 0600; keep it that way.
-- The proxy listener accepts plaintext HTTP `CONNECT` requests — bind it
+- The proxy listener accepts plaintext HTTP `CONNECT` requests - bind it
   to localhost (`--mitm-listen 127.0.0.1:8443`) unless you've added auth
   in front of the listener. There is no built-in API-key check on this
   port.

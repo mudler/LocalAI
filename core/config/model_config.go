@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -1218,6 +1219,12 @@ func (c *ModelConfig) ModelFileName() string {
 	if len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil {
 		relative, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey)
 		if err == nil {
+			// Single-file snapshots (e.g. a GGUF) must resolve to the file inside
+			// the snapshot directory; single-file backends load a file, not a dir.
+			// Multi-file snapshots keep pointing at the directory.
+			if primary := c.Artifacts[0].Resolved.PrimaryFile; primary != "" {
+				return filepath.Join(relative, filepath.FromSlash(primary))
+			}
 			return relative
 		}
 	}
