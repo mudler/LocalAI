@@ -6,11 +6,13 @@ import (
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
-// Candidate is one option in a meta model entry's ordered candidate list. It
-// references an existing concrete gallery entry by name and declares the
-// conditions under which that entry is the right choice for the host.
+// Candidate is one option in a gallery entry's ordered candidate list. It
+// references an existing gallery entry by name and declares the conditions
+// under which that entry is the right choice for the host.
 type Candidate struct {
-	// Model is the name of a concrete (non-meta) gallery entry.
+	// Model is the name of a gallery entry that declares no candidates of its
+	// own, or the name of the declaring entry itself when it stands as its own
+	// last-resort candidate.
 	Model string `json:"model" yaml:"model"`
 	// Capability, when set, must equal the host's reported capability
 	// (e.g. "metal", "nvidia-cuda-12"). Empty matches any host.
@@ -21,7 +23,7 @@ type Candidate struct {
 
 	// The fields below are denormalized by the nightly job for display and
 	// lint. They are never authored by hand and never affect what gets
-	// installed, because installation reads the concrete entry live.
+	// installed, because installation reads the referenced entry live.
 	Backend         string `json:"backend,omitempty" yaml:"backend,omitempty"`
 	Quantization    string `json:"quantization,omitempty" yaml:"quantization,omitempty"`
 	InferredMinVRAM string `json:"inferred_min_vram,omitempty" yaml:"inferred_min_vram,omitempty"`

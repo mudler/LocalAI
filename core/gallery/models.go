@@ -61,10 +61,10 @@ type ModelConfig struct {
 	Files           []File           `yaml:"files"`
 	PromptTemplates []PromptTemplate `yaml:"prompt_templates"`
 
-	// The fields below record how a meta entry was resolved, so a reinstall
-	// or upgrade can honor the same pin and so operators can see which
-	// variant a stable model name is actually backed by.
-	MetaName        string `yaml:"meta_name,omitempty"`
+	// The fields below record how an entry carrying candidates was resolved,
+	// so a reinstall or upgrade can honor the same pin and so operators can
+	// see which variant a stable model name is actually backed by.
+	EntryName       string `yaml:"entry_name,omitempty"`
 	ResolvedVariant string `yaml:"resolved_variant,omitempty"`
 	PinnedVariant   string `yaml:"pinned_variant,omitempty"`
 }
@@ -80,26 +80,48 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
-// ResolveMetaModel turns a meta gallery entry into the concrete entry that
-// should be installed on this host, returning it renamed to the meta's name
-// and carrying the meta's presentation metadata.
+// effectiveCandidates returns the candidate list resolution actually runs over:
+// the declared upgrades followed by the entry itself.
+//
+// The entry is appended rather than special-cased so there is exactly one
+// selection path. Being last makes it the last resort, which is what keeps the
+// entry always installable: the list can never be exhausted without reaching it.
+func effectiveCandidates(entry *GalleryModel) []Candidate {
+	candidates := make([]Candidate, 0, len(entry.Candidates)+1)
+	candidates = append(candidates, entry.Candidates...)
+	return append(candidates, Candidate{
+		Model:      entry.Name,
+		Capability: entry.Capability,
+		MinVRAM:    entry.MinVRAM,
+	})
+}
+
+// ResolveVariant picks the gallery entry to install for a host, from the
+// upgrades an entry declares plus the entry itself, and returns it renamed to
+// the entry's name and carrying the entry's presentation metadata.
 //
 // Why the metadata split: the payload (url, config_file, files, overrides)
-// must come from the variant because that is what actually gets downloaded,
-// while the presentation (name, description, icon, tags) must come from the
-// meta so the installed model presents as the model rather than the variant.
-func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Candidate, error) {
-	candidate, err := ResolveCandidate(meta.Candidates, env, pin)
-	if err != nil {
-		return nil, Candidate{}, fmt.Errorf("resolving variant for model %q: %w", meta.Name, err)
-	}
+// must come from the chosen variant because that is what actually gets
+// downloaded, while the presentation (name, description, icon, tags) must come
+// from the entry the user asked for, so the installed model presents as that
+// model rather than as one of its variants.
+//
+// The base entry always resolves. When even its own predicates fall short this
+// warns and installs it regardless, because the entry is a complete entry that
+// every older LocalAI release installs unconditionally; refusing it here would
+// make the gallery behave worse the newer the client is.
+func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Candidate, error) {
+	candidates := effectiveCandidates(entry)
+	base := candidates[len(candidates)-1]
 
-	concrete := FindGalleryElement(models, candidate.Model)
-	if concrete == nil {
-		return nil, Candidate{}, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", meta.Name, candidate.Model)
-	}
-	if concrete.IsMeta() {
-		return nil, Candidate{}, fmt.Errorf("model %q references variant %q which is itself a meta entry; meta entries may not nest", meta.Name, candidate.Model)
+	candidate, err := ResolveCandidate(candidates, env, pin)
+	if err != nil {
+		if !errors.Is(err, ErrNoCandidateMatch) {
+			return nil, Candidate{}, fmt.Errorf("resolving variant for model %q: %w", entry.Name, err)
+		}
+		xlog.Warn("This system does not meet the requirements this model declares for itself; installing it anyway because it is the last resort",
+			"model", entry.Name, "capability", env.Capability, "available_vram", env.VRAM, "reason", err)
+		candidate = base
 	}
 
 	// A pin is an operator override and deliberately bypasses the hardware
@@ -108,19 +130,41 @@ func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv
 	// It is warned about only once the pin is known to name a real, installable
 	// entry, otherwise a pin naming a listed-but-nonexistent variant would warn
 	// about VRAM and then fail for an entirely unrelated reason.
-	if pin != "" {
+	warnPin := func() {
+		if pin == "" {
+			return
+		}
 		if floor, declared, verr := candidate.EffectiveMinVRAM(); verr == nil && declared && env.VRAM < floor {
 			xlog.Warn("Pinned model variant declares more VRAM than this system reports; installing anyway because the pin overrides hardware resolution",
-				"model", meta.Name, "variant", candidate.Model, "required_vram", floor, "available_vram", env.VRAM)
+				"model", entry.Name, "variant", candidate.Model, "required_vram", floor, "available_vram", env.VRAM)
 		}
 	}
 
-	resolved := *concrete
-	resolved.Name = meta.Name
-	resolved.Description = meta.Description
-	resolved.Icon = meta.Icon
-	resolved.License = meta.License
+	// Resolving to the base means installing the entry's own payload, which is
+	// the entry itself; there is no second entry to look up.
+	source := entry
+	if candidate.Model != entry.Name {
+		source = FindGalleryElement(models, candidate.Model)
+		if source == nil {
+			return nil, Candidate{}, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", entry.Name, candidate.Model)
+		}
+		if source.HasCandidates() {
+			return nil, Candidate{}, fmt.Errorf("model %q references variant %q which declares candidates of its own; resolution is a single pass, so those would be silently ignored", entry.Name, candidate.Model)
+		}
+	}
+	warnPin()
+
+	resolved := *source
+	resolved.Name = entry.Name
+	resolved.Description = entry.Description
+	resolved.Icon = entry.Icon
+	resolved.License = entry.License
+	// The resolved entry is a concrete install target, so it must not carry the
+	// selection fields any more; leaving them would let a second pass resolve
+	// the already-resolved entry all over again.
 	resolved.Candidates = nil
+	resolved.Capability = ""
+	resolved.MinVRAM = ""
 
 	// The struct copy above is shallow, so every reference-typed field still
 	// aliases the gallery's own entries. The install path mutates Overrides in
@@ -135,11 +179,11 @@ func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv
 	// maps and overwrites them in place, so a top-level clone would still hand
 	// the caller the gallery's own inner maps. The slices below hold value types,
 	// so cloning them once fully detaches them.
-	resolved.Overrides = deepCopyStringMap(concrete.Overrides)
-	resolved.ConfigFile = deepCopyStringMap(concrete.ConfigFile)
-	resolved.AdditionalFiles = slices.Clone(concrete.AdditionalFiles)
-	resolved.URLs = slices.Clone(meta.URLs)
-	resolved.Tags = slices.Clone(meta.Tags)
+	resolved.Overrides = deepCopyStringMap(source.Overrides)
+	resolved.ConfigFile = deepCopyStringMap(source.ConfigFile)
+	resolved.AdditionalFiles = slices.Clone(source.AdditionalFiles)
+	resolved.URLs = slices.Clone(entry.URLs)
+	resolved.Tags = slices.Clone(entry.Tags)
 
 	return &resolved, candidate, nil
 }
@@ -228,13 +272,13 @@ func InstallModelFromGallery(
 		}
 
 		if record != nil {
-			config.MetaName = record.MetaName
+			config.EntryName = record.EntryName
 			config.ResolvedVariant = record.ResolvedVariant
 			config.PinnedVariant = record.PinnedVariant
 			// The variant's own name would otherwise be persisted here, which
-			// contradicts the whole point of a meta entry: the model is known by
-			// the meta's stable name regardless of which variant backs it.
-			config.Name = record.MetaName
+			// contradicts the whole point of candidates: the model is known by
+			// the entry's stable name regardless of which variant backs it.
+			config.Name = record.EntryName
 		}
 
 		installName := model.Name
@@ -281,10 +325,10 @@ func InstallModelFromGallery(
 		return fmt.Errorf("no model found with name %q", name)
 	}
 
-	// Meta-ness is checked before anything looks at the URL: a meta entry also
-	// carries a url as a fallback for older LocalAI releases that do not
-	// understand candidates, so carrying both is normal and meta wins here.
-	if !model.IsMeta() {
+	// An entry without candidates is installed directly. An entry with them is
+	// still installable as-is; resolution below only decides whether one of its
+	// declared upgrades fits this host better.
+	if !model.HasCandidates() {
 		return applyModel(model, nil)
 	}
 
@@ -296,7 +340,7 @@ func InstallModelFromGallery(
 	// The record is keyed by the name the model was installed under, not by the
 	// gallery entry name: applyModel writes it to ._gallery_<installName>.yaml,
 	// where installName is req.Name whenever the caller supplied one. Reading it
-	// back under the meta's own name would miss the record for every custom-named
+	// back under the entry's own name would miss the record for every custom-named
 	// install and silently re-resolve a deliberately pinned model onto a
 	// different variant, possibly swapping its backend.
 	if pin == "" {
@@ -314,17 +358,17 @@ func InstallModelFromGallery(
 		VRAM:       systemState.VRAM,
 	}
 
-	resolved, candidate, err := ResolveMetaModel(models, model, env, pin)
+	resolved, candidate, err := ResolveVariant(models, model, env, pin)
 	if err != nil {
 		return err
 	}
 
-	xlog.Info("Resolved meta model to variant",
+	xlog.Info("Resolved model to variant",
 		"model", model.Name, "variant", candidate.Model,
 		"capability", env.Capability, "vram", env.VRAM, "pinned", pin != "")
 
 	return applyModel(resolved, &ModelConfig{
-		MetaName:        model.Name,
+		EntryName:       model.Name,
 		ResolvedVariant: candidate.Model,
 		PinnedVariant:   pin,
 	})

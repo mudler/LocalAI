@@ -15,10 +15,19 @@ type GalleryModel struct {
 	ConfigFile map[string]any `json:"config_file,omitempty" yaml:"config_file,omitempty"`
 	// Overrides are used to override the configuration of the model located at URL
 	Overrides map[string]any `json:"overrides,omitempty" yaml:"overrides,omitempty"`
-	// Candidates, when non-empty, makes this a meta entry: an ordered list of
-	// concrete gallery entries, the first of which the host satisfies is what
-	// gets installed. Mirrors GalleryBackend's capabilities map one level up.
+	// Candidates is an optional ordered list of hardware-gated UPGRADES over
+	// this entry. The entry itself is always the last-resort candidate, so an
+	// entry carrying candidates stays a complete, installable entry and older
+	// LocalAI releases, which drop this key, install it exactly as before.
 	Candidates []Candidate `json:"candidates,omitempty" yaml:"candidates,omitempty"`
+	// Capability, when set, is the host capability this entry's own payload
+	// prefers. It is advisory for the base entry: an unmet capability warns
+	// rather than refusing, because the base always installs.
+	Capability string `json:"capability,omitempty" yaml:"capability,omitempty"`
+	// MinVRAM is this entry's own VRAM floor, in the same form as a
+	// candidate's (e.g. "2GiB"). It positions the entry within its own
+	// candidate list and is likewise advisory: falling short only warns.
+	MinVRAM string `json:"min_vram,omitempty" yaml:"min_vram,omitempty"`
 }
 
 func (m *GalleryModel) GetInstalled() bool {
@@ -49,9 +58,11 @@ func (m GalleryModel) ID() string {
 	return fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
 }
 
-// IsMeta reports whether this entry resolves to one of several concrete
-// entries based on host hardware, rather than describing files directly.
-func (m GalleryModel) IsMeta() bool {
+// HasCandidates reports whether this entry declares hardware-gated upgrades
+// over its own payload. It says nothing about the entry being installable:
+// an entry with candidates is a complete entry that can always be installed
+// as-is.
+func (m GalleryModel) HasCandidates() bool {
 	return len(m.Candidates) > 0
 }
 

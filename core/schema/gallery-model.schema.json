@@ -56,9 +56,17 @@
         "additionalProperties": false
       }
     },
+    "capability": {
+      "type": "string",
+      "description": "Host capability this entry's own payload prefers, matched exactly and case-sensitively (for example metal, nvidia-cuda-12). Advisory: an unmet capability warns, it never blocks the install."
+    },
+    "min_vram": {
+      "type": "string",
+      "description": "This entry's own VRAM floor, for example 2GiB. Positions the entry among its own candidates and must be strictly below every candidate's floor. Advisory: falling short only warns."
+    },
     "candidates": {
       "type": "array",
-      "description": "Ordered variant list of a meta entry. The first candidate the host satisfies is installed, under the meta entry's own name. An entry carrying candidates must not also carry files or config_file.",
+      "description": "Ordered list of hardware-gated upgrades over this entry. The first candidate the host satisfies is installed, under this entry's own name; if none does, this entry installs itself. Clients that predate candidates support drop this key and install the entry unchanged.",
       "minItems": 1,
       "items": {
         "type": "object",
@@ -66,7 +74,7 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "Name of a concrete (non-meta) gallery entry"
+            "description": "Name of a gallery entry that declares no candidates of its own"
           },
           "capability": {
             "type": "string",

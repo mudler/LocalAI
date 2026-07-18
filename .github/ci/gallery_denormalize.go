@@ -1,5 +1,6 @@
-// Command gallery_denormalize fills the read-only denormalized fields on meta
-// model entries: backend, quantization, and inferred_min_vram.
+// Command gallery_denormalize fills the read-only denormalized fields on the
+// candidates of gallery model entries: backend, quantization, and
+// inferred_min_vram.
 //
 // It never modifies an authored min_vram. Authored values are authoritative,
 // because a human who measured a real load knows more than a pre-download
@@ -50,7 +51,7 @@ func main() {
 
 	failures := 0
 	for i := range entries {
-		if !entries[i].IsMeta() {
+		if !entries[i].HasCandidates() {
 			continue
 		}
 		for j := range entries[i].Candidates {
@@ -155,7 +156,7 @@ func writeCandidates(path string, data []byte, entries []gallery.GalleryModel) e
 
 	changed := false
 	for i, entryNode := range root.Content {
-		if !entries[i].IsMeta() || entryNode.Kind != yaml.MappingNode {
+		if !entries[i].HasCandidates() || entryNode.Kind != yaml.MappingNode {
 			continue
 		}
 
