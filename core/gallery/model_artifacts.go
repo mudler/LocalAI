@@ -19,6 +19,7 @@ type ArtifactMaterializer interface {
 
 type installOptions struct {
 	materializer ArtifactMaterializer
+	variant      string
 }
 
 type InstallOption func(*installOptions)
@@ -28,6 +29,14 @@ func WithArtifactMaterializer(materializer ArtifactMaterializer) InstallOption {
 		if materializer != nil {
 			options.materializer = materializer
 		}
+	}
+}
+
+// WithVariant pins a meta model entry to a specific candidate by name,
+// bypassing hardware-based resolution. Ignored for non-meta entries.
+func WithVariant(variant string) InstallOption {
+	return func(options *installOptions) {
+		options.variant = variant
 	}
 }
 

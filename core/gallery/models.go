@@ -60,6 +60,13 @@ type ModelConfig struct {
 	ConfigFile      string           `yaml:"config_file"`
 	Files           []File           `yaml:"files"`
 	PromptTemplates []PromptTemplate `yaml:"prompt_templates"`
+
+	// The fields below record how a meta entry was resolved, so a reinstall
+	// or upgrade can honor the same pin and so operators can see which
+	// variant a stable model name is actually backed by.
+	MetaName        string `yaml:"meta_name,omitempty"`
+	ResolvedVariant string `yaml:"resolved_variant,omitempty"`
+	PinnedVariant   string `yaml:"pinned_variant,omitempty"`
 }
 
 type File struct {
@@ -73,6 +80,50 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
+// ResolveMetaModel turns a meta gallery entry into the concrete entry that
+// should be installed on this host, returning it renamed to the meta's name
+// and carrying the meta's presentation metadata.
+//
+// Why the metadata split: the payload (url, config_file, files, overrides)
+// must come from the variant because that is what actually gets downloaded,
+// while the presentation (name, description, icon, tags) must come from the
+// meta so the installed model presents as the model rather than the variant.
+func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Candidate, error) {
+	candidate, err := ResolveCandidate(meta.Candidates, env, pin)
+	if err != nil {
+		return nil, Candidate{}, fmt.Errorf("resolving variant for model %q: %w", meta.Name, err)
+	}
+
+	// A pin is an operator override and deliberately bypasses the hardware
+	// checks, but a silent bypass makes a later out-of-memory failure
+	// impossible to trace back to the pin, so it is recorded loudly here.
+	if pin != "" {
+		if floor, declared, verr := candidate.EffectiveMinVRAM(); verr == nil && declared && env.VRAM < floor {
+			xlog.Warn("Pinned model variant declares more VRAM than this system reports; installing anyway because the pin overrides hardware resolution",
+				"model", meta.Name, "variant", candidate.Model, "required_vram", floor, "available_vram", env.VRAM)
+		}
+	}
+
+	concrete := FindGalleryElement(models, candidate.Model)
+	if concrete == nil {
+		return nil, Candidate{}, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", meta.Name, candidate.Model)
+	}
+	if concrete.IsMeta() {
+		return nil, Candidate{}, fmt.Errorf("model %q references variant %q which is itself a meta entry; meta entries may not nest", meta.Name, candidate.Model)
+	}
+
+	resolved := *concrete
+	resolved.Name = meta.Name
+	resolved.Description = meta.Description
+	resolved.Icon = meta.Icon
+	resolved.License = meta.License
+	resolved.URLs = meta.URLs
+	resolved.Tags = meta.Tags
+	resolved.Candidates = nil
+
+	return &resolved, candidate, nil
+}
+
 // Installs a model from the gallery
 func InstallModelFromGallery(
 	ctx context.Context,
@@ -81,7 +132,9 @@ func InstallModelFromGallery(
 	modelLoader *model.ModelLoader,
 	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend, requireBackendIntegrity bool, options ...InstallOption) error {
 
-	applyModel := func(model *GalleryModel) error {
+	installOpts := applyInstallOptions(options...)
+
+	applyModel := func(model *GalleryModel, record *ModelConfig) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
 		var config ModelConfig
@@ -111,6 +164,12 @@ func InstallModelFromGallery(
 			}
 		} else {
 			return fmt.Errorf("invalid gallery model %+v", model)
+		}
+
+		if record != nil {
+			config.MetaName = record.MetaName
+			config.ResolvedVariant = record.ResolvedVariant
+			config.PinnedVariant = record.PinnedVariant
 		}
 
 		installName := model.Name
@@ -157,7 +216,42 @@ func InstallModelFromGallery(
 		return fmt.Errorf("no model found with name %q", name)
 	}
 
-	return applyModel(model)
+	// Meta-ness is checked before anything looks at the URL: a meta entry also
+	// carries a url as a fallback for older LocalAI releases that do not
+	// understand candidates, so carrying both is normal and meta wins here.
+	if !model.IsMeta() {
+		return applyModel(model, nil)
+	}
+
+	pin := installOpts.variant
+	// A previously recorded pin survives reinstalls and upgrades, so a user
+	// who deliberately chose a variant is not silently re-resolved onto a
+	// different one by a hardware or gallery change.
+	if pin == "" {
+		if previous, err := GetLocalModelConfiguration(systemState.Model.ModelsPath, model.Name); err == nil && previous != nil {
+			pin = previous.PinnedVariant
+		}
+	}
+
+	env := ResolveEnv{
+		Capability: systemState.DetectedCapability(),
+		VRAM:       systemState.VRAM,
+	}
+
+	resolved, candidate, err := ResolveMetaModel(models, model, env, pin)
+	if err != nil {
+		return err
+	}
+
+	xlog.Info("Resolved meta model to variant",
+		"model", model.Name, "variant", candidate.Model,
+		"capability", env.Capability, "vram", env.VRAM, "pinned", pin != "")
+
+	return applyModel(resolved, &ModelConfig{
+		MetaName:        model.Name,
+		ResolvedVariant: candidate.Model,
+		PinnedVariant:   pin,
+	})
 }
 
 func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool, options ...InstallOption) (*lconfig.ModelConfig, error) {
