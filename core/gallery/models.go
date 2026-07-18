@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -94,16 +95,6 @@ func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv
 		return nil, Candidate{}, fmt.Errorf("resolving variant for model %q: %w", meta.Name, err)
 	}
 
-	// A pin is an operator override and deliberately bypasses the hardware
-	// checks, but a silent bypass makes a later out-of-memory failure
-	// impossible to trace back to the pin, so it is recorded loudly here.
-	if pin != "" {
-		if floor, declared, verr := candidate.EffectiveMinVRAM(); verr == nil && declared && env.VRAM < floor {
-			xlog.Warn("Pinned model variant declares more VRAM than this system reports; installing anyway because the pin overrides hardware resolution",
-				"model", meta.Name, "variant", candidate.Model, "required_vram", floor, "available_vram", env.VRAM)
-		}
-	}
-
 	concrete := FindGalleryElement(models, candidate.Model)
 	if concrete == nil {
 		return nil, Candidate{}, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", meta.Name, candidate.Model)
@@ -112,14 +103,37 @@ func ResolveMetaModel(models []*GalleryModel, meta *GalleryModel, env ResolveEnv
 		return nil, Candidate{}, fmt.Errorf("model %q references variant %q which is itself a meta entry; meta entries may not nest", meta.Name, candidate.Model)
 	}
 
+	// A pin is an operator override and deliberately bypasses the hardware
+	// checks, but a silent bypass makes a later out-of-memory failure
+	// impossible to trace back to the pin, so it is recorded loudly here.
+	// It is warned about only once the pin is known to name a real, installable
+	// entry, otherwise a pin naming a listed-but-nonexistent variant would warn
+	// about VRAM and then fail for an entirely unrelated reason.
+	if pin != "" {
+		if floor, declared, verr := candidate.EffectiveMinVRAM(); verr == nil && declared && env.VRAM < floor {
+			xlog.Warn("Pinned model variant declares more VRAM than this system reports; installing anyway because the pin overrides hardware resolution",
+				"model", meta.Name, "variant", candidate.Model, "required_vram", floor, "available_vram", env.VRAM)
+		}
+	}
+
 	resolved := *concrete
 	resolved.Name = meta.Name
 	resolved.Description = meta.Description
 	resolved.Icon = meta.Icon
 	resolved.License = meta.License
-	resolved.URLs = meta.URLs
-	resolved.Tags = meta.Tags
 	resolved.Candidates = nil
+
+	// The struct copy above is shallow, so every reference-typed field still
+	// aliases the gallery's own entries. The install path mutates Overrides in
+	// place (mergo merges the caller's request overrides into it) and appends to
+	// the URL and tag slices, which would write the caller's request into the
+	// gallery catalog itself and leak between installs the moment this path
+	// reads from a cached, long-lived gallery listing. Detach them here.
+	resolved.Overrides = maps.Clone(concrete.Overrides)
+	resolved.ConfigFile = maps.Clone(concrete.ConfigFile)
+	resolved.AdditionalFiles = slices.Clone(concrete.AdditionalFiles)
+	resolved.URLs = slices.Clone(meta.URLs)
+	resolved.Tags = slices.Clone(meta.Tags)
 
 	return &resolved, candidate, nil
 }
@@ -157,9 +171,11 @@ func InstallModelFromGallery(
 				ConfigFile:  string(reYamlConfig),
 				Description: model.Description,
 				License:     model.License,
-				URLs:        model.URLs,
 				Name:        model.Name,
 				Files:       make([]File, 0), // Real values get added below, must be blank
+				// URLs are deliberately not seeded here: they are appended once
+				// below for both branches, and seeding them too would write every
+				// URL twice into the persisted gallery file.
 				// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
 			}
 		} else {
@@ -170,6 +186,10 @@ func InstallModelFromGallery(
 			config.MetaName = record.MetaName
 			config.ResolvedVariant = record.ResolvedVariant
 			config.PinnedVariant = record.PinnedVariant
+			// The variant's own name would otherwise be persisted here, which
+			// contradicts the whole point of a meta entry: the model is known by
+			// the meta's stable name regardless of which variant backs it.
+			config.Name = record.MetaName
 		}
 
 		installName := model.Name
@@ -227,8 +247,19 @@ func InstallModelFromGallery(
 	// A previously recorded pin survives reinstalls and upgrades, so a user
 	// who deliberately chose a variant is not silently re-resolved onto a
 	// different one by a hardware or gallery change.
+	//
+	// The record is keyed by the name the model was installed under, not by the
+	// gallery entry name: applyModel writes it to ._gallery_<installName>.yaml,
+	// where installName is req.Name whenever the caller supplied one. Reading it
+	// back under the meta's own name would miss the record for every custom-named
+	// install and silently re-resolve a deliberately pinned model onto a
+	// different variant, possibly swapping its backend.
 	if pin == "" {
-		if previous, err := GetLocalModelConfiguration(systemState.Model.ModelsPath, model.Name); err == nil && previous != nil {
+		installName := model.Name
+		if req.Name != "" {
+			installName = req.Name
+		}
+		if previous, err := GetLocalModelConfiguration(systemState.Model.ModelsPath, installName); err == nil && previous != nil {
 			pin = previous.PinnedVariant
 		}
 	}
