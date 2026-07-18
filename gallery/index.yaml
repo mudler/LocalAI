@@ -4296,13 +4296,14 @@
     - math
   last_checked: "2026-04-30"
   # This entry installs the Q4_K_M build as-is, on any client and any host.
-  # min_vram positions it as its own last-resort candidate, and candidates
-  # lists the upgrades a bigger host gets instead. Clients that predate
-  # candidates support drop both keys and install this entry unchanged.
-  min_vram: 2GiB
-  candidates:
+  # variants lists other builds of the same model the installer may pick
+  # instead when this host can run them and has the memory for them. Clients
+  # that predate variants support drop both keys and install this entry
+  # unchanged.
+  min_memory: 2GiB
+  variants:
     - model: nanbeige4.1-3b-q8
-      min_vram: 6GiB
+      min_memory: 6GiB
   overrides:
     parameters:
       model: nanbeige4.1-3b-q4_k_m.gguf

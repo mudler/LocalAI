@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
@@ -61,7 +62,7 @@ type ModelConfig struct {
 	Files           []File           `yaml:"files"`
 	PromptTemplates []PromptTemplate `yaml:"prompt_templates"`
 
-	// The fields below record how an entry carrying candidates was resolved,
+	// The fields below record how an entry carrying variants was resolved,
 	// so a reinstall or upgrade can honor the same pin and so operators can
 	// see which variant a stable model name is actually backed by.
 	EntryName       string `yaml:"entry_name,omitempty"`
@@ -80,24 +81,38 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
-// effectiveCandidates returns the candidate list resolution actually runs over:
-// the declared upgrades followed by the entry itself.
+// variantOptions turns an entry's declared variants into selectable options,
+// resolving each referenced gallery entry so the selector gets the backend it
+// filters on, and appends the entry itself as the base option.
 //
-// The entry is appended rather than special-cased so there is exactly one
-// selection path. Being last makes it the last resort, which is what keeps the
-// entry always installable: the list can never be exhausted without reaching it.
-func effectiveCandidates(entry *GalleryModel) []Candidate {
-	candidates := make([]Candidate, 0, len(entry.Candidates)+1)
-	candidates = append(candidates, entry.Candidates...)
-	return append(candidates, Candidate{
-		Model:      entry.Name,
-		Capability: entry.Capability,
-		MinVRAM:    entry.MinVRAM,
-	})
+// The base is appended rather than special-cased downstream so there is exactly
+// one selection path, and so an operator can pin the entry's own name to
+// decline an upgrade their hardware would otherwise take.
+func variantOptions(models []*GalleryModel, entry *GalleryModel) ([]VariantOption, error) {
+	options := make([]VariantOption, 0, len(entry.Variants)+1)
+	for _, v := range entry.Variants {
+		// Every referenced entry is looked up here rather than lazily after
+		// selection, because the backend that decides whether a variant is even
+		// eligible lives on that entry, not on the variant.
+		target := FindGalleryElement(models, v.Model)
+		if target == nil {
+			return nil, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", entry.Name, v.Model)
+		}
+		if target.HasVariants() {
+			return nil, fmt.Errorf("model %q references variant %q which declares variants of its own; resolution is a single pass, so those would be silently ignored", entry.Name, v.Model)
+		}
+		options = append(options, VariantOption{Variant: v, Backend: target.Backend})
+	}
+
+	return append(options, VariantOption{
+		Variant: Variant{Model: entry.Name, MinMemory: entry.MinMemory},
+		Backend: entry.Backend,
+		IsBase:  true,
+	}), nil
 }
 
 // ResolveVariant picks the gallery entry to install for a host, from the
-// upgrades an entry declares plus the entry itself, and returns it renamed to
+// variants an entry declares plus the entry itself, and returns it renamed to
 // the entry's name and carrying the entry's presentation metadata.
 //
 // Why the metadata split: the payload (url, config_file, files, overrides)
@@ -106,53 +121,44 @@ func effectiveCandidates(entry *GalleryModel) []Candidate {
 // from the entry the user asked for, so the installed model presents as that
 // model rather than as one of its variants.
 //
-// The base entry always resolves. When even its own predicates fall short this
-// warns and installs it regardless, because the entry is a complete entry that
-// every older LocalAI release installs unconditionally; refusing it here would
-// make the gallery behave worse the newer the client is.
-func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Candidate, error) {
-	candidates := effectiveCandidates(entry)
-	base := candidates[len(candidates)-1]
-
-	candidate, err := ResolveCandidate(candidates, env, pin)
+// The base entry always resolves. When even its own requirement falls short
+// this installs it regardless, because the entry is a complete entry that every
+// older LocalAI release installs unconditionally; refusing it here would make
+// the gallery behave worse the newer the client is.
+func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Variant, error) {
+	options, err := variantOptions(models, entry)
 	if err != nil {
-		if !errors.Is(err, ErrNoCandidateMatch) {
-			return nil, Candidate{}, fmt.Errorf("resolving variant for model %q: %w", entry.Name, err)
-		}
-		xlog.Warn("This system does not meet the requirements this model declares for itself; installing it anyway because it is the last resort",
-			"model", entry.Name, "capability", env.Capability, "available_vram", env.VRAM, "reason", err)
-		candidate = base
+		return nil, Variant{}, err
+	}
+
+	selection, err := SelectVariant(options, env, pin)
+	if err != nil {
+		return nil, Variant{}, fmt.Errorf("resolving variant for model %q: %w", entry.Name, err)
+	}
+	selected := selection.Option
+
+	if selection.FellBackToBase && len(entry.Variants) > 0 {
+		xlog.Warn("No declared variant of this model fits this system; installing the entry's own build",
+			"model", entry.Name, "available_memory", env.AvailableMemory, "reasons", strings.Join(selection.Reasons, "; "))
 	}
 
 	// A pin is an operator override and deliberately bypasses the hardware
 	// checks, but a silent bypass makes a later out-of-memory failure
 	// impossible to trace back to the pin, so it is recorded loudly here.
-	// It is warned about only once the pin is known to name a real, installable
-	// entry, otherwise a pin naming a listed-but-nonexistent variant would warn
-	// about VRAM and then fail for an entirely unrelated reason.
-	warnPin := func() {
-		if pin == "" {
-			return
-		}
-		if floor, declared, verr := candidate.EffectiveMinVRAM(); verr == nil && declared && env.VRAM < floor {
-			xlog.Warn("Pinned model variant declares more VRAM than this system reports; installing anyway because the pin overrides hardware resolution",
-				"model", entry.Name, "variant", candidate.Model, "required_vram", floor, "available_vram", env.VRAM)
+	if pin != "" {
+		if need, known, verr := selected.Variant.EffectiveMinMemory(); verr == nil && known && env.AvailableMemory < need {
+			xlog.Warn("Pinned model variant declares more memory than this system reports; installing anyway because the pin overrides hardware resolution",
+				"model", entry.Name, "variant", selected.Variant.Model, "required_memory", need, "available_memory", env.AvailableMemory)
 		}
 	}
 
-	// Resolving to the base means installing the entry's own payload, which is
-	// the entry itself; there is no second entry to look up.
+	// Selecting the base means installing the entry's own payload, which is the
+	// entry itself; there is no second entry to look up.
 	source := entry
-	if candidate.Model != entry.Name {
-		source = FindGalleryElement(models, candidate.Model)
-		if source == nil {
-			return nil, Candidate{}, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", entry.Name, candidate.Model)
-		}
-		if source.HasCandidates() {
-			return nil, Candidate{}, fmt.Errorf("model %q references variant %q which declares candidates of its own; resolution is a single pass, so those would be silently ignored", entry.Name, candidate.Model)
-		}
+	if !selected.IsBase {
+		// variantOptions already proved this lookup succeeds.
+		source = FindGalleryElement(models, selected.Variant.Model)
 	}
-	warnPin()
 
 	resolved := *source
 	resolved.Name = entry.Name
@@ -162,9 +168,8 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	// The resolved entry is a concrete install target, so it must not carry the
 	// selection fields any more; leaving them would let a second pass resolve
 	// the already-resolved entry all over again.
-	resolved.Candidates = nil
-	resolved.Capability = ""
-	resolved.MinVRAM = ""
+	resolved.Variants = nil
+	resolved.MinMemory = ""
 
 	// The struct copy above is shallow, so every reference-typed field still
 	// aliases the gallery's own entries. The install path mutates Overrides in
@@ -185,7 +190,33 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	resolved.URLs = slices.Clone(entry.URLs)
 	resolved.Tags = slices.Clone(entry.Tags)
 
-	return &resolved, candidate, nil
+	return &resolved, selected.Variant, nil
+}
+
+// noGPUDetected is what SystemState.DetectedCapability() reports when no
+// usable GPU was found. The constant is unexported in pkg/system.
+const noGPUDetected = "default"
+
+// availableModelMemory reports how much memory a model may occupy on this host.
+//
+// With a usable GPU the model lives in VRAM. Without one it lives in system
+// RAM, read through xsysinfo because that path is cgroup-aware: under
+// Kubernetes the container's limit, not the node's physical RAM, is what the
+// model actually gets.
+//
+// An unreadable RAM figure yields 0, which drops every variant with a known
+// requirement and installs the base. That is the safe direction: an unknown
+// host should not be talked into a larger download.
+func availableModelMemory(systemState *system.SystemState) uint64 {
+	if systemState.DetectedCapability() != noGPUDetected {
+		return systemState.VRAM
+	}
+	ram, err := xsysinfo.GetSystemRAMInfo()
+	if err != nil || ram == nil {
+		xlog.Warn("Could not read system RAM; treating this host as having no memory budget for variant selection", "error", err)
+		return 0
+	}
+	return ram.Total
 }
 
 // deepCopyStringMap copies a decoded YAML map so no part of the result, at any
@@ -276,7 +307,7 @@ func InstallModelFromGallery(
 			config.ResolvedVariant = record.ResolvedVariant
 			config.PinnedVariant = record.PinnedVariant
 			// The variant's own name would otherwise be persisted here, which
-			// contradicts the whole point of candidates: the model is known by
+			// contradicts the whole point of variants: the model is known by
 			// the entry's stable name regardless of which variant backs it.
 			config.Name = record.EntryName
 		}
@@ -325,10 +356,10 @@ func InstallModelFromGallery(
 		return fmt.Errorf("no model found with name %q", name)
 	}
 
-	// An entry without candidates is installed directly. An entry with them is
-	// still installable as-is; resolution below only decides whether one of its
-	// declared upgrades fits this host better.
-	if !model.HasCandidates() {
+	// An entry without variants is installed directly. An entry with them is
+	// still installable as-is; selection below only decides whether one of its
+	// declared alternatives suits this host better.
+	if !model.HasVariants() {
 		return applyModel(model, nil)
 	}
 
@@ -354,22 +385,31 @@ func InstallModelFromGallery(
 	}
 
 	env := ResolveEnv{
-		Capability: systemState.DetectedCapability(),
-		VRAM:       systemState.VRAM,
+		AvailableMemory: availableModelMemory(systemState),
+		// The whole hardware gate. IsBackendCompatible already derives
+		// Darwin-only, NVIDIA-only, ROCm-only and SYCL-only from the backend
+		// name, so a gallery author never has to describe hardware.
+		//
+		// The uri argument is deliberately empty: it exists for backend OCI
+		// images, and passing a model's gallery url here would let an unrelated
+		// substring in a download link decide hardware compatibility.
+		BackendCompatible: func(backend string) bool {
+			return systemState.IsBackendCompatible(backend, "")
+		},
 	}
 
-	resolved, candidate, err := ResolveVariant(models, model, env, pin)
+	resolved, variant, err := ResolveVariant(models, model, env, pin)
 	if err != nil {
 		return err
 	}
 
 	xlog.Info("Resolved model to variant",
-		"model", model.Name, "variant", candidate.Model,
-		"capability", env.Capability, "vram", env.VRAM, "pinned", pin != "")
+		"model", model.Name, "variant", variant.Model,
+		"available_memory", env.AvailableMemory, "pinned", pin != "")
 
 	return applyModel(resolved, &ModelConfig{
 		EntryName:       model.Name,
-		ResolvedVariant: candidate.Model,
+		ResolvedVariant: variant.Model,
 		PinnedVariant:   pin,
 	})
 }

@@ -32,10 +32,10 @@ func WithArtifactMaterializer(materializer ArtifactMaterializer) InstallOption {
 	}
 }
 
-// WithVariant pins a gallery entry to a specific candidate by name, bypassing
-// hardware-based resolution. The entry's own name is a valid pin, since the
-// entry is itself the last-resort candidate. Ignored for entries that declare
-// no candidates.
+// WithVariant pins a gallery entry to a specific variant by name, bypassing
+// hardware-based selection. The entry's own name is a valid pin, since the
+// entry is itself the last resort. Ignored for entries that declare no
+// variants.
 func WithVariant(variant string) InstallOption {
 	return func(options *installOptions) {
 		options.variant = variant

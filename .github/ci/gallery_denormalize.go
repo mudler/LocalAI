@@ -1,8 +1,8 @@
 // Command gallery_denormalize fills the read-only denormalized fields on the
-// candidates of gallery model entries: backend, quantization, and
-// inferred_min_vram.
+// variants of gallery model entries: backend, quantization, and
+// inferred_min_memory.
 //
-// It never modifies an authored min_vram. Authored values are authoritative,
+// It never modifies an authored min_memory. Authored values are authoritative,
 // because a human who measured a real load knows more than a pre-download
 // estimate does.
 package main
@@ -51,20 +51,20 @@ func main() {
 
 	failures := 0
 	for i := range entries {
-		if !entries[i].HasCandidates() {
+		if !entries[i].HasVariants() {
 			continue
 		}
-		for j := range entries[i].Candidates {
-			c := &entries[i].Candidates[j]
+		for j := range entries[i].Variants {
+			c := &entries[i].Variants[j]
 
 			target, ok := byName[c.Model]
 			if !ok {
-				fmt.Fprintf(os.Stderr, "%s: candidate %q not found\n", entries[i].Name, c.Model)
+				fmt.Fprintf(os.Stderr, "%s: variant %q not found\n", entries[i].Name, c.Model)
 				failures++
 				continue
 			}
 
-			// The concrete entry's payload usually lives behind its url
+			// The referenced entry's payload usually lives behind its url
 			// rather than inline, so fetch it. Metadata.Backend is populated
 			// at load time by the running server, not by parsing the index,
 			// so it is always empty here and cannot be copied.
@@ -78,18 +78,17 @@ func main() {
 			c.Backend = backendOf(target, resolved)
 			c.Quantization = quantizationOf(target)
 
-			// Authored values win, and the final unconstrained candidate is
-			// deliberately floorless, so neither gets an inferred value.
-			// Clearing first matters: a candidate that gained an authored
-			// min_vram, or that became the last resort after a reorder, would
-			// otherwise keep a stale inferred floor that makes
-			// EffectiveMinVRAM report a constraint the entry no longer has.
-			if c.MinVRAM != "" || j == len(entries[i].Candidates)-1 {
-				c.InferredMinVRAM = ""
+			// An authored value wins outright, so it gets no inferred
+			// counterpart. Clearing first matters: a variant that gained an
+			// authored min_memory would otherwise keep a stale inferred figure
+			// that EffectiveMinMemory would go on reporting once the authored
+			// one is removed again.
+			if c.MinMemory != "" {
+				c.InferredMinMemory = ""
 				continue
 			}
 
-			// Weight files can come from either side: a concrete index entry
+			// Weight files can come from either side: a referenced index entry
 			// usually lists them itself (files:, i.e. AdditionalFiles) while
 			// the url it points at is only a base config, but some entries
 			// invert that. Install time downloads both, so estimate over both.
@@ -107,38 +106,38 @@ func main() {
 			}, []uint32{estimateContext})
 			if err != nil || estimate.VRAMForContext(estimateContext) == 0 {
 				fmt.Fprintf(os.Stderr,
-					"%s: could not estimate min_vram for %q (%v); author one by hand\n",
+					"%s: could not estimate min_memory for %q (%v); author one by hand\n",
 					entries[i].Name, c.Model, err)
 				failures++
 				continue
 			}
-			c.InferredMinVRAM = fmt.Sprintf("%dMiB", estimate.VRAMForContext(estimateContext)/(1024*1024))
+			c.InferredMinMemory = fmt.Sprintf("%dMiB", estimate.VRAMForContext(estimateContext)/(1024*1024))
 		}
 	}
 
-	if err := writeCandidates(path, data, entries); err != nil {
+	if err := writeVariants(path, data, entries); err != nil {
 		fmt.Fprintf(os.Stderr, "write %s: %v\n", path, err)
 		os.Exit(1)
 	}
 
 	if failures > 0 {
-		fmt.Fprintf(os.Stderr, "%d candidate(s) need a hand-authored min_vram\n", failures)
+		fmt.Fprintf(os.Stderr, "%d variant(s) need a hand-authored min_memory\n", failures)
 		os.Exit(1)
 	}
 }
 
-// writeCandidates writes back only the three derived keys on each candidate,
+// writeVariants writes back only the three derived keys on each variant,
 // leaving every other byte of the index alone.
 //
 // Round-tripping through []GalleryModel would reflow all 1200+ entries
 // (quoting, key order, line wrapping), burying the handful of real changes in
 // reformatting noise and making the nightly PR unreviewable. Even re-encoding
-// just the candidates subtree would restyle authored fields such as min_vram,
+// just the variants subtree would restyle authored fields such as min_memory,
 // so the rewrite reaches down to individual mapping keys and the node tree is
 // re-encoded at the index's authored indent. That also makes the job
 // idempotent: a run that computes the same values leaves the file untouched
 // and opens no PR.
-func writeCandidates(path string, data []byte, entries []gallery.GalleryModel) error {
+func writeVariants(path string, data []byte, entries []gallery.GalleryModel) error {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return fmt.Errorf("re-parse for node rewrite: %w", err)
@@ -156,30 +155,30 @@ func writeCandidates(path string, data []byte, entries []gallery.GalleryModel) e
 
 	changed := false
 	for i, entryNode := range root.Content {
-		if !entries[i].HasCandidates() || entryNode.Kind != yaml.MappingNode {
+		if !entries[i].HasVariants() || entryNode.Kind != yaml.MappingNode {
 			continue
 		}
 
-		candidatesNode := mappingValue(entryNode, "candidates")
-		if candidatesNode == nil || candidatesNode.Kind != yaml.SequenceNode {
-			return fmt.Errorf("entry %q has candidates but no candidates sequence in the document", entries[i].Name)
+		variantsNode := mappingValue(entryNode, "variants")
+		if variantsNode == nil || variantsNode.Kind != yaml.SequenceNode {
+			return fmt.Errorf("entry %q has variants but no variants sequence in the document", entries[i].Name)
 		}
-		if len(candidatesNode.Content) != len(entries[i].Candidates) {
-			return fmt.Errorf("entry %q candidate count drift: %d nodes vs %d parsed",
-				entries[i].Name, len(candidatesNode.Content), len(entries[i].Candidates))
+		if len(variantsNode.Content) != len(entries[i].Variants) {
+			return fmt.Errorf("entry %q variant count drift: %d nodes vs %d parsed",
+				entries[i].Name, len(variantsNode.Content), len(entries[i].Variants))
 		}
 
-		for j, candidateNode := range candidatesNode.Content {
-			if candidateNode.Kind != yaml.MappingNode {
-				return fmt.Errorf("entry %q candidate %d is not a mapping", entries[i].Name, j)
+		for j, variantNode := range variantsNode.Content {
+			if variantNode.Kind != yaml.MappingNode {
+				return fmt.Errorf("entry %q variant %d is not a mapping", entries[i].Name, j)
 			}
-			c := entries[i].Candidates[j]
+			c := entries[i].Variants[j]
 			for _, kv := range []struct{ key, value string }{
 				{"backend", c.Backend},
 				{"quantization", c.Quantization},
-				{"inferred_min_vram", c.InferredMinVRAM},
+				{"inferred_min_memory", c.InferredMinMemory},
 			} {
-				if setMappingValue(candidateNode, kv.key, kv.value) {
+				if setMappingValue(variantNode, kv.key, kv.value) {
 					changed = true
 				}
 			}
@@ -287,7 +286,7 @@ func backendOf(m gallery.GalleryModel, resolved gallery.ModelConfig) string {
 	return ""
 }
 
-// quantizationOf reports the quantization declared by a concrete entry's
+// quantizationOf reports the quantization declared by a referenced entry's
 // overrides, empty when it declares none.
 func quantizationOf(m gallery.GalleryModel) string {
 	if q, ok := m.Overrides["quantization"].(string); ok {
