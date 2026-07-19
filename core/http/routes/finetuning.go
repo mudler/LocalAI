@@ -4,13 +4,14 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/finetune"
 )
 
 // RegisterFineTuningRoutes registers fine-tuning API routes.
-func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService, appConfig *config.ApplicationConfig, fineTuningMw echo.MiddlewareFunc) {
+func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService, appConfig *config.ApplicationConfig, app *application.Application, fineTuningMw echo.MiddlewareFunc) {
 	if ftService == nil {
 		return
 	}
@@ -28,7 +29,7 @@ func RegisterFineTuningRoutes(e *echo.Echo, ftService *finetune.FineTuneService,
 	}
 
 	ft := e.Group("/api/fine-tuning", readyMw, fineTuningMw)
-	ft.GET("/backends", localai.ListFineTuneBackendsEndpoint(appConfig))
+	ft.GET("/backends", localai.ListFineTuneBackendsEndpoint(appConfig, ClusterCapabilityProviderFor(app)))
 	ft.POST("/jobs", localai.StartFineTuneJobEndpoint(ftService))
 	ft.GET("/jobs", localai.ListFineTuneJobsEndpoint(ftService))
 	ft.GET("/jobs/:id", localai.GetFineTuneJobEndpoint(ftService))

@@ -395,16 +395,57 @@ func triggerGalleryRefresh(galleries []config.Gallery, systemState *system.Syste
 
 // List available backends
 func AvailableBackends(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryBackend], error) {
-	return availableBackendsWithFilter(galleries, systemState, true)
+	return availableBackendsWithFilter(galleries, systemState, func(backend *GalleryBackend) bool {
+		return backend.IsCompatibleWith(systemState)
+	})
 }
 
 // AvailableBackendsUnfiltered returns all available backends without filtering by system capability.
 func AvailableBackendsUnfiltered(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryBackend], error) {
-	return availableBackendsWithFilter(galleries, systemState, false)
+	return availableBackendsWithFilter(galleries, systemState, nil)
 }
 
-// availableBackendsWithFilter is a helper function that lists available backends with optional filtering.
-func availableBackendsWithFilter(galleries []config.Gallery, systemState *system.SystemState, filterByCapability bool) (GalleryElements[*GalleryBackend], error) {
+// AvailableBackendsForCapabilities lists backends runnable on the local system
+// OR on any remote host reporting one of the supplied capabilities.
+//
+// In a distributed deployment the host serving this listing (the controller)
+// is usually a GPU-less pod while the GPUs live on worker nodes. Filtering
+// only against the controller hid every GPU-only meta backend from admins even
+// though installing it by name on a worker worked fine, so compatibility is
+// evaluated as a union over the cluster. An empty capabilities slice reproduces
+// AvailableBackends exactly, keeping single-node behavior untouched.
+func AvailableBackendsForCapabilities(galleries []config.Gallery, systemState *system.SystemState, capabilities []string) (GalleryElements[*GalleryBackend], error) {
+	if len(capabilities) == 0 {
+		return AvailableBackends(galleries, systemState)
+	}
+
+	// Each remote capability is evaluated through a state pinned to that exact
+	// capability, so the controller's own detection (and any forced capability
+	// on the controller image) cannot leak into the worker's verdict. Backend
+	// paths still come from the controller's state because that is where the
+	// gallery metadata is read from.
+	nodeStates := make([]*system.SystemState, 0, len(capabilities))
+	for _, capability := range capabilities {
+		nodeStates = append(nodeStates, system.NewCapabilityState(capability,
+			system.WithBackendPath(systemState.Backend.BackendsPath)))
+	}
+
+	return availableBackendsWithFilter(galleries, systemState, func(backend *GalleryBackend) bool {
+		if backend.IsCompatibleWith(systemState) {
+			return true
+		}
+		for _, nodeState := range nodeStates {
+			if backend.IsCompatibleWith(nodeState) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// availableBackendsWithFilter lists available backends, keeping only those
+// accepted by compatible. A nil compatible keeps everything.
+func availableBackendsWithFilter(galleries []config.Gallery, systemState *system.SystemState, compatible func(*GalleryBackend) bool) (GalleryElements[*GalleryBackend], error) {
 	var backends []*GalleryBackend
 
 	systemBackends, err := ListSystemBackends(systemState)
@@ -421,15 +462,15 @@ func availableBackendsWithFilter(galleries []config.Gallery, systemState *system
 			return nil, err
 		}
 
-		// Filter backends by system capability if requested
-		if filterByCapability {
-			for _, backend := range galleryBackends {
-				if backend.IsCompatibleWith(systemState) {
-					backends = append(backends, backend)
-				}
-			}
-		} else {
+		if compatible == nil {
 			backends = append(backends, galleryBackends...)
+			continue
+		}
+
+		for _, backend := range galleryBackends {
+			if compatible(backend) {
+				backends = append(backends, backend)
+			}
 		}
 	}
 
