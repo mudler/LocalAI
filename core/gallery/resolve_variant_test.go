@@ -482,6 +482,177 @@ var _ = Describe("SelectVariant", func() {
 		})
 	})
 
+	Describe("ranking by serving feature", func() {
+		// These are SERVING FEATURES, exactly what
+		// system.ServingFeaturePreferenceTokens reports, and a third vocabulary
+		// after build tags and engine names. They are matched against whole
+		// segments of the variant's ENTRY NAME rather than against a backend,
+		// because nothing on a gallery entry declares them.
+		//
+		// Spelled out rather than read from pkg/system so these specs pin the
+		// intended ordering rather than restating whatever the table says.
+		features := []string{"dflash", "mtp"}
+		nvidia := []string{"vllm", "sglang", "llama-cpp"}
+
+		It("prefers a speculative build to the plain build of the same weights", func() {
+			// The rule the feature table exists to express. Both builds fit and
+			// both run on the same engine, and the plain build is deliberately
+			// the larger one, so without this axis size would take it and the
+			// drafter pairing would never be installed. Emptying
+			// ServingFeaturePreference fails this spec.
+			options := []gallery.VariantOption{
+				option("m-dflash", "llama-cpp", gib(14)),
+				option("m-q8", "llama-cpp", gib(20)),
+				base("m-q4", gib(6)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(32),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-dflash"))
+		})
+
+		It("takes the larger plain build once the feature preference is unknown", func() {
+			// The mirror of the spec above on the identical option set, proving
+			// the DFlash win comes from the feature list rather than from
+			// anything intrinsic to the set.
+			options := []gallery.VariantOption{
+				option("m-dflash", "llama-cpp", gib(14)),
+				option("m-q8", "llama-cpp", gib(20)),
+				base("m-q4", gib(6)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:  gib(32),
+				EnginePreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-q8"))
+		})
+
+		It("prefers dflash to mtp", func() {
+			// Both are speculative pairings, so only the table's order can
+			// separate them, and the MTP build is deliberately the larger one so
+			// size cannot be what decides.
+			options := []gallery.VariantOption{
+				option("m-nvfp4-mtp", "llama-cpp", gib(20)),
+				option("m-dflash", "llama-cpp", gib(14)),
+				base("m-q4", gib(6)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(32),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-dflash"))
+		})
+
+		It("does not let a preferred feature rescue a build that does not fit", func() {
+			// A drafter pairing is strictly larger than the plain build, so this
+			// is the ordinary case on a small host rather than a corner one. Fit
+			// is a filter; the feature preference only ranks survivors.
+			options := []gallery.VariantOption{
+				option("m-dflash", "llama-cpp", gib(48)),
+				option("m-q8", "llama-cpp", gib(12)),
+				base("m-q4", gib(6)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(16),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-q8"))
+			Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-dflash")))
+		})
+
+		It("lets the host engine preference outrank the serving feature", func() {
+			// A serving feature makes the right engine faster; it does not make
+			// a wrong engine right. On nvidia the plain vLLM build therefore
+			// beats a DFlash llama.cpp build even though both fit and the
+			// llama.cpp one is larger.
+			options := []gallery.VariantOption{
+				option("m-dflash", "llama-cpp", gib(24)),
+				option("m-vllm-awq", "vllm", gib(8)),
+				base("m-q4", gib(6)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(64),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-vllm-awq"))
+		})
+
+		It("still picks the largest fitting build among equally featured builds", func() {
+			// Neither preference key may flatten size ordering: with one engine
+			// and one feature in play there is nothing left for them to decide.
+			options := []gallery.VariantOption{
+				option("m-dflash-q4", "llama-cpp", gib(8)),
+				option("m-dflash-q8", "llama-cpp", gib(14)),
+				option("m-dflash-f16", "llama-cpp", gib(48)),
+				base("m-q4", gib(2)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(16),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-dflash-q8"))
+		})
+
+		It("does not read a feature token out of the middle of an unrelated word", func() {
+			// The guard on matching whole name segments rather than substrings.
+			// "smtp-assistant" is a mail model and carries no MTP heads, yet
+			// strings.Contains would rank it as an MTP build, and being the
+			// larger of the two it would then win. Entry names are
+			// author-supplied free text, unlike the closed engine vocabulary
+			// preferenceRank matches as substrings.
+			options := []gallery.VariantOption{
+				option("m-smtp-assistant-q8", "llama-cpp", gib(24)),
+				option("m-nvfp4-mtp", "llama-cpp", gib(14)),
+				base("m-q4", gib(6)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(64),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-nvfp4-mtp"))
+		})
+
+		It("leaves an unfeatured build ranked last rather than dropping it", func() {
+			// Ranking never filters. With only plain builds on offer the axis
+			// scores them uniformly and selection degrades to size alone.
+			options := []gallery.VariantOption{
+				option("m-q8", "llama-cpp", gib(12)),
+				option("m-q4", "llama-cpp", gib(6)),
+				base("m-q2", gib(3)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:          gib(32),
+				EnginePreference:         nvidia,
+				ServingFeaturePreference: features,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-q8"))
+			Expect(selection.Reasons).To(BeEmpty())
+		})
+	})
+
 	Describe("falling back to the base", func() {
 		It("selects the base when nothing else fits", func() {
 			options := []gallery.VariantOption{

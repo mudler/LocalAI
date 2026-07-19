@@ -283,6 +283,10 @@ func HostResolveEnv(ctx context.Context, systemState *system.SystemState) Resolv
 		// matched on its gallery `backend:` engine name, and the latter reports
 		// build tags that no engine name contains.
 		EnginePreference: systemState.EnginePreferenceTokens(),
+		// The third vocabulary, and the only one that is not host derived: no
+		// hardware prefers a plain build over an equivalent faster one, so this
+		// comes from a package function rather than from systemState.
+		ServingFeaturePreference: system.ServingFeaturePreferenceTokens(),
 		ProbeMemory: func(target *GalleryModel) uint64 {
 			return probeEntryMemory(ctx, target)
 		},

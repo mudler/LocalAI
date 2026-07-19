@@ -53,29 +53,43 @@ const (
 	engineSGLang   = "sglang"
 	engineLlamaCpp = "llama-cpp"
 	engineMLX      = "mlx"
+
+	// Serving feature names (private). A third vocabulary again: not a build
+	// tag and not an engine, but the inference-time strategy a published build
+	// enables. They are matched against a gallery ENTRY NAME, so they are
+	// spelled the way gallery authors spell them in an entry name segment.
+	servingFeatureDFlash = "dflash"
+	servingFeatureMTP    = "mtp"
 )
 
-// There are TWO preference tables below and they speak DIFFERENT VOCABULARIES.
-// Merging them looks tempting and silently breaks one of the two consumers,
-// because a token that means something in one vocabulary means nothing in the
-// other. Read this before editing either.
+// There are THREE preference tables below and they speak DIFFERENT VOCABULARIES,
+// matched against three different things. Merging any two looks tempting and
+// silently breaks a consumer, because a token that means something in one
+// vocabulary means nothing in the others. Read this before editing any of them.
 //
 //   - backendBuildTagPreferenceRules holds BUILD TAGS ("cuda", "rocm", "metal").
-//     They are matched against INSTALLED BACKEND BUILD DIRECTORY NAMES such as
-//     "llama-cpp-cuda-12" or "cuda12-vllm". Consumer: alias resolution in
-//     ListSystemBackends (core/gallery/backends.go), which picks which installed
-//     build of one alias to run.
+//     They are matched as substrings of INSTALLED BACKEND BUILD DIRECTORY NAMES
+//     such as "llama-cpp-cuda-12" or "cuda12-vllm". Consumer: alias resolution
+//     in ListSystemBackends (core/gallery/backends.go), which picks which
+//     installed build of one alias to run.
 //
 //   - engineNamePreferenceRules holds ENGINE NAMES ("vllm", "llama-cpp", "mlx").
-//     They are matched against a gallery entry's `backend:` value, which never
-//     carries a build tag: no entry in gallery/index.yaml contains "cuda",
-//     "rocm", "sycl" or "vulkan" anywhere in its backend name. Consumer: gallery
-//     variant auto-selection (core/gallery/resolve_variant.go), which picks
-//     which build of one model's weights to install.
+//     They are matched as substrings of a gallery entry's `backend:` value,
+//     which never carries a build tag: no entry in gallery/index.yaml contains
+//     "cuda", "rocm", "sycl" or "vulkan" anywhere in its backend name. Consumer:
+//     gallery variant auto-selection (core/gallery/resolve_variant.go), which
+//     picks which build of one model's weights to install.
+//
+//   - servingFeaturePreferenceTokens holds SERVING FEATURES ("dflash", "mtp").
+//     They are matched against WHOLE SEGMENTS of a gallery ENTRY NAME, not
+//     against a backend or an engine, because no field on a gallery entry
+//     declares them. Same consumer as the engine table, applied one rank below
+//     it. See the token list for why segment matching rather than substring.
 //
 // Feeding build tags to the variant ranker matches nothing, which does not
 // error: every candidate simply scores equal and size alone decides, so the
 // preference silently stops existing. That is exactly the bug this split fixes.
+// A serving feature fed to either of the other two tables fails the same way.
 
 // backendPreferenceRule maps a detected capability to preferred tokens, best
 // first. Both tables share this shape; only their vocabulary differs.
@@ -179,6 +193,53 @@ var engineNamePreferenceRules = []backendPreferenceRule{
 // worse than ordering by size alone, which is what the ranker reads an empty
 // list as and is the behaviour that predates preference.
 var defaultEnginePreferenceTokens = []string{}
+
+// servingFeaturePreferenceTokens is the SERVING FEATURE table, best first. See
+// the block comment above for the vocabulary contract.
+//
+// A serving feature is a way of running the same weights faster rather than a
+// different set of weights: a DFlash build pairs the base GGUF with a drafter
+// so the target accepts several speculated tokens per step, and an MTP build
+// carries extra prediction heads to the same end. Both produce the same
+// distribution as the plain build, so whenever one fits there is no reason to
+// install the plain build instead.
+//
+// DFlash leads because it is the newer pairing and accepts more tokens per step
+// in practice; MTP follows; a build naming neither is plain and ranks last.
+// A build's extra weights make it strictly larger than the plain build, which
+// is why this ranks BELOW fit: the size filter drops the pairing on a host too
+// small for it before this list is ever consulted.
+//
+// Unlike the two tables above this one is NOT keyed by capability. A serving
+// feature is a property of the published build, and no hardware prefers the
+// plain build over an equivalent faster one, so there is no host-shaped
+// ordering to express. Should one ever appear, this becomes a rule table like
+// its neighbours without any consumer changing.
+//
+// Matching is against WHOLE SEGMENTS of the entry name, splitting on every
+// non-alphanumeric run, rather than the substring matching the tables above
+// use. The other two vocabularies are closed sets that LocalAI itself defines,
+// whereas an entry name is author-supplied free text where a short token can
+// turn up inside an unrelated word. Segment matching also keeps this honest
+// about what it cannot know: "qwen3.6-27b-mtp-pi-tune" is a separate finetune
+// and not a variant of anything, so it never reaches ranking at all, but if a
+// future finetune were grouped, the name is all there is to go on either way.
+//
+// The name is the signal because nothing else is reliable. Tags would be the
+// natural declaration, but they are optional and demonstrably inconsistent:
+// "gemma-4-e2b-it:sglang-mtp" carries an "mtp" tag while "ornith-1.0-9b-mtp"
+// and "qwen3.6-27b-nvfp4-mtp" carry none, so keying on tags would rank two of
+// those three as plain builds.
+var servingFeaturePreferenceTokens = []string{servingFeatureDFlash, servingFeatureMTP}
+
+// ServingFeaturePreferenceTokens returns the serving features to prefer, best
+// first, for ranking gallery model variants against each other.
+//
+// It is a package function rather than a SystemState method precisely because
+// the answer does not depend on the host; see the table for why.
+func ServingFeaturePreferenceTokens() []string {
+	return slices.Clone(servingFeaturePreferenceTokens)
+}
 
 var (
 	cuda13DirExists bool

@@ -136,6 +136,17 @@ Rules:
   per-capability order lives in `engineNamePreferenceRules`
   (`pkg/system/capabilities.go`); see
   [adding-backends.md](adding-backends.md) for how a backend gets into it.
+- **Serving feature preference sits between engine and size.** Among builds on
+  an equally preferred engine, one that speculates or predicts several tokens
+  per step beats the plain build of the same weights, because it answers faster
+  for the same output: a `-dflash` entry beats an `-mtp` one, and either beats a
+  plain build. The order lives in `servingFeaturePreferenceTokens`
+  (`pkg/system/capabilities.go`) and is matched against whole segments of the
+  variant's entry name, since no gallery field declares it. Engine deliberately
+  outranks it: a serving feature makes the right engine faster, it does not make
+  a wrong engine right. Fit still outranks both, so a drafter pairing (strictly
+  larger than the plain build, since it ships a drafter alongside it) is dropped
+  on a host too small for it before this order is ever consulted.
 - A variant is nothing but a name; there is no per-variant memory field. When
   the measured size for a build is wrong, correct it on the referenced entry by
   setting that entry's own `size:` (e.g. `size: "20GiB"`). The estimator prefers

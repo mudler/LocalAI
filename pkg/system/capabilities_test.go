@@ -342,3 +342,46 @@ var _ = Describe("DetectedCapability", func() {
 		Expect(state.DetectedCapability()).NotTo(Equal("default"))
 	})
 })
+
+var _ = Describe("ServingFeaturePreferenceTokens", func() {
+	It("puts dflash ahead of mtp", func() {
+		// The rule the serving feature table exists to express. Both are ways
+		// of serving the same weights faster; only this order separates them.
+		Expect(ServingFeaturePreferenceTokens()).To(Equal([]string{"dflash", "mtp"}))
+	})
+
+	It("carries neither a build tag nor an engine name", func() {
+		// The third vocabulary, and the same merge hazard as the other two. A
+		// build tag or an engine name here would be matched against gallery
+		// entry names, where it means nothing.
+		Expect(ServingFeaturePreferenceTokens()).ToNot(ContainElements(
+			"cuda", "rocm", "hip", "sycl", "metal", "vulkan", "cpu", "darwin-x86",
+			"vllm", "sglang", "llama-cpp", "mlx",
+		))
+	})
+
+	It("does not depend on the host capability", func() {
+		// Deliberately not a SystemState method: no hardware prefers the plain
+		// build over an equivalent faster one, so there is no host-shaped
+		// ordering to express here.
+		previous := os.Getenv(capabilityEnv)
+		defer func() {
+			if previous != "" {
+				os.Setenv(capabilityEnv, previous)
+			} else {
+				os.Unsetenv(capabilityEnv)
+			}
+		}()
+
+		Expect(os.Setenv(capabilityEnv, "nvidia-cuda-12")).To(Succeed())
+		onNvidia := ServingFeaturePreferenceTokens()
+		Expect(os.Setenv(capabilityEnv, metal)).To(Succeed())
+		Expect(ServingFeaturePreferenceTokens()).To(Equal(onNvidia))
+	})
+
+	It("hands out a copy so one caller cannot corrupt another's lookup", func() {
+		first := ServingFeaturePreferenceTokens()
+		first[0] = "clobbered"
+		Expect(ServingFeaturePreferenceTokens()[0]).To(Equal("dflash"))
+	})
+})

@@ -3,8 +3,10 @@ package gallery
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 var (
@@ -91,6 +93,20 @@ type ResolveEnv struct {
 	// view of the hardware, and it is what every host looked like before
 	// preference existed.
 	EnginePreference []string
+	// ServingFeaturePreference lists the SERVING FEATURES to prefer, best first,
+	// as system.ServingFeaturePreferenceTokens reports them (currently
+	// ["dflash", "mtp"]). A token is matched against whole SEGMENTS of the
+	// variant's ENTRY NAME, splitting on every non-alphanumeric run.
+	//
+	// A third vocabulary, matched against a third thing. It is neither a build
+	// tag nor an engine name: these name a way of serving the same weights
+	// faster, and no gallery field declares them, so the entry name is the only
+	// signal there is. pkg/system/capabilities.go documents all three tables
+	// together and justifies matching on segments rather than substrings.
+	//
+	// An empty list ranks every build equally on this axis, which is what every
+	// host looked like before serving features were ranked at all.
+	ServingFeaturePreference []string
 	// ProbeMemory measures how much memory a referenced gallery entry needs,
 	// without downloading it. A zero result means "could not tell", never
 	// "needs nothing".
@@ -123,16 +139,58 @@ func (e ResolveEnv) backendRuns(backend string) bool {
 // an unrecognised backend, an unrecognised capability and an absent preference
 // list all degrade to the same predictable place: ordering by size alone.
 func (e ResolveEnv) preferenceRank(backend string) int {
-	if len(e.EnginePreference) == 0 {
+	name := strings.ToLower(backend)
+	return preferenceIndex(e.EnginePreference, func(token string) bool {
+		return strings.Contains(name, token)
+	})
+}
+
+// servingFeatureRank scores a variant's entry name against the preferred
+// serving feature order, lower being better.
+//
+// It names no feature, exactly as preferenceRank names no engine: the ordered
+// list comes from pkg/system, so teaching LocalAI about a new serving feature
+// is a one-line edit to that table and never reaches this file.
+//
+// A build naming no feature is a plain build and scores just below the least
+// preferred known one, which is the whole point: whenever a faster way to serve
+// the same weights survived the filters, it outranks the plain build.
+func (e ResolveEnv) servingFeatureRank(entryName string) int {
+	segments := nameSegments(entryName)
+	return preferenceIndex(e.ServingFeaturePreference, func(token string) bool {
+		return slices.Contains(segments, token)
+	})
+}
+
+// preferenceIndex returns the position of the first token `matches` accepts.
+//
+// A subject matching no token scores just below the least preferred known one.
+// It is never dropped, and a list where nothing matches scores uniformly, so an
+// unrecognised subject and an absent preference list degrade to the same
+// predictable place: this axis stops discriminating and the next key decides.
+func preferenceIndex(tokens []string, matches func(token string) bool) int {
+	if len(tokens) == 0 {
 		return 0
 	}
-	name := strings.ToLower(backend)
-	for i, token := range e.EnginePreference {
-		if token != "" && strings.Contains(name, token) {
+	for i, token := range tokens {
+		if token != "" && matches(token) {
 			return i
 		}
 	}
-	return len(e.EnginePreference)
+	return len(tokens)
+}
+
+// nameSegments splits a gallery entry name into its lowercased alphanumeric
+// runs, so "qwen3.6-27b-nvfp4-mtp" yields ["qwen3", "6", "27b", "nvfp4", "mtp"].
+//
+// Whole-segment matching is what keeps a short marker from matching inside an
+// unrelated word. Entry names are author-supplied free text, unlike the engine
+// names preferenceRank matches as substrings, and those are a closed vocabulary
+// LocalAI defines itself.
+func nameSegments(name string) []string {
+	return strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
 }
 
 // VariantSelection is the outcome of a selection pass.
@@ -168,8 +226,11 @@ type VariantSelection struct {
 //     the largest thing that fits must win against a smaller variant, and a base
 //     of known size must win against a variant whose size nothing could measure.
 //  5. The survivors are ranked and the best one wins: fit tier first (rankOf
-//     below), then this host's backend preference, then size. Preference beats
-//     size deliberately, so a Mac takes an MLX build over a larger GGUF one.
+//     below), then this host's engine preference, then the serving feature
+//     preference, then size. Both preferences beat size deliberately, so a Mac
+//     takes an MLX build over a larger GGUF one, and a host that can hold a
+//     speculative-decoding build of the same weights takes it over the plain
+//     one.
 //  6. With no survivor at all, which can only happen when the caller supplied no
 //     base, there is nothing to install and this reports ErrNoVariantMatch.
 func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (VariantSelection, error) {
@@ -187,6 +248,7 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 		memory     uint64
 		rank       int
 		preference int
+		feature    int
 	}
 
 	survivors := make([]ranked, 0, len(options))
@@ -217,6 +279,7 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 			memory:     memory,
 			rank:       rankOf(o, env),
 			preference: env.preferenceRank(o.Backend),
+			feature:    env.servingFeatureRank(o.Variant.Model),
 		})
 	}
 
@@ -227,7 +290,7 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 		)
 	}
 
-	// Three keys, in this order, and the order is the whole design:
+	// Four keys, in this order, and the order is the whole design:
 	//
 	//  1. rank, the fit tier. Fit is a fact about whether the host can hold the
 	//     build at all, so nothing outranks it.
@@ -236,12 +299,24 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 	//     the smaller download. A Mac given an MLX build and a larger llama.cpp
 	//     build should run MLX; ranking by size first would install the GGUF and
 	//     leave the accelerated build unused. Do NOT move this below size.
-	//  3. memory, largest first, because among builds on equally preferred
-	//     runtimes a bigger build is a higher quality quantization of the same
-	//     model. Preference must not flatten this: two builds on one backend are
-	//     still ordered by size.
+	//  3. feature, the serving feature order. Among builds on an equally
+	//     preferred runtime, one that speculates or predicts several tokens per
+	//     step beats the plain build of the same weights, because it answers
+	//     faster for the same output.
 	//
-	// Stable so that options equal on all three keep their authored order, which
+	//     Engine outranks this deliberately. A serving feature makes the right
+	//     engine faster; it does not make a wrong engine right. Wearing the
+	//     wrong engine costs the whole GPU, whereas a plain build on the native
+	//     engine is merely slower than it could be, so a DFlash build on the
+	//     portable engine must not beat a plain build on the engine this host
+	//     actually serves well.
+	//  4. memory, largest first, because among builds on equally preferred
+	//     runtimes with the same serving feature a bigger build is a higher
+	//     quality quantization of the same model. Neither preference key may
+	//     flatten this: two plain builds on one backend are still ordered by
+	//     size.
+	//
+	// Stable so that options equal on all four keep their authored order, which
 	// is the only thing order still decides.
 	sort.SliceStable(survivors, func(i, j int) bool {
 		if survivors[i].rank != survivors[j].rank {
@@ -249,6 +324,9 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 		}
 		if survivors[i].preference != survivors[j].preference {
 			return survivors[i].preference < survivors[j].preference
+		}
+		if survivors[i].feature != survivors[j].feature {
+			return survivors[i].feature < survivors[j].feature
 		}
 		return survivors[i].memory > survivors[j].memory
 	})
@@ -263,8 +341,9 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 	}, nil
 }
 
-// Fit tiers, best first. Within a tier the host's preferred runtime wins, and
-// within one runtime the larger footprint wins; see the sort in SelectVariant.
+// Fit tiers, best first. Within a tier the host's preferred runtime wins, then
+// the preferred serving feature, then the larger footprint; see the sort in
+// SelectVariant.
 const (
 	// rankProvenFit is a measured size that the host is measured to satisfy.
 	rankProvenFit = iota
