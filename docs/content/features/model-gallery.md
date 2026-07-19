@@ -158,8 +158,10 @@ quantizations, or the same weights served by a different engine. Such an entry
 carries a `variants` list, and installing it normally lets LocalAI choose:
 
 - variants whose backend cannot run on this machine are dropped;
-- variants that do not fit the available memory (VRAM on a GPU host, otherwise
-  system RAM) are dropped;
+- variants that do not fit the available memory are dropped. That budget is
+  VRAM on a discrete-GPU host, and system RAM otherwise — including on
+  unified-memory machines such as Apple Silicon, where the GPU shares system
+  RAM and reports no separate VRAM pool;
 - the entry's own build is never dropped. It competes with whatever survived
   rather than waiting for everything else to fail, so an entry that is itself
   the largest build that fits keeps its own payload;

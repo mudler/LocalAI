@@ -287,16 +287,23 @@ const noGPUDetected = "default"
 
 // availableModelMemory reports how much memory a model may occupy on this host.
 //
-// With a usable GPU the model lives in VRAM. Without one it lives in system
+// With a discrete GPU the model lives in VRAM. Otherwise it lives in system
 // RAM, read through xsysinfo because that path is cgroup-aware: under
 // Kubernetes the container's limit, not the node's physical RAM, is what the
 // model actually gets.
+//
+// A detected GPU whose VRAM reads as zero falls back to RAM rather than to
+// zero. That is the normal shape of a unified-memory host, not an error:
+// arm64 macs report the metal capability unconditionally, yet have no discrete
+// VRAM pool for TotalAvailableVRAM to find, so the model's real budget is
+// system RAM. Returning the zero here would strand every Mac on the base
+// build no matter how much memory it has.
 //
 // An unreadable RAM figure yields 0, which drops every variant with a known
 // requirement and installs the base. That is the safe direction: an unknown
 // host should not be talked into a larger download.
 func availableModelMemory(systemState *system.SystemState) uint64 {
-	if systemState.DetectedCapability() != noGPUDetected {
+	if systemState.DetectedCapability() != noGPUDetected && systemState.VRAM > 0 {
 		return systemState.VRAM
 	}
 	ram, err := xsysinfo.GetSystemRAMInfo()
