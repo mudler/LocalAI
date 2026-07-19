@@ -1030,10 +1030,9 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	// Derive the frontend models directory from ModelFile and Model.
 	// Example: ModelFile="/models/sd-cpp/models/flux.gguf", Model="sd-cpp/models/flux.gguf"
 	// → frontendModelsDir="/models"
-	frontendModelsDir := ""
-	if opts.ModelFile != "" && opts.Model != "" {
-		frontendModelsDir = filepath.Clean(strings.TrimSuffix(opts.ModelFile, opts.Model))
-	}
+	// A managed artifact anchors on the models root that holds the whole
+	// .artifacts tree instead, so sibling companion snapshots stay in scope.
+	frontendModelsDir := ModelsRootForModelFile(opts.ModelFile, opts.Model)
 
 	// Local model directory, captured before the ModelFile field is rewritten to
 	// its remote path below. Companion assets declared as option paths (e.g.
@@ -1101,9 +1100,15 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		if *f.val == "" {
 			continue
 		}
-		// Skip non-existent files
+		// Skip non-existent files. This is legitimate — a backend that takes a
+		// bare HuggingFace repo id gets an optimistically constructed path that
+		// was never materialized, and fetches its own weights on the worker — so
+		// it must not fail the load. But it is warn-level because the same skip
+		// is what a genuine controller-side acquisition gap looks like, and at
+		// debug it left the operator with a reassuring "Staging model files"
+		// line for work that never happened.
 		if _, err := os.Stat(*f.val); os.IsNotExist(err) {
-			xlog.Debug("Skipping staging for non-existent path", "field", f.name, "path", *f.val)
+			xlog.Warn("Skipping staging for non-existent path; the worker will have to source this itself", "field", f.name, "path", *f.val, "node", node.Name, "trackingKey", trackingKey)
 			*f.val = ""
 			continue
 		}
@@ -1126,8 +1131,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 				continue
 			}
 			*f.val = remoteDir
-			if f.name == "ModelFile" && opts.Model != "" {
-				opts.ModelPath = DeriveRemoteModelPath(remoteDir, opts.Model)
+			if f.name == "ModelFile" {
+				opts.ModelPath = DeriveRemoteModelPath(remoteDir, relativeToModelsDir(frontendModelsDir, localPath, opts.Model))
 				xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 			}
 			continue
@@ -1164,8 +1169,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		// remotePath = "/worker/models/{trackingKey}/sd-cpp/models/flux.gguf"
 		// Model = "sd-cpp/models/flux.gguf"
 		// → ModelPath = "/worker/models/{trackingKey}"
-		if f.name == "ModelFile" && opts.Model != "" {
-			opts.ModelPath = DeriveRemoteModelPath(remotePath, opts.Model)
+		if f.name == "ModelFile" {
+			opts.ModelPath = DeriveRemoteModelPath(remotePath, relativeToModelsDir(frontendModelsDir, localPath, opts.Model))
 			xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 		}
 

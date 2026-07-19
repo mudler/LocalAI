@@ -12,12 +12,18 @@ import (
 const (
 	SourceTypeHuggingFace = "huggingface"
 	TargetModel           = "model"
-	HuggingFaceTokenEnv   = "HF_TOKEN"
+	// TargetCompanion marks a snapshot that supports the primary model rather
+	// than being it: a composed pipeline may pull its tokenizer, text encoder or
+	// VAE from a separate repository. Companions are surfaced to the backend as
+	// named options, never as the load target.
+	TargetCompanion     = "companion"
+	HuggingFaceTokenEnv = "HF_TOKEN"
 )
 
 var (
-	commitPattern   = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	cacheKeyPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	commitPattern       = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	cacheKeyPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	artifactNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 )
 
 type Spec struct {
@@ -50,19 +56,39 @@ type Resolved struct {
 }
 
 func (s Spec) Normalize() (Spec, error) {
-	if strings.TrimSpace(s.Name) == "" {
-		s.Name = TargetModel
-	}
 	if strings.TrimSpace(s.Target) == "" {
 		s.Target = TargetModel
 	}
 	s.Name = strings.TrimSpace(s.Name)
 	s.Target = strings.TrimSpace(s.Target)
+	// The primary is always named "model": the whole codebase addresses it
+	// positionally as Artifacts[0], so a second spelling would buy nothing and
+	// break the pre-companion configs that omit the field entirely.
+	if s.Target == TargetModel && s.Name == "" {
+		s.Name = TargetModel
+	}
 	s.Source.Type = strings.TrimSpace(s.Source.Type)
 	s.Source.TokenEnv = strings.TrimSpace(s.Source.TokenEnv)
 
-	if s.Name != TargetModel || s.Target != TargetModel {
-		return Spec{}, fmt.Errorf("only artifact name/target %q is supported", TargetModel)
+	switch s.Target {
+	case TargetModel:
+		if s.Name != TargetModel {
+			return Spec{}, fmt.Errorf("the primary artifact name must be %q, got %q", TargetModel, s.Name)
+		}
+	case TargetCompanion:
+		// A companion's name is the option key the backend receives, so it has
+		// to survive that round trip unambiguously.
+		if !artifactNamePattern.MatchString(s.Name) {
+			return Spec{}, fmt.Errorf("companion artifact name %q must match %s", s.Name, artifactNamePattern)
+		}
+		if s.Name == TargetModel {
+			return Spec{}, fmt.Errorf("companion artifact name %q is reserved for the primary", TargetModel)
+		}
+	default:
+		return Spec{}, fmt.Errorf("unsupported artifact target %q", s.Target)
+	}
+	if s.Source.Type != SourceTypeHuggingFace {
+		return Spec{}, fmt.Errorf("unsupported artifact source type %q", s.Source.Type)
 	}
 	if s.Source.Type != SourceTypeHuggingFace {
 		return Spec{}, fmt.Errorf("unsupported artifact source type %q", s.Source.Type)
@@ -112,6 +138,12 @@ func (s Spec) Normalize() (Spec, error) {
 		}
 		resolved.PrimaryFile = strings.TrimSpace(resolved.PrimaryFile)
 		if resolved.PrimaryFile != "" {
+			// PrimaryFile exists to point a single-file backend at the weight
+			// file inside a snapshot. A companion is never the load target, so
+			// carrying one would encode an intent nothing acts on.
+			if s.Target == TargetCompanion {
+				return Spec{}, fmt.Errorf("companion artifact %q must not declare primary_file", s.Name)
+			}
 			if err := ValidateRelativeHubPath(resolved.PrimaryFile); err != nil {
 				return Spec{}, err
 			}

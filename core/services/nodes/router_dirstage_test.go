@@ -96,14 +96,22 @@ var _ = Describe("stageModelFiles directory models", func() {
 		expectedKeys := make([]string, 0, len(files))
 		for relative := range files {
 			expectedPaths = append(expectedPaths, filepath.Join(snapshot, relative))
-			expectedKeys = append(expectedKeys, storage.ModelKey(filepath.Join("managed-model", relative)))
+			// Keys keep the full models-root-relative path, including the
+			// .artifacts/huggingface/<key>/snapshot prefix. This changed when
+			// companion artifacts arrived: keys used to be relative to the
+			// snapshot itself, which flattened the prefix away and left two
+			// snapshots of one model indistinguishable on the worker.
+			expectedKeys = append(expectedKeys, storage.ModelKey(filepath.Join("managed-model", relativeSnapshot, relative)))
 		}
 		Expect(stagedPaths).To(ConsistOf(expectedPaths))
 		Expect(stagedKeys).To(ConsistOf(expectedKeys))
-		remoteSnapshot := filepath.Join("/remote", storage.ModelKey("managed-model"))
+		remoteRoot := filepath.Join("/remote", storage.ModelKey("managed-model"))
 		Expect(stagedOpts.Model).To(Equal(logicalModel))
-		Expect(stagedOpts.ModelFile).To(Equal(remoteSnapshot))
-		Expect(stagedOpts.ModelPath).To(Equal(remoteSnapshot))
+		Expect(stagedOpts.ModelFile).To(Equal(filepath.Join(remoteRoot, relativeSnapshot)))
+		// ModelPath is the staged models ROOT, not the snapshot. It used to be
+		// the snapshot, which made every relative option resolve inside the
+		// primary and put a sibling companion snapshot out of reach.
+		Expect(stagedOpts.ModelPath).To(Equal(remoteRoot))
 		Expect(opts.Model).To(Equal(logicalModel))
 		Expect(opts.ModelFile).To(Equal(snapshot))
 	})

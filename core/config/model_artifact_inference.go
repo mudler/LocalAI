@@ -21,6 +21,7 @@ var managedArtifactBackends = map[string]struct{}{
 	"transformers-musicgen": {}, "mamba": {}, "diffusers": {}, "qwen-asr": {},
 	"fish-speech": {}, "nemo": {}, "voxcpm": {}, "qwen-tts": {},
 	"liquid-audio": {}, "vllm": {}, "vllm-omni": {}, "sglang": {},
+	"longcat-video": {},
 }
 
 // IsManagedArtifactBackend reports whether backend consumes a model as a

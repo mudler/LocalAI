@@ -505,6 +505,24 @@ func (bcl *ModelConfigLoader) preloadOne(
 		}
 	}
 
+	// Companions are only ever declared explicitly, so unlike the inferred
+	// primary above they have no legacy path to fall back to: a config that
+	// names one is asserting the backend needs it. Failing here keeps the error
+	// at the acquisition boundary instead of surfacing as a confusing
+	// missing-weights error inside the backend.
+	if managedPrimary {
+		for i := 1; i < len(updated.Artifacts); i++ {
+			if updated.Artifacts[i].Target != modelartifacts.TargetCompanion {
+				continue
+			}
+			companion, err := bcl.artifactMaterializer.Ensure(ctx, modelPath, updated.Artifacts[i])
+			if err != nil {
+				return ModelConfig{}, nil, fmt.Errorf("materialize companion artifact %q: %w", updated.Artifacts[i].Name, err)
+			}
+			updated.Artifacts[i] = companion.Spec
+		}
+	}
+
 	if !managedPrimary && updated.IsModelURL() {
 		modelFileName := updated.ModelFileName()
 		uri := downloader.URI(updated.Model)
