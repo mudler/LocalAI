@@ -12,12 +12,16 @@ ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 ENV DEBIAN_FRONTEND=noninteractive
 
+# hwdata ships /usr/share/hwdata/pci.ids. Without it, the ghw library we use
+# for hardware detection cannot resolve PCI vendor IDs and fails to enumerate
+# GPUs at all, so the image reports "No GPU detected" (see issue #10941).
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        ffmpeg libopenblas0 libopenblas-dev libopus0 sox && \
+        ffmpeg libopenblas0 libopenblas-dev libopus0 sox \
+        hwdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
