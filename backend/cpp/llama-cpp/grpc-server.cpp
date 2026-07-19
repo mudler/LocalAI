@@ -1401,9 +1401,35 @@ class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
     common_params params_base; // Store copy of params_base, set after model load
+    // The ModelOptions.Model this process was loaded with. Compared against
+    // PredictOptions.ModelIdentity so a request that reached us through a stale
+    // distributed route is rejected instead of answered from the wrong model
+    // (#10952). Written under LoadModel, read by the inference RPCs.
+    std::string loaded_model_identity;
 
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
+
+    // checkModelIdentity mirrors pkg/grpc/server.go and
+    // backend/python/common/model_identity.py. Either side being empty means
+    // "skip": the request side is empty for a controller that predates the
+    // field and for the synthetic PredictOptions this server builds internally
+    // for ASR, and the loaded side is empty when such a controller performed
+    // the load. A false rejection is worse than the miss it prevents.
+    grpc::Status checkModelIdentity(const backend::PredictOptions* request) {
+        if (request == nullptr || request->modelidentity().empty()) {
+            return grpc::Status::OK;
+        }
+        if (loaded_model_identity.empty() || loaded_model_identity == request->modelidentity()) {
+            return grpc::Status::OK;
+        }
+        // NOT_FOUND plus this exact sentinel is the cross-language contract the
+        // router matches on (grpcerrors.ModelMismatchSentinel). The code alone
+        // is not enough: NOT_FOUND is returned for unrelated reasons elsewhere.
+        return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                            "llama-cpp: model identity mismatch: loaded \"" + loaded_model_identity +
+                            "\", requested \"" + request->modelidentity() + "\"");
+    }
 
     grpc::Status Health(ServerContext* context, const backend::HealthMessage* /*request*/, backend::Reply* reply) override {
         auto auth = checkAuth(context);
@@ -1535,6 +1561,7 @@ public:
         result->set_message("Loading succeeded");
         result->set_success(true);
         loaded_model = true;
+        loaded_model_identity = request->model();
         // Store copy of params_base for use in parse_options and other methods
         params_base = params;
 
@@ -1616,6 +1643,8 @@ public:
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
@@ -2183,6 +2212,8 @@ public:
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) override {
          auto auth = checkAuth(context);
          if (!auth.ok()) return auth;
+         auto identity = checkModelIdentity(request);
+         if (!identity.ok()) return identity;
          if (params_base.model.path.empty()) {
              return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
          }
@@ -2715,6 +2746,8 @@ public:
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
@@ -3108,6 +3141,8 @@ public:
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }

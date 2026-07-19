@@ -315,6 +315,32 @@ message PredictOptions {
   int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
   map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
   float MinP = 53;  // Minimum probability sampling threshold (0.0 = disabled)
+
+  // ModelIdentity names the model this request is for, so a backend can reject
+  // a request that reached it by mistake instead of answering from whatever
+  // model it happens to hold. In distributed mode a worker can recycle a
+  // stopped backend's gRPC port for a different model's backend, and a
+  // liveness-only health probe cannot tell that apart from a valid cached
+  // route (#10952).
+  //
+  // The value is the controller's ModelConfig.Model, the SAME expression that
+  // produces ModelOptions.Model at LoadModel time, so the two are equal by
+  // construction rather than by convention.
+  //
+  // Empty means "no identity supplied": backends MUST skip the check. That
+  // keeps an old controller talking to a new backend working, and covers
+  // callers that legitimately synthesize a PredictOptions internally.
+  //
+  // Do NOT reuse TTSRequest.model or SoundGenerationRequest.model for this
+  // purpose. FileStagingClient already rewrites those to worker-local absolute
+  // paths (core/services/nodes/file_staging_client.go), so in distributed mode
+  // they already differ from the load-time value and comparing them would
+  // reject valid requests. Extending identity to those RPCs needs a separate
+  // field carrying the untranslated value.
+  string ModelIdentity = 54;
+
+  // 24 was never assigned; reserve it so it is not silently reused.
+  reserved 24;
 }
 
 // ToolCallDelta represents an incremental tool call update from the C++ parser.

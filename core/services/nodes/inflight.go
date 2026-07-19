@@ -86,18 +86,29 @@ func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 // request triggers a fresh load instead of routing back here. Without this the
 // model stays unreachable until the controller restarts. The original error is
 // returned unchanged.
+//
+// It also drops the row when the backend reports that it has a DIFFERENT model
+// loaded. That happens when a worker recycles a stopped backend's gRPC port for
+// another model's backend: the cached row still names that address, and a
+// liveness-only probe cannot tell the stale row from a valid one, so the wrong
+// backend answers (#10952). The two conditions differ in cause but not in cure.
 func (c *InFlightTrackingClient) reconcile(err error) error {
-	if !grpcerrors.IsModelNotLoaded(err) {
+	mismatch := grpcerrors.IsModelMismatch(err)
+	if !grpcerrors.IsModelNotLoaded(err) && !mismatch {
 		return err
+	}
+	reason := "model not loaded"
+	if mismatch {
+		reason = "wrong model loaded"
 	}
 	rmCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if rmErr := c.registry.RemoveNodeModel(rmCtx, c.nodeID, c.modelName, c.replicaIndex); rmErr != nil {
-		xlog.Warn("Failed to drop stale replica after model-not-loaded",
-			"node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex, "error", rmErr)
+		xlog.Warn("Failed to drop stale replica",
+			"node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex, "reason", reason, "error", rmErr)
 	} else {
-		xlog.Warn("Backend reports model not loaded; dropped stale replica so the next request reloads",
-			"node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex)
+		xlog.Warn("Dropped stale replica so the next request reloads",
+			"node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex, "reason", reason)
 	}
 	return err
 }

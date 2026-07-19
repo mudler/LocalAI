@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc"
@@ -54,6 +55,22 @@ func snapshotLoadParams() *pb.ModelOptions {
 	return lastLoadParams
 }
 
+// checkModelIdentity mirrors the guard the real backends apply (pkg/grpc,
+// backend/python/common/model_identity.py, backend/cpp/*/grpc-server.cpp) so
+// the distributed e2e suite exercises the #10952 fix rather than only the
+// unit tests. Empty on either side means skip, which is why every existing
+// spec that sends a bare PredictOptions keeps working.
+func checkModelIdentity(in *pb.PredictOptions) error {
+	if in == nil || in.ModelIdentity == "" {
+		return nil
+	}
+	opts := snapshotLoadParams()
+	if opts == nil || opts.Model == "" || opts.Model == in.ModelIdentity {
+		return nil
+	}
+	return grpcerrors.ModelMismatch("mock-backend", opts.Model, in.ModelIdentity)
+}
+
 // promptHasToolResults checks if the prompt contains evidence of prior tool
 // execution — specifically the output from the mock MCP server's get_weather tool.
 func promptHasToolResults(prompt string) bool {
@@ -79,6 +96,9 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 }
 
 func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
@@ -232,6 +252,9 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 }
 
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
+	if err := checkModelIdentity(in); err != nil {
+		return err
+	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
 		return fmt.Errorf("mock backend stream error: simulated failure")
@@ -391,6 +414,9 @@ func mockToolNameFromRequest(in *pb.PredictOptions) string {
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Embedding called", "prompt", in.Prompt)
 	// Return a mock embedding vector of 768 dimensions
 	embeddings := make([]float32, 768)
@@ -574,6 +600,9 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 }
 
 func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("TokenizeString called", "prompt_len", len(in.Prompt))
 	// Approximate BPE: ~4 chars/token, minimum 1. Realistic enough for the
 	// router's fitMessages to exercise the budget/rune-pretrim path with

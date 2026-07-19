@@ -514,6 +514,13 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 	}
 
 	pbOpts := &pb.PredictOptions{
+		// c.Model, not c.ModelID()/c.ModelFileName(): this must be the SAME
+		// expression ModelOptions feeds to model.WithModel, which is what the
+		// backend receives as ModelOptions.Model at LoadModel time. Both are
+		// read from this same config value, so the backend's equality check
+		// cannot false-reject. See PredictOptions.ModelIdentity in
+		// backend/backend.proto and #10952.
+		ModelIdentity:       c.Model,
 		Temperature:         float32(*c.Temperature),
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,
