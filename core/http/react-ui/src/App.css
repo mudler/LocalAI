@@ -9164,3 +9164,233 @@ button.collapsible-header:focus-visible {
 .model-chip__state { opacity: 0.85; font-style: normal; }
 .node-filter { margin-bottom: var(--spacing-lg); }
 .node-detail__metrics { display: flex; gap: var(--spacing-xl); margin: var(--spacing-md) 0 var(--spacing-lg); flex-wrap: wrap; }
+
+/* Rendered Markdown ---------------------------------------------------------
+   Gallery descriptions, backend descriptions and voice notes are all
+   author-supplied Markdown pasted from model cards. Left unscoped they inherit
+   browser defaults, so a description that opens with `#` renders a 2em heading
+   inside a 13px surface while a `##` further down is indistinguishable from
+   body text. This maps the whole element set onto the UI type scale so any
+   description reads as part of the app rather than as a document dropped into
+   it. Apply it to every element fed by renderMarkdown(). */
+.markdown-body {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  margin: var(--spacing-md) 0 var(--spacing-xs);
+}
+.markdown-body h1 { font-size: var(--text-lg); }
+.markdown-body h2 { font-size: var(--text-base); }
+.markdown-body h3 { font-size: var(--text-sm); }
+/* Below h3 the scale has no room left to separate levels by size, so the
+   remaining depth is carried by case and weight instead. */
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.markdown-body p { margin: 0 0 var(--spacing-sm); }
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 var(--spacing-sm);
+  padding-left: var(--spacing-lg);
+}
+.markdown-body li { margin-bottom: var(--spacing-xs); }
+.markdown-body li:last-child { margin-bottom: 0; }
+.markdown-body li > ul,
+.markdown-body li > ol { margin-top: var(--spacing-xs); }
+
+.markdown-body a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-body a:hover { color: var(--color-primary-hover); }
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+.markdown-body pre {
+  margin: 0 0 var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--text-xs);
+}
+
+.markdown-body blockquote {
+  margin: 0 0 var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  border-left: 2px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-border-divider);
+  margin: var(--spacing-md) 0;
+}
+/* Tables are the one element that can exceed the measure, so they scroll in
+   their own box rather than widening the surface around them. */
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--text-xs);
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  text-align: left;
+}
+.markdown-body th {
+  background: var(--color-bg-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Prose block in a detail pane. The label/value table beside it is right for
+   scalars, but multi-paragraph prose in a value cell runs the full pane width
+   and swamps the rows it sits above, so the description gets its own
+   full-width block with a reading measure. */
+.detail-prose {
+  margin-bottom: var(--spacing-md);
+}
+.detail-prose__label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+.detail-prose__body {
+  max-width: 68ch;
+}
+
+/* Variant list --------------------------------------------------------------
+   One row per alternative build of the same model. Names vary in length, so
+   the rows share the parent's tracks and line up as columns; the name leads
+   because it is what the reader is choosing between. Only the informative
+   status is badged: "fits" is true of nearly every row and says nothing, while
+   a build that does not fit, and the one that plain Install would pick, do. */
+.variant-list {
+  /* Content-width rather than pane-width: a full-width row would strand the
+     install affordance an inch of empty space away from the name it acts on. */
+  display: grid;
+  width: max-content;
+  max-width: 100%;
+  grid-template-columns: minmax(0, auto) max-content max-content max-content max-content;
+  column-gap: var(--spacing-md);
+  row-gap: 2px;
+}
+.variant-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default);
+}
+/* Subgrid keeps the columns shared across rows; without it each row falls back
+   to sizing its own tracks, which is ragged but still legible. */
+@supports not (grid-template-columns: subgrid) {
+  .variant-row { grid-template-columns: minmax(22ch, auto) max-content max-content max-content max-content; }
+}
+.variant-row:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-default);
+}
+.variant-row:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+.variant-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.variant-row__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.variant-row__backend,
+.variant-row__size {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.variant-row__size {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.variant-row__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+.variant-row__action {
+  color: var(--color-text-disabled);
+  font-size: var(--text-xs);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+.variant-row:hover:not(:disabled) .variant-row__action,
+.variant-row:focus-visible .variant-row__action {
+  color: var(--color-primary);
+}
+/* A build that does not fit stays installable, an explicit choice being an
+   override the server honours, but it should not read as a peer of the ones
+   that do. */
+.variant-row--unfit .variant-row__name {
+  color: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variant-row,
+  .variant-row__action { transition: none; }
+}

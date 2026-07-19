@@ -848,7 +848,7 @@ function BackendDetail({ backend }) {
           <BackendDetailRow label="Description">
             {backend.description && (
               <div
-                style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}
+                className="markdown-body"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(backend.description) }}
               />
             )}

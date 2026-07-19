@@ -319,7 +319,7 @@ JSON` : ''
                   <span className="voice-detail__eyebrow">{t('voiceLibrary.detail.eyebrow')}</span>
                   <h2>{selected.name}</h2>
                   {selected.description && (
-                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.description) }} />
+                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.description) }} />
                   )}
                 </div>
                 <StatusPill status="healthy" label={t('voiceLibrary.status.ready')} />

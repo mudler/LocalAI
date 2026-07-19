@@ -1079,7 +1079,7 @@ function ModelDetail({ model, enriched, matchedCaps, distributedMode, onNavigate
         <dd>
           {description ? (
             <div
-              className="resource-row__detail-md"
+              className="resource-row__detail-md markdown-body"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
             />
           ) : (
@@ -1189,7 +1189,7 @@ function BackendDetail({ backend, enriched, upgradeInfo, nodes, distributedMode 
         <dd>
           {description ? (
             <div
-              className="resource-row__detail-md"
+              className="resource-row__detail-md markdown-body"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
             />
           ) : (

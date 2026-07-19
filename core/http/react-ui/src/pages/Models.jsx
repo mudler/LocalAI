@@ -672,7 +672,7 @@ export default function Models() {
                     {isExpanded && (
                       <tr>
                         <td colSpan="8" style={{ padding: 0 }}>
-                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} variantData={hasVariants ? variantData[name] : null} t={t} />
+                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} variantData={hasVariants ? variantData[name] : null} installing={installing} onInstall={handleInstall} t={t} />
                         </td>
                       </tr>
                     )}
@@ -796,20 +796,25 @@ function DetailRow({ label, children }) {
   )
 }
 
-function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, t }) {
+function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, installing, onInstall, t }) {
   const files = model.additionalFiles || model.files || []
+  const name = model.name || model.id
   return (
     <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+      {model.description && (
+        // Prose sits outside the label/value table: an eight-line value cell
+        // in a grid of one-line ones breaks the rhythm exactly where the eye
+        // enters, and the full pane width is roughly double a readable measure.
+        <div className="detail-prose">
+          <div className="detail-prose__label">{t('detail.description')}</div>
+          <div
+            className="markdown-body detail-prose__body"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(model.description) }}
+          />
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <tbody>
-          <DetailRow label={t('detail.description')}>
-            {model.description && (
-              <div
-                style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(model.description) }}
-              />
-            )}
-          </DetailRow>
           <DetailRow label={t('detail.gallery')}>
             {model.gallery && (
               <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
@@ -848,23 +853,38 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           )}
           {variantData?.variants?.length > 0 && (
             <DetailRow label={t('variants.title')}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
-                {variantData.variants.map(v => (
-                  <div key={v.model} className="model-variant-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{v.model}</span>
-                    <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{v.backend || t('variants.unknownBackend')}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{variantSizeLabel(v, t)}</span>
-                    <span className={`badge ${v.fits ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.6875rem' }}>
-                      {v.fits ? t('variants.fits') : t('variants.doesNotFit')}
-                    </span>
-                    {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{t('variants.base')}</span>}
-                    {v.model === variantData.auto_selected && (
-                      <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
-                        <i className="fas fa-circle-check" /> {t('variants.autoSelected')}
+              <div className="variant-list">
+                {variantData.variants.map(v => {
+                  const isAuto = v.model === variantData.auto_selected
+                  return (
+                    // Listing the alternatives without offering them made the
+                    // detail view read as a menu that could not be ordered
+                    // from; installing one is the same call the split-button
+                    // chevron already makes.
+                    <button
+                      key={v.model}
+                      type="button"
+                      className={`variant-row${v.fits ? '' : ' variant-row--unfit'}`}
+                      disabled={installing}
+                      aria-label={t('variants.installVariant', { variant: v.model })}
+                      onClick={(e) => { e.stopPropagation(); onInstall(name, v.model) }}
+                    >
+                      <span className="variant-row__name">{v.model}</span>
+                      <span className="variant-row__backend">{v.backend || t('variants.unknownBackend')}</span>
+                      <span className="variant-row__size">{variantSizeLabel(v, t)}</span>
+                      <span className="variant-row__status">
+                        {isAuto && (
+                          <span className="badge badge-success">
+                            <i className="fas fa-circle-check" /> {t('variants.autoSelected')}
+                          </span>
+                        )}
+                        {!v.fits && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
+                        {v.is_base && !isAuto && <span className="badge badge-info">{t('variants.base')}</span>}
                       </span>
-                    )}
-                  </div>
-                ))}
+                      <i className="fas fa-download variant-row__action" aria-hidden="true" />
+                    </button>
+                  )
+                })}
               </div>
             </DetailRow>
           )}

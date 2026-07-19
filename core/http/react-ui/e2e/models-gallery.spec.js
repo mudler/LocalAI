@@ -663,6 +663,64 @@ test.describe("Models Gallery - Variant picker", () => {
     // Expanding is the second trigger point, so it pays for exactly one fetch.
     expect(variantUrls).toHaveLength(1);
   });
+
+  test("the variant rows line up as columns", async ({ page }) => {
+    await variantRow(page).click();
+    const rows = page.locator(".variant-row");
+    await expect(rows).toHaveCount(4);
+    const columns = await rows.evaluateAll((els) =>
+      els.map((el) => ({
+        backend: el.querySelector(".variant-row__backend").getBoundingClientRect().x,
+        size: el.querySelector(".variant-row__size").getBoundingClientRect().right,
+      })),
+    );
+    // Names differ in length, so without shared tracks each row would start
+    // its backend at a different x. Sub-pixel rounding is the only tolerance.
+    for (const c of columns) {
+      expect(Math.abs(c.backend - columns[0].backend)).toBeLessThan(1.5);
+      expect(Math.abs(c.size - columns[0].size)).toBeLessThan(1.5);
+    }
+  });
+
+  test("only the informative status is badged", async ({ page }) => {
+    await variantRow(page).click();
+    const detail = page.locator('td[colspan="8"]');
+    await expect(detail.locator(".variant-row")).toHaveCount(4);
+    // "Fits" was true of three rows out of four and said nothing; the row that
+    // does not fit is the one worth marking.
+    await expect(detail.getByText("Fits", { exact: true })).toHaveCount(0);
+    const unfit = detail.locator(".variant-row--unfit");
+    await expect(unfit).toHaveCount(1);
+    await expect(unfit).toContainText("llama-model-f16");
+    await expect(unfit.locator(".badge-warning")).toHaveText("Does not fit");
+    // Auto-selected still answers "what do I get if I just hit Install".
+    await expect(
+      detail.locator(".variant-row", { hasText: "llama-model-q8" }),
+    ).toContainText("Auto-selected");
+  });
+
+  test("clicking a variant row installs that variant", async ({ page }) => {
+    await variantRow(page).click();
+    await page
+      .locator(".variant-row", { hasText: "llama-model-mlx" })
+      .click();
+    await expect.poll(() => installUrls.length).toBe(1);
+    expect(installUrls[0]).toContain("variant=llama-model-mlx");
+  });
+
+  test("a variant row is reachable and actionable from the keyboard", async ({
+    page,
+  }) => {
+    await variantRow(page).click();
+    const row = page.locator(".variant-row", { hasText: "llama-model-f16" });
+    await row.focus();
+    // A build that does not fit stays installable: the explicit choice is an
+    // override the server honours.
+    await expect(row).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => installUrls.length).toBe(1);
+    expect(installUrls[0]).toContain("variant=llama-model-f16");
+  });
 });
 
 // The gallery is heading towards hiding the individual builds a parent entry
@@ -843,6 +901,14 @@ const MARKDOWN_MODELS_RESPONSE = {
       tags: ["chat"],
     },
     {
+      name: "headings-model",
+      description:
+        "# Top Heading\n\nBody copy.\n\n## Sub Heading\n\nMore body copy.",
+      backend: "llama-cpp",
+      installed: false,
+      tags: ["chat"],
+    },
+    {
       name: "no-description-model",
       description: "",
       backend: "llama-cpp",
@@ -850,7 +916,7 @@ const MARKDOWN_MODELS_RESPONSE = {
       tags: ["chat"],
     },
   ],
-  availableModels: 2,
+  availableModels: 3,
   installedModels: 0,
 };
 
@@ -917,5 +983,66 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     const row = page.locator("tr", { hasText: "no-description-model" });
     await expect(row).toBeVisible();
     await expect(row.locator("div[title='']")).toHaveText("—");
+  });
+
+  test("a heading in the description renders on the UI type scale", async ({
+    page,
+  }) => {
+    await page.locator("tr", { hasText: "headings-model" }).click();
+    const prose = page.locator(".detail-prose__body.markdown-body");
+    await expect(prose).toBeVisible();
+
+    const h1 = prose.locator("h1");
+    await expect(h1).toHaveText("Top Heading");
+    const sizes = await prose.evaluate((el) => {
+      const px = (sel) =>
+        parseFloat(getComputedStyle(el.querySelector(sel)).fontSize);
+      return { h1: px("h1"), h2: px("h2"), p: px("p") };
+    });
+    // The bug: an unscoped h1 inherits the browser default 2em, which is 26px
+    // inside this 13px surface and swamps the pane. The scale tops out at
+    // --text-xl (1.25rem / 20px), so anything at or above that is the default
+    // leaking through rather than a styled heading.
+    expect(sizes.h1).toBeGreaterThan(sizes.p);
+    expect(sizes.h1).toBeLessThanOrEqual(20);
+    expect(sizes.h1).toBeGreaterThanOrEqual(14);
+    // The inverse defect: a subheading that is indistinguishable from body
+    // text. It must stay below h1 and at or above the body size.
+    expect(sizes.h2).toBeLessThanOrEqual(sizes.h1);
+    expect(sizes.h2).toBeGreaterThanOrEqual(sizes.p);
+  });
+
+  test("the description sits outside the label/value grid on a readable measure", async ({
+    page,
+  }) => {
+    await page.locator("tr", { hasText: "headings-model" }).click();
+    const detail = page.locator('td[colspan="8"]');
+    // Description is no longer a row of the scalar table.
+    await expect(detail.locator("table td", { hasText: "Description" })).toHaveCount(
+      0,
+    );
+    await expect(detail.locator(".detail-prose__label")).toHaveText(
+      "Description",
+    );
+    const proseWidth = await page
+      .locator(".detail-prose__body")
+      .evaluate((el) => el.getBoundingClientRect().width);
+    const paneWidth = await detail.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    // A measure, not the full pane: the cap is a ch count, so the exact pixel
+    // value moves with the font, but it must stay well inside the pane.
+    expect(proseWidth).toBeLessThan(paneWidth * 0.85);
+  });
+
+  test("a model without a description renders no prose block", async ({
+    page,
+  }) => {
+    await page.locator("tr", { hasText: "no-description-model" }).click();
+    const detail = page.locator('td[colspan="8"]');
+    await expect(detail).toBeVisible();
+    await expect(detail.locator(".detail-prose")).toHaveCount(0);
+    // The scalar rows still render, so the pane is not blank.
+    await expect(detail).toContainText("Backend");
   });
 });
