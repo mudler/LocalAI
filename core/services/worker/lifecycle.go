@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"syscall"
 
 	"github.com/mudler/LocalAI/core/gallery"
@@ -137,7 +139,14 @@ func (s *backendSupervisor) handleBackendStop(data []byte) {
 		return
 	}
 	xlog.Info("Received NATS backend.stop event", "backend", req.Backend, "force", req.Force)
-	s.stopBackend(req.Backend, req.Force)
+	// The identifier may be a backend name, a model name, or an exact
+	// modelID#replica key depending on the publisher; resolveStopTargets
+	// handles all three. stopBackend alone resolves only the model meanings.
+	for _, key := range s.resolveStopTargets(req.Backend) {
+		if err := s.stopBackendExact(key, req.Force); err != nil {
+			xlog.Error("Failed to stop backend process", "backend", req.Backend, "processKey", key, "error", err)
+		}
+	}
 }
 
 func decodeBackendStopRequest(data []byte) (messaging.BackendStopRequest, bool, error) {
@@ -162,9 +171,36 @@ func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte))
 	}
 	xlog.Info("Received NATS backend.delete event", "backend", req.Backend)
 
-	// Stop if running this backend
-	if s.isRunning(req.Backend) {
-		s.stopBackend(req.Backend, false)
+	// Resolve the backend's identity (concrete name + alias) BEFORE touching
+	// the filesystem: DeleteBackendFromSystem removes the metadata.json that
+	// carries the alias, and a model loaded via the alias records the alias as
+	// its process's backend name.
+	identity := s.backendIdentity(req.Backend)
+
+	// Stop every process started for this backend. Processes are keyed by
+	// modelID#replica, so the lookup must match the recorded backend name — a
+	// lookup by backend name alone resolved to nothing and left the process
+	// running with its directory deleted underneath it.
+	keys := s.resolveProcessKeysForBackend(identity)
+	if len(keys) == 0 {
+		// Not an error: deleting a backend that was never loaded is routine.
+		// But log it — silence here is what made the orphan case invisible.
+		xlog.Info("Deleting backend with no matching running process",
+			"backend", req.Backend, "identity", slices.Sorted(maps.Keys(identity)))
+	}
+	for _, key := range keys {
+		if err := s.stopBackendExact(key, false); err != nil {
+			// We knew about this process and could not kill it. Replying
+			// success would repeat the original defect: the operator is told
+			// "backend deleted" while the process keeps serving requests.
+			xlog.Error("Failed to stop backend process during delete; aborting delete",
+				"backend", req.Backend, "processKey", key, "error", err)
+			replyJSON(reply, messaging.BackendDeleteReply{
+				Success: false,
+				Error:   fmt.Sprintf("could not stop running process %s: %v", key, err),
+			})
+			return
+		}
 	}
 
 	// Delete the backend files

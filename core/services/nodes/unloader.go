@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
 
@@ -91,8 +92,12 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 		return fmt.Errorf("finding nodes with model %q: %w", modelName, err)
 	}
 	if len(nodes) == 0 {
+		// Distinguish "no node has it" from "stopped successfully" so the
+		// caller can report the truth to an operator. Returning nil here made
+		// a no-op stop indistinguishable from a real one, and left the loader
+		// unable to tell a cluster-wide miss from a completed unload.
 		xlog.Debug("No remote nodes found with model", "model", modelName)
-		return nil
+		return model.ErrRemoteModelNotLoaded
 	}
 
 	var unloadErr error

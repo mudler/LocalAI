@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // --- Fakes ---
@@ -127,9 +128,13 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	})
 
 	Describe("UnloadRemoteModel", func() {
-		It("with no nodes returns nil", func() {
+		It("with no nodes reports the model is not loaded", func() {
+			// Previously returned nil, making "stopped it" and "there was
+			// nothing to stop" indistinguishable. ShutdownModel relies on
+			// this distinction to choose between success and a genuine 404,
+			// so a cluster-wide miss must be reported, not swallowed.
 			locator.nodes = nil
-			Expect(adapter.UnloadRemoteModel("my-model")).To(Succeed())
+			Expect(adapter.UnloadRemoteModel("my-model")).To(MatchError(model.ErrRemoteModelNotLoaded))
 			Expect(mc.published).To(BeEmpty())
 		})
 

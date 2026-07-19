@@ -72,30 +72,46 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		// replica failed, retries the install, the supervisor says "already
 		// running" again, and the cluster loops on a dead replica forever.
 		if addr := s.getAddr(processKey); addr != "" {
-			if s.isRunning(processKey) {
+			switch {
+			case !s.processMatchesBackend(processKey, req.Backend):
+				// The slot is held by a process started from a DIFFERENT
+				// backend — typically this model's previous backend was
+				// deleted (or superseded by a -development variant) while its
+				// process stayed up. Reusing that address would serve the load
+				// from a backend directory that may no longer exist on disk.
+				xlog.Warn("Process for this model replica belongs to another backend; restarting it",
+					"backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
+				if err := s.stopBackendExact(processKey, false); err != nil {
+					return "", fmt.Errorf("stopping mismatched backend process before reinstall: %w", err)
+				}
+			case s.isRunning(processKey):
 				xlog.Info("Backend already running for model replica", "backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
 				return addr, nil
+			default:
+				xlog.Warn("Stale process entry for backend (dead process); cleaning up before reinstall",
+					"backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
+				if err := s.stopBackendExact(processKey, false); err != nil {
+					xlog.Warn("Failed to clean up stale process entry", "processKey", processKey, "error", err)
+				}
 			}
-			xlog.Warn("Stale process entry for backend (dead process); cleaning up before reinstall",
-				"backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
-			s.stopBackendExact(processKey, false)
 		}
 	} else {
 		// Upgrade path: stop every live process that shares this backend so the
 		// gallery install can overwrite the on-disk artifact and the restarted
-		// process picks up the new binary. resolveProcessKeys catches peer
-		// replicas of the same backend (whisper#0, whisper#1, ...) on workers
-		// configured with MaxReplicasPerModel>1. We also stop the exact
-		// processKey from the request tuple — keys created with an explicit
-		// modelID don't share the bare-name prefix the resolver matches, but
-		// they're still using the old binary and need to come down. Both calls
-		// are no-ops on missing keys.
-		toStop := s.resolveProcessKeys(req.Backend)
+		// process picks up the new binary. resolveProcessKeysForBackend finds
+		// them by recorded backend name (and alias), which also covers peer
+		// replicas (whisper#0, whisper#1, ...) on workers configured with
+		// MaxReplicasPerModel>1. We also stop the exact processKey from the
+		// request tuple, whose recorded name may be absent on legacy entries.
+		// Both are no-ops on missing keys.
+		toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))
 		toStop = append(toStop, processKey)
 		for _, key := range toStop {
 			xlog.Info("Force install: stopping running backend before reinstall",
 				"backend", req.Backend, "processKey", key)
-			s.stopBackendExact(key, true)
+			if err := s.stopBackendExact(key, true); err != nil {
+				return "", fmt.Errorf("stopping running backend before reinstall: %w", err)
+			}
 		}
 	}
 
@@ -160,8 +176,10 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 
 	xlog.Info("Found backend binary", "path", backendPath, "processKey", processKey)
 
-	// Start the gRPC process on a new port (keyed by model, not just backend)
-	return s.startBackend(processKey, backendPath)
+	// Start the gRPC process on a new port (keyed by model, not just backend).
+	// req.Backend is recorded on the process so a later backend.delete/stop can
+	// find it by backend name.
+	return s.startBackend(processKey, req.Backend, backendPath)
 }
 
 // upgradeBackend stops every running process for `backend`, force-reinstalls
@@ -173,12 +191,14 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) error {
 	// Stop every live process for this backend (peer replicas + the bare
 	// processKey). Same logic as the force branch in installBackend.
-	toStop := s.resolveProcessKeys(req.Backend)
+	toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))
 	toStop = append(toStop, buildProcessKey("", req.Backend, int(req.ReplicaIndex)))
 	for _, key := range toStop {
 		xlog.Info("Upgrade: stopping running backend before reinstall",
 			"backend", req.Backend, "processKey", key)
-		s.stopBackendExact(key, true)
+		if err := s.stopBackendExact(key, true); err != nil {
+			return fmt.Errorf("stopping running backend before upgrade: %w", err)
+		}
 	}
 
 	galleries := s.galleries

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -25,9 +26,57 @@ type backendProcess struct {
 	addr     string // gRPC address (host:port)
 	port     int
 	stopping bool
+	// backendName is the gallery backend this process was started for (e.g.
+	// "cuda13-nvidia-l4t-arm64-longcat-video"). It is NOT derivable from the
+	// map key: keys are `modelID#replicaIndex`, so without it a backend.delete
+	// keyed on the backend name resolves to nothing and the process is
+	// orphaned while its files are removed from disk.
+	backendName string
 }
 
 const workerBackendFreeTimeout = 5 * time.Second
+
+// backendIdentitySet returns every name that refers to the same on-disk
+// backend as `name`: the concrete directory name plus its alias. Deletes
+// arrive with the concrete name while installs arrive with whatever the model
+// config declared (often the alias), so both must land on one identity.
+//
+// An unknown name yields just itself. A delete must never over-reach (or fail)
+// because the gallery listing is unavailable or the entry is already gone.
+func backendIdentitySet(backends gallery.SystemBackends, name string) map[string]struct{} {
+	set := map[string]struct{}{name: {}}
+	b, ok := backends[name]
+	if !ok || b.Metadata == nil {
+		return set
+	}
+	// Only this entry's own metadata is consulted. Two concrete backends can
+	// share one alias (foo and foo-development); walking every candidate of
+	// that alias would let deleting one reap the other's process.
+	if b.Metadata.Name != "" {
+		set[b.Metadata.Name] = struct{}{}
+	}
+	if b.Metadata.Alias != "" {
+		set[b.Metadata.Alias] = struct{}{}
+	}
+	return set
+}
+
+// backendIdentity resolves `name` against this worker's installed backends.
+// Callers must invoke it BEFORE deleting files: DeleteBackendFromSystem
+// removes the metadata.json that carries the alias mapping.
+func (s *backendSupervisor) backendIdentity(name string) map[string]struct{} {
+	if s.systemState == nil {
+		return map[string]struct{}{name: {}}
+	}
+	backends, err := gallery.ListSystemBackends(s.systemState)
+	if err != nil {
+		// Degrade to name-only matching rather than failing the operation.
+		xlog.Warn("Could not list backends for alias resolution; matching on name only",
+			"backend", name, "error", err)
+		return map[string]struct{}{name: {}}
+	}
+	return backendIdentitySet(backends, name)
+}
 
 // backendSupervisor manages multiple backend gRPC processes on different ports.
 // Each backend type (e.g., llama-cpp, bert-embeddings) gets its own process and port.
@@ -56,7 +105,11 @@ type backendSupervisor struct {
 
 // startBackend starts a gRPC backend process on a dynamically allocated port.
 // Returns the gRPC address.
-func (s *backendSupervisor) startBackend(backend, backendPath string) (string, error) {
+//
+// `backend` is the process key (modelID#replica); `backendName` is the gallery
+// backend it was started from, recorded so delete/stop can find this process
+// by backend name later.
+func (s *backendSupervisor) startBackend(backend, backendName, backendPath string) (string, error) {
 	s.mu.Lock()
 
 	// Already running?
@@ -94,9 +147,10 @@ func (s *backendSupervisor) startBackend(backend, backendPath string) (string, e
 	}
 
 	s.processes[backend] = &backendProcess{
-		proc: proc,
-		addr: clientAddr,
-		port: port,
+		proc:        proc,
+		addr:        clientAddr,
+		port:        port,
+		backendName: backendName,
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
@@ -219,12 +273,119 @@ func (s *backendSupervisor) resolveProcessKeys(id string) []string {
 	return keys
 }
 
+// resolveProcessKeysForBackend returns the process keys of every process
+// started for any name in `names` (the backend's identity set).
+//
+// resolveProcessKeys alone is not enough here: it resolves a bare *modelID*
+// via the `id#N` prefix, but backend.delete/backend.stop carry a *backend*
+// name, which never prefixes a `modelID#replica` key. That mismatch is what
+// let a deleted backend's process survive with its files removed. Matching on
+// the recorded backendName is the primary path; the prefix resolution is
+// unioned in so legacy entries keyed by the backend name itself (installs with
+// an empty modelID) keep resolving.
+func (s *backendSupervisor) resolveProcessKeysForBackend(names map[string]struct{}) []string {
+	seen := make(map[string]struct{})
+	var keys []string
+	add := func(k string) {
+		if _, dup := seen[k]; dup {
+			return
+		}
+		seen[k] = struct{}{}
+		keys = append(keys, k)
+	}
+
+	s.mu.Lock()
+	for key, bp := range s.processes {
+		if bp.backendName == "" {
+			continue
+		}
+		if _, ok := names[bp.backendName]; ok {
+			add(key)
+		}
+	}
+	s.mu.Unlock()
+
+	// Legacy fallback for entries predating backendName: an install with an
+	// empty modelID keys the map by the backend name itself. Restricted to
+	// entries with no recorded name so it cannot reap a process that belongs
+	// to a different backend but whose modelID happens to equal this backend's
+	// name or alias.
+	for name := range names {
+		for _, k := range s.resolveProcessKeys(name) {
+			s.mu.Lock()
+			bp, ok := s.processes[k]
+			unnamed := ok && bp.backendName == ""
+			s.mu.Unlock()
+			if unnamed {
+				add(k)
+			}
+		}
+	}
+	return keys
+}
+
+// resolveStopTargets resolves the ambiguous identifier carried on backend.stop.
+//
+// The payload field is named "backend", but it is published with both
+// meanings: the admin backends UI sends a BACKEND name, while
+// UnloadRemoteModel and the router's abandoned-load reap send a MODEL name (or
+// an exact modelID#replica key). Resolving only one meaning silently strands
+// the other — matching on backend name alone stops nothing for a model unload,
+// and matching on the modelID prefix alone is the bug that orphaned deleted
+// backends' processes. Stop is best-effort and idempotent, so accepting both is
+// safe here; delete stays strict because its identifier is unambiguously a
+// backend name.
+func (s *backendSupervisor) resolveStopTargets(id string) []string {
+	keys := s.resolveProcessKeysForBackend(s.backendIdentity(id))
+	seen := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		seen[k] = struct{}{}
+	}
+	for _, k := range s.resolveProcessKeys(id) {
+		if _, dup := seen[k]; !dup {
+			seen[k] = struct{}{}
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
+
+// processMatchesBackend reports whether the process under `key` may be reused
+// to serve `backend`. The install fast path returns any live process for a
+// (model, replica) slot; without this check a slot whose backend was deleted
+// and replaced handed the new install the deleted backend's port, so the load
+// ran against a directory that no longer exists.
+//
+// A process with no recorded backendName predates this field and is accepted:
+// treating it as a mismatch would restart every running backend once on
+// rollout.
+func (s *backendSupervisor) processMatchesBackend(key, backend string) bool {
+	s.mu.Lock()
+	bp, ok := s.processes[key]
+	if !ok {
+		s.mu.Unlock()
+		return false
+	}
+	recorded := bp.backendName
+	s.mu.Unlock()
+
+	if recorded == "" || recorded == backend {
+		return true
+	}
+	// Names differ textually — they may still be alias and concrete for the
+	// same on-disk backend, which is a legitimate reuse.
+	_, match := s.backendIdentity(backend)[recorded]
+	return match
+}
+
 // stopBackend stops the backend process(es) matching the given identifier.
 // Accepts a bare modelID (stops every replica) or a full processKey
 // (stops just that replica).
 func (s *backendSupervisor) stopBackend(id string, force bool) {
 	for _, key := range s.resolveProcessKeys(id) {
-		s.stopBackendExact(key, force)
+		if err := s.stopBackendExact(key, force); err != nil {
+			xlog.Error("Failed to stop backend process", "processKey", key, "error", err)
+		}
 	}
 }
 
@@ -232,10 +393,15 @@ func (s *backendSupervisor) stopBackend(id string, force bool) {
 // entry as stopping under the lock, then runs Free() and proc.Stop() after
 // release so network I/O cannot block other supervisor operations. The entry
 // and port remain reserved until process termination completes.
-func (s *backendSupervisor) stopBackendExact(key string, force bool) {
+//
+// Returns an error only when a process was found and is still alive after the
+// stop attempt — a missing key is a no-op, not a failure. Callers that report
+// success to an operator (backend.delete) must not claim success while the
+// process keeps serving requests from a directory they just removed.
+func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	bp := s.beginBackendStop(key)
 	if bp == nil {
-		return
+		return nil
 	}
 
 	if !force {
@@ -248,12 +414,12 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) {
 		cancel()
 	}
 
-	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force)
+	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force, "backendName", bp.backendName)
 	stopErr := bp.proc.Stop()
 	if stopErr != nil {
 		xlog.Error("Error stopping backend process", "backend", key, "error", stopErr)
 	}
-	s.finishBackendStop(key, bp, stopErr)
+	return s.finishBackendStop(key, bp, stopErr)
 }
 
 // beginBackendStop reserves both the process entry and its port while network
@@ -269,25 +435,28 @@ func (s *backendSupervisor) beginBackendStop(key string) *backendProcess {
 	return bp
 }
 
-func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, stopErr error) {
+// finishBackendStop returns a non-nil error when the process survived the stop
+// attempt, so callers can distinguish a real reap from a failed one.
+func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, stopErr error) error {
 	// Keep the process and port reserved until termination completes. Recycling
 	// the port before this point can start a second backend on an address still
 	// owned by the stuck process.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if current, exists := s.processes[key]; !exists || current != bp {
-		return
+		return nil
 	}
 	if stopErr != nil && bp.proc.IsAlive() {
 		bp.stopping = false
-		return
+		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
 	delete(s.processes, key)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
-		return
+		return nil
 	}
 	s.freePorts = append(s.freePorts, bp.port)
+	return nil
 }
 
 // stopAllBackends stops all running backend processes.
@@ -303,8 +472,12 @@ func (s *backendSupervisor) stopAllBackends(force bool) {
 
 // isRunning returns whether at least one backend process matching the given
 // identifier is currently running. Accepts a bare modelID (matches any
-// replica) or a full processKey (exact match). Callers like the
-// backend.delete pre-check rely on the bare-name path.
+// replica) or a full processKey (exact match).
+//
+// It does NOT accept a backend name: backend names never prefix a
+// modelID#replica key. Callers holding a backend name must go through
+// resolveProcessKeysForBackend — assuming otherwise here is what left deleted
+// backends' processes running.
 func (s *backendSupervisor) isRunning(id string) bool {
 	keys := s.resolveProcessKeys(id)
 	if len(keys) == 0 {
