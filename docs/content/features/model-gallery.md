@@ -178,18 +178,26 @@ larger ones, or both.
 
 Sizes are measured from the model's weights rather than downloaded, and cached.
 
-The gallery listing reports what an entry offers. Entries with variants carry
-two extra fields, `variants` and `auto_variant`:
+The gallery listing only flags which entries offer variants, with a
+`has_variants` field. It deliberately does not describe them: measuring a
+variant is a network round trip per referenced build, so describing every
+entry inline would make one listing request cost as many round trips as the
+whole page has variants.
 
 ```bash
-curl http://localhost:8080/api/models | jq '.models[] | select(.variants) |
-  {name, auto_variant, variants}'
+curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
+```
+
+Ask for the description one entry at a time, as the web UI does when you open
+a model's variant menu:
+
+```bash
+curl http://localhost:8080/api/models/variants/localai@nanbeige4.1-3b-q4
 ```
 
 ```json
 {
-  "name": "nanbeige4.1-3b-q4",
-  "auto_variant": "nanbeige4.1-3b-q8",
+  "auto_selected": "nanbeige4.1-3b-q8",
   "variants": [
     { "model": "nanbeige4.1-3b-q8", "backend": "llama-cpp", "memory_bytes": 4187593113, "fits": true, "is_base": false },
     { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "fits": true, "is_base": true }
@@ -197,11 +205,14 @@ curl http://localhost:8080/api/models | jq '.models[] | select(.variants) |
 }
 ```
 
-`auto_variant` is what installing without a choice would pick right now. `fits`
+`auto_selected` is what installing without a choice would pick right now. `fits`
 is whether auto-selection would consider that variant on this machine, and
 `is_base` marks the entry's own build. `memory_bytes` is omitted entirely, as on
 the second entry above, when the size could not be measured; read a missing
 `memory_bytes` as unknown rather than as a free build.
+
+An entry that declares no variants carries no `has_variants` field and answers
+this endpoint with an empty list, so a client never has to ask about it.
 
 To install a specific one, pass its name as `variant`:
 

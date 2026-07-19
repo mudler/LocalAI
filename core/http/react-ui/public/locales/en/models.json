@@ -118,6 +118,7 @@
     "fits": "Fits",
     "doesNotFit": "Does not fit",
     "unknownSize": "Unknown size",
-    "unknownBackend": "Unknown backend"
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants..."
   }
 }

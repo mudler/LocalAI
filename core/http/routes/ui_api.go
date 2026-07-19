@@ -413,11 +413,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		// Kept before the filters and pagination below narrow `models`: a
-		// variant references another gallery entry by name, and that entry may
-		// well have been filtered off this page.
-		allModels := models
-
 		// Get all available tags
 		allTags := map[string]struct{}{}
 		tags := []string{}
@@ -590,24 +585,18 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"voice_cloning":   m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath),
 			}
 
-			// Variants are described only for the entries that declare them.
-			// DescribeVariants is what probes model sizes, so calling it for
-			// every entry would put a network round trip behind each of the
-			// ~1200 entries in the gallery. The HasVariants guard keeps an
-			// ordinary entry exactly as cheap as it was before variants
-			// existed; only a declaring entry pays, and only on the page it
-			// appears on.
+			// Only the cheap declaration flag, never the description itself.
+			// Describing a variant probes every referenced entry's weight files
+			// over the network, so doing it here would cost one page load
+			// (entries x variants) serial round trips; a client that wants the
+			// description asks /api/models/variants/:id for one entry at a
+			// time, exactly as it already does for VRAM estimates.
+			//
+			// The flag is omitted rather than sent as false so an entry that
+			// declares nothing stays byte-for-byte what it was before variants
+			// existed, and so a client never asks about it.
 			if m.HasVariants() {
-				env := gallery.HostResolveEnv(c.Request().Context(), appConfig.SystemState)
-				view, describeErr := gallery.DescribeVariants(allModels, m, env)
-				if describeErr != nil {
-					// A malformed variant list must not blank the whole gallery
-					// page; that entry just renders without a picker.
-					xlog.Warn("could not describe model variants", "model", m.Name, "error", describeErr)
-				} else if view != nil {
-					obj["variants"] = view.Variants
-					obj["auto_variant"] = view.AutoSelected
-				}
+				obj["has_variants"] = true
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -823,6 +812,53 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		return c.JSON(200, result)
+	}, adminMiddleware)
+
+	// Returns the selectable builds of a single gallery model and which one
+	// auto-selection would install on this host. Companion to estimate/:id and
+	// for the same reason: describing variants probes each referenced entry's
+	// weight files over the network, so the gallery listing must stay free of
+	// it and the frontend fills pickers in per-entry, on demand.
+	//
+	// An entry that declares no variants is not an error; it answers with an
+	// empty description, so a client that asks anyway gets a well-formed reply
+	// rather than a 404 it has to special-case.
+	app.GET("/api/models/variants/:id", func(c echo.Context) error {
+		modelID, err := url.QueryUnescape(c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid model ID"})
+		}
+
+		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		}
+
+		model := gallery.FindGalleryElement(models, modelID)
+		if model == nil {
+			return c.JSON(http.StatusNotFound, map[string]any{"error": "model not found"})
+		}
+
+		// An allocated slice rather than the zero value, so "nothing
+		// selectable" serializes as [] and a client can iterate the reply
+		// without first distinguishing it from null.
+		empty := gallery.EntryVariants{Variants: []gallery.VariantView{}}
+
+		// The full, unpaginated list: a variant references another gallery
+		// entry by name and that entry need not be anywhere near this one.
+		env := gallery.HostResolveEnv(c.Request().Context(), appConfig.SystemState)
+		view, err := gallery.DescribeVariants(models, model, env)
+		if err != nil {
+			// A malformed variant list must not break the picker; the entry
+			// just reports nothing selectable and installs as-is.
+			xlog.Debug("could not describe model variants", "model", modelID, "error", err)
+			return c.JSON(200, empty)
+		}
+		if view == nil {
+			return c.JSON(200, empty)
+		}
+
+		return c.JSON(200, view)
 	}, adminMiddleware)
 
 	app.POST("/api/models/install/:id", func(c echo.Context) error {

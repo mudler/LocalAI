@@ -98,6 +98,9 @@ export const modelsApi = {
     buildUrl(API_CONFIG.endpoints.modelEstimate(id),
       contexts?.length ? { contexts: contexts.join(',') } : {})
   ),
+  // Companion to estimate: the listing reports only has_variants, so the
+  // description is fetched per entry, on demand.
+  variants: (id) => fetchJSON(API_CONFIG.endpoints.modelVariants(id)),
   getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),

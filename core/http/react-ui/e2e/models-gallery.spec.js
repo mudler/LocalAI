@@ -8,38 +8,10 @@ const MOCK_MODELS_RESPONSE = {
       backend: "llama-cpp",
       installed: false,
       tags: ["chat"],
-      // memory_bytes is omitempty server-side, so the mlx variant deliberately
-      // carries no key at all: the UI must render that as unknown, never 0 B.
-      variants: [
-        {
-          model: "llama-model",
-          backend: "llama-cpp",
-          memory_bytes: 4 * 1024 * 1024 * 1024,
-          fits: true,
-          is_base: true,
-        },
-        {
-          model: "llama-model-q8",
-          backend: "llama-cpp",
-          memory_bytes: 8 * 1024 * 1024 * 1024,
-          fits: true,
-          is_base: false,
-        },
-        {
-          model: "llama-model-mlx",
-          backend: "mlx",
-          fits: true,
-          is_base: false,
-        },
-        {
-          model: "llama-model-f16",
-          backend: "llama-cpp",
-          memory_bytes: 40 * 1024 * 1024 * 1024,
-          fits: false,
-          is_base: false,
-        },
-      ],
-      auto_variant: "llama-model-q8",
+      // The listing carries only the declaration flag. Describing variants
+      // costs the server a network probe each, so the description lives
+      // behind /api/models/variants/:id and is fetched on demand.
+      has_variants: true,
     },
     {
       name: "whisper-model",
@@ -468,13 +440,57 @@ test.describe("Models Gallery - Empty State", () => {
   });
 });
 
+// The variant description the companion endpoint returns for llama-model.
+// memory_bytes is omitempty server-side, so the mlx variant deliberately
+// carries no key at all: the UI must render that as unknown, never 0 B.
+const MOCK_VARIANTS_RESPONSE = {
+  variants: [
+    {
+      model: "llama-model",
+      backend: "llama-cpp",
+      memory_bytes: 4 * 1024 * 1024 * 1024,
+      fits: true,
+      is_base: true,
+    },
+    {
+      model: "llama-model-q8",
+      backend: "llama-cpp",
+      memory_bytes: 8 * 1024 * 1024 * 1024,
+      fits: true,
+      is_base: false,
+    },
+    {
+      model: "llama-model-mlx",
+      backend: "mlx",
+      fits: true,
+      is_base: false,
+    },
+    {
+      model: "llama-model-f16",
+      backend: "llama-cpp",
+      memory_bytes: 40 * 1024 * 1024 * 1024,
+      fits: false,
+      is_base: false,
+    },
+  ],
+  auto_selected: "llama-model-q8",
+};
+
 test.describe("Models Gallery - Variant picker", () => {
   // installUrls records every install request so a test can assert both the
   // presence and the absence of the ?variant= parameter.
   let installUrls;
+  // variantUrls records every companion-endpoint request. It is what proves
+  // the description is fetched lazily and cached, rather than being paid for
+  // by every row on page load.
+  let variantUrls;
+  // Held requests let a test observe the in-flight state rather than racing it.
+  let releaseVariants;
 
   test.beforeEach(async ({ page }) => {
     installUrls = [];
+    variantUrls = [];
+    releaseVariants = null;
     await page.route("**/api/models*", (route) => {
       route.fulfill({
         contentType: "application/json",
@@ -489,6 +505,15 @@ test.describe("Models Gallery - Variant picker", () => {
         body: JSON.stringify({ jobID: "variant-install" }),
       });
     });
+    await page.route("**/api/models/variants/**", async (route) => {
+      variantUrls.push(route.request().url());
+      if (releaseVariants) await releaseVariants;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_VARIANTS_RESPONSE),
+      });
+    });
     await page.goto("/app/models");
     await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
       timeout: 10_000,
@@ -498,6 +523,15 @@ test.describe("Models Gallery - Variant picker", () => {
   const variantRow = (page) => page.locator("tr", { hasText: "llama-model" }).first();
   const plainRow = (page) =>
     page.locator("tr", { hasText: "stablediffusion-model" }).first();
+  const openMenu = (page) =>
+    variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+
+  test("the listing alone fetches no variant descriptions", async ({ page }) => {
+    // The whole point of the companion endpoint: a page load costs zero
+    // probes no matter how many entries declare variants.
+    await expect(page.locator("tbody tr").first()).toBeVisible();
+    expect(variantUrls).toHaveLength(0);
+  });
 
   test("an entry that declares variants shows the split-button chevron", async ({
     page,
@@ -517,14 +551,57 @@ test.describe("Models Gallery - Variant picker", () => {
     ).toHaveCount(1);
   });
 
+  test("an entry without variants fetches nothing even when expanded", async ({
+    page,
+  }) => {
+    await plainRow(page).click();
+    await expect(page.locator('td[colspan="8"]')).toBeVisible();
+    expect(variantUrls).toHaveLength(0);
+  });
+
   test("plain Install sends no variant parameter", async ({ page }) => {
     await plainRow(page).locator("button.btn-primary").click();
     await expect.poll(() => installUrls.length).toBe(1);
     expect(installUrls[0]).not.toContain("variant=");
   });
 
+  test("opening the menu fetches the description once and caches it", async ({
+    page,
+  }) => {
+    await openMenu(page);
+    await expect(page.locator(".action-menu")).toBeVisible();
+    await expect.poll(() => variantUrls.length).toBe(1);
+    expect(variantUrls[0]).toContain("/api/models/variants/llama-model");
+
+    // Close and reopen: the cached answer must be reused.
+    await page.keyboard.press("Escape");
+    await openMenu(page);
+    await expect(
+      page.locator(".action-menu__item", { hasText: "llama-model-q8" }),
+    ).toBeVisible();
+    expect(variantUrls).toHaveLength(1);
+  });
+
+  test("the menu shows a loading state while the description is in flight", async ({
+    page,
+  }) => {
+    let unblock;
+    releaseVariants = new Promise((resolve) => {
+      unblock = resolve;
+    });
+    await openMenu(page);
+    await expect(page.locator(".action-menu")).toContainText("Loading variants");
+    unblock();
+    await expect(
+      page.locator(".action-menu__item", { hasText: "llama-model-q8" }),
+    ).toBeVisible();
+    await expect(page.locator(".action-menu")).not.toContainText(
+      "Loading variants",
+    );
+  });
+
   test("the auto-selected variant is marked in the menu", async ({ page }) => {
-    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    await openMenu(page);
     const menu = page.locator(".action-menu");
     await expect(menu).toBeVisible();
     const autoItem = menu.locator(".action-menu__item", {
@@ -543,7 +620,7 @@ test.describe("Models Gallery - Variant picker", () => {
   test("a variant with no memory_bytes renders as unknown, not 0", async ({
     page,
   }) => {
-    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    await openMenu(page);
     const mlxItem = page.locator(".action-menu__item", {
       hasText: "llama-model-mlx",
     });
@@ -552,7 +629,7 @@ test.describe("Models Gallery - Variant picker", () => {
   });
 
   test("a variant that does not fit is still selectable", async ({ page }) => {
-    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    await openMenu(page);
     const f16 = page.locator(".action-menu__item", {
       hasText: "llama-model-f16",
     });
@@ -563,7 +640,7 @@ test.describe("Models Gallery - Variant picker", () => {
   test("choosing a specific variant sends ?variant= on the install", async ({
     page,
   }) => {
-    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    await openMenu(page);
     await page
       .locator(".action-menu__item", { hasText: "llama-model-mlx" })
       .click();
@@ -583,5 +660,7 @@ test.describe("Models Gallery - Variant picker", () => {
     await expect(detail).toContainText("Base build");
     await expect(detail).toContainText("Does not fit");
     await expect(detail).toContainText("mlx");
+    // Expanding is the second trigger point, so it pays for exactly one fetch.
+    expect(variantUrls).toHaveLength(1);
   });
 });

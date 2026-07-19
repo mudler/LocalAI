@@ -74,6 +74,11 @@ export default function Models() {
   // Popover is re-anchored per row rather than one instance per row.
   const [variantMenuFor, setVariantMenuFor] = useState(null)
   const variantMenuAnchorRef = useRef(null)
+  // Variant descriptions, keyed by model name. The listing only tells us
+  // whether an entry declares any; describing them costs the server a network
+  // probe per variant, so we ask for one entry at a time and keep the answer
+  // for the rest of the page session.
+  const [variantData, setVariantData] = useState({})
   const [fitsFilter, setFitsFilter] = useState(() => {
     try {
       return localStorage.getItem(FITS_FILTER_STORAGE_KEY) === '1'
@@ -192,6 +197,21 @@ export default function Models() {
       setOrder('asc')
     }
   }
+
+  // Fetches an entry's variant description once. Called from the two points
+  // where a user actually asks to see variants: opening the split-button menu
+  // and expanding the detail row. An entry that declares none never gets here,
+  // so it issues no request at all.
+  const loadVariants = useCallback((id) => {
+    if (!id) return
+    setVariantData(prev => {
+      if (prev[id]) return prev
+      modelsApi.variants(id)
+        .then(data => setVariantData(p => ({ ...p, [id]: { loading: false, ...data } })))
+        .catch(() => setVariantData(p => ({ ...p, [id]: { loading: false, variants: [] } })))
+      return { ...prev, [id]: { loading: true, variants: [] } }
+    })
+  }, [])
 
   const handleInstall = async (modelId, variant) => {
     try {
@@ -429,12 +449,16 @@ export default function Models() {
                   const progress = getOperationProgress(name)
                   const fit = fitsGpu(vramBytes)
                   const isExpanded = expandedRow === idx
-                  const hasVariants = model.variants?.length > 0
+                  const hasVariants = !!model.has_variants
 
                   return (
                     <React.Fragment key={name}>
                     <tr
-                      onClick={() => { setExpandedRow(isExpanded ? null : idx); setExpandedFiles(false) }}
+                      onClick={() => {
+                        if (!isExpanded && hasVariants) loadVariants(name)
+                        setExpandedRow(isExpanded ? null : idx)
+                        setExpandedFiles(false)
+                      }}
                       style={{ cursor: 'pointer' }}
                     >
                       {/* Chevron */}
@@ -578,7 +602,10 @@ export default function Models() {
                               <button
                                 ref={variantMenuFor === idx ? variantMenuAnchorRef : undefined}
                                 className="btn btn-primary btn-sm"
-                                onClick={() => setVariantMenuFor(variantMenuFor === idx ? null : idx)}
+                                onClick={() => {
+                                  if (variantMenuFor !== idx) loadVariants(name)
+                                  setVariantMenuFor(variantMenuFor === idx ? null : idx)
+                                }}
                                 aria-haspopup="menu"
                                 aria-expanded={variantMenuFor === idx}
                                 aria-label={t('variants.chooseVariant')}
@@ -605,7 +632,7 @@ export default function Models() {
                     {isExpanded && (
                       <tr>
                         <td colSpan="8" style={{ padding: 0 }}>
-                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} t={t} />
+                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} variantData={hasVariants ? variantData[name] : null} t={t} />
                         </td>
                       </tr>
                     )}
@@ -641,50 +668,72 @@ export default function Models() {
         onCancel={() => setConfirmDialog(null)}
       />
 
-      {/* Single Popover for the variant split-button menu, re-anchored to
-          whichever row's chevron is active. Reusing it gives Escape,
-          outside-click and focus return for free. */}
-      <Popover
+      <VariantMenu
         anchor={variantMenuAnchorRef}
-        open={variantMenuFor !== null}
+        model={variantMenuFor !== null ? visibleModels[variantMenuFor] : null}
+        variantData={variantData}
         onClose={() => setVariantMenuFor(null)}
-        ariaLabel={t('variants.chooseVariant')}
-      >
-        <div className="action-menu">
-          {(visibleModels[variantMenuFor]?.variants || []).map(v => {
-            const isAuto = v.model === visibleModels[variantMenuFor]?.auto_variant
-            return (
-              <button
-                key={v.model}
-                type="button"
-                className="action-menu__item"
-                onClick={() => {
-                  const m = visibleModels[variantMenuFor]
-                  setVariantMenuFor(null)
-                  if (m) handleInstall(m.name || m.id, v.model)
-                }}
-                // A variant that does not fit stays selectable: an explicit
-                // choice is an override the server honours with a warning.
-                style={{ opacity: v.fits ? 1 : 0.6 }}
-              >
-                <i className={`fas ${isAuto ? 'fa-circle-check' : 'fa-download'} action-menu__icon`} />
-                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                  <span>
-                    {v.model}
-                    {isAuto && <span className="badge badge-success" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.auto')}</span>}
-                    {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.base')}</span>}
-                    {!v.fits && <span className="badge badge-warning" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.doesNotFit')}</span>}
-                  </span>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                    {v.backend || t('variants.unknownBackend')} · {variantSizeLabel(v, t)}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </Popover>
+        onChoose={handleInstall}
+        t={t}
+      />
     </div>
+  )
+}
+
+// VariantMenu is the split-button dropdown. It is one instance re-anchored to
+// whichever row is active, so Escape, outside-click and focus return come from
+// Popover rather than being reimplemented per row.
+function VariantMenu({ anchor, model, variantData, onClose, onChoose, t }) {
+  const name = model ? (model.name || model.id) : null
+  const data = name ? variantData[name] : null
+  return (
+    <Popover
+      anchor={anchor}
+      open={!!model}
+      onClose={onClose}
+      ariaLabel={t('variants.chooseVariant')}
+    >
+      <div className="action-menu">
+        {data?.loading && (
+          // The description is a round trip, so the menu says so rather than
+          // opening empty and looking broken.
+          <div className="action-menu__item" style={{ color: 'var(--color-text-muted)', cursor: 'default' }}>
+            <i className="fas fa-spinner fa-spin action-menu__icon" />
+            <span>{t('variants.loading')}</span>
+          </div>
+        )}
+        {(data?.variants || []).map(v => {
+          const isAuto = v.model === data?.auto_selected
+          return (
+            <button
+              key={v.model}
+              type="button"
+              className="action-menu__item"
+              onClick={() => {
+                onClose()
+                if (name) onChoose(name, v.model)
+              }}
+              // A variant that does not fit stays selectable: an explicit
+              // choice is an override the server honours with a warning.
+              style={{ opacity: v.fits ? 1 : 0.6 }}
+            >
+              <i className={`fas ${isAuto ? 'fa-circle-check' : 'fa-download'} action-menu__icon`} />
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                <span>
+                  {v.model}
+                  {isAuto && <span className="badge badge-success" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.auto')}</span>}
+                  {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.base')}</span>}
+                  {!v.fits && <span className="badge badge-warning" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.doesNotFit')}</span>}
+                </span>
+                <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                  {v.backend || t('variants.unknownBackend')} · {variantSizeLabel(v, t)}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </Popover>
   )
 }
 
@@ -707,7 +756,7 @@ function DetailRow({ label, children }) {
   )
 }
 
-function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, t }) {
+function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, t }) {
   const files = model.additionalFiles || model.files || []
   return (
     <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
@@ -747,10 +796,17 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
               </span>
             ) : null}
           </DetailRow>
-          {model.variants?.length > 0 && (
+          {variantData?.loading && (
+            <DetailRow label={t('variants.title')}>
+              <span style={{ color: 'var(--color-text-muted)' }}>
+                <i className="fas fa-spinner fa-spin" style={{ marginRight: 6 }} />{t('variants.loading')}
+              </span>
+            </DetailRow>
+          )}
+          {variantData?.variants?.length > 0 && (
             <DetailRow label={t('variants.title')}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
-                {model.variants.map(v => (
+                {variantData.variants.map(v => (
                   <div key={v.model} className="model-variant-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{v.model}</span>
                     <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{v.backend || t('variants.unknownBackend')}</span>
@@ -759,7 +815,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       {v.fits ? t('variants.fits') : t('variants.doesNotFit')}
                     </span>
                     {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{t('variants.base')}</span>}
-                    {v.model === model.auto_variant && (
+                    {v.model === variantData.auto_selected && (
                       <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
                         <i className="fas fa-circle-check" /> {t('variants.autoSelected')}
                       </span>
