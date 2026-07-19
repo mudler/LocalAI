@@ -8,7 +8,7 @@ import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
-import { renderMarkdown } from '../utils/markdown'
+import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
@@ -550,13 +550,21 @@ export default function Backends() {
 
                     {/* Description */}
                     <td>
-                      <span style={{
-                        fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
-                        display: 'inline-block', maxWidth: 300, overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }} title={b.description}>
-                        {b.description || '-'}
-                      </span>
+                      {(() => {
+                        // Gallery descriptions are Markdown. This cell is a single
+                        // truncated line, so it gets the text without the syntax;
+                        // the full Markdown is rendered in the detail panel instead.
+                        const desc = stripMarkdown(b.description)
+                        return (
+                          <span style={{
+                            fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
+                            display: 'inline-block', maxWidth: 300, overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }} title={desc}>
+                            {desc || '-'}
+                          </span>
+                        )
+                      })()}
                     </td>
 
                     {/* Repository */}
