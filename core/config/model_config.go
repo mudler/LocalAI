@@ -1334,6 +1334,7 @@ func (c *ModelConfig) Validate() (bool, error) {
 		return false, fmt.Errorf("alias model %q cannot declare artifacts", c.Name)
 	}
 	seenArtifacts := make(map[string]struct{}, len(c.Artifacts))
+	primaries := 0
 	for i, artifact := range c.Artifacts {
 		normalized, err := artifact.Normalize()
 		if err != nil {
@@ -1343,6 +1344,18 @@ func (c *ModelConfig) Validate() (bool, error) {
 			return false, fmt.Errorf("duplicate artifact name %q", normalized.Name)
 		}
 		seenArtifacts[normalized.Name] = struct{}{}
+		if normalized.Target == modelartifacts.TargetModel {
+			primaries++
+			// Artifacts[0] is the load target for every consumer (ModelFileName,
+			// size estimation, staging), so the primary has to occupy that slot
+			// rather than merely exist somewhere in the list.
+			if i != 0 {
+				return false, fmt.Errorf("the primary artifact must be declared first, found it at position %d", i)
+			}
+		}
+	}
+	if len(c.Artifacts) > 0 && primaries != 1 {
+		return false, fmt.Errorf("a config with artifacts must declare exactly one %q target, found %d", modelartifacts.TargetModel, primaries)
 	}
 
 	// An alias is a pure redirect: validate only its own shape here. Target

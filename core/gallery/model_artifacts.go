@@ -53,6 +53,19 @@ func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.M
 		next = append(next, typed.Artifacts[1:]...)
 	}
 	typed.Artifacts = next
+	// Companions are always explicit, so there is no legacy path to degrade to:
+	// failing here leaves any previously installed config untouched rather than
+	// persisting a half-acquired model that would fail later inside the backend.
+	for i := 1; i < len(typed.Artifacts); i++ {
+		if typed.Artifacts[i].Target != modelartifacts.TargetCompanion {
+			continue
+		}
+		companion, err := materializer.Ensure(ctx, modelsPath, typed.Artifacts[i])
+		if err != nil {
+			return false, fmt.Errorf("materialize companion artifact %q: %w", typed.Artifacts[i].Name, err)
+		}
+		typed.Artifacts[i] = companion.Spec
+	}
 	artifactYAML, err := yaml.Marshal(typed.Artifacts)
 	if err != nil {
 		return false, err
