@@ -1030,10 +1030,9 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	// Derive the frontend models directory from ModelFile and Model.
 	// Example: ModelFile="/models/sd-cpp/models/flux.gguf", Model="sd-cpp/models/flux.gguf"
 	// → frontendModelsDir="/models"
-	frontendModelsDir := ""
-	if opts.ModelFile != "" && opts.Model != "" {
-		frontendModelsDir = filepath.Clean(strings.TrimSuffix(opts.ModelFile, opts.Model))
-	}
+	// A managed artifact anchors on the models root that holds the whole
+	// .artifacts tree instead, so sibling companion snapshots stay in scope.
+	frontendModelsDir := ModelsRootForModelFile(opts.ModelFile, opts.Model)
 
 	// Local model directory, captured before the ModelFile field is rewritten to
 	// its remote path below. Companion assets declared as option paths (e.g.
@@ -1132,8 +1131,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 				continue
 			}
 			*f.val = remoteDir
-			if f.name == "ModelFile" && opts.Model != "" {
-				opts.ModelPath = DeriveRemoteModelPath(remoteDir, opts.Model)
+			if f.name == "ModelFile" {
+				opts.ModelPath = DeriveRemoteModelPath(remoteDir, relativeToModelsDir(frontendModelsDir, localPath, opts.Model))
 				xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 			}
 			continue
@@ -1170,8 +1169,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		// remotePath = "/worker/models/{trackingKey}/sd-cpp/models/flux.gguf"
 		// Model = "sd-cpp/models/flux.gguf"
 		// → ModelPath = "/worker/models/{trackingKey}"
-		if f.name == "ModelFile" && opts.Model != "" {
-			opts.ModelPath = DeriveRemoteModelPath(remotePath, opts.Model)
+		if f.name == "ModelFile" {
+			opts.ModelPath = DeriveRemoteModelPath(remotePath, relativeToModelsDir(frontendModelsDir, localPath, opts.Model))
 			xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 		}
 
