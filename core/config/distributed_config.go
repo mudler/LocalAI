@@ -76,6 +76,12 @@ type DistributedConfig struct {
 
 	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
 	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
+	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
+	// router issues once a worker has the backend installed and the model files
+	// staged. It therefore covers only the backend's own checkpoint load and
+	// pipeline init, which for a multi-tens-of-GB diffusion/video checkpoint on
+	// unified memory can far exceed the 5m default.
+	ModelLoadTimeout time.Duration // gRPC deadline for remote LoadModel (default 5m)
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
@@ -142,6 +148,7 @@ func (c DistributedConfig) Validate() error {
 		FlagMCPCIJobTimeout:       c.MCPCIJobTimeout,
 		FlagBackendInstallTimeout: c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout: c.BackendUpgradeTimeout,
+		FlagModelLoadTimeout:      c.ModelLoadTimeout,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -286,6 +293,12 @@ func WithBackendUpgradeTimeout(d time.Duration) AppOption {
 	}
 }
 
+func WithModelLoadTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelLoadTimeout = d
+	}
+}
+
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
@@ -342,6 +355,7 @@ const (
 	FlagMCPCIJobTimeout       = "mcp-ci-job-timeout"
 	FlagBackendInstallTimeout = "backend-install-timeout"
 	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
+	FlagModelLoadTimeout      = "model-load-timeout"
 )
 
 // Defaults for distributed timeouts.
@@ -355,6 +369,7 @@ const (
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 	DefaultBackendInstallTimeout = 15 * time.Minute
 	DefaultBackendUpgradeTimeout = 15 * time.Minute
+	DefaultModelLoadTimeout      = 5 * time.Minute
 )
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
@@ -406,6 +421,11 @@ func (c DistributedConfig) BackendInstallTimeoutOrDefault() time.Duration {
 // BackendUpgradeTimeoutOrDefault returns the configured timeout or the default.
 func (c DistributedConfig) BackendUpgradeTimeoutOrDefault() time.Duration {
 	return cmp.Or(c.BackendUpgradeTimeout, DefaultBackendUpgradeTimeout)
+}
+
+// ModelLoadTimeoutOrDefault returns the configured timeout or the default.
+func (c DistributedConfig) ModelLoadTimeoutOrDefault() time.Duration {
+	return cmp.Or(c.ModelLoadTimeout, DefaultModelLoadTimeout)
 }
 
 // MCPToolTimeoutOrDefault returns the configured timeout or the default.

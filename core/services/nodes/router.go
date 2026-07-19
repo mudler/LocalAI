@@ -18,9 +18,12 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 	"golang.org/x/sync/singleflight"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -72,9 +75,46 @@ type SmartRouterOptions struct {
 	// attempt (node selection -> backend install -> file staging -> LoadModel)
 	// may run while holding the per-model advisory lock. It backstops every
 	// sub-step's own timeout so a wedged worker can never pin the lock - and
-	// every other replica's request for that model - indefinitely. Zero selects
-	// defaultModelLoadCeiling.
+	// every other replica's request for that model - indefinitely. Zero derives
+	// it from the default install budget and ModelLoadTimeout via
+	// ModelLoadCeilingFor.
 	ModelLoadCeiling time.Duration
+	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call, which
+	// runs after the backend install and file staging have already completed and
+	// so covers only the worker backend's checkpoint load and pipeline init.
+	// Zero selects config.DefaultModelLoadTimeout. Operators raise it via
+	// LOCALAI_NATS_MODEL_LOAD_TIMEOUT for very large checkpoints; ModelLoadCeiling
+	// must be widened in step (see ModelLoadCeilingFor) or the ceiling clips the
+	// longer deadline before it can be used.
+	ModelLoadTimeout time.Duration
+}
+
+// modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
+// install + remote-load budgets to cover the steps that have no deadline of
+// their own: node selection, replica allocation and model file staging.
+const modelLoadStagingMargin = 5 * time.Minute
+
+// minModelLoadCeiling floors the derived ceiling at the historical 25m constant
+// so shrinking the install or load budgets can never tighten the hold ceiling
+// below what clusters relied on before it became derived.
+const minModelLoadCeiling = 25 * time.Minute
+
+// ModelLoadCeilingFor derives the cold-load hold ceiling from the budgets it has
+// to cover. The ceiling bounds how long one cold load may hold the per-model
+// advisory lock; it must comfortably exceed the slowest legitimate load (backend
+// install + staging + remote LoadModel) so it only ever fires when a step is
+// genuinely wedged - e.g. a worker that died mid-install. Deriving it means
+// raising LOCALAI_NATS_MODEL_LOAD_TIMEOUT for an 80 GB video checkpoint actually
+// takes effect, instead of being cut short by a constant that silently went
+// stale. Non-positive inputs fall back to their package defaults.
+func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duration {
+	if installTimeout <= 0 {
+		installTimeout = config.DefaultBackendInstallTimeout
+	}
+	if loadTimeout <= 0 {
+		loadTimeout = config.DefaultModelLoadTimeout
+	}
+	return max(installTimeout+loadTimeout+modelLoadStagingMargin, minModelLoadCeiling)
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -111,14 +151,10 @@ type SmartRouter struct {
 	// modelLoadCeiling bounds how long a cold load may hold the per-model
 	// advisory lock (see SmartRouterOptions.ModelLoadCeiling).
 	modelLoadCeiling time.Duration
+	// modelLoadTimeout is the deadline for the remote LoadModel gRPC call
+	// (see SmartRouterOptions.ModelLoadTimeout).
+	modelLoadTimeout time.Duration
 }
-
-// defaultModelLoadCeiling is the fallback hold ceiling for a cold model load.
-// It must comfortably exceed the slowest legitimate load - a multi-GB backend
-// install (DefaultBackendInstallTimeout, 15m) plus staging and the remote
-// LoadModel (5m) - so it never cuts a real load short; it only ever fires when
-// a step is genuinely wedged (e.g. a worker that died mid-install).
-const defaultModelLoadCeiling = 25 * time.Minute
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
 // trusted before the next request re-probes. Matches healthCheckTTL in
@@ -134,9 +170,13 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if factory == nil {
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
+	loadTimeout := opts.ModelLoadTimeout
+	if loadTimeout <= 0 {
+		loadTimeout = config.DefaultModelLoadTimeout
+	}
 	ceiling := opts.ModelLoadCeiling
 	if ceiling <= 0 {
-		ceiling = defaultModelLoadCeiling
+		ceiling = ModelLoadCeilingFor(config.DefaultBackendInstallTimeout, loadTimeout)
 	}
 	return &SmartRouter{
 		registry:         registry,
@@ -153,6 +193,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		pressure:         opts.Pressure,
 		sharedModels:     opts.SharedModels,
 		modelLoadCeiling: ceiling,
+		modelLoadTimeout: loadTimeout,
 	}
 }
 
@@ -250,11 +291,21 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if loadOpts != nil {
 		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
 
-		loadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		loadCtx, cancel := context.WithTimeout(ctx, r.modelLoadTimeout)
 		defer cancel()
 
 		res, err := client.LoadModel(loadCtx, loadOpts)
 		if err != nil {
+			// A gRPC deadline only cancels the CLIENT side of the call. A
+			// backend blocked in a synchronous weight load never observes its
+			// cancelled handler context, so it keeps loading with nobody
+			// waiting: an 83GB checkpoint was seen still downloading 30
+			// minutes past the client timeout, and each retry stacked another
+			// multi-GB loader process on the worker. Reap the replica we just
+			// abandoned before handing the failure back.
+			if loadAbandonedOnWorker(err) {
+				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
+			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
 		}
 		if !res.Success {
@@ -283,6 +334,51 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	}
 
 	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr, ReplicaIndex: replicaIndex}, nil
+}
+
+// loadAbandonedOnWorker reports whether a failed remote LoadModel left the
+// worker process still running the load.
+//
+// Only a deadline or a cancellation qualifies: those are OUR side giving up
+// while the backend keeps going. Every other failure (an unsupported model, a
+// bad option, an OOM) is the backend answering, which means its handler
+// returned and the process is idle — stopping it there would throw away a
+// warm process and its downloaded weights for the next attempt.
+func loadAbandonedOnWorker(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	// The deadline usually reaches us as a gRPC status rather than a wrapped
+	// context error. errors.As (not status.Code) so a wrapped status is still
+	// recognised.
+	var st interface{ GRPCStatus() *status.Status }
+	if errors.As(err, &st) {
+		switch st.GRPCStatus().Code() {
+		case codes.DeadlineExceeded, codes.Canceled:
+			return true
+		}
+	}
+	return false
+}
+
+// reapAbandonedLoad tells the worker to stop the one replica whose load we
+// just abandoned. The exact `modelID#replicaIndex` process key matters: the
+// bare model ID would stop every replica of the model on that node, including
+// healthy ones serving traffic.
+//
+// Best-effort by design — the caller is waiting on the load failure, and a
+// failed reap must be visible in the logs, never substituted for it.
+func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, replicaIndex int) {
+	if r.unloader == nil {
+		return
+	}
+	processKey := model.BackendProcessKey(trackingKey, replicaIndex)
+	xlog.Warn("Reaping abandoned model load on worker",
+		"node", node.Name, "model", trackingKey, "replica", replicaIndex)
+	if err := r.unloader.StopBackend(node.ID, processKey); err != nil {
+		xlog.Warn("Failed to reap abandoned model load; the worker may still be loading",
+			"node", node.Name, "backend", processKey, "error", err)
+	}
 }
 
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.

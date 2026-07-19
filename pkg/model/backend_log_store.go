@@ -2,6 +2,7 @@ package model
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,17 @@ import (
 // worker's buildProcessKey — duplicated as a constant here to keep this
 // package free of CLI imports.
 const replicaSeparator = "#"
+
+// BackendProcessKey builds the worker supervisor's process key for one replica
+// of a model (e.g. "qwen3-0.6b#0"). The worker keys its process map by this
+// string and resolves an exact key to exactly that replica, so any caller that
+// wants to address a single replica over NATS must format it identically —
+// a mismatch degrades silently into "no process found" and leaks the process.
+// This package is the lowest common dependency of the router and the worker,
+// so the format lives here instead of being hand-rolled at each call site.
+func BackendProcessKey(modelID string, replicaIndex int) string {
+	return modelID + replicaSeparator + strconv.Itoa(replicaIndex)
+}
 
 // BackendLogLine represents a single line of output from a backend process.
 type BackendLogLine struct {
