@@ -18,9 +18,12 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 	"golang.org/x/sync/singleflight"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -293,6 +296,16 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 
 		res, err := client.LoadModel(loadCtx, loadOpts)
 		if err != nil {
+			// A gRPC deadline only cancels the CLIENT side of the call. A
+			// backend blocked in a synchronous weight load never observes its
+			// cancelled handler context, so it keeps loading with nobody
+			// waiting: an 83GB checkpoint was seen still downloading 30
+			// minutes past the client timeout, and each retry stacked another
+			// multi-GB loader process on the worker. Reap the replica we just
+			// abandoned before handing the failure back.
+			if loadAbandonedOnWorker(err) {
+				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
+			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
 		}
 		if !res.Success {
@@ -321,6 +334,51 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	}
 
 	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr, ReplicaIndex: replicaIndex}, nil
+}
+
+// loadAbandonedOnWorker reports whether a failed remote LoadModel left the
+// worker process still running the load.
+//
+// Only a deadline or a cancellation qualifies: those are OUR side giving up
+// while the backend keeps going. Every other failure (an unsupported model, a
+// bad option, an OOM) is the backend answering, which means its handler
+// returned and the process is idle — stopping it there would throw away a
+// warm process and its downloaded weights for the next attempt.
+func loadAbandonedOnWorker(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	// The deadline usually reaches us as a gRPC status rather than a wrapped
+	// context error. errors.As (not status.Code) so a wrapped status is still
+	// recognised.
+	var st interface{ GRPCStatus() *status.Status }
+	if errors.As(err, &st) {
+		switch st.GRPCStatus().Code() {
+		case codes.DeadlineExceeded, codes.Canceled:
+			return true
+		}
+	}
+	return false
+}
+
+// reapAbandonedLoad tells the worker to stop the one replica whose load we
+// just abandoned. The exact `modelID#replicaIndex` process key matters: the
+// bare model ID would stop every replica of the model on that node, including
+// healthy ones serving traffic.
+//
+// Best-effort by design — the caller is waiting on the load failure, and a
+// failed reap must be visible in the logs, never substituted for it.
+func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, replicaIndex int) {
+	if r.unloader == nil {
+		return
+	}
+	processKey := model.BackendProcessKey(trackingKey, replicaIndex)
+	xlog.Warn("Reaping abandoned model load on worker",
+		"node", node.Name, "model", trackingKey, "replica", replicaIndex)
+	if err := r.unloader.StopBackend(node.ID, processKey); err != nil {
+		xlog.Warn("Failed to reap abandoned model load; the worker may still be loading",
+			"node", node.Name, "backend", processKey, "error", err)
+	}
 }
 
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.
