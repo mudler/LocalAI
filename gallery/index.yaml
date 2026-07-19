@@ -5711,6 +5711,44 @@
     options:
       - attention_backend:sdpa
       - use_distill:true
+    # Avatar generation needs two repositories: the avatar checkpoint itself
+    # plus the tokenizer, text encoder and VAE from the LongCat-Video base
+    # repo. Declaring the base repo as a companion has LocalAI acquire both up
+    # front, so a distributed worker is handed staged weights instead of
+    # downloading them itself inside the load deadline.
+    #
+    # allow_patterns keeps this to what the configured options actually load.
+    # The avatar repo ships both base_model/ and base_model_int8/ and only one
+    # is ever read, so fetching both would roughly double the download. These
+    # patterns match use_distill:true with use_int8 left at its default of
+    # false; enabling use_int8 on this entry additionally requires adding
+    # base_model_int8/** here.
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: meituan-longcat/LongCat-Video-Avatar-1.5
+          allow_patterns:
+            - config.json
+            - model_index.json
+            - scheduler/**
+            - lora/dmd_lora.safetensors
+            - whisper-large-v3/config.json
+            - whisper-large-v3/model.safetensors
+            - whisper-large-v3/preprocessor_config.json
+            - base_model/**
+      - name: base_model
+        target: companion
+        source:
+          type: huggingface
+          repo: meituan-longcat/LongCat-Video
+          allow_patterns:
+            - config.json
+            - model_index.json
+            - text_encoder/**
+            - tokenizer/**
+            - vae/**
     parameters:
       model: meituan-longcat/LongCat-Video-Avatar-1.5
 - name: vllm-omni-qwen3-omni-30b
