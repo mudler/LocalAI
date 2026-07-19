@@ -63,6 +63,11 @@ function inferBackendPath(item) {
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
   }
+  if (item.dockerfile.endsWith("bonsai")) {
+    // bonsai is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
+    // via a thin wrapper Makefile. Changes to either dir should retrigger it.
+    return `backend/cpp/bonsai/`;
+  }
   if (item.dockerfile.endsWith("privacy-filter")) {
     return `backend/cpp/privacy-filter/`;
   }
@@ -118,6 +123,15 @@ function getAllBackendPaths() {
 }
 
 const allBackendPaths = getAllBackendPaths();
+
+function backendChanged(backend, pathPrefix, changedFiles) {
+  if (changedFiles.some(file => file.startsWith(pathPrefix))) return true;
+
+  // Fork backends reuse backend/cpp/llama-cpp sources via thin wrappers;
+  // changes to either directory must retrigger their pipelines.
+  return (backend === "turboquant" || backend === "bonsai") &&
+    changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
+}
 
 const token = process.env.GITHUB_TOKEN;
 const octokit = new Octokit({ auth: token });
@@ -305,7 +319,7 @@ function emitFilteredMatrix(changedFiles) {
   const filtered = includes.filter(item => {
     const backendPath = inferBackendPath(item);
     if (!backendPath) return false;
-    return changedFiles.some(file => file.startsWith(backendPath));
+    return backendChanged(item.backend, backendPath, changedFiles);
   });
 
   const filteredDarwin = includesDarwin.filter(item => {
@@ -337,12 +351,7 @@ function emitFilteredMatrix(changedFiles) {
 
   // Per-backend boolean outputs
   for (const [backend, pathPrefix] of allBackendPaths) {
-    let changed = changedFiles.some(file => file.startsWith(pathPrefix));
-    // turboquant reuses backend/cpp/llama-cpp sources via a thin wrapper;
-    // changes to either directory should retrigger its pipeline.
-    if (backend === "turboquant" && !changed) {
-      changed = changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
-    }
+    const changed = backendChanged(backend, pathPrefix, changedFiles);
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=${changed ? 'true' : 'false'}\n`);
   }
 }
