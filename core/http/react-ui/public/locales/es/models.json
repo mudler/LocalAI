@@ -83,5 +83,16 @@
     "loadFailed": "Error al cargar modelos: {{message}}",
     "installFailed": "Error al instalar: {{message}}",
     "deleteFailed": "Error al eliminar: {{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend"
   }
 }

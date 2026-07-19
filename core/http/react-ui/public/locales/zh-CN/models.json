@@ -83,5 +83,16 @@
     "loadFailed": "加载模型失败：{{message}}",
     "installFailed": "安装失败：{{message}}",
     "deleteFailed": "删除失败：{{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend"
   }
 }

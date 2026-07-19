@@ -8,6 +8,38 @@ const MOCK_MODELS_RESPONSE = {
       backend: "llama-cpp",
       installed: false,
       tags: ["chat"],
+      // memory_bytes is omitempty server-side, so the mlx variant deliberately
+      // carries no key at all: the UI must render that as unknown, never 0 B.
+      variants: [
+        {
+          model: "llama-model",
+          backend: "llama-cpp",
+          memory_bytes: 4 * 1024 * 1024 * 1024,
+          fits: true,
+          is_base: true,
+        },
+        {
+          model: "llama-model-q8",
+          backend: "llama-cpp",
+          memory_bytes: 8 * 1024 * 1024 * 1024,
+          fits: true,
+          is_base: false,
+        },
+        {
+          model: "llama-model-mlx",
+          backend: "mlx",
+          fits: true,
+          is_base: false,
+        },
+        {
+          model: "llama-model-f16",
+          backend: "llama-cpp",
+          memory_bytes: 40 * 1024 * 1024 * 1024,
+          fits: false,
+          is_base: false,
+        },
+      ],
+      auto_variant: "llama-model-q8",
     },
     {
       name: "whisper-model",
@@ -173,7 +205,9 @@ test.describe("Models Gallery - Backend Features", () => {
     // The detail view should show Backend label and value
     const detail = page.locator('td[colspan="8"]');
     await expect(detail.locator("text=Backend")).toBeVisible();
-    await expect(detail.locator("text=llama-cpp")).toBeVisible();
+    // The Backend DetailRow renders before the Variants section, which lists a
+    // per-variant backend badge of its own, so scope to the first match.
+    await expect(detail.locator("text=llama-cpp").first()).toBeVisible();
   });
 });
 
@@ -431,5 +465,123 @@ test.describe("Models Gallery - Empty State", () => {
     await expect(chatBtn).not.toHaveClass(/active/);
     await expect(page.locator(".empty-state")).toHaveCount(0);
     await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
+  });
+});
+
+test.describe("Models Gallery - Variant picker", () => {
+  // installUrls records every install request so a test can assert both the
+  // presence and the absence of the ?variant= parameter.
+  let installUrls;
+
+  test.beforeEach(async ({ page }) => {
+    installUrls = [];
+    await page.route("**/api/models*", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_MODELS_RESPONSE),
+      });
+    });
+    await page.route("**/api/models/install/**", (route) => {
+      installUrls.push(route.request().url());
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ jobID: "variant-install" }),
+      });
+    });
+    await page.goto("/app/models");
+    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  const variantRow = (page) => page.locator("tr", { hasText: "llama-model" }).first();
+  const plainRow = (page) =>
+    page.locator("tr", { hasText: "stablediffusion-model" }).first();
+
+  test("an entry that declares variants shows the split-button chevron", async ({
+    page,
+  }) => {
+    await expect(
+      variantRow(page).getByRole("button", { name: "Choose a variant" }),
+    ).toBeVisible();
+  });
+
+  test("an entry without variants renders no chevron", async ({ page }) => {
+    await expect(
+      plainRow(page).getByRole("button", { name: "Choose a variant" }),
+    ).toHaveCount(0);
+    // and still offers an ordinary install
+    await expect(
+      plainRow(page).locator("button.btn-primary"),
+    ).toHaveCount(1);
+  });
+
+  test("plain Install sends no variant parameter", async ({ page }) => {
+    await plainRow(page).locator("button.btn-primary").click();
+    await expect.poll(() => installUrls.length).toBe(1);
+    expect(installUrls[0]).not.toContain("variant=");
+  });
+
+  test("the auto-selected variant is marked in the menu", async ({ page }) => {
+    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    const menu = page.locator(".action-menu");
+    await expect(menu).toBeVisible();
+    const autoItem = menu.locator(".action-menu__item", {
+      hasText: "llama-model-q8",
+    });
+    await expect(autoItem.locator(".badge", { hasText: "Auto" })).toBeVisible();
+    // the base build is identifiable too
+    await expect(
+      menu
+        .locator(".action-menu__item", { hasText: "llama-model" })
+        .first()
+        .locator(".badge", { hasText: "Base build" }),
+    ).toBeVisible();
+  });
+
+  test("a variant with no memory_bytes renders as unknown, not 0", async ({
+    page,
+  }) => {
+    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    const mlxItem = page.locator(".action-menu__item", {
+      hasText: "llama-model-mlx",
+    });
+    await expect(mlxItem).toContainText("Unknown size");
+    await expect(mlxItem).not.toContainText("0 B");
+  });
+
+  test("a variant that does not fit is still selectable", async ({ page }) => {
+    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    const f16 = page.locator(".action-menu__item", {
+      hasText: "llama-model-f16",
+    });
+    await expect(f16.locator(".badge", { hasText: "Does not fit" })).toBeVisible();
+    await expect(f16).toBeEnabled();
+  });
+
+  test("choosing a specific variant sends ?variant= on the install", async ({
+    page,
+  }) => {
+    await variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    await page
+      .locator(".action-menu__item", { hasText: "llama-model-mlx" })
+      .click();
+    await expect.poll(() => installUrls.length).toBe(1);
+    expect(installUrls[0]).toContain("variant=llama-model-mlx");
+  });
+
+  test("the expanded detail row lists every variant", async ({ page }) => {
+    await variantRow(page).click();
+    const detail = page.locator('td[colspan="8"]');
+    await expect(detail).toContainText("Variants");
+    await expect(detail).toContainText("llama-model-q8");
+    await expect(detail).toContainText("llama-model-mlx");
+    await expect(detail).toContainText("llama-model-f16");
+    await expect(detail).toContainText("Unknown size");
+    await expect(detail).toContainText("Auto-selected");
+    await expect(detail).toContainText("Base build");
+    await expect(detail).toContainText("Does not fit");
+    await expect(detail).toContainText("mlx");
   });
 });

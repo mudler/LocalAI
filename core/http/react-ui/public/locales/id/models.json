@@ -96,5 +96,16 @@
     "selectModel": "Pilih model...",
     "searchPlaceholder": "Cari model...",
     "noModels": "Model tidak tersedia"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend"
   }
 }

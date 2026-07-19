@@ -83,5 +83,16 @@
     "loadFailed": "Caricamento modelli fallito: {{message}}",
     "installFailed": "Installazione fallita: {{message}}",
     "deleteFailed": "Eliminazione fallita: {{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend"
   }
 }

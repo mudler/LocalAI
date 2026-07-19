@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useOutletContext, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
@@ -14,6 +14,8 @@ import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import ResponsiveTable from '../components/ResponsiveTable'
 import RecommendedModels from '../components/RecommendedModels'
+import Popover from '../components/Popover'
+import { formatBytes } from '../utils/format'
 import React from 'react'
 
 
@@ -68,6 +70,10 @@ export default function Models() {
   const [estimates, setEstimates] = useState({})
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   const [confirmDialog, setConfirmDialog] = useState(null)
+  // Index of the row whose variant split-menu is open, or null. A single
+  // Popover is re-anchored per row rather than one instance per row.
+  const [variantMenuFor, setVariantMenuFor] = useState(null)
+  const variantMenuAnchorRef = useRef(null)
   const [fitsFilter, setFitsFilter] = useState(() => {
     try {
       return localStorage.getItem(FITS_FILTER_STORAGE_KEY) === '1'
@@ -187,10 +193,10 @@ export default function Models() {
     }
   }
 
-  const handleInstall = async (modelId) => {
+  const handleInstall = async (modelId, variant) => {
     try {
       setInstalling(prev => new Map(prev).set(modelId, Date.now()))
-      await modelsApi.install(modelId)
+      await modelsApi.install(modelId, variant)
     } catch (err) {
       addToast(t('errors.installFailed', { message: err.message }), 'error')
     }
@@ -423,6 +429,7 @@ export default function Models() {
                   const progress = getOperationProgress(name)
                   const fit = fitsGpu(vramBytes)
                   const isExpanded = expandedRow === idx
+                  const hasVariants = model.variants?.length > 0
 
                   return (
                     <React.Fragment key={name}>
@@ -553,6 +560,34 @@ export default function Models() {
                                 <i className="fas fa-trash" />
                               </button>
                             </>
+                          ) : hasVariants ? (
+                            // Split button: the primary keeps installing the
+                            // auto-selected build, so the default path is
+                            // unchanged. The chevron is the deliberate
+                            // override.
+                            <div style={{ display: 'inline-flex' }}>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                onClick={() => handleInstall(name)}
+                                disabled={installing}
+                                title={t('actions.install')}
+                                style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                              >
+                                <i className="fas fa-download" />
+                              </button>
+                              <button
+                                ref={variantMenuFor === idx ? variantMenuAnchorRef : undefined}
+                                className="btn btn-primary btn-sm"
+                                onClick={() => setVariantMenuFor(variantMenuFor === idx ? null : idx)}
+                                aria-haspopup="menu"
+                                aria-expanded={variantMenuFor === idx}
+                                aria-label={t('variants.chooseVariant')}
+                                disabled={installing}
+                                style={{ padding: '0 8px', borderLeft: '1px solid rgba(0,0,0,0.15)', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                              >
+                                <i className={`fas fa-chevron-${variantMenuFor === idx ? 'up' : 'down'}`} style={{ fontSize: '0.6875rem' }} />
+                              </button>
+                            </div>
                           ) : (
                             <button
                               className="btn btn-primary btn-sm"
@@ -605,8 +640,59 @@ export default function Models() {
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => setConfirmDialog(null)}
       />
+
+      {/* Single Popover for the variant split-button menu, re-anchored to
+          whichever row's chevron is active. Reusing it gives Escape,
+          outside-click and focus return for free. */}
+      <Popover
+        anchor={variantMenuAnchorRef}
+        open={variantMenuFor !== null}
+        onClose={() => setVariantMenuFor(null)}
+        ariaLabel={t('variants.chooseVariant')}
+      >
+        <div className="action-menu">
+          {(visibleModels[variantMenuFor]?.variants || []).map(v => {
+            const isAuto = v.model === visibleModels[variantMenuFor]?.auto_variant
+            return (
+              <button
+                key={v.model}
+                type="button"
+                className="action-menu__item"
+                onClick={() => {
+                  const m = visibleModels[variantMenuFor]
+                  setVariantMenuFor(null)
+                  if (m) handleInstall(m.name || m.id, v.model)
+                }}
+                // A variant that does not fit stays selectable: an explicit
+                // choice is an override the server honours with a warning.
+                style={{ opacity: v.fits ? 1 : 0.6 }}
+              >
+                <i className={`fas ${isAuto ? 'fa-circle-check' : 'fa-download'} action-menu__icon`} />
+                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                  <span>
+                    {v.model}
+                    {isAuto && <span className="badge badge-success" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.auto')}</span>}
+                    {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.base')}</span>}
+                    {!v.fits && <span className="badge badge-warning" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.doesNotFit')}</span>}
+                  </span>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                    {v.backend || t('variants.unknownBackend')} · {variantSizeLabel(v, t)}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </Popover>
     </div>
   )
+}
+
+// variantSizeLabel renders a variant footprint. memory_bytes is omitempty on
+// the wire, so an absent key means the probe could not determine a size; it
+// must never render as "0 B", which would read as "needs nothing".
+function variantSizeLabel(variant, t) {
+  return variant?.memory_bytes ? formatBytes(variant.memory_bytes) : t('variants.unknownSize')
 }
 
 function DetailRow({ label, children }) {
@@ -661,6 +747,28 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
               </span>
             ) : null}
           </DetailRow>
+          {model.variants?.length > 0 && (
+            <DetailRow label={t('variants.title')}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                {model.variants.map(v => (
+                  <div key={v.model} className="model-variant-row" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{v.model}</span>
+                    <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{v.backend || t('variants.unknownBackend')}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{variantSizeLabel(v, t)}</span>
+                    <span className={`badge ${v.fits ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.6875rem' }}>
+                      {v.fits ? t('variants.fits') : t('variants.doesNotFit')}
+                    </span>
+                    {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{t('variants.base')}</span>}
+                    {v.model === model.auto_variant && (
+                      <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
+                        <i className="fas fa-circle-check" /> {t('variants.autoSelected')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </DetailRow>
+          )}
           <DetailRow label={t('detail.license')}>
             {model.license && <span>{model.license}</span>}
           </DetailRow>

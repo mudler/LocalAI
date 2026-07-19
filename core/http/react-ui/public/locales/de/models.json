@@ -83,5 +83,16 @@
     "loadFailed": "Laden der Modelle fehlgeschlagen: {{message}}",
     "installFailed": "Installation fehlgeschlagen: {{message}}",
     "deleteFailed": "Löschen fehlgeschlagen: {{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend"
   }
 }
