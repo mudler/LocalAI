@@ -16,6 +16,7 @@ import ResponsiveTable from '../components/ResponsiveTable'
 import RecommendedModels from '../components/RecommendedModels'
 import Popover from '../components/Popover'
 import { formatBytes } from '../utils/format'
+import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 
 
@@ -529,12 +530,19 @@ export default function Models() {
 
                       {/* Description */}
                       <td>
-                        <div style={{
-                          fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
-                          maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }} title={model.description}>
-                          {model.description || '—'}
-                        </div>
+                        {(() => {
+                          // Gallery descriptions are Markdown. This cell is a single
+                          // truncated line, so it gets the text without the syntax.
+                          const desc = stripMarkdown(model.description)
+                          return (
+                            <div style={{
+                              fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
+                              maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }} title={desc}>
+                              {desc || '—'}
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       {/* Backend */}
@@ -796,7 +804,10 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
         <tbody>
           <DetailRow label={t('detail.description')}>
             {model.description && (
-              <span style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>{model.description}</span>
+              <div
+                style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(model.description) }}
+              />
             )}
           </DetailRow>
           <DetailRow label={t('detail.gallery')}>

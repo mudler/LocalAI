@@ -826,3 +826,96 @@ test.describe("Models Gallery - Has Variants Filter", () => {
     ).toBeVisible();
   });
 });
+
+// Gallery descriptions are third-party Markdown. They used to be dumped raw
+// into the UI, so a model whose description opened with an ATX heading showed
+// a literal "# Name [](url)" in the list.
+const MARKDOWN_DESCRIPTION =
+  "# Qwen3.6-27B\n\nChat with it at [the Qwen site](https://chat.qwen.ai) for **free**.";
+const MARKDOWN_MODELS_RESPONSE = {
+  ...MOCK_MODELS_RESPONSE,
+  models: [
+    {
+      name: "markdown-model",
+      description: MARKDOWN_DESCRIPTION,
+      backend: "llama-cpp",
+      installed: false,
+      tags: ["chat"],
+    },
+    {
+      name: "no-description-model",
+      description: "",
+      backend: "llama-cpp",
+      installed: false,
+      tags: ["chat"],
+    },
+  ],
+  availableModels: 2,
+  installedModels: 0,
+};
+
+test.describe("Models Gallery - Markdown descriptions", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/models*", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MARKDOWN_MODELS_RESPONSE),
+      });
+    });
+    await page.goto("/app/models");
+    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("table cell shows the description as clean text, not raw Markdown", async ({
+    page,
+  }) => {
+    const row = page.locator("tr", { hasText: "markdown-model" });
+    const cell = row.locator("div[title]", { hasText: "Qwen3.6-27B" });
+
+    await expect(cell).toHaveText(
+      "Qwen3.6-27B Chat with it at the Qwen site for free.",
+    );
+    // The syntax itself must be gone, not merely rendered somewhere.
+    await expect(cell).not.toContainText("#");
+    await expect(cell).not.toContainText("[](");
+    await expect(cell).not.toContainText("**");
+    await expect(cell).not.toContainText("https://chat.qwen.ai");
+    // A block element here would blow up the row height.
+    await expect(cell.locator("h1")).toHaveCount(0);
+  });
+
+  test("title tooltip carries the stripped text, not raw Markdown", async ({
+    page,
+  }) => {
+    const row = page.locator("tr", { hasText: "markdown-model" });
+    const cell = row.locator("div[title]", { hasText: "Qwen3.6-27B" });
+
+    await expect(cell).toHaveAttribute(
+      "title",
+      "Qwen3.6-27B Chat with it at the Qwen site for free.",
+    );
+  });
+
+  test("expanded detail row renders the description as real markup", async ({
+    page,
+  }) => {
+    await page.locator("tr", { hasText: "markdown-model" }).click();
+
+    const detail = page.locator('td[colspan="8"]');
+    await expect(detail.locator("h1", { hasText: "Qwen3.6-27B" })).toBeVisible();
+    const link = detail.locator('a[href="https://chat.qwen.ai"]');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveText("the Qwen site");
+    await expect(detail.locator("strong", { hasText: "free" })).toBeVisible();
+  });
+
+  test("a model without a description still shows the placeholder", async ({
+    page,
+  }) => {
+    const row = page.locator("tr", { hasText: "no-description-model" });
+    await expect(row).toBeVisible();
+    await expect(row.locator("div[title='']")).toHaveText("—");
+  });
+});
