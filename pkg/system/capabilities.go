@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/mudler/xlog"
@@ -18,8 +19,8 @@ const (
 	Intel  = "intel"
 
 	// Private constants - only used within this package
-	defaultCapability  = "default"
-	disableCapability  = "disable"
+	defaultCapability = "default"
+	disableCapability = "disable"
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
@@ -43,7 +44,52 @@ const (
 	backendTokenROCM   = "rocm"
 	backendTokenHIP    = "hip"
 	backendTokenSYCL   = "sycl"
+	backendTokenCPU    = "cpu"
 )
+
+// backendPreferenceRule maps a detected capability to the runtime tokens that
+// capability prefers, best first.
+//
+// This table is the single source of truth for "what should this host run
+// first", consumed both by concrete-backend alias resolution and by gallery
+// variant auto-selection. Keeping it declarative is deliberate: LocalAI gains
+// backends and hardware targets continuously, and expressing a new preference
+// has to stay a one-line edit here rather than a change to any ranking code.
+//
+// To add a capability, append a rule. To reorder one host's runtimes, reorder
+// its tokens. Nothing else needs to change.
+//
+// Matching is by capability PREFIX, because a detected capability is refined at
+// runtime ("nvidia" becomes "nvidia-cuda-12" when the toolkit is present) and a
+// preference is about the vendor rather than the point release. Rules are tried
+// in order, so a more specific prefix must precede any rule it shares a prefix
+// with.
+//
+// Tokens are matched as substrings of a backend name, so "cuda" covers
+// "cuda12-llama-cpp" and "mlx" covers "metal-mlx" alike. A backend matching no
+// token is not an error and is never discarded; it simply sorts below every
+// recognised one.
+type backendPreferenceRule struct {
+	capabilityPrefix string
+	tokens           []string
+}
+
+var backendPreferenceRules = []backendPreferenceRule{
+	{Nvidia, []string{backendTokenCUDA, vulkan, backendTokenCPU}},
+	{AMD, []string{backendTokenROCM, backendTokenHIP, vulkan, backendTokenCPU}},
+	{Intel, []string{backendTokenSYCL, Intel, backendTokenCPU}},
+	// MLX outranks metal because on Apple silicon it is the native accelerated
+	// runtime, whereas a metal-enabled GGUF build is the portable engine merely
+	// compiled with GPU offload.
+	{metal, []string{backendTokenMLX, backendTokenMetal, backendTokenCPU}},
+	{darwinX86, []string{darwinX86, backendTokenCPU}},
+	{vulkan, []string{vulkan, backendTokenCPU}},
+}
+
+// defaultBackendPreferenceTokens is what a host with no matching rule prefers.
+// A capability nobody has taught this table about degrades to plain CPU rather
+// than to an error or to an empty list.
+var defaultBackendPreferenceTokens = []string{backendTokenCPU}
 
 var (
 	cuda13DirExists bool
@@ -186,24 +232,18 @@ func (s *SystemState) getSystemCapabilities() string {
 // backend implementation order for the current system capability. Callers can use
 // these tokens to select the most appropriate concrete backend among multiple
 // candidates sharing the same alias (e.g., "llama-cpp").
+// The rules live in backendPreferenceRules above; this function only looks them
+// up, so teaching LocalAI about a new runtime never means editing logic.
 func (s *SystemState) BackendPreferenceTokens() []string {
 	capStr := strings.ToLower(s.getSystemCapabilities())
-	switch {
-	case strings.HasPrefix(capStr, Nvidia):
-		return []string{backendTokenCUDA, vulkan, "cpu"}
-	case strings.HasPrefix(capStr, AMD):
-		return []string{backendTokenROCM, backendTokenHIP, vulkan, "cpu"}
-	case strings.HasPrefix(capStr, Intel):
-		return []string{backendTokenSYCL, Intel, "cpu"}
-	case strings.HasPrefix(capStr, metal):
-		return []string{backendTokenMetal, "cpu"}
-	case strings.HasPrefix(capStr, darwinX86):
-		return []string{"darwin-x86", "cpu"}
-	case strings.HasPrefix(capStr, vulkan):
-		return []string{vulkan, "cpu"}
-	default:
-		return []string{"cpu"}
+	for _, rule := range backendPreferenceRules {
+		if strings.HasPrefix(capStr, rule.capabilityPrefix) {
+			// Copied so a caller cannot mutate the shared table out from under
+			// every other host lookup.
+			return slices.Clone(rule.tokens)
+		}
 	}
+	return slices.Clone(defaultBackendPreferenceTokens)
 }
 
 // DetectedCapability returns the raw detected capability string (e.g. "metal",

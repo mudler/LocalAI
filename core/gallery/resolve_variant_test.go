@@ -243,6 +243,159 @@ var _ = Describe("SelectVariant", func() {
 		})
 	})
 
+	Describe("ranking by host backend preference", func() {
+		// The token lists below are exactly what
+		// SystemState.BackendPreferenceTokens reports for these hosts. They are
+		// spelled out rather than read from the live machine so the specs pin
+		// the intended behaviour on every CI runner.
+		darwinMetal := []string{"mlx", "metal", "cpu"}
+		nvidia := []string{"cuda", "vulkan", "cpu"}
+
+		// A Mac runs both engines, so nothing is filtered here and preference is
+		// the only thing that can decide.
+		darwinRunsEverything := func(string) bool { return true }
+
+		It("prefers an MLX build to a larger llama.cpp build on darwin", func() {
+			options := []gallery.VariantOption{
+				option("m-mlx-4bit", "mlx", gib(8)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-gguf-q4", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(64),
+				BackendCompatible: darwinRunsEverything,
+				BackendPreference: darwinMetal,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-mlx-4bit"))
+		})
+
+		It("takes the larger llama.cpp build on the same host once preference is unknown", func() {
+			// The mirror of the spec above, proving the MLX win comes from the
+			// preference list and not from anything intrinsic to the option set.
+			options := []gallery.VariantOption{
+				option("m-mlx-4bit", "mlx", gib(8)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-gguf-q4", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(64),
+				BackendCompatible: darwinRunsEverything,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q8"))
+		})
+
+		It("prefers a CUDA build to a larger CPU-only build on nvidia", func() {
+			options := []gallery.VariantOption{
+				option("m-cuda-q4", "cuda12-llama-cpp", gib(8)),
+				option("m-cpu-q8", "cpu-llama-cpp", gib(24)),
+				base("m-base", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(64),
+				BackendPreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-cuda-q4"))
+		})
+
+		It("still picks the largest fitting build among equally preferred backends", func() {
+			// Preference must not flatten size ordering: with one runtime in
+			// play there is nothing left for it to decide.
+			options := []gallery.VariantOption{
+				option("m-cuda-q4", "cuda12-llama-cpp", gib(6)),
+				option("m-cuda-q8", "cuda12-llama-cpp", gib(12)),
+				option("m-cuda-f16", "cuda12-llama-cpp", gib(48)),
+				base("m-base", gib(2)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(16),
+				BackendPreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-cuda-q8"))
+		})
+
+		It("does not let a preferred backend rescue a build that does not fit", func() {
+			// Fit is a filter and preference is only a ranking among survivors.
+			// The CUDA build is both preferred and too large, so the CPU build
+			// the host can actually hold has to win.
+			options := []gallery.VariantOption{
+				option("m-cuda-f16", "cuda12-llama-cpp", gib(48)),
+				option("m-cpu-q4", "cpu-llama-cpp", gib(6)),
+				base("m-base", gib(2)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(16),
+				BackendPreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-cpu-q4"))
+			Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-cuda-f16")))
+		})
+
+		It("orders unrecognised backends by size rather than dropping them", func() {
+			// Neither engine name carries an nvidia token. Nothing is discarded
+			// and nothing is arbitrarily favoured; the host falls back to the
+			// size-only behaviour it had before preference existed.
+			options := []gallery.VariantOption{
+				option("m-vllm-awq", "vllm", gib(12)),
+				option("m-sglang-fp8", "sglang", gib(6)),
+				base("m-base", gib(2)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(16),
+				BackendPreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-vllm-awq"))
+			Expect(selection.Reasons).To(BeEmpty())
+		})
+
+		It("still installs the base when nothing fits, whatever the host prefers", func() {
+			options := []gallery.VariantOption{
+				option("m-mlx-8bit", "mlx", gib(48)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-base", gib(64)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(4),
+				BackendCompatible: darwinRunsEverything,
+				BackendPreference: darwinMetal,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-base"))
+			Expect(selection.Option.IsBase).To(BeTrue())
+			Expect(selection.FellBackToBase).To(BeTrue())
+		})
+
+		It("honors a pin for a less preferred backend", func() {
+			// A pin is an operator override, so preference must not quietly
+			// redirect it any more than the memory filter does.
+			options := []gallery.VariantOption{
+				option("m-mlx-4bit", "mlx", gib(8)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-base", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:   gib(64),
+				BackendCompatible: darwinRunsEverything,
+				BackendPreference: darwinMetal,
+			}, "m-gguf-q8")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q8"))
+		})
+	})
+
 	Describe("falling back to the base", func() {
 		It("selects the base when nothing else fits", func() {
 			options := []gallery.VariantOption{

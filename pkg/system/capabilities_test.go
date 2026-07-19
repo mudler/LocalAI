@@ -128,6 +128,56 @@ var _ = Describe("getSystemCapabilities", func() {
 	)
 })
 
+var _ = Describe("BackendPreferenceTokens", func() {
+	var origEnv string
+
+	BeforeEach(func() {
+		origEnv = os.Getenv(capabilityEnv)
+	})
+
+	AfterEach(func() {
+		if origEnv != "" {
+			os.Setenv(capabilityEnv, origEnv)
+		} else {
+			os.Unsetenv(capabilityEnv)
+		}
+	})
+
+	tokensFor := func(capability string) []string {
+		GinkgoHelper()
+		Expect(os.Setenv(capabilityEnv, capability)).To(Succeed())
+		return (&SystemState{}).BackendPreferenceTokens()
+	}
+
+	It("ranks MLX above metal on apple silicon", func() {
+		// MLX is the native accelerated runtime there, so it must outrank a
+		// metal-enabled build of the portable engine.
+		Expect(tokensFor(metal)).To(Equal([]string{"mlx", "metal", "cpu"}))
+	})
+
+	It("keeps the vendor order every other capability already had", func() {
+		Expect(tokensFor("nvidia-cuda-12")).To(Equal([]string{"cuda", "vulkan", "cpu"}))
+		Expect(tokensFor(AMD)).To(Equal([]string{"rocm", "hip", "vulkan", "cpu"}))
+		Expect(tokensFor(Intel)).To(Equal([]string{"sycl", "intel", "cpu"}))
+		Expect(tokensFor(darwinX86)).To(Equal([]string{"darwin-x86", "cpu"}))
+		Expect(tokensFor(vulkan)).To(Equal([]string{"vulkan", "cpu"}))
+	})
+
+	It("degrades an unknown capability to cpu rather than to nothing", func() {
+		Expect(tokensFor("some-future-accelerator")).To(Equal([]string{"cpu"}))
+	})
+
+	It("matches a capability by prefix so a refined one keeps its vendor order", func() {
+		Expect(tokensFor("nvidia-l4t-cuda-13")).To(Equal(tokensFor("nvidia")))
+	})
+
+	It("hands out a copy so one caller cannot corrupt another's lookup", func() {
+		first := tokensFor("nvidia")
+		first[0] = "clobbered"
+		Expect(tokensFor("nvidia")[0]).To(Equal("cuda"))
+	})
+})
+
 var _ = Describe("CapabilityFilterDisabled", func() {
 	var origEnv string
 

@@ -66,6 +66,23 @@ type ResolveEnv struct {
 	// A nil func treats every backend as runnable, the right default for a
 	// caller with no view of the hardware.
 	BackendCompatible func(backend string) bool
+	// BackendPreference lists the runtime tokens this host prefers, best first,
+	// as SystemState.BackendPreferenceTokens reports them (e.g. metal gives
+	// ["mlx", "metal", "cpu"], NVIDIA gives ["cuda", "vulkan", "cpu"]). A token
+	// is matched as a substring of a variant's backend name.
+	//
+	// BackendCompatible answers "can this run here at all" and is a filter.
+	// This answers "which of the things that CAN run here should win" and is
+	// only a ranking. The two are deliberately separate: a Mac can run both an
+	// MLX build and a llama.cpp build, so nothing is filtered, yet the native
+	// accelerated runtime should still be installed even when the GGUF build is
+	// the larger download.
+	//
+	// An empty list ranks every backend equally, which reduces selection to
+	// ordering by size alone. That is the right default for a caller with no
+	// view of the hardware, and it is what every host looked like before
+	// preference existed.
+	BackendPreference []string
 	// ProbeMemory measures how much memory a referenced gallery entry needs,
 	// without downloading it. A zero result means "could not tell", never
 	// "needs nothing".
@@ -84,6 +101,30 @@ func (e ResolveEnv) backendRuns(backend string) bool {
 		return true
 	}
 	return e.BackendCompatible(backend)
+}
+
+// preferenceRank scores a backend against this host's preferred runtime order,
+// lower being better.
+//
+// It walks BackendPreference generically and knows nothing about any particular
+// backend or capability: everything a new runtime needs is expressed by the
+// token table in pkg/system, so adding one never reaches this function.
+//
+// A backend matching no token scores just below the least preferred known one.
+// It is never dropped, and a field where nothing matches scores uniformly, so
+// an unrecognised backend, an unrecognised capability and an absent preference
+// list all degrade to the same predictable place: ordering by size alone.
+func (e ResolveEnv) preferenceRank(backend string) int {
+	if len(e.BackendPreference) == 0 {
+		return 0
+	}
+	name := strings.ToLower(backend)
+	for i, token := range e.BackendPreference {
+		if token != "" && strings.Contains(name, token) {
+			return i
+		}
+	}
+	return len(e.BackendPreference)
 }
 
 // VariantSelection is the outcome of a selection pass.
@@ -118,7 +159,9 @@ type VariantSelection struct {
 //     a candidate like any other, not a last resort: an entry whose own build is
 //     the largest thing that fits must win against a smaller variant, and a base
 //     of known size must win against a variant whose size nothing could measure.
-//  5. The survivors are ranked and the best one wins, by rankOf below.
+//  5. The survivors are ranked and the best one wins: fit tier first (rankOf
+//     below), then this host's backend preference, then size. Preference beats
+//     size deliberately, so a Mac takes an MLX build over a larger GGUF one.
 //  6. With no survivor at all, which can only happen when the caller supplied no
 //     base, there is nothing to install and this reports ErrNoVariantMatch.
 func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (VariantSelection, error) {
@@ -132,9 +175,10 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 	}
 
 	type ranked struct {
-		option VariantOption
-		memory uint64
-		rank   int
+		option     VariantOption
+		memory     uint64
+		rank       int
+		preference int
 	}
 
 	survivors := make([]ranked, 0, len(options))
@@ -160,7 +204,12 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 			survivingVariants++
 		}
 
-		survivors = append(survivors, ranked{option: o, memory: memory, rank: rankOf(o, env)})
+		survivors = append(survivors, ranked{
+			option:     o,
+			memory:     memory,
+			rank:       rankOf(o, env),
+			preference: env.preferenceRank(o.Backend),
+		})
 	}
 
 	if len(survivors) == 0 {
@@ -170,11 +219,28 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 		)
 	}
 
-	// Stable so that options within one rank and of identical size keep their
-	// authored order, which is the only thing order still decides.
+	// Three keys, in this order, and the order is the whole design:
+	//
+	//  1. rank, the fit tier. Fit is a fact about whether the host can hold the
+	//     build at all, so nothing outranks it.
+	//  2. preference, the host's runtime order. Among builds the host can
+	//     equally hold, the one on the more native runtime wins even when it is
+	//     the smaller download. A Mac given an MLX build and a larger llama.cpp
+	//     build should run MLX; ranking by size first would install the GGUF and
+	//     leave the accelerated build unused. Do NOT move this below size.
+	//  3. memory, largest first, because among builds on equally preferred
+	//     runtimes a bigger build is a higher quality quantization of the same
+	//     model. Preference must not flatten this: two builds on one backend are
+	//     still ordered by size.
+	//
+	// Stable so that options equal on all three keep their authored order, which
+	// is the only thing order still decides.
 	sort.SliceStable(survivors, func(i, j int) bool {
 		if survivors[i].rank != survivors[j].rank {
 			return survivors[i].rank < survivors[j].rank
+		}
+		if survivors[i].preference != survivors[j].preference {
+			return survivors[i].preference < survivors[j].preference
 		}
 		return survivors[i].memory > survivors[j].memory
 	})
@@ -189,8 +255,8 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 	}, nil
 }
 
-// Ranks, best first. Within a rank the larger footprint wins, because a bigger
-// build is a higher quality quantization of the same model.
+// Fit tiers, best first. Within a tier the host's preferred runtime wins, and
+// within one runtime the larger footprint wins; see the sort in SelectVariant.
 const (
 	// rankProvenFit is a measured size that the host is measured to satisfy.
 	rankProvenFit = iota

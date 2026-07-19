@@ -224,6 +224,28 @@ var _ = Describe("DescribeVariants", func() {
 			Expect(view.AutoSelected).To(Equal("qwen3-8b-vllm-awq"))
 		})
 
+		It("matches what installing would pick when the host prefers a runtime", func() {
+			// The picker and the installer both have to apply backend
+			// preference, or a Mac would be shown the GGUF build and handed the
+			// MLX one. Asserting the agreement AND the name pins both halves.
+			mlx := newModel("qwen3-8b-mlx-4bit", "mlx")
+			models = append(models, mlx)
+			base.Variants = append(base.Variants, gallery.Variant{Model: "qwen3-8b-mlx-4bit"})
+
+			env := probing(gib(64), map[string]uint64{
+				"qwen3-8b-vllm-awq": gib(20),
+				"qwen3-8b-gguf-q8":  gib(9),
+				"qwen3-8b-mlx-4bit": gib(5),
+			})
+			env.BackendPreference = []string{"mlx", "metal", "cpu"}
+
+			agreesWithInstall(env)
+
+			view, err := gallery.DescribeVariants(models, base, env)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(view.AutoSelected).To(Equal("qwen3-8b-mlx-4bit"))
+		})
+
 		It("names the entry itself when no variant fits", func() {
 			view, err := gallery.DescribeVariants(models, base, probing(gib(2), map[string]uint64{
 				"qwen3-8b-vllm-awq": gib(20),
