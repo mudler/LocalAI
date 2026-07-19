@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -91,8 +92,19 @@ type backendSupervisor struct {
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
-	nextPort  int                        // next available port for new backends
+	nextPort  int                        // next unhanded-out port; grows within [minPort, maxPort]
+	minPort   int                        // first port of the allocatable range
+	maxPort   int                        // last port of the allocatable range (inclusive)
 	freePorts []int                      // ports out of quarantine, reused before nextPort
+
+	// portAffinity remembers which process key last held each port, so a
+	// released port is offered back to that key before any other, and how long
+	// that claim outlives the release. See allocatePort for why this is a
+	// correctness property and not a nice-to-have.
+	// portAffinityWindow is overridden only by tests; zero means
+	// defaultPortAffinityWindow.
+	portAffinity       map[string]portOwnership
+	portAffinityWindow time.Duration
 
 	// quarantinedPorts holds ports whose process has terminated but which are
 	// not yet safe to re-bind, and portQuarantine is how long they wait.
@@ -144,18 +156,213 @@ func (s *backendSupervisor) quarantineWindow() time.Duration {
 	return s.portQuarantine
 }
 
-// allocatePort returns a gRPC port for a new backend process, preferring a
-// previously released port over growing the range. Callers must hold s.mu.
-func (s *backendSupervisor) allocatePort() int {
+// ErrNoFreePort reports that every port in this worker's configured gRPC range
+// is either bound by a live backend or still in quarantine.
+var ErrNoFreePort = errors.New("no free gRPC port in range")
+
+// defaultPortAffinityWindow is how long a released port stays reserved for the
+// process key that last held it.
+//
+// It must comfortably outlive any controller NodeModel row that could still
+// name the port, because that row is the whole reason affinity exists. The
+// slowest such row is reaped by the per-model health check after
+// perModelMissThreshold consecutive misses (~45s at the default cadence), and
+// operators can widen that cadence, so this is set well above it rather than
+// derived from it — the same reasoning as defaultPortQuarantine.
+//
+// It must also expire. Ownership held forever would make every distinct model
+// a worker has ever served consume a port permanently, so the allocator would
+// climb to the end of its range on distinct-key count rather than concurrency,
+// then steal on every allocation while telling the operator to raise a ceiling
+// that is not the constraint.
+const defaultPortAffinityWindow = 5 * time.Minute
+
+// portOwnership records the key that last held a port and, once released, when
+// that claim lapses. A zero `until` means the port is currently held: it cannot
+// be reallocated to anyone, so the claim does not need to age.
+type portOwnership struct {
+	port  int
+	until time.Time
+}
+
+// expired reports whether this claim has lapsed and the port may now be handed
+// to an unrelated key.
+func (o portOwnership) expired(now time.Time) bool {
+	return !o.until.IsZero() && now.After(o.until)
+}
+
+// affinityWindow returns the configured affinity lifetime, defaulting when
+// unset so a zero-value supervisor never degrades to no affinity at all.
+func (s *backendSupervisor) affinityWindow() time.Duration {
+	if s.portAffinityWindow <= 0 {
+		return defaultPortAffinityWindow
+	}
+	return s.portAffinityWindow
+}
+
+// defaultMaxPort bounds the allocator when the operator sets no explicit
+// ceiling. The allocator used to increment without any bound at all, so past
+// 65535 it handed out integers that cannot be bound and the operator saw an
+// opaque "backend won't start" with nothing implicating the allocator.
+const defaultMaxPort = 65535
+
+// portBounds resolves the allocatable range, tolerating a zero-value
+// supervisor. minPort defaults to wherever the range was seeded so that a
+// supervisor built without an explicit floor never scans below its base port.
+func (s *backendSupervisor) portBounds() (int, int) {
+	minPort := s.minPort
+	if minPort <= 0 {
+		minPort = s.nextPort
+	}
+	maxPort := s.maxPort
+	if maxPort <= 0 {
+		maxPort = defaultMaxPort
+	}
+	return minPort, maxPort
+}
+
+// allocatePort returns a gRPC port for the process `key` will run under.
+//
+// Ports are handed back to the key that last held them before they are offered
+// to anyone else. That preference is a correctness property, not a tidiness
+// one. A process key is `modelID#replica` and a controller NodeModel row is
+// keyed (nodeID, modelName, replicaIndex) — the two are isomorphic. So if a
+// port can only ever be re-bound by the key that last held it, the only row
+// that can name that port belongs to that same key, and that key's
+// re-registration overwrites it. A stale row can therefore never resolve to a
+// *different* model's backend, which is the silent misroute #10952 describes.
+// The quarantine narrows the window for that misroute; affinity removes it.
+//
+// The claim lapses after defaultPortAffinityWindow, once no controller row can
+// still name the port. Holding it forever would make every distinct model the
+// worker has ever served consume a port permanently, so the allocator would
+// climb to the end of its range on distinct-key count rather than on
+// concurrency. Expiry keeps the guarantee for exactly as long as it buys
+// anything.
+//
+// Nor is the preference a reservation: when the range would otherwise be
+// exhausted a still-claimed port is stolen rather than failing the start. A
+// rare misroute window is a better trade than a guaranteed outage, and by then
+// the port is long out of quarantine. Because claims expire, reaching that
+// branch means the worker is genuinely out of concurrent capacity, so the
+// warning's advice to widen the range is the right advice.
+//
+// Callers must hold s.mu.
+func (s *backendSupervisor) allocatePort(key string) (int, error) {
 	s.sweepQuarantine()
+	s.sweepAffinity()
+	minPort, maxPort := s.portBounds()
+
+	// 1. This key's own port, if it is back out of quarantine.
+	if own, ok := s.portAffinity[key]; ok {
+		if s.takeFreePort(own.port) {
+			return s.claimPort(key, own.port), nil
+		}
+	}
+
+	// 2. Any released port no live claim covers — either never owned, or owned
+	// by a key whose window has lapsed, so no controller row can still name it.
+	owners := s.portOwners()
+	for i := len(s.freePorts) - 1; i >= 0; i-- {
+		port := s.freePorts[i]
+		if _, owned := owners[port]; owned {
+			continue
+		}
+		s.freePorts = slices.Delete(s.freePorts, i, i+1)
+		return s.claimPort(key, port), nil
+	}
+
+	// 3. Grow into ports never handed out, staying inside the range.
+	if s.nextPort >= minPort && s.nextPort <= maxPort {
+		port := s.nextPort
+		s.nextPort++
+		return s.claimPort(key, port), nil
+	}
+
+	// 4. Steal another key's port rather than refuse to start a backend.
 	if len(s.freePorts) > 0 {
 		port := s.freePorts[len(s.freePorts)-1]
 		s.freePorts = s.freePorts[:len(s.freePorts)-1]
-		return port
+		xlog.Warn("gRPC port range is exhausted; reusing a port that belonged to another backend. A stale controller row for the previous owner could briefly misroute to this backend — raise LOCALAI_GRPC_MAX_PORT to restore headroom",
+			"backend", key, "port", port, "previousOwner", owners[port], "min", minPort, "max", maxPort)
+		return s.claimPort(key, port), nil
 	}
-	port := s.nextPort
-	s.nextPort++
+
+	return 0, fmt.Errorf("%w: %d-%d is fully consumed by %d running backend(s) and %d port(s) still in quarantine; raise LOCALAI_GRPC_MAX_PORT to widen the range",
+		ErrNoFreePort, minPort, maxPort, len(s.processes), len(s.quarantinedPorts))
+}
+
+// sweepAffinity drops claims whose window has lapsed, so their ports become
+// ordinary free ports again. Swept lazily on allocation for the same reason as
+// sweepQuarantine: the only observer is allocation itself, so a timer goroutine
+// per released port would buy nothing. Callers must hold s.mu.
+func (s *backendSupervisor) sweepAffinity() {
+	if len(s.portAffinity) == 0 {
+		return
+	}
+	now := time.Now()
+	for key, own := range s.portAffinity {
+		if own.expired(now) {
+			delete(s.portAffinity, key)
+		}
+	}
+}
+
+// portOwners inverts the affinity map. Building it per allocation keeps a
+// single source of truth: a second always-in-sync reverse map would be more
+// state to get wrong, and allocation happens once per backend start.
+func (s *backendSupervisor) portOwners() map[int]string {
+	owners := make(map[int]string, len(s.portAffinity))
+	for key, own := range s.portAffinity {
+		owners[own.port] = key
+	}
+	return owners
+}
+
+// takeFreePort removes `port` from the free pool, reporting whether it was
+// there to take.
+func (s *backendSupervisor) takeFreePort(port int) bool {
+	if i := slices.Index(s.freePorts, port); i >= 0 {
+		s.freePorts = slices.Delete(s.freePorts, i, i+1)
+		return true
+	}
+	return false
+}
+
+// claimPort records `key` as the owner of `port` and evicts whichever key owned
+// it before.
+//
+// That eviction is what bounds the affinity map. Ownership is kept injective
+// over ports, so the map can never hold more entries than the range has ports,
+// no matter how many distinct model keys the worker sees over its lifetime.
+// Without it the map would grow once per distinct key forever — the same
+// unbounded-growth shape as the port leak this change fixes. Callers must hold
+// s.mu.
+// The claim is recorded without an expiry: the port is in use, so it cannot be
+// reallocated to anyone and the claim has nothing to age against. The window
+// starts when the port is released.
+func (s *backendSupervisor) claimPort(key string, port int) int {
+	if s.portAffinity == nil {
+		s.portAffinity = make(map[string]portOwnership)
+	}
+	for owner, own := range s.portAffinity {
+		if own.port == port && owner != key {
+			delete(s.portAffinity, owner)
+		}
+	}
+	s.portAffinity[key] = portOwnership{port: port}
 	return port
+}
+
+// releasePortForKey returns `port` to the allocator, reserving it for `key` for
+// the affinity window so that no unrelated model can bind it while a controller
+// row for this key could still name it. Callers must hold s.mu.
+func (s *backendSupervisor) releasePortForKey(key string, port int) {
+	s.claimPort(key, port)
+	own := s.portAffinity[key]
+	own.until = time.Now().Add(s.affinityWindow())
+	s.portAffinity[key] = own
+	s.releasePort(port)
 }
 
 // sweepQuarantine moves ports whose quarantine has elapsed into the free pool.
@@ -208,17 +415,20 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			return bp.addr, nil
 		}
 		// Process died — clean up and restart
-		xlog.Warn("Backend process died unexpectedly, restarting", "backend", backend)
-		delete(s.processes, backend)
+		s.reapDeadProcess(backend, bp)
 	}
 
-	port := s.allocatePort()
+	port, err := s.allocatePort(backend)
+	if err != nil {
+		s.mu.Unlock()
+		return "", fmt.Errorf("allocating gRPC port for backend %s: %w", backend, err)
+	}
 	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
 	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
 	if err != nil {
-		s.releasePort(port)
+		s.releasePortForKey(backend, port)
 		s.mu.Unlock()
 		return "", fmt.Errorf("starting backend process: %w", err)
 	}
@@ -302,6 +512,36 @@ func (s *backendSupervisor) backendStartStillValid(key string, bp *backendProces
 	return exists && current == bp && !current.stopping
 }
 
+// reapDeadProcess drops the bookkeeping for a process that exited without
+// anyone asking it to (OOM kill, CUDA fault, a segfaulting shared library).
+// Unlike every other teardown path there is no request/reply in flight here:
+// nothing on the controller side is waiting to be told, and the death is only
+// noticed lazily, when something tries to start this key again.
+//
+// This path used to drop the map entry without releasing the port, so every
+// unexpected exit consumed one port permanently. A crash-looping backend leaks
+// one per restart, which is what actually walks a long-lived worker to the end
+// of its range — not the concurrent-peak growth #10961 assumed.
+//
+// Releasing it through the affinity-preserving path is what makes the recycle
+// safe: nothing here can tell the controller its row is stale (there is no
+// reply to carry the key, and the death is noticed only lazily), so the port
+// must come back only to this same key. See allocatePort.
+//
+// Callers must hold s.mu.
+func (s *backendSupervisor) reapDeadProcess(key string, bp *backendProcess) {
+	xlog.Warn("Backend process died unexpectedly, restarting", "backend", key)
+	delete(s.processes, key)
+	if bp == nil {
+		return
+	}
+	if bp.port <= 0 {
+		xlog.Error("Cannot recycle backend port: dead process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
+		return
+	}
+	s.releasePortForKey(key, bp.port)
+}
+
 // releaseBackendStart removes a failed startup and recycles its port only when
 // the map still owns that exact attempt. A concurrent stop or replacement may
 // already have removed it and recycled the port.
@@ -316,7 +556,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return
 	}
-	s.releasePort(bp.port)
+	s.releasePortForKey(key, bp.port)
 }
 
 // resolveProcessKeys turns a caller-supplied identifier into the set of
@@ -532,7 +772,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return nil
 	}
-	s.releasePort(bp.port)
+	s.releasePortForKey(key, bp.port)
 	return nil
 }
 

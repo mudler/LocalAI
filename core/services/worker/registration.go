@@ -38,6 +38,32 @@ func (cfg *Config) effectiveBasePort() int {
 	return 50051
 }
 
+// effectiveMaxPort returns the last port the gRPC backend allocator may hand
+// out. The range is [basePort, maxPort]; its width is the number of backend
+// processes this worker can run concurrently, minus whatever the port
+// quarantine is holding at the time.
+//
+// An unset, non-positive, or out-of-order value falls back to 65535 — the
+// historical (unbounded) behaviour clamped to something bindable.
+// Misconfiguring this must not shrink the range to nothing and wedge every
+// backend start on the worker.
+func (cfg *Config) effectiveMaxPort(basePort int) int {
+	if cfg.GRPCMaxPort <= 0 {
+		return defaultMaxPort
+	}
+	if cfg.GRPCMaxPort > defaultMaxPort {
+		xlog.Warn("Configured gRPC max port is above the highest TCP port; clamping",
+			"configured", cfg.GRPCMaxPort, "max", defaultMaxPort)
+		return defaultMaxPort
+	}
+	if cfg.GRPCMaxPort < basePort {
+		xlog.Warn("Configured gRPC max port is below the base port; ignoring it and using the full range",
+			"configured", cfg.GRPCMaxPort, "basePort", basePort, "max", defaultMaxPort)
+		return defaultMaxPort
+	}
+	return cfg.GRPCMaxPort
+}
+
 // advertiseAddr returns the address the frontend should use to reach this node.
 func (cfg *Config) advertiseAddr() string {
 	if cfg.AdvertiseAddr != "" {

@@ -205,6 +205,7 @@ local-ai worker \
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
 | `--addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | gRPC listen address |
+| `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
@@ -253,9 +254,46 @@ For advanced networking scenarios (NAT, load balancers, separate gRPC/HTTP ports
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LOCALAI_SERVE_ADDR` | gRPC base port bind address | `0.0.0.0:50051` |
+| `LOCALAI_GRPC_MAX_PORT` | Highest port assignable to a backend gRPC process | `65535` |
 | `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address | `0.0.0.0:{gRPC port - 1}` |
 | `LOCALAI_ADVERTISE_ADDR` | Public gRPC address (if different from `LOCALAI_ADDR`) | Derived from `LOCALAI_ADDR` |
 | `LOCALAI_ADVERTISE_HTTP_ADDR` | Public HTTP address (if different from gRPC host) | Derived from advertise host + HTTP port |
+
+### Backend gRPC port range
+
+Every backend process a worker starts listens on its own gRPC port, allocated
+upward from the worker's base port (`LOCALAI_SERVE_ADDR`, default `50051`).
+`LOCALAI_GRPC_MAX_PORT` sets the top of that range. The width of
+`[base port, LOCALAI_GRPC_MAX_PORT]` is therefore a hard cap on how many
+backend processes one worker can run concurrently.
+
+Set it when the worker shares a host with other services and you need to keep
+the rest of the ephemeral range clear, or when you want a worker's backend
+count bounded explicitly rather than by whatever the host happens to allow:
+
+```bash
+# Confine this worker's backends to 50051-50150 (100 concurrent backends).
+LOCALAI_SERVE_ADDR=0.0.0.0:50051
+LOCALAI_GRPC_MAX_PORT=50150
+```
+
+Leave it unset (the default) and the worker may use anything up to 65535.
+
+Budget headroom above your real concurrency. When a backend stops, its port is
+held briefly before it can be reused, so a worker with heavy start/stop churn
+has more ports tied up than it has running backends at any instant. If the
+range does fill, backend starts fail with:
+
+```
+no free gRPC port in range: 50051-50150 is fully consumed by 100 running
+backend(s) and 12 port(s) still in quarantine; raise LOCALAI_GRPC_MAX_PORT to
+widen the range
+```
+
+Raise `LOCALAI_GRPC_MAX_PORT` (or reduce how many models you schedule onto that
+worker). A value above 65535 is clamped, and a value below the base port is
+ignored in favour of the full range, so a typo degrades the setting rather than
+wedging every backend start on the node.
 
 ### NVIDIA GPU support
 
