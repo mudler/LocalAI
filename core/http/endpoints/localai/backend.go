@@ -251,7 +251,7 @@ func (mgs *BackendEndpointService) ListBackendsEndpoint() echo.HandlerFunc {
 	}
 }
 
-// ListModelGalleriesEndpoint list the available galleries configured in LocalAI
+// ListBackendGalleriesEndpoint lists the available backend galleries configured in LocalAI.
 // @Summary List all Galleries
 // @Tags backends
 // @Success 200 {object} []config.Gallery "Response"

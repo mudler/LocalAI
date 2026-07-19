@@ -797,7 +797,7 @@ func PossibleUsecasesForBackend(backend string) []string {
 	return nil
 }
 
-// DefaultUsecasesForBackend returns the conservative default usecases.
+// DefaultUsecasesForBackendCap returns the conservative default usecases.
 // Returns nil if the backend is unknown.
 func DefaultUsecasesForBackendCap(backend string) []string {
 	if cap := GetBackendCapability(backend); cap != nil {
