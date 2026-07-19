@@ -779,14 +779,14 @@ var _ = Describe("HostResolveEnv engine preference wiring", func() {
 
 	AfterEach(func() {
 		if origEnv != "" {
-			os.Setenv(capabilityEnv, origEnv)
+			Expect(os.Setenv(capabilityEnv, origEnv)).To(Succeed())
 		} else {
-			os.Unsetenv(capabilityEnv)
+			Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
 		}
 		if origRunFileEnv != "" {
-			os.Setenv(capabilityRunFileEnv, origRunFileEnv)
+			Expect(os.Setenv(capabilityRunFileEnv, origRunFileEnv)).To(Succeed())
 		} else {
-			os.Unsetenv(capabilityRunFileEnv)
+			Expect(os.Unsetenv(capabilityRunFileEnv)).To(Succeed())
 		}
 	})
 

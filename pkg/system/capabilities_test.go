@@ -137,9 +137,9 @@ var _ = Describe("BackendPreferenceTokens", func() {
 
 	AfterEach(func() {
 		if origEnv != "" {
-			os.Setenv(capabilityEnv, origEnv)
+			Expect(os.Setenv(capabilityEnv, origEnv)).To(Succeed())
 		} else {
-			os.Unsetenv(capabilityEnv)
+			Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
 		}
 	})
 
@@ -201,9 +201,9 @@ var _ = Describe("EnginePreferenceTokens", func() {
 
 	AfterEach(func() {
 		if origEnv != "" {
-			os.Setenv(capabilityEnv, origEnv)
+			Expect(os.Setenv(capabilityEnv, origEnv)).To(Succeed())
 		} else {
-			os.Unsetenv(capabilityEnv)
+			Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
 		}
 	})
 
@@ -290,9 +290,9 @@ var _ = Describe("CapabilityFilterDisabled", func() {
 
 	AfterEach(func() {
 		if origEnv != "" {
-			os.Setenv(capabilityEnv, origEnv)
+			Expect(os.Setenv(capabilityEnv, origEnv)).To(Succeed())
 		} else {
-			os.Unsetenv(capabilityEnv)
+			Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
 		}
 	})
 
@@ -367,9 +367,9 @@ var _ = Describe("ServingFeaturePreferenceTokens", func() {
 		previous := os.Getenv(capabilityEnv)
 		defer func() {
 			if previous != "" {
-				os.Setenv(capabilityEnv, previous)
+				Expect(os.Setenv(capabilityEnv, previous)).To(Succeed())
 			} else {
-				os.Unsetenv(capabilityEnv)
+				Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
 			}
 		}()
 
