@@ -124,8 +124,14 @@ var defaultBackendBuildTagTokens = []string{backendTokenCPU}
 // A capability is deliberately ABSENT rather than guessed at when no engine
 // ordering can be justified for it. An absent rule degrades to ordering by size
 // alone, which is the behaviour that predates preference and is always safe.
-// darwin-x86 is absent for that reason: nothing accelerates there, so no engine
-// deserves to outrank another.
+//
+// Safe, however, only where every candidate engine is equally at home on the
+// host. Where one is not, the rule has to be written here, because the hardware
+// filter will not write it: IsBackendCompatible derives support from the engine
+// NAME, and "vllm" and "sglang" contain none of the darwin, cuda, rocm or sycl
+// tokens it keys on, so a GPU serving engine is never filtered out on a host
+// with no GPU. Left unranked there, it wins on size alone whenever its build is
+// the larger one, and a CPU-only box installs vLLM over llama.cpp.
 var engineNamePreferenceRules = []backendPreferenceRule{
 	// vLLM first on every host with a dedicated serving engine build. It is the
 	// throughput engine, and a model published with a vLLM build is published
@@ -143,11 +149,35 @@ var engineNamePreferenceRules = []backendPreferenceRule{
 	// A Vulkan host has exactly one LLM engine with a Vulkan build, so a
 	// llama-cpp variant is the only one that will use the GPU at all.
 	{vulkan, []string{engineLlamaCpp}},
+	// No usable accelerator: either nothing was detected, or a GPU was found
+	// with too little VRAM to serve from, both of which report "default".
+	// llama.cpp is the engine built to run well on a CPU; vLLM and SGLang are
+	// GPU serving engines whose CPU paths exist but are not what an unattended
+	// auto-selection should hand a CPU-only box.
+	//
+	// The GPU engines are enumerated behind llama.cpp rather than left
+	// unmatched. Listing llama.cpp alone would already make it win, since an
+	// unmatched engine ranks below every listed one, but it would leave vLLM
+	// and SGLang tied with each other and with any engine nobody has ranked
+	// yet, so download size would decide among them. Naming them fixes that
+	// order and says the omission of a GPU engine from the top spot is a
+	// decision rather than an oversight. Ranking never filters, so a vLLM
+	// variant offered alone is still installed here.
+	{defaultCapability, []string{engineLlamaCpp, engineVLLM, engineSGLang}},
+	// An Intel Mac has no accelerated runtime at all: MLX needs Apple silicon,
+	// and no vLLM or SGLang build targets darwin. Same ordering, same reasons.
+	// MLX is deliberately left unlisted so it ranks last, since
+	// IsBackendCompatible admits any darwin-tokened engine on this capability
+	// and will not drop it.
+	{darwinX86, []string{engineLlamaCpp, engineVLLM, engineSGLang}},
 }
 
-// defaultEnginePreferenceTokens is empty on purpose. A host with no detected
-// accelerator has no reason to prefer one engine over another, and an empty
-// list is what the ranker reads as "order by size alone".
+// defaultEnginePreferenceTokens is empty on purpose. It is now only reached by
+// a capability nobody has taught this table about, which an operator can force
+// via LOCALAI_FORCE_META_BACKEND_CAPABILITY; the detected "default" has its own
+// rule above. Guessing an order for hardware we know nothing about would be
+// worse than ordering by size alone, which is what the ranker reads an empty
+// list as and is the behaviour that predates preference.
 var defaultEnginePreferenceTokens = []string{}
 
 var (

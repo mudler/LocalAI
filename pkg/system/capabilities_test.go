@@ -236,17 +236,37 @@ var _ = Describe("EnginePreferenceTokens", func() {
 		// The mirror of the lock on BackendPreferenceTokens. A build tag here
 		// matches no gallery `backend:` value and silently disables ranking.
 		buildTags := []string{"cuda", "rocm", "hip", "sycl", "vulkan", "metal", "cpu", "darwin-x86"}
-		for _, capability := range []string{"nvidia", AMD, Intel, metal, vulkan} {
+		for _, capability := range []string{"nvidia", AMD, Intel, metal, vulkan, defaultCapability, darwinX86} {
 			Expect(tokensFor(capability)).ToNot(ContainElements(buildTags),
 				"capability %q leaked a build tag into the engine table", capability)
 		}
 	})
 
-	It("leaves a capability with no justified engine order empty rather than guessing", func() {
+	It("prefers llama.cpp on a host with no usable accelerator", func() {
+		// Nothing filters a GPU serving engine out here: IsBackendCompatible
+		// keys on the engine name, and "vllm" carries no hardware token. Without
+		// this rule a larger vLLM build would win a CPU-only host on size.
+		Expect(tokensFor(defaultCapability)).To(Equal([]string{"llama-cpp", "vllm", "sglang"}))
+	})
+
+	It("prefers llama.cpp on an intel mac, where nothing accelerates", func() {
+		Expect(tokensFor(darwinX86)).To(Equal([]string{"llama-cpp", "vllm", "sglang"}))
+	})
+
+	It("ranks the GPU serving engines below llama.cpp rather than leaving them tied", func() {
+		// Enumerating them is what stops download size deciding between vLLM and
+		// SGLang once llama.cpp is out of the running.
+		for _, capability := range []string{defaultCapability, darwinX86} {
+			tokens := tokensFor(capability)
+			Expect(tokens).To(HaveLen(3), "capability %q", capability)
+			Expect(tokens[0]).To(Equal("llama-cpp"), "capability %q", capability)
+		}
+	})
+
+	It("leaves a capability nobody has taught the table about empty rather than guessing", func() {
 		// Empty is read by the variant ranker as "order by size alone", which is
-		// the behaviour that predates preference and is always safe.
-		Expect(tokensFor(darwinX86)).To(BeEmpty())
-		Expect(tokensFor("default")).To(BeEmpty())
+		// the behaviour that predates preference and is always safe. Only a
+		// forced, unrecognised capability lands here now.
 		Expect(tokensFor("some-future-accelerator")).To(BeEmpty())
 	})
 

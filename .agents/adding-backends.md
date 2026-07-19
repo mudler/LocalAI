@@ -244,6 +244,18 @@ Leaving your backend out is a valid choice when no ordering can be justified for
 it. It then ranks below every known engine and selection falls back to size,
 which is the behaviour that predates preference.
 
+**Leaving a whole capability out is not.** A missing row gives that host an
+empty preference list, so size alone decides among everything that survives the
+filters, and the filter will not save you: `IsBackendCompatible` derives hardware
+support from the engine NAME, so `vllm` and `sglang` carry no darwin, cuda, rocm
+or sycl token and are never dropped on a host with no GPU. That is why `default`
+(no usable accelerator, including a GPU under the 4 GiB VRAM floor) and
+`darwin-x86` both have rows putting `llama-cpp` first. Every capability
+`getSystemCapabilities()` can return needs a row unless every engine really is
+equally at home there. When you add one, enumerate the engines you are demoting
+rather than relying on them falling through unmatched: unmatched engines all tie
+with each other, so size decides among them.
+
 ## Documenting the backend (README + docs)
 
 A backend is not "added" until it is discoverable. Update the user-facing docs:

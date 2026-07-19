@@ -3,6 +3,8 @@ package gallery_test
 import (
 	"context"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -593,11 +595,15 @@ var _ = Describe("HostResolveEnv engine preference wiring", func() {
 	// drive the REAL table through the REAL wiring, so emptying
 	// engineNamePreferenceRules in pkg/system, or reverting this field to
 	// BackendPreferenceTokens, fails here.
-	var origEnv string
+	var origEnv, origRunFileEnv string
 	const capabilityEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY"
+	const capabilityRunFileEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE"
+	// What getSystemCapabilities reports for a host with no usable accelerator.
+	const noGPUCapability = "default"
 
 	BeforeEach(func() {
 		origEnv = os.Getenv(capabilityEnv)
+		origRunFileEnv = os.Getenv(capabilityRunFileEnv)
 	})
 
 	AfterEach(func() {
@@ -605,6 +611,11 @@ var _ = Describe("HostResolveEnv engine preference wiring", func() {
 			os.Setenv(capabilityEnv, origEnv)
 		} else {
 			os.Unsetenv(capabilityEnv)
+		}
+		if origRunFileEnv != "" {
+			os.Setenv(capabilityRunFileEnv, origRunFileEnv)
+		} else {
+			os.Unsetenv(capabilityRunFileEnv)
 		}
 	})
 
@@ -649,6 +660,80 @@ var _ = Describe("HostResolveEnv engine preference wiring", func() {
 		selection, err := gallery.SelectVariant(options, env, "")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(selection.Option.Variant.Model).To(Equal("m-mlx"))
+	})
+
+	It("installs the llama.cpp build over a larger vLLM one on a host with no GPU", func() {
+		// The hole this rule closes. IsBackendCompatible keys on the engine
+		// name, and "vllm" carries no darwin/cuda/rocm/sycl token, so a vLLM
+		// build is NOT filtered out here. Emptying the default rule in
+		// pkg/system puts the larger vLLM build back on a CPU-only box.
+		env := envFor(noGPUCapability)
+		env.AvailableMemory = 64 * 1024 * 1024 * 1024
+
+		options := []gallery.VariantOption{
+			{Variant: gallery.Variant{Model: "m-vllm"}, Backend: "vllm", ProbedMemory: 24 * 1024 * 1024 * 1024},
+			{Variant: gallery.Variant{Model: "m-gguf"}, Backend: "llama-cpp", ProbedMemory: 8 * 1024 * 1024 * 1024},
+		}
+
+		selection, err := gallery.SelectVariant(options, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(selection.Option.Variant.Model).To(Equal("m-gguf"))
+	})
+
+	It("installs the llama.cpp build over a larger vLLM one on an intel mac", func() {
+		env := envFor("darwin-x86")
+		env.AvailableMemory = 64 * 1024 * 1024 * 1024
+
+		options := []gallery.VariantOption{
+			{Variant: gallery.Variant{Model: "m-vllm"}, Backend: "vllm", ProbedMemory: 24 * 1024 * 1024 * 1024},
+			{Variant: gallery.Variant{Model: "m-gguf"}, Backend: "llama-cpp", ProbedMemory: 8 * 1024 * 1024 * 1024},
+		}
+
+		selection, err := gallery.SelectVariant(options, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(selection.Option.Variant.Model).To(Equal("m-gguf"))
+	})
+
+	It("still installs a vLLM build on a host with no GPU when it is the only one offered", func() {
+		// Preference ORDERS survivors, it never filters them. Demoting vLLM must
+		// not make a model published only as a vLLM build uninstallable.
+		env := envFor(noGPUCapability)
+		env.AvailableMemory = 64 * 1024 * 1024 * 1024
+
+		options := []gallery.VariantOption{
+			{Variant: gallery.Variant{Model: "m-vllm"}, Backend: "vllm", ProbedMemory: 8 * 1024 * 1024 * 1024},
+		}
+
+		selection, err := gallery.SelectVariant(options, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(selection.Option.Variant.Model).To(Equal("m-vllm"))
+	})
+
+	It("prefers llama.cpp on a GPU host with too little VRAM to serve from", func() {
+		// This host has a GPU, yet getSystemCapabilities reports "default"
+		// because it is under the 4 GiB floor. Driven through the real detector
+		// rather than a forced capability, so that mapping is exercised too.
+		if runtime.GOOS == "darwin" {
+			Skip("darwin reports metal or darwin-x86 before the VRAM floor is consulted")
+		}
+		Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
+		// A capability run file on the machine would override detection.
+		Expect(os.Setenv(capabilityRunFileEnv, filepath.Join(GinkgoT().TempDir(), "absent"))).To(Succeed())
+
+		state := &system.SystemState{GPUVendor: system.Nvidia, VRAM: 2 * 1024 * 1024 * 1024}
+		Expect(state.DetectedCapability()).To(Equal(noGPUCapability))
+
+		env := gallery.HostResolveEnv(context.Background(), state)
+		env.AvailableMemory = 64 * 1024 * 1024 * 1024
+
+		options := []gallery.VariantOption{
+			{Variant: gallery.Variant{Model: "m-vllm"}, Backend: "vllm", ProbedMemory: 24 * 1024 * 1024 * 1024},
+			{Variant: gallery.Variant{Model: "m-gguf"}, Backend: "llama-cpp", ProbedMemory: 8 * 1024 * 1024 * 1024},
+		}
+
+		selection, err := gallery.SelectVariant(options, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(selection.Option.Variant.Model).To(Equal("m-gguf"))
 	})
 
 	It("carries no build tag into the ranker, whatever the host", func() {
