@@ -40,6 +40,55 @@ def is_int(s):
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
+# Languages Qwen3-ASR understands, spelled the way its validate_language()
+# expects (full English names).  Used to accept case-insensitive names and to
+# leave anything already valid untouched.
+_QWEN_ASR_SUPPORTED_LANGUAGES = (
+    "Chinese", "English", "Cantonese", "Arabic", "German", "French", "Spanish",
+    "Portuguese", "Indonesian", "Italian", "Korean", "Russian", "Thai",
+    "Vietnamese", "Japanese", "Turkish", "Hindi", "Malay", "Dutch", "Swedish",
+    "Danish", "Finnish", "Polish", "Czech", "Filipino", "Persian", "Greek",
+    "Romanian", "Hungarian", "Macedonian",
+)
+
+# OpenAI-compatible clients (Home Assistant / wyoming_openai, Whisper tooling,
+# ...) send ISO 639-1 codes such as "de", but qwen_asr only accepts the full
+# names above.  Map the codes for every supported language to its name.
+_LANGUAGE_CODE_TO_NAME = {
+    "zh": "Chinese", "en": "English", "yue": "Cantonese", "ar": "Arabic",
+    "de": "German", "fr": "French", "es": "Spanish", "pt": "Portuguese",
+    "id": "Indonesian", "it": "Italian", "ko": "Korean", "ru": "Russian",
+    "th": "Thai", "vi": "Vietnamese", "ja": "Japanese", "tr": "Turkish",
+    "hi": "Hindi", "ms": "Malay", "nl": "Dutch", "sv": "Swedish",
+    "da": "Danish", "fi": "Finnish", "pl": "Polish", "cs": "Czech",
+    "fil": "Filipino", "tl": "Filipino", "fa": "Persian", "el": "Greek",
+    "ro": "Romanian", "hu": "Hungarian", "mk": "Macedonian",
+}
+
+
+def _normalize_language(language):
+    """Translate an ISO language code into the name Qwen3-ASR expects.
+
+    ``request.language`` typically carries an ISO 639-1 code ("de", "de-DE"),
+    but ``qwen_asr.validate_language`` only accepts full English names
+    ("German").  Names that are already valid (in any case) are returned with
+    their canonical spelling, and anything unrecognised is passed through
+    unchanged so qwen_asr keeps raising its own descriptive error.
+    """
+    if not language:
+        return language
+    key = language.strip()
+    if not key:
+        return language
+    lowered = key.lower()
+    # Already a full language name (compare case-insensitively).
+    for name in _QWEN_ASR_SUPPORTED_LANGUAGES:
+        if lowered == name.lower():
+            return name
+    # ISO code, optionally with a region/script suffix like "de-DE" / "zh_CN".
+    code = lowered.replace("_", "-").split("-", 1)[0]
+    return _LANGUAGE_CODE_TO_NAME.get(code, key)
+
 
 class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
@@ -299,7 +348,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             language = None
             if request.language and request.language.strip():
-                language = request.language.strip()
+                language = _normalize_language(request.language.strip())
 
             ctx = ""
             if request.prompt and request.prompt.strip():
