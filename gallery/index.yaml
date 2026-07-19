@@ -1,4 +1,66 @@
 ---
+- name: "qwen3.6-27b-fable-fusion-711-uncensored-heretic-nm-dau-neo-max-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF
+  description: |
+    Important: This is the first fine tune to exceed 700 "arc-c" (The OpenAI, Claude and Gemini "zone of intelligence") in both 8 bit and 4 bit. This repo contains both "regular" and "MTP" Neo MAX Imatrix quants.
+
+    Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF
+
+    The strongest, smartest open source multi-stage model fine tune for consumer hardware ever and BUILT on consumer hardware via Unsloth.
+
+    The first model of this size/type to breach "700" ARC-C in both 8 bit and 4 bit; hench the "711" in the name.
+
+    This model (both 4 bit and 8 bit) exceeds the base Qwen 3.6 27B in 6 out of 7 benchmarks, and matches it on the 7th AND exceeds all 7 benchmarks for Qwen3.6-35B-A3B.
+
+    The 700 "intelligence club" is reserved for OpenAI, Claude and Gemini closed source models.
+
+    This is the one they fear.
+
+    This is a multi-stage fine tune, multi-fine tune, and multi-stage merge.
+
+    A Colab between myself (multiple fine tunes, including multi-stage), Nightmedia (merge/benching), TeichAI (Polaris Dataset), armand0e (Light fable 5 traces) and trohrbaugh (heretic'ing the model).
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      sha256: c796c2c011eaa0edf06395ff49cda5bfd4843ad52b86b58a83296dfc33849e4e
+      uri: https://huggingface.co/DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF/resolve/main/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/mmproj-F32.gguf
+      sha256: fdc443e974cad1f61c45af1cfd5580855855ddce0d6c14cc500a5714c486ac1d
+      uri: https://huggingface.co/DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
