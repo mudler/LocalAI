@@ -275,11 +275,14 @@ func HostResolveEnv(ctx context.Context, systemState *system.SystemState) Resolv
 		BackendCompatible: func(backend string) bool {
 			return systemState.IsBackendCompatible(backend, "")
 		},
-		// The ranking half of the hardware story, from the same table that
-		// already picks among installed backend builds. IsBackendCompatible
-		// only rules out what cannot run; on a Mac both an MLX and a llama.cpp
-		// build can, and this is what makes the native runtime win.
-		BackendPreference: systemState.BackendPreferenceTokens(),
+		// The ranking half of the hardware story. IsBackendCompatible only rules
+		// out what cannot run; on a Mac both an MLX and a llama.cpp build can,
+		// and this is what makes the native runtime win.
+		//
+		// EnginePreferenceTokens, NOT BackendPreferenceTokens: a variant is
+		// matched on its gallery `backend:` engine name, and the latter reports
+		// build tags that no engine name contains.
+		EnginePreference: systemState.EnginePreferenceTokens(),
 		ProbeMemory: func(target *GalleryModel) uint64 {
 			return probeEntryMemory(ctx, target)
 		},

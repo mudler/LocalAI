@@ -45,19 +45,47 @@ const (
 	backendTokenHIP    = "hip"
 	backendTokenSYCL   = "sycl"
 	backendTokenCPU    = "cpu"
+
+	// Engine names (private). Unlike the tokens above these are whole backend
+	// identities as a gallery entry's `backend:` field spells them, not build
+	// tags. See the two preference tables below for why the distinction matters.
+	engineVLLM     = "vllm"
+	engineSGLang   = "sglang"
+	engineLlamaCpp = "llama-cpp"
+	engineMLX      = "mlx"
 )
 
-// backendPreferenceRule maps a detected capability to the runtime tokens that
-// capability prefers, best first.
+// There are TWO preference tables below and they speak DIFFERENT VOCABULARIES.
+// Merging them looks tempting and silently breaks one of the two consumers,
+// because a token that means something in one vocabulary means nothing in the
+// other. Read this before editing either.
 //
-// This table is the single source of truth for "what should this host run
-// first", consumed both by concrete-backend alias resolution and by gallery
-// variant auto-selection. Keeping it declarative is deliberate: LocalAI gains
-// backends and hardware targets continuously, and expressing a new preference
-// has to stay a one-line edit here rather than a change to any ranking code.
+//   - backendBuildTagPreferenceRules holds BUILD TAGS ("cuda", "rocm", "metal").
+//     They are matched against INSTALLED BACKEND BUILD DIRECTORY NAMES such as
+//     "llama-cpp-cuda-12" or "cuda12-vllm". Consumer: alias resolution in
+//     ListSystemBackends (core/gallery/backends.go), which picks which installed
+//     build of one alias to run.
 //
-// To add a capability, append a rule. To reorder one host's runtimes, reorder
-// its tokens. Nothing else needs to change.
+//   - engineNamePreferenceRules holds ENGINE NAMES ("vllm", "llama-cpp", "mlx").
+//     They are matched against a gallery entry's `backend:` value, which never
+//     carries a build tag: no entry in gallery/index.yaml contains "cuda",
+//     "rocm", "sycl" or "vulkan" anywhere in its backend name. Consumer: gallery
+//     variant auto-selection (core/gallery/resolve_variant.go), which picks
+//     which build of one model's weights to install.
+//
+// Feeding build tags to the variant ranker matches nothing, which does not
+// error: every candidate simply scores equal and size alone decides, so the
+// preference silently stops existing. That is exactly the bug this split fixes.
+
+// backendPreferenceRule maps a detected capability to preferred tokens, best
+// first. Both tables share this shape; only their vocabulary differs.
+type backendPreferenceRule struct {
+	capabilityPrefix string
+	tokens           []string
+}
+
+// backendBuildTagPreferenceRules is the BUILD TAG table. See the block comment
+// above for the vocabulary contract.
 //
 // Matching is by capability PREFIX, because a detected capability is refined at
 // runtime ("nvidia" becomes "nvidia-cuda-12" when the toolkit is present) and a
@@ -65,31 +93,62 @@ const (
 // in order, so a more specific prefix must precede any rule it shares a prefix
 // with.
 //
-// Tokens are matched as substrings of a backend name, so "cuda" covers
-// "cuda12-llama-cpp" and "mlx" covers "metal-mlx" alike. A backend matching no
-// token is not an error and is never discarded; it simply sorts below every
-// recognised one.
-type backendPreferenceRule struct {
-	capabilityPrefix string
-	tokens           []string
-}
-
-var backendPreferenceRules = []backendPreferenceRule{
+// Tokens are matched as substrings of a build directory name, so "cuda" covers
+// "cuda12-llama-cpp". A build matching no token is not an error and is never
+// discarded; it simply sorts below every recognised one.
+var backendBuildTagPreferenceRules = []backendPreferenceRule{
 	{Nvidia, []string{backendTokenCUDA, vulkan, backendTokenCPU}},
 	{AMD, []string{backendTokenROCM, backendTokenHIP, vulkan, backendTokenCPU}},
 	{Intel, []string{backendTokenSYCL, Intel, backendTokenCPU}},
-	// MLX outranks metal because on Apple silicon it is the native accelerated
-	// runtime, whereas a metal-enabled GGUF build is the portable engine merely
-	// compiled with GPU offload.
-	{metal, []string{backendTokenMLX, backendTokenMetal, backendTokenCPU}},
+	{metal, []string{backendTokenMetal, backendTokenCPU}},
 	{darwinX86, []string{darwinX86, backendTokenCPU}},
 	{vulkan, []string{vulkan, backendTokenCPU}},
 }
 
-// defaultBackendPreferenceTokens is what a host with no matching rule prefers.
+// defaultBackendBuildTagTokens is what a host with no matching rule prefers.
 // A capability nobody has taught this table about degrades to plain CPU rather
 // than to an error or to an empty list.
-var defaultBackendPreferenceTokens = []string{backendTokenCPU}
+var defaultBackendBuildTagTokens = []string{backendTokenCPU}
+
+// engineNamePreferenceRules is the ENGINE NAME table. See the block comment
+// above for the vocabulary contract.
+//
+// Capability matching is by prefix, exactly as the build tag table does it.
+//
+// Tokens are matched as SUBSTRINGS of an engine name, which is load bearing:
+// "vllm" also covers "vllm-omni", "mlx" also covers "mlx-vlm" and "mlx-audio",
+// and "llama-cpp" also covers "ik-llama-cpp". Each of those is a build of the
+// engine named by the token, so ranking them together is correct. Order the
+// tokens so no token is a substring of an engine that should rank differently.
+//
+// A capability is deliberately ABSENT rather than guessed at when no engine
+// ordering can be justified for it. An absent rule degrades to ordering by size
+// alone, which is the behaviour that predates preference and is always safe.
+// darwin-x86 is absent for that reason: nothing accelerates there, so no engine
+// deserves to outrank another.
+var engineNamePreferenceRules = []backendPreferenceRule{
+	// vLLM first on every host with a dedicated serving engine build. It is the
+	// throughput engine, and a model published with a vLLM build is published
+	// that way precisely because that build is the one worth running.
+	// SGLang sits directly behind it: same class of GPU serving engine, ships
+	// cuda/rocm/intel builds alike, but it is behind vLLM because vLLM covers
+	// far more of the gallery. llama-cpp is the portable fallback.
+	{Nvidia, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	{AMD, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	{Intel, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	// MLX is the native accelerated runtime on Apple silicon, whereas a
+	// metal-enabled GGUF build is the portable engine merely compiled with GPU
+	// offload. No vLLM or SGLang build targets metal, so neither is listed.
+	{metal, []string{engineMLX, engineLlamaCpp}},
+	// A Vulkan host has exactly one LLM engine with a Vulkan build, so a
+	// llama-cpp variant is the only one that will use the GPU at all.
+	{vulkan, []string{engineLlamaCpp}},
+}
+
+// defaultEnginePreferenceTokens is empty on purpose. A host with no detected
+// accelerator has no reason to prefer one engine over another, and an empty
+// list is what the ranker reads as "order by size alone".
+var defaultEnginePreferenceTokens = []string{}
 
 var (
 	cuda13DirExists bool
@@ -232,18 +291,40 @@ func (s *SystemState) getSystemCapabilities() string {
 // backend implementation order for the current system capability. Callers can use
 // these tokens to select the most appropriate concrete backend among multiple
 // candidates sharing the same alias (e.g., "llama-cpp").
-// The rules live in backendPreferenceRules above; this function only looks them
-// up, so teaching LocalAI about a new runtime never means editing logic.
+//
+// These are BUILD TAGS matched against installed build directory names. For
+// engine names as a gallery entry spells them, use EnginePreferenceTokens.
 func (s *SystemState) BackendPreferenceTokens() []string {
+	return s.preferenceTokens(backendBuildTagPreferenceRules, defaultBackendBuildTagTokens)
+}
+
+// EnginePreferenceTokens returns the engine names this host prefers, best first,
+// for ranking gallery model variants against each other.
+//
+// These are ENGINE NAMES matched against a gallery entry's `backend:` value
+// ("vllm", "llama-cpp", "mlx"), never build tags. Feeding this function's output
+// to installed-build alias resolution, or BackendPreferenceTokens' output to
+// variant ranking, matches nothing and silently disables the preference.
+//
+// An empty result is normal and means "no engine ordering applies here", which
+// the ranker reads as ordering by size alone.
+func (s *SystemState) EnginePreferenceTokens() []string {
+	return s.preferenceTokens(engineNamePreferenceRules, defaultEnginePreferenceTokens)
+}
+
+// preferenceTokens resolves the current capability against one preference table.
+// The rules live in the tables above; this only looks them up, so teaching
+// LocalAI about a new runtime never means editing logic.
+func (s *SystemState) preferenceTokens(rules []backendPreferenceRule, fallback []string) []string {
 	capStr := strings.ToLower(s.getSystemCapabilities())
-	for _, rule := range backendPreferenceRules {
+	for _, rule := range rules {
 		if strings.HasPrefix(capStr, rule.capabilityPrefix) {
 			// Copied so a caller cannot mutate the shared table out from under
 			// every other host lookup.
 			return slices.Clone(rule.tokens)
 		}
 	}
-	return slices.Clone(defaultBackendPreferenceTokens)
+	return slices.Clone(fallback)
 }
 
 // DetectedCapability returns the raw detected capability string (e.g. "metal",

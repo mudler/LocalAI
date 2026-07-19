@@ -224,8 +224,8 @@ var _ = Describe("DescribeVariants", func() {
 			Expect(view.AutoSelected).To(Equal("qwen3-8b-vllm-awq"))
 		})
 
-		It("matches what installing would pick when the host prefers a runtime", func() {
-			// The picker and the installer both have to apply backend
+		It("matches what installing would pick when the host prefers an engine", func() {
+			// The picker and the installer both have to apply engine
 			// preference, or a Mac would be shown the GGUF build and handed the
 			// MLX one. Asserting the agreement AND the name pins both halves.
 			mlx := newModel("qwen3-8b-mlx-4bit", "mlx")
@@ -237,13 +237,33 @@ var _ = Describe("DescribeVariants", func() {
 				"qwen3-8b-gguf-q8":  gib(9),
 				"qwen3-8b-mlx-4bit": gib(5),
 			})
-			env.BackendPreference = []string{"mlx", "metal", "cpu"}
+			// Engine names as SystemState.EnginePreferenceTokens reports them for
+			// metal. Build tags would match no gallery `backend:` value here.
+			env.EnginePreference = []string{"mlx", "llama-cpp"}
 
 			agreesWithInstall(env)
 
 			view, err := gallery.DescribeVariants(models, base, env)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(view.AutoSelected).To(Equal("qwen3-8b-mlx-4bit"))
+		})
+
+		It("matches what installing would pick when the host prefers vLLM", func() {
+			// The NVIDIA rule the user asked for, checked through the listing so
+			// the picker and the installer cannot drift on it. The GGUF build is
+			// deliberately the LARGER one, so only preference can produce this
+			// answer: size alone would name the llama.cpp build.
+			env := probing(gib(64), map[string]uint64{
+				"qwen3-8b-vllm-awq": gib(9),
+				"qwen3-8b-gguf-q8":  gib(20),
+			})
+			env.EnginePreference = []string{"vllm", "sglang", "llama-cpp"}
+
+			agreesWithInstall(env)
+
+			view, err := gallery.DescribeVariants(models, base, env)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(view.AutoSelected).To(Equal("qwen3-8b-vllm-awq"))
 		})
 
 		It("names the entry itself when no variant fits", func() {

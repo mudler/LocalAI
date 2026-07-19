@@ -1,10 +1,14 @@
 package gallery_test
 
 import (
+	"context"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 var _ = Describe("VariantOption.EffectiveMemory", func() {
@@ -243,17 +247,76 @@ var _ = Describe("SelectVariant", func() {
 		})
 	})
 
-	Describe("ranking by host backend preference", func() {
-		// The token lists below are exactly what
-		// SystemState.BackendPreferenceTokens reports for these hosts. They are
-		// spelled out rather than read from the live machine so the specs pin
-		// the intended behaviour on every CI runner.
-		darwinMetal := []string{"mlx", "metal", "cpu"}
-		nvidia := []string{"cuda", "vulkan", "cpu"}
+	Describe("ranking by host engine preference", func() {
+		// These are ENGINE NAMES, exactly what SystemState.EnginePreferenceTokens
+		// reports for these hosts and exactly what a gallery entry's `backend:`
+		// field holds. Build tags ("cuda", "rocm", "metal") belong to
+		// BackendPreferenceTokens and would match no engine name here, which is
+		// why every backend below is spelled as a real gallery engine.
+		//
+		// They are spelled out rather than read from the live machine so the
+		// specs pin the intended behaviour on every CI runner.
+		darwinMetal := []string{"mlx", "llama-cpp"}
+		nvidia := []string{"vllm", "sglang", "llama-cpp"}
 
 		// A Mac runs both engines, so nothing is filtered here and preference is
 		// the only thing that can decide.
 		darwinRunsEverything := func(string) bool { return true }
+
+		It("prefers a vLLM build to a larger llama.cpp build on nvidia", func() {
+			// The rule the engine table exists to express, and the one that was
+			// silently inert while the ranker was fed build tags: no gallery
+			// engine name contains "cuda", so every candidate scored equal and
+			// the larger llama.cpp build won. Emptying the nvidia rule in
+			// pkg/system fails this spec.
+			options := []gallery.VariantOption{
+				option("m-vllm-awq", "vllm", gib(8)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-gguf-q4", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:  gib(64),
+				EnginePreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-vllm-awq"))
+		})
+
+		It("takes the larger llama.cpp build on the same nvidia host once preference is unknown", func() {
+			// The mirror of the spec above, proving the vLLM win comes from the
+			// preference list and not from anything intrinsic to the option set.
+			// This is the state the whole feature was stuck in before the two
+			// vocabularies were separated.
+			options := []gallery.VariantOption{
+				option("m-vllm-awq", "vllm", gib(8)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-gguf-q4", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory: gib(64),
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q8"))
+		})
+
+		It("ranks a vllm-omni build with vllm, since the token is a substring", func() {
+			// Substring matching is deliberate: vllm-omni is a vLLM build and
+			// must inherit vLLM's rank rather than fall through to unranked.
+			options := []gallery.VariantOption{
+				option("m-omni", "vllm-omni", gib(8)),
+				option("m-gguf-q8", "llama-cpp", gib(24)),
+				base("m-base", gib(4)),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:  gib(64),
+				EnginePreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-omni"))
+		})
 
 		It("prefers an MLX build to a larger llama.cpp build on darwin", func() {
 			options := []gallery.VariantOption{
@@ -265,13 +328,13 @@ var _ = Describe("SelectVariant", func() {
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
 				AvailableMemory:   gib(64),
 				BackendCompatible: darwinRunsEverything,
-				BackendPreference: darwinMetal,
+				EnginePreference:  darwinMetal,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(selection.Option.Variant.Model).To(Equal("m-mlx-4bit"))
 		})
 
-		It("takes the larger llama.cpp build on the same host once preference is unknown", func() {
+		It("takes the larger llama.cpp build on the same darwin host once preference is unknown", func() {
 			// The mirror of the spec above, proving the MLX win comes from the
 			// preference list and not from anything intrinsic to the option set.
 			options := []gallery.VariantOption{
@@ -288,75 +351,96 @@ var _ = Describe("SelectVariant", func() {
 			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q8"))
 		})
 
-		It("prefers a CUDA build to a larger CPU-only build on nvidia", func() {
-			options := []gallery.VariantOption{
-				option("m-cuda-q4", "cuda12-llama-cpp", gib(8)),
-				option("m-cpu-q8", "cpu-llama-cpp", gib(24)),
-				base("m-base", gib(4)),
-			}
-
-			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
-				AvailableMemory:   gib(64),
-				BackendPreference: nvidia,
-			}, "")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-cuda-q4"))
-		})
-
-		It("still picks the largest fitting build among equally preferred backends", func() {
-			// Preference must not flatten size ordering: with one runtime in
+		It("still picks the largest fitting build among equally preferred engines", func() {
+			// Preference must not flatten size ordering: with one engine in
 			// play there is nothing left for it to decide.
 			options := []gallery.VariantOption{
-				option("m-cuda-q4", "cuda12-llama-cpp", gib(6)),
-				option("m-cuda-q8", "cuda12-llama-cpp", gib(12)),
-				option("m-cuda-f16", "cuda12-llama-cpp", gib(48)),
+				option("m-gguf-q4", "llama-cpp", gib(6)),
+				option("m-gguf-q8", "llama-cpp", gib(12)),
+				option("m-gguf-f16", "llama-cpp", gib(48)),
 				base("m-base", gib(2)),
 			}
 
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
-				AvailableMemory:   gib(16),
-				BackendPreference: nvidia,
+				AvailableMemory:  gib(16),
+				EnginePreference: nvidia,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-cuda-q8"))
+			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q8"))
 		})
 
-		It("does not let a preferred backend rescue a build that does not fit", func() {
+		It("does not let a preferred engine rescue a build that does not fit", func() {
 			// Fit is a filter and preference is only a ranking among survivors.
-			// The CUDA build is both preferred and too large, so the CPU build
-			// the host can actually hold has to win.
+			// The vLLM build is both preferred and too large, so the llama.cpp
+			// build the host can actually hold has to win.
 			options := []gallery.VariantOption{
-				option("m-cuda-f16", "cuda12-llama-cpp", gib(48)),
-				option("m-cpu-q4", "cpu-llama-cpp", gib(6)),
+				option("m-vllm-fp16", "vllm", gib(48)),
+				option("m-gguf-q4", "llama-cpp", gib(6)),
 				base("m-base", gib(2)),
 			}
 
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
-				AvailableMemory:   gib(16),
-				BackendPreference: nvidia,
+				AvailableMemory:  gib(16),
+				EnginePreference: nvidia,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-cpu-q4"))
-			Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-cuda-f16")))
+			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q4"))
+			Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-vllm-fp16")))
 		})
 
-		It("orders unrecognised backends by size rather than dropping them", func() {
-			// Neither engine name carries an nvidia token. Nothing is discarded
+		It("orders engines absent from the table by size rather than dropping them", func() {
+			// Neither engine appears in the nvidia rule. Nothing is discarded
 			// and nothing is arbitrarily favoured; the host falls back to the
 			// size-only behaviour it had before preference existed.
+			//
+			// The base is left unsized so it ranks in the tier below a proven
+			// fit. It is a llama.cpp build, which the nvidia rule DOES rank, and
+			// letting it compete in the same tier would prove preference works
+			// rather than proving unlisted engines degrade to size.
 			options := []gallery.VariantOption{
-				option("m-vllm-awq", "vllm", gib(12)),
-				option("m-sglang-fp8", "sglang", gib(6)),
+				option("m-diffusers", "diffusers", gib(12)),
+				option("m-transformers", "transformers", gib(6)),
+				base("m-base", 0),
+			}
+
+			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+				AvailableMemory:  gib(16),
+				EnginePreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-diffusers"))
+			Expect(selection.Reasons).To(BeEmpty())
+		})
+
+		It("ranks sglang between vllm and llama-cpp on nvidia", func() {
+			// A judgement call worth pinning: sglang is a GPU serving engine of
+			// the same class as vllm, so it outranks the portable engine, but it
+			// sits behind vllm.
+			options := []gallery.VariantOption{
+				option("m-vllm", "vllm", gib(4)),
+				option("m-sglang", "sglang", gib(6)),
+				option("m-gguf", "llama-cpp", gib(8)),
 				base("m-base", gib(2)),
 			}
 
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
-				AvailableMemory:   gib(16),
-				BackendPreference: nvidia,
+				AvailableMemory:  gib(16),
+				EnginePreference: nvidia,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-vllm-awq"))
-			Expect(selection.Reasons).To(BeEmpty())
+			Expect(selection.Option.Variant.Model).To(Equal("m-vllm"))
+
+			withoutVLLM := []gallery.VariantOption{
+				option("m-sglang", "sglang", gib(6)),
+				option("m-gguf", "llama-cpp", gib(8)),
+				base("m-base", gib(2)),
+			}
+			selection, err = gallery.SelectVariant(withoutVLLM, gallery.ResolveEnv{
+				AvailableMemory:  gib(16),
+				EnginePreference: nvidia,
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selection.Option.Variant.Model).To(Equal("m-sglang"))
 		})
 
 		It("still installs the base when nothing fits, whatever the host prefers", func() {
@@ -369,7 +453,7 @@ var _ = Describe("SelectVariant", func() {
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
 				AvailableMemory:   gib(4),
 				BackendCompatible: darwinRunsEverything,
-				BackendPreference: darwinMetal,
+				EnginePreference:  darwinMetal,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(selection.Option.Variant.Model).To(Equal("m-base"))
@@ -389,7 +473,7 @@ var _ = Describe("SelectVariant", func() {
 			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
 				AvailableMemory:   gib(64),
 				BackendCompatible: darwinRunsEverything,
-				BackendPreference: darwinMetal,
+				EnginePreference:  darwinMetal,
 			}, "m-gguf-q8")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(selection.Option.Variant.Model).To(Equal("m-gguf-q8"))
@@ -500,5 +584,81 @@ var _ = Describe("SelectVariant", func() {
 			Expect(err).To(MatchError(gallery.ErrPinNotFound))
 			Expect(err.Error()).To(ContainSubstring("m-gone"))
 		})
+	})
+})
+
+var _ = Describe("HostResolveEnv engine preference wiring", func() {
+	// The specs above feed SelectVariant a hand-written token list, which proves
+	// the ranker but not that the host actually reaches the engine table. These
+	// drive the REAL table through the REAL wiring, so emptying
+	// engineNamePreferenceRules in pkg/system, or reverting this field to
+	// BackendPreferenceTokens, fails here.
+	var origEnv string
+	const capabilityEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY"
+
+	BeforeEach(func() {
+		origEnv = os.Getenv(capabilityEnv)
+	})
+
+	AfterEach(func() {
+		if origEnv != "" {
+			os.Setenv(capabilityEnv, origEnv)
+		} else {
+			os.Unsetenv(capabilityEnv)
+		}
+	})
+
+	envFor := func(capability string) gallery.ResolveEnv {
+		GinkgoHelper()
+		Expect(os.Setenv(capabilityEnv, capability)).To(Succeed())
+		return gallery.HostResolveEnv(context.Background(), &system.SystemState{})
+	}
+
+	It("hands the ranker engine names an NVIDIA host's gallery entries can match", func() {
+		preference := envFor("nvidia-cuda-12").EnginePreference
+		Expect(preference).To(Equal([]string{"vllm", "sglang", "llama-cpp"}))
+	})
+
+	It("installs the vLLM build over a larger llama.cpp one on a real NVIDIA host", func() {
+		// End to end on the live table: the exact behaviour that was silently
+		// dead while the ranker was fed build tags.
+		env := envFor("nvidia-cuda-12")
+		env.AvailableMemory = 64 * 1024 * 1024 * 1024
+
+		options := []gallery.VariantOption{
+			{Variant: gallery.Variant{Model: "m-vllm"}, Backend: "vllm", ProbedMemory: 8 * 1024 * 1024 * 1024},
+			{Variant: gallery.Variant{Model: "m-gguf"}, Backend: "llama-cpp", ProbedMemory: 24 * 1024 * 1024 * 1024},
+		}
+
+		selection, err := gallery.SelectVariant(options, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(selection.Option.Variant.Model).To(Equal("m-vllm"))
+	})
+
+	It("installs the MLX build over a larger llama.cpp one on a real darwin host", func() {
+		env := envFor("metal")
+		env.AvailableMemory = 64 * 1024 * 1024 * 1024
+		// The real gate rejects mlx off darwin, and this spec is about ranking.
+		env.BackendCompatible = func(string) bool { return true }
+
+		options := []gallery.VariantOption{
+			{Variant: gallery.Variant{Model: "m-mlx"}, Backend: "mlx", ProbedMemory: 8 * 1024 * 1024 * 1024},
+			{Variant: gallery.Variant{Model: "m-gguf"}, Backend: "llama-cpp", ProbedMemory: 24 * 1024 * 1024 * 1024},
+		}
+
+		selection, err := gallery.SelectVariant(options, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(selection.Option.Variant.Model).To(Equal("m-mlx"))
+	})
+
+	It("carries no build tag into the ranker, whatever the host", func() {
+		// The wiring-level lock. BackendPreferenceTokens returns build tags for
+		// every capability, so if it is ever wired back into this field, one of
+		// these tags shows up here.
+		for _, capability := range []string{"nvidia-cuda-12", "amd", "intel", "metal", "vulkan", "default"} {
+			Expect(envFor(capability).EnginePreference).ToNot(
+				ContainElements("cuda", "rocm", "hip", "sycl", "metal", "cpu", "darwin-x86"),
+				"capability %q leaked a build tag into the variant ranker", capability)
+		}
 	})
 })

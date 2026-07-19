@@ -149,22 +149,36 @@ var _ = Describe("BackendPreferenceTokens", func() {
 		return (&SystemState{}).BackendPreferenceTokens()
 	}
 
-	It("ranks MLX above metal on apple silicon", func() {
-		// MLX is the native accelerated runtime there, so it must outrank a
-		// metal-enabled build of the portable engine.
-		Expect(tokensFor(metal)).To(Equal([]string{"mlx", "metal", "cpu"}))
-	})
+	// This table is a REGRESSION LOCK, not a description. These are build tags
+	// matched against installed backend build directory names, and the only
+	// consumer is alias resolution in ListSystemBackends. Every value below is
+	// the output this function had before engine preference existed.
+	//
+	// Engine names ("vllm", "mlx", "llama-cpp") belong to EnginePreferenceTokens
+	// and MUST NOT appear here. Merging the two vocabularies is exactly the
+	// mistake this table exists to catch: it does not error, it silently makes
+	// one of the two consumers rank everything equally.
+	DescribeTable("returns the original build tags for every capability",
+		func(capability string, want []string) {
+			Expect(tokensFor(capability)).To(Equal(want))
+		},
+		Entry("nvidia", "nvidia-cuda-12", []string{"cuda", "vulkan", "cpu"}),
+		Entry("amd", AMD, []string{"rocm", "hip", "vulkan", "cpu"}),
+		Entry("intel", Intel, []string{"sycl", "intel", "cpu"}),
+		Entry("metal", metal, []string{"metal", "cpu"}),
+		Entry("darwin-x86", darwinX86, []string{"darwin-x86", "cpu"}),
+		Entry("vulkan", vulkan, []string{"vulkan", "cpu"}),
+		Entry("unknown capability", "some-future-accelerator", []string{"cpu"}),
+	)
 
-	It("keeps the vendor order every other capability already had", func() {
-		Expect(tokensFor("nvidia-cuda-12")).To(Equal([]string{"cuda", "vulkan", "cpu"}))
-		Expect(tokensFor(AMD)).To(Equal([]string{"rocm", "hip", "vulkan", "cpu"}))
-		Expect(tokensFor(Intel)).To(Equal([]string{"sycl", "intel", "cpu"}))
-		Expect(tokensFor(darwinX86)).To(Equal([]string{"darwin-x86", "cpu"}))
-		Expect(tokensFor(vulkan)).To(Equal([]string{"vulkan", "cpu"}))
-	})
-
-	It("degrades an unknown capability to cpu rather than to nothing", func() {
-		Expect(tokensFor("some-future-accelerator")).To(Equal([]string{"cpu"}))
+	It("carries no engine name in any capability's tokens", func() {
+		// The generic form of the lock above: whatever anyone adds to the build
+		// tag table later, an engine name in it is a merged vocabulary.
+		engineNames := []string{"vllm", "sglang", "llama-cpp", "mlx"}
+		for _, capability := range []string{"nvidia", AMD, Intel, metal, darwinX86, vulkan, "default"} {
+			Expect(tokensFor(capability)).ToNot(ContainElements(engineNames),
+				"capability %q leaked an engine name into the build tag table", capability)
+		}
 	})
 
 	It("matches a capability by prefix so a refined one keeps its vendor order", func() {
@@ -175,6 +189,75 @@ var _ = Describe("BackendPreferenceTokens", func() {
 		first := tokensFor("nvidia")
 		first[0] = "clobbered"
 		Expect(tokensFor("nvidia")[0]).To(Equal("cuda"))
+	})
+})
+
+var _ = Describe("EnginePreferenceTokens", func() {
+	var origEnv string
+
+	BeforeEach(func() {
+		origEnv = os.Getenv(capabilityEnv)
+	})
+
+	AfterEach(func() {
+		if origEnv != "" {
+			os.Setenv(capabilityEnv, origEnv)
+		} else {
+			os.Unsetenv(capabilityEnv)
+		}
+	})
+
+	tokensFor := func(capability string) []string {
+		GinkgoHelper()
+		Expect(os.Setenv(capabilityEnv, capability)).To(Succeed())
+		return (&SystemState{}).EnginePreferenceTokens()
+	}
+
+	It("puts vLLM ahead of llama.cpp on nvidia", func() {
+		// The rule the whole engine table exists to express. A build tag list
+		// here would match no engine name at all and this would read empty.
+		Expect(tokensFor("nvidia-cuda-12")).To(Equal([]string{"vllm", "sglang", "llama-cpp"}))
+	})
+
+	It("puts MLX ahead of llama.cpp on apple silicon", func() {
+		Expect(tokensFor(metal)).To(Equal([]string{"mlx", "llama-cpp"}))
+	})
+
+	It("gives the GPU serving engines to every vendor that has builds of them", func() {
+		Expect(tokensFor(AMD)).To(Equal([]string{"vllm", "sglang", "llama-cpp"}))
+		Expect(tokensFor(Intel)).To(Equal([]string{"vllm", "sglang", "llama-cpp"}))
+	})
+
+	It("prefers llama.cpp on vulkan, the only engine with a vulkan build", func() {
+		Expect(tokensFor(vulkan)).To(Equal([]string{"llama-cpp"}))
+	})
+
+	It("names only engines, never a build tag", func() {
+		// The mirror of the lock on BackendPreferenceTokens. A build tag here
+		// matches no gallery `backend:` value and silently disables ranking.
+		buildTags := []string{"cuda", "rocm", "hip", "sycl", "vulkan", "metal", "cpu", "darwin-x86"}
+		for _, capability := range []string{"nvidia", AMD, Intel, metal, vulkan} {
+			Expect(tokensFor(capability)).ToNot(ContainElements(buildTags),
+				"capability %q leaked a build tag into the engine table", capability)
+		}
+	})
+
+	It("leaves a capability with no justified engine order empty rather than guessing", func() {
+		// Empty is read by the variant ranker as "order by size alone", which is
+		// the behaviour that predates preference and is always safe.
+		Expect(tokensFor(darwinX86)).To(BeEmpty())
+		Expect(tokensFor("default")).To(BeEmpty())
+		Expect(tokensFor("some-future-accelerator")).To(BeEmpty())
+	})
+
+	It("matches a capability by prefix so a refined one keeps its engine order", func() {
+		Expect(tokensFor("nvidia-l4t-cuda-13")).To(Equal(tokensFor("nvidia")))
+	})
+
+	It("hands out a copy so one caller cannot corrupt another's lookup", func() {
+		first := tokensFor("nvidia")
+		first[0] = "clobbered"
+		Expect(tokensFor("nvidia")[0]).To(Equal("vllm"))
 	})
 })
 

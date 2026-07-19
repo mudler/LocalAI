@@ -66,10 +66,18 @@ type ResolveEnv struct {
 	// A nil func treats every backend as runnable, the right default for a
 	// caller with no view of the hardware.
 	BackendCompatible func(backend string) bool
-	// BackendPreference lists the runtime tokens this host prefers, best first,
-	// as SystemState.BackendPreferenceTokens reports them (e.g. metal gives
-	// ["mlx", "metal", "cpu"], NVIDIA gives ["cuda", "vulkan", "cpu"]). A token
-	// is matched as a substring of a variant's backend name.
+	// EnginePreference lists the ENGINE NAMES this host prefers, best first, as
+	// SystemState.EnginePreferenceTokens reports them (e.g. NVIDIA gives
+	// ["vllm", "sglang", "llama-cpp"], metal gives ["mlx", "llama-cpp"]). A
+	// token is matched as a substring of a variant's backend name.
+	//
+	// The vocabulary is load bearing. VariantOption.Backend is a gallery entry's
+	// `backend:` value, which is an engine name and never carries a build tag,
+	// so build tags like "cuda" or "rocm" match NOTHING here. Do not wire
+	// SystemState.BackendPreferenceTokens into this field: that reports build
+	// tags for installed-build alias resolution, and the mismatch does not
+	// error, it scores every candidate equally and silently reduces selection to
+	// size alone. pkg/system/capabilities.go documents both tables.
 	//
 	// BackendCompatible answers "can this run here at all" and is a filter.
 	// This answers "which of the things that CAN run here should win" and is
@@ -82,7 +90,7 @@ type ResolveEnv struct {
 	// ordering by size alone. That is the right default for a caller with no
 	// view of the hardware, and it is what every host looked like before
 	// preference existed.
-	BackendPreference []string
+	EnginePreference []string
 	// ProbeMemory measures how much memory a referenced gallery entry needs,
 	// without downloading it. A zero result means "could not tell", never
 	// "needs nothing".
@@ -103,28 +111,28 @@ func (e ResolveEnv) backendRuns(backend string) bool {
 	return e.BackendCompatible(backend)
 }
 
-// preferenceRank scores a backend against this host's preferred runtime order,
+// preferenceRank scores a backend against this host's preferred engine order,
 // lower being better.
 //
-// It walks BackendPreference generically and knows nothing about any particular
-// backend or capability: everything a new runtime needs is expressed by the
-// token table in pkg/system, so adding one never reaches this function.
+// It walks EnginePreference generically and names no engine and no capability:
+// everything a new runtime needs is expressed by the table in pkg/system, so
+// adding one never reaches this function.
 //
 // A backend matching no token scores just below the least preferred known one.
 // It is never dropped, and a field where nothing matches scores uniformly, so
 // an unrecognised backend, an unrecognised capability and an absent preference
 // list all degrade to the same predictable place: ordering by size alone.
 func (e ResolveEnv) preferenceRank(backend string) int {
-	if len(e.BackendPreference) == 0 {
+	if len(e.EnginePreference) == 0 {
 		return 0
 	}
 	name := strings.ToLower(backend)
-	for i, token := range e.BackendPreference {
+	for i, token := range e.EnginePreference {
 		if token != "" && strings.Contains(name, token) {
 			return i
 		}
 	}
-	return len(e.BackendPreference)
+	return len(e.EnginePreference)
 }
 
 // VariantSelection is the outcome of a selection pass.
