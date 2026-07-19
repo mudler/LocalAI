@@ -236,7 +236,7 @@ func HasGPU(vendor string) bool {
 // Priority order: NVIDIA > AMD > Intel > Vulkan
 func DetectGPUVendor() (string, error) {
 	// First, try ghw library detection
-	if vendor := vendorFromNames(ghwVendorNames()); vendor != "" {
+	if vendor := vendorFromGHW(ghwCards()); vendor != "" {
 		xlog.Debug("GPU vendor detected via ghw", "vendor", vendor)
 		return vendor, nil
 	}
@@ -715,23 +715,16 @@ func getIntelGPUMemory() []GPUMemoryInfo {
 	return out
 }
 
-// ghwVendorNames returns the PCI vendor name of every GPU ghw observed.
-// Uses the package-level cache in GPUs() so the call is free after the
-// first invocation. Returns nil when ghw could not enumerate at all,
-// which it does whenever no pci.ids database is present on the host.
-func ghwVendorNames() []string {
-	gpus, err := GPUs()
+// ghwCards returns the GPUs ghw observed, or nil when it could not
+// enumerate at all, which it does whenever no pci.ids database is
+// present on the host. Uses the package-level cache in GPUs() so the
+// call is free after the first invocation.
+func ghwCards() []*gpu.GraphicsCard {
+	cards, err := GPUs()
 	if err != nil {
 		return nil
 	}
-	var names []string
-	for _, g := range gpus {
-		if g.DeviceInfo == nil || g.DeviceInfo.Vendor == nil {
-			continue
-		}
-		names = append(names, g.DeviceInfo.Vendor.Name)
-	}
-	return names
+	return cards
 }
 
 // hasGPUVendor reports whether a GPU of the given vendor is present,
@@ -739,7 +732,7 @@ func ghwVendorNames() []string {
 // is the only one that works on images with no pci.ids database, where
 // ghw enumeration fails outright.
 func hasGPUVendor(vendor string) bool {
-	if vendorMatchesAny(ghwVendorNames(), vendor) {
+	if ghwHasVendor(ghwCards(), vendor) {
 		return true
 	}
 	for _, g := range scanSysfsGPUs(defaultSysfsDRMPath) {

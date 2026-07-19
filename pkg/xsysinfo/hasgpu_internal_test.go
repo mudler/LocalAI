@@ -1,33 +1,39 @@
 package xsysinfo
 
 import (
+	"github.com/jaypipes/ghw/pkg/gpu"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("vendorMatchesAny", func() {
-	It("matches a PCI vendor name case-insensitively", func() {
-		// ghw renders vendor names as they appear in pci.ids
-		// ("NVIDIA Corporation"), while callers ask for the lowercase
-		// vendor constants. A case-sensitive comparison misses entirely
-		// and only appears to work because ghw's card description also
-		// embeds the lowercase kernel driver name.
-		Expect(vendorMatchesAny([]string{"NVIDIA Corporation"}, VendorNVIDIA)).To(BeTrue())
-		Expect(vendorMatchesAny([]string{"Advanced Micro Devices, Inc. [AMD/ATI]"}, VendorAMD)).To(BeTrue())
-		Expect(vendorMatchesAny([]string{"Intel Corporation"}, VendorIntel)).To(BeTrue())
+var _ = Describe("ghwHasVendor", func() {
+	It("matches on the numeric PCI vendor ID", func() {
+		cards := []*gpu.GraphicsCard{card("8086", "Intel Corporation")}
+		Expect(ghwHasVendor(cards, VendorIntel)).To(BeTrue())
+		Expect(ghwHasVendor(cards, VendorNVIDIA)).To(BeFalse())
 	})
 
-	It("does not match a different vendor", func() {
-		Expect(vendorMatchesAny([]string{"Intel Corporation"}, VendorNVIDIA)).To(BeFalse())
+	It("reports every vendor present, not only the highest-priority one", func() {
+		// A hybrid-graphics host has both. Asking "is there an Intel GPU"
+		// must not be answered by the discrete NVIDIA card outranking it.
+		cards := []*gpu.GraphicsCard{card("8086", "Intel Corporation"), card("10de", "NVIDIA Corporation")}
+		Expect(ghwHasVendor(cards, VendorNVIDIA)).To(BeTrue())
+		Expect(ghwHasVendor(cards, VendorIntel)).To(BeTrue())
+		Expect(ghwHasVendor(cards, VendorAMD)).To(BeFalse())
 	})
 
-	It("finds a match anywhere in the list", func() {
-		Expect(vendorMatchesAny([]string{"ASPEED Technology, Inc.", "Intel Corporation"}, VendorIntel)).To(BeTrue())
+	It("matches the vendor name case-insensitively when no ID is available", func() {
+		// pci.ids spells it "NVIDIA Corporation"; callers pass the
+		// lowercase vendor constant.
+		Expect(ghwHasVendor([]*gpu.GraphicsCard{card("", "NVIDIA Corporation")}, VendorNVIDIA)).To(BeTrue())
 	})
 
-	It("returns false when no names are available", func() {
-		// ghw yields no names at all when it cannot enumerate, which is
-		// what happens with no pci.ids database on the host.
-		Expect(vendorMatchesAny(nil, VendorNVIDIA)).To(BeFalse())
+	It("does not match a device that is not a known GPU vendor", func() {
+		Expect(ghwHasVendor([]*gpu.GraphicsCard{card("1234", "unknown")}, VendorIntel)).To(BeFalse())
+	})
+
+	It("tolerates missing device information", func() {
+		Expect(ghwHasVendor([]*gpu.GraphicsCard{{}, nil}, VendorIntel)).To(BeFalse())
+		Expect(ghwHasVendor(nil, VendorIntel)).To(BeFalse())
 	})
 })

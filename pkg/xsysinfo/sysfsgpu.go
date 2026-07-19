@@ -1,6 +1,7 @@
 package xsysinfo
 
 import (
+	"github.com/jaypipes/ghw/pkg/gpu"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -92,8 +93,13 @@ func readSysfsHexUint(path string) (uint64, bool) {
 	if err != nil {
 		return 0, false
 	}
-	text := strings.TrimSpace(string(raw))
-	text = strings.TrimPrefix(strings.ToLower(text), "0x")
+	return parseHexUint(string(raw))
+}
+
+// parseHexUint reads a hex PCI ID as written by either source: sysfs
+// spells it "0x8086\n", ghw's modalias parse yields a bare "8086".
+func parseHexUint(raw string) (uint64, bool) {
+	text := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(raw)), "0x")
 	value, err := strconv.ParseUint(text, 16, 64)
 	if err != nil {
 		return 0, false
@@ -106,9 +112,8 @@ func readSysfsHexUint(path string) (uint64, bool) {
 // vendorPriority so enumeration order can't decide the answer.
 func vendorFromNames(names []string) string {
 	for _, want := range vendorPriority {
-		needle := strings.ToUpper(want)
 		for _, name := range names {
-			if strings.Contains(strings.ToUpper(name), needle) {
+			if nameMatchesVendor(name, want) {
 				return want
 			}
 		}
@@ -116,14 +121,74 @@ func vendorFromNames(names []string) string {
 	return ""
 }
 
-// vendorMatchesAny reports whether any of the given PCI vendor names
-// belongs to the requested vendor. The comparison is case-insensitive:
-// pci.ids spells the vendor "NVIDIA Corporation" while callers pass the
-// lowercase vendor constants.
-func vendorMatchesAny(names []string, vendor string) bool {
-	needle := strings.ToUpper(vendor)
-	for _, name := range names {
-		if strings.Contains(strings.ToUpper(name), needle) {
+// nameMatchesVendor reports whether a PCI vendor name belongs to the
+// requested vendor. The comparison is case-insensitive: pci.ids spells
+// the vendor "NVIDIA Corporation" while callers pass the lowercase
+// vendor constants.
+func nameMatchesVendor(name, vendor string) bool {
+	return strings.Contains(strings.ToUpper(name), strings.ToUpper(vendor))
+}
+
+// vendorFromGHW resolves the vendor of the highest-priority card ghw
+// enumerated.
+//
+// It prefers the numeric PCI vendor ID over the pci.ids vendor name:
+// ghw reads the ID from the kernel's modalias and only the name from
+// the database, so a card absent from an outdated pci.ids still carries
+// a usable ID while its name reads "unknown". The name is kept as a
+// fallback for devices that expose no parseable ID.
+func vendorFromGHW(cards []*gpu.GraphicsCard) string {
+	var ids, names []string
+	for _, c := range cards {
+		if c == nil || c.DeviceInfo == nil || c.DeviceInfo.Vendor == nil {
+			continue
+		}
+		ids = append(ids, c.DeviceInfo.Vendor.ID)
+		names = append(names, c.DeviceInfo.Vendor.Name)
+	}
+	if vendor := vendorFromPCIIDs(ids); vendor != "" {
+		return vendor
+	}
+	return vendorFromNames(names)
+}
+
+// vendorFromPCIIDs maps hex PCI vendor IDs onto a vendor constant,
+// applying vendorPriority so enumeration order can't decide the answer.
+func vendorFromPCIIDs(ids []string) string {
+	found := map[string]bool{}
+	for _, raw := range ids {
+		if id, ok := parseHexUint(raw); ok {
+			if vendor, known := pciVendorIDs[id]; known {
+				found[vendor] = true
+			}
+		}
+	}
+	for _, want := range vendorPriority {
+		if found[want] {
+			return want
+		}
+	}
+	return ""
+}
+
+// ghwHasVendor reports whether any card ghw enumerated belongs to the
+// given vendor. Unlike vendorFromGHW this is not a priority pick: a
+// hybrid-graphics host must answer yes for both its integrated and its
+// discrete GPU.
+func ghwHasVendor(cards []*gpu.GraphicsCard, vendor string) bool {
+	for _, c := range cards {
+		if c == nil || c.DeviceInfo == nil || c.DeviceInfo.Vendor == nil {
+			continue
+		}
+		if id, ok := parseHexUint(c.DeviceInfo.Vendor.ID); ok {
+			if pciVendorIDs[id] == vendor {
+				return true
+			}
+			// A parseable ID that maps elsewhere is authoritative; don't
+			// let the name fall through and contradict it.
+			continue
+		}
+		if nameMatchesVendor(c.DeviceInfo.Vendor.Name, vendor) {
 			return true
 		}
 	}
