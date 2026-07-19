@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -899,7 +900,7 @@ func (wd *WatchDog) evictLRUModel() {
 	if wasBusy {
 		shutdown = wd.pm.ShutdownModelForce
 	}
-	if err := shutdown(lruModel.model); err != nil && err != modelNotFoundErr {
+	if err := shutdown(lruModel.model); err != nil && !errors.Is(err, ErrModelNotFound) {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
 	} else {
 		// Untrack the model

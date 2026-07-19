@@ -20,7 +20,9 @@ import (
 var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true"
 
 var (
-	modelNotFoundErr = errors.New("model not found")
+	// ErrModelNotFound reports that a model is not loaded. Exported so HTTP
+	// handlers can map it to 404 instead of a blanket 500.
+	ErrModelNotFound = errors.New("model not found")
 	// ErrModelBusy indicates that a graceful shutdown context ended while
 	// requests were still in flight.
 	ErrModelBusy = errors.New("model is still busy")
@@ -32,6 +34,16 @@ const (
 	backendFreeTimeout      = 5 * time.Second
 	busyPollInterval        = 100 * time.Millisecond
 )
+
+// unloadRemote asks the remote unloader to stop `s` on whichever node holds
+// it, preferring the context-aware extension so a forced shutdown and the
+// caller's deadline both survive the distributed boundary.
+func unloadRemote(ctx context.Context, u RemoteModelUnloader, s string, force bool) error {
+	if contextUnloader, ok := u.(RemoteModelContextUnloader); ok {
+		return contextUnloader.UnloadRemoteModelContext(ctx, s, force)
+	}
+	return u.UnloadRemoteModel(s)
+}
 
 // deleteProcess stops and removes a backend. The force flag trades a graceful
 // shutdown for a prompt one and is meant for the watchdog's busy-killer: a
@@ -58,8 +70,34 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 
 	model, ok := store.Get(s)
 	if !ok {
+		// A local-store miss is not proof the model is unloaded. In
+		// distributed mode the model runs on a worker and the authoritative
+		// record is the shared node registry: any frontend replica that did
+		// not itself serve the model (load balancer picked a peer, or this
+		// replica restarted) has no local entry. Returning "model not found"
+		// here reported a model that was demonstrably running as absent, and
+		// left its backend process untouched.
+		if remoteUnloader != nil {
+			xlog.Debug("Model not in local store; asking the remote unloader", "model", s)
+			// Ask BEFORE unloading. Unloading is idempotent by contract, so it
+			// cannot afterwards tell us whether anything was actually stopped,
+			// and only a model absent locally AND cluster-wide may be reported
+			// as not found.
+			if checker, ok := remoteUnloader.(RemoteModelPresenceChecker); ok {
+				loaded, err := checker.HasRemoteModel(ctx, s)
+				if err != nil {
+					// An unreachable registry is not evidence of absence;
+					// saying "not found" here would be a guess presented as fact.
+					return fmt.Errorf("checking whether model %q is loaded on any node: %w", s, err)
+				}
+				if !loaded {
+					return ErrModelNotFound
+				}
+			}
+			return unloadRemote(ctx, remoteUnloader, s, force)
+		}
 		xlog.Debug("Model not found", "model", s)
-		return modelNotFoundErr
+		return ErrModelNotFound
 	}
 
 	if !force {
@@ -114,11 +152,7 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		var unloadErr error
 		if remoteUnloader != nil {
 			xlog.Debug("Delegating model unload to remote unloader", "model", s)
-			if contextUnloader, ok := remoteUnloader.(RemoteModelContextUnloader); ok {
-				unloadErr = contextUnloader.UnloadRemoteModelContext(ctx, s, force)
-			} else {
-				unloadErr = remoteUnloader.UnloadRemoteModel(s)
-			}
+			unloadErr = unloadRemote(ctx, remoteUnloader, s, force)
 			if unloadErr != nil {
 				xlog.Warn("Remote model unload failed", "model", s, "error", unloadErr)
 			}
@@ -187,7 +221,7 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 	if p.Process() == nil {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
-	return strconv.Atoi(p.Process().PID)
+	return strconv.Atoi(p.Process().CurrentPID())
 }
 
 // StartProcess starts a gRPC backend process and returns its process handle.
