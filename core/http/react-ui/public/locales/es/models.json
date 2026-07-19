@@ -72,7 +72,7 @@
   "empty": {
     "title": "No se encontraron modelos",
     "withFilters": "Ningún modelo coincide con la búsqueda o filtros actuales.",
-    "withCollapsedVariants": "Los modelos que coinciden con los filtros son compilaciones alternativas que otra entrada ya ofrece. Desactiva \"Una fila por modelo\" para verlas.",
+    "collapsedVariantsHint": "Las compilaciones alternativas que otra entrada ya ofrece están ocultas. Desactiva \"Una fila por modelo\" para incluirlas.",
     "noFilters": "La galería de modelos está vacía."
   },
   "deleteDialog": {

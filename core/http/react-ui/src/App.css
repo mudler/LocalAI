@@ -2890,6 +2890,16 @@ button.collapsible-header:focus-visible {
   margin: 0;
 }
 
+/* Secondary to .empty-state-text: a hint about a default that may be narrowing
+   the result, so it must not compete with the reason stated above it. */
+.empty-state-hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  max-width: 52ch;
+  margin: 0;
+}
+
 /* Opt-in editorial sub-parts — pages can adopt these class names over time */
 .empty-state__eyebrow {
   display: inline-flex;

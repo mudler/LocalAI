@@ -72,7 +72,7 @@
   "empty": {
     "title": "Keine Modelle gefunden",
     "withFilters": "Keine Modelle entsprechen den aktuellen Such- oder Filterkriterien.",
-    "withCollapsedVariants": "Die passenden Modelle sind alternative Builds, die ein anderer Eintrag bereits anbietet. Schalte \"Eine Zeile pro Modell\" aus, um sie zu sehen.",
+    "collapsedVariantsHint": "Alternative Builds, die ein anderer Eintrag bereits anbietet, sind ausgeblendet. Schalte \"Eine Zeile pro Modell\" aus, um sie einzubeziehen.",
     "noFilters": "Die Modellgalerie ist leer."
   },
   "deleteDialog": {

@@ -79,7 +79,7 @@
   "empty": {
     "title": "Model tidak ditemukan",
     "withFilters": "Tidak ada model yang cocok dengan pencarian atau filter Anda.",
-    "withCollapsedVariants": "Model yang cocok dengan filter adalah build alternatif yang sudah ditawarkan entri lain. Matikan \"Satu baris per model\" untuk melihatnya.",
+    "collapsedVariantsHint": "Build alternatif yang sudah ditawarkan entri lain disembunyikan. Matikan \"Satu baris per model\" untuk menyertakannya.",
     "noFilters": "Galeri model kosong."
   },
   "deleteDialog": {

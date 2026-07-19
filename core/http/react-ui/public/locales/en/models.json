@@ -91,7 +91,7 @@
   "empty": {
     "title": "No models found",
     "withFilters": "No models match your current search or filters.",
-    "withCollapsedVariants": "The models matching your filters are alternative builds that another entry already offers. Turn off \"One row per model\" to see them.",
+    "collapsedVariantsHint": "Alternative builds that another entry already offers are hidden. Turn off \"One row per model\" to include them.",
     "noFilters": "The model gallery is empty."
   },
   "deleteDialog": {
