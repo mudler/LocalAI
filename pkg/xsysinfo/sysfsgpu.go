@@ -89,6 +89,12 @@ func sysfsVendorPriority(root string) string {
 }
 
 func readSysfsHexUint(path string) (uint64, bool) {
+	// #nosec G304 -- path is the DRM root (a package constant in production,
+	// a temp dir under test) joined with a ReadDir entry name and a fixed
+	// attribute filename; no external input reaches it. gosec suggests
+	// os.Root, which cannot work here: /sys/class/drm/cardN symlinks out to
+	// the PCI device tree, and os.Root rejects that as "path escapes from
+	// parent".
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return 0, false
