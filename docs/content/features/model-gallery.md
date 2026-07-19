@@ -188,6 +188,28 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+### Collapsing the listing to one row per model
+
+By default the listing returns every entry, including the individual builds a
+parent entry offers as variants, so one model can occupy several rows. Pass
+`collapse_variants=true` for the deduplicated view: every entry that is
+installable in its own right, with nothing shown twice.
+
+```bash
+curl 'http://localhost:8080/api/models?collapse_variants=true'
+```
+
+An entry is hidden only when another entry already offers it as a variant, so
+it stays reachable by installing that entry. Entries that declare variants are
+always kept, and so is any entry nobody references. The filter is applied
+before pagination and composes with `term`, `tag` and `backend`, so page counts
+stay correct. Whether an entry is hidden depends on the gallery alone rather
+than on the other filters, so a search matching a variant build but not its
+parent still hides the build.
+
+The web UI offers the same view as the "One row per model" toggle above the
+gallery.
+
 Ask for the description one entry at a time, as the web UI does when you open
 a model's variant menu:
 

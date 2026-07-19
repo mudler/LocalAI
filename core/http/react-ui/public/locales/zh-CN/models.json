@@ -24,7 +24,7 @@
     "embedding": "嵌入",
     "rerank": "重排",
     "fitsGpu": "适合 GPU",
-    "hasVariants": "含变体",
+    "collapseVariants": "每个模型一行",
     "allBackends": "所有后端",
     "searchBackends": "搜索后端..."
   },
@@ -72,7 +72,7 @@
   "empty": {
     "title": "未找到模型",
     "withFilters": "没有模型与当前搜索或筛选条件匹配。",
-    "withVariantsFilter": "目前没有条目声明变体。关闭变体筛选即可查看完整模型库。",
+    "withCollapsedVariants": "符合筛选条件的模型是其他条目已经提供的替代构建。关闭“每个模型一行”即可查看。",
     "noFilters": "模型库为空。"
   },
   "deleteDialog": {

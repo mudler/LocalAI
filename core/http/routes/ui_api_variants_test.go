@@ -209,10 +209,10 @@ var _ = Describe("Model gallery variants API", func() {
 		})
 	})
 
-	// The gallery is heading towards hiding the individual builds a parent
-	// entry references. Adoption is one entry, so the toggle is the inverse of
-	// that end state: off by default and changing nothing, on to preview it.
-	Context("the has_variants listing filter", func() {
+	// The collapsed view is the deduplicated gallery: every entry installable
+	// in its own right, with nothing shown twice. Off by default, so a user who
+	// never touches it sees the listing exactly as it was.
+	Context("the collapse_variants listing filter", func() {
 		names := func(path string) []string {
 			code, body := get(path)
 			Expect(code).To(Equal(http.StatusOK))
@@ -237,10 +237,13 @@ var _ = Describe("Model gallery variants API", func() {
 			Expect(names("/api/models?items=9999")).To(ConsistOf("base-entry", "big-entry", "plain-entry"))
 		})
 
-		It("returns only entries that declare variants when on", func() {
-			// big-entry is the build base-entry references, so it must drop
-			// out even though it is a perfectly valid entry on its own.
-			Expect(names("/api/models?items=9999&has_variants=true")).To(ConsistOf("base-entry"))
+		It("hides only the builds another entry already offers", func() {
+			// base-entry is a parent and stays. big-entry is the build it
+			// references, so it drops out: a user reaches it by installing
+			// base-entry. plain-entry is nobody's variant, so it stays even
+			// though it declares none of its own.
+			Expect(names("/api/models?items=9999&collapse_variants=true")).
+				To(ConsistOf("base-entry", "plain-entry"))
 		})
 
 		It("leaves the response untouched for any value other than true", func() {
@@ -248,8 +251,8 @@ var _ = Describe("Model gallery variants API", func() {
 			// unparseable value must both behave as absent rather than as a
 			// truthy presence check.
 			base := rawBody("/api/models?items=9999")
-			Expect(rawBody("/api/models?items=9999&has_variants=false")).To(Equal(base))
-			Expect(rawBody("/api/models?items=9999&has_variants=1")).To(Equal(base))
+			Expect(rawBody("/api/models?items=9999&collapse_variants=false")).To(Equal(base))
+			Expect(rawBody("/api/models?items=9999&collapse_variants=1")).To(Equal(base))
 		})
 
 		It("serializes a non-declaring entry exactly as it did before", func() {
@@ -262,30 +265,37 @@ var _ = Describe("Model gallery variants API", func() {
 		})
 
 		It("composes with the backend filter rather than replacing it", func() {
-			// base-entry declares variants and is llama-cpp; plain-entry is
-			// whisper and declares none. If either filter overwrote the other,
-			// the whisper case would return base-entry or plain-entry instead
-			// of nothing.
-			Expect(names("/api/models?items=9999&has_variants=true&backend=llama-cpp")).To(ConsistOf("base-entry"))
-			Expect(names("/api/models?items=9999&has_variants=true&backend=whisper")).To(BeEmpty())
-			Expect(names("/api/models?items=9999&backend=whisper")).To(ConsistOf("plain-entry"))
+			// base-entry and big-entry are llama-cpp; plain-entry is whisper.
+			// If either filter overwrote the other, the llama-cpp case would
+			// keep big-entry and the whisper case would lose plain-entry.
+			Expect(names("/api/models?items=9999&collapse_variants=true&backend=llama-cpp")).
+				To(ConsistOf("base-entry"))
+			Expect(names("/api/models?items=9999&collapse_variants=true&backend=whisper")).
+				To(ConsistOf("plain-entry"))
+			Expect(names("/api/models?items=9999&backend=llama-cpp")).
+				To(ConsistOf("base-entry", "big-entry"))
 		})
 
 		It("composes with the search term", func() {
-			Expect(names("/api/models?items=9999&has_variants=true&term=base")).To(ConsistOf("base-entry"))
-			Expect(names("/api/models?items=9999&has_variants=true&term=plain")).To(BeEmpty())
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=plain")).
+				To(ConsistOf("plain-entry"))
+			// The term matches the referenced build but not its parent. The
+			// build is still hidden: it is hidden because base-entry offers it,
+			// which is a fact about the gallery and not about the search.
+			Expect(names("/api/models?items=9999&term=big")).To(ConsistOf("big-entry"))
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=big")).To(BeEmpty())
 		})
 
 		It("reports the filtered total so pagination stays honest", func() {
 			// The listing paginates at 9, so a filter that narrowed the rows
 			// without narrowing the count would hand the user empty pages.
-			_, body := get("/api/models?items=9999&has_variants=true")
-			Expect(body["availableModels"]).To(BeEquivalentTo(1))
+			_, body := get("/api/models?items=9999&collapse_variants=true")
+			Expect(body["availableModels"]).To(BeEquivalentTo(2))
 			Expect(body["totalPages"]).To(BeEquivalentTo(1))
 		})
 
 		It("still issues no variant probes when filtering", func() {
-			names("/api/models?items=9999&has_variants=true")
+			names("/api/models?items=9999&collapse_variants=true")
 			Expect(probes.Load()).To(BeZero(),
 				"the filter must select on declared metadata, not by describing variants")
 		})

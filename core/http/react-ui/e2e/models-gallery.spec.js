@@ -723,25 +723,26 @@ test.describe("Models Gallery - Variant picker", () => {
   });
 });
 
-// The gallery is heading towards hiding the individual builds a parent entry
-// references. Adoption is one entry, so this toggle is the inverse of that end
-// state: off by default and changing nothing, on to preview it. The filter is
+// The collapsed view is the deduplicated gallery: every entry installable in
+// its own right, with nothing shown twice. Here whisper-model stands in for a
+// build llama-model already offers as a variant, so it is the only row that
+// drops; stablediffusion-model is nobody's variant and stays. The filter is
 // server-side because the listing paginates, so these specs assert on the
 // request the page actually sends, not just on the rows it renders.
-const VARIANTS_ONLY_RESPONSE = {
+const COLLAPSED_RESPONSE = {
   ...MOCK_MODELS_RESPONSE,
-  models: MOCK_MODELS_RESPONSE.models.filter((m) => m.has_variants),
-  availableModels: 1,
+  models: MOCK_MODELS_RESPONSE.models.filter((m) => m.name !== "whisper-model"),
+  availableModels: 2,
   totalPages: 1,
   currentPage: 1,
 };
 
-test.describe("Models Gallery - Has Variants Filter", () => {
+test.describe("Models Gallery - Collapse Variants Filter", () => {
   let listingUrls;
 
-  const variantsToggle = (page) =>
+  const collapseToggle = (page) =>
     page
-      .locator("label.filter-bar-group__toggle", { hasText: "Has variants" })
+      .locator("label.filter-bar-group__toggle", { hasText: "One row per model" })
       .locator(".toggle__track");
 
   test.beforeEach(async ({ page }) => {
@@ -754,13 +755,14 @@ test.describe("Models Gallery - Has Variants Filter", () => {
       if (url.pathname.endsWith("/api/models")) {
         listingUrls.push(url);
       }
-      const onlyVariants = url.searchParams.get("has_variants") === "true";
+      const collapsed = url.searchParams.get("collapse_variants") === "true";
       const tag = url.searchParams.get("tag");
       let body = MOCK_MODELS_RESPONSE;
-      if (onlyVariants) {
-        // Stacking the toggle with a usecase filter is the case that easily
-        // yields nothing while a single entry declares variants.
-        body = tag ? EMPTY_FILTERED_RESPONSE : VARIANTS_ONLY_RESPONSE;
+      if (collapsed) {
+        // Stacking the toggle with a usecase filter is the case that yields
+        // nothing but a collapsed view, which is what the empty state has to
+        // explain.
+        body = tag ? EMPTY_FILTERED_RESPONSE : COLLAPSED_RESPONSE;
       }
       route.fulfill({
         contentType: "application/json",
@@ -775,13 +777,13 @@ test.describe("Models Gallery - Has Variants Filter", () => {
   });
 
   test("the toggle is visible", async ({ page }) => {
-    await expect(page.getByText("Has variants")).toBeVisible();
+    await expect(page.getByText("One row per model")).toBeVisible();
   });
 
   test("defaults to off, showing everything and sending no filter param", async ({
     page,
   }) => {
-    await expect(page.getByLabel("Has variants")).not.toBeChecked();
+    await expect(page.getByLabel("One row per model")).not.toBeChecked();
     await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
     await expect(
       page.locator("tr", { hasText: "whisper-model" }),
@@ -791,39 +793,42 @@ test.describe("Models Gallery - Has Variants Filter", () => {
     ).toBeVisible();
 
     // Asserted positively over every listing request, so a param that leaked
-    // in as has_variants=false would still fail this.
+    // in as collapse_variants=false would still fail this.
     expect(listingUrls.length).toBeGreaterThan(0);
     for (const url of listingUrls) {
-      expect(url.searchParams.has("has_variants")).toBe(false);
+      expect(url.searchParams.has("collapse_variants")).toBe(false);
     }
   });
 
-  test("toggling on sends has_variants=true and narrows the list", async ({
+  test("toggling on sends collapse_variants=true and narrows the list", async ({
     page,
   }) => {
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
 
+    // The parent keeps its row, the build it already offers drops out, and an
+    // entry that is nobody's variant is untouched. A filter that kept only the
+    // entries declaring variants would wrongly drop stablediffusion-model too.
     await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
     );
     await expect(
       page.locator("tr", { hasText: "stablediffusion-model" }),
-    ).toHaveCount(0);
+    ).toBeVisible();
 
     const last = listingUrls[listingUrls.length - 1];
-    expect(last.searchParams.get("has_variants")).toBe("true");
+    expect(last.searchParams.get("collapse_variants")).toBe("true");
   });
 
   test("toggling off restores the full list and drops the param", async ({
     page,
   }) => {
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
     );
 
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
 
     await expect(
       page.locator("tr", { hasText: "whisper-model" }),
@@ -833,11 +838,11 @@ test.describe("Models Gallery - Has Variants Filter", () => {
     ).toBeVisible();
 
     const last = listingUrls[listingUrls.length - 1];
-    expect(last.searchParams.has("has_variants")).toBe(false);
+    expect(last.searchParams.has("collapse_variants")).toBe(false);
   });
 
   test("resets to page 1 when toggled", async ({ page }) => {
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
     const last = listingUrls[listingUrls.length - 1];
     // A filter that narrowed the rows while holding page 3 would strand the
     // user on a page the filtered set no longer has.
@@ -847,18 +852,18 @@ test.describe("Models Gallery - Has Variants Filter", () => {
   test("state persists after reload, like the other filters", async ({
     page,
   }) => {
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
     await page.reload();
-    await expect(page.getByLabel("Has variants")).toBeChecked();
+    await expect(page.getByLabel("One row per model")).toBeChecked();
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
     );
   });
 
-  test("names the variants filter in the empty state when it is the cause", async ({
+  test("names the collapsed view in the empty state when it is the cause", async ({
     page,
   }) => {
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
 
     await expect(page.locator(".empty-state-title")).toHaveText(
@@ -867,18 +872,18 @@ test.describe("Models Gallery - Has Variants Filter", () => {
     // The generic copy would leave a user thinking the gallery is broken
     // rather than that this toggle is doing exactly what it says.
     await expect(page.locator(".empty-state-text")).toHaveText(
-      "No entries declare variants yet. Turn off the variants filter to see the full gallery.",
+      'The models matching your filters are alternative builds that another entry already offers. Turn off "One row per model" to see them.',
     );
   });
 
   test("clear filters turns the toggle back off", async ({ page }) => {
-    await variantsToggle(page).click();
+    await collapseToggle(page).click();
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
     await expect(page.locator(".empty-state")).toBeVisible();
 
     await page.getByRole("button", { name: "Clear filters" }).click();
 
-    await expect(page.getByLabel("Has variants")).not.toBeChecked();
+    await expect(page.getByLabel("One row per model")).not.toBeChecked();
     await expect(
       page.locator("tr", { hasText: "whisper-model" }),
     ).toBeVisible();

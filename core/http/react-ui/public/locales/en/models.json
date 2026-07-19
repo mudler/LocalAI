@@ -43,7 +43,7 @@
     "vad": "VAD",
     "ner": "NER",
     "fitsGpu": "Fits in GPU",
-    "hasVariants": "Has variants",
+    "collapseVariants": "One row per model",
     "allBackends": "All Backends",
     "searchBackends": "Search backends..."
   },
@@ -91,7 +91,7 @@
   "empty": {
     "title": "No models found",
     "withFilters": "No models match your current search or filters.",
-    "withVariantsFilter": "No entries declare variants yet. Turn off the variants filter to see the full gallery.",
+    "withCollapsedVariants": "The models matching your filters are alternative builds that another entry already offers. Turn off \"One row per model\" to see them.",
     "noFilters": "The model gallery is empty."
   },
   "deleteDialog": {

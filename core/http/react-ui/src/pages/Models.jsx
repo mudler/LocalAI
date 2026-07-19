@@ -23,7 +23,9 @@ import React from 'react'
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
 const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
-const VARIANTS_FILTER_STORAGE_KEY = 'localai-models-has-variants-filter'
+// Renamed alongside the filter it persists: the old key's stored value meant
+// "show only entries declaring variants", which is not what this filter does.
+const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
 
 
 const FILTERS = [
@@ -88,12 +90,13 @@ export default function Models() {
       return false
     }
   })
-  // Narrows the listing to entries that declare variants. Server-side, unlike
-  // fitsFilter, because the listing paginates and a client-side narrowing
-  // would leave the page count describing the unfiltered set.
-  const [variantsFilter, setVariantsFilter] = useState(() => {
+  // Collapses the listing to one row per model by hiding the individual builds
+  // another entry already offers as variants. Server-side, unlike fitsFilter,
+  // because the listing paginates and a client-side narrowing would leave the
+  // page count describing the unfiltered set.
+  const [collapseVariants, setCollapseVariants] = useState(() => {
     try {
-      return localStorage.getItem(VARIANTS_FILTER_STORAGE_KEY) === '1'
+      return localStorage.getItem(COLLAPSE_VARIANTS_STORAGE_KEY) === '1'
     } catch {
       return false
     }
@@ -109,7 +112,7 @@ export default function Models() {
       const filtersVal = params.filters !== undefined ? params.filters : filters
       const sortVal = params.sort !== undefined ? params.sort : sort
       const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
-      const variantsVal = params.variantsFilter !== undefined ? params.variantsFilter : variantsFilter
+      const collapseVal = params.collapseVariants !== undefined ? params.collapseVariants : collapseVariants
       const queryParams = {
         page: params.page || page,
         items: 9,
@@ -119,7 +122,7 @@ export default function Models() {
       if (backendVal) queryParams.backend = backendVal
       // Omitted entirely when off, so the default request is byte-for-byte
       // what it was before the toggle existed.
-      if (variantsVal) queryParams.has_variants = 'true'
+      if (collapseVal) queryParams.collapse_variants = 'true'
       if (sortVal) {
         queryParams.sort = sortVal
         queryParams.order = params.order || order
@@ -137,11 +140,11 @@ export default function Models() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, filters, sort, order, backendFilter, variantsFilter, addToast, t])
+  }, [page, search, filters, sort, order, backendFilter, collapseVariants, addToast, t])
 
   useEffect(() => {
     fetchModels()
-  }, [page, filters, sort, order, backendFilter, variantsFilter])
+  }, [page, filters, sort, order, backendFilter, collapseVariants])
 
   // Fetch backend→usecase mapping once on mount
   useEffect(() => {
@@ -308,11 +311,11 @@ export default function Models() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(VARIANTS_FILTER_STORAGE_KEY, variantsFilter ? '1' : '0')
+      localStorage.setItem(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? '1' : '0')
     } catch {
       // Ignore storage errors (e.g., private browsing restrictions).
     }
-  }, [variantsFilter])
+  }, [collapseVariants])
 
   const visibleModels = models.filter((model) => {
     if (!fitsFilter) return true
@@ -387,11 +390,11 @@ export default function Models() {
         })}
         <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
           <Toggle
-            checked={variantsFilter}
-            onChange={(v) => { setVariantsFilter(v); setPage(1) }}
+            checked={collapseVariants}
+            onChange={(v) => { setCollapseVariants(v); setPage(1) }}
           />
           <i className="fas fa-layer-group" />
-          <span>{t('filters.hasVariants')}</span>
+          <span>{t('filters.collapseVariants')}</span>
         </label>
         {totalGpuMemory > 0 && (
           <label className="filter-bar-group__toggle">
@@ -439,14 +442,14 @@ export default function Models() {
           <div className="empty-state-icon"><i className="fas fa-search" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">
-            {variantsFilter
-              ? t('empty.withVariantsFilter')
+            {collapseVariants
+              ? t('empty.withCollapsedVariants')
               : search || filters.length > 0 || backendFilter || fitsFilter ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {(search || filters.length > 0 || backendFilter || fitsFilter || variantsFilter) && (
+          {(search || filters.length > 0 || backendFilter || fitsFilter || collapseVariants) && (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setVariantsFilter(false); setPage(1) }}
+              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(false); setPage(1) }}
             >
               <i className="fas fa-times" /> {t('search.clearFilters')}
             </button>

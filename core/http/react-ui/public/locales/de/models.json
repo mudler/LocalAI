@@ -24,7 +24,7 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Passt in die GPU",
-    "hasVariants": "Mit Varianten",
+    "collapseVariants": "Eine Zeile pro Modell",
     "allBackends": "Alle Backends",
     "searchBackends": "Backends suchen..."
   },
@@ -72,7 +72,7 @@
   "empty": {
     "title": "Keine Modelle gefunden",
     "withFilters": "Keine Modelle entsprechen den aktuellen Such- oder Filterkriterien.",
-    "withVariantsFilter": "Noch keine Eintraege deklarieren Varianten. Schalte den Varianten-Filter aus, um die vollstaendige Galerie zu sehen.",
+    "withCollapsedVariants": "Die passenden Modelle sind alternative Builds, die ein anderer Eintrag bereits anbietet. Schalte \"Eine Zeile pro Modell\" aus, um sie zu sehen.",
     "noFilters": "Die Modellgalerie ist leer."
   },
   "deleteDialog": {

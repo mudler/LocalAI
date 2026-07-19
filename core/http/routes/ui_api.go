@@ -412,6 +412,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": err.Error(),
 			})
 		}
+		// The filters below rebind models, so keep the unfiltered gallery for
+		// the questions that are about the gallery as a whole rather than about
+		// the current result set, such as which entries another entry already
+		// offers as a variant.
+		allModels := models
 
 		// Get all available tags
 		allTags := map[string]struct{}{}
@@ -480,26 +485,33 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			models = filtered
 		}
 
-		// Narrow to entries that declare variants, i.e. the ones the listing
-		// marks with has_variants.
+		// Collapse the listing to one row per model: drop the individual builds
+		// a parent entry already offers as variants, and keep everything else.
+		// What survives is every entry installable in its own right, with
+		// nothing shown twice, rather than one row per quantization.
 		//
-		// This is the inverse of where the gallery is heading. The end state
-		// hides the individual builds a parent entry references, so a user sees
-		// one row per model rather than one per quantization. Adoption is still
-		// a single entry, so defaulting to that today would empty the gallery.
-		// Opt-in instead: with the parameter absent the response is exactly
-		// what it was, and the toggle is a preview of the end state that costs
+		// Off by default so the response with the parameter absent is exactly
+		// what it was. Adoption is a handful of entries, so this hides little
+		// today, but it is the view the gallery is heading towards and it costs
 		// nothing until someone asks for it.
+		//
+		// The referenced set is computed over the whole gallery rather than
+		// over what the other filters left, so an entry is hidden because a
+		// parent offers it, never because of what the user searched for. A term
+		// matching a build but not its parent would otherwise make the build
+		// reappear.
 		//
 		// Server-side because the listing paginates at 9 items; filtering the
 		// current page in the client would leave the page count describing the
 		// unfiltered set and hand the user empty pages.
-		if c.QueryParam("has_variants") == "true" {
+		if c.QueryParam("collapse_variants") == "true" {
+			referenced := gallery.VariantReferencedIDs(allModels)
 			filtered := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
 			for _, m := range models {
-				if m.HasVariants() {
-					filtered = append(filtered, m)
+				if _, hidden := referenced[m.ID()]; hidden {
+					continue
 				}
+				filtered = append(filtered, m)
 			}
 			models = filtered
 		}

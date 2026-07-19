@@ -112,6 +112,10 @@ Rules:
   LocalAI release, which simply ignore `variants`.
 - A variant references another gallery entry **by name**. That entry must exist
   and must not declare `variants` of its own.
+- **A referenced entry keeps its own gallery row by default.** It is hidden only
+  in the collapsed listing (`collapse_variants=true`, the UI's "One row per
+  model" toggle), where the declaring entry stands in for it, so referencing an
+  entry never makes it unreachable.
 - **Order carries no meaning.** Do not try to encode a preference; write the
   list in whatever order reads best.
 - **A variant may be smaller than the declaring entry.** Offering a downgrade
