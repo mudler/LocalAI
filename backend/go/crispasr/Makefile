@@ -60,7 +60,8 @@ sources/CrispASR:
 	git remote add origin $(CRISPASR_REPO) && \
 	git fetch origin && \
 	git checkout $(CRISPASR_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
+	git submodule update --init --recursive --depth 1 --single-branch -- \
+		ggml third_party/c2pa-audio
 	# CrispASR's src/CMakeLists.txt locates its vendored llama.cpp
 	# (crispasr-llama-core, used by the chat C-ABI) and the c2pa-audio
 	# submodule (crispasr_c2pa_native, the pure-C++ C2PA signer) via
