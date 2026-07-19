@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	"github.com/mudler/xlog"
 )
 
 // effectiveBasePort returns the port used as base for gRPC backend processes.
@@ -77,6 +79,16 @@ func (cfg *Config) registrationBody() map[string]any {
 	// options (e.g. larger physical batch on Blackwell). Detected on the worker
 	// because only the worker sees the GPU in distributed mode.
 	gpuComputeCap := xsysinfo.NVIDIAComputeCapability()
+	// Report our own meta-backend capability so the controller can list the
+	// backends this cluster can actually run. The controller cannot infer it
+	// from the GPU vendor alone: OS-dependent capabilities (metal, darwin-x86,
+	// nvidia-l4t) and the CUDA runtime refinements are only observable here.
+	capability := ""
+	if systemState, err := system.GetSystemState(); err != nil {
+		xlog.Warn("Could not detect system capability for node registration", "error", err)
+	} else {
+		capability = systemState.DetectedCapability()
+	}
 
 	maxReplicas := cfg.MaxReplicasPerModel
 	if maxReplicas < 1 {
@@ -90,6 +102,7 @@ func (cfg *Config) registrationBody() map[string]any {
 		"available_vram":         totalVRAM, // initially all VRAM is available
 		"gpu_vendor":             gpuVendor,
 		"gpu_compute_capability": gpuComputeCap,
+		"capability":             capability,
 		"max_replicas_per_model": maxReplicas,
 	}
 

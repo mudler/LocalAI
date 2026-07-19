@@ -87,8 +87,12 @@ type RegisterNodeRequest struct {
 	GPUVendor     string `json:"gpu_vendor,omitempty"`
 	// GPUComputeCapability is the worker GPU's compute capability ("major.minor",
 	// e.g. "12.1" for GB10). Used by the router for per-arch option tuning.
-	GPUComputeCapability string            `json:"gpu_compute_capability,omitempty"`
-	Labels               map[string]string `json:"labels,omitempty"`
+	GPUComputeCapability string `json:"gpu_compute_capability,omitempty"`
+	// Capability is the worker's own meta-backend capability string. The
+	// controller stores it so backend discovery can reflect what the cluster
+	// can run rather than what the (typically GPU-less) controller can run.
+	Capability string            `json:"capability,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
 	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
 	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
 	// historical single-replica behavior.
@@ -174,6 +178,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			AvailableRAM:         req.AvailableRAM,
 			GPUVendor:            req.GPUVendor,
 			GPUComputeCapability: req.GPUComputeCapability,
+			Capability:           req.Capability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
 			VRAMBudget:           req.VRAMBudget,
 		}

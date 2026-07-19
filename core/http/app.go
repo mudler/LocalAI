@@ -443,7 +443,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		ftNats,
 		ftStore,
 	)
-	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
+	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), application, fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
@@ -465,7 +465,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		quantNats,
 		quantStore,
 	)
-	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
+	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
 
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed

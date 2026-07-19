@@ -57,6 +57,39 @@ func init() {
 	cuda12DirExists = err == nil
 }
 
+// NewCapabilityState builds a SystemState that reports exactly the supplied
+// capability, bypassing all host detection.
+//
+// This exists so a controller can evaluate backend compatibility on behalf of
+// a *remote* worker. Synthesizing a SystemState from the worker's GPU vendor
+// would not work: getSystemCapabilities consults
+// LOCALAI_FORCE_META_BACKEND_CAPABILITY and /run/localai/capability first, and
+// container images routinely set the latter, so the controller's own forced
+// capability would silently override every worker's.
+func NewCapabilityState(capability string, opts ...SystemStateOptions) *SystemState {
+	state := &SystemState{}
+	for _, opt := range opts {
+		opt(state)
+	}
+	state.systemCapabilities = capability
+	return state
+}
+
+// CapabilityFromGPU derives a coarse capability from a GPU vendor and VRAM
+// size, mirroring the tail of getSystemCapabilities.
+//
+// It is the fallback for worker nodes registered before workers began
+// reporting their own capability string: the registry only persists the
+// vendor and VRAM for those, so OS-dependent capabilities (metal, darwin-x86,
+// nvidia-l4t) and the CUDA-runtime refinements are not recoverable. Prefer the
+// worker-reported capability whenever it is present.
+func CapabilityFromGPU(gpuVendor string, vram uint64) string {
+	if gpuVendor == "" || vram <= 4*1024*1024*1024 {
+		return defaultCapability
+	}
+	return gpuVendor
+}
+
 // CapabilityFilterDisabled returns true when capability-based backend filtering
 // is disabled via LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable.
 func (s *SystemState) CapabilityFilterDisabled() bool {

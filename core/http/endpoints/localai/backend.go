@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -323,14 +324,41 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 	}
 }
 
+// ClusterCapabilityProvider reports the meta-backend capabilities available
+// somewhere in the cluster. It is nil in single-node deployments, where the
+// local system state is the only thing worth filtering against.
+type ClusterCapabilityProvider func(ctx context.Context) ([]string, error)
+
+// resolveClusterCapabilities reads the capabilities present in the cluster,
+// degrading to the local-only listing on error.
+//
+// Every capability-filtered discovery endpoint shares this: on a distributed
+// controller the GPUs live on the workers, so filtering against the local
+// (usually GPU-less) host hides GPU-only backends the cluster can actually
+// run. A registry hiccup must never blank the catalog, so a failure falls back
+// to the pre-existing local-only behavior rather than erroring the request.
+func resolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityProvider) []string {
+	if provider == nil {
+		return nil
+	}
+	capabilities, err := provider(ctx)
+	if err != nil {
+		xlog.Warn("Could not read cluster capabilities, listing backends for the local system only", "error", err)
+		return nil
+	}
+	return capabilities
+}
+
 // ListAvailableBackendsEndpoint list the available backends in the galleries configured in LocalAI
 // @Summary List all available Backends
 // @Tags backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends/available [get]
-func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState) echo.HandlerFunc {
+func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState, clusterCapabilities ClusterCapabilityProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		backends, err := gallery.AvailableBackends(mgs.galleries, systemState)
+		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
+
+		backends, err := gallery.AvailableBackendsForCapabilities(mgs.galleries, systemState, capabilities)
 		if err != nil {
 			return err
 		}
