@@ -3,6 +3,9 @@ package worker
 import (
 	"context"
 	"net"
+	"os"
+	"strconv"
+	"syscall"
 
 	process "github.com/mudler/go-processmanager"
 	gogrpc "google.golang.org/grpc"
@@ -12,6 +15,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// pidAlive probes the OS directly for a process ID. The supervisor's own
+// liveness helpers all go through go-processmanager's pidfile, which Stop
+// deletes as part of releasing the handle, so they report "not alive" even if
+// the signal never landed. Only asking the kernel proves termination.
+func pidAlive(pid string) bool {
+	n, err := strconv.Atoi(pid)
+	if err != nil {
+		return false
+	}
+	proc, err := os.FindProcess(n)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
+}
 
 // hangingBackend is a real gRPC backend server whose Free handler never
 // returns. It models the production failure mode: 37 Python backends default to
@@ -41,6 +60,7 @@ func (h *hangingBackend) Free(_ context.Context, _ *pb.HealthMessage) (*pb.Resul
 var _ = Describe("Stopping a backend whose Free never returns", func() {
 	var (
 		proc    *process.Process
+		procPID string
 		backend *hangingBackend
 		server  *gogrpc.Server
 		s       *backendSupervisor
@@ -58,21 +78,20 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 		pb.RegisterBackendServer(server, backend)
 		go func() { _ = server.Serve(lis) }()
 
-		// The process is deliberately never Run(): go-processmanager v0.1.1
-		// writes Process.pid from readPID() with no synchronization, so a live
-		// process races its own monitor goroutine under -race (reproducible
-		// with a bare Run()+Stop(), independent of this spec). Since
-		// scripts/model-lifecycle-conformance.sh runs this package with -race
-		// and is fail-closed, starting one here would turn that gate red on an
-		// upstream defect. An unstarted process still drives the branch this
-		// spec is about: Stop() returns promptly, which is all that is needed
-		// to prove the stop was reached at all. Whether SIGTERM/SIGKILL then
-		// lands is go-processmanager's contract, not this supervisor's.
+		// A real, long-running child so the spec can assert the process is
+		// actually dead afterwards, not merely that Stop() returned. It
+		// outlives every timeout below, so if it is gone at the end it is
+		// because the supervisor signalled it.
 		proc = process.New(
 			process.WithTemporaryStateDir(),
 			process.WithName("/bin/sleep"),
 			process.WithArgs("300"),
 		)
+		Expect(proc.Run()).To(Succeed())
+
+		procPID = proc.CurrentPID()
+		Expect(procPID).ToNot(BeEmpty(), "the fixture process must report a PID once started")
+		Expect(pidAlive(procPID)).To(BeTrue(), "the fixture process must be running before the stop")
 
 		s = &backendSupervisor{
 			cfg: &Config{},
@@ -90,6 +109,11 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 	AfterEach(func() {
 		close(backend.release)
 		server.Stop()
+		// A spec that fails before the stop would otherwise leave the sleep
+		// running for its full duration.
+		if pidAlive(procPID) {
+			_ = proc.Stop()
+		}
 	})
 
 	It("reaches the stop even though Free never returns", func() {
@@ -105,6 +129,15 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 		// against a wedged single-worker Python backend.
 		Eventually(done, "60s", "200ms").Should(Receive(BeNil()),
 			"stopBackendExact must fall through to the process stop despite a hung Free")
+
+		// Reaching the stop is not enough on its own: the signal has to land.
+		// Done closes only once go-processmanager has waited on the child, so
+		// this is the supervisor's kill being observed, not a pidfile that
+		// Stop deleted on its way out.
+		Eventually(proc.Done(), "30s", "100ms").Should(BeClosed(),
+			"the backend process must actually exit, not just be signalled")
+		Eventually(func() bool { return pidAlive(procPID) }, "30s", "100ms").Should(BeFalse(),
+			"the backend process must be gone from the OS after the stop")
 
 		s.mu.Lock()
 		defer s.mu.Unlock()

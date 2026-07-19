@@ -221,7 +221,7 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 	if p.Process() == nil {
 		return -1, fmt.Errorf("no grpc backend found for %s", id)
 	}
-	return strconv.Atoi(p.Process().PID)
+	return strconv.Atoi(p.Process().CurrentPID())
 }
 
 // StartProcess starts a gRPC backend process and returns its process handle.
