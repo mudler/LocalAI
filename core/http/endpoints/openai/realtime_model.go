@@ -507,11 +507,10 @@ func (m *wrappedModel) classifierFor(options []types.ClassifierOption, normaliza
 
 // PrewarmClassifier primes the scoring backend's prompt cache for a newly
 // registered option list so the first real turns don't pay the prefill.
-// Two throwaway scores with distinct probes run back to back: the first
-// prefills the new option-list prompt, and the second — diverging exactly
-// where the per-turn probe text starts — leaves the backend a rewind point
-// (a KV checkpoint on hybrid/recurrent models, which cannot rewind
-// arbitrarily) at the stable-prefix boundary every subsequent turn reuses.
+// One throwaway score prefills the new option-list prompt and declares the
+// per-turn probe boundary, leaving the backend a rewind point (a KV
+// checkpoint on hybrid/recurrent models, which cannot rewind arbitrarily)
+// at the stable prefix every subsequent turn reuses.
 // Best-effort: errors are logged, never surfaced.
 func (m *wrappedModel) PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string) {
 	classifier, err := m.classifierFor(options, normalization)
