@@ -6,6 +6,9 @@ which branched from upstream some commits earlier. Any upstream API change that 
 gRPC server depends on, but that the fork does not yet carry, is back-ported here as a
 `*.patch` file and applied to the cloned fork checkout by `../apply-patches.sh`.
 
+CI treats both this directory and `backend/cpp/llama-cpp/` as Bonsai inputs, since
+the wrapper copies and builds the shared llama.cpp backend sources.
+
 Rules:
 
 - One upstream commit (or minimal hunk) per patch, named `NNNN-short-description.patch`.
