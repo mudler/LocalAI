@@ -14,7 +14,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // --- Fakes ---
@@ -127,14 +126,46 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		adapter = NewRemoteUnloaderAdapter(locator, mc, 3*time.Minute, 15*time.Minute)
 	})
 
-	Describe("UnloadRemoteModel", func() {
-		It("with no nodes reports the model is not loaded", func() {
-			// Previously returned nil, making "stopped it" and "there was
-			// nothing to stop" indistinguishable. ShutdownModel relies on
-			// this distinction to choose between success and a genuine 404,
-			// so a cluster-wide miss must be reported, not swallowed.
+	// HasRemoteModel carries the distinction that UnloadRemoteModel
+	// deliberately does not, so ShutdownModel can answer 404 for a model that
+	// is loaded neither locally nor anywhere in the cluster without making the
+	// shared unload path fail for every idempotent cleanup caller.
+	Describe("HasRemoteModel", func() {
+		It("reports false when no node has the model", func() {
 			locator.nodes = nil
-			Expect(adapter.UnloadRemoteModel("my-model")).To(MatchError(model.ErrRemoteModelNotLoaded))
+			loaded, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loaded).To(BeFalse())
+		})
+
+		It("reports true when a node has the model", func() {
+			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
+			loaded, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loaded).To(BeTrue())
+		})
+
+		It("surfaces a registry failure instead of reporting absence", func() {
+			// An unreachable registry is not evidence that the model is gone;
+			// reporting false would let ShutdownModel answer a confident 404
+			// on the strength of a failed lookup.
+			locator.findErr = errors.New("registry unavailable")
+			_, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("UnloadRemoteModel", func() {
+		It("with no nodes returns nil", func() {
+			// Unloading is idempotent: cleanup paths (model deletion, config
+			// edits, watchdog eviction) legitimately run against an already
+			// unloaded model, and turning that into an error wedges the
+			// watchdog's LRU reclaimer, which only untracks a model when
+			// shutdown reports success. The same contract is pinned end to end
+			// by "should be no-op for models not on any node" in
+			// tests/e2e/distributed/node_lifecycle_test.go — keep them in step.
+			locator.nodes = nil
+			Expect(adapter.UnloadRemoteModel("my-model")).To(Succeed())
 			Expect(mc.published).To(BeEmpty())
 		})
 

@@ -26,12 +26,6 @@ var (
 	// ErrModelBusy indicates that a graceful shutdown context ended while
 	// requests were still in flight.
 	ErrModelBusy = errors.New("model is still busy")
-
-	// ErrRemoteModelNotLoaded is returned by a RemoteModelUnloader when no
-	// node in the cluster has the model loaded. It exists so the local store
-	// miss and the cluster-wide miss stay distinguishable: only when BOTH are
-	// empty may we tell the operator the model is not loaded.
-	ErrRemoteModelNotLoaded = errors.New("model not loaded on any node")
 )
 
 const (
@@ -85,14 +79,22 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		// left its backend process untouched.
 		if remoteUnloader != nil {
 			xlog.Debug("Model not in local store; asking the remote unloader", "model", s)
-			if err := unloadRemote(ctx, remoteUnloader, s, force); err != nil {
-				if errors.Is(err, ErrRemoteModelNotLoaded) {
-					// Absent locally AND cluster-wide: genuinely not loaded.
+			// Ask BEFORE unloading. Unloading is idempotent by contract, so it
+			// cannot afterwards tell us whether anything was actually stopped,
+			// and only a model absent locally AND cluster-wide may be reported
+			// as not found.
+			if checker, ok := remoteUnloader.(RemoteModelPresenceChecker); ok {
+				loaded, err := checker.HasRemoteModel(ctx, s)
+				if err != nil {
+					// An unreachable registry is not evidence of absence;
+					// saying "not found" here would be a guess presented as fact.
+					return fmt.Errorf("checking whether model %q is loaded on any node: %w", s, err)
+				}
+				if !loaded {
 					return ErrModelNotFound
 				}
-				return err
 			}
-			return nil
+			return unloadRemote(ctx, remoteUnloader, s, force)
 		}
 		xlog.Debug("Model not found", "model", s)
 		return ErrModelNotFound

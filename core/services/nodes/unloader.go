@@ -72,6 +72,17 @@ func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
 	return a.installTimeout
 }
 
+// Compile-time proof that the adapter still satisfies the loader's optional
+// extensions. Both are consumed via runtime type assertion in deleteProcess, so
+// a signature drift here would silently downgrade behavior — losing force
+// propagation, or making ShutdownModel unable to tell a cluster-wide miss from
+// a completed unload — rather than failing the build.
+var (
+	_ model.RemoteModelUnloader        = (*RemoteUnloaderAdapter)(nil)
+	_ model.RemoteModelContextUnloader = (*RemoteUnloaderAdapter)(nil)
+	_ model.RemoteModelPresenceChecker = (*RemoteUnloaderAdapter)(nil)
+)
+
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
 // to stop their backend process via NATS backend.stop event.
 // The worker process handles a bounded Free() followed by process termination;
@@ -79,6 +90,22 @@ func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
 func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 	return a.UnloadRemoteModelContext(context.Background(), modelName, false)
+}
+
+// HasRemoteModel reports whether any node currently holds the model. It exists
+// because UnloadRemoteModel is idempotent and so cannot signal "there was
+// nothing to stop"; ShutdownModel consults this first so it can answer 404 for
+// a model loaded neither locally nor anywhere in the cluster, instead of the
+// misleading 500 "model not found" that a local-store miss used to produce.
+func (a *RemoteUnloaderAdapter) HasRemoteModel(ctx context.Context, modelName string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	nodes, err := a.registry.FindNodesWithModel(ctx, modelName)
+	if err != nil {
+		return false, fmt.Errorf("finding nodes with model %q: %w", modelName, err)
+	}
+	return len(nodes) > 0, nil
 }
 
 // UnloadRemoteModelContext is the cancellation-aware extension used by the
@@ -92,12 +119,12 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 		return fmt.Errorf("finding nodes with model %q: %w", modelName, err)
 	}
 	if len(nodes) == 0 {
-		// Distinguish "no node has it" from "stopped successfully" so the
-		// caller can report the truth to an operator. Returning nil here made
-		// a no-op stop indistinguishable from a real one, and left the loader
-		// unable to tell a cluster-wide miss from a completed unload.
+		// Unloading is idempotent by contract: cleanup paths (model deletion,
+		// config edits, watchdog eviction) legitimately run against an
+		// already-unloaded model and must not fail. Callers that need to tell
+		// this case apart use HasRemoteModel before unloading.
 		xlog.Debug("No remote nodes found with model", "model", modelName)
-		return model.ErrRemoteModelNotLoaded
+		return nil
 	}
 
 	var unloadErr error
