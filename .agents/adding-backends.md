@@ -241,7 +241,7 @@ vocabularies and are matched against different things:
 |-------|-----------|-----------------|----------|
 | `backendBuildTagPreferenceRules` | build tags (`cuda`, `rocm`, `metal`) | installed build directory names, as a substring | alias resolution in `ListSystemBackends` |
 | `engineNamePreferenceRules` | engine names (`vllm`, `llama-cpp`, `mlx`) | a gallery entry's `backend:`, as a substring | gallery variant ranking |
-| `servingFeaturePreferenceTokens` | serving features (`dflash`, `mtp`) | a gallery ENTRY NAME, as a whole segment | gallery variant ranking, one rank below the engine |
+| `servingFeaturePreferenceTokens` | serving features (`dflash`, `mtp`) | a gallery entry's `tags:`, compared whole; failing that its ENTRY NAME, as a whole segment | gallery variant ranking, one rank below the engine |
 
 **Putting a token in the wrong table matches nothing and does not error**: every
 candidate scores equal and the next sort key decides, so the preference silently
@@ -249,10 +249,11 @@ stops existing. The block comment above all three tables spells the contract out
 
 The serving feature table is the odd one: it is not keyed by capability, because
 no hardware prefers a plain build over an equivalent faster build of the same
-weights, and it matches whole name segments rather than substrings, because
-entry names are author-supplied free text where a short marker like `mtp` can
-turn up inside an unrelated word. A backend never needs to appear in it; it
-ranks builds, not engines.
+weights. It reads a declared tag first, since a tag is a deliberate statement,
+and falls back to whole name segments rather than substrings, because entry
+names are author-supplied free text where a short marker like `mtp` can turn up
+inside an unrelated word. A backend never needs to appear in it; it ranks
+builds, not engines.
 
 Leaving your backend out is a valid choice when no ordering can be justified for
 it. It then ranks below every known engine and selection falls back to size,

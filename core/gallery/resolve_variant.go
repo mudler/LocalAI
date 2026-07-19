@@ -44,6 +44,14 @@ type VariantOption struct {
 	// a zero requirement: a probe that cannot reach the network must never be
 	// able to break an install.
 	ProbedMemory uint64
+	// Tags are the referenced entry's declared tags, and they are the
+	// AUTHORITATIVE serving feature signal: a tag is something an author wrote
+	// down on purpose, whereas an entry name only happens to contain a marker.
+	//
+	// Empty does not mean "no features". An entry nobody has tagged yet falls
+	// back to its name, so tagging discipline improves ranking without being a
+	// precondition for it.
+	Tags []string
 }
 
 // EffectiveMemory returns this option's memory requirement in bytes and whether
@@ -95,14 +103,16 @@ type ResolveEnv struct {
 	EnginePreference []string
 	// ServingFeaturePreference lists the SERVING FEATURES to prefer, best first,
 	// as system.ServingFeaturePreferenceTokens reports them (currently
-	// ["dflash", "mtp"]). A token is matched against whole SEGMENTS of the
-	// variant's ENTRY NAME, splitting on every non-alphanumeric run.
+	// ["dflash", "mtp"]). A token matches when it equals one of the variant's
+	// declared TAGS, or failing that when it equals a whole SEGMENT of its
+	// ENTRY NAME, splitting on every non-alphanumeric run.
 	//
 	// A third vocabulary, matched against a third thing. It is neither a build
 	// tag nor an engine name: these name a way of serving the same weights
-	// faster, and no gallery field declares them, so the entry name is the only
-	// signal there is. pkg/system/capabilities.go documents all three tables
-	// together and justifies matching on segments rather than substrings.
+	// faster. A gallery tag is the declaration and takes precedence; the entry
+	// name remains a fallback for entries nobody has tagged.
+	// pkg/system/capabilities.go documents all three tables together and
+	// justifies why the name half matches segments rather than substrings.
 	//
 	// An empty list ranks every build equally on this axis, which is what every
 	// host looked like before serving features were ranked at all.
@@ -145,21 +155,46 @@ func (e ResolveEnv) preferenceRank(backend string) int {
 	})
 }
 
-// servingFeatureRank scores a variant's entry name against the preferred
-// serving feature order, lower being better.
+// servingFeatureRank scores a variant against the preferred serving feature
+// order, lower being better.
 //
 // It names no feature, exactly as preferenceRank names no engine: the ordered
 // list comes from pkg/system, so teaching LocalAI about a new serving feature
 // is a one-line edit to that table and never reaches this file.
 //
-// A build naming no feature is a plain build and scores just below the least
-// preferred known one, which is the whole point: whenever a faster way to serve
-// the same weights survived the filters, it outranks the plain build.
-func (e ResolveEnv) servingFeatureRank(entryName string) int {
-	segments := nameSegments(entryName)
+// Two signals, either of which is enough. A declared TAG is the authoritative
+// one and is compared whole, because a tag is a deliberate statement rather
+// than free text: an author who writes "mtp" in a tag list means the feature,
+// so the substring risk that segment matching exists to avoid does not arise
+// there. The ENTRY NAME stays as a fallback, matched by whole segment as
+// before, so an entry nobody has tagged yet ranks exactly the way it did
+// before tags were read at all. Tags-only would have been a regression on the
+// day it shipped, since most MTP entries carried no tag.
+//
+// A build declaring no feature by either route is a plain build and scores
+// just below the least preferred known one, which is the whole point: whenever
+// a faster way to serve the same weights survived the filters, it outranks the
+// plain build.
+func (e ResolveEnv) servingFeatureRank(o VariantOption) int {
+	segments := nameSegments(o.Variant.Model)
+	tags := lowercased(o.Tags)
 	return preferenceIndex(e.ServingFeaturePreference, func(token string) bool {
-		return slices.Contains(segments, token)
+		return slices.Contains(tags, token) || slices.Contains(segments, token)
 	})
+}
+
+// lowercased folds a tag list for comparison, so a gallery author writing
+// "MTP" declares the same feature as one writing "mtp". Names are already
+// folded by nameSegments, and the two signals must not disagree about case.
+func lowercased(tags []string) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(tags))
+	for _, t := range tags {
+		out = append(out, strings.ToLower(strings.TrimSpace(t)))
+	}
+	return out
 }
 
 // preferenceIndex returns the position of the first token `matches` accepts.
@@ -279,7 +314,7 @@ func SelectVariant(options []VariantOption, env ResolveEnv, pin string) (Variant
 			memory:     memory,
 			rank:       rankOf(o, env),
 			preference: env.preferenceRank(o.Backend),
-			feature:    env.servingFeatureRank(o.Variant.Model),
+			feature:    env.servingFeatureRank(o),
 		})
 	}
 

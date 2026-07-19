@@ -118,6 +118,46 @@ var _ = Describe("ResolveVariant", func() {
 		Expect(resolved.URL).To(Equal("file://gguf.yaml"))
 	})
 
+	It("carries the referenced entry's tags into the serving feature ranking", func() {
+		// The tags that rank a variant are the REFERENCED entry's, not the
+		// declaring entry's: the feature belongs to the build that would be
+		// installed. Only the GGUF build here is tagged with a feature, and it
+		// is deliberately the smaller of the two, so it can only win if the
+		// lookup read a tag off the entry rather than off the variant name or
+		// off the parent.
+		speculative := gallery.GalleryModel{}
+		speculative.Name = "qwen3-8b-gguf-turbo"
+		speculative.URL = "file://turbo.yaml"
+		speculative.Backend = "llama-cpp"
+		speculative.Tags = []string{"llm", "mtp"}
+
+		parent := gallery.GalleryModel{}
+		parent.Name = "qwen3-8b-gguf-q4"
+		parent.URL = "file://gguf.yaml"
+		parent.Backend = "llama-cpp"
+		parent.Variants = []gallery.Variant{{Model: "qwen3-8b-vllm-awq"}, {Model: "qwen3-8b-gguf-turbo"}}
+
+		catalog := []*gallery.GalleryModel{models[0], &speculative, &parent}
+
+		resolved, variant, err := gallery.ResolveVariant(catalog, &parent, gallery.ResolveEnv{
+			AvailableMemory:   gib(64),
+			BackendCompatible: runsEverything,
+			// Only llama-cpp is ranked, so the vLLM build cannot win on engine
+			// and the contest comes down to the feature axis.
+			EnginePreference:         []string{"llama-cpp"},
+			ServingFeaturePreference: []string{"dflash", "mtp"},
+			ProbeMemory: func(target *gallery.GalleryModel) uint64 {
+				if target.Name == "qwen3-8b-gguf-turbo" {
+					return gib(10)
+				}
+				return gib(20)
+			},
+		}, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(variant.Model).To(Equal("qwen3-8b-gguf-turbo"))
+		Expect(resolved.URL).To(Equal("file://turbo.yaml"))
+	})
+
 	It("falls back to the entry's own payload when no variant fits", func() {
 		resolved, variant, err := gallery.ResolveVariant(models, base, env(gib(8)), "")
 		Expect(err).ToNot(HaveOccurred())

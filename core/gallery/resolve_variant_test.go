@@ -485,9 +485,9 @@ var _ = Describe("SelectVariant", func() {
 	Describe("ranking by serving feature", func() {
 		// These are SERVING FEATURES, exactly what
 		// system.ServingFeaturePreferenceTokens reports, and a third vocabulary
-		// after build tags and engine names. They are matched against whole
-		// segments of the variant's ENTRY NAME rather than against a backend,
-		// because nothing on a gallery entry declares them.
+		// after build tags and engine names. They are matched against a
+		// variant's declared TAGS, and failing that against whole segments of
+		// its ENTRY NAME, rather than against a backend.
 		//
 		// Spelled out rather than read from pkg/system so these specs pin the
 		// intended ordering rather than restating whatever the table says.
@@ -650,6 +650,170 @@ var _ = Describe("SelectVariant", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(selection.Option.Variant.Model).To(Equal("m-q8"))
 			Expect(selection.Reasons).To(BeEmpty())
+		})
+
+		Describe("reading the declared tags", func() {
+			// A tag is the authoritative signal and the name is the fallback,
+			// so each of the two has to be pinned on its own: a spec whose
+			// candidate declares the feature both ways would keep passing after
+			// either half was deleted.
+			tagged := func(model string, probed uint64, tags ...string) gallery.VariantOption {
+				o := option(model, "llama-cpp", probed)
+				o.Tags = tags
+				return o
+			}
+
+			It("prefers a build whose tag declares the feature its name does not", func() {
+				// The case tags exist for. "m-turbo-q8" carries MTP heads but
+				// spells nothing in its name, which is the shape most of the
+				// gallery's MTP entries had before they were tagged. It is also
+				// the smaller build, so only the feature axis can lift it.
+				options := []gallery.VariantOption{
+					tagged("m-turbo-q8", gib(14), "llm", "gguf", "mtp"),
+					tagged("m-plain-q8", gib(20), "llm", "gguf"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(32),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q8"))
+			})
+
+			It("still prefers a build the name alone declares, with no tags at all", func() {
+				// The fallback, pinned independently of the tag path. An entry
+				// nobody has tagged must rank exactly as it did before tags
+				// were read, so deleting the name half fails here alone.
+				options := []gallery.VariantOption{
+					option("m-nvfp4-mtp", "llama-cpp", gib(14)),
+					tagged("m-plain-q8", gib(20), "llm", "gguf"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(32),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-nvfp4-mtp"))
+			})
+
+			It("matches a tag regardless of the case it was written in", func() {
+				// Gallery tags are author-supplied, so the same declaration
+				// arrives in whatever case the author typed. Name segments are
+				// already folded and the two signals must not disagree.
+				options := []gallery.VariantOption{
+					tagged("m-turbo-q8", gib(14), "LLM", "MTP"),
+					tagged("m-plain-q8", gib(20), "llm", "gguf"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(32),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q8"))
+			})
+
+			It("prefers dflash to mtp when both are declared by tag", func() {
+				// The table's order has to survive the new signal: with neither
+				// name saying anything, only the tags separate these two, and
+				// the MTP build is deliberately the larger one.
+				options := []gallery.VariantOption{
+					tagged("m-alpha-q8", gib(20), "llm", "mtp"),
+					tagged("m-beta-q8", gib(14), "llm", "dflash"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(32),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-beta-q8"))
+			})
+
+			It("does not read a feature out of an unrelated tag", func() {
+				// Tags are compared whole, exactly as name segments are, so a
+				// tag that merely contains a feature token declares nothing.
+				// "multimodal" contains no feature; "smtp" does contain "mtp"
+				// as a substring and must not count either. The tagged build is
+				// the larger one, so a false positive would hand it the win.
+				options := []gallery.VariantOption{
+					tagged("m-mail-q8", gib(24), "llm", "multimodal", "smtp"),
+					tagged("m-turbo-q4", gib(14), "llm", "mtp"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(64),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q4"))
+			})
+
+			It("does not let a tag rescue a build that does not fit", func() {
+				// Fit still outranks the feature axis, whichever signal
+				// declared it.
+				options := []gallery.VariantOption{
+					tagged("m-turbo-f16", gib(48), "llm", "mtp"),
+					tagged("m-plain-q8", gib(12), "llm"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(16),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-plain-q8"))
+				Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-turbo-f16")))
+			})
+
+			It("lets the host engine preference outrank a tagged serving feature", func() {
+				// Engine beats feature no matter which signal carried the
+				// feature: a tag does not make a wrong engine right.
+				options := []gallery.VariantOption{
+					tagged("m-turbo-q8", gib(24), "llm", "mtp"),
+					option("m-vllm-awq", "vllm", gib(8)),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(64),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-vllm-awq"))
+			})
+
+			It("ignores tags entirely when no feature preference is configured", func() {
+				// The axis stops discriminating with an empty list, tags or no
+				// tags, and selection degrades to size alone as it always did.
+				options := []gallery.VariantOption{
+					tagged("m-turbo-q8", gib(14), "llm", "mtp"),
+					tagged("m-plain-q8", gib(20), "llm"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:  gib(32),
+					EnginePreference: nvidia,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-plain-q8"))
+			})
 		})
 	})
 

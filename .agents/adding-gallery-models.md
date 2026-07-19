@@ -141,8 +141,11 @@ Rules:
   per step beats the plain build of the same weights, because it answers faster
   for the same output: a `-dflash` entry beats an `-mtp` one, and either beats a
   plain build. The order lives in `servingFeaturePreferenceTokens`
-  (`pkg/system/capabilities.go`) and is matched against whole segments of the
-  variant's entry name, since no gallery field declares it. Engine deliberately
+  (`pkg/system/capabilities.go`) and is matched against the entry's `tags:`,
+  falling back to whole segments of its entry name. **Tag every speculative or
+  MTP build** (`- dflash` / `- mtp`) so ranking recognises it; the fallback
+  covers entries nobody tagged, but do not rely on it, since a build whose name
+  spells the feature nowhere is invisible without the tag. Engine deliberately
   outranks it: a serving feature makes the right engine faster, it does not make
   a wrong engine right. Fit still outranks both, so a drafter pairing (strictly
   larger than the plain build, since it ships a drafter alongside it) is dropped

@@ -56,8 +56,9 @@ const (
 
 	// Serving feature names (private). A third vocabulary again: not a build
 	// tag and not an engine, but the inference-time strategy a published build
-	// enables. They are matched against a gallery ENTRY NAME, so they are
-	// spelled the way gallery authors spell them in an entry name segment.
+	// enables. They are matched against a gallery entry's declared TAGS, and
+	// failing that against its ENTRY NAME, so they are spelled the way gallery
+	// authors spell them in both places.
 	servingFeatureDFlash = "dflash"
 	servingFeatureMTP    = "mtp"
 )
@@ -81,10 +82,11 @@ const (
 //     picks which build of one model's weights to install.
 //
 //   - servingFeaturePreferenceTokens holds SERVING FEATURES ("dflash", "mtp").
-//     They are matched against WHOLE SEGMENTS of a gallery ENTRY NAME, not
-//     against a backend or an engine, because no field on a gallery entry
-//     declares them. Same consumer as the engine table, applied one rank below
-//     it. See the token list for why segment matching rather than substring.
+//     They are matched against a gallery entry's declared TAGS, and failing
+//     that against WHOLE SEGMENTS of its ENTRY NAME, rather than against a
+//     backend or an engine. Same consumer as the engine table, applied one rank
+//     below it. See the token list for why the name half matches segments
+//     rather than substrings.
 //
 // Feeding build tags to the variant ranker matches nothing, which does not
 // error: every candidate simply scores equal and size alone decides, so the
@@ -216,20 +218,25 @@ var defaultEnginePreferenceTokens = []string{}
 // ordering to express. Should one ever appear, this becomes a rule table like
 // its neighbours without any consumer changing.
 //
-// Matching is against WHOLE SEGMENTS of the entry name, splitting on every
-// non-alphanumeric run, rather than the substring matching the tables above
-// use. The other two vocabularies are closed sets that LocalAI itself defines,
-// whereas an entry name is author-supplied free text where a short token can
-// turn up inside an unrelated word. Segment matching also keeps this honest
-// about what it cannot know: "qwen3.6-27b-mtp-pi-tune" is a separate finetune
-// and not a variant of anything, so it never reaches ranking at all, but if a
-// future finetune were grouped, the name is all there is to go on either way.
+// A token is matched first against an entry's declared TAGS, compared whole
+// and case-insensitively. A tag is the authoritative declaration: an author
+// writing "mtp" in a tag list means the feature, so it can be compared exactly
+// without the ambiguity free text carries.
 //
-// The name is the signal because nothing else is reliable. Tags would be the
-// natural declaration, but they are optional and demonstrably inconsistent:
-// "gemma-4-e2b-it:sglang-mtp" carries an "mtp" tag while "ornith-1.0-9b-mtp"
-// and "qwen3.6-27b-nvfp4-mtp" carry none, so keying on tags would rank two of
-// those three as plain builds.
+// Failing a tag it is matched against WHOLE SEGMENTS of the entry name,
+// splitting on every non-alphanumeric run, rather than the substring matching
+// the tables above use. The other two vocabularies are closed sets that LocalAI
+// itself defines, whereas an entry name is author-supplied free text where a
+// short token can turn up inside an unrelated word. Segment matching also keeps
+// this honest about what it cannot know: "qwen3.6-27b-mtp-pi-tune" is a
+// separate finetune and not a variant of anything, so it never reaches ranking
+// at all, but if a future finetune were grouped, the name is all there is to go
+// on when nobody tagged it.
+//
+// The name half stays because tagging discipline is still being established:
+// dropping it would immediately misrank every MTP entry that predates the tag
+// sweep. Authors should tag; the fallback exists so a forgotten tag costs
+// nothing rather than silently downgrading an install.
 var servingFeaturePreferenceTokens = []string{servingFeatureDFlash, servingFeatureMTP}
 
 // ServingFeaturePreferenceTokens returns the serving features to prefer, best

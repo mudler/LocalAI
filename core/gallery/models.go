@@ -104,7 +104,10 @@ func variantOptions(models []*GalleryModel, entry *GalleryModel, env ResolveEnv)
 			return nil, fmt.Errorf("model %q references variant %q which declares variants of its own; resolution is a single pass, so those would be silently ignored", entry.Name, v.Model)
 		}
 
-		option := VariantOption{Variant: v, Backend: target.Backend}
+		// Tags come from the REFERENCED entry, not from the declaring one: the
+		// serving feature being ranked is a property of the build that would be
+		// installed, and a parent's tags describe the model family.
+		option := VariantOption{Variant: v, Backend: target.Backend, Tags: target.Tags}
 		if env.ProbeMemory != nil {
 			option.ProbedMemory = env.ProbeMemory(target)
 		}
@@ -118,6 +121,7 @@ func variantOptions(models []*GalleryModel, entry *GalleryModel, env ResolveEnv)
 		Variant: Variant{Model: entry.Name},
 		Backend: entry.Backend,
 		IsBase:  true,
+		Tags:    entry.Tags,
 	}
 	if env.ProbeMemory != nil {
 		base.ProbedMemory = env.ProbeMemory(entry)
