@@ -621,6 +621,40 @@ func NormalizeBackendName(backend string) string {
 	return strings.ReplaceAll(backend, ".", "-")
 }
 
+// llamaCppChannelSuffixes are the release-channel suffixes appended to a
+// llama.cpp backend name in the gallery ("llama-cpp" vs
+// "llama-cpp-development"). They carry no engine information, so they are
+// stripped before the family check below.
+var llamaCppChannelSuffixes = []string{"-development", "-quantization"}
+
+// IsLlamaCppBackend reports whether a backend name refers to a build of the
+// llama.cpp gRPC server. The gallery ships one concrete backend per hardware
+// capability ("vulkan-llama-cpp", "cuda12-llama-cpp", "metal-llama-cpp", ...)
+// behind the "llama-cpp" meta name, and an operator may pin any of them in a
+// model config. They all run the same server, so anything gated on "is this
+// llama.cpp" must accept the whole family: an exact match against "llama-cpp"
+// silently skips every pinned variant (see #10945, where skipping the media
+// marker probe broke all vision requests).
+//
+// The empty name matches too: it is the GGUF auto-detect path, which resolves
+// to llama.cpp.
+//
+// ik-llama.cpp is deliberately excluded. It is a separate engine with its own
+// gRPC server that happens to share the "-llama-cpp" suffix.
+func IsLlamaCppBackend(backend string) bool {
+	name := NormalizeBackendName(backend)
+	if name == "" {
+		return true
+	}
+	for _, suffix := range llamaCppChannelSuffixes {
+		name = strings.TrimSuffix(name, suffix)
+	}
+	if strings.HasSuffix(name, "ik-llama-cpp") {
+		return false
+	}
+	return name == "llama-cpp" || strings.HasSuffix(name, "-llama-cpp")
+}
+
 // nonLlamaSamplerBackends lists backends whose native sampler defaults differ
 // from llama.cpp's, so LocalAI must NOT inject llama.cpp's top_k=40 default for
 // them (issue #6632). mlx_lm's intended default is top_k=0 (disabled) and mlx

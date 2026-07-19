@@ -142,7 +142,10 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 
 	// Only llama-cpp exposes ModelMetadata today. Other backends will either error
 	// or return an empty response — both are fine, we just bail before calling.
-	if cfg.Backend != "llama-cpp" {
+	// The check must cover every llama.cpp build, not just the "llama-cpp" meta
+	// name: a config pinning a concrete variant ("vulkan-llama-cpp", ...) runs the
+	// same server and needs the same probe (#10945).
+	if !IsLlamaCppBackend(cfg.Backend) {
 		xlog.Debug("[gguf] DetectThinkingSupportFromBackend: skipping detection", "backend", cfg.Backend)
 		return
 	}
