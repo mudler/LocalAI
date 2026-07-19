@@ -109,6 +109,39 @@ var _ = Describe("IsValidUsecaseForBackend", func() {
 	})
 })
 
+var _ = Describe("IsLlamaCppBackend", func() {
+	DescribeTable("classifies a backend name",
+		func(backend string, expected bool) {
+			Expect(IsLlamaCppBackend(backend)).To(Equal(expected))
+		},
+		Entry("meta name", "llama-cpp", true),
+		Entry("dotted spelling", "llama.cpp", true),
+		Entry("auto-detect (empty)", "", true),
+		Entry("development channel", "llama-cpp-development", true),
+		Entry("quantization channel", "llama-cpp-quantization", true),
+		Entry("vulkan variant", "vulkan-llama-cpp", true),
+		Entry("cuda 12 variant", "cuda12-llama-cpp", true),
+		Entry("cuda 13 variant", "cuda13-llama-cpp", true),
+		Entry("jetson variant", "cuda13-nvidia-l4t-arm64-llama-cpp", true),
+		Entry("rocm variant", "rocm-llama-cpp", true),
+		Entry("metal variant", "metal-llama-cpp", true),
+		Entry("intel sycl f16 variant", "intel-sycl-f16-llama-cpp", true),
+		Entry("intel sycl f32 variant", "intel-sycl-f32-llama-cpp", true),
+		Entry("cpu variant", "cpu-llama-cpp", true),
+		Entry("variant on the development channel", "rocm-llama-cpp-development", true),
+		Entry("darwin quantization variant", "metal-darwin-arm64-llama-cpp-quantization", true),
+		// ik-llama.cpp is a distinct engine that merely shares the suffix.
+		Entry("ik-llama-cpp", "ik-llama-cpp", false),
+		Entry("ik-llama-cpp development", "ik-llama-cpp-development", false),
+		Entry("cpu ik-llama-cpp", "cpu-ik-llama-cpp", false),
+		Entry("cpu ik-llama-cpp development", "cpu-ik-llama-cpp-development", false),
+		Entry("vllm", "vllm", false),
+		Entry("mlx", "mlx", false),
+		Entry("whisper", "whisper", false),
+		Entry("bark-cpp", "bark-cpp", false),
+	)
+})
+
 var _ = Describe("AllBackendNames", func() {
 	It("returns 30+ backends in sorted order", func() {
 		names := AllBackendNames()
