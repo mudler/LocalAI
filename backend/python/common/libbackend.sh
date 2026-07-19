@@ -407,12 +407,18 @@ function runProtogen() {
     # protobuf runtime lower (vLLM pins it to 6.33.6), crashing the backend with
     # "grpc service not ready" before it ever loads a model. Pinning
     # grpcio-tools to the installed grpcio version keeps the gencode in step with
-    # the runtime. Falls back to unpinned when grpcio isn't installed yet.
+    # the runtime. Backends whose protobuf runtime trails grpcio can set
+    # GRPCIO_TOOLS_VERSION to the newest generator their runtime accepts. Falls
+    # back to unpinned when grpcio isn't installed yet.
     # See mudler/LocalAI#10718.
     local grpcio_tools_spec="grpcio-tools"
     local grpcio_version
-    grpcio_version="$(python -c 'import importlib.metadata as m; print(m.version("grpcio"))' 2>/dev/null || true)"
-    if [ -n "${grpcio_version}" ]; then
+    if [ -n "${GRPCIO_TOOLS_VERSION:-}" ]; then
+        grpcio_tools_spec="grpcio-tools==${GRPCIO_TOOLS_VERSION}"
+    else
+        grpcio_version="$(python -c 'import importlib.metadata as m; print(m.version("grpcio"))' 2>/dev/null || true)"
+    fi
+    if [ "${grpcio_tools_spec}" = "grpcio-tools" ] && [ -n "${grpcio_version}" ]; then
         grpcio_tools_spec="grpcio-tools==${grpcio_version}"
     fi
 
@@ -422,6 +428,7 @@ function runProtogen() {
         uv pip install "${grpcio_tools_spec}"
     fi
     pushd "${EDIR}" >/dev/null
+        rm -f backend_pb2.py backend_pb2.pyi backend_pb2_grpc.py
         # use the venv python (ensures correct interpreter & sys.path)
         python -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
     popd >/dev/null
