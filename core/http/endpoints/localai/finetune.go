@@ -274,9 +274,10 @@ func DownloadExportedModelEndpoint(ftService *finetune.FineTuneService) echo.Han
 }
 
 // ListFineTuneBackendsEndpoint returns installed backends tagged with "fine-tuning".
-func ListFineTuneBackendsEndpoint(appConfig *config.ApplicationConfig, clusterCapabilities ClusterCapabilityProvider) echo.HandlerFunc {
+func ListFineTuneBackendsEndpoint(appConfig *config.ApplicationConfig, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
+		installed := resolveClusterInstalled(c.Request().Context(), clusterInstalled)
 		backends, err := gallery.AvailableBackendsForCapabilities(appConfig.BackendGalleries, appConfig.SystemState, capabilities)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -292,7 +293,7 @@ func ListFineTuneBackendsEndpoint(appConfig *config.ApplicationConfig, clusterCa
 
 		var result []backendInfo
 		for _, b := range backends {
-			if !b.Installed {
+			if !installedInCluster(b, installed) {
 				continue
 			}
 			hasTag := false

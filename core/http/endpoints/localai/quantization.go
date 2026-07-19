@@ -193,9 +193,10 @@ func DownloadQuantizedModelEndpoint(qService *quantization.QuantizationService) 
 }
 
 // ListQuantizationBackendsEndpoint returns installed backends tagged with "quantization".
-func ListQuantizationBackendsEndpoint(appConfig *config.ApplicationConfig, clusterCapabilities ClusterCapabilityProvider) echo.HandlerFunc {
+func ListQuantizationBackendsEndpoint(appConfig *config.ApplicationConfig, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
+		installed := resolveClusterInstalled(c.Request().Context(), clusterInstalled)
 		backends, err := gallery.AvailableBackendsForCapabilities(appConfig.BackendGalleries, appConfig.SystemState, capabilities)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -211,7 +212,7 @@ func ListQuantizationBackendsEndpoint(appConfig *config.ApplicationConfig, clust
 
 		var result []backendInfo
 		for _, b := range backends {
-			if !b.Installed {
+			if !installedInCluster(b, installed) {
 				continue
 			}
 			hasTag := false
