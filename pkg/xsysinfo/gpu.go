@@ -213,20 +213,21 @@ func minNonZeroVRAM(infos []GPUMemoryInfo) uint64 {
 	return min
 }
 
+// HasGPU reports whether a GPU of the given vendor is present. An empty
+// vendor asks whether the host has any GPU at all.
+//
+// Both legs consult sysfs as well as ghw: ghw enumeration fails outright
+// on images with no pci.ids database, and returning "no GPU" there is
+// what made a passed-through Intel Arc invisible in #10941.
 func HasGPU(vendor string) bool {
-	gpus, err := GPUs()
-	if err != nil {
-		return false
-	}
 	if vendor == "" {
-		return len(gpus) > 0
-	}
-	for _, gpu := range gpus {
-		if strings.Contains(gpu.String(), vendor) {
+		gpus, err := GPUs()
+		if err == nil && len(gpus) > 0 {
 			return true
 		}
+		return len(scanSysfsGPUs(defaultSysfsDRMPath)) > 0
 	}
-	return false
+	return hasGPUVendor(vendor)
 }
 
 // DetectGPUVendor detects the GPU vendor using multiple methods with fallbacks.
@@ -235,25 +236,18 @@ func HasGPU(vendor string) bool {
 // Priority order: NVIDIA > AMD > Intel > Vulkan
 func DetectGPUVendor() (string, error) {
 	// First, try ghw library detection
-	gpus, err := GPUs()
-	if err == nil && len(gpus) > 0 {
-		for _, gpu := range gpus {
-			if gpu.DeviceInfo != nil && gpu.DeviceInfo.Vendor != nil {
-				vendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
-				if strings.Contains(vendorName, strings.ToUpper(VendorNVIDIA)) {
-					xlog.Debug("GPU vendor detected via ghw", "vendor", VendorNVIDIA)
-					return VendorNVIDIA, nil
-				}
-				if strings.Contains(vendorName, strings.ToUpper(VendorAMD)) {
-					xlog.Debug("GPU vendor detected via ghw", "vendor", VendorAMD)
-					return VendorAMD, nil
-				}
-				if strings.Contains(vendorName, strings.ToUpper(VendorIntel)) {
-					xlog.Debug("GPU vendor detected via ghw", "vendor", VendorIntel)
-					return VendorIntel, nil
-				}
-			}
-		}
+	if vendor := vendorFromNames(ghwVendorNames()); vendor != "" {
+		xlog.Debug("GPU vendor detected via ghw", "vendor", vendor)
+		return vendor, nil
+	}
+
+	// Then read PCI vendor IDs straight from sysfs. ghw needs a pci.ids
+	// database file to resolve vendor names and errors out entirely when
+	// the image doesn't ship one, which is how a passed-through Intel Arc
+	// ended up undetected in #10941.
+	if vendor := sysfsVendorPriority(defaultSysfsDRMPath); vendor != "" {
+		xlog.Debug("GPU vendor detected via sysfs", "vendor", vendor)
+		return vendor, nil
 	}
 
 	// Fallback to binary detection (priority: NVIDIA > AMD > Intel > Vulkan)
@@ -707,9 +701,9 @@ func getIntelGPUMemory() []GPUMemoryInfo {
 		return gpus
 	}
 	// clinfo enumerates every OpenCL platform, so guard the
-	// subprocess with the cached ghw GPU list: non-Intel hosts skip
+	// subprocess with the detected GPU list: non-Intel hosts skip
 	// it entirely.
-	if !hasGHWVendor(VendorIntel) {
+	if !hasGPUVendor(VendorIntel) {
 		return nil
 	}
 	var out []GPUMemoryInfo
@@ -721,17 +715,35 @@ func getIntelGPUMemory() []GPUMemoryInfo {
 	return out
 }
 
-// hasGHWVendor reports whether ghw observed any GPU whose vendor name
-// matches (case-insensitive substring). Uses the package-level cache
-// in GPUs() so the call is free after the first invocation.
-func hasGHWVendor(vendor string) bool {
-	gpus, _ := GPUs()
-	target := strings.ToUpper(vendor)
+// ghwVendorNames returns the PCI vendor name of every GPU ghw observed.
+// Uses the package-level cache in GPUs() so the call is free after the
+// first invocation. Returns nil when ghw could not enumerate at all,
+// which it does whenever no pci.ids database is present on the host.
+func ghwVendorNames() []string {
+	gpus, err := GPUs()
+	if err != nil {
+		return nil
+	}
+	var names []string
 	for _, g := range gpus {
 		if g.DeviceInfo == nil || g.DeviceInfo.Vendor == nil {
 			continue
 		}
-		if strings.Contains(strings.ToUpper(g.DeviceInfo.Vendor.Name), target) {
+		names = append(names, g.DeviceInfo.Vendor.Name)
+	}
+	return names
+}
+
+// hasGPUVendor reports whether a GPU of the given vendor is present,
+// consulting ghw first and then sysfs. The sysfs leg matters because it
+// is the only one that works on images with no pci.ids database, where
+// ghw enumeration fails outright.
+func hasGPUVendor(vendor string) bool {
+	if vendorMatchesAny(ghwVendorNames(), vendor) {
+		return true
+	}
+	for _, g := range scanSysfsGPUs(defaultSysfsDRMPath) {
+		if g.Vendor == vendor {
 			return true
 		}
 	}
