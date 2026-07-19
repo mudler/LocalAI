@@ -199,15 +199,18 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	supervisor := &backendSupervisor{
-		cfg:         cfg,
-		ml:          ml,
-		systemState: systemState,
-		galleries:   galleries,
-		nodeID:      nodeID,
-		nats:        natsClient,
-		sigCh:       sigCh,
-		processes:   make(map[string]*backendProcess),
-		nextPort:    basePort,
+		cfg:          cfg,
+		ml:           ml,
+		systemState:  systemState,
+		galleries:    galleries,
+		nodeID:       nodeID,
+		nats:         natsClient,
+		sigCh:        sigCh,
+		processes:    make(map[string]*backendProcess),
+		portAffinity: make(map[string]portOwnership),
+		nextPort:     basePort,
+		minPort:      basePort,
+		maxPort:      cfg.effectiveMaxPort(basePort),
 	}
 	if err := supervisor.subscribeLifecycleEvents(); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)

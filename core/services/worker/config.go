@@ -22,6 +22,13 @@ type Config struct {
 	Addr      string `env:"LOCALAI_ADDR" help:"Address where this worker is reachable (host:port). Port is base for gRPC backends, port-1 for HTTP." group:"server"`
 	ServeAddr string `env:"LOCALAI_SERVE_ADDR" default:"0.0.0.0:50051" help:"(Advanced) gRPC base port bind address" group:"server" hidden:""`
 
+	// GRPCMaxPort bounds the dynamic gRPC port allocator at [basePort, this].
+	// The width of that range is how many backend processes this worker can run
+	// concurrently; released ports also sit in a short quarantine before reuse,
+	// so a worker with heavy start/stop churn needs headroom above its true
+	// concurrency. 0 = up to 65535.
+	GRPCMaxPort int `env:"LOCALAI_GRPC_MAX_PORT" default:"0" help:"Highest port the worker may assign to a backend gRPC process. The range is [base port, this]; its width caps concurrent backends on this worker. 0 uses up to 65535." group:"server"`
+
 	BackendsPath            string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends" group:"server"`
 	BackendsSystemPath      string `env:"LOCALAI_BACKENDS_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends" group:"server"`
 	BackendGalleries        string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"server" default:"${backends}"`

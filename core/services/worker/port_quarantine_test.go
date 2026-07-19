@@ -35,12 +35,17 @@ var _ = Describe("Backend port quarantine", func() {
 			Expect(s.finishBackendStop("model#0", bp, nil)).To(Succeed())
 
 			Expect(s.freePorts).To(BeEmpty())
-			Expect(s.allocatePort()).NotTo(Equal(50051))
+			Expect(mustAllocate(s, "next#0")).NotTo(Equal(50051))
 		})
 
-		It("returns the port to the free pool once the quarantine expires", func() {
-			// The quarantine must not leak ports: nextPort only ever grows, so a
-			// port that never comes back is a permanent loss of allocator range.
+		It("returns the port to its own backend once the quarantine expires", func() {
+			// The quarantine must not leak ports: a port that never comes back
+			// is a permanent loss of allocator range.
+			//
+			// It comes back to the key that released it, not to a global pool —
+			// that is the affinity rule in allocatePort, which is what keeps a
+			// stale controller row for this key from ever resolving to a
+			// different model's backend.
 			bp := &backendProcess{port: 50051}
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{"model#0": bp},
@@ -51,7 +56,7 @@ var _ = Describe("Backend port quarantine", func() {
 			Expect(s.finishBackendStop("model#0", bp, nil)).To(Succeed())
 			time.Sleep(5 * time.Millisecond)
 
-			Expect(s.allocatePort()).To(Equal(50051))
+			Expect(mustAllocate(s, "model#0")).To(Equal(50051))
 		})
 	})
 
@@ -70,7 +75,7 @@ var _ = Describe("Backend port quarantine", func() {
 			s.releaseBackendStart("model#0", bp)
 
 			Expect(s.freePorts).To(BeEmpty())
-			Expect(s.allocatePort()).To(Equal(50060))
+			Expect(mustAllocate(s, "next#0")).To(Equal(50060))
 		})
 	})
 
@@ -85,8 +90,8 @@ var _ = Describe("Backend port quarantine", func() {
 			s.releasePort(50051)
 			time.Sleep(5 * time.Millisecond)
 
-			Expect(s.allocatePort()).To(Equal(50051))
-			Expect(s.allocatePort()).To(Equal(50060))
+			Expect(mustAllocate(s, "next#0")).To(Equal(50051))
+			Expect(mustAllocate(s, "next#0")).To(Equal(50060))
 			Expect(s.nextPort).To(Equal(50061))
 		})
 
@@ -100,8 +105,8 @@ var _ = Describe("Backend port quarantine", func() {
 			s.releasePort(50051)
 			s.releasePort(50052)
 
-			Expect(s.allocatePort()).To(Equal(50060))
-			Expect(s.allocatePort()).To(Equal(50061))
+			Expect(mustAllocate(s, "next#0")).To(Equal(50060))
+			Expect(mustAllocate(s, "next#0")).To(Equal(50061))
 		})
 
 		It("applies the default quarantine when none is configured", func() {
@@ -114,7 +119,7 @@ var _ = Describe("Backend port quarantine", func() {
 
 			s.releasePort(50051)
 
-			Expect(s.allocatePort()).To(Equal(50060))
+			Expect(mustAllocate(s, "next#0")).To(Equal(50060))
 		})
 	})
 })
