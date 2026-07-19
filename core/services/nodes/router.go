@@ -1101,9 +1101,15 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		if *f.val == "" {
 			continue
 		}
-		// Skip non-existent files
+		// Skip non-existent files. This is legitimate — a backend that takes a
+		// bare HuggingFace repo id gets an optimistically constructed path that
+		// was never materialized, and fetches its own weights on the worker — so
+		// it must not fail the load. But it is warn-level because the same skip
+		// is what a genuine controller-side acquisition gap looks like, and at
+		// debug it left the operator with a reassuring "Staging model files"
+		// line for work that never happened.
 		if _, err := os.Stat(*f.val); os.IsNotExist(err) {
-			xlog.Debug("Skipping staging for non-existent path", "field", f.name, "path", *f.val)
+			xlog.Warn("Skipping staging for non-existent path; the worker will have to source this itself", "field", f.name, "path", *f.val, "node", node.Name, "trackingKey", trackingKey)
 			*f.val = ""
 			continue
 		}
