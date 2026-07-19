@@ -92,7 +92,13 @@ type backendSupervisor struct {
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
 	nextPort  int                        // next available port for new backends
-	freePorts []int                      // ports freed by stopBackend, reused before nextPort
+	freePorts []int                      // ports out of quarantine, reused before nextPort
+
+	// quarantinedPorts holds ports whose process has terminated but which are
+	// not yet safe to re-bind, and portQuarantine is how long they wait.
+	// Overridden only by tests; zero means defaultPortQuarantine.
+	quarantinedPorts []quarantinedPort
+	portQuarantine   time.Duration
 
 	// backendLocks serializes gallery operations against the same on-disk
 	// artifact. Two installs of different backends on the same worker run
@@ -101,6 +107,85 @@ type backendSupervisor struct {
 	// the same not-yet-cached backend) are serialized here so the gallery
 	// download path doesn't race itself on the same directory.
 	backendLocks map[string]*sync.Mutex
+}
+
+// defaultPortQuarantine is how long a released gRPC port waits before it can be
+// re-bound by another backend.
+//
+// This is an interlock for one specific window and nothing more: between the
+// moment this worker frees a port and the moment the controller processes our
+// reply and drops the NodeModel rows naming that address, a row still resolves
+// to a live listener. probeHealth verifies liveness, not identity, so a port
+// re-bound inside that window is dispatched to as if it were the original
+// backend. The window is a NATS round-trip plus a row delete, so seconds of
+// slack are ample.
+//
+// Deliberately NOT derived from the controller's HealthCheckInterval or from
+// the per-model miss threshold. Tying a worker-local constant to a
+// controller-side cadence would be unsound: that cadence is operator-tunable
+// and the per-model reaper can be switched off entirely with
+// DisablePerModelHealthCheck, so the coupling would be silently wrong on some
+// clusters. Eager row removal, not this delay, is what actually fixes stale
+// rows; raising this value is not a substitute for it.
+const defaultPortQuarantine = 15 * time.Second
+
+// quarantinedPort is a released port that must not be re-bound until `until`.
+type quarantinedPort struct {
+	port  int
+	until time.Time
+}
+
+// quarantineWindow returns the configured quarantine, defaulting when unset so
+// the zero-value supervisor never degrades to immediate reuse.
+func (s *backendSupervisor) quarantineWindow() time.Duration {
+	if s.portQuarantine <= 0 {
+		return defaultPortQuarantine
+	}
+	return s.portQuarantine
+}
+
+// allocatePort returns a gRPC port for a new backend process, preferring a
+// previously released port over growing the range. Callers must hold s.mu.
+func (s *backendSupervisor) allocatePort() int {
+	s.sweepQuarantine()
+	if len(s.freePorts) > 0 {
+		port := s.freePorts[len(s.freePorts)-1]
+		s.freePorts = s.freePorts[:len(s.freePorts)-1]
+		return port
+	}
+	port := s.nextPort
+	s.nextPort++
+	return port
+}
+
+// sweepQuarantine moves ports whose quarantine has elapsed into the free pool.
+// Sweeping lazily on allocation avoids a timer goroutine per stopped backend;
+// the only observer of the free pool is allocation itself. Callers must hold
+// s.mu.
+func (s *backendSupervisor) sweepQuarantine() {
+	if len(s.quarantinedPorts) == 0 {
+		return
+	}
+	now := time.Now()
+	held := s.quarantinedPorts[:0]
+	for _, q := range s.quarantinedPorts {
+		if now.Before(q.until) {
+			held = append(held, q)
+			continue
+		}
+		s.freePorts = append(s.freePorts, q.port)
+	}
+	s.quarantinedPorts = held
+}
+
+// releasePort returns a port to the allocator after a quarantine period.
+// Callers must hold s.mu. See defaultPortQuarantine for why the port is not
+// immediately reusable.
+func (s *backendSupervisor) releasePort(port int) {
+	s.quarantinedPorts = append(s.quarantinedPorts, quarantinedPort{
+		port:  port,
+		until: time.Now().Add(s.quarantineWindow()),
+	})
 }
 
 // startBackend starts a gRPC backend process on a dynamically allocated port.
@@ -127,21 +212,13 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		delete(s.processes, backend)
 	}
 
-	// Allocate port — recycle freed ports first, then grow upward from basePort
-	var port int
-	if len(s.freePorts) > 0 {
-		port = s.freePorts[len(s.freePorts)-1]
-		s.freePorts = s.freePorts[:len(s.freePorts)-1]
-	} else {
-		port = s.nextPort
-		s.nextPort++
-	}
+	port := s.allocatePort()
 	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
 	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
 	if err != nil {
-		s.freePorts = append(s.freePorts, port)
+		s.releasePort(port)
 		s.mu.Unlock()
 		return "", fmt.Errorf("starting backend process: %w", err)
 	}
@@ -239,7 +316,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return
 	}
-	s.freePorts = append(s.freePorts, bp.port)
+	s.releasePort(bp.port)
 }
 
 // resolveProcessKeys turns a caller-supplied identifier into the set of
@@ -455,7 +532,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return nil
 	}
-	s.freePorts = append(s.freePorts, bp.port)
+	s.releasePort(bp.port)
 	return nil
 }
 

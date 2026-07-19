@@ -116,12 +116,25 @@ func (s *backendSupervisor) handleBackendUpgrade(data []byte, reply func([]byte)
 		release := s.lockBackend(req.Backend)
 		defer release()
 
-		if err := s.upgradeBackend(req); err != nil {
+		// stopped is meaningful even on the error paths: it lists processes
+		// already terminated (and ports already recycled) before the failure, so
+		// the controller must drop those rows regardless of the outcome.
+		stopped, err := s.upgradeBackend(req)
+		if err != nil {
 			xlog.Error("Failed to upgrade backend via NATS", "error", err)
-			replyJSON(reply, messaging.BackendUpgradeReply{Success: false, Error: err.Error()})
+			replyJSON(reply, messaging.BackendUpgradeReply{
+				Success:                 false,
+				Error:                   err.Error(),
+				StoppedProcessKeys:      stopped,
+				ReportsStoppedProcesses: true,
+			})
 			return
 		}
-		replyJSON(reply, messaging.BackendUpgradeReply{Success: true})
+		replyJSON(reply, messaging.BackendUpgradeReply{
+			Success:                 true,
+			StoppedProcessKeys:      stopped,
+			ReportsStoppedProcesses: true,
+		})
 	}()
 }
 
@@ -188,6 +201,22 @@ func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte))
 		xlog.Info("Deleting backend with no matching running process",
 			"backend", req.Backend, "identity", slices.Sorted(maps.Keys(identity)))
 	}
+	// Accumulate the processes we actually terminate. Every stop hands a gRPC
+	// port back to this worker's allocator while the controller still holds a
+	// NodeModel row for that address, so the controller needs these keys to
+	// drop those rows before the port is re-bound by an unrelated backend. A
+	// key is appended only after its process is confirmed gone, which is what
+	// lets the controller trust the list on the partial-failure replies below.
+	stopped := make([]string, 0, len(keys))
+	deleteReply := func(success bool, errMsg string) messaging.BackendDeleteReply {
+		return messaging.BackendDeleteReply{
+			Success:                 success,
+			Error:                   errMsg,
+			StoppedProcessKeys:      stopped,
+			ReportsStoppedProcesses: true,
+		}
+	}
+
 	for _, key := range keys {
 		if err := s.stopBackendExact(key, false); err != nil {
 			// We knew about this process and could not kill it. Replying
@@ -195,31 +224,27 @@ func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte))
 			// "backend deleted" while the process keeps serving requests.
 			xlog.Error("Failed to stop backend process during delete; aborting delete",
 				"backend", req.Backend, "processKey", key, "error", err)
-			replyJSON(reply, messaging.BackendDeleteReply{
-				Success: false,
-				Error:   fmt.Sprintf("could not stop running process %s: %v", key, err),
-			})
+			replyJSON(reply, deleteReply(false, fmt.Sprintf("could not stop running process %s: %v", key, err)))
 			return
 		}
+		stopped = append(stopped, key)
 	}
 
 	// Delete the backend files
 	if err := gallery.DeleteBackendFromSystem(s.systemState, req.Backend); err != nil {
 		xlog.Warn("Failed to delete backend files", "backend", req.Backend, "error", err)
-		resp := messaging.BackendDeleteReply{Success: false, Error: err.Error()}
-		replyJSON(reply, resp)
+		replyJSON(reply, deleteReply(false, err.Error()))
 		return
 	}
 
 	// Re-register backends after deletion
 	if err := gallery.RegisterBackends(s.systemState, s.ml); err != nil {
 		xlog.Error("Failed to refresh registered backends after deletion", "backend", req.Backend, "error", err)
-		replyJSON(reply, messaging.BackendDeleteReply{Success: false, Error: err.Error()})
+		replyJSON(reply, deleteReply(false, err.Error()))
 		return
 	}
 
-	resp := messaging.BackendDeleteReply{Success: true}
-	replyJSON(reply, resp)
+	replyJSON(reply, deleteReply(true, ""))
 }
 
 // handleBackendList is the NATS callback for backend.list — reply with the

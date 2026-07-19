@@ -20,9 +20,10 @@ import (
 
 // fakeModelLocator implements ModelLocator with configurable node lists.
 type fakeModelLocator struct {
-	nodes        []BackendNode
-	findErr      error
-	removedPairs []modelNodePair // records RemoveNodeModel calls
+	nodes           []BackendNode
+	findErr         error
+	removedPairs    []modelNodePair   // records RemoveNodeModel calls
+	removedReplicas []modelReplicaRef // records RemoveNodeModel calls including the replica index
 }
 
 type modelNodePair struct {
@@ -30,12 +31,24 @@ type modelNodePair struct {
 	modelName string
 }
 
+// modelReplicaRef records a row removal at full replica granularity.
+// modelNodePair drops the index because RemoveAllNodeModelReplicas has none;
+// the backend delete/upgrade paths address exactly one replica row, so an
+// assertion that ignored the index could not tell a correct removal from one
+// that wiped a sibling replica still serving traffic.
+type modelReplicaRef struct {
+	nodeID       string
+	modelName    string
+	replicaIndex int
+}
+
 func (f *fakeModelLocator) FindNodesWithModel(_ context.Context, _ string) ([]BackendNode, error) {
 	return f.nodes, f.findErr
 }
 
-func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, _ int) error {
+func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
 	f.removedPairs = append(f.removedPairs, modelNodePair{nodeID, modelName})
+	f.removedReplicas = append(f.removedReplicas, modelReplicaRef{nodeID, modelName, replicaIndex})
 	return nil
 }
 

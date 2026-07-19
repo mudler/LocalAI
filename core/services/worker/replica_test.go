@@ -136,10 +136,13 @@ var _ = Describe("Worker per-replica process keying", func() {
 			Expect(bp.stopping).To(BeTrue())
 			Expect(s.processes).To(HaveKeyWithValue("model#0", bp))
 			Expect(s.freePorts).To(BeEmpty())
+			Expect(quarantinedPortNumbers(s)).To(BeEmpty())
 
 			s.finishBackendStop("model#0", bp, nil)
 			Expect(s.processes).NotTo(HaveKey("model#0"))
-			Expect(s.freePorts).To(ConsistOf(50051))
+			// Released into quarantine rather than straight into the free pool:
+			// a controller row may still name this address.
+			Expect(quarantinedPortNumbers(s)).To(ConsistOf(50051))
 		})
 
 		It("does not report a starting backend as ready after stop begins", func() {
@@ -163,7 +166,7 @@ var _ = Describe("Worker per-replica process keying", func() {
 			s.releaseBackendStart("model#0", bp)
 
 			Expect(s.processes).NotTo(HaveKey("model#0"))
-			Expect(s.freePorts).To(ConsistOf(50051))
+			Expect(quarantinedPortNumbers(s)).To(ConsistOf(50051))
 		})
 
 		It("does not recycle the port owned by a replacement startup", func() {
@@ -177,6 +180,7 @@ var _ = Describe("Worker per-replica process keying", func() {
 
 			Expect(s.processes).To(HaveKeyWithValue("model#0", replacement))
 			Expect(s.freePorts).To(BeEmpty())
+			Expect(quarantinedPortNumbers(s)).To(BeEmpty())
 		})
 	})
 

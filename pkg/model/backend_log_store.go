@@ -27,6 +27,28 @@ func BackendProcessKey(modelID string, replicaIndex int) string {
 	return modelID + replicaSeparator + strconv.Itoa(replicaIndex)
 }
 
+// ParseBackendProcessKey is the inverse of BackendProcessKey. It exists so the
+// controller can map process keys a worker reports back to the (model_name,
+// replica_index) pair identifying a NodeModel row, without a fourth hand-rolled
+// copy of the format.
+//
+// The split is anchored at the LAST separator because model IDs may contain
+// '#' themselves and BackendProcessKey appends the index at the end. Splitting
+// at the first separator would address a row that does not exist and silently
+// leave the real one in place. ok is false for anything this function did not
+// produce, so callers drop unparseable keys rather than acting on a guess.
+func ParseBackendProcessKey(key string) (modelID string, replicaIndex int, ok bool) {
+	i := strings.LastIndex(key, replicaSeparator)
+	if i <= 0 || i == len(key)-1 {
+		return "", 0, false
+	}
+	idx, err := strconv.Atoi(key[i+1:])
+	if err != nil || idx < 0 {
+		return "", 0, false
+	}
+	return key[:i], idx, true
+}
+
 // BackendLogLine represents a single line of output from a backend process.
 type BackendLogLine struct {
 	Timestamp time.Time `json:"timestamp"`

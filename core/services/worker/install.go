@@ -188,16 +188,30 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 // backend.install will spawn a fresh process picking up the new binary.
 //
 // The caller is responsible for holding s.lockBackend(req.Backend).
-func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) error {
+//
+// It returns the process keys it terminated so the controller can drop the
+// NodeModel rows addressing them: an upgrade stops every process using the
+// binary and starts none back up, recycling their gRPC ports while the rows
+// still point at those addresses.
+func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) ([]string, error) {
 	// Stop every live process for this backend (peer replicas + the bare
 	// processKey). Same logic as the force branch in installBackend.
 	toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))
 	toStop = append(toStop, buildProcessKey("", req.Backend, int(req.ReplicaIndex)))
+	stopped := make([]string, 0, len(toStop))
 	for _, key := range toStop {
+		// The bare-backend key appended above is speculative — it exists only
+		// on legacy entries. Reporting a key we never had would ask the
+		// controller to drop a row that a different, still-running replica may
+		// own, so only keys backed by a tracked process are reported.
+		tracked := s.getAddr(key) != ""
 		xlog.Info("Upgrade: stopping running backend before reinstall",
 			"backend", req.Backend, "processKey", key)
 		if err := s.stopBackendExact(key, true); err != nil {
-			return fmt.Errorf("stopping running backend before upgrade: %w", err)
+			return stopped, fmt.Errorf("stopping running backend before upgrade: %w", err)
+		}
+		if tracked {
+			stopped = append(stopped, key)
 		}
 	}
 
@@ -205,7 +219,7 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 	if req.BackendGalleries != "" {
 		var reqGalleries []config.Gallery
 		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err != nil {
-			return fmt.Errorf("decoding backend galleries: %w", err)
+			return stopped, fmt.Errorf("decoding backend galleries: %w", err)
 		}
 		galleries = reqGalleries
 	}
@@ -227,7 +241,7 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 		if err := galleryop.InstallExternalBackend(
 			context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, true, s.cfg.RequireBackendIntegrity,
 		); err != nil {
-			return fmt.Errorf("upgrading backend from external URI: %w", err)
+			return stopped, fmt.Errorf("upgrading backend from external URI: %w", err)
 		}
 	} else {
 		xlog.Info("Upgrading backend from gallery", "backend", req.Backend)
@@ -235,14 +249,14 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 			context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, true, /* force */
 			s.cfg.RequireBackendIntegrity,
 		); err != nil {
-			return fmt.Errorf("upgrading backend from gallery: %w", err)
+			return stopped, fmt.Errorf("upgrading backend from gallery: %w", err)
 		}
 	}
 
 	if err := gallery.RegisterBackends(s.systemState, s.ml); err != nil {
-		return fmt.Errorf("refreshing registered backends after upgrade: %w", err)
+		return stopped, fmt.Errorf("refreshing registered backends after upgrade: %w", err)
 	}
-	return nil
+	return stopped, nil
 }
 
 // findBackend looks for the backend binary in the backends path and system path.
