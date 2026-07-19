@@ -66,7 +66,7 @@ var _ = Describe("ListAvailableBackendsEndpoint cluster capabilities", func() {
 
 	listNames := func(provider ClusterCapabilityProvider) []string {
 		svc := CreateBackendEndpointService(galleries, systemState, nil, nil)
-		app.GET("/backends/available", svc.ListAvailableBackendsEndpoint(systemState, provider))
+		app.GET("/backends/available", svc.ListAvailableBackendsEndpoint(systemState, provider, nil))
 
 		req := httptest.NewRequest(http.MethodGet, "/backends/available", nil)
 		rec := httptest.NewRecorder()

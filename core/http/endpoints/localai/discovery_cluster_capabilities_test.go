@@ -100,26 +100,26 @@ var _ = Describe("Tagged backend discovery with cluster capabilities", func() {
 
 	Describe("fine-tune backends", func() {
 		It("hides GPU-only backends with no cluster provider", func() {
-			names := listNames("/backends", ListFineTuneBackendsEndpoint(appCfg, nil))
+			names := listNames("/backends", ListFineTuneBackendsEndpoint(appCfg, nil, nil))
 			Expect(names).To(ContainElement("cpu-trainer"))
 			Expect(names).NotTo(ContainElement("gpu-trainer"))
 		})
 
 		It("lists GPU-only backends a worker node can run", func() {
-			names := listNames("/backends", ListFineTuneBackendsEndpoint(appCfg, nvidiaWorker))
+			names := listNames("/backends", ListFineTuneBackendsEndpoint(appCfg, nvidiaWorker, nil))
 			Expect(names).To(ContainElements("cpu-trainer", "gpu-trainer"))
 		})
 	})
 
 	Describe("quantization backends", func() {
 		It("hides GPU-only backends with no cluster provider", func() {
-			names := listNames("/backends", ListQuantizationBackendsEndpoint(appCfg, nil))
+			names := listNames("/backends", ListQuantizationBackendsEndpoint(appCfg, nil, nil))
 			Expect(names).To(ContainElement("cpu-trainer"))
 			Expect(names).NotTo(ContainElement("gpu-trainer"))
 		})
 
 		It("lists GPU-only backends a worker node can run", func() {
-			names := listNames("/backends", ListQuantizationBackendsEndpoint(appCfg, nvidiaWorker))
+			names := listNames("/backends", ListQuantizationBackendsEndpoint(appCfg, nvidiaWorker, nil))
 			Expect(names).To(ContainElements("cpu-trainer", "gpu-trainer"))
 		})
 	})
