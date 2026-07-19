@@ -59,7 +59,7 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 	}
 
 	// Subscribe: files.ensure — download S3 key to local, reply with local path
-	natsClient.SubscribeReply(messaging.SubjectNodeFilesEnsure(nodeID), func(data []byte, reply func([]byte)) {
+	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesEnsure(nodeID), func(data []byte, reply func([]byte)) {
 		var req struct {
 			Key string `json:"key"`
 		}
@@ -77,10 +77,12 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 
 		xlog.Debug("File ensured locally", "key", req.Key, "path", localPath)
 		replyJSON(reply, map[string]string{"local_path": localPath})
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to files.ensure events: %w", err)
+	}
 
 	// Subscribe: files.stage — upload local path to S3, reply with key
-	natsClient.SubscribeReply(messaging.SubjectNodeFilesStage(nodeID), func(data []byte, reply func([]byte)) {
+	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesStage(nodeID), func(data []byte, reply func([]byte)) {
 		var req struct {
 			LocalPath string `json:"local_path"`
 			Key       string `json:"key"`
@@ -107,10 +109,12 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 
 		xlog.Debug("File staged to S3", "path", req.LocalPath, "key", req.Key)
 		replyJSON(reply, map[string]string{"key": req.Key})
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to files.stage events: %w", err)
+	}
 
 	// Subscribe: files.temp — allocate temp file, reply with local path
-	natsClient.SubscribeReply(messaging.SubjectNodeFilesTemp(nodeID), func(data []byte, reply func([]byte)) {
+	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesTemp(nodeID), func(data []byte, reply func([]byte)) {
 		tmpDir := filepath.Join(cacheDir, "staging-tmp")
 		if err := os.MkdirAll(tmpDir, 0750); err != nil {
 			replyJSON(reply, map[string]string{"error": fmt.Sprintf("creating temp dir: %v", err)})
@@ -123,14 +127,19 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 			return
 		}
 		localPath := f.Name()
-		f.Close()
+		if err := f.Close(); err != nil {
+			replyJSON(reply, map[string]string{"error": fmt.Sprintf("closing temp file: %v", err)})
+			return
+		}
 
 		xlog.Debug("Allocated temp file", "path", localPath)
 		replyJSON(reply, map[string]string{"local_path": localPath})
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to files.temp events: %w", err)
+	}
 
 	// Subscribe: files.listdir — list files in a local directory, reply with relative paths
-	natsClient.SubscribeReply(messaging.SubjectNodeFilesListDir(nodeID), func(data []byte, reply func([]byte)) {
+	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesListDir(nodeID), func(data []byte, reply func([]byte)) {
 		var req struct {
 			KeyPrefix string `json:"key_prefix"`
 		}
@@ -163,22 +172,29 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 		}
 
 		var files []string
-		filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
+		if err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
-				return nil
+				return err
 			}
 			if !d.IsDir() {
 				rel, err := filepath.Rel(dirPath, path)
-				if err == nil {
-					files = append(files, rel)
+				if err != nil {
+					return err
 				}
+				files = append(files, rel)
 			}
 			return nil
-		})
+		}); err != nil {
+			xlog.Error("Failed to list staged files", "keyPrefix", req.KeyPrefix, "dirPath", dirPath, "error", err)
+			replyJSON(reply, map[string]any{"error": err.Error()})
+			return
+		}
 
 		xlog.Debug("Listed remote dir", "keyPrefix", req.KeyPrefix, "dirPath", dirPath, "fileCount", len(files))
 		replyJSON(reply, map[string]any{"files": files})
-	})
+	}); err != nil {
+		return fmt.Errorf("subscribing to files.listdir events: %w", err)
+	}
 
 	xlog.Info("Subscribed to file staging NATS subjects", "nodeID", nodeID)
 	return nil

@@ -29,7 +29,7 @@ func (b bearerToken) RequireTransportSecurity() bool { return false }
 
 type Client struct {
 	address  string
-	busy     bool
+	inFlight int
 	parallel bool
 	token    string
 	sync.Mutex
@@ -38,32 +38,33 @@ type Client struct {
 }
 
 type WatchDog interface {
-	Mark(address string)
-	UnMark(address string)
+	TrackRequest(address string) func()
 }
 
 func (c *Client) IsBusy() bool {
 	c.Lock()
 	defer c.Unlock()
-	return c.busy
+	return c.inFlight > 0
 }
 
+// setBusy preserves the existing call-site shape while maintaining a count.
+// Parallel requests can finish in any order, so a boolean would let the first
+// completion report the backend idle while other calls were still running.
 func (c *Client) setBusy(v bool) {
 	c.Lock()
-	c.busy = v
+	if v {
+		c.inFlight++
+	} else if c.inFlight > 0 {
+		c.inFlight--
+	}
 	c.Unlock()
 }
 
-func (c *Client) wdMark() {
+func (c *Client) wdMark() func() {
 	if c.wd != nil {
-		c.wd.Mark(c.address)
+		return c.wd.TrackRequest(c.address)
 	}
-}
-
-func (c *Client) wdUnMark() {
-	if c.wd != nil {
-		c.wd.UnMark(c.address)
-	}
+	return func() {}
 }
 
 // dial creates a gRPC client connection with common options.
@@ -119,8 +120,7 @@ func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -138,8 +138,7 @@ func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grp
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -157,8 +156,7 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -175,8 +173,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return err
@@ -223,8 +220,7 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -241,8 +237,7 @@ func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest,
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -259,8 +254,7 @@ func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOp
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -277,8 +271,7 @@ func (c *Client) TTSStream(ctx context.Context, in *pb.TTSRequest, f func(reply 
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return err
@@ -323,8 +316,7 @@ func (c *Client) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -341,8 +333,7 @@ func (c *Client) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -359,8 +350,7 @@ func (c *Client) AudioTranscriptionStream(ctx context.Context, in *pb.Transcript
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return err
@@ -403,8 +393,7 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -443,8 +432,7 @@ func (c *Client) StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ..
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -459,8 +447,7 @@ func (c *Client) StoresDelete(ctx context.Context, in *pb.StoresDeleteOptions, o
 		c.opMutex.Lock()
 		defer c.opMutex.Unlock()
 	}
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	c.setBusy(true)
 	defer c.setBusy(false)
 	conn, err := c.dial()
@@ -479,8 +466,7 @@ func (c *Client) StoresGet(ctx context.Context, in *pb.StoresGetOptions, opts ..
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -497,8 +483,7 @@ func (c *Client) StoresFind(ctx context.Context, in *pb.StoresFindOptions, opts 
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -515,8 +500,7 @@ func (c *Client) Rerank(ctx context.Context, in *pb.RerankRequest, opts ...grpc.
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -533,8 +517,7 @@ func (c *Client) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest,
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -551,8 +534,7 @@ func (c *Client) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.Ca
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -569,8 +551,7 @@ func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opt
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -587,8 +568,7 @@ func (c *Client) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOp
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -605,8 +585,7 @@ func (c *Client) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grp
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -623,8 +602,7 @@ func (c *Client) SoundDetection(ctx context.Context, in *pb.SoundDetectionReques
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -641,8 +619,7 @@ func (c *Client) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -659,8 +636,7 @@ func (c *Client) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.Ca
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -677,8 +653,7 @@ func (c *Client) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts 
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -695,8 +670,7 @@ func (c *Client) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest, opt
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -713,8 +687,7 @@ func (c *Client) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opt
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -731,8 +704,7 @@ func (c *Client) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, o
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -749,8 +721,7 @@ func (c *Client) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts 
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -767,8 +738,7 @@ func (c *Client) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opt
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -785,8 +755,7 @@ func (c *Client) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest, opt
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -803,8 +772,7 @@ func (c *Client) AudioTransform(ctx context.Context, in *pb.AudioTransformReques
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -857,10 +825,10 @@ func (c *Client) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardC
 		c.opMutex.Lock()
 	}
 	c.setBusy(true)
-	c.wdMark()
+	completeRequest := c.wdMark()
 
 	cleanup := func() {
-		c.wdUnMark()
+		completeRequest()
 		c.setBusy(false)
 		if !c.parallel {
 			c.opMutex.Unlock()
@@ -923,10 +891,10 @@ func (c *Client) AudioTransformStream(ctx context.Context, opts ...grpc.CallOpti
 		c.opMutex.Lock()
 	}
 	c.setBusy(true)
-	c.wdMark()
+	completeRequest := c.wdMark()
 
 	cleanup := func() {
-		c.wdUnMark()
+		completeRequest()
 		c.setBusy(false)
 		if !c.parallel {
 			c.opMutex.Unlock()
@@ -1002,10 +970,10 @@ func (c *Client) AudioTranscriptionLive(ctx context.Context, opts ...grpc.CallOp
 		c.opMutex.Lock()
 	}
 	c.setBusy(true)
-	c.wdMark()
+	completeRequest := c.wdMark()
 
 	cleanup := func() {
-		c.wdUnMark()
+		completeRequest()
 		c.setBusy(false)
 		if !c.parallel {
 			c.opMutex.Unlock()
@@ -1066,10 +1034,10 @@ func (c *Client) AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption
 		c.opMutex.Lock()
 	}
 	c.setBusy(true)
-	c.wdMark()
+	completeRequest := c.wdMark()
 
 	cleanup := func() {
-		c.wdUnMark()
+		completeRequest()
 		c.setBusy(false)
 		if !c.parallel {
 			c.opMutex.Unlock()
@@ -1104,8 +1072,7 @@ func (c *Client) StartFineTune(ctx context.Context, in *pb.FineTuneRequest, opts
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -1122,8 +1089,7 @@ func (c *Client) FineTuneProgress(ctx context.Context, in *pb.FineTuneProgressRe
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return err
@@ -1166,8 +1132,7 @@ func (c *Client) StopFineTune(ctx context.Context, in *pb.FineTuneStopRequest, o
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -1184,8 +1149,7 @@ func (c *Client) ListCheckpoints(ctx context.Context, in *pb.ListCheckpointsRequ
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -1202,8 +1166,7 @@ func (c *Client) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opt
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -1220,8 +1183,7 @@ func (c *Client) StartQuantization(ctx context.Context, in *pb.QuantizationReque
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -1238,8 +1200,7 @@ func (c *Client) QuantizationProgress(ctx context.Context, in *pb.QuantizationPr
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return err
@@ -1282,8 +1243,7 @@ func (c *Client) StopQuantization(ctx context.Context, in *pb.QuantizationStopRe
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
@@ -1300,8 +1260,7 @@ func (c *Client) Free(ctx context.Context) error {
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 
 	conn, err := c.dial()
 	if err != nil {
@@ -1321,8 +1280,7 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	}
 	c.setBusy(true)
 	defer c.setBusy(false)
-	c.wdMark()
-	defer c.wdUnMark()
+	defer c.wdMark()()
 	conn, err := c.dial()
 	if err != nil {
 		return nil, err
