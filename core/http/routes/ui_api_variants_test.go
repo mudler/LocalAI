@@ -208,4 +208,86 @@ var _ = Describe("Model gallery variants API", func() {
 			Expect(code).To(Equal(http.StatusNotFound))
 		})
 	})
+
+	// The gallery is heading towards hiding the individual builds a parent
+	// entry references. Adoption is one entry, so the toggle is the inverse of
+	// that end state: off by default and changing nothing, on to preview it.
+	Context("the has_variants listing filter", func() {
+		names := func(path string) []string {
+			code, body := get(path)
+			Expect(code).To(Equal(http.StatusOK))
+			raw, ok := body["models"].([]any)
+			Expect(ok).To(BeTrue(), "listing must return a models array")
+			out := make([]string, 0, len(raw))
+			for _, m := range raw {
+				out = append(out, m.(map[string]any)["name"].(string))
+			}
+			return out
+		}
+
+		rawBody := func(path string) []byte {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			return rec.Body.Bytes()
+		}
+
+		It("returns every entry when off", func() {
+			Expect(names("/api/models?items=9999")).To(ConsistOf("base-entry", "big-entry", "plain-entry"))
+		})
+
+		It("returns only entries that declare variants when on", func() {
+			// big-entry is the build base-entry references, so it must drop
+			// out even though it is a perfectly valid entry on its own.
+			Expect(names("/api/models?items=9999&has_variants=true")).To(ConsistOf("base-entry"))
+		})
+
+		It("leaves the response untouched for any value other than true", func() {
+			// Default off has to mean off, so an explicit false and an
+			// unparseable value must both behave as absent rather than as a
+			// truthy presence check.
+			base := rawBody("/api/models?items=9999")
+			Expect(rawBody("/api/models?items=9999&has_variants=false")).To(Equal(base))
+			Expect(rawBody("/api/models?items=9999&has_variants=1")).To(Equal(base))
+		})
+
+		It("serializes a non-declaring entry exactly as it did before", func() {
+			// The whole promise of the migration phase: a user who never
+			// touches the toggle sees byte-for-byte what they saw before.
+			entry := find(listing(), "plain-entry")
+			Expect(entry).NotTo(HaveKey("has_variants"))
+			Expect(entry).NotTo(HaveKey("variants"))
+			Expect(entry).NotTo(HaveKey("auto_variant"))
+		})
+
+		It("composes with the backend filter rather than replacing it", func() {
+			// base-entry declares variants and is llama-cpp; plain-entry is
+			// whisper and declares none. If either filter overwrote the other,
+			// the whisper case would return base-entry or plain-entry instead
+			// of nothing.
+			Expect(names("/api/models?items=9999&has_variants=true&backend=llama-cpp")).To(ConsistOf("base-entry"))
+			Expect(names("/api/models?items=9999&has_variants=true&backend=whisper")).To(BeEmpty())
+			Expect(names("/api/models?items=9999&backend=whisper")).To(ConsistOf("plain-entry"))
+		})
+
+		It("composes with the search term", func() {
+			Expect(names("/api/models?items=9999&has_variants=true&term=base")).To(ConsistOf("base-entry"))
+			Expect(names("/api/models?items=9999&has_variants=true&term=plain")).To(BeEmpty())
+		})
+
+		It("reports the filtered total so pagination stays honest", func() {
+			// The listing paginates at 9, so a filter that narrowed the rows
+			// without narrowing the count would hand the user empty pages.
+			_, body := get("/api/models?items=9999&has_variants=true")
+			Expect(body["availableModels"]).To(BeEquivalentTo(1))
+			Expect(body["totalPages"]).To(BeEquivalentTo(1))
+		})
+
+		It("still issues no variant probes when filtering", func() {
+			names("/api/models?items=9999&has_variants=true")
+			Expect(probes.Load()).To(BeZero(),
+				"the filter must select on declared metadata, not by describing variants")
+		})
+	})
 })

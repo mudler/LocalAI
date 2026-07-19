@@ -22,6 +22,7 @@ import React from 'react'
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
 const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
+const VARIANTS_FILTER_STORAGE_KEY = 'localai-models-has-variants-filter'
 
 
 const FILTERS = [
@@ -86,6 +87,16 @@ export default function Models() {
       return false
     }
   })
+  // Narrows the listing to entries that declare variants. Server-side, unlike
+  // fitsFilter, because the listing paginates and a client-side narrowing
+  // would leave the page count describing the unfiltered set.
+  const [variantsFilter, setVariantsFilter] = useState(() => {
+    try {
+      return localStorage.getItem(VARIANTS_FILTER_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
 
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
@@ -97,6 +108,7 @@ export default function Models() {
       const filtersVal = params.filters !== undefined ? params.filters : filters
       const sortVal = params.sort !== undefined ? params.sort : sort
       const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
+      const variantsVal = params.variantsFilter !== undefined ? params.variantsFilter : variantsFilter
       const queryParams = {
         page: params.page || page,
         items: 9,
@@ -104,6 +116,9 @@ export default function Models() {
       if (filtersVal.length > 0) queryParams.tag = filtersVal.join(',')
       if (searchVal) queryParams.term = searchVal
       if (backendVal) queryParams.backend = backendVal
+      // Omitted entirely when off, so the default request is byte-for-byte
+      // what it was before the toggle existed.
+      if (variantsVal) queryParams.has_variants = 'true'
       if (sortVal) {
         queryParams.sort = sortVal
         queryParams.order = params.order || order
@@ -121,11 +136,11 @@ export default function Models() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, filters, sort, order, backendFilter, addToast, t])
+  }, [page, search, filters, sort, order, backendFilter, variantsFilter, addToast, t])
 
   useEffect(() => {
     fetchModels()
-  }, [page, filters, sort, order, backendFilter])
+  }, [page, filters, sort, order, backendFilter, variantsFilter])
 
   // Fetch backend→usecase mapping once on mount
   useEffect(() => {
@@ -290,6 +305,14 @@ export default function Models() {
     }
   }, [fitsFilter])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(VARIANTS_FILTER_STORAGE_KEY, variantsFilter ? '1' : '0')
+    } catch {
+      // Ignore storage errors (e.g., private browsing restrictions).
+    }
+  }, [variantsFilter])
+
   const visibleModels = models.filter((model) => {
     if (!fitsFilter) return true
     const name = model.name || model.id
@@ -361,8 +384,16 @@ export default function Models() {
             </button>
           )
         })}
+        <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
+          <Toggle
+            checked={variantsFilter}
+            onChange={(v) => { setVariantsFilter(v); setPage(1) }}
+          />
+          <i className="fas fa-layer-group" />
+          <span>{t('filters.hasVariants')}</span>
+        </label>
         {totalGpuMemory > 0 && (
-          <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
+          <label className="filter-bar-group__toggle">
             <Toggle checked={fitsFilter} onChange={setFitsFilter} />
             <i className="fas fa-microchip" />
             <span>{t('filters.fitsGpu')}</span>
@@ -376,7 +407,6 @@ export default function Models() {
             placeholder={t('filters.allBackends')}
             allOption={t('filters.allBackends')}
             searchPlaceholder={t('filters.searchBackends')}
-            style={totalGpuMemory > 0 ? undefined : { marginLeft: 'auto' }}
           />
         )}
       </div>
@@ -408,12 +438,14 @@ export default function Models() {
           <div className="empty-state-icon"><i className="fas fa-search" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">
-            {search || filters.length > 0 || backendFilter || fitsFilter ? t('empty.withFilters') : t('empty.noFilters')}
+            {variantsFilter
+              ? t('empty.withVariantsFilter')
+              : search || filters.length > 0 || backendFilter || fitsFilter ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {(search || filters.length > 0 || backendFilter || fitsFilter) && (
+          {(search || filters.length > 0 || backendFilter || fitsFilter || variantsFilter) && (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setPage(1) }}
+              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setVariantsFilter(false); setPage(1) }}
             >
               <i className="fas fa-times" /> {t('search.clearFilters')}
             </button>

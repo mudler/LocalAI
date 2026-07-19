@@ -24,6 +24,7 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Entra nella GPU",
+    "hasVariants": "Con varianti",
     "allBackends": "Tutti i backend",
     "searchBackends": "Cerca backend..."
   },
@@ -71,6 +72,7 @@
   "empty": {
     "title": "Nessun modello trovato",
     "withFilters": "Nessun modello corrisponde ai filtri attuali.",
+    "withVariantsFilter": "Nessuna voce dichiara varianti al momento. Disattiva il filtro varianti per vedere l'intera galleria.",
     "noFilters": "La galleria modelli è vuota."
   },
   "deleteDialog": {

@@ -480,6 +480,30 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			models = filtered
 		}
 
+		// Narrow to entries that declare variants, i.e. the ones the listing
+		// marks with has_variants.
+		//
+		// This is the inverse of where the gallery is heading. The end state
+		// hides the individual builds a parent entry references, so a user sees
+		// one row per model rather than one per quantization. Adoption is still
+		// a single entry, so defaulting to that today would empty the gallery.
+		// Opt-in instead: with the parameter absent the response is exactly
+		// what it was, and the toggle is a preview of the end state that costs
+		// nothing until someone asks for it.
+		//
+		// Server-side because the listing paginates at 9 items; filtering the
+		// current page in the client would leave the page count describing the
+		// unfiltered set and hand the user empty pages.
+		if c.QueryParam("has_variants") == "true" {
+			filtered := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
+			for _, m := range models {
+				if m.HasVariants() {
+					filtered = append(filtered, m)
+				}
+			}
+			models = filtered
+		}
+
 		// Capability filters are derived from the effective gallery model
 		// configuration. In particular, voice cloning is variant-sensitive, so
 		// filtering by the TTS usecase or backend name alone would advertise
