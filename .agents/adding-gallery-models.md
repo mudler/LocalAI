@@ -119,14 +119,23 @@ Rules:
 - **Order carries no meaning.** Do not try to encode a preference; write the
   list in whatever order reads best.
 - **A variant may be smaller than the declaring entry.** Offering a downgrade
-  for small hosts is a normal shape: the declaring entry's own build competes on
-  size like every other candidate, so a large host keeps the large build.
+  for small hosts is a normal shape: the declaring entry's own build competes
+  like every other candidate, so a large host keeps the large build.
 - **Do not describe hardware.** At install time LocalAI drops variants whose
-  backend cannot run on the host, drops those that do not fit available memory,
-  and installs the largest of what is left, the declaring entry's own build
-  included. That build is never dropped, so selection always terminates on
-  something installable. Sizes are measured live from the weights and cached, so
-  nothing has to be written down.
+  backend cannot run on the host, then drops those that do not fit available
+  memory. The declaring entry's own build is exempt from both filters, so
+  selection always terminates on something installable. Sizes are measured live
+  from the weights and cached, so nothing has to be written down.
+- **Engine preference outranks size.** Among the builds that survive the
+  filters, the host's preferred engine wins first and only then does the larger
+  footprint win. On NVIDIA a vLLM build beats a larger llama.cpp one; on Apple
+  silicon an MLX build beats a larger GGUF one; on a host with no preference for
+  either engine the larger build wins, since a bigger footprint is a higher
+  quality quantization of the same weights. Predict what a user gets by asking
+  which engine the host prefers before asking which build is biggest. The
+  per-capability order lives in `engineNamePreferenceRules`
+  (`pkg/system/capabilities.go`); see
+  [adding-backends.md](adding-backends.md) for how a backend gets into it.
 - A variant is nothing but a name; there is no per-variant memory field. When
   the measured size for a build is wrong, correct it on the referenced entry by
   setting that entry's own `size:` (e.g. `size: "20GiB"`). The estimator prefers

@@ -165,16 +165,21 @@ carries a `variants` list, and installing it normally lets LocalAI choose:
 - the entry's own build is never dropped. It competes with whatever survived
   rather than waiting for everything else to fail, so an entry that is itself
   the largest build that fits keeps its own payload;
-- the largest remaining build wins, because a bigger footprint means a higher
-  quality build of the same model;
+- among the remaining builds the engine this machine prefers wins first: a vLLM
+  build on an NVIDIA or AMD host, an MLX build on Apple Silicon, llama.cpp
+  otherwise. The native accelerated runtime is worth more than a bigger
+  download, so preference is settled before size;
+- the largest build on the preferred engine then wins, because a bigger
+  footprint means a higher quality build of the same model. A machine with no
+  preferred engine picks purely by size;
 - a build whose size could not be measured ranks below the entry's own build,
   so an unreadable size never quietly displaces the payload the entry ships;
 - if nothing else survives, the entry's own build is installed. The entry is
   always installable, on any machine.
 
-Because the entry's own build competes on size like every other candidate, the
-order of the list means nothing and a `variants` list may offer smaller builds,
-larger ones, or both.
+Because the entry's own build competes like every other candidate, the order of
+the list means nothing and a `variants` list may offer smaller builds, larger
+ones, or both.
 
 Sizes are measured from the model's weights rather than downloaded, and cached.
 
@@ -256,6 +261,9 @@ The same option exists on the CLI:
 ```bash
 local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
 ```
+
+The `install_model` MCP tool takes the same `variant` argument, so an assistant
+managing installs conversationally can pick a build too.
 
 Entries without a `variants` list are unaffected by any of this and install
 exactly as they always have.

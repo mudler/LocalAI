@@ -216,6 +216,34 @@ docker-build-backends: ... docker-build-<backend-name>
 - If the backend is in `backend/python/<backend-name>/` but uses `.` as context in the workflow file, use `.` context
 - Check similar backends to determine the correct context
 
+## Engine preference for gallery model variants
+
+A gallery entry can declare `variants`, alternative builds of the same weights,
+and LocalAI picks one per host: it drops builds whose backend cannot run here or
+that do not fit memory, then ranks the survivors by **engine preference first,
+size second** (`SelectVariant` in `core/gallery/resolve_variant.go`).
+
+Ask whether your backend should outrank another one on some hardware. If it
+should, add it to `engineNamePreferenceRules` in `pkg/system/capabilities.go`,
+best engine first for that capability:
+
+```go
+ 	{Nvidia, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
++	{Nvidia, []string{engineVLLM, engineSGLang, engineMyEngine, engineLlamaCpp}},
+```
+
+That is the ENGINE NAME table, matched against a gallery entry's `backend:`
+value. The `backendBuildTagPreferenceRules` table next to it is a different
+vocabulary: build tags (`cuda`, `rocm`, `metal`) matched against installed build
+directory names for alias resolution. **Putting an engine name in the build tag
+table, or a build tag in the engine table, matches nothing and does not error**:
+every candidate scores equal and size alone decides, so the preference silently
+stops existing. The block comment above both tables spells the contract out.
+
+Leaving your backend out is a valid choice when no ordering can be justified for
+it. It then ranks below every known engine and selection falls back to size,
+which is the behaviour that predates preference.
+
 ## Documenting the backend (README + docs)
 
 A backend is not "added" until it is discoverable. Update the user-facing docs:
@@ -252,6 +280,7 @@ After adding a new backend, verify:
 - [ ] No Makefile syntax errors (check with linter)
 - [ ] Follows the same pattern as similar backends (e.g., if it's a transcription backend, follow `faster-whisper` pattern)
 - [ ] **`Load` validates its input and refuses models it can't serve.** When a model config has no explicit `backend:`, the model loader greedily probes *every* installed backend with the model's name and binds to the first `Load` that succeeds — an accept-anything `Load` will capture arbitrary LLMs (issue #9287). Backends that load a real artefact get this for free (the load fails); backends with no artefact must gate on the name: `opus` accepts only its own name (or none), `local-store` requires the `store.NamespacePrefix` namespace marker sent by `core/backend/stores.go`.
+- [ ] **Gallery variant ranking considered**: if this backend should be preferred over another on some hardware, it is listed in `engineNamePreferenceRules` (NOT `backendBuildTagPreferenceRules`) in `pkg/system/capabilities.go`. A missing entry silently ranks it last and lets size decide.
 - [ ] Documented: added to the category list in `docs/content/features/backends.md` (and any new endpoint/realtime capability documented under `docs/content/`)
 - [ ] If it is an in-house native C/C++/GGML engine, added to the maintained-engines table in the top-level `README.md`
 
