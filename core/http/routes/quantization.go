@@ -4,13 +4,14 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/quantization"
 )
 
 // RegisterQuantizationRoutes registers quantization API routes.
-func RegisterQuantizationRoutes(e *echo.Echo, qService *quantization.QuantizationService, appConfig *config.ApplicationConfig, quantizationMw echo.MiddlewareFunc) {
+func RegisterQuantizationRoutes(e *echo.Echo, qService *quantization.QuantizationService, appConfig *config.ApplicationConfig, app *application.Application, quantizationMw echo.MiddlewareFunc) {
 	if qService == nil {
 		return
 	}
@@ -28,7 +29,7 @@ func RegisterQuantizationRoutes(e *echo.Echo, qService *quantization.Quantizatio
 	}
 
 	q := e.Group("/api/quantization", readyMw, quantizationMw)
-	q.GET("/backends", localai.ListQuantizationBackendsEndpoint(appConfig))
+	q.GET("/backends", localai.ListQuantizationBackendsEndpoint(appConfig, ClusterCapabilityProviderFor(app)))
 	q.POST("/jobs", localai.StartQuantizationJobEndpoint(qService))
 	q.GET("/jobs", localai.ListQuantizationJobsEndpoint(qService))
 	q.GET("/jobs/:id", localai.GetQuantizationJobEndpoint(qService))

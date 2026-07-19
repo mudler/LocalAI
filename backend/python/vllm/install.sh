@@ -3,6 +3,12 @@ set -e
 
 EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
 
+# grpcio 1.82 bundles protoc 7.x, while vLLM's resolved protobuf runtime is
+# still 6.33.x. Generate the backend stubs with the newest grpcio-tools release
+# that emits protobuf 6.x gencode; the newer grpcio runtime can consume those
+# stubs, but protobuf 6.x cannot import 7.x gencode.
+export GRPCIO_TOOLS_VERSION="1.78.0"
+
 # Avoid to overcommit the CPU during build
 # https://github.com/vllm-project/vllm/issues/20079
 # https://docs.vllm.ai/en/v0.8.3/serving/env_vars.html

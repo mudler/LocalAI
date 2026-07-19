@@ -246,6 +246,11 @@ Via web UI: Navigate to Settings → Watchdog Settings and enable "Watchdog Idle
 
 The busy watchdog monitors models that have been processing requests for an unusually long time and terminates them if they exceed a threshold. This is useful for detecting and recovering from stuck or hung backends.
 
+For parallel backends, the timeout is measured from the start of the oldest
+request that is still in flight. Sustained overlapping traffic does not by
+itself make a backend stale: when the oldest request completes, the watchdog
+continues from the start time of the next-oldest request.
+
 #### Configuration
 
 Via environment variables or CLI:
@@ -258,6 +263,18 @@ LOCALAI_WATCHDOG_BUSY=true LOCALAI_WATCHDOG_BUSY_TIMEOUT=10m ./local-ai
 ```
 
 Via web UI: Navigate to Settings → Watchdog Settings and enable "Watchdog Busy Enabled" with your desired timeout.
+
+#### Backend shutdown behavior
+
+Administrative and API-triggered model shutdown is graceful by default. It
+waits up to 30 seconds for in-flight requests to finish and returns a
+`model is still busy` error if the deadline expires. This bounded wait keeps a
+busy backend from blocking lifecycle operations for other models.
+
+Set `LOCALAI_FORCE_BACKEND_SHUTDOWN=true` when starting LocalAI to escalate a
+timed-out graceful shutdown to forced process termination. Forced shutdown can
+interrupt active requests and skips the backend `Free()` RPC; terminating the
+process releases its resources instead.
 
 ### Combined Configuration
 
@@ -440,4 +457,3 @@ Conversely, you can pre-load a model into memory ahead of its first request with
 - See [Advanced Usage]({{%relref "advanced/advanced-usage" %}}) for other configuration options
 - See [GPU Acceleration]({{%relref "features/GPU-acceleration" %}}) for GPU setup and configuration
 - See [Backend Flags]({{%relref "advanced/advanced-usage#backend-flags" %}}) for all available backend configuration options
-

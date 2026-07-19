@@ -160,13 +160,22 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			failOnce := &failOnceMessagingClient{inner: mc, failOn: 0}
 			adapter = NewRemoteUnloaderAdapter(locator, failOnce, 3*time.Minute, 15*time.Minute)
 
-			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
+			Expect(adapter.UnloadRemoteModel("llama")).To(HaveOccurred())
 
 			// The second node should still have been processed.
 			// The first node's StopBackend errored, so RemoveNodeModel was NOT called for it.
 			// The second node's StopBackend succeeded, so RemoveNodeModel WAS called.
 			Expect(locator.removedPairs).To(HaveLen(1))
 			Expect(locator.removedPairs[0].nodeID).To(Equal("node-ok"))
+		})
+
+		It("propagates forced shutdown to every worker", func() {
+			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
+			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", true)).To(Succeed())
+
+			var payload messaging.BackendStopRequest
+			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
+			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
 		})
 	})
 
@@ -182,11 +191,10 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
 			Expect(mc.published).To(HaveLen(1))
 
-			var payload struct {
-				Backend string `json:"backend"`
-			}
+			var payload messaging.BackendStopRequest
 			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
 			Expect(payload.Backend).To(Equal("llama-backend"))
+			Expect(payload.Force).To(BeFalse())
 		})
 	})
 

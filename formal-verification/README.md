@@ -1,12 +1,14 @@
-# Formal verification — realtime state machines
+# Formal verification
 
-Formal designs (FizzBee specs) for the realtime API state machines and the harness
-that keeps the Go implementation provably in step with them. Background and
-rationale: [../docs/design/realtime-state-machines.md](../docs/design/realtime-state-machines.md) (Part 6).
+Formal designs expressed as FizzBee specs.
+Most specs cover the realtime API state machines; `model_loader_shutdown.fizz`
+covers the shared model-loader lifecycle that all modalities use. Realtime
+background and rationale:
+[../docs/design/realtime-state-machines.md](../docs/design/realtime-state-machines.md)
+(Part 6).
 
-The design is **authoritative**: behaviour changes go through the spec first, then
-the implementation is checked against it. The `realtime-conformance` gate makes
-that the path of least resistance — you cannot land a non-conforming change green.
+The designs are **authoritative**: behaviour changes go through the spec first,
+then the implementation is checked against them.
 
 ## What's here
 
@@ -18,6 +20,7 @@ that the path of least resistance — you cannot land a non-conforming change gr
 | `compaction.fizz` | **Authoritative** FizzBee model of machine M4 (conversation compaction): single-flight. |
 | `tts_pipeline.fizz` | **Authoritative** FizzBee model of machine M5 (TTS pipeline): open->closing->closed, idempotent close. |
 | `session_lifecycle.fizz` | **Composition** spec: the M1–M5 hierarchy — conn (M1) is the parent; when it is torn down, every child (vad/M2, resp/M3, compaction/M4) is terminal. Models the relationship the per-machine specs can't express. |
+| `model_loader_shutdown.fizz` | **Authoritative** shared lifecycle design: bounded busy/Free waits, distributed force propagation/port reservation, and parallel in-flight accounting. Checked via `make test-model-lifecycle-conformance`. |
 | `fizzbee.sha256` | Pinned checksum(s) of the FizzBee release the gate uses (created on first `install-fizzbee.sh` run). |
 
 The implementations under test live in
@@ -27,7 +30,7 @@ The implementations under test live in
 [`core/http/endpoints/openai/compactcoord`](../../../core/http/endpoints/openai/compactcoord) (M4),
 and [`core/http/endpoints/openai/ttscoord`](../../../core/http/endpoints/openai/ttscoord) (M5).
 
-## Running the gate
+## Running the realtime gate
 
 ```sh
 make test-realtime-conformance
@@ -55,6 +58,23 @@ the explicit, loud `REALTIME_CONFORMANCE_SKIP_FIZZBEE=1` opt-out, intended for
 local work on unrelated code. CI never sets it, and `pre-commit` runs the full
 gate whenever `respcoord/**`, `turncoord/**`, `conncoord/**`, `compactcoord/**`, `ttscoord/**`, or `formal-verification/**` is
 staged (so a pure `.fizz` edit still re-verifies).
+
+## Running the model-loader lifecycle gate
+
+```sh
+make test-model-lifecycle-conformance
+# or directly:
+./scripts/model-lifecycle-conformance.sh
+```
+
+This focused, fail-closed gate runs the loader, gRPC client, distributed
+unloader, and worker lifecycle specs under the race detector and then checks
+`model_loader_shutdown.fizz`. The model proves that local force and bounded
+graceful busy waiting cannot wedge unrelated loads, distributed force skips
+`Free()` and reserves the worker port until termination, and parallel request
+tracking stays busy until the final request completes. Process termination is
+an explicit fairness assumption; the concrete Go tests connect the abstract
+model to the implementation paths.
 
 ## Installing FizzBee (pinned)
 
@@ -127,6 +147,11 @@ reproduce the legacy bug it guards against:
   teardown cancelling + joining each conversation's compaction (and respcoord/
   compactcoord gained an absorbing `Terminated` state so no child can start after
   teardown).
+- `model_loader_shutdown.fizz`: in `ForceShutdown`, delete `self.backend = 2` to
+  violate local progress; move `self.port_recycled = 1` from `ProcessStops` to
+  `WorkerReceivesStop` to violate distributed port safety; or set `self.busy = 0`
+  in `FinishOne` to violate parallel busy accounting. The checker rejects each
+  mutation.
 
 ## Adding another machine
 

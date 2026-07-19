@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -31,6 +32,13 @@ type ModelUnloadHook func(modelName string)
 // RemoteModelUnloader.UnloadRemoteModel is called to tell the remote node to free it.
 type RemoteModelUnloader interface {
 	UnloadRemoteModel(modelName string) error
+}
+
+// RemoteModelContextUnloader is the optional cancellation/force extension used
+// by distributed workers. Keeping it separate preserves compatibility with
+// existing RemoteModelUnloader implementations.
+type RemoteModelContextUnloader interface {
+	UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error
 }
 
 // ModelRouter is a callback that routes model loading to a remote node
@@ -65,6 +73,7 @@ type ModelLoader struct {
 	mu                       sync.Mutex
 	store                    ModelStore
 	loading                  map[string]chan struct{} // tracks models currently being loaded
+	operations               *modelOperationLocks
 	wd                       *WatchDog
 	externalBackends         map[string]string
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
@@ -118,6 +127,7 @@ func NewModelLoader(system *system.SystemState) *ModelLoader {
 		ModelPath:                system.Model.ModelsPath,
 		store:                    NewInMemoryModelStore(),
 		loading:                  make(map[string]chan struct{}),
+		operations:               newModelOperationLocks(),
 		externalBackends:         make(map[string]string),
 		lruEvictionMaxRetries:    30,              // Default: 30 retries
 		lruEvictionRetryInterval: 1 * time.Second, // Default: 1 second
@@ -257,6 +267,8 @@ func (ml *ModelLoader) SetModelStore(s ModelStore) {
 }
 
 func (ml *ModelLoader) GetWatchDog() *WatchDog {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	return ml.wd
 }
 
@@ -303,6 +315,8 @@ func (ml *ModelLoader) GetExternalBackend(name string) string {
 }
 
 func (ml *ModelLoader) GetAllExternalBackends(o *Options) map[string]string {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
 	backends := make(map[string]string)
 	maps.Copy(backends, ml.externalBackends)
 	if o != nil {
@@ -340,8 +354,6 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".partial",
 	".tar.gz",
 }
-
-const retryTimeout = time.Duration(2 * time.Minute)
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
 	files, err := os.ReadDir(ml.ModelPath)
@@ -385,10 +397,11 @@ FILE:
 
 func (ml *ModelLoader) ListLoadedModels() []*Model {
 	ml.mu.Lock()
-	defer ml.mu.Unlock()
+	store := ml.store
+	ml.mu.Unlock()
 
 	models := []*Model{}
-	ml.store.Range(func(_ string, m *Model) bool {
+	store.Range(func(_ string, m *Model) bool {
 		models = append(models, m)
 		return true
 	})
@@ -404,6 +417,8 @@ func (ml *ModelLoader) LoadModelWithFile(modelID, modelName, modelFileName strin
 	if modelFileName == "" {
 		modelFileName = modelName
 	}
+	release := ml.operations.acquire(modelID, false)
+	defer release()
 	return ml.loadModel(modelID, modelName, modelFileName, loader, true)
 }
 
@@ -455,10 +470,16 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 		return model, nil
 	}
 
-	ml.mu.Lock()
-
 	// Check if we already have a loaded model
 	if model := ml.checkIsLoaded(modelID); model != nil {
+		return model, nil
+	}
+
+	ml.mu.Lock()
+	// A concurrent leader can publish its model between the health check above
+	// and this lock acquisition. It is fresh by definition, so avoid starting a
+	// duplicate load without performing another network probe under ml.mu.
+	if model, ok := ml.store.Get(modelID); ok {
 		ml.mu.Unlock()
 		return model, nil
 	}
@@ -483,9 +504,7 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 		xlog.Debug("Waiting for model to be loaded by another request", "modelID", modelID)
 		<-loadingChan
 		// Now check if the model is loaded
-		ml.mu.Lock()
 		model := ml.checkIsLoaded(modelID)
-		ml.mu.Unlock()
 		if model != nil {
 			return model, nil
 		}
@@ -532,35 +551,64 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 }
 
 func (ml *ModelLoader) ShutdownModel(modelName string) error {
-	ml.mu.Lock()
-	defer ml.mu.Unlock()
-
-	return ml.deleteProcess(modelName, false)
+	ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+	defer cancel()
+	err := ml.shutdownModel(ctx, modelName, false)
+	if errors.Is(err, ErrModelBusy) && forceBackendShutdown {
+		xlog.Warn("Model remained busy until the graceful shutdown deadline; forcing shutdown", "model", modelName)
+		return ml.ShutdownModelForce(modelName)
+	}
+	return err
 }
 
 // ShutdownModelForce stops a backend without waiting for an in-flight gRPC
 // call to finish first. It is used by the watchdog's busy-killer, which only
 // fires once a backend has been stuck on a call past the busy timeout — the
-// graceful ShutdownModel would block forever on that stuck call (while
-// holding ml.mu), preventing every other model load. See deleteProcess.
+// graceful ShutdownModel intentionally waits for active calls until its
+// bounded deadline. See deleteProcess.
 func (ml *ModelLoader) ShutdownModelForce(modelName string) error {
-	ml.mu.Lock()
-	defer ml.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
+	defer cancel()
+	return ml.shutdownModel(ctx, modelName, true)
+}
 
-	return ml.deleteProcess(modelName, true)
+// ShutdownModelContext is the cancellation-aware lifecycle primitive used by
+// both graceful and forced shutdown wrappers.
+func (ml *ModelLoader) ShutdownModelContext(ctx context.Context, modelName string, force bool) error {
+	return ml.shutdownModel(ctx, modelName, force)
+}
+
+func (ml *ModelLoader) shutdownModel(ctx context.Context, modelName string, force bool) error {
+	release, err := ml.operations.acquireContext(ctx, modelName, true)
+	if err != nil {
+		return fmt.Errorf("waiting to shut down model %q: %w", modelName, err)
+	}
+	defer release()
+	return ml.deleteProcess(ctx, modelName, force)
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
-	ml.mu.Lock()
-	defer ml.mu.Unlock()
+	release := ml.operations.acquire(s, false)
+	defer release()
 	return ml.checkIsLoaded(s)
 }
 
 func (ml *ModelLoader) checkIsLoaded(s string) *Model {
-	m, ok := ml.store.Get(s)
+	ml.mu.Lock()
+	store := ml.store
+	wd := ml.wd
+	ml.mu.Unlock()
+
+	m, ok := store.Get(s)
 	if !ok {
 		return nil
 	}
+
+	// Health checks are per model. Serializing them here prevents a cold health
+	// cache from generating a burst of identical probes without blocking any
+	// other model's lifecycle.
+	m.healthMu.Lock()
+	defer m.healthMu.Unlock()
 
 	xlog.Debug("Model already loaded in memory", "model", s)
 
@@ -572,7 +620,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		return m
 	}
 
-	client := m.GRPC(false, ml.wd)
+	client := m.GRPC(false, wd)
 
 	xlog.Debug("Checking model availability", "model", s)
 	cTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -589,7 +637,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			// Timeouts may mean the node is busy, so keep the model cached.
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
-				if delErr := ml.deleteProcess(s, false); delErr != nil {
+				if delErr := ml.deleteProcess(cTimeout, s, false); delErr != nil {
 					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
 				}
 				return nil
@@ -600,7 +648,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		if !process.IsAlive() {
 			xlog.Debug("GRPC Process is not responding", "model", s)
 			// stop and delete the process, this forces to re-load the model and re-create again the service
-			err := ml.deleteProcess(s, false)
+			err := ml.deleteProcess(cTimeout, s, true)
 			if err != nil {
 				xlog.Error("error stopping process", "error", err, "process", s)
 			}

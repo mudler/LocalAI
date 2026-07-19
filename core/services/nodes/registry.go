@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -42,6 +43,13 @@ type BackendNode struct {
 	// on registration; used by the router to pick per-arch options (e.g. a
 	// larger physical batch on Blackwell). Empty when unknown / non-NVIDIA.
 	GPUComputeCapability string `gorm:"column:gpu_compute_capability;size:16" json:"gpu_compute_capability"`
+	// Capability is the worker's own meta-backend capability string (e.g.
+	// "nvidia-cuda-13", "metal", "default"), reported at registration. The
+	// controller cannot derive it: OS-dependent capabilities (metal,
+	// darwin-x86, nvidia-l4t) and the CUDA-runtime refinements are only
+	// visible on the worker itself. Empty for workers registered before this
+	// field existed; readers fall back to system.CapabilityFromGPU.
+	Capability string `gorm:"column:capability;size:64" json:"capability,omitempty"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this node concurrently. Default 1 preserves the historical "one
 	// (node, model)" assumption; set higher (via worker --max-replicas-per-model)
@@ -745,6 +753,38 @@ func (r *NodeRegistry) List(ctx context.Context) ([]BackendNode, error) {
 		return nil, fmt.Errorf("listing nodes: %w", err)
 	}
 	return nodes, nil
+}
+
+// HealthyBackendCapabilities returns the deduplicated meta-backend capability
+// strings of every healthy backend node.
+//
+// Backend discovery on the controller unions these so a GPU-only backend that
+// no node can run today stays hidden, while one that any worker can run is
+// offered. Only healthy backend nodes count — the same predicate the scheduler
+// places against — so an offline worker does not keep advertising hardware the
+// cluster cannot currently use.
+func (r *NodeRegistry) HealthyBackendCapabilities(ctx context.Context) ([]string, error) {
+	var nodes []BackendNode
+	if err := r.db.WithContext(ctx).
+		Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend).
+		Find(&nodes).Error; err != nil {
+		return nil, fmt.Errorf("listing healthy backend node capabilities: %w", err)
+	}
+
+	seen := make(map[string]struct{}, len(nodes))
+	capabilities := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		capability := node.Capability
+		if capability == "" {
+			capability = system.CapabilityFromGPU(node.GPUVendor, node.TotalVRAM)
+		}
+		if _, dup := seen[capability]; dup {
+			continue
+		}
+		seen[capability] = struct{}{}
+		capabilities = append(capabilities, capability)
+	}
+	return capabilities, nil
 }
 
 // Get returns a single node by ID.

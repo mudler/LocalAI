@@ -1,6 +1,10 @@
 package worker
 
 import (
+	"encoding/json"
+
+	"github.com/mudler/LocalAI/core/services/messaging"
+	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -116,6 +120,88 @@ var _ = Describe("Worker per-replica process keying", func() {
 			// itself is exercised by the integration path in distributed mode.
 			s.processes["qwen3.6-35B#0"] = &backendProcess{addr: "127.0.0.1:50051"}
 			Expect(s.resolveProcessKeys("qwen3.6-35B")).To(ConsistOf("qwen3.6-35B#0"))
+		})
+	})
+
+	Describe("Backend stop sequencing", func() {
+		It("keeps the process and port reserved until termination completes", func() {
+			proc := process.New()
+			bp := &backendProcess{proc: proc, addr: "not-reparsed-during-cleanup", port: 50051}
+			s := &backendSupervisor{
+				processes: map[string]*backendProcess{"model#0": bp},
+			}
+
+			claimed := s.beginBackendStop("model#0")
+			Expect(claimed).To(BeIdenticalTo(bp))
+			Expect(bp.stopping).To(BeTrue())
+			Expect(s.processes).To(HaveKeyWithValue("model#0", bp))
+			Expect(s.freePorts).To(BeEmpty())
+
+			s.finishBackendStop("model#0", bp, nil)
+			Expect(s.processes).NotTo(HaveKey("model#0"))
+			Expect(s.freePorts).To(ConsistOf(50051))
+		})
+
+		It("does not report a starting backend as ready after stop begins", func() {
+			bp := &backendProcess{port: 50051}
+			s := &backendSupervisor{
+				processes: map[string]*backendProcess{"model#0": bp},
+			}
+
+			Expect(s.backendStartStillValid("model#0", bp)).To(BeTrue())
+			bp.stopping = true
+			Expect(s.backendStartStillValid("model#0", bp)).To(BeFalse())
+		})
+
+		It("recycles a failed startup port at most once", func() {
+			bp := &backendProcess{port: 50051}
+			s := &backendSupervisor{
+				processes: map[string]*backendProcess{"model#0": bp},
+			}
+
+			s.releaseBackendStart("model#0", bp)
+			s.releaseBackendStart("model#0", bp)
+
+			Expect(s.processes).NotTo(HaveKey("model#0"))
+			Expect(s.freePorts).To(ConsistOf(50051))
+		})
+
+		It("does not recycle the port owned by a replacement startup", func() {
+			failed := &backendProcess{port: 50051}
+			replacement := &backendProcess{port: 50052}
+			s := &backendSupervisor{
+				processes: map[string]*backendProcess{"model#0": replacement},
+			}
+
+			s.releaseBackendStart("model#0", failed)
+
+			Expect(s.processes).To(HaveKeyWithValue("model#0", replacement))
+			Expect(s.freePorts).To(BeEmpty())
+		})
+	})
+
+	Describe("backend.stop request decoding", func() {
+		It("preserves the legacy empty-payload stop-all command", func() {
+			req, stopAll, err := decodeBackendStopRequest(nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stopAll).To(BeTrue())
+			Expect(req).To(Equal(messaging.BackendStopRequest{}))
+		})
+
+		It("preserves force for a structured stop-all command", func() {
+			data, err := json.Marshal(messaging.BackendStopRequest{Force: true})
+			Expect(err).NotTo(HaveOccurred())
+
+			req, stopAll, err := decodeBackendStopRequest(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stopAll).To(BeTrue())
+			Expect(req.Force).To(BeTrue())
+		})
+
+		It("rejects malformed JSON instead of treating it as stop-all", func() {
+			_, stopAll, err := decodeBackendStopRequest([]byte(`{"backend":`))
+			Expect(err).To(MatchError(ContainSubstring("decoding backend stop request")))
+			Expect(stopAll).To(BeFalse())
 		})
 	})
 })

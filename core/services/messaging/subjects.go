@@ -258,9 +258,17 @@ type NodeBackendInfo struct {
 	Digest  string `json:"digest,omitempty"`
 }
 
+// BackendStopRequest controls worker-side process shutdown. Force skips the
+// best-effort Free RPC so a backend stuck serving a request can still be
+// terminated by the watchdog.
+type BackendStopRequest struct {
+	Backend string `json:"backend"`
+	Force   bool   `json:"force,omitempty"`
+}
+
 // SubjectNodeBackendStop tells a worker node to stop its gRPC backend process.
 // Equivalent to the local deleteProcess(). The node will:
-// 1. Best-effort Free() via gRPC
+// 1. Best-effort bounded Free() via gRPC (unless Force is true)
 // 2. Kill the backend process
 // 3. Can be restarted via another backend.start event.
 func SubjectNodeBackendStop(nodeID string) string {

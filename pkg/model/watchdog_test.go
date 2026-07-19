@@ -63,6 +63,14 @@ func (m *mockProcessManager) getForceShutdownCalls() []string {
 	return result
 }
 
+func (m *mockProcessManager) getGracefulShutdownCalls() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]string, len(m.gracefulCalls))
+	copy(result, m.gracefulCalls)
+	return result
+}
+
 var _ = Describe("WatchDog", func() {
 	var (
 		wd *model.WatchDog
@@ -182,6 +190,44 @@ var _ = Describe("WatchDog", func() {
 			wd.AddAddressModelMap("addr1", "model1")
 			wd.UpdateLastUsed("addr1")
 			// Verify the time was updated
+		})
+
+		It("remains busy until every parallel request completes", func() {
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			busySince := wd.GetState().BusyTime["addr1"]
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+
+			state := wd.GetState()
+			Expect(state.InFlight).To(HaveKeyWithValue("addr1", 1))
+			Expect(state.BusyTime).To(HaveKeyWithValue("addr1", busySince))
+			Expect(state.IdleTime).NotTo(HaveKey("addr1"))
+
+			wd.UnMark("addr1")
+			state = wd.GetState()
+			Expect(state.InFlight).NotTo(HaveKey("addr1"))
+			Expect(state.BusyTime).NotTo(HaveKey("addr1"))
+			Expect(state.IdleTime).To(HaveKey("addr1"))
+		})
+
+		It("tracks the oldest active request instead of continuous parallel traffic", func() {
+			wd.AddAddressModelMap("addr1", "model1")
+			finishFirst := wd.TrackRequest("addr1")
+			firstStarted := wd.GetState().BusyTime["addr1"]
+			time.Sleep(10 * time.Millisecond)
+			finishSecond := wd.TrackRequest("addr1")
+
+			finishFirst()
+			state := wd.GetState()
+			Expect(state.InFlight).To(HaveKeyWithValue("addr1", 1))
+			Expect(state.BusyTime["addr1"]).To(BeTemporally(">", firstStarted))
+
+			finishSecond()
+			state = wd.GetState()
+			Expect(state.InFlight).NotTo(HaveKey("addr1"))
+			Expect(state.BusyTime).NotTo(HaveKey("addr1"))
+			Expect(state.IdleTime).To(HaveKey("addr1"))
 		})
 	})
 
@@ -692,11 +738,8 @@ var _ = Describe("WatchDog", func() {
 		It("force-shuts down a model that is stuck busy past the busy timeout", func() {
 			// Regression: a backend stuck on an in-flight gRPC call must be
 			// killed via the force path (stop the process first), not the
-			// graceful one (wait for the stuck call to finish, which would
-			// deadlock while holding the loader mutex and stall every other
-			// model load — e.g. the opus backend load at the start of every
-			// realtime WebRTC session, hanging new "Connected, waiting for
-			// session..." connections).
+			// graceful one, which intentionally waits for active calls until
+			// its bounded deadline.
 			wd = model.NewWatchDog(
 				model.WithProcessManager(pm),
 				model.WithBusyTimeout(10*time.Millisecond),
@@ -714,6 +757,7 @@ var _ = Describe("WatchDog", func() {
 				return pm.getForceShutdownCalls()
 			}, "300ms", "10ms").Should(ContainElement("stuckModel"))
 			Expect(pm.getShutdownCalls()).To(ContainElement("stuckModel"))
+			Expect(pm.getGracefulShutdownCalls()).To(BeEmpty())
 		})
 	})
 

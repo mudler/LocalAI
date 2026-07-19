@@ -211,9 +211,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// Determine if it's a model or backend
 			// First check if it was explicitly marked as a backend operation
 			isBackend := opcache.IsBackendOp(galleryID)
-			// If not explicitly marked, check if it matches a known backend from the gallery
+			// If not explicitly marked, check if it matches a known backend from the gallery.
+			// Unfiltered on purpose: this only classifies an operation as
+			// backend-vs-model, and a GPU-only backend installed on a worker is
+			// still a backend op even when this host cannot run it. The
+			// capability-filtered listing misclassified those as model ops.
 			if !isBackend {
-				backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+				backends, _ := gallery.AvailableBackendsUnfiltered(appConfig.BackendGalleries, appConfig.SystemState)
 				for _, b := range backends {
 					backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
 					if backendID == galleryID || b.Name == galleryID {

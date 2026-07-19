@@ -103,7 +103,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -207,6 +207,13 @@ test: prepare-test
 ## backend/cpp/run-unit-tests.sh. Set NLOHMANN_INCLUDE to skip the header fetch.
 test-backend-cpp:
 	bash backend/cpp/run-unit-tests.sh
+
+## Runs the shell-level regression tests for the image packaging scripts
+## (scripts/build/*_test.sh). These guard invariants that only ever break
+## inside a container build - a missing transitive dep, a partial cuDNN
+## family - and that no Go test can observe. Needs only bash + gcc + ldd.
+test-build-scripts:
+	@set -e; for t in scripts/build/*_test.sh; do echo "== $$t"; bash "$$t"; done
 
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
@@ -412,8 +419,13 @@ test-realtime: build-mock-backend
 test-realtime-conformance:
 	GOCMD=$(GOCMD) ./scripts/realtime-conformance.sh
 
+# Verify the shared model-loader shutdown behavior independently of any API
+# modality (focused loader/gRPC/distributed/worker tests under -race + FizzBee).
+test-model-lifecycle-conformance:
+	GOCMD=$(GOCMD) ./scripts/model-lifecycle-conformance.sh
+
 # Install the pinned, checksum-verified FizzBee model checker (into .tools/,
-# gitignored) used by test-realtime-conformance. Idempotent; no-op if present.
+# gitignored) used by the conformance targets. Idempotent; no-op if present.
 install-fizzbee:
 	./scripts/install-fizzbee.sh
 
