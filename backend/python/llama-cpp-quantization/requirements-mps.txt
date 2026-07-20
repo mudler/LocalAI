@@ -1,4 +1,4 @@
-torch==2.12.1+cpu
-transformers>=5.14.1
+torch==2.10.0
+transformers>=4.56.2
 huggingface-hub>=1.3.0
 sentencepiece
