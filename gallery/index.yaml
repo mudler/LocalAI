@@ -59,6 +59,7 @@
   tags:
     - llm
     - gguf
+    - mtp
   overrides:
     backend: llama-cpp
     function:
@@ -1123,6 +1124,7 @@
     - vision
     - multimodal
     - reasoning
+    - mtp
   overrides:
     backend: llama-cpp
     function:
@@ -1157,6 +1159,7 @@
   tags:
     - llm
     - gguf
+    - mtp
   icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_52.png
   overrides:
     backend: llama-cpp
@@ -1246,7 +1249,6 @@
     - llm
     - gguf
     - qwen
-    - mtp
   icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_35b_a3b_score.png
   overrides:
     backend: llama-cpp
@@ -1284,7 +1286,6 @@
   tags:
     - llm
     - gguf
-    - mtp
   overrides:
     backend: llama-cpp
     # NVFP4 GGUFs use a quant type the GGUF metadata parser cannot read, so
@@ -1314,7 +1315,6 @@
   tags:
     - llm
     - gguf
-    - mtp
   icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/sGQKmrMc6L6guMoaB5_Y2.png
   overrides:
     backend: llama-cpp
@@ -1368,7 +1368,6 @@
   tags:
     - llm
     - gguf
-    - mtp
   icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
   overrides:
     backend: llama-cpp

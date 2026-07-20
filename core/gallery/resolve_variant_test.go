@@ -486,13 +486,22 @@ var _ = Describe("SelectVariant", func() {
 		// These are SERVING FEATURES, exactly what
 		// system.ServingFeaturePreferenceTokens reports, and a third vocabulary
 		// after build tags and engine names. They are matched against a
-		// variant's declared TAGS, and failing that against whole segments of
-		// its ENTRY NAME, rather than against a backend.
+		// variant's declared TAGS and against nothing else.
 		//
 		// Spelled out rather than read from pkg/system so these specs pin the
 		// intended ordering rather than restating whatever the table says.
 		features := []string{"dflash", "mtp"}
 		nvidia := []string{"vllm", "sglang", "llama-cpp"}
+
+		// A tag is the whole signal, so every candidate that is meant to carry
+		// a feature declares it here. Candidates built with `option` carry no
+		// tags and are therefore plain builds no matter what their name says,
+		// which several specs below rely on.
+		tagged := func(model string, probed uint64, tags ...string) gallery.VariantOption {
+			o := option(model, "llama-cpp", probed)
+			o.Tags = tags
+			return o
+		}
 
 		It("prefers a speculative build to the plain build of the same weights", func() {
 			// The rule the feature table exists to express. Both builds fit and
@@ -501,8 +510,8 @@ var _ = Describe("SelectVariant", func() {
 			// drafter pairing would never be installed. Emptying
 			// ServingFeaturePreference fails this spec.
 			options := []gallery.VariantOption{
-				option("m-dflash", "llama-cpp", gib(14)),
-				option("m-q8", "llama-cpp", gib(20)),
+				tagged("m-turbo-q4", gib(14), "llm", "dflash"),
+				tagged("m-q8", gib(20), "llm"),
 				base("m-q4", gib(6)),
 			}
 
@@ -512,7 +521,7 @@ var _ = Describe("SelectVariant", func() {
 				ServingFeaturePreference: features,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-dflash"))
+			Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q4"))
 		})
 
 		It("takes the larger plain build once the feature preference is unknown", func() {
@@ -520,8 +529,8 @@ var _ = Describe("SelectVariant", func() {
 			// the DFlash win comes from the feature list rather than from
 			// anything intrinsic to the set.
 			options := []gallery.VariantOption{
-				option("m-dflash", "llama-cpp", gib(14)),
-				option("m-q8", "llama-cpp", gib(20)),
+				tagged("m-turbo-q4", gib(14), "llm", "dflash"),
+				tagged("m-q8", gib(20), "llm"),
 				base("m-q4", gib(6)),
 			}
 
@@ -538,8 +547,8 @@ var _ = Describe("SelectVariant", func() {
 			// separate them, and the MTP build is deliberately the larger one so
 			// size cannot be what decides.
 			options := []gallery.VariantOption{
-				option("m-nvfp4-mtp", "llama-cpp", gib(20)),
-				option("m-dflash", "llama-cpp", gib(14)),
+				tagged("m-alpha-q8", gib(20), "llm", "mtp"),
+				tagged("m-beta-q4", gib(14), "llm", "dflash"),
 				base("m-q4", gib(6)),
 			}
 
@@ -549,7 +558,7 @@ var _ = Describe("SelectVariant", func() {
 				ServingFeaturePreference: features,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-dflash"))
+			Expect(selection.Option.Variant.Model).To(Equal("m-beta-q4"))
 		})
 
 		It("does not let a preferred feature rescue a build that does not fit", func() {
@@ -557,8 +566,8 @@ var _ = Describe("SelectVariant", func() {
 			// is the ordinary case on a small host rather than a corner one. Fit
 			// is a filter; the feature preference only ranks survivors.
 			options := []gallery.VariantOption{
-				option("m-dflash", "llama-cpp", gib(48)),
-				option("m-q8", "llama-cpp", gib(12)),
+				tagged("m-turbo-f16", gib(48), "llm", "dflash"),
+				tagged("m-q8", gib(12), "llm"),
 				base("m-q4", gib(6)),
 			}
 
@@ -569,7 +578,7 @@ var _ = Describe("SelectVariant", func() {
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(selection.Option.Variant.Model).To(Equal("m-q8"))
-			Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-dflash")))
+			Expect(selection.Reasons).To(ContainElement(ContainSubstring("m-turbo-f16")))
 		})
 
 		It("lets the host engine preference outrank the serving feature", func() {
@@ -578,7 +587,7 @@ var _ = Describe("SelectVariant", func() {
 			// beats a DFlash llama.cpp build even though both fit and the
 			// llama.cpp one is larger.
 			options := []gallery.VariantOption{
-				option("m-dflash", "llama-cpp", gib(24)),
+				tagged("m-turbo-q8", gib(24), "llm", "dflash"),
 				option("m-vllm-awq", "vllm", gib(8)),
 				base("m-q4", gib(6)),
 			}
@@ -596,9 +605,9 @@ var _ = Describe("SelectVariant", func() {
 			// Neither preference key may flatten size ordering: with one engine
 			// and one feature in play there is nothing left for them to decide.
 			options := []gallery.VariantOption{
-				option("m-dflash-q4", "llama-cpp", gib(8)),
-				option("m-dflash-q8", "llama-cpp", gib(14)),
-				option("m-dflash-f16", "llama-cpp", gib(48)),
+				tagged("m-turbo-q4", gib(8), "llm", "dflash"),
+				tagged("m-turbo-q8", gib(14), "llm", "dflash"),
+				tagged("m-turbo-f16", gib(48), "llm", "dflash"),
 				base("m-q4", gib(2)),
 			}
 
@@ -608,29 +617,7 @@ var _ = Describe("SelectVariant", func() {
 				ServingFeaturePreference: features,
 			}, "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-dflash-q8"))
-		})
-
-		It("does not read a feature token out of the middle of an unrelated word", func() {
-			// The guard on matching whole name segments rather than substrings.
-			// "smtp-assistant" is a mail model and carries no MTP heads, yet
-			// strings.Contains would rank it as an MTP build, and being the
-			// larger of the two it would then win. Entry names are
-			// author-supplied free text, unlike the closed engine vocabulary
-			// preferenceRank matches as substrings.
-			options := []gallery.VariantOption{
-				option("m-smtp-assistant-q8", "llama-cpp", gib(24)),
-				option("m-nvfp4-mtp", "llama-cpp", gib(14)),
-				base("m-q4", gib(6)),
-			}
-
-			selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
-				AvailableMemory:          gib(64),
-				EnginePreference:         nvidia,
-				ServingFeaturePreference: features,
-			}, "")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(selection.Option.Variant.Model).To(Equal("m-nvfp4-mtp"))
+			Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q8"))
 		})
 
 		It("leaves an unfeatured build ranked last rather than dropping it", func() {
@@ -653,16 +640,6 @@ var _ = Describe("SelectVariant", func() {
 		})
 
 		Describe("reading the declared tags", func() {
-			// A tag is the authoritative signal and the name is the fallback,
-			// so each of the two has to be pinned on its own: a spec whose
-			// candidate declares the feature both ways would keep passing after
-			// either half was deleted.
-			tagged := func(model string, probed uint64, tags ...string) gallery.VariantOption {
-				o := option(model, "llama-cpp", probed)
-				o.Tags = tags
-				return o
-			}
-
 			It("prefers a build whose tag declares the feature its name does not", func() {
 				// The case tags exist for. "m-turbo-q8" carries MTP heads but
 				// spells nothing in its name, which is the shape most of the
@@ -683,10 +660,16 @@ var _ = Describe("SelectVariant", func() {
 				Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q8"))
 			})
 
-			It("still prefers a build the name alone declares, with no tags at all", func() {
-				// The fallback, pinned independently of the tag path. An entry
-				// nobody has tagged must rank exactly as it did before tags
-				// were read, so deleting the name half fails here alone.
+			It("does NOT prefer a build that only its name declares, with no tags at all", func() {
+				// The inversion of the old name-fallback spec, and the
+				// regression this change exists to guard. A name is
+				// author-supplied free text and a naming convention is not a
+				// contract: "m-nvfp4-mtp" is exactly the shape of the gallery's
+				// NVFP4 entries, whose weights carry MTP heads while the entry
+				// enables no speculative decoding at all, so ranking it as a
+				// speculative build made it win the feature axis without being
+				// any faster. With no tag it is a plain build and the larger
+				// plain build takes it on size.
 				options := []gallery.VariantOption{
 					option("m-nvfp4-mtp", "llama-cpp", gib(14)),
 					tagged("m-plain-q8", gib(20), "llm", "gguf"),
@@ -699,13 +682,35 @@ var _ = Describe("SelectVariant", func() {
 					ServingFeaturePreference: features,
 				}, "")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(selection.Option.Variant.Model).To(Equal("m-nvfp4-mtp"))
+				Expect(selection.Option.Variant.Model).To(Equal("m-plain-q8"))
+			})
+
+			It("lets a tagged build beat a larger one whose name says the same feature", func() {
+				// The sharper form of the spec above: the name half is not
+				// merely unnecessary, it is not consulted. The untagged
+				// "m-dflash" would outrank the tagged MTP build on the old
+				// name-first ordering, and is the larger build besides, so it
+				// wins on either of the two ways the name could still be read.
+				options := []gallery.VariantOption{
+					option("m-dflash", "llama-cpp", gib(20)),
+					tagged("m-turbo-q4", gib(14), "llm", "mtp"),
+					base("m-q4", gib(6)),
+				}
+
+				selection, err := gallery.SelectVariant(options, gallery.ResolveEnv{
+					AvailableMemory:          gib(32),
+					EnginePreference:         nvidia,
+					ServingFeaturePreference: features,
+				}, "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selection.Option.Variant.Model).To(Equal("m-turbo-q4"))
 			})
 
 			It("matches a tag regardless of the case it was written in", func() {
 				// Gallery tags are author-supplied, so the same declaration
-				// arrives in whatever case the author typed. Name segments are
-				// already folded and the two signals must not disagree.
+				// arrives in whatever case the author typed. A curator who
+				// writes "MTP" has declared the feature just as plainly as one
+				// who writes "mtp", and the sole signal must not turn on that.
 				options := []gallery.VariantOption{
 					tagged("m-turbo-q8", gib(14), "LLM", "MTP"),
 					tagged("m-plain-q8", gib(20), "llm", "gguf"),
@@ -722,9 +727,9 @@ var _ = Describe("SelectVariant", func() {
 			})
 
 			It("prefers dflash to mtp when both are declared by tag", func() {
-				// The table's order has to survive the new signal: with neither
-				// name saying anything, only the tags separate these two, and
-				// the MTP build is deliberately the larger one.
+				// The table's order has to survive on the tag path with both
+				// features spelled out explicitly, and the MTP build is
+				// deliberately the larger one so size cannot be what decides.
 				options := []gallery.VariantOption{
 					tagged("m-alpha-q8", gib(20), "llm", "mtp"),
 					tagged("m-beta-q8", gib(14), "llm", "dflash"),
@@ -741,11 +746,11 @@ var _ = Describe("SelectVariant", func() {
 			})
 
 			It("does not read a feature out of an unrelated tag", func() {
-				// Tags are compared whole, exactly as name segments are, so a
-				// tag that merely contains a feature token declares nothing.
-				// "multimodal" contains no feature; "smtp" does contain "mtp"
-				// as a substring and must not count either. The tagged build is
-				// the larger one, so a false positive would hand it the win.
+				// Tags are compared whole, so a tag that merely contains a
+				// feature token declares nothing. "multimodal" contains no
+				// feature; "smtp" does contain "mtp" as a substring and must
+				// not count either. The mail model is the larger build, so a
+				// false positive would hand it the win.
 				options := []gallery.VariantOption{
 					tagged("m-mail-q8", gib(24), "llm", "multimodal", "smtp"),
 					tagged("m-turbo-q4", gib(14), "llm", "mtp"),

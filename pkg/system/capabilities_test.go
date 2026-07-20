@@ -352,8 +352,8 @@ var _ = Describe("ServingFeaturePreferenceTokens", func() {
 
 	It("carries neither a build tag nor an engine name", func() {
 		// The third vocabulary, and the same merge hazard as the other two. A
-		// build tag or an engine name here would be matched against gallery
-		// entry names, where it means nothing.
+		// build tag or an engine name here would be matched against a gallery
+		// entry's declared tags, where it means nothing.
 		Expect(ServingFeaturePreferenceTokens()).ToNot(ContainElements(
 			"cuda", "rocm", "hip", "sycl", "metal", "vulkan", "cpu", "darwin-x86",
 			"vllm", "sglang", "llama-cpp", "mlx",

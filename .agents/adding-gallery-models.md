@@ -139,13 +139,11 @@ Rules:
 - **Serving feature preference sits between engine and size.** Among builds on
   an equally preferred engine, one that speculates or predicts several tokens
   per step beats the plain build of the same weights, because it answers faster
-  for the same output: a `-dflash` entry beats an `-mtp` one, and either beats a
+  for the same output: a `dflash` build beats an `mtp` one, and either beats a
   plain build. The order lives in `servingFeaturePreferenceTokens`
-  (`pkg/system/capabilities.go`) and is matched against the entry's `tags:`,
-  falling back to whole segments of its entry name. **Tag every speculative or
-  MTP build** (`- dflash` / `- mtp`) so ranking recognises it; the fallback
-  covers entries nobody tagged, but do not rely on it, since a build whose name
-  spells the feature nowhere is invisible without the tag. Engine deliberately
+  (`pkg/system/capabilities.go`) and is matched against the entry's `tags:` and
+  **nothing else**: not the entry name, not `overrides.options`. See
+  [the tagging rule](#the-dflash--mtp-tagging-rule) below. Engine deliberately
   outranks it: a serving feature makes the right engine faster, it does not make
   a wrong engine right. Fit still outranks both, so a drafter pairing (strictly
   larger than the plain build, since it ships a drafter alongside it) is dropped
@@ -162,6 +160,36 @@ Users can override the automatic choice with `variant` on `POST /models/apply`,
 
 The gallery lint specs live in `core/gallery`, so run that suite after adding a
 `variants` list.
+
+### The `dflash` / `mtp` tagging rule
+
+**Tag an entry `dflash` or `mtp` when the entry actually configures that
+feature. Variant ranking reads the tag and nothing else.**
+
+Decide by looking at what the entry configures, in whatever vocabulary its
+backend uses:
+
+| Backend | Configures the feature when it declares |
+|---------|------------------------------------------|
+| `llama-cpp` | `overrides.options` contains `spec_type:draft-dflash` or `spec_type:draft-mtp` |
+| `ds4` | `overrides.options` contains `mtp_path:` / `mtp_draft:` |
+| `sglang` | the referenced `gallery/*.yaml` sets `speculative_algorithm:` |
+
+That check is curation-time only. `spec_type` is llama.cpp's config vocabulary,
+and a cross-backend ranking decision must not depend on one backend's option
+syntax, which is precisely why the ranker reads the tag instead of the options.
+
+Two mistakes the rule exists to prevent:
+
+- **Weights that carry the heads are not an entry that enables them.** The
+  NVFP4 GGUF entries ship MTP-bearing weights but set only `use_jinja:true`, so
+  they enable no speculative decoding and must NOT be tagged. Tagging them wins
+  them the feature axis without being any faster.
+- **A name is not a declaration.** An entry whose name spells `-mtp` while
+  configuring nothing gets no tag, and an entry that configures the feature is
+  tagged even when its name says nothing (`hy3`, `glm-5.2`). Ranking never reads
+  the name, so an untagged build that does enable the feature is simply ranked
+  as plain rather than promoted on a marker nobody meant.
 
 ## Available template configs
 

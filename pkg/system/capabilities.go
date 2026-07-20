@@ -56,9 +56,8 @@ const (
 
 	// Serving feature names (private). A third vocabulary again: not a build
 	// tag and not an engine, but the inference-time strategy a published build
-	// enables. They are matched against a gallery entry's declared TAGS, and
-	// failing that against its ENTRY NAME, so they are spelled the way gallery
-	// authors spell them in both places.
+	// enables. They are matched against a gallery entry's declared TAGS and
+	// nothing else, so they are spelled the way gallery authors spell a tag.
 	servingFeatureDFlash = "dflash"
 	servingFeatureMTP    = "mtp"
 )
@@ -82,11 +81,10 @@ const (
 //     picks which build of one model's weights to install.
 //
 //   - servingFeaturePreferenceTokens holds SERVING FEATURES ("dflash", "mtp").
-//     They are matched against a gallery entry's declared TAGS, and failing
-//     that against WHOLE SEGMENTS of its ENTRY NAME, rather than against a
-//     backend or an engine. Same consumer as the engine table, applied one rank
-//     below it. See the token list for why the name half matches segments
-//     rather than substrings.
+//     They are matched against a gallery entry's declared TAGS, whole and
+//     case-insensitively, rather than against a backend, an engine or the entry
+//     name. Same consumer as the engine table, applied one rank below it. See
+//     the token list for why a tag is the only signal.
 //
 // Feeding build tags to the variant ranker matches nothing, which does not
 // error: every candidate simply scores equal and size alone decides, so the
@@ -218,25 +216,31 @@ var defaultEnginePreferenceTokens = []string{}
 // ordering to express. Should one ever appear, this becomes a rule table like
 // its neighbours without any consumer changing.
 //
-// A token is matched first against an entry's declared TAGS, compared whole
-// and case-insensitively. A tag is the authoritative declaration: an author
-// writing "mtp" in a tag list means the feature, so it can be compared exactly
-// without the ambiguity free text carries.
+// A token is matched against an entry's declared TAGS, compared whole and
+// case-insensitively, and against NOTHING ELSE. A tag is the declaration: an
+// author writing "mtp" in a tag list means the feature, so it can be compared
+// exactly without the ambiguity free text carries.
 //
-// Failing a tag it is matched against WHOLE SEGMENTS of the entry name,
-// splitting on every non-alphanumeric run, rather than the substring matching
-// the tables above use. The other two vocabularies are closed sets that LocalAI
-// itself defines, whereas an entry name is author-supplied free text where a
-// short token can turn up inside an unrelated word. Segment matching also keeps
-// this honest about what it cannot know: "qwen3.6-27b-mtp-pi-tune" is a
-// separate finetune and not a variant of anything, so it never reaches ranking
-// at all, but if a future finetune were grouped, the name is all there is to go
-// on when nobody tagged it.
+// Two rejected alternatives, because both look like obvious improvements:
 //
-// The name half stays because tagging discipline is still being established:
-// dropping it would immediately misrank every MTP entry that predates the tag
-// sweep. Authors should tag; the fallback exists so a forgotten tag costs
-// nothing rather than silently downgrading an install.
+//   - The ENTRY NAME. It was the original signal and is now gone. A naming
+//     convention is not a contract, and a name is author-supplied free text
+//     where a short marker turns up inside unrelated words ("smtp-assistant"),
+//     or names weights that carry MTP heads without the entry enabling
+//     anything ("qwen3.6-27b-nvfp4-mtp", whose only option is use_jinja).
+//     Reading a name infers a capability nobody declared.
+//
+//   - overrides.options, where "spec_type:draft-mtp" is what actually turns
+//     the feature on. That spelling is llama.cpp's config vocabulary. ds4
+//     spells the same feature "mtp_path" and sglang spells it
+//     "speculative_algorithm" in a referenced config file, so keying a
+//     cross-backend ranking decision on one backend's option syntax would
+//     rank the other backends' builds as plain.
+//
+// Options are the CURATION-TIME check instead: a gallery entry earns the tag
+// when it configures the feature in whatever vocabulary its backend uses. The
+// rule is written down in .agents/adding-gallery-models.md, and the
+// backend-specific syntax never reaches the selection logic.
 var servingFeaturePreferenceTokens = []string{servingFeatureDFlash, servingFeatureMTP}
 
 // ServingFeaturePreferenceTokens returns the serving features to prefer, best

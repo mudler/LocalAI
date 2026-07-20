@@ -6,7 +6,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"unicode"
 )
 
 var (
@@ -44,13 +43,17 @@ type VariantOption struct {
 	// a zero requirement: a probe that cannot reach the network must never be
 	// able to break an install.
 	ProbedMemory uint64
-	// Tags are the referenced entry's declared tags, and they are the
-	// AUTHORITATIVE serving feature signal: a tag is something an author wrote
-	// down on purpose, whereas an entry name only happens to contain a marker.
+	// Tags are the referenced entry's declared tags, and they are the SOLE
+	// serving feature signal. A tag is something an author wrote down on
+	// purpose, whereas an entry name only happens to contain a marker, so
+	// nothing else is consulted.
 	//
-	// Empty does not mean "no features". An entry nobody has tagged yet falls
-	// back to its name, so tagging discipline improves ranking without being a
-	// precondition for it.
+	// Empty therefore means "declares no serving feature", and an entry that
+	// enables one without saying so ranks as a plain build. That is the cost of
+	// making the signal a declaration, and it is the right cost: an install
+	// silently downgraded to the plain build is recoverable, whereas a build
+	// promoted on a marker nobody meant is not visible at all.
+	// .agents/adding-gallery-models.md states the tagging rule.
 	Tags []string
 }
 
@@ -104,15 +107,13 @@ type ResolveEnv struct {
 	// ServingFeaturePreference lists the SERVING FEATURES to prefer, best first,
 	// as system.ServingFeaturePreferenceTokens reports them (currently
 	// ["dflash", "mtp"]). A token matches when it equals one of the variant's
-	// declared TAGS, or failing that when it equals a whole SEGMENT of its
-	// ENTRY NAME, splitting on every non-alphanumeric run.
+	// declared TAGS, compared whole and case-insensitively. Nothing else is
+	// matched: not the entry name, not its backend options.
 	//
 	// A third vocabulary, matched against a third thing. It is neither a build
 	// tag nor an engine name: these name a way of serving the same weights
-	// faster. A gallery tag is the declaration and takes precedence; the entry
-	// name remains a fallback for entries nobody has tagged.
-	// pkg/system/capabilities.go documents all three tables together and
-	// justifies why the name half matches segments rather than substrings.
+	// faster. pkg/system/capabilities.go documents all three tables together
+	// and justifies why this one reads a declaration rather than free text.
 	//
 	// An empty list ranks every build equally on this axis, which is what every
 	// host looked like before serving features were ranked at all.
@@ -162,30 +163,30 @@ func (e ResolveEnv) preferenceRank(backend string) int {
 // list comes from pkg/system, so teaching LocalAI about a new serving feature
 // is a one-line edit to that table and never reaches this file.
 //
-// Two signals, either of which is enough. A declared TAG is the authoritative
-// one and is compared whole, because a tag is a deliberate statement rather
-// than free text: an author who writes "mtp" in a tag list means the feature,
-// so the substring risk that segment matching exists to avoid does not arise
-// there. The ENTRY NAME stays as a fallback, matched by whole segment as
-// before, so an entry nobody has tagged yet ranks exactly the way it did
-// before tags were read at all. Tags-only would have been a regression on the
-// day it shipped, since most MTP entries carried no tag.
+// A declared TAG is the ONLY signal, compared whole and case-insensitively. An
+// entry name is deliberately not consulted: a naming convention is not a
+// contract, and an author is free to spell a build however they like, so
+// reading a marker out of a name infers a capability nobody declared. Tags are
+// a LocalAI-level vocabulary the gallery curators control and they mean the
+// same thing on every backend. `overrides.options` was considered as the
+// signal and rejected for the opposite reason: spec_type:draft-mtp is what
+// actually enables the feature, but that spelling is llama.cpp's config
+// vocabulary, and a cross-backend ranking decision must not depend on one
+// backend's option syntax. Curators check the options at tagging time; the
+// ranker reads only the tag.
 //
-// A build declaring no feature by either route is a plain build and scores
-// just below the least preferred known one, which is the whole point: whenever
-// a faster way to serve the same weights survived the filters, it outranks the
-// plain build.
+// A build declaring no feature is a plain build and scores just below the
+// least preferred known one, which is the whole point: whenever a faster way
+// to serve the same weights survived the filters, it outranks the plain build.
 func (e ResolveEnv) servingFeatureRank(o VariantOption) int {
-	segments := nameSegments(o.Variant.Model)
 	tags := lowercased(o.Tags)
 	return preferenceIndex(e.ServingFeaturePreference, func(token string) bool {
-		return slices.Contains(tags, token) || slices.Contains(segments, token)
+		return slices.Contains(tags, token)
 	})
 }
 
 // lowercased folds a tag list for comparison, so a gallery author writing
-// "MTP" declares the same feature as one writing "mtp". Names are already
-// folded by nameSegments, and the two signals must not disagree about case.
+// "MTP" declares the same feature as one writing "mtp".
 func lowercased(tags []string) []string {
 	if len(tags) == 0 {
 		return nil
@@ -213,19 +214,6 @@ func preferenceIndex(tokens []string, matches func(token string) bool) int {
 		}
 	}
 	return len(tokens)
-}
-
-// nameSegments splits a gallery entry name into its lowercased alphanumeric
-// runs, so "qwen3.6-27b-nvfp4-mtp" yields ["qwen3", "6", "27b", "nvfp4", "mtp"].
-//
-// Whole-segment matching is what keeps a short marker from matching inside an
-// unrelated word. Entry names are author-supplied free text, unlike the engine
-// names preferenceRank matches as substrings, and those are a closed vocabulary
-// LocalAI defines itself.
-func nameSegments(name string) []string {
-	return strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
 }
 
 // VariantSelection is the outcome of a selection pass.
