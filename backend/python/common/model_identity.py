@@ -20,6 +20,7 @@ Enforcement is deliberately narrow: it compares two strings and never inspects
 the model itself.
 """
 
+import inspect
 import threading
 
 import grpc
@@ -200,7 +201,14 @@ class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
             original = handler.unary_unary
 
             async def record(request, context):
-                result = await original(request, context)
+                # A backend's LoadModel may be a plain sync method (many define
+                # `def LoadModel`, not `async def`). grpc.aio's own dispatch
+                # adapts both, but this interceptor calls the behavior directly,
+                # so it must not await a non-awaitable return -- otherwise a sync
+                # backend fails with "object <T> can't be used in 'await'".
+                result = original(request, context)
+                if inspect.isawaitable(result):
+                    result = await result
                 if getattr(result, "success", True):
                     self.state.record(getattr(request, "Model", ""))
                 return result
@@ -214,8 +222,15 @@ class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
                 message = self.state.mismatch(getattr(request, "ModelIdentity", ""))
                 if message is not None:
                     await context.abort(grpc.StatusCode.NOT_FOUND, message)
-                async for response in original_stream(request, context):
-                    yield response
+                # A sync backend yields a plain generator, an async one an async
+                # generator; iterate whichever this is.
+                stream = original_stream(request, context)
+                if hasattr(stream, "__aiter__"):
+                    async for response in stream:
+                        yield response
+                else:
+                    for response in stream:
+                        yield response
 
             return _rebuild(handler, guard_stream)
 
@@ -225,6 +240,9 @@ class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
             message = self.state.mismatch(getattr(request, "ModelIdentity", ""))
             if message is not None:
                 await context.abort(grpc.StatusCode.NOT_FOUND, message)
-            return await original_unary(request, context)
+            result = original_unary(request, context)
+            if inspect.isawaitable(result):
+                result = await result
+            return result
 
         return _rebuild(handler, guard)
