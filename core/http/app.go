@@ -55,6 +55,12 @@ var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/rea
 // conditional revalidation round-trip.
 const immutableAssetCacheControl = "public, max-age=31536000, immutable"
 
+func defaultBodyLimitSkipper(c echo.Context) bool {
+	// Remeshing accepts generated GLBs that routinely exceed the default
+	// upload limit. The route has its own tighter, format-specific limit.
+	return c.Request().Method == http.MethodPost && c.Path() == "/3d/remesh"
+}
+
 // applyModelLoadCooldown maps a ModelLoadCooldownError anywhere in err's chain
 // to HTTP 503 with a Retry-After header (whole seconds, floor 1), so a client
 // polling a model whose load recently failed backs off instead of triggering a
@@ -123,7 +129,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Set body limit
 	if application.ApplicationConfig().UploadLimitMB > 0 {
-		e.Use(middleware.BodyLimit(fmt.Sprintf("%dM", application.ApplicationConfig().UploadLimitMB)))
+		e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+			Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().UploadLimitMB),
+			Skipper: defaultBodyLimitSkipper,
+		}))
 	}
 
 	// SPA fallback handler, set later when React UI is available

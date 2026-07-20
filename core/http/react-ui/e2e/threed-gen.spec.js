@@ -179,6 +179,37 @@ test.describe('3D generation', () => {
     expect(requestBody.seed).toBe(42)
   })
 
+  test('applies a single-detail watertight remesh and previews it before download', async ({ page }) => {
+    await mockGeneration(page)
+    let remeshRequest = null
+    await page.route('**/3d/remesh', (route) => {
+      remeshRequest = route.request()
+      route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'model/gltf-binary' },
+        body: buildTinyGlb(),
+      })
+    })
+
+    await generateOnce(page)
+    await expect(page.getByTestId('glb-remesh')).toBeVisible({ timeout: 15_000 })
+    await page.getByLabel('Remesh detail').fill('100')
+    await page.getByTestId('glb-remesh').click()
+
+    await expect(page.getByTestId('glb-remesh')).toContainText('Show original')
+    await expect(page.getByTestId('glb-download')).toHaveAttribute('download', /-remeshed\.glb$/)
+    expect(remeshRequest).not.toBeNull()
+    expect(remeshRequest.method()).toBe('POST')
+    expect(remeshRequest.headers()['content-type']).toContain('multipart/form-data')
+    const multipart = remeshRequest.postDataBuffer().toString()
+    expect(multipart).toContain('trellis-test-model')
+    expect(multipart).toContain('0.35')
+
+    await page.getByTestId('glb-remesh').click()
+    await expect(page.getByTestId('glb-remesh')).toContainText('Apply remeshing')
+    await expect(page.getByTestId('glb-download')).not.toHaveAttribute('download', /-remeshed\.glb$/)
+  })
+
   test('history entry persists across navigation and reloads into the viewer', async ({ page }) => {
     await mockGeneration(page)
     await generateOnce(page)

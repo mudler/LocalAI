@@ -212,11 +212,11 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	reqID := requestID()
 
-	// Stage the conditioning image
+	// Stage the conditioning image or existing GLB used by 3D post-processing.
 	if in.Src != "" && isFilePath(in.Src) {
 		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Src, "inputs")
 		if err != nil {
-			return nil, fmt.Errorf("staging 3D conditioning image: %w", err)
+			return nil, fmt.Errorf("staging 3D input asset: %w", err)
 		}
 		in.Src = backendPath
 	}

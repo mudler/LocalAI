@@ -85,6 +85,14 @@ type Model3DRequest struct {
 	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                     // backend-specific generation parameters
 }
 
+// @Description Print-remesh an existing trellis2.cpp GLB. The multipart mesh
+// is wrapped into a watertight manifold; detail is a percentage of the source
+// bounding-box diagonal and the enclosing offset is derived automatically.
+type Model3DRemeshRequest struct {
+	BasicModelRequest
+	Detail float32 `json:"detail,omitempty" yaml:"detail,omitempty" form:"detail"` // detail size in percent (0.35–2.5; default 0.5)
+}
+
 // @Description TTS request body
 type TTSRequest struct {
 	BasicModelRequest

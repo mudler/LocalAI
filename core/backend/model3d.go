@@ -54,14 +54,24 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 
-		traceData := map[string]any{
-			"seed":          options.Seed,
-			"step":          options.Step,
-			"cfg_scale":     options.CFGScale,
-			"texture_steps": options.TextureSteps,
-			"quality":       options.Quality,
-			"background":    options.Background,
-			"has_image":     options.Image != "",
+		traceType := trace.BackendTrace3DGeneration
+		traceSummary := "3d: " + options.Quality
+		traceData := map[string]any{}
+		if options.Params["operation"] == "print_remesh" {
+			traceType = trace.BackendTrace3DRemesh
+			traceSummary = "3d: remesh"
+			traceData["detail_percent"] = options.Params["detail_percent"]
+			traceData["has_mesh"] = options.Image != ""
+		} else {
+			traceData = map[string]any{
+				"seed":          options.Seed,
+				"step":          options.Step,
+				"cfg_scale":     options.CFGScale,
+				"texture_steps": options.TextureSteps,
+				"quality":       options.Quality,
+				"background":    options.Background,
+				"has_image":     options.Image != "",
+			}
 		}
 
 		startTime := time.Now()
@@ -75,15 +85,13 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 				errStr = err.Error()
 			}
 
-			// 3D generation has no prompt; the pipeline quality is the most
-			// useful one-line summary of the request.
 			trace.RecordBackendTrace(trace.BackendTrace{
 				Timestamp: startTime,
 				Duration:  duration,
-				Type:      trace.BackendTrace3DGeneration,
+				Type:      traceType,
 				ModelName: modelConfig.Name,
 				Backend:   modelConfig.Backend,
-				Summary:   trace.TruncateString("3d: "+options.Quality, 200),
+				Summary:   trace.TruncateString(traceSummary, 200),
 				Error:     errStr,
 				Data:      traceData,
 			})

@@ -96,7 +96,18 @@
     "actions": {
       "generate": "Generate",
       "generating": "Generating...",
+      "remesh": "Apply remeshing",
+      "remeshing": "Applying remeshing...",
+      "showOriginal": "Show original",
       "download": "Download GLB"
+    },
+    "remesh": {
+      "title": "Watertight print remesh",
+      "detail": "Remesh detail",
+      "coarser": "Coarser · faster",
+      "finer": "Finer · slower",
+      "hint": "Detail controls the smallest preserved features. The enclosing offset follows it automatically.",
+      "ready": "Previewing the watertight remeshed model. This is the version that will be downloaded."
     },
     "viewer": {
       "wireframe": "Wireframe",
