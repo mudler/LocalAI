@@ -1,0 +1,83 @@
+# Rejection ledger for the gallery variant proposal job.
+#
+# `.github/ci/variantproposals` looks for gallery entries that are alternative
+# builds of the same weights and proposes grouping them under one another with
+# `variants:`. Grouping is a judgement call that has gone wrong in both
+# directions, so the job only proposes. This file is where the answers live once
+# a human has given them.
+#
+# The job reads this file and stays silent about everything it names. Without it
+# a declined candidate comes back every night until reviewers stop reading the
+# job's pull requests, at which point the job is worse than useless.
+#
+# To decline a proposal, add one line to `pairs` inside the proposal pull
+# request itself and close the pull request:
+#
+#   - {parent: some-model, variant: some-model-thing, reason: "different finetune"}
+#
+# Three kinds of entry:
+#
+#   tokens  a name segment that marks a distinct model rather than another build
+#           of the same one. Two candidates whose names differ by one of these
+#           are never proposed. Use this for a finetune or language suffix that
+#           will keep recurring across models.
+#   pairs   one specific candidate, matched in either order.
+#   groups  a set where no two members may ever be paired, for releases like a
+#           per-language family where listing every pair would be unreadable.
+#
+# Things the job refuses structurally, so they do NOT need to be listed here:
+# different parameter sizes (8b vs 1.7b, a3b vs a22b, e2b vs e4b), entries with
+# a byte-identical install payload, and any target that already has a parent.
+
+tokens:
+  - {token: abliterated, reason: "safety-ablated finetune, not a re-quantization of the base weights"}
+  - {token: uncensored, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: heretic, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: horror, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: glitter, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: starshine, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: deckard, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: esper, reason: "finetune, not a re-quantization of the base weights"}
+  - {token: sft, reason: "supervised finetune, not a re-quantization of the base weights"}
+  - {token: distill, reason: "distilled model, different weights from the teacher"}
+  - {token: distilled, reason: "distilled model, different weights from the teacher"}
+  - {token: roleplay, reason: "finetune, not a re-quantization of the base weights"}
+  # `apex` and `qat` are quantization techniques and are deliberately NOT here:
+  # the job strips them like any other quantization marker. A model that uses
+  # "apex" as a finetune name instead belongs in `pairs` below.
+
+pairs:
+  # Aliases. Byte-identical payloads are not alternative builds. whisper-1
+  # exists so OpenAI-compatible clients can send that name; grouping it under
+  # whisper-base would hide the name clients actually send.
+  - {parent: whisper-base, variant: whisper-1, reason: "alias: identical payload, whisper-1 is the name OpenAI-compatible clients send"}
+
+  # Different capability surface, not a different build. The multimodal entry
+  # adds a vision projector and a different config; installing one instead of
+  # the other silently changes what the model can do.
+  - {parent: mistralai_mistral-small-3.1-24b-instruct-2503, variant: mistralai_mistral-small-3.1-24b-instruct-2503-multimodal, reason: "different capability surface: the multimodal entry adds a vision projector"}
+
+  # Safety-ablated finetunes that share a base name with the model they were
+  # derived from. The token rule above already covers these; they are spelled
+  # out because each was considered individually during the manual sweeps.
+  - {parent: dolphin-2.9.2-phi-3-medium, variant: dolphin-2.9.2-phi-3-medium-abliterated, reason: "finetune, not a re-quantization"}
+  - {parent: falcon3-1b-instruct, variant: falcon3-1b-instruct-abliterated, reason: "finetune, not a re-quantization"}
+  - {parent: falcon3-3b-instruct, variant: falcon3-3b-instruct-abliterated, reason: "finetune, not a re-quantization"}
+  - {parent: falcon3-10b-instruct, variant: falcon3-10b-instruct-abliterated, reason: "finetune, not a re-quantization"}
+  - {parent: meta-llama-3.1-8b-instruct, variant: meta-llama-3.1-8b-instruct-abliterated, reason: "finetune, not a re-quantization"}
+  - {parent: qwen3-30b-a3b, variant: qwen3-30b-a3b-abliterated, reason: "finetune, not a re-quantization"}
+
+  # English-only and multilingual ASR are different models trained on different
+  # data. They share a repo and a filename shape, so the heuristics will keep
+  # finding them.
+  - {parent: whisper-tiny, variant: whisper-tiny-en, reason: "English-only versus multilingual ASR: different weights"}
+  - {parent: whisper-base, variant: whisper-base-en, reason: "English-only versus multilingual ASR: different weights"}
+  - {parent: whisper-small, variant: whisper-small-en, reason: "English-only versus multilingual ASR: different weights"}
+
+  # Different products that happen to share a prefix.
+  - {parent: vibevoice-cpp, variant: vibevoice-cpp-asr, reason: "different products: a TTS engine and an ASR engine, not two builds of one model"}
+
+groups:
+  # One release per language. Every pair here is a different model.
+  - members: [kokoros, kokoros-de, kokoros-ja, kokoros-cmn]
+    reason: "different languages: one Kokoro release per language, not alternative builds of one model"
