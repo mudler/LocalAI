@@ -35,6 +35,7 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Cabe en la GPU",
+    "collapseVariants": "Una fila por modelo",
     "allBackends": "Todos los backends",
     "searchBackends": "Buscar backends...",
     "contextSize": "Contexto:",
@@ -85,6 +86,7 @@
   "empty": {
     "title": "No se encontraron modelos",
     "withFilters": "Ningún modelo coincide con la búsqueda o filtros actuales.",
+    "collapsedVariantsHint": "Las compilaciones alternativas que otra entrada ya ofrece están ocultas. Desactiva \"Una fila por modelo\" para incluirlas.",
     "noFilters": "La galería de modelos está vacía."
   },
   "deleteDialog": {
@@ -108,6 +110,12 @@
     "doesNotFit": "Does not fit",
     "unknownSize": "Unknown size",
     "unknownBackend": "Unknown backend",
-    "loading": "Loading variants..."
+    "loading": "Loading variants...",
+    "quantizationTitle": "Formato de pesos",
+    "unknownQuantization": "Formato desconocido",
+    "features": {
+      "dflash": "Más rápido: DFlash",
+      "mtp": "Más rápido: MTP"
+    }
   }
 }

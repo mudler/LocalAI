@@ -61,22 +61,36 @@ var _ = Describe("Model gallery variants API", func() {
   description: An entry that declares variants
   backend: llama-cpp
   files:
-    - filename: base.gguf
+    - filename: base-Q4_K_M.gguf
       uri: %s/base.gguf
       sha256: ""
   variants:
     - model: big-entry
+    - model: dir-entry
 - name: big-entry
   description: The alternative build
   backend: llama-cpp
+  tags:
+    - llm
+    - dflash
   files:
-    - filename: big.gguf
+    - filename: big-Q8_0.gguf
       uri: %s/big.gguf
+      sha256: ""
+# A build served from a directory of weights. Its filename names no weight
+# format, which makes it the fixture for the absent-quantization case a client
+# has to render as unknown rather than as a blank cell.
+- name: dir-entry
+  description: A build whose name declares no weight format
+  backend: llama-cpp
+  files:
+    - filename: weights.safetensors
+      uri: %s/weights.safetensors
       sha256: ""
 - name: plain-entry
   description: An entry that declares nothing
   backend: whisper
-`, weightServer.URL, weightServer.URL)
+`, weightServer.URL, weightServer.URL, weightServer.URL)
 
 		indexServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(index))
@@ -168,7 +182,7 @@ var _ = Describe("Model gallery variants API", func() {
 			Expect(body).To(HaveKey("auto_selected"))
 			variants, ok := body["variants"].([]any)
 			Expect(ok).To(BeTrue())
-			Expect(variants).To(HaveLen(2), "the declared variant plus the base")
+			Expect(variants).To(HaveLen(3), "the declared variants plus the base")
 
 			byModel := map[string]map[string]any{}
 			for _, v := range variants {
@@ -194,6 +208,55 @@ var _ = Describe("Model gallery variants API", func() {
 					Expect(mb).NotTo(BeZero(), "memory_bytes must be omitted rather than serialized as zero")
 				}
 			}
+		})
+
+		// Enrichment: name, backend and size are frequently identical across
+		// two builds of one model, so the picker also carries the facts that
+		// actually differ. Both are derived here rather than in the browser, so
+		// every client reads them out of the same entry the installer uses.
+		It("reports each build's quantization", func() {
+			_, body := get("/api/models/variants/test@base-entry")
+
+			byModel := map[string]map[string]any{}
+			for _, v := range body["variants"].([]any) {
+				vm := v.(map[string]any)
+				byModel[vm["model"].(string)] = vm
+			}
+
+			Expect(byModel["base-entry"]["quantization"]).To(Equal("Q4_K_M"))
+			Expect(byModel["big-entry"]["quantization"]).To(Equal("Q8_0"))
+		})
+
+		It("omits quantization entirely when the build names no weight format", func() {
+			// The degrade contract. An absent key is what lets a client render
+			// "unknown format"; an empty string would render as a blank cell
+			// indistinguishable from a rendering bug.
+			_, body := get("/api/models/variants/test@base-entry")
+
+			for _, v := range body["variants"].([]any) {
+				vm := v.(map[string]any)
+				if vm["model"] == "dir-entry" {
+					Expect(vm).NotTo(HaveKey("quantization"))
+					return
+				}
+			}
+			Fail("dir-entry missing from the described variants")
+		})
+
+		It("reports the serving features a build declares", func() {
+			_, body := get("/api/models/variants/test@base-entry")
+
+			byModel := map[string]map[string]any{}
+			for _, v := range body["variants"].([]any) {
+				vm := v.(map[string]any)
+				byModel[vm["model"].(string)] = vm
+			}
+
+			Expect(byModel["big-entry"]["features"]).To(Equal([]any{"dflash"}))
+			// A build declaring no serving feature carries no key at all,
+			// rather than an empty list a client would have to length-check.
+			Expect(byModel["base-entry"]).NotTo(HaveKey("features"))
+			Expect(byModel["dir-entry"]).NotTo(HaveKey("features"))
 		})
 
 		It("returns an empty description for an entry declaring no variants", func() {
@@ -226,23 +289,42 @@ var _ = Describe("Model gallery variants API", func() {
 			return out
 		}
 
-		rawBody := func(path string) []byte {
+		// Everything the collapse parameter can possibly affect: which entries
+		// come back, how they serialize, and the paging that describes them.
+		//
+		// Deliberately NOT the whole response body. The listing envelope also
+		// carries live host telemetry (ramUsed and friends) which drifts
+		// between two calls milliseconds apart, so a byte-for-byte comparison
+		// asserts on the machine's memory pressure rather than on the handler
+		// and fails at random.
+		listingShape := func(path string) map[string]any {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			rec := httptest.NewRecorder()
 			app.ServeHTTP(rec, req)
 			Expect(rec.Code).To(Equal(http.StatusOK))
-			return rec.Body.Bytes()
+			var body map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &body)).To(Succeed())
+
+			shape := map[string]any{}
+			for _, k := range []string{
+				"models", "availableModels", "installedModels",
+				"totalPages", "currentPage", "nextPage", "prevPage",
+				"allBackends", "allTags",
+			} {
+				shape[k] = body[k]
+			}
+			return shape
 		}
 
 		It("returns every entry when off", func() {
-			Expect(names("/api/models?items=9999")).To(ConsistOf("base-entry", "big-entry", "plain-entry"))
+			Expect(names("/api/models?items=9999")).To(ConsistOf("base-entry", "big-entry", "dir-entry", "plain-entry"))
 		})
 
 		It("hides only the builds another entry already offers", func() {
-			// base-entry is a parent and stays. big-entry is the build it
-			// references, so it drops out: a user reaches it by installing
-			// base-entry. plain-entry is nobody's variant, so it stays even
-			// though it declares none of its own.
+			// base-entry is a parent and stays. big-entry and dir-entry are the
+			// builds it references, so they drop out: a user reaches them by
+			// installing base-entry. plain-entry is nobody's variant, so it
+			// stays even though it declares none of its own.
 			Expect(names("/api/models?items=9999&collapse_variants=true")).
 				To(ConsistOf("base-entry", "plain-entry"))
 		})
@@ -251,9 +333,9 @@ var _ = Describe("Model gallery variants API", func() {
 			// Default off has to mean off, so an explicit false and an
 			// unparseable value must both behave as absent rather than as a
 			// truthy presence check.
-			base := rawBody("/api/models?items=9999")
-			Expect(rawBody("/api/models?items=9999&collapse_variants=false")).To(Equal(base))
-			Expect(rawBody("/api/models?items=9999&collapse_variants=1")).To(Equal(base))
+			base := listingShape("/api/models?items=9999")
+			Expect(listingShape("/api/models?items=9999&collapse_variants=false")).To(Equal(base))
+			Expect(listingShape("/api/models?items=9999&collapse_variants=1")).To(Equal(base))
 		})
 
 		It("serializes a non-declaring entry exactly as it did before", func() {
@@ -274,7 +356,7 @@ var _ = Describe("Model gallery variants API", func() {
 			Expect(names("/api/models?items=9999&collapse_variants=true&backend=whisper")).
 				To(ConsistOf("plain-entry"))
 			Expect(names("/api/models?items=9999&backend=llama-cpp")).
-				To(ConsistOf("base-entry", "big-entry"))
+				To(ConsistOf("base-entry", "big-entry", "dir-entry"))
 		})
 
 		It("still applies the search term when nothing is collapsed away", func() {

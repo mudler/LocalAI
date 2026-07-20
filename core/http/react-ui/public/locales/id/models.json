@@ -42,6 +42,7 @@
     "detection": "Deteksi",
     "vad": "VAD",
     "fitsGpu": "Muat di GPU",
+    "collapseVariants": "Satu baris per model",
     "allBackends": "Semua Backend",
     "searchBackends": "Cari backends...",
     "contextSize": "Konteks:",
@@ -92,6 +93,7 @@
   "empty": {
     "title": "Model tidak ditemukan",
     "withFilters": "Tidak ada model yang cocok dengan pencarian atau filter Anda.",
+    "collapsedVariantsHint": "Build alternatif yang sudah ditawarkan entri lain disembunyikan. Matikan \"Satu baris per model\" untuk menyertakannya.",
     "noFilters": "Galeri model kosong."
   },
   "deleteDialog": {
@@ -121,6 +123,12 @@
     "doesNotFit": "Does not fit",
     "unknownSize": "Unknown size",
     "unknownBackend": "Unknown backend",
-    "loading": "Loading variants..."
+    "loading": "Loading variants...",
+    "quantizationTitle": "Format bobot",
+    "unknownQuantization": "Format tidak diketahui",
+    "features": {
+      "dflash": "Lebih cepat: DFlash",
+      "mtp": "Lebih cepat: MTP"
+    }
   }
 }

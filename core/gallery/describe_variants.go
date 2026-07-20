@@ -25,6 +25,31 @@ type VariantView struct {
 	// what auto-selection falls back to, which is why it is listed alongside
 	// the declared variants rather than hidden.
 	IsBase bool `json:"is_base"`
+	// Quantization is the weight format the referenced entry installs, e.g.
+	// "Q2_G64", "PQ2_0", "F16". It is the fact that actually separates two
+	// builds of one model: name, backend and probed size routinely agree
+	// between variants that differ entirely in precision.
+	//
+	// Derived server-side from the referenced entry's model filename rather
+	// than parsed by clients, so every client reads the same format out of the
+	// same file the installer will point the backend at, and a naming
+	// convention change is one edit here rather than one per client.
+	//
+	// Omitted when the entry names no recognisable format. That is a normal
+	// outcome for a backend served from a directory of weights, and clients
+	// must render its absence rather than an empty or invented value.
+	Quantization string `json:"quantization,omitempty"`
+	// Features are the serving features this build declares, best first, e.g.
+	// ["dflash"]. They mean the same weights are served faster, which is a
+	// reason to prefer a variant that neither its size nor its precision
+	// conveys.
+	//
+	// This is the SAME tag-against-vocabulary match servingFeatureRank ranks
+	// on, over the same host preference list, so what a client shows as a speed
+	// advantage cannot disagree with what selection actually rewarded. A tag
+	// outside that vocabulary is not a serving feature and is not reported
+	// here: the entry's own tag list already carries it.
+	Features []string `json:"features,omitempty"`
 }
 
 // EntryVariants is the variant surface of a single gallery entry.
@@ -72,10 +97,22 @@ func DescribeVariants(models []*GalleryModel, entry *GalleryModel, env ResolveEn
 			// reporting it as anything but fitting would misdescribe it.
 			Fits:   o.IsBase || (env.backendRuns(o.Backend) && (!known || memory <= env.AvailableMemory)),
 			IsBase: o.IsBase,
+			// o.Tags is already the REFERENCED entry's tag list, which is the
+			// only correct source: the feature belongs to the build that would
+			// be installed, not to the family the parent describes.
+			Features: env.servingFeaturesOf(o),
 		}
 		if known {
 			view.MemoryBytes = memory
 		}
+		// The base option's payload is the entry itself; every other option
+		// names a gallery entry variantOptions has already proved resolvable,
+		// so this second lookup is an in-memory map hit and cannot fail.
+		source := entry
+		if !o.IsBase {
+			source = FindGalleryElement(models, o.Variant.Model)
+		}
+		view.Quantization = quantizationOfEntry(source)
 		views = append(views, view)
 	}
 

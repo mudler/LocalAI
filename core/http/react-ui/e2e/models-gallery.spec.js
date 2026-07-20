@@ -443,6 +443,11 @@ test.describe("Models Gallery - Empty State", () => {
 // The variant description the companion endpoint returns for llama-model.
 // memory_bytes is omitempty server-side, so the mlx variant deliberately
 // carries no key at all: the UI must render that as unknown, never 0 B.
+//
+// quantization and features are omitempty for the same reason. The mlx build
+// carries neither, standing in for a backend served from a directory of
+// weights whose name declares no format: those cells must degrade to a stated
+// "unknown", never to a blank or an "undefined".
 const MOCK_VARIANTS_RESPONSE = {
   variants: [
     {
@@ -451,6 +456,7 @@ const MOCK_VARIANTS_RESPONSE = {
       memory_bytes: 4 * 1024 * 1024 * 1024,
       fits: true,
       is_base: true,
+      quantization: "Q4_K_M",
     },
     {
       model: "llama-model-q8",
@@ -458,6 +464,8 @@ const MOCK_VARIANTS_RESPONSE = {
       memory_bytes: 8 * 1024 * 1024 * 1024,
       fits: true,
       is_base: false,
+      quantization: "Q8_0",
+      features: ["dflash"],
     },
     {
       model: "llama-model-mlx",
@@ -471,6 +479,7 @@ const MOCK_VARIANTS_RESPONSE = {
       memory_bytes: 40 * 1024 * 1024 * 1024,
       fits: false,
       is_base: false,
+      quantization: "F16",
     },
   ],
   auto_selected: "llama-model-q8",
@@ -708,6 +717,87 @@ test.describe("Models Gallery - Variant picker", () => {
     expect(installUrls[0]).toContain("variant=llama-model-mlx");
   });
 
+  test("the menu names each build's quantization alongside backend and size", async ({
+    page,
+  }) => {
+    // Without it the meta line reads "llama-cpp - 8 GB" for two builds that
+    // differ entirely in precision, which describes nothing the user is
+    // choosing between.
+    await openMenu(page);
+    await expect(
+      page.locator(".action-menu__item", { hasText: "llama-model-q8" }),
+    ).toContainText("llama-cpp · Q8_0 · 8 GB");
+  });
+
+  test("the menu marks a build that serves faster", async ({ page }) => {
+    // A compact marker, not a sentence: the dropdown has room for the token
+    // and the detail row carries the spelled-out name.
+    await openMenu(page);
+    await expect(
+      page
+        .locator(".action-menu__item", { hasText: "llama-model-q8" })
+        .locator(".badge", { hasText: "DFLASH" }),
+    ).toBeVisible();
+  });
+
+  test("a build naming no quantization drops the segment rather than blanking", async ({
+    page,
+  }) => {
+    // The degrade contract in the compact surface: no empty segment, no
+    // dangling separator, and above all no "undefined".
+    await openMenu(page);
+    const item = page.locator(".action-menu__item", {
+      hasText: "llama-model-mlx",
+    });
+    await expect(item).toContainText("mlx · Unknown size");
+    await expect(item).not.toContainText("undefined");
+    await expect(item).not.toContainText("· ·");
+  });
+
+  test("the detail row gives quantization its own column", async ({ page }) => {
+    await variantRow(page).click();
+    const detail = page.locator(".variant-list");
+
+    await expect(
+      detail.locator(".variant-row", { hasText: "llama-model-q8" }).locator(".variant-row__quant"),
+    ).toHaveText("Q8_0");
+    await expect(
+      detail.locator(".variant-row", { hasText: "llama-model-f16" }).locator(".variant-row__quant"),
+    ).toHaveText("F16");
+  });
+
+  test("the detail row states an unknown quantization rather than leaving a gap", async ({
+    page,
+  }) => {
+    // An empty cell in an aligned column reads as a rendering fault, so the
+    // absent case is spelled out and styled as the exception it is.
+    await variantRow(page).click();
+    const cell = page
+      .locator(".variant-row", { hasText: "llama-model-mlx" })
+      .locator(".variant-row__quant");
+
+    await expect(cell).toHaveText("Unknown format");
+    await expect(cell).toHaveClass(/variant-row__quant--unknown/);
+  });
+
+  test("the detail row spells out the serving feature", async ({ page }) => {
+    // This is the room the detail row has over the dropdown: "DFLASH" names
+    // nothing to a user who has not met it.
+    await variantRow(page).click();
+
+    await expect(
+      page
+        .locator(".variant-row", { hasText: "llama-model-q8" })
+        .locator(".badge", { hasText: "Faster: DFlash" }),
+    ).toBeVisible();
+    // A build declaring no feature carries no feature badge at all.
+    await expect(
+      page
+        .locator(".variant-row", { hasText: "llama-model-mlx" })
+        .locator(".badge", { hasText: "Faster" }),
+    ).toHaveCount(0);
+  });
+
   test("a variant row is reachable and actionable from the keyboard", async ({
     page,
   }) => {
@@ -775,6 +865,9 @@ test.describe("Models Gallery - Collapsed Listing", () => {
       // name. Anything else browsing-shaped stays collapsed.
       let body = collapsed ? COLLAPSED_RESPONSE : MOCK_MODELS_RESPONSE;
       if (isListing && term === "whisper-model") body = SEARCH_HIT_RESPONSE;
+      // A term matching no entry, so the empty state is reachable from a
+      // search as well as from a chip and the two can be told apart.
+      else if (isListing && term) body = EMPTY_FILTERED_RESPONSE;
       // A usecase filter matches nothing in this fixture, so the empty state
       // stays reachable and the specs can pin down what it says.
       if (isListing && tag) body = EMPTY_FILTERED_RESPONSE;
@@ -790,16 +883,70 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     });
   });
 
-  test("there is no collapse toggle to find", async ({ page }) => {
-    // The control is redundant once searching bypasses the collapse, and a
-    // toggle whose only job is "let me find things" is a worse answer than
-    // the search box already being able to find them.
-    await expect(page.getByText("One row per model")).toHaveCount(0);
+  // The house pattern for these toggles: the checkbox itself is a zero-sized
+  // opacity-0 input, so state is read through the wrapping label and changed
+  // by clicking the visible track.
+  const collapseToggle = (page) => page.getByLabel("One row per model");
+  const flipCollapse = (page) =>
+    page.getByTestId("models-collapse-variants").locator(".toggle__track").click();
+
+  test("the collapse toggle sits in the refinements band, on by default", async ({
+    page,
+  }) => {
+    // It belongs with the other narrowing controls rather than among the
+    // taxonomy chips: it refines a listing the user is already reading.
     await expect(
-      page.locator("label.filter-bar-group__toggle", {
-        hasText: "One row per model",
-      }),
-    ).toHaveCount(0);
+      page
+        .getByTestId("models-filters-refine")
+        .getByTestId("models-collapse-variants"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("models-collapse-variants"),
+    ).toContainText("One row per model");
+    // Default collapsed, so the default view is one row per model.
+    await expect(collapseToggle(page)).toBeChecked();
+  });
+
+  test("turning the toggle off reveals the builds the collapse hid", async ({
+    page,
+  }) => {
+    // Browsing, as opposed to finding. Search reaches a build whose name you
+    // already know; only this enumerates every build the gallery holds.
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(0);
+
+    await flipCollapse(page);
+
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    // Off means the parameter is absent, so opting out asks for exactly the
+    // listing every other API client gets.
+    await expect
+      .poll(() =>
+        listingUrls[listingUrls.length - 1].searchParams.get(
+          "collapse_variants",
+        ),
+      )
+      .toBeNull();
+  });
+
+  test("changing the toggle resets to page 1", async ({ page }) => {
+    await flipCollapse(page);
+
+    await expect
+      .poll(() => listingUrls[listingUrls.length - 1].searchParams.get("page"))
+      .toBe("1");
+  });
+
+  test("the choice survives a reload", async ({ page }) => {
+    await flipCollapse(page);
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await expect(collapseToggle(page)).not.toBeChecked();
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
   });
 
   test("browsing collapses: the parent stays, the build it offers drops", async ({
@@ -868,14 +1015,12 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
   });
 
-  test("a stored preference from the removed toggle is inert", async ({
-    page,
-  }) => {
-    // The key outlives the control it belonged to. A user who left the toggle
-    // off gets the collapsed view like everyone else rather than a listing
-    // shaped by a setting they can no longer see or change.
+  test("a legacy '0' in storage is not read as a choice", async ({ page }) => {
+    // An older build wrote '1'/'0' from an effect that ran on mount, so those
+    // values record that the page was opened rather than that anyone picked a
+    // view. Only 'on'/'off' counts, so a legacy visitor gets the default.
     await page.evaluate(() => {
-      localStorage.setItem("localai-models-collapse-variants-filter", "off");
+      localStorage.setItem("localai-models-collapse-variants-filter", "0");
     });
     await page.reload();
     await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
@@ -889,7 +1034,29 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     expect(last.searchParams.get("collapse_variants")).toBe("true");
   });
 
-  test("the empty state no longer blames a toggle nobody can reach", async ({
+  test("searching still finds a collapsed-away build with the toggle untouched", async ({
+    page,
+  }) => {
+    // The regression 462583f38 existed to prevent, re-checked now the toggle
+    // is back: the bypass is the improvement, and restoring the control must
+    // not restore the dead end it replaced.
+    await expect(collapseToggle(page)).toBeChecked();
+
+    await page.locator(".search-bar input").fill("whisper-model");
+
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(page.locator(".empty-state")).toHaveCount(0);
+    // Still asked for collapsed: the server decides what a term means.
+    await expect
+      .poll(() =>
+        listingUrls[listingUrls.length - 1].searchParams.get(
+          "collapse_variants",
+        ),
+      )
+      .toBe("true");
+  });
+
+  test("the empty state names the collapse as something that may be hiding rows", async ({
     page,
   }) => {
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
@@ -900,8 +1067,21 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await expect(page.locator(".empty-state-text")).toHaveText(
       "No models match your current search or filters.",
     );
-    // The old hint told the user to turn off a control that is gone, and it
-    // is no longer even true for a search: searching sees every build.
+    // Truthful again now the control exists to be turned off.
+    await expect(page.locator(".empty-state-hint")).toContainText(
+      "One row per model",
+    );
+  });
+
+  test("the empty state does not blame the collapse for a search", async ({
+    page,
+  }) => {
+    // A term bypasses the collapse server-side, so with one typed nothing is
+    // hidden by it and the hint would send the user to a control that cannot
+    // change this result.
+    await page.locator(".search-bar input").fill("nothing-matches-this");
+    await expect(page.locator(".empty-state")).toBeVisible();
+
     await expect(page.locator(".empty-state-hint")).toHaveCount(0);
   });
 
@@ -917,6 +1097,35 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
     );
+  });
+
+  test("clear filters resets the collapse toggle to its default", async ({
+    page,
+  }) => {
+    // It is a filter like the others, so leaving it behind would make "clear
+    // filters" a half-truth.
+    await flipCollapse(page);
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await page.locator(".filter-btn", { hasText: "Chat" }).click();
+    await expect(page.locator(".empty-state")).toBeVisible();
+
+    await page.getByRole("button", { name: "Clear filters" }).click();
+
+    await expect(collapseToggle(page)).toBeChecked();
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+      0,
+    );
+  });
+
+  test("the clear button appears for the toggle alone", async ({ page }) => {
+    // Turning the collapse off is a filter change with nothing else set, so
+    // the empty state must still offer a way back.
+    await flipCollapse(page);
+    await page.locator(".filter-btn", { hasText: "Chat" }).click();
+
+    await expect(
+      page.getByRole("button", { name: "Clear filters" }),
+    ).toBeVisible();
   });
 });
 

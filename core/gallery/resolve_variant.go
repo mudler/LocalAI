@@ -185,6 +185,33 @@ func (e ResolveEnv) servingFeatureRank(o VariantOption) int {
 	})
 }
 
+// servingFeaturesOf lists the serving features a variant declares, best first.
+//
+// It is the descriptive half of servingFeatureRank: that function collapses the
+// same match into one score for ordering, this one names what matched so a
+// picker can tell the user WHY one build is preferred over another. Both read
+// the single vocabulary on ResolveEnv, so a feature can never be shown as an
+// advantage the ranker did not reward, nor rewarded without being shown.
+//
+// Preference order rather than the author's tag order, so the list reads best
+// thing first.
+//
+// nil rather than an empty slice for a plain build, so the view field it feeds
+// is omitted from the wire entirely.
+func (e ResolveEnv) servingFeaturesOf(o VariantOption) []string {
+	if len(e.ServingFeaturePreference) == 0 || len(o.Tags) == 0 {
+		return nil
+	}
+	tags := lowercased(o.Tags)
+	var features []string
+	for _, token := range e.ServingFeaturePreference {
+		if slices.Contains(tags, strings.ToLower(strings.TrimSpace(token))) {
+			features = append(features, token)
+		}
+	}
+	return features
+}
+
 // lowercased folds a tag list for comparison, so a gallery author writing
 // "MTP" declares the same feature as one writing "mtp".
 func lowercased(tags []string) []string {

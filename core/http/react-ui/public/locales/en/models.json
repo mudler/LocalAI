@@ -44,6 +44,7 @@
     "vad": "VAD",
     "ner": "NER",
     "fitsGpu": "Fits in GPU",
+    "collapseVariants": "One row per model",
     "allBackends": "All Backends",
     "searchBackends": "Search backends...",
     "contextSize": "Context:",
@@ -94,6 +95,7 @@
   "empty": {
     "title": "No models found",
     "withFilters": "No models match your current search or filters.",
+    "collapsedVariantsHint": "Alternative builds that another entry already offers are hidden. Turn off \"One row per model\" to include them.",
     "noFilters": "The model gallery is empty."
   },
   "deleteDialog": {
@@ -123,6 +125,12 @@
     "unknownSize": "Unknown size",
     "unknownBackend": "Unknown backend",
     "loading": "Loading variants...",
-    "installVariant": "Install {{variant}}"
+    "installVariant": "Install {{variant}}",
+    "quantizationTitle": "Weight format",
+    "unknownQuantization": "Unknown format",
+    "features": {
+      "dflash": "Faster: DFlash",
+      "mtp": "Faster: MTP"
+    }
   }
 }

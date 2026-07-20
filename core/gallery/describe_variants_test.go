@@ -275,4 +275,95 @@ var _ = Describe("DescribeVariants", func() {
 			Expect(view.AutoSelected).To(Equal("qwen3-8b-gguf-q4"))
 		})
 	})
+
+	Describe("the facts that tell two builds of one model apart", func() {
+		// servedAs points an entry at a weight file the way the gallery does,
+		// so the reported quantization comes from the same field the installer
+		// hands the backend.
+		servedAs := func(m *gallery.GalleryModel, filename string) {
+			m.Overrides = map[string]any{
+				"parameters": map[string]any{"model": filename},
+			}
+		}
+
+		It("reports each variant's quantization from the entry it references", func() {
+			// The whole point of the field: these three rows share a backend
+			// and sit within a gigabyte of each other, so quantization is the
+			// only thing a user can actually choose on.
+			servedAs(models[0], "models/Qwen3-8B-AWQ-4bit.safetensors")
+			models[0].Backend = "llama-cpp"
+			servedAs(models[1], "models/Qwen3-8B-Q8_0.gguf")
+			servedAs(base, "models/Qwen3-8B-Q4_K_M.gguf")
+
+			view, err := gallery.DescribeVariants(models, base, probing(gib(64), map[string]uint64{}))
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(byName(view, "qwen3-8b-vllm-awq").Quantization).To(Equal("4BIT"))
+			Expect(byName(view, "qwen3-8b-gguf-q8").Quantization).To(Equal("Q8_0"))
+			// The base is described from the entry's own payload, not skipped:
+			// it is a selectable build like any other.
+			Expect(byName(view, "qwen3-8b-gguf-q4").Quantization).To(Equal("Q4_K_M"))
+		})
+
+		It("leaves the quantization unset when the referenced entry names none", func() {
+			// A vLLM build served from a directory of safetensors declares no
+			// format. The field must be absent rather than empty-but-present,
+			// so a client renders "unknown" instead of a blank cell.
+			servedAs(models[0], "models/Qwen3-8B/")
+			servedAs(base, "models/Qwen3-8B-Q4_K_M.gguf")
+
+			view, err := gallery.DescribeVariants(models, base, probing(gib(64), map[string]uint64{}))
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(byName(view, "qwen3-8b-vllm-awq").Quantization).To(BeEmpty())
+			Expect(byName(view, "qwen3-8b-gguf-q4").Quantization).To(Equal("Q4_K_M"))
+		})
+
+		It("names the serving features a build declares, best first", func() {
+			models[0].Tags = []string{"llm", "MTP", "gguf", "dflash"}
+
+			env := probing(gib(64), map[string]uint64{})
+			env.ServingFeaturePreference = []string{"dflash", "mtp"}
+
+			view, err := gallery.DescribeVariants(models, base, env)
+
+			Expect(err).ToNot(HaveOccurred())
+			// Preference order, not the author's order, and case-folded the way
+			// the ranker folds it: "MTP" and "mtp" declare one feature.
+			Expect(byName(view, "qwen3-8b-vllm-awq").Features).To(Equal([]string{"dflash", "mtp"}))
+			// A tag outside the vocabulary is not a serving feature.
+			Expect(byName(view, "qwen3-8b-gguf-q8").Features).To(BeEmpty())
+		})
+
+		It("agrees with the ranking: the build shown as faster is the one selection rewards", func() {
+			// The contract that keeps the badge honest. Both builds fit and are
+			// runnable, so only the serving feature can decide, and the variant
+			// carrying the reported feature must be the one auto-selected.
+			models[1].Tags = []string{"dflash"}
+
+			env := probing(gib(64), map[string]uint64{
+				"qwen3-8b-vllm-awq": gib(9),
+				"qwen3-8b-gguf-q8":  gib(9),
+			})
+			env.ServingFeaturePreference = []string{"dflash", "mtp"}
+
+			view, err := gallery.DescribeVariants(models, base, env)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(byName(view, "qwen3-8b-gguf-q8").Features).To(Equal([]string{"dflash"}))
+			Expect(view.AutoSelected).To(Equal("qwen3-8b-gguf-q8"))
+		})
+
+		It("reports no features on a host with no serving feature vocabulary", func() {
+			// An env with no preference list ranks every build equally on this
+			// axis, so claiming a speed advantage would describe an advantage
+			// nothing acted on.
+			models[0].Tags = []string{"dflash"}
+
+			view, err := gallery.DescribeVariants(models, base, probing(gib(64), map[string]uint64{}))
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(byName(view, "qwen3-8b-vllm-awq").Features).To(BeEmpty())
+		})
+	})
 })

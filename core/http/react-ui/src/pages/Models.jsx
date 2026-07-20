@@ -23,6 +23,27 @@ import React from 'react'
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
 const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
+const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
+// The deduplicated gallery is what a user asking "what can I install" wants, so
+// that is the default. The control exists for the other job: browsing every
+// build the gallery holds, which the collapsed view makes impossible however
+// many pages you turn.
+const COLLAPSE_VARIANTS_DEFAULT = true
+
+// Only 'on'/'off' counts as a choice. An earlier build wrote '1'/'0' from an
+// effect that ran on mount, so those values record that the page was opened
+// rather than that anyone picked a view, and honouring them would pin a
+// visitor to a default they never chose.
+const readCollapseVariantsPreference = () => {
+  try {
+    const stored = localStorage.getItem(COLLAPSE_VARIANTS_STORAGE_KEY)
+    if (stored === 'on') return true
+    if (stored === 'off') return false
+    return COLLAPSE_VARIANTS_DEFAULT
+  } catch {
+    return COLLAPSE_VARIANTS_DEFAULT
+  }
+}
 
 const FILTERS = [
   { key: '', labelKey: 'filters.all', icon: 'fa-layer-group' },
@@ -89,6 +110,11 @@ export default function Models() {
       return false
     }
   })
+  // Collapses the listing to one row per model by hiding the individual builds
+  // another entry already offers as variants. Server-side, unlike fitsFilter,
+  // because the listing paginates and a client-side narrowing would leave the
+  // page count describing the unfiltered set.
+  const [collapseVariants, setCollapseVariants] = useState(readCollapseVariantsPreference)
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
 
@@ -99,17 +125,18 @@ export default function Models() {
       const filtersVal = params.filters !== undefined ? params.filters : filters
       const sortVal = params.sort !== undefined ? params.sort : sort
       const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
+      const collapseVal = params.collapseVariants !== undefined ? params.collapseVariants : collapseVariants
       const queryParams = {
         page: params.page || page,
         items: 9,
-        // The deduplicated gallery is what a user asking "what can I install"
-        // wants, so the UI always asks for it. There is no control for this
-        // because a search term already bypasses the collapse server-side, so
-        // a build hidden behind a parent is still findable by name. The
-        // parameter stays optional on the API: other clients want either view,
-        // and an absent parameter still returns the full listing.
-        collapse_variants: 'true',
       }
+      // Omitted entirely when off rather than sent as false, so opting out asks
+      // for exactly the listing every other API client gets.
+      //
+      // Sending it does not defeat search: the handler ignores the collapse
+      // whenever a term is present, so a build hidden behind a parent is still
+      // findable by name in the default view.
+      if (collapseVal) queryParams.collapse_variants = 'true'
       if (filtersVal.length > 0) queryParams.tag = filtersVal.join(',')
       if (searchVal) queryParams.term = searchVal
       if (backendVal) queryParams.backend = backendVal
@@ -131,11 +158,11 @@ export default function Models() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, filters, sort, order, backendFilter, addToast, t])
+  }, [page, search, filters, sort, order, backendFilter, collapseVariants, addToast, t])
 
   useEffect(() => {
     fetchModels()
-  }, [page, filters, sort, order, backendFilter])
+  }, [page, filters, sort, order, backendFilter, collapseVariants])
 
   // Fetch backend→usecase mapping once on mount
   useEffect(() => {
@@ -300,6 +327,14 @@ export default function Models() {
     }
   }, [fitsFilter])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? 'on' : 'off')
+    } catch {
+      // Ignore storage errors (e.g., private browsing restrictions).
+    }
+  }, [collapseVariants])
+
   const visibleModels = models.filter((model) => {
     if (!fitsFilter) return true
     const name = model.name || model.id
@@ -346,9 +381,12 @@ export default function Models() {
              picking a backend disables the use-cases that backend cannot serve
              (see isFilterAvailable), so it reads as the gate on what follows.
           2. Taxonomy: the use-case chips, which wrap freely.
-          3. Refinements: fits-in-GPU and context size. These two are one
-             control group, not two strays - the context size is the length the
-             VRAM estimate is computed at, and that estimate is exactly what the
+          3. Refinements: one row per model, fits-in-GPU and context size.
+             All three narrow a listing the user is already reading rather than
+             naming what to look at, which is what separates them from the
+             query scope above. Fits-in-GPU and context size are additionally
+             one control group - the context size is the length the VRAM
+             estimate is computed at, and that estimate is exactly what the
              fits filter tests against.
           Each band owns its container, so how many chips happen to wrap at a
           given width can no longer decide where the other controls land. */}
@@ -402,6 +440,19 @@ export default function Models() {
         </div>
 
         <div className="models-filters__refine" data-testid="models-filters-refine">
+          {/* Leads the band because it decides how many rows the other two
+              refine over, and because unlike fits-in-GPU it is always present:
+              a host with no GPU still browses builds. Turning it off is the
+              only way to page through every build the gallery holds; searching
+              reaches a specific one but cannot enumerate them. */}
+          <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
+            <Toggle
+              checked={collapseVariants}
+              onChange={(v) => { setCollapseVariants(v); setPage(1) }}
+            />
+            <i className="fas fa-layer-group" aria-hidden="true" />
+            <span>{t('filters.collapseVariants')}</span>
+          </label>
           {totalGpuMemory > 0 && (
             <label className="filter-bar-group__toggle">
               <Toggle checked={fitsFilter} onChange={setFitsFilter} />
@@ -440,12 +491,19 @@ export default function Models() {
           <div className="empty-state-icon"><i className="fas fa-search" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">
-            {search || filters.length > 0 || backendFilter || fitsFilter ? t('empty.withFilters') : t('empty.noFilters')}
+            {search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {(search || filters.length > 0 || backendFilter || fitsFilter) && (
+          {/* True again now the control is back, but only in the absence of a
+              search term: a term bypasses the collapse server-side, so with one
+              typed nothing is hidden and pointing at the toggle would send the
+              user to a control that cannot change this result. */}
+          {collapseVariants && !search && (filters.length > 0 || backendFilter || fitsFilter) && (
+            <p className="empty-state-hint">{t('empty.collapsedVariantsHint')}</p>
+          )}
+          {(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants) && (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setPage(1) }}
+              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
             >
               <i className="fas fa-times" /> {t('search.clearFilters')}
             </button>
@@ -763,9 +821,32 @@ function VariantMenu({ anchor, model, variantData, onClose, onChoose, t }) {
                   {isAuto && <span className="badge badge-success" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.auto')}</span>}
                   {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.base')}</span>}
                   {!v.fits && <span className="badge badge-warning" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.doesNotFit')}</span>}
+                  {/* The bare token, not the spelled-out name: a dropdown item
+                      has room for a marker, and the sentence explaining what
+                      the marker means belongs in the detail row. */}
+                  {(v.features || []).map(f => (
+                    <span
+                      key={f}
+                      className="badge badge-info"
+                      style={{ fontSize: '0.625rem', marginLeft: 6 }}
+                      title={variantFeatureLabel(f, t)}
+                    >
+                      {f.toUpperCase()}
+                    </span>
+                  ))}
                 </span>
+                {/* Quantization joins backend and size on the one meta line
+                    because it is what most often separates two rows here:
+                    builds of the same model routinely share a backend and land
+                    within a gigabyte of each other, so without it the line
+                    describes nothing the user is actually choosing between.
+                    Joined by filter so a build that names no weight format
+                    drops the segment and its separator rather than rendering a
+                    dangling dot. */}
                 <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                  {v.backend || t('variants.unknownBackend')} · {variantSizeLabel(v, t)}
+                  {[v.backend || t('variants.unknownBackend'), v.quantization, variantSizeLabel(v, t)]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </span>
             </button>
@@ -781,6 +862,17 @@ function VariantMenu({ anchor, model, variantData, onClose, onChoose, t }) {
 // must never render as "0 B", which would read as "needs nothing".
 function variantSizeLabel(variant, t) {
   return variant?.memory_bytes ? formatBytes(variant.memory_bytes) : t('variants.unknownSize')
+}
+
+// variantFeatureLabel spells out a serving feature.
+//
+// The vocabulary is short and curated server-side, so each token has a real
+// translated name. An unrecognised one still renders as its uppercased token
+// rather than being dropped: the server's list can grow ahead of the locale
+// files, and a missing string is a worse outcome than an untranslated one when
+// the alternative is silently hiding a genuine reason to pick a build.
+function variantFeatureLabel(feature, t) {
+  return t(`variants.features.${feature}`, { defaultValue: feature.toUpperCase() })
 }
 
 function DetailRow({ label, children }) {
@@ -870,6 +962,18 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                     >
                       <span className="variant-row__name">{v.model}</span>
                       <span className="variant-row__backend">{v.backend || t('variants.unknownBackend')}</span>
+                      {/* Its own column rather than appended to the backend
+                          cell, so precision lines up down the list and two
+                          builds can be compared by scanning rather than by
+                          reading. An entry naming no weight format says so:
+                          an empty cell in an aligned column reads as a
+                          rendering fault. */}
+                      <span
+                        className={`variant-row__quant${v.quantization ? '' : ' variant-row__quant--unknown'}`}
+                        title={t('variants.quantizationTitle')}
+                      >
+                        {v.quantization || t('variants.unknownQuantization')}
+                      </span>
                       <span className="variant-row__size">{variantSizeLabel(v, t)}</span>
                       <span className="variant-row__status">
                         {isAuto && (
@@ -879,6 +983,15 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                         )}
                         {!v.fits && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
                         {v.is_base && !isAuto && <span className="badge badge-info">{t('variants.base')}</span>}
+                        {/* The room the detail row has over the dropdown is
+                            spent here: "DFLASH" names nothing to a user who
+                            has not met it, whereas the spelled-out feature
+                            says why this build is worth choosing. */}
+                        {(v.features || []).map(f => (
+                          <span key={f} className="badge badge-info">
+                            <i className="fas fa-bolt" aria-hidden="true" /> {variantFeatureLabel(f, t)}
+                          </span>
+                        ))}
                       </span>
                       <i className="fas fa-download variant-row__action" aria-hidden="true" />
                     </button>

@@ -9468,7 +9468,8 @@ button.collapsible-header:focus-visible {
   display: grid;
   width: max-content;
   max-width: 100%;
-  grid-template-columns: minmax(0, auto) max-content max-content max-content max-content;
+  /* name, backend, quantization, size, status, action */
+  grid-template-columns: minmax(0, auto) max-content max-content max-content max-content max-content;
   column-gap: var(--spacing-md);
   row-gap: 2px;
 }
@@ -9493,7 +9494,7 @@ button.collapsible-header:focus-visible {
 /* Subgrid keeps the columns shared across rows; without it each row falls back
    to sizing its own tracks, which is ragged but still legible. */
 @supports not (grid-template-columns: subgrid) {
-  .variant-row { grid-template-columns: minmax(22ch, auto) max-content max-content max-content max-content; }
+  .variant-row { grid-template-columns: minmax(22ch, auto) max-content max-content max-content max-content max-content; }
 }
 .variant-row:hover:not(:disabled) {
   background: var(--color-bg-hover);
@@ -9519,6 +9520,22 @@ button.collapsible-header:focus-visible {
 .variant-row__size {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+}
+/* Monospaced like the name above it, because a weight format is a literal
+   token and Q4_K_M vs Q4_K_S has to be told apart at a glance in a column. */
+.variant-row__quant {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* An entry naming no weight format is a real state, not a gap: it recedes to
+   the muted colour and drops the mono face, so it reads as prose saying
+   "unknown" rather than as a token. */
+.variant-row__quant--unknown {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--color-text-disabled);
 }
 .variant-row__size {
   text-align: right;
