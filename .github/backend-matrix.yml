@@ -2332,6 +2332,29 @@ include:
     base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "vllm"
+    # CDNA data-center arches -- the only ones wheels.vllm.ai/rocm publishes a
+    # wheel for. Pinned rather than inherited so this image keeps installing that
+    # prebuilt wheel; the repo-wide default list contains consumer arches, which
+    # would silently turn this into a multi-hour source build.
+    amdgpu-targets: 'gfx942,gfx950'
+    dockerfile: "./backend/Dockerfile.python"
+    context: "./"
+    ubuntu-version: '2404'
+  # Consumer/RDNA AMD GPUs. No prebuilt vllm wheel exists for these arches, so
+  # install.sh builds vllm from source -- a separate image because the two install
+  # paths cannot share one venv. One arch per image: each AMD torch device package
+  # is ~1.6 GB installed, so bundling arches is not free.
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-gfx1151-vllm'
+    runs-on: 'ubuntu-latest'
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
+    skip-drivers: 'false'
+    backend: "vllm"
+    amdgpu-targets: 'gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'

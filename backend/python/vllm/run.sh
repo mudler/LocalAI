@@ -47,6 +47,20 @@ if [ -d "${EDIR}/toolchain/usr/bin" ]; then
     export LD_LIBRARY_PATH="${_libpath}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 fi
 
+# ROCm (hipblas) profile: Triton JIT-compiles its launcher/util C modules at first
+# inference (e.g. the top-k/top-p sampling kernel), and torch._inductor's ISA probe
+# shells out to a C compiler too. The LocalAI runtime image ships hipcc but not
+# cc/gcc, and the FROM-scratch backend omits them as well -- so Triton dies with
+# "Failed to find C compiler". rocm-sdk-devel (installed for the gfx1151 build)
+# already bundles amdclang, so just put it on PATH and expose it as CC/CXX. Mirrors
+# the CPU-toolchain block above; no-op for other profiles (the dir doesn't exist).
+_rocm_sdk_bin="$(ls -d ${EDIR}/venv/lib/python*/site-packages/_rocm_sdk_devel/bin 2>/dev/null | head -1)"
+if [ -n "${_rocm_sdk_bin}" ] && [ -x "${_rocm_sdk_bin}/amdclang" ]; then
+    export PATH="${_rocm_sdk_bin}:${PATH}"
+    export CC="${CC:-${_rocm_sdk_bin}/amdclang}"
+    export CXX="${CXX:-${_rocm_sdk_bin}/amdclang++}"
+fi
+
 # Multi-node DP follower mode: when the first arg is `serve`, exec into
 # vllm's own CLI instead of LocalAI's backend.py gRPC server. The
 # follower speaks ZMQ directly to the head node's vllm ranks — there
