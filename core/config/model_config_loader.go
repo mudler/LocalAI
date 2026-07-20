@@ -490,7 +490,7 @@ func (bcl *ModelConfigLoader) preloadOne(
 		result, err := bcl.artifactMaterializer.Ensure(ctx, modelPath, artifactSpec)
 		if err != nil {
 			if inferred {
-				xlog.Warn("falling back to legacy model loading after artifact materialization failed", "model", updated.Name, "error", err)
+				LogArtifactFallback(updated.Name, updated.Backend, err)
 				managedPrimary = false
 			} else {
 				return ModelConfig{}, nil, err

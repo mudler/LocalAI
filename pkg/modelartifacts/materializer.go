@@ -6,12 +6,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -25,9 +27,39 @@ type SnapshotResolver interface {
 	ResolveSnapshot(context.Context, hfapi.SnapshotRequest) (hfapi.Snapshot, error)
 }
 
+// Locker is the cross-process exclusion primitive that keeps two replicas from
+// materializing the same snapshot at once. It is an interface rather than a
+// concrete *flock.Flock because the contention path has to be exercised without
+// a network filesystem: no test environment can make flock(2) return the
+// CIFS-specific errno this code must tolerate, and it is also the seam a
+// database-backed lock would plug into for multi-node deployments.
+type Locker interface {
+	TryLock() (bool, error)
+	Unlock() error
+}
+
+// ErrLockContended reports that a peer held the artifact lock for the whole
+// wait window and never published a usable snapshot. It is deliberately
+// distinct from an acquisition failure: the work is in progress elsewhere, so
+// callers can say so rather than blaming the model.
+var ErrLockContended = errors.New("artifact lock is held by another process")
+
+const (
+	// DefaultLockWait bounds how long Ensure waits for a peer replica. It is
+	// generous because the peer may legitimately be downloading tens of
+	// gigabytes, and waiting is strictly cheaper than the fallback, which makes
+	// the backend download the same repo in-band.
+	DefaultLockWait = 30 * time.Minute
+
+	initialLockRetryInterval = 100 * time.Millisecond
+	maxLockRetryInterval     = 5 * time.Second
+)
+
 type Manager struct {
 	resolver         SnapshotResolver
 	huggingFaceToken string
+	newLocker        func(string) Locker
+	lockWait         time.Duration
 }
 
 type ManagerOption func(*Manager)
@@ -43,8 +75,32 @@ func WithHuggingFaceToken(token string) ManagerOption {
 	return func(manager *Manager) { manager.huggingFaceToken = token }
 }
 
+// WithLocker overrides how the artifact lock is created. The default is an
+// flock(2) lock on the shared models directory.
+func WithLocker(factory func(path string) Locker) ManagerOption {
+	return func(manager *Manager) {
+		if factory != nil {
+			manager.newLocker = factory
+		}
+	}
+}
+
+// WithLockWait bounds how long Ensure waits for a peer replica holding the
+// artifact lock before giving up with ErrLockContended.
+func WithLockWait(wait time.Duration) ManagerOption {
+	return func(manager *Manager) {
+		if wait > 0 {
+			manager.lockWait = wait
+		}
+	}
+}
+
 func NewManager(resolver SnapshotResolver, options ...ManagerOption) *Manager {
-	manager := &Manager{resolver: resolver}
+	manager := &Manager{
+		resolver:  resolver,
+		newLocker: func(path string) Locker { return flock.New(path) },
+		lockWait:  DefaultLockWait,
+	}
 	for _, option := range options {
 		option(manager)
 	}
@@ -147,25 +203,24 @@ func (m *Manager) Ensure(ctx context.Context, modelsPath string, spec Spec) (Res
 	if err := os.MkdirAll(filepath.Dir(layout.Lock), 0o750); err != nil {
 		return Result{}, err
 	}
-	artifactLock := flock.New(layout.Lock)
-	locked, err := artifactLock.TryLockContext(ctx, 100*time.Millisecond)
-	if err != nil {
-		return Result{}, err
-	}
-	if !locked {
-		if err := ctx.Err(); err != nil {
-			return Result{}, err
+	artifactLock := m.newLocker(layout.Lock)
+	if err := m.acquireLock(ctx, artifactLock, layout.Lock); err != nil {
+		// A peer that held the lock for the whole window was very likely doing
+		// exactly this work. Its committed snapshot is the answer we wanted, so
+		// prefer it over reporting contention to a caller that would degrade to
+		// an in-band download.
+		if errors.Is(err, ErrLockContended) {
+			if cached, ok := committedResult(modelsPath, normalized); ok {
+				return cached, nil
+			}
 		}
-		return Result{}, fmt.Errorf("artifact lock was not acquired")
+		return Result{}, err
 	}
 	defer func() {
 		if err := artifactLock.Unlock(); err != nil {
 			xlog.Warn("failed to unlock model artifact", "lock", layout.Lock, "error", err)
 		}
 	}()
-	if err := os.Chmod(layout.Lock, 0o600); err != nil {
-		return Result{}, err
-	}
 	if cached, ok := committedResult(modelsPath, normalized); ok {
 		return cached, nil
 	}
@@ -173,6 +228,72 @@ func (m *Manager) Ensure(ctx context.Context, modelsPath string, spec Spec) (Res
 		return Result{}, err
 	}
 	return m.materializeLocked(ctx, modelsPath, normalized, snapshot, token, layout)
+}
+
+// isLockContention reports whether a failed lock attempt means "somebody else
+// holds it" rather than "this will never work".
+//
+// Only EWOULDBLOCK is portable, and it is the only errno gofrs/flock treats as
+// contention. Network filesystems translate their own protocol status codes
+// instead: CIFS/SMB maps STATUS_LOCK_NOT_GRANTED and STATUS_FILE_LOCK_CONFLICT
+// to EACCES, and a busy share can surface EBUSY. Both look like hard errors and
+// aborted materialization outright on a shared /models (#10981).
+//
+// EACCES is ambiguous at the syscall boundary, where it also spells "permission
+// denied", but it is not ambiguous at this call site. The lock file was already opened
+// O_CREATE|O_RDWR before we get here, so a genuine permission problem would
+// have failed the open with an *fs.PathError naming the path. flock(2) itself
+// documents no EACCES on Linux (EBADF, EINTR, EINVAL, ENOLCK, EWOULDBLOCK), so
+// a bare EACCES from the lock call can only have come from a network
+// filesystem's lock-conflict translation. The wait is bounded regardless, so
+// even a misclassification degrades to a delay, not a hang.
+func isLockContention(err error) bool {
+	return errors.Is(err, syscall.EWOULDBLOCK) ||
+		errors.Is(err, syscall.EAGAIN) ||
+		errors.Is(err, syscall.EACCES) ||
+		errors.Is(err, syscall.EBUSY)
+}
+
+// acquireLock blocks until the artifact lock is held, the context is done, or
+// the wait window expires with ErrLockContended.
+func (m *Manager) acquireLock(ctx context.Context, locker Locker, lockPath string) error {
+	wait := m.lockWait
+	if wait <= 0 {
+		wait = DefaultLockWait
+	}
+	deadline := time.Now().Add(wait)
+	interval := initialLockRetryInterval
+	waited := false
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		locked, err := locker.TryLock()
+		if err != nil && !isLockContention(err) {
+			return err
+		}
+		if locked {
+			if waited {
+				xlog.Info("acquired the model artifact lock after waiting for another replica", "lock", lockPath)
+			}
+			return nil
+		}
+		if !waited {
+			waited = true
+			xlog.Info("another replica is materializing this model artifact; waiting for it", "lock", lockPath)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%w: %s", ErrLockContended, lockPath)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
+		}
+		if interval < maxLockRetryInterval {
+			interval = min(interval*2, maxLockRetryInterval)
+		}
+	}
 }
 
 func removeInvalidFinal(layout Layout) error {
