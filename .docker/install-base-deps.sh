@@ -113,6 +113,28 @@ if [ "${BUILD_TYPE:-}" = "vulkan" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; t
     rm -rf /var/lib/apt/lists/*
 fi
 
+# --- 2b. Intel GPU compute-runtime driver (BUILD_TYPE=intel|sycl*) ---
+# The intel/oneapi-basekit base image ships the compilers and oneAPI runtime but
+# NOT the GPU userspace driver (the NEO compute-runtime: libze_intel_gpu +
+# libigdrcl + IGC + gmm). package-gpu-libs.sh bundles that driver into the
+# backend so the SYCL backend is self-contained on a runtime host without it (or
+# with a glibc-incompatible one) — the same reason the Vulkan branch above
+# installs mesa-vulkan-drivers. Install it here so it's present to be bundled.
+if { [ "${BUILD_TYPE:-}" = "intel" ] || case "${BUILD_TYPE:-}" in sycl*) true;; *) false;; esac; } \
+    && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
+    apt-get update
+    # intel-opencl-icd pulls the OpenCL driver (libigdrcl) plus the IGC
+    # (intel-igc-*) and GMM (libigdgmm) it depends on; intel-level-zero-gpu
+    # provides the Level Zero GPU driver (libze_intel_gpu). Both are in the
+    # Ubuntu 24.04 archive that the oneapi-basekit base is built on.
+    apt-get install -y --no-install-recommends \
+        intel-opencl-icd \
+        intel-level-zero-gpu || \
+        echo "WARNING: Intel GPU driver packages not found; the SYCL backend will not bundle a driver and will rely on a host-provided one"
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+fi
+
 # --- 3. CUDA toolkit (BUILD_TYPE=cublas|l4t) ---
 if { [ "${BUILD_TYPE:-}" = "cublas" ] || [ "${BUILD_TYPE:-}" = "l4t" ]; } && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
     apt-get update

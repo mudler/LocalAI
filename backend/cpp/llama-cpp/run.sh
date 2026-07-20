@@ -42,6 +42,18 @@ else
 	if [ -d "$CURDIR/lib/hipblaslt/library" ]; then
 		export HIPBLASLT_TENSILE_LIBPATH="$CURDIR"/lib/hipblaslt/library
 	fi
+	# SYCL (Intel) backends bundle the Intel GPU driver (compute-runtime). Point
+	# the Level Zero and OpenCL loaders at the bundled, glibc-coherent driver so
+	# they use it instead of the host's — which on rolling-release distros is
+	# built against a newer glibc than this backend's bundled loader and crashes
+	# on load. Safe across kernels: the driver talks to the host i915/xe via the
+	# stable DRM UAPI. Only set when the bundled driver is actually present.
+	if [ -e "$CURDIR/lib/libze_intel_gpu.so.1" ]; then
+		export ZE_ENABLE_ALT_DRIVERS="$CURDIR"/lib/libze_intel_gpu.so.1
+	fi
+	if [ -d "$CURDIR/etc/OpenCL/vendors" ]; then
+		export OCL_ICD_VENDORS="$CURDIR"/etc/OpenCL/vendors
+	fi
 fi
 
 # If there is a lib/ld.so, use it
