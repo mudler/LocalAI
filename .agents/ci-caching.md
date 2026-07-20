@@ -51,7 +51,7 @@ The C++ backend Dockerfiles (`Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}`) c
 | `base-grpc-cuda-13-amd64` | the above + CUDA 13.0 toolkit (Ubuntu 22.04 base) |
 | `base-grpc-cuda-13-arm64` | the above + CUDA 13.0 sbsa toolkit (Ubuntu 24.04 base) |
 | `base-grpc-l4t-cuda-12-arm64` | JetPack r36.4.0 base (CUDA preinstalled, `SKIP_DRIVERS=true`) + gRPC |
-| `base-grpc-rocm-amd64` | rocm/dev-ubuntu-24.04:7.2.1 base + hipblas/hipblaslt/rocblas + gRPC |
+| `base-grpc-rocm-amd64` | rocm/dev-ubuntu-24.04:7.14.0-full base + hipblas/hipblaslt/rocblas + gRPC |
 | `base-grpc-vulkan-amd64` / `base-grpc-vulkan-arm64` | Ubuntu 24.04 + Vulkan SDK 1.4.335 + gRPC |
 | `base-grpc-intel-amd64` | intel/oneapi-basekit:2025.3.2 base + gRPC |
 
