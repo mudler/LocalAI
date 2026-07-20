@@ -214,8 +214,94 @@ class TestInterceptorBehavior(unittest.TestCase):
 
     def test_unguarded_rpcs_pass_through_untouched(self):
         handler = _handler(lambda request, context: "served")
-        wrapped = self._intercept("/backend.Backend/TTS", handler)
+        wrapped = self._intercept("/backend.Backend/Health", handler)
         self.assertIs(wrapped, handler)
+
+
+# Every modality request message now carries a ModelIdentity field, so every
+# modality RPC shares the guard. The set below is the enforcement surface for
+# all 36 Python backends at once: an RPC missing from it is silently
+# unprotected, which is the failure mode this class exists to catch.
+_EXPECTED_MODALITY_METHODS = (
+    "/backend.Backend/GenerateImage",
+    "/backend.Backend/GenerateVideo",
+    "/backend.Backend/TTS",
+    "/backend.Backend/TTSStream",
+    "/backend.Backend/SoundGeneration",
+    "/backend.Backend/AudioTranscription",
+    "/backend.Backend/AudioTranscriptionStream",
+    "/backend.Backend/Detect",
+    "/backend.Backend/Depth",
+    "/backend.Backend/FaceVerify",
+    "/backend.Backend/FaceAnalyze",
+    "/backend.Backend/VoiceVerify",
+    "/backend.Backend/VoiceAnalyze",
+    "/backend.Backend/VoiceEmbed",
+    "/backend.Backend/Rerank",
+    "/backend.Backend/TokenClassify",
+    "/backend.Backend/Score",
+    "/backend.Backend/VAD",
+    "/backend.Backend/Diarize",
+    "/backend.Backend/SoundDetection",
+    "/backend.Backend/AudioTransform",
+)
+
+
+class TestModalityMethods(unittest.TestCase):
+    def setUp(self):
+        self.interceptor = model_identity.ModelIdentityInterceptor()
+        self.interceptor.state.record("a.gguf")
+        self.served = []
+
+    def _call(self, method, identity, response_streaming=False):
+        def behavior(request, context):
+            self.served.append(method)
+            return "served"
+
+        handler = _handler(behavior, response_streaming=response_streaming)
+        wrapped = self.interceptor.intercept_service(
+            lambda _: handler, _FakeCallDetails(method)
+        )
+        fn = wrapped.unary_stream if response_streaming else wrapped.unary_unary
+        return fn(_Request(ModelIdentity=identity), _FakeContext())
+
+    def test_every_modality_rpc_is_guarded(self):
+        for method in _EXPECTED_MODALITY_METHODS:
+            with self.subTest(method=method):
+                self.assertIn(
+                    method,
+                    model_identity._GUARDED_METHODS,
+                    "{} is unprotected on all Python backends".format(method),
+                )
+
+    def test_every_modality_rpc_rejects_a_mismatch(self):
+        for method in _EXPECTED_MODALITY_METHODS:
+            streaming = method.endswith("Stream")
+            with self.subTest(method=method):
+                with self.assertRaises(_Aborted):
+                    self._call(method, "b.gguf", response_streaming=streaming)
+        self.assertEqual(self.served, [], "no request may reach the model")
+
+    def test_every_modality_rpc_serves_a_match(self):
+        for method in _EXPECTED_MODALITY_METHODS:
+            streaming = method.endswith("Stream")
+            self._call(method, "a.gguf", response_streaming=streaming)
+        self.assertEqual(len(self.served), len(_EXPECTED_MODALITY_METHODS))
+
+    # Compatibility: an old controller sends nothing, and the e2e backend suite
+    # drives real backends with bare request structs.
+    def test_every_modality_rpc_serves_without_an_identity(self):
+        for method in _EXPECTED_MODALITY_METHODS:
+            streaming = method.endswith("Stream")
+            self._call(method, "", response_streaming=streaming)
+        self.assertEqual(len(self.served), len(_EXPECTED_MODALITY_METHODS))
+
+    # AudioEncode/AudioDecode stay out: the opus codec backend is loaded from a
+    # literal, not a ModelConfig, so no value carries the structural guarantee
+    # the comparison depends on.
+    def test_codec_rpcs_stay_unguarded(self):
+        for method in ("/backend.Backend/AudioEncode", "/backend.Backend/AudioDecode"):
+            self.assertNotIn(method, model_identity._GUARDED_METHODS)
 
 
 if __name__ == "__main__":

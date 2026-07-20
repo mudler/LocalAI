@@ -10,7 +10,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
-	"github.com/mudler/xlog"
 )
 
 type ArtifactMaterializer interface {
@@ -54,7 +53,7 @@ func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.M
 	result, err := materializer.Ensure(ctx, modelsPath, artifactSpec)
 	if err != nil {
 		if inferred {
-			xlog.Warn("falling back to legacy model loading after artifact materialization failed", "model", typed.Name, "error", err)
+			config.LogArtifactFallback(typed.Name, typed.Backend, err)
 			return false, nil
 		}
 		return false, fmt.Errorf("materialize primary model artifact: %w", err)

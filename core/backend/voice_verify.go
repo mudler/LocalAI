@@ -37,10 +37,11 @@ func VoiceVerify(
 	}
 
 	res, err := voiceModel.VoiceVerify(ctx, &proto.VoiceVerifyRequest{
-		Audio1:       audio1,
-		Audio2:       audio2,
-		Threshold:    threshold,
-		AntiSpoofing: antiSpoofing,
+		ModelIdentity: modelConfig.Model,
+		Audio1:        audio1,
+		Audio2:        audio2,
+		Threshold:     threshold,
+		AntiSpoofing:  antiSpoofing,
 	})
 
 	if appConfig.EnableTracing {
