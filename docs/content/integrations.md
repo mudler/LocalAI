@@ -80,6 +80,7 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 ### Automation & DevOps
 
+- [CompatCanary](https://github.com/CognizenOrg/compatcanary) - Test LocalAI's OpenAI-compatible API behavior locally or in CI and produce reproducible compatibility reports
 - [Reflexia](https://github.com/JackBekket/Reflexia) - Auto-documentation
 - [GitHelper](https://github.com/JackBekket/GitHelper) - GitHub bot for issues with code and documentation context
 - [kairos](https://github.com/kairos-io/kairos) - Immutable Linux OS
