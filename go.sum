@@ -974,8 +974,8 @@ github.com/mudler/edgevpn v0.34.0 h1:qDrD/rCPFY/FdURbXudIZWihVKY4VOX3nMn3CcbeQEU
 github.com/mudler/edgevpn v0.34.0/go.mod h1:yki7uMi5LR9gSMrw8PdPieuxsrk8BLV2Ui7VBEmbbIA=
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc h1:RxwneJl1VgvikiX28EkpdAyL4yQVnJMrbquKospjHyA=
 github.com/mudler/go-piper v0.0.0-20241023091659-2494246fd9fc/go.mod h1:O7SwdSWMilAWhBZMK9N9Y/oBDyMMzshE3ju8Xkexwig=
-github.com/mudler/go-processmanager v0.1.2-0.20260719202549-a94e2b7e5f4f h1:td22tuommnMukfgj92yAzKhkQOQ/V+uWbyzRtPWlLbw=
-github.com/mudler/go-processmanager v0.1.2-0.20260719202549-a94e2b7e5f4f/go.mod h1:h6kmHUZeafr+k5hRYpGLMzJFH4hItHffgpRo2QIkP+o=
+github.com/mudler/go-processmanager v0.1.2-0.20260720195933-3d64f5c974fc h1:NEFmd7+JoImN5dZI81/vcBRjtMg+GfEa7nEjQ029hd0=
+github.com/mudler/go-processmanager v0.1.2-0.20260720195933-3d64f5c974fc/go.mod h1:h6kmHUZeafr+k5hRYpGLMzJFH4hItHffgpRo2QIkP+o=
 github.com/mudler/localrecall v0.6.3 h1:uXOrP9JmetzxgVKzSrawviyBHZfAcvPBBIrvVUdZjDA=
 github.com/mudler/localrecall v0.6.3/go.mod h1:28k5n19raUrkuwXkacdNsBlj8yuSnGhpT16tu+2+4dU=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7dPmjRsBrnHOnPeOOj2LhCgyjQu0=
