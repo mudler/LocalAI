@@ -1864,8 +1864,6 @@
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "gemma-4-26b-a4b-it-qat"
-  variants:
-    - model: gemma-4-26b-a4b-it-qat-q4_0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF
@@ -1975,8 +1973,6 @@
       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/mmproj-gemma-4-12b-it-qat-q4_0.gguf
       sha256: cb018338a7538a9814d994bfe54644c71eb7ed54e31eae2f721e45fd3c260da7
 - name: "gemma-4-e2b-it-qat-q4_0"
-  variants:
-    - model: gemma-4-e2b-it-qat-mtp
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf
@@ -2019,8 +2015,6 @@
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B-it-mmproj.gguf
       sha256: 021059cce659fe7f9170d5599761d7bbaf644b798dab9503aca30dc43e6beb14
 - name: "gemma-4-e4b-it-qat-q4_0"
-  variants:
-    - model: gemma-4-e4b-it-qat-mtp
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf
@@ -2106,8 +2100,6 @@
       uri: https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf/resolve/main/gemma-4-26B-it-mmproj.gguf
       sha256: a359953a076b877db30c31dbbb4c6d93b4a6e017ee5db5784247e4d4c0dd4f3b
 - name: "gemma-4-31b-it-qat-q4_0"
-  variants:
-    - model: gemma-4-31b-it-qat-mtp
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/google/gemma-4-31B-it-qat-q4_0-gguf
@@ -3582,6 +3574,7 @@
   variants:
     - model: qwen3.6-35b-a3b-dflash
     - model: qwen3.6-35b-a3b-nvfp4-mtp
+    - model: qwen3.6-35b-a3b-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF
@@ -3678,6 +3671,10 @@
       sha256: e92ab30c10422ff1863f0d57cf2c206ec3ae47b4903e70c672589dcb7cbec2c6
       uri: https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf
 - name: gemma-4-26b-a4b-it
+  variants:
+    - model: gemma-4-26b-a4b-it-qat
+    - model: gemma-4-26b-a4b-it-qat-q4_0
+    - model: gemma-4-26b-a4b-it-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/google/gemma-4-26B-A4B-it
@@ -3722,6 +3719,8 @@
 - name: gemma-4-e2b-it
   variants:
     - model: "gemma-4-e2b-it:sglang-mtp"
+    - model: gemma-4-e2b-it-qat-q4_0
+    - model: gemma-4-e2b-it-qat-mtp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/google/gemma-4-E2B-it
@@ -3767,6 +3766,8 @@
 - name: gemma-4-e4b-it
   variants:
     - model: "gemma-4-e4b-it:sglang-mtp"
+    - model: gemma-4-e4b-it-qat-q4_0
+    - model: gemma-4-e4b-it-qat-mtp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/google/gemma-4-E4B-it
@@ -3809,6 +3810,9 @@
       sha256: 4c199e460410ba219a8c63930a7121154e1c70cdf66044858f767966332e5a54
       uri: huggingface://ggml-org/gemma-4-E4B-it-GGUF/mmproj-gemma-4-E4B-it-bf16.gguf
 - name: gemma-4-31b-it
+  variants:
+    - model: gemma-4-31b-it-qat-q4_0
+    - model: gemma-4-31b-it-qat-mtp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/google/gemma-4-31B-it
@@ -6128,6 +6132,8 @@
       sha256: 0599862ac5d15cd308e1d2e368373aea6c02e25ebd1737ad4a4562a0901b0ef8
       uri: huggingface://Serveurperso/ACE-Step-1.5-GGUF/vae-BF16.gguf
 - name: vibevoice-cpp
+  variants:
+    - model: vibevoice-tts-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/vibevoice.cpp-models
@@ -6174,6 +6180,8 @@
       sha256: b15cd8b9cae6ee2c3d20b0ee6e7bfe93f13489f8b63b6834e9bbf0dfabf6505a
       uri: huggingface://mudler/vibevoice.cpp-models/voice-en-Carter_man.gguf
 - name: vibevoice-cpp-asr
+  variants:
+    - model: vibevoice-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/vibevoice.cpp-models
@@ -6217,6 +6225,8 @@
       uri: huggingface://mudler/vibevoice.cpp-models/tokenizer.gguf
 - &qwenttscpp_gallery
   name: qwen3-tts-cpp
+  variants:
+    - model: qwen3-tts-cpp-0.6b-base-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/Serveurperso/Qwen3-TTS-GGUF
@@ -6252,6 +6262,7 @@
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
 - !!merge <<: *qwenttscpp_gallery
   name: qwen3-tts-cpp-0.6b-base-q4
+  variants: []
   description: |
     Qwen3-TTS 0.6B Base (C++ / GGML, qwentts.cpp), Q4_K_M (~0.6 GB talker).
     Streaming + voice cloning, 24kHz mono, 11 languages.
@@ -6292,6 +6303,7 @@
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
 - !!merge <<: *qwenttscpp_gallery
   name: qwen3-tts-cpp-1.7b-base-q4
+  variants: []
   description: |
     Qwen3-TTS 1.7B Base (C++ / GGML, qwentts.cpp), Q4_K_M (~1.2 GB talker).
     Streaming + voice cloning, 24kHz mono, 11 languages.
@@ -6342,6 +6354,7 @@
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
 - !!merge <<: *qwenttscpp_gallery
   name: qwen3-tts-cpp-customvoice-q4
+  variants: []
   description: |
     Qwen3-TTS 0.6B CustomVoice (C++ / GGML, qwentts.cpp), Q4_K_M. Named speakers
     via the `voice` field (serena, vivian, ryan, aiden, eric, dylan, ...).
@@ -6400,6 +6413,7 @@
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
 - !!merge <<: *qwenttscpp_gallery
   name: qwen3-tts-cpp-1.7b-customvoice-q4
+  variants: []
   description: |
     Qwen3-TTS 1.7B CustomVoice (C++ / GGML, qwentts.cpp), Q4_K_M. Named speakers
     via the `voice` field. Streaming, 24kHz mono, 11 languages.
@@ -6458,6 +6472,7 @@
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q8_0.gguf
 - !!merge <<: *qwenttscpp_gallery
   name: qwen3-tts-cpp-1.7b-voicedesign-q4
+  variants: []
   description: |
     Qwen3-TTS 1.7B VoiceDesign (C++ / GGML, qwentts.cpp), Q4_K_M. Synthesises a
     speaker from a free-text attribute instruction - REQUIRES the `instructions`
@@ -6551,6 +6566,8 @@
       sha256: d0f4f371f80ff32ba222b1b39c192df8285c7b88986a55f954454db69618479e
       uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tokenizer-v1_5.gguf
 - name: omnivoice-cpp
+  variants:
+    - model: omnivoice-cpp-hq
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/Serveurperso/OmniVoice-GGUF
@@ -15481,6 +15498,9 @@
       sha256: fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad
       uri: huggingface://unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
 - name: gemma-3-27b-it
+  variants:
+    - model: gemma-3-27b-it-qat
+    - model: google-gemma-3-27b-it-qat-q4_0-small
   url: github:mudler/LocalAI/gallery/gemma.yaml@master
   urls:
     - https://ai.google.dev/gemma/docs
@@ -15512,6 +15532,8 @@
       sha256: 54cb61c842fe49ac3c89bc1a614a2778163eb49f3dec2b90ff688b4c0392cb48
       uri: huggingface://lmstudio-community/gemma-3-27b-it-GGUF/mmproj-model-f16.gguf
 - name: gemma-3-12b-it
+  variants:
+    - model: gemma-3-12b-it-qat
   url: github:mudler/LocalAI/gallery/gemma.yaml@master
   urls:
     - https://ai.google.dev/gemma/docs/core
@@ -15543,6 +15565,8 @@
       sha256: 30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
       uri: huggingface://lmstudio-community/gemma-3-12b-it-GGUF/mmproj-model-f16.gguf
 - name: gemma-3-4b-it
+  variants:
+    - model: gemma-3-4b-it-qat
   url: github:mudler/LocalAI/gallery/gemma.yaml@master
   urls:
     - https://ai.google.dev/gemma/docs/core
@@ -19541,6 +19565,8 @@
       sha256: 555b91485955bc96eb445b57dd4bbf8809aa7d8cce7c313f4f8bc5b2340896b4
       uri: huggingface://bartowski/ibm-granite_granite-3.3-2b-instruct-GGUF/ibm-granite_granite-3.3-2b-instruct-Q4_K_M.gguf
 - name: llama-3.2-1b-instruct:q4_k_m
+  variants:
+    - model: "llama-3.2-1b-instruct:q8_0"
   url: github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master
   urls:
     - https://huggingface.co/hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF
@@ -19571,6 +19597,8 @@
       sha256: 1d0e9419ec4e12aef73ccf4ffd122703e94c48344a96bc7c5f0f2772c2152ce3
       uri: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/llama-3.2-1b-instruct-q4_k_m.gguf
 - name: llama-3.2-3b-instruct:q4_k_m
+  variants:
+    - model: "llama-3.2-3b-instruct:q8_0"
   url: github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master
   urls:
     - https://huggingface.co/hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF
@@ -20981,6 +21009,9 @@
       sha256: decd2598bc2c8ed08c19adc3c8fdd461ee19ed5708679d1c54ef54a5a30d4f33
       uri: huggingface://HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf
 - name: meta-llama-3.1-8b-instruct
+  variants:
+    - model: "meta-llama-3.1-8b-instruct:grammar-functioncall"
+    - model: "meta-llama-3.1-8b-instruct:Q8_grammar-functioncall"
   url: github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master
   urls:
     - https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct
@@ -29364,6 +29395,8 @@
       sha256: 236fcf372bb25f314dafa1605d84566db60ddad98b889aaa072a3108ec48ef22
       uri: huggingface://mradermacher/Arch-Router-1.5B-GGUF/Arch-Router-1.5B.Q8_0.gguf
 - name: dolphin-2.9-llama3-8b
+  variants:
+    - model: "dolphin-2.9-llama3-8b:Q6_K"
   url: github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master
   urls:
     - https://huggingface.co/cognitivecomputations/dolphin-2.9-llama3-8b-gguf
@@ -29979,6 +30012,8 @@
       sha256: 0cf542a127c2c835066a78028009b7eddbaf773cc2a26e1cb157ce5e09c1a2e0
       uri: huggingface://l3utterfly/phi-2-layla-v1-chatml-gguf/phi-2-layla-v1-chatml-Q8_0.gguf
 - name: phi-2-chat
+  variants:
+    - model: "phi-2-chat:Q8_0"
   url: github:mudler/LocalAI/gallery/phi-2-chat.yaml@master
   urls:
     - https://huggingface.co/l3utterfly/phi-2-layla-v1-chatml
@@ -31425,6 +31460,8 @@
       sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
       uri: https://huggingface.co/ChuckMcSneed/FLUX.1-dev/resolve/main/ae.safetensors
 - name: ideogram-4-iq4nl-ggml
+  variants:
+    - model: ideogram-4-q8_0-ggml
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/ideogram-ai/ideogram-4-fp8
@@ -35318,6 +35355,7 @@
 - name: silero-vad
   variants:
     - model: silero-vad-ggml
+    - model: silero-vad-sherpa
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://github.com/snakers4/silero-vad
