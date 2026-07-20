@@ -1416,7 +1416,11 @@ public:
     // field and for the synthetic PredictOptions this server builds internally
     // for ASR, and the loaded side is empty when such a controller performed
     // the load. A false rejection is worse than the miss it prevents.
-    grpc::Status checkModelIdentity(const backend::PredictOptions* request) {
+    // Templated over the request type: every guarded request message exposes
+    // modelidentity(), and one body keeps the rule identical across modalities
+    // rather than repeating it per RPC.
+    template <typename Request>
+    grpc::Status checkModelIdentity(const Request* request) {
         if (request == nullptr || request->modelidentity().empty()) {
             return grpc::Status::OK;
         }
@@ -2846,6 +2850,8 @@ public:
     }
 
     grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) override {
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         if (!params_base.embedding || params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
             return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This server does not support reranking. Start it with `--reranking` and without `--embedding`");
         }
@@ -2970,6 +2976,8 @@ public:
     grpc::Status Score(ServerContext* context, const backend::ScoreRequest* request, backend::ScoreResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
@@ -3428,6 +3436,8 @@ public:
                                     backend::TranscriptResult* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
 
         backend::Reply reply;
         grpc::Status st = runTranscriptionAsCompletion(context, request, &reply);
@@ -3446,6 +3456,8 @@ public:
                                           grpc::ServerWriter<backend::TranscriptStreamResponse>* writer) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
 
         // Buffered streaming: run the transcription as a normal chat
         // completion, then emit one delta + one final event. Real

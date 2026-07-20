@@ -36,8 +36,9 @@ func VoiceAnalyze(
 	}
 
 	res, err := voiceModel.VoiceAnalyze(ctx, &proto.VoiceAnalyzeRequest{
-		Audio:   audio,
-		Actions: actions,
+		ModelIdentity: modelConfig.Model,
+		Audio:         audio,
+		Actions:       actions,
 	})
 
 	if appConfig.EnableTracing {

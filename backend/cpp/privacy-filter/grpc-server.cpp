@@ -41,6 +41,11 @@ namespace {
 // per loaded model. g_mu guards (re)load against in-flight classification.
 std::mutex          g_mu;
 pf_ctx *            g_ctx = nullptr;
+// The ModelOptions.Model this process loaded, compared against
+// TokenClassifyRequest.ModelIdentity so a request that arrived through a stale
+// distributed route is rejected rather than answered from the wrong model
+// (#10952). Guarded by g_mu like the rest of the engine state.
+std::string         g_loaded_model_identity;
 std::atomic<Server *> g_server{nullptr};
 
 // Resolve the device string the engine expects ("cpu" / "gpu" / "cuda" /
@@ -113,9 +118,39 @@ public:
         }
 
         g_ctx = ctx;
+        // Record what we loaded so TokenClassify can reject a request meant
+        // for a different model. request->model(), not modelfile(): it is the
+        // value the controller also sends as ModelIdentity, and the two are
+        // read from the same ModelConfig.Model (#10952).
+        g_loaded_model_identity = request->model();
         result->set_success(true);
         result->set_message("privacy-filter loaded (" + device + ")");
         return GStatus::OK;
+    }
+
+    // checkModelIdentity mirrors pkg/grpc/server.go,
+    // backend/python/common/model_identity.py and the llama-cpp server. In
+    // distributed mode a worker can recycle a stopped backend's gRPC port for
+    // another model's backend, and the controller's liveness-only probe cannot
+    // tell a stale cached route from a valid one, so the backend has to catch
+    // it. Either side empty means "skip": the request side is empty for a
+    // controller that predates the field, the loaded side when such a
+    // controller performed the load. A false rejection is worse than the miss.
+    // Callers must already hold g_mu.
+    GStatus checkModelIdentity(const backend::TokenClassifyRequest * request) {
+        if (request == nullptr || request->modelidentity().empty()) {
+            return GStatus::OK;
+        }
+        if (g_loaded_model_identity.empty() ||
+            g_loaded_model_identity == request->modelidentity()) {
+            return GStatus::OK;
+        }
+        // NOT_FOUND plus this exact sentinel is the cross-language contract
+        // the router matches on (grpcerrors.ModelMismatchSentinel).
+        return GStatus(StatusCode::NOT_FOUND,
+                       "privacy-filter: model identity mismatch: loaded \"" +
+                       g_loaded_model_identity + "\", requested \"" +
+                       request->modelidentity() + "\"");
     }
 
     GStatus TokenClassify(ServerContext *, const backend::TokenClassifyRequest * request,
@@ -124,6 +159,7 @@ public:
         if (!g_ctx) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
+        if (GStatus id = checkModelIdentity(request); !id.ok()) return id;
 
         const std::string & text = request->text();
         if (text.empty()) {

@@ -77,6 +77,11 @@ func Rerank(ctx context.Context, request *proto.RerankRequest, loader *model.Mod
 		startTime = time.Now()
 	}
 
+	// Stamped here, not at the HTTP handler: this is the function that also
+	// builds ModelOptions from the same config, so the two values are equal by
+	// construction (#10952).
+	request.ModelIdentity = modelConfig.Model
+
 	res, err := rerankModel.Rerank(ctx, request)
 
 	if appConfig.EnableTracing {
