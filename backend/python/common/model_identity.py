@@ -20,6 +20,7 @@ Enforcement is deliberately narrow: it compares two strings and never inspects
 the model itself.
 """
 
+import asyncio
 import inspect
 import threading
 
@@ -182,6 +183,40 @@ class ModelIdentityInterceptor(grpc.ServerInterceptor):
         return _rebuild(handler, guard)
 
 
+_STREAM_DONE = object()
+
+
+def _next_or_done(iterator):
+    """next(iterator), returning the _STREAM_DONE sentinel at exhaustion.
+
+    StopIteration must not propagate out of a function run via run_in_executor:
+    it cannot travel through a Future and would surface as an opaque error.
+    """
+    try:
+        return next(iterator)
+    except StopIteration:
+        return _STREAM_DONE
+
+
+async def _call_behavior(behavior, request, context):
+    """Invoke a unary servicer behavior without blocking the event loop.
+
+    Native async behavior is awaited directly. A sync behavior -- many backends
+    define `def LoadModel` / `def Embedding`, not `async def` -- is dispatched to
+    a worker thread so a slow load/inference cannot freeze all aio RPC handling,
+    mirroring grpc.aio's own sync-handler adaptation. A callable wrapper that
+    returns an awaitable is supported too: the (cheap) call runs in the thread,
+    then the awaitable is awaited back on the loop.
+    """
+    if inspect.iscoroutinefunction(behavior):
+        return await behavior(request, context)
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, behavior, request, context)
+    if inspect.isawaitable(result):
+        result = await result
+    return result
+
+
 class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
     """Async counterpart for backends running grpc.aio servers."""
 
@@ -202,13 +237,10 @@ class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
 
             async def record(request, context):
                 # A backend's LoadModel may be a plain sync method (many define
-                # `def LoadModel`, not `async def`). grpc.aio's own dispatch
-                # adapts both, but this interceptor calls the behavior directly,
-                # so it must not await a non-awaitable return -- otherwise a sync
-                # backend fails with "object <T> can't be used in 'await'".
-                result = original(request, context)
-                if inspect.isawaitable(result):
-                    result = await result
+                # `def LoadModel`, not `async def`). Dispatch it so it neither
+                # crashes with "object <T> can't be used in 'await'" nor runs its
+                # (potentially slow) body on the event loop thread.
+                result = await _call_behavior(original, request, context)
                 if getattr(result, "success", True):
                     self.state.record(getattr(request, "Model", ""))
                 return result
@@ -223,14 +255,20 @@ class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
                 if message is not None:
                     await context.abort(grpc.StatusCode.NOT_FOUND, message)
                 # A sync backend yields a plain generator, an async one an async
-                # generator; iterate whichever this is.
+                # generator. Async: iterate directly. Sync: pull each item via a
+                # worker thread so a slow producer doesn't block the event loop
+                # (and so StopIteration can't escape through a Future).
                 stream = original_stream(request, context)
                 if hasattr(stream, "__aiter__"):
                     async for response in stream:
                         yield response
                 else:
-                    for response in stream:
-                        yield response
+                    loop = asyncio.get_running_loop()
+                    while True:
+                        item = await loop.run_in_executor(None, _next_or_done, stream)
+                        if item is _STREAM_DONE:
+                            break
+                        yield item
 
             return _rebuild(handler, guard_stream)
 
@@ -240,9 +278,6 @@ class AsyncModelIdentityInterceptor(grpc.aio.ServerInterceptor):
             message = self.state.mismatch(getattr(request, "ModelIdentity", ""))
             if message is not None:
                 await context.abort(grpc.StatusCode.NOT_FOUND, message)
-            result = original_unary(request, context)
-            if inspect.isawaitable(result):
-                result = await result
-            return result
+            return await _call_behavior(original_unary, request, context)
 
         return _rebuild(handler, guard)
