@@ -23,31 +23,6 @@ import React from 'react'
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
 const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
-// Renamed alongside the filter it persists: the old key's stored value meant
-// "show only entries declaring variants", which is not what this filter does.
-const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
-// The deduplicated gallery is what a user asking "what can I install" wants, so
-// the UI asks for it unless told otherwise. Only the UI decides this: the server
-// still returns the full listing when the parameter is absent, because other API
-// clients depend on that response.
-const COLLAPSE_VARIANTS_DEFAULT = true
-
-// The stored vocabulary changed with the default. The previous build wrote
-// '1'/'0' from an effect that runs on mount, so a stored '0' recorded that the
-// page had been opened, not that anyone chose the expanded view. Honouring it
-// would pin every earlier visitor to a default they never picked, so only the
-// 'on'/'off' written since counts as a choice.
-const readCollapseVariantsPreference = () => {
-  try {
-    const stored = localStorage.getItem(COLLAPSE_VARIANTS_STORAGE_KEY)
-    if (stored === 'on') return true
-    if (stored === 'off') return false
-    return COLLAPSE_VARIANTS_DEFAULT
-  } catch {
-    return COLLAPSE_VARIANTS_DEFAULT
-  }
-}
-
 
 const FILTERS = [
   { key: '', labelKey: 'filters.all', icon: 'fa-layer-group' },
@@ -111,12 +86,6 @@ export default function Models() {
       return false
     }
   })
-  // Collapses the listing to one row per model by hiding the individual builds
-  // another entry already offers as variants. Server-side, unlike fitsFilter,
-  // because the listing paginates and a client-side narrowing would leave the
-  // page count describing the unfiltered set.
-  const [collapseVariants, setCollapseVariants] = useState(readCollapseVariantsPreference)
-
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
 
@@ -127,17 +96,20 @@ export default function Models() {
       const filtersVal = params.filters !== undefined ? params.filters : filters
       const sortVal = params.sort !== undefined ? params.sort : sort
       const backendVal = params.backendFilter !== undefined ? params.backendFilter : backendFilter
-      const collapseVal = params.collapseVariants !== undefined ? params.collapseVariants : collapseVariants
       const queryParams = {
         page: params.page || page,
         items: 9,
+        // The deduplicated gallery is what a user asking "what can I install"
+        // wants, so the UI always asks for it. There is no control for this
+        // because a search term already bypasses the collapse server-side, so
+        // a build hidden behind a parent is still findable by name. The
+        // parameter stays optional on the API: other clients want either view,
+        // and an absent parameter still returns the full listing.
+        collapse_variants: 'true',
       }
       if (filtersVal.length > 0) queryParams.tag = filtersVal.join(',')
       if (searchVal) queryParams.term = searchVal
       if (backendVal) queryParams.backend = backendVal
-      // Omitted entirely when off rather than sent as false, so opting out asks
-      // for exactly the listing every other API client gets.
-      if (collapseVal) queryParams.collapse_variants = 'true'
       if (sortVal) {
         queryParams.sort = sortVal
         queryParams.order = params.order || order
@@ -155,11 +127,11 @@ export default function Models() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, filters, sort, order, backendFilter, collapseVariants, addToast, t])
+  }, [page, search, filters, sort, order, backendFilter, addToast, t])
 
   useEffect(() => {
     fetchModels()
-  }, [page, filters, sort, order, backendFilter, collapseVariants])
+  }, [page, filters, sort, order, backendFilter])
 
   // Fetch backend→usecase mapping once on mount
   useEffect(() => {
@@ -324,14 +296,6 @@ export default function Models() {
     }
   }, [fitsFilter])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? 'on' : 'off')
-    } catch {
-      // Ignore storage errors (e.g., private browsing restrictions).
-    }
-  }, [collapseVariants])
-
   const visibleModels = models.filter((model) => {
     if (!fitsFilter) return true
     const name = model.name || model.id
@@ -403,14 +367,6 @@ export default function Models() {
             </button>
           )
         })}
-        <label className="filter-bar-group__toggle" style={{ marginLeft: 'auto' }}>
-          <Toggle
-            checked={collapseVariants}
-            onChange={(v) => { setCollapseVariants(v); setPage(1) }}
-          />
-          <i className="fas fa-layer-group" />
-          <span>{t('filters.collapseVariants')}</span>
-        </label>
         {totalGpuMemory > 0 && (
           <label className="filter-bar-group__toggle">
             <Toggle checked={fitsFilter} onChange={setFitsFilter} />
@@ -459,17 +415,10 @@ export default function Models() {
           <p className="empty-state-text">
             {search || filters.length > 0 || backendFilter || fitsFilter ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {/* Collapsing is the default now, so it can no longer be named as the
-              cause of an empty result the way an opted-into filter could. It is
-              still worth mentioning as something the filters may be hiding
-              behind, but only once the user has filters narrowing the set. */}
-          {collapseVariants && (search || filters.length > 0 || backendFilter || fitsFilter) && (
-            <p className="empty-state-hint">{t('empty.collapsedVariantsHint')}</p>
-          )}
           {(search || filters.length > 0 || backendFilter || fitsFilter) && (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
+              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setPage(1) }}
             >
               <i className="fas fa-times" /> {t('search.clearFilters')}
             </button>

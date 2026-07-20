@@ -207,13 +207,28 @@ curl 'http://localhost:8080/api/models?collapse_variants=true'
 An entry is hidden only when another entry already offers it as a variant, so
 it stays reachable by installing that entry. Entries that declare variants are
 always kept, and so is any entry nobody references. The filter is applied
-before pagination and composes with `term`, `tag` and `backend`, so page counts
-stay correct. Whether an entry is hidden depends on the gallery alone rather
-than on the other filters, so a search matching a variant build but not its
-parent still hides the build.
+before pagination, so page counts stay correct.
 
-The web UI offers the same view as the "One row per model" toggle above the
-gallery.
+**A search term bypasses the collapse.** Collapsing is a browsing aid, so when
+`term` is set the listing returns every match, including builds another entry
+offers as variants. Looking a model up by name must not answer "not found" for
+an entry the gallery holds. A term that is empty or only whitespace does not
+count as a search, so browsing still collapses:
+
+```bash
+# Collapsed: the parent stands in for the build it offers.
+curl 'http://localhost:8080/api/models?collapse_variants=true'
+# Searched: the build comes back by name even though it is collapsed away above.
+curl 'http://localhost:8080/api/models?collapse_variants=true&term=nanbeige4.1-3b-q8'
+```
+
+`tag` and `backend` do not bypass the collapse. They refine a listing the user
+is still reading rather than name an entry already known to exist, so the
+deduplicated view is still the more useful one under them.
+
+The web UI always requests the collapsed view. It has no control for this,
+because searching already reaches every build; the parameter stays on the API,
+off by default, for clients that want either view.
 
 Ask for the description one entry at a time, as the web UI does when you open
 a model's variant menu:

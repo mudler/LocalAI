@@ -737,13 +737,18 @@ const COLLAPSED_RESPONSE = {
   currentPage: 1,
 };
 
-test.describe("Models Gallery - Collapse Variants Filter", () => {
-  let listingUrls;
+// What a search for the hidden build gets back: the build itself, even though
+// browsing would have collapsed it away behind its parent.
+const SEARCH_HIT_RESPONSE = {
+  ...MOCK_MODELS_RESPONSE,
+  models: MOCK_MODELS_RESPONSE.models.filter((m) => m.name === "whisper-model"),
+  availableModels: 1,
+  totalPages: 1,
+  currentPage: 1,
+};
 
-  const collapseToggle = (page) =>
-    page
-      .locator("label.filter-bar-group__toggle", { hasText: "One row per model" })
-      .locator(".toggle__track");
+test.describe("Models Gallery - Collapsed Listing", () => {
+  let listingUrls;
 
   test.beforeEach(async ({ page }) => {
     listingUrls = [];
@@ -753,7 +758,7 @@ test.describe("Models Gallery - Collapse Variants Filter", () => {
       // Only the gallery's own listing. Sibling routes like
       // /api/models/estimate share the prefix, and the recommended-models
       // panel queries /api/models itself with its own page size, so neither
-      // must pollute the record of what the filter sent, nor pick up the
+      // must pollute the record of what the page sent, nor pick up the
       // narrowed bodies below.
       const isListing =
         url.pathname.endsWith("/api/models") &&
@@ -761,12 +766,17 @@ test.describe("Models Gallery - Collapse Variants Filter", () => {
       if (isListing) {
         listingUrls.push(url);
       }
-      const collapsed = url.searchParams.get("collapse_variants") === "true";
+      const term = (url.searchParams.get("term") || "").trim();
+      const collapsed =
+        url.searchParams.get("collapse_variants") === "true" && term === "";
       const tag = url.searchParams.get("tag");
-      // A usecase filter matches nothing in this fixture either way, so the
-      // empty state is reachable in both toggle states and the specs can pin
-      // down what it says about each.
+      // Stands in for the server: an explicit search term bypasses the
+      // collapse, so a build a parent already offers is still findable by
+      // name. Anything else browsing-shaped stays collapsed.
       let body = collapsed ? COLLAPSED_RESPONSE : MOCK_MODELS_RESPONSE;
+      if (isListing && term === "whisper-model") body = SEARCH_HIT_RESPONSE;
+      // A usecase filter matches nothing in this fixture, so the empty state
+      // stays reachable and the specs can pin down what it says.
       if (isListing && tag) body = EMPTY_FILTERED_RESPONSE;
       route.fulfill({
         contentType: "application/json",
@@ -780,18 +790,23 @@ test.describe("Models Gallery - Collapse Variants Filter", () => {
     });
   });
 
-  test("the toggle is visible", async ({ page }) => {
-    await expect(page.getByText("One row per model")).toBeVisible();
+  test("there is no collapse toggle to find", async ({ page }) => {
+    // The control is redundant once searching bypasses the collapse, and a
+    // toggle whose only job is "let me find things" is a worse answer than
+    // the search box already being able to find them.
+    await expect(page.getByText("One row per model")).toHaveCount(0);
+    await expect(
+      page.locator("label.filter-bar-group__toggle", {
+        hasText: "One row per model",
+      }),
+    ).toHaveCount(0);
   });
 
-  test("defaults to on, sending collapse_variants=true and collapsing the list", async ({
+  test("browsing collapses: the parent stays, the build it offers drops", async ({
     page,
   }) => {
-    await expect(page.getByLabel("One row per model")).toBeChecked();
-
-    // The parent keeps its row, the build it already offers drops out, and an
-    // entry that is nobody's variant is untouched. A filter that kept only the
-    // entries declaring variants would wrongly drop stablediffusion-model too.
+    // A filter that kept only the entries declaring variants would wrongly
+    // drop stablediffusion-model too.
     await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
@@ -801,55 +816,71 @@ test.describe("Models Gallery - Collapse Variants Filter", () => {
     ).toBeVisible();
 
     // Asserted over every listing request, so a first paint that fetched the
-    // uncollapsed listing before settling on the default would still fail.
+    // uncollapsed listing before settling would still fail.
     expect(listingUrls.length).toBeGreaterThan(0);
     for (const url of listingUrls) {
       expect(url.searchParams.get("collapse_variants")).toBe("true");
     }
   });
 
-  test("a stored preference from before the default flipped is not honoured", async ({
+  test("searching a build the collapse hides still finds it", async ({
     page,
   }) => {
-    // The previous build wrote '0' from an effect that runs on mount, so it
-    // marks a visit rather than a choice. Reading it as one would leave every
-    // earlier visitor on the old default forever.
-    await page.evaluate(() => {
-      localStorage.setItem("localai-models-collapse-variants-filter", "0");
-    });
-    await page.reload();
+    // The regression this whole change exists to prevent: typing the name of
+    // an entry the gallery does hold must never answer "no models found",
+    // which reads as "that model does not exist".
+    await page.locator(".search-bar input").fill("whisper-model");
 
-    await expect(page.getByLabel("One row per model")).toBeChecked();
+    await expect(
+      page.locator("tr", { hasText: "whisper-model" }),
+    ).toBeVisible();
+    await expect(page.locator(".empty-state")).toHaveCount(0);
+  });
+
+  test("the search term is sent alongside the collapse, not instead of it", async ({
+    page,
+  }) => {
+    // The server decides what an active search means. The page keeps asking
+    // for the collapsed listing so that decision lives in one place, and so
+    // clearing the box goes straight back to the browsing view.
+    await page.locator(".search-bar input").fill("whisper-model");
+    await expect.poll(
+      () => listingUrls[listingUrls.length - 1].searchParams.get("term"),
+    ).toBe("whisper-model");
+
+    const searched = listingUrls[listingUrls.length - 1];
+    expect(searched.searchParams.get("collapse_variants")).toBe("true");
+  });
+
+  test("clearing the search box returns to the collapsed listing", async ({
+    page,
+  }) => {
+    await page.locator(".search-bar input").fill("whisper-model");
+    await expect(
+      page.locator("tr", { hasText: "whisper-model" }),
+    ).toBeVisible();
+
+    await page.locator(".search-bar input").fill("");
+
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
     );
+    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
   });
 
-  test("turning it off drops the param and restores the full list", async ({
+  test("a stored preference from the removed toggle is inert", async ({
     page,
   }) => {
-    await collapseToggle(page).click();
-
-    await expect(
-      page.locator("tr", { hasText: "whisper-model" }),
-    ).toBeVisible();
-    await expect(
-      page.locator("tr", { hasText: "stablediffusion-model" }),
-    ).toBeVisible();
-
-    // Omitted rather than sent as false, so opting out asks for exactly the
-    // listing every other API client gets.
-    const last = listingUrls[listingUrls.length - 1];
-    expect(last.searchParams.has("collapse_variants")).toBe(false);
-  });
-
-  test("turning it back on collapses the list again", async ({ page }) => {
-    await collapseToggle(page).click();
-    await expect(
-      page.locator("tr", { hasText: "whisper-model" }),
-    ).toBeVisible();
-
-    await collapseToggle(page).click();
+    // The key outlives the control it belonged to. A user who left the toggle
+    // off gets the collapsed view like everyone else rather than a listing
+    // shaped by a setting they can no longer see or change.
+    await page.evaluate(() => {
+      localStorage.setItem("localai-models-collapse-variants-filter", "off");
+    });
+    await page.reload();
+    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
+      timeout: 10_000,
+    });
 
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
@@ -858,29 +889,7 @@ test.describe("Models Gallery - Collapse Variants Filter", () => {
     expect(last.searchParams.get("collapse_variants")).toBe("true");
   });
 
-  test("resets to page 1 when toggled", async ({ page }) => {
-    await collapseToggle(page).click();
-    const last = listingUrls[listingUrls.length - 1];
-    // A filter that widened or narrowed the rows while holding page 3 would
-    // strand the user on a page the new set may not have.
-    expect(last.searchParams.get("page") || "1").toBe("1");
-  });
-
-  test("turning it off persists after reload, like the other filters", async ({
-    page,
-  }) => {
-    await collapseToggle(page).click();
-    await page.reload();
-
-    await expect(page.getByLabel("One row per model")).not.toBeChecked();
-    await expect(
-      page.locator("tr", { hasText: "whisper-model" }),
-    ).toBeVisible();
-    const last = listingUrls[listingUrls.length - 1];
-    expect(last.searchParams.has("collapse_variants")).toBe(false);
-  });
-
-  test("mentions the collapsed view in the empty state as a hint, not a cause", async ({
+  test("the empty state no longer blames a toggle nobody can reach", async ({
     page,
   }) => {
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
@@ -888,37 +897,22 @@ test.describe("Models Gallery - Collapse Variants Filter", () => {
     await expect(page.locator(".empty-state-title")).toHaveText(
       "No models found",
     );
-    // Collapsing is the default, so it cannot be blamed for the empty result
-    // the way an opted-into filter could; the filters get the top line and the
-    // toggle only gets a hint underneath.
     await expect(page.locator(".empty-state-text")).toHaveText(
       "No models match your current search or filters.",
     );
-    await expect(page.locator(".empty-state-hint")).toHaveText(
-      'Alternative builds that another entry already offers are hidden. Turn off "One row per model" to include them.',
-    );
-  });
-
-  test("no collapsed-view hint once the toggle is off", async ({ page }) => {
-    await collapseToggle(page).click();
-    await page.locator(".filter-btn", { hasText: "Chat" }).click();
-    await expect(page.locator(".empty-state")).toBeVisible();
-
-    // Nothing is hidden any more, so the hint would be pointing at a toggle
-    // that is already doing what it suggests.
+    // The old hint told the user to turn off a control that is gone, and it
+    // is no longer even true for a search: searching sees every build.
     await expect(page.locator(".empty-state-hint")).toHaveCount(0);
   });
 
-  test("clear filters restores the collapsed default", async ({ page }) => {
-    await collapseToggle(page).click();
+  test("clear filters returns to the collapsed browsing view", async ({
+    page,
+  }) => {
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
     await expect(page.locator(".empty-state")).toBeVisible();
 
     await page.getByRole("button", { name: "Clear filters" }).click();
 
-    // Clearing filters means going back to the view a fresh visit gets, which
-    // is now the collapsed one.
-    await expect(page.getByLabel("One row per model")).toBeChecked();
     await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,

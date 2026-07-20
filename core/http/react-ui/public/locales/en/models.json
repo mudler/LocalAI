@@ -43,7 +43,6 @@
     "vad": "VAD",
     "ner": "NER",
     "fitsGpu": "Fits in GPU",
-    "collapseVariants": "One row per model",
     "allBackends": "All Backends",
     "searchBackends": "Search backends..."
   },
@@ -91,7 +90,6 @@
   "empty": {
     "title": "No models found",
     "withFilters": "No models match your current search or filters.",
-    "collapsedVariantsHint": "Alternative builds that another entry already offers are hidden. Turn off \"One row per model\" to include them.",
     "noFilters": "The model gallery is empty."
   },
   "deleteDialog": {

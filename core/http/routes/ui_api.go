@@ -394,7 +394,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {
-		term := c.QueryParam("term")
+		// Trimmed once, here, so "is the user searching?" has a single answer
+		// for both the search itself and the variant collapse below.
+		// Whitespace is not a lookup: an untrimmed blank term used to narrow
+		// the listing to whatever happened to contain a space.
+		term := strings.TrimSpace(c.QueryParam("term"))
 		tag := c.QueryParam("tag")
 		page := c.QueryParam("page")
 		if page == "" {
@@ -497,14 +501,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		//
 		// The referenced set is computed over the whole gallery rather than
 		// over what the other filters left, so an entry is hidden because a
-		// parent offers it, never because of what the user searched for. A term
-		// matching a build but not its parent would otherwise make the build
-		// reappear.
+		// parent offers it, never because of which tag or backend the user
+		// picked while browsing.
+		//
+		// A search term is the exception: collapsing serves browsing, but a user
+		// who types a name is looking up a specific entry and must get it even
+		// when a parent offers it as a variant. Otherwise the only answer the
+		// gallery can give for a build it does hold is "no models found", which
+		// reads as "that model does not exist". Tag and backend do not bypass
+		// the collapse because they refine a listing the user is still reading
+		// rather than name something they already know exists.
+		//
+		// term is already trimmed, so a stray space in the search box does not
+		// count as a search and cannot silently expand the listing.
 		//
 		// Server-side because the listing paginates at 9 items; filtering the
 		// current page in the client would leave the page count describing the
 		// unfiltered set and hand the user empty pages.
-		if c.QueryParam("collapse_variants") == "true" {
+		if term == "" && c.QueryParam("collapse_variants") == "true" {
 			referenced := gallery.VariantReferencedIDs(allModels)
 			filtered := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
 			for _, m := range models {

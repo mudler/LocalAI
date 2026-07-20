@@ -210,8 +210,9 @@ var _ = Describe("Model gallery variants API", func() {
 	})
 
 	// The collapsed view is the deduplicated gallery: every entry installable
-	// in its own right, with nothing shown twice. Off by default, so a user who
-	// never touches it sees the listing exactly as it was.
+	// in its own right, with nothing shown twice. Off by default, so a client
+	// that never asks for it sees the listing exactly as it was. The web UI
+	// always asks for it; the parameter stays for every other client.
 	Context("the collapse_variants listing filter", func() {
 		names := func(path string) []string {
 			code, body := get(path)
@@ -256,8 +257,8 @@ var _ = Describe("Model gallery variants API", func() {
 		})
 
 		It("serializes a non-declaring entry exactly as it did before", func() {
-			// The whole promise of the migration phase: a user who never
-			// touches the toggle sees byte-for-byte what they saw before.
+			// The whole promise of the migration phase: a client that never
+			// sends the parameter gets byte-for-byte what it got before.
 			entry := find(listing(), "plain-entry")
 			Expect(entry).NotTo(HaveKey("has_variants"))
 			Expect(entry).NotTo(HaveKey("variants"))
@@ -276,14 +277,35 @@ var _ = Describe("Model gallery variants API", func() {
 				To(ConsistOf("base-entry", "big-entry"))
 		})
 
-		It("composes with the search term", func() {
+		It("still applies the search term when nothing is collapsed away", func() {
 			Expect(names("/api/models?items=9999&collapse_variants=true&term=plain")).
 				To(ConsistOf("plain-entry"))
-			// The term matches the referenced build but not its parent. The
-			// build is still hidden: it is hidden because base-entry offers it,
-			// which is a fact about the gallery and not about the search.
+		})
+
+		It("lets a search term find a build the collapse would hide", func() {
+			// The term matches the referenced build but not its parent.
+			// Collapsing is a browsing aid; a user who types a name is looking
+			// something up, and answering "no models found" for an entry the
+			// gallery does hold reads as "that model does not exist".
 			Expect(names("/api/models?items=9999&term=big")).To(ConsistOf("big-entry"))
-			Expect(names("/api/models?items=9999&collapse_variants=true&term=big")).To(BeEmpty())
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=big")).
+				To(ConsistOf("big-entry"))
+		})
+
+		It("does not treat an empty or whitespace-only term as a search", func() {
+			// Otherwise a cleared or fat-fingered search box would silently
+			// stop collapsing and the browsing view would grow duplicate rows.
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=")).
+				To(ConsistOf("base-entry", "plain-entry"))
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=%20%20")).
+				To(ConsistOf("base-entry", "plain-entry"))
+		})
+
+		It("does not let tag or backend filters bypass the collapse", func() {
+			// They refine a listing the user is still reading rather than name
+			// an entry they already know exists, so collapsing still helps.
+			Expect(names("/api/models?items=9999&collapse_variants=true&backend=llama-cpp")).
+				NotTo(ContainElement("big-entry"))
 		})
 
 		It("reports the filtered total so pagination stays honest", func() {

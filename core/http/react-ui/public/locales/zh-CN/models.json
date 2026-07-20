@@ -24,7 +24,6 @@
     "embedding": "嵌入",
     "rerank": "重排",
     "fitsGpu": "适合 GPU",
-    "collapseVariants": "每个模型一行",
     "allBackends": "所有后端",
     "searchBackends": "搜索后端..."
   },
@@ -72,7 +71,6 @@
   "empty": {
     "title": "未找到模型",
     "withFilters": "没有模型与当前搜索或筛选条件匹配。",
-    "collapsedVariantsHint": "其他条目已经提供的替代构建已被隐藏。关闭“每个模型一行”即可将其包含在内。",
     "noFilters": "模型库为空。"
   },
   "deleteDialog": {

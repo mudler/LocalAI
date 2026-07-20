@@ -24,7 +24,6 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Passt in die GPU",
-    "collapseVariants": "Eine Zeile pro Modell",
     "allBackends": "Alle Backends",
     "searchBackends": "Backends suchen..."
   },
@@ -72,7 +71,6 @@
   "empty": {
     "title": "Keine Modelle gefunden",
     "withFilters": "Keine Modelle entsprechen den aktuellen Such- oder Filterkriterien.",
-    "collapsedVariantsHint": "Alternative Builds, die ein anderer Eintrag bereits anbietet, sind ausgeblendet. Schalte \"Eine Zeile pro Modell\" aus, um sie einzubeziehen.",
     "noFilters": "Die Modellgalerie ist leer."
   },
   "deleteDialog": {

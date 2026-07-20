@@ -24,7 +24,6 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Cabe en la GPU",
-    "collapseVariants": "Una fila por modelo",
     "allBackends": "Todos los backends",
     "searchBackends": "Buscar backends..."
   },
@@ -72,7 +71,6 @@
   "empty": {
     "title": "No se encontraron modelos",
     "withFilters": "Ningún modelo coincide con la búsqueda o filtros actuales.",
-    "collapsedVariantsHint": "Las compilaciones alternativas que otra entrada ya ofrece están ocultas. Desactiva \"Una fila por modelo\" para incluirlas.",
     "noFilters": "La galería de modelos está vacía."
   },
   "deleteDialog": {
