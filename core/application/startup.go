@@ -26,6 +26,7 @@ import (
 	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
 
@@ -99,6 +100,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Warn("Failed to reap stale partial downloads", "error", cErr)
 	} else if removed > 0 {
 		xlog.Info("Reaped stale partial downloads", "count", removed)
+	}
+	// Managed artifacts stage into a per-writer tree, which a crashed writer's
+	// successor no longer overwrites for it, so the tree itself needs reaping
+	// too. Sweeping here as well as on the materialization path is what
+	// reclaims a volume whose abandoned artifact is never requested again.
+	if removed, cErr := modelartifacts.SweepStalePartialTrees(options.SystemState.Model.ModelsPath, modelartifacts.PartialOrphanTTL, ""); cErr != nil {
+		xlog.Warn("Failed to reap abandoned artifact partials", "error", cErr)
+	} else if removed > 0 {
+		xlog.Info("Reaped abandoned artifact partials", "count", removed)
 	}
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
