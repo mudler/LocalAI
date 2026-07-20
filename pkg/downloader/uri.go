@@ -614,23 +614,34 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
 	var startPos int64
-	tmpFileInfo, err := os.Stat(tmpFilePath)
-	if err == nil && uri.LooksLikeHTTPURL() {
-		support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
-		if err != nil {
-			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+	tmpFileInfo, statErr := os.Stat(tmpFilePath)
+	switch {
+	case statErr == nil:
+		// A leftover partial is only usable when we can ask the server to
+		// continue from where it stopped. Resume is probed only for raw
+		// http(s) URIs; every other transport (local files, and schemes we do
+		// not probe) has to restart, because the writer opens the partial with
+		// O_APPEND and would otherwise concatenate a fresh full body onto the
+		// stale bytes. Discarding here is what makes a retry after an
+		// interrupted download recover on its own instead of failing forever.
+		resumable := false
+		if uri.LooksLikeHTTPURL() {
+			support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
+			if err != nil {
+				return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+			}
+			resumable = support
 		}
-		if support {
+		if resumable {
 			startPos = tmpFileInfo.Size()
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
-		} else {
-			err := removePartialFile(tmpFilePath)
-			if err != nil {
-				return err
-			}
+		} else if err := removePartialFile(tmpFilePath); err != nil {
+			return err
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
+	case errors.Is(statErr, os.ErrNotExist):
+		// Nothing to resume or discard: this is a fresh download.
+	default:
+		return fmt.Errorf("failed to check partial download file %q: %w", tmpFilePath, statErr)
 	}
 
 	var source io.ReadCloser

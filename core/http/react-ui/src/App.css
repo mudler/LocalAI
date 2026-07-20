@@ -2191,6 +2191,68 @@ select.input {
   user-select: none;
   white-space: nowrap;
 }
+/* Models gallery filter block. Three bands (query / taxonomy / refinements)
+   stacked by .filter-bar-group. The refinements live in their own band so the
+   chip row's wrap height can never displace them. */
+.models-filters__query {
+  flex-wrap: nowrap;
+  gap: var(--spacing-sm);
+}
+.models-filters__backend {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* .filter-bar carries its own bottom margin for standalone use; inside the
+   group the parent's gap owns the rhythm. */
+.models-filters > .filter-bar {
+  margin-bottom: 0;
+}
+.models-filters__refine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm) var(--spacing-lg);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-subtle);
+}
+/* Both refinements read as one secondary group: same size, same colour and the
+   same icon-then-label rhythm as .filter-bar-group__toggle. */
+.models-filters__context {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+.models-filters__context > label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.models-filters__context input[type='range'] {
+  width: 140px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+.models-filters__context-value {
+  font-weight: var(--font-weight-medium);
+  min-width: 3em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  /* Search and backend select each take a full row rather than squeezing the
+     input below a usable width. */
+  .models-filters__query {
+    flex-wrap: wrap;
+  }
+  .models-filters__backend {
+    flex: 1 1 100%;
+  }
+}
+
 .filter-btn__count {
   display: inline-flex;
   align-items: center;
@@ -2720,6 +2782,40 @@ button.collapsible-header:focus-visible {
   border-color: var(--color-primary-border);
 }
 
+/* The global :focus-visible ring is wrapped in :where(), so it carries the
+   specificity of a bare :focus-visible - the same (0,1,0) as .filter-btn, which
+   is declared later and therefore won with its resting shadow. Chips were left
+   with no visible keyboard focus indicator at all; this restates the ring where
+   it outranks both the resting and the hover shadow. */
+.filter-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  border-color: var(--color-primary);
+}
+
+/* A chip is disabled when the selected backend cannot serve that use case. It
+   keeps its resting colours so the row still reads as a set, dimmed enough to
+   register as out of play. */
+.filter-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.filter-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-btn {
+    transition: none;
+  }
+  .filter-btn:hover {
+    transform: none;
+  }
+}
+
 /* Login page */
 .login-page {
   min-height: 100vh;
@@ -2885,6 +2981,16 @@ button.collapsible-header:focus-visible {
 .empty-state-text {
   color: var(--color-text-secondary);
   font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  max-width: 52ch;
+  margin: 0;
+}
+
+/* Secondary to .empty-state-text: a hint about a default that may be narrowing
+   the result, so it must not compete with the reason stated above it. */
+.empty-state-hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
   line-height: var(--leading-normal);
   max-width: 52ch;
   margin: 0;
@@ -6449,24 +6555,47 @@ button.collapsible-header:focus-visible {
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-md) var(--spacing-lg);
 }
+/* Collapsed keeps the strip and its heading, only dropping the cards, so the
+   panel is recoverable in place rather than gone. Tighter block padding is
+   what actually returns vertical space to the gallery. */
+.rec-models--collapsed {
+  padding-top: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+}
 .rec-models-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-}
-.rec-models-title {
-  display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-sm) var(--spacing-md);
   flex-wrap: wrap;
 }
-.rec-models-title i {
+.rec-models-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.rec-models-toggle i {
   color: var(--color-primary);
+}
+.rec-models-chevron {
+  font-size: 0.75rem;
+  transition: transform 150ms ease;
+}
+.rec-models--collapsed .rec-models-chevron {
+  transform: rotate(-90deg);
 }
 .rec-models-note {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 .rec-models-dismiss {
   background: none;
@@ -6481,9 +6610,36 @@ button.collapsible-header:focus-visible {
 }
 .rec-models-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  /* min() keeps the 220px track from forcing horizontal overflow on narrow
+     phones, where one column is all that fits anyway. */
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: var(--spacing-sm);
   margin-top: var(--spacing-md);
+  /* Reveal animates opacity and transform only; the collapsed state is the
+     [hidden] attribute, so no height is being animated. */
+  animation: rec-models-reveal 180ms ease-out;
+}
+/* The class sets display:grid, which would otherwise beat the UA [hidden] rule. */
+.rec-models-grid[hidden] {
+  display: none;
+}
+@keyframes rec-models-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-models-grid {
+    animation: none;
+  }
+  .rec-models-chevron {
+    transition: none;
+  }
 }
 .rec-models-item {
   display: flex;
@@ -9164,3 +9320,328 @@ button.collapsible-header:focus-visible {
 .model-chip__state { opacity: 0.85; font-style: normal; }
 .node-filter { margin-bottom: var(--spacing-lg); }
 .node-detail__metrics { display: flex; gap: var(--spacing-xl); margin: var(--spacing-md) 0 var(--spacing-lg); flex-wrap: wrap; }
+
+/* Rendered Markdown ---------------------------------------------------------
+   Gallery descriptions, backend descriptions and voice notes are all
+   author-supplied Markdown pasted from model cards. Left unscoped they inherit
+   browser defaults, so a description that opens with `#` renders a 2em heading
+   inside a 13px surface while a `##` further down is indistinguishable from
+   body text. This maps the whole element set onto the UI type scale so any
+   description reads as part of the app rather than as a document dropped into
+   it. Apply it to every element fed by renderMarkdown(). */
+.markdown-body {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  margin: var(--spacing-md) 0 var(--spacing-xs);
+}
+.markdown-body h1 { font-size: var(--text-lg); }
+.markdown-body h2 { font-size: var(--text-base); }
+.markdown-body h3 { font-size: var(--text-sm); }
+/* Below h3 the scale has no room left to separate levels by size, so the
+   remaining depth is carried by case and weight instead. */
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.markdown-body p { margin: 0 0 var(--spacing-sm); }
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 var(--spacing-sm);
+  padding-left: var(--spacing-lg);
+}
+.markdown-body li { margin-bottom: var(--spacing-xs); }
+.markdown-body li:last-child { margin-bottom: 0; }
+.markdown-body li > ul,
+.markdown-body li > ol { margin-top: var(--spacing-xs); }
+
+.markdown-body a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-body a:hover { color: var(--color-primary-hover); }
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+.markdown-body pre {
+  margin: 0 0 var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--text-xs);
+}
+
+.markdown-body blockquote {
+  margin: 0 0 var(--spacing-sm);
+  padding-left: var(--spacing-sm);
+  border-left: 2px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-border-divider);
+  margin: var(--spacing-md) 0;
+}
+/* Tables are the one element that can exceed the measure, so they scroll in
+   their own box rather than widening the surface around them. */
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--text-xs);
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  text-align: left;
+}
+.markdown-body th {
+  background: var(--color-bg-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Prose block in a detail pane. The label/value table beside it is right for
+   scalars, but multi-paragraph prose in a value cell runs the full pane width
+   and swamps the rows it sits above, so the description gets its own
+   full-width block with a reading measure. */
+.detail-prose {
+  margin-bottom: var(--spacing-md);
+}
+.detail-prose__label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+.detail-prose__body {
+  max-width: 68ch;
+}
+
+/* Variant list --------------------------------------------------------------
+   One row per alternative build of the same model. Names vary in length, so
+   the rows share the parent's tracks and line up as columns; the name leads
+   because it is what the reader is choosing between. Only the informative
+   status is badged: "fits" is true of nearly every row and says nothing, while
+   a build that does not fit, and the one that plain Install would pick, do. */
+.variant-list {
+  display: grid;
+  width: 100%;
+  /* info, name, backend, quantization, size, status, action, filler.
+     Every informative track is content-sized and the filler takes the slack,
+     so the rows stay packed together rather than stranding the install
+     affordance an inch of empty space away from the name it acts on. The
+     grid still spans the pane, which is what lets a revealed detail panel
+     have the full width its file table needs. */
+  grid-template-columns: max-content minmax(0, auto) max-content max-content max-content max-content max-content 1fr;
+  column-gap: var(--spacing-md);
+  row-gap: 2px;
+}
+/* One variant: the info control, the install row, and the details the control
+   reveals. It spans the list's tracks and passes them down, so the install row
+   still shares its columns with every other row despite the extra nesting. */
+.variant-entry {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+.variant-row {
+  display: grid;
+  /* Stops short of the filler track so the hover and focus box hugs the row's
+     own content rather than trailing across the empty right-hand side. */
+  grid-column: 2 / -2;
+  grid-template-columns: subgrid;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default);
+}
+/* Subgrid keeps the columns shared across rows; without it each row falls back
+   to sizing its own tracks, which is ragged but still legible. */
+@supports not (grid-template-columns: subgrid) {
+  .variant-entry { grid-template-columns: max-content minmax(22ch, auto) max-content max-content max-content max-content max-content 1fr; }
+  .variant-row { grid-template-columns: minmax(22ch, auto) max-content max-content max-content max-content max-content; }
+}
+.variant-row:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-default);
+}
+.variant-row:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+.variant-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.variant-row__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.variant-row__backend,
+.variant-row__size {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+/* Monospaced like the name above it, because a weight format is a literal
+   token and Q4_K_M vs Q4_K_S has to be told apart at a glance in a column. */
+.variant-row__quant {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* An entry naming no weight format is a real state, not a gap: it recedes to
+   the muted colour and drops the mono face, so it reads as prose saying
+   "unknown" rather than as a token. */
+.variant-row__quant--unknown {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--color-text-disabled);
+}
+.variant-row__size {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.variant-row__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+.variant-row__action {
+  color: var(--color-text-disabled);
+  font-size: var(--text-xs);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+.variant-row:hover:not(:disabled) .variant-row__action,
+.variant-row:focus-visible .variant-row__action {
+  color: var(--color-primary);
+}
+/* A build that does not fit stays installable, an explicit choice being an
+   override the server honours, but it should not read as a peer of the ones
+   that do. */
+.variant-row--unfit .variant-row__name {
+  color: var(--color-text-muted);
+}
+
+/* Quiet until asked for: the row's job is to be compared and installed, so the
+   way into "everything about this one" recedes until the eye or the keyboard
+   lands on it. */
+.variant-row__info {
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-disabled);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-default),
+              background-color var(--duration-fast) var(--ease-default);
+}
+.variant-row__info:hover,
+.variant-entry:hover .variant-row__info {
+  color: var(--color-primary);
+}
+.variant-row__info:hover {
+  background: var(--color-bg-hover);
+}
+.variant-row__info:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+  color: var(--color-primary);
+}
+.variant-row__info[aria-expanded="true"] {
+  color: var(--color-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-default);
+}
+
+/* The third level of disclosure on this page, so it leans on an inset and a
+   rule rather than another card: a nested panel with its own border inside an
+   expanded row inside an expanded table reads as debris. */
+.variant-detail {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: var(--spacing-xs) 0 var(--spacing-sm) var(--spacing-lg);
+  border-left: 2px solid var(--color-border-default);
+  background: var(--color-surface-sunken);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  overflow: hidden;
+}
+.variant-detail__state {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.variant-detail__state--error {
+  color: var(--color-error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variant-row,
+  .variant-row__info,
+  .variant-row__action { transition: none; }
+}

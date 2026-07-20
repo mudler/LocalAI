@@ -398,7 +398,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {
-		term := c.QueryParam("term")
+		// Trimmed once, here, so "is the user searching?" has a single answer
+		// for both the search itself and the variant collapse below.
+		// Whitespace is not a lookup: an untrimmed blank term used to narrow
+		// the listing to whatever happened to contain a space.
+		term := strings.TrimSpace(c.QueryParam("term"))
 		tag := c.QueryParam("tag")
 		page := c.QueryParam("page")
 		if page == "" {
@@ -416,6 +420,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": err.Error(),
 			})
 		}
+		// The filters below rebind models, so keep the unfiltered gallery for
+		// the questions that are about the gallery as a whole rather than about
+		// the current result set, such as which entries another entry already
+		// offers as a variant.
+		allModels := models
 
 		// Get all available tags
 		allTags := map[string]struct{}{}
@@ -482,6 +491,81 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 			models = filtered
+		}
+
+		// Collapse the listing to one row per model: report every match at the
+		// entry installable in its own right, so an individual build a parent
+		// already offers as a variant is reported as that parent rather than as
+		// a row of its own. What survives is the deduplicated gallery, rather
+		// than one row per quantization.
+		//
+		// Off by default so the response with the parameter absent is exactly
+		// what it was.
+		//
+		// The parent map is computed over the whole gallery rather than over
+		// what the other filters left, so an entry is grouped because a parent
+		// offers it, never because of what the user searched or picked.
+		//
+		// A hidden build is substituted by the entry that offers it rather than
+		// simply dropped. Dropping was sufficient while nothing could narrow the
+		// listing: every parent was present, so a hidden build always had its
+		// parent on screen anyway. Once a term can remove the parent, dropping
+		// answers "no models found" for a build the gallery does hold, which
+		// reads as "that model does not exist". Substituting keeps the promise
+		// of the grouped view instead: searching sees every build, and a match
+		// is reported at the row the user can act on.
+		//
+		// Deliberately after search, tag and backend, so every filter is judged
+		// against the build that really carries the name, tag or backend, never
+		// against a parent that merely offers it. Substituting first would let a
+		// backend filter match a parent whose own backend is something else. The
+		// price is that the surfaced row shows the parent's own metadata while
+		// the match was on one of its variants, which is what grouping means.
+		//
+		// A parent already in the result keeps its own position and absorbs its
+		// matching variants there, so the browsing listing is ordered exactly as
+		// it was; a parent surfaced only by a variant takes the position of the
+		// first variant that surfaced it. Either way it appears exactly once.
+		//
+		// term is already trimmed, so a stray space in the search box does not
+		// count as a search and cannot silently widen the match set.
+		//
+		// Server-side because the listing paginates at 9 items; filtering the
+		// current page in the client would leave the page count describing the
+		// unfiltered set and hand the user empty pages. Substituting here, above
+		// the totals, is what keeps the count and the page math describing the
+		// set the user is actually handed.
+		if c.QueryParam("collapse_variants") == "true" {
+			parents := gallery.VariantParents(allModels)
+			present := make(map[string]struct{}, len(models))
+			for _, m := range models {
+				present[m.ID()] = struct{}{}
+			}
+			collapsed := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
+			surfaced := make(map[string]struct{}, len(models))
+			for _, m := range models {
+				row := m
+				if parent, hidden := parents[m.ID()]; hidden {
+					// The parent is in the result on its own merits and will be
+					// emitted at its own position, so dropping the variant here
+					// is what keeps that position.
+					if _, parentMatched := present[parent.ID()]; parentMatched {
+						continue
+					}
+					// One hop only. VariantParents never reports an entry that
+					// declares variants, so a parent is never itself hidden and
+					// a second hop cannot be needed; refusing to take one anyway
+					// is what makes a malformed gallery terminate rather than
+					// loop.
+					row = parent
+				}
+				if _, dup := surfaced[row.ID()]; dup {
+					continue
+				}
+				surfaced[row.ID()] = struct{}{}
+				collapsed = append(collapsed, row)
+			}
+			models = collapsed
 		}
 
 		// Capability filters are derived from the effective gallery model
@@ -587,6 +671,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"additionalFiles": m.AdditionalFiles,
 				"backend":         m.Backend,
 				"voice_cloning":   m.VoiceCloningCapability(appConfig.SystemState.Model.ModelsPath),
+			}
+
+			// Only the cheap declaration flag, never the description itself.
+			// Describing a variant probes every referenced entry's weight files
+			// over the network, so doing it here would cost one page load
+			// (entries x variants) serial round trips; a client that wants the
+			// description asks /api/models/variants/:id for one entry at a
+			// time, exactly as it already does for VRAM estimates.
+			//
+			// The flag is omitted rather than sent as false so an entry that
+			// declares nothing stays byte-for-byte what it was before variants
+			// existed, and so a client never asks about it.
+			if m.HasVariants() {
+				obj["has_variants"] = true
 			}
 
 			modelsJSON = append(modelsJSON, obj)
@@ -804,6 +902,53 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, result)
 	}, adminMiddleware)
 
+	// Returns the selectable builds of a single gallery model and which one
+	// auto-selection would install on this host. Companion to estimate/:id and
+	// for the same reason: describing variants probes each referenced entry's
+	// weight files over the network, so the gallery listing must stay free of
+	// it and the frontend fills pickers in per-entry, on demand.
+	//
+	// An entry that declares no variants is not an error; it answers with an
+	// empty description, so a client that asks anyway gets a well-formed reply
+	// rather than a 404 it has to special-case.
+	app.GET("/api/models/variants/:id", func(c echo.Context) error {
+		modelID, err := url.QueryUnescape(c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid model ID"})
+		}
+
+		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		}
+
+		model := gallery.FindGalleryElement(models, modelID)
+		if model == nil {
+			return c.JSON(http.StatusNotFound, map[string]any{"error": "model not found"})
+		}
+
+		// An allocated slice rather than the zero value, so "nothing
+		// selectable" serializes as [] and a client can iterate the reply
+		// without first distinguishing it from null.
+		empty := gallery.EntryVariants{Variants: []gallery.VariantView{}}
+
+		// The full, unpaginated list: a variant references another gallery
+		// entry by name and that entry need not be anywhere near this one.
+		env := gallery.HostResolveEnv(c.Request().Context(), appConfig.SystemState)
+		view, err := gallery.DescribeVariants(models, model, env)
+		if err != nil {
+			// A malformed variant list must not break the picker; the entry
+			// just reports nothing selectable and installs as-is.
+			xlog.Debug("could not describe model variants", "model", modelID, "error", err)
+			return c.JSON(200, empty)
+		}
+		if view == nil {
+			return c.JSON(200, empty)
+		}
+
+		return c.JSON(200, view)
+	}, adminMiddleware)
+
 	app.POST("/api/models/install/:id", func(c echo.Context) error {
 		galleryID := c.Param("id")
 		// URL decode the gallery ID (e.g., "localai%40model" -> "localai@model")
@@ -813,7 +958,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid model ID",
 			})
 		}
-		xlog.Debug("API job submitted to install", "galleryID", galleryID)
+		// Optional: one of the variants the listing reported for this entry.
+		// Absent means auto-select, which is what the listing's auto_variant
+		// already told the client would happen.
+		variant := c.QueryParam("variant")
+		xlog.Debug("API job submitted to install", "galleryID", galleryID, "variant", variant)
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -829,6 +978,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
+			Variant:            variant,
 			Galleries:          appConfig.Galleries,
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,

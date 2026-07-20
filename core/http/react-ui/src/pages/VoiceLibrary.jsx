@@ -14,6 +14,7 @@ import { useVoiceCloningGallery, useVoiceProfiles } from '../hooks/useVoiceProfi
 import { CAP_TTS } from '../utils/capabilities'
 import { modelsApi, voiceProfilesApi } from '../utils/api'
 import { copyToClipboard } from '../utils/clipboard'
+import { renderMarkdown } from '../utils/markdown'
 
 const ROW_BARS = [35, 58, 78, 44, 68, 92, 55, 72, 38, 82, 64, 46, 74, 52, 88, 42, 66, 48]
 
@@ -317,7 +318,9 @@ JSON` : ''
                 <div>
                   <span className="voice-detail__eyebrow">{t('voiceLibrary.detail.eyebrow')}</span>
                   <h2>{selected.name}</h2>
-                  {selected.description && <p>{selected.description}</p>}
+                  {selected.description && (
+                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.description) }} />
+                  )}
                 </div>
                 <StatusPill status="healthy" label={t('voiceLibrary.status.ready')} />
               </div>

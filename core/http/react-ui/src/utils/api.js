@@ -85,12 +85,22 @@ export const modelsApi = {
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
-  install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
+  // variant is optional. Omitting it lets the server auto-select the best
+  // build for this host, which is what the listing's auto_variant predicted.
+  install: (id, variant) => postJSON(
+    variant
+      ? `${API_CONFIG.endpoints.installModel(id)}?variant=${encodeURIComponent(variant)}`
+      : API_CONFIG.endpoints.installModel(id),
+    {}
+  ),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   estimate: (id, contexts) => fetchJSON(
     buildUrl(API_CONFIG.endpoints.modelEstimate(id),
       contexts?.length ? { contexts: contexts.join(',') } : {})
   ),
+  // Companion to estimate: the listing reports only has_variants, so the
+  // description is fetched per entry, on demand.
+  variants: (id) => fetchJSON(API_CONFIG.endpoints.modelVariants(id)),
   getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),

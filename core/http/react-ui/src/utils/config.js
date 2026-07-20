@@ -10,6 +10,7 @@ export const API_CONFIG = {
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelEstimate: (id) => `/api/models/estimate/${id}`,
+    modelVariants: (id) => `/api/models/variants/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
     configMetadata: '/api/models/config-metadata',

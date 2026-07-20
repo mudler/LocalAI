@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"dario.cat/mergo"
 	lconfig "github.com/mudler/LocalAI/core/config"
@@ -17,6 +18,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/vram"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
@@ -60,6 +63,13 @@ type ModelConfig struct {
 	ConfigFile      string           `yaml:"config_file"`
 	Files           []File           `yaml:"files"`
 	PromptTemplates []PromptTemplate `yaml:"prompt_templates"`
+
+	// The fields below record how an entry carrying variants was resolved,
+	// so a reinstall or upgrade can honor the same pin and so operators can
+	// see which variant a stable model name is actually backed by.
+	EntryName       string `yaml:"entry_name,omitempty"`
+	ResolvedVariant string `yaml:"resolved_variant,omitempty"`
+	PinnedVariant   string `yaml:"pinned_variant,omitempty"`
 }
 
 type File struct {
@@ -73,6 +83,292 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
+// variantOptions turns an entry's declared variants into selectable options,
+// resolving each referenced gallery entry so the selector gets the backend it
+// filters on, and appends the entry itself as the base option.
+//
+// The base is appended rather than special-cased downstream so there is exactly
+// one selection path, and so an operator can pin the entry's own name to
+// decline an upgrade their hardware would otherwise take.
+func variantOptions(models []*GalleryModel, entry *GalleryModel, env ResolveEnv) ([]VariantOption, error) {
+	options := make([]VariantOption, 0, len(entry.Variants)+1)
+	for _, v := range entry.Variants {
+		// Every referenced entry is looked up here rather than lazily after
+		// selection, because the backend that decides whether a variant is even
+		// eligible lives on that entry, not on the variant.
+		target := FindGalleryElement(models, v.Model)
+		if target == nil {
+			return nil, fmt.Errorf("model %q references variant %q which does not exist in any configured gallery", entry.Name, v.Model)
+		}
+		if target.HasVariants() {
+			return nil, fmt.Errorf("model %q references variant %q which declares variants of its own; resolution is a single pass, so those would be silently ignored", entry.Name, v.Model)
+		}
+
+		// Tags come from the REFERENCED entry, not from the declaring one: the
+		// serving feature being ranked is a property of the build that would be
+		// installed, and a parent's tags describe the model family.
+		option := VariantOption{Variant: v, Backend: target.Backend, Tags: target.Tags}
+		if env.ProbeMemory != nil {
+			option.ProbedMemory = env.ProbeMemory(target)
+		}
+		options = append(options, option)
+	}
+
+	// The base is probed like any other candidate. It is never filtered out, but
+	// it IS ranked against the variants, and an unsized base would lose every
+	// contest to a variant whose size nothing could measure.
+	base := VariantOption{
+		Variant: Variant{Model: entry.Name},
+		Backend: entry.Backend,
+		IsBase:  true,
+		Tags:    entry.Tags,
+	}
+	if env.ProbeMemory != nil {
+		base.ProbedMemory = env.ProbeMemory(entry)
+	}
+	return append(options, base), nil
+}
+
+// probeContextLength is the context size the footprint estimate is taken at.
+// Selection compares whole models against whole hosts, so this only has to be a
+// consistent, realistic default rather than the context a user will eventually
+// configure.
+const probeContextLength = 8192
+
+// probeTimeout bounds a single entry's probe. An entry with several variants
+// probes each of them, so an unreachable host has to give up quickly: an
+// unknown size only costs a variant its ranking, whereas a stalled probe costs
+// the user the whole install.
+const probeTimeout = 5 * time.Second
+
+// probeEntryMemory measures what a gallery entry will occupy, without
+// downloading it.
+//
+// pkg/vram does the work and caches its results across calls: it range-fetches
+// the GGUF header for a real estimate, falls back to an HTTP HEAD for the
+// content length, and finally to any declared size:. A HuggingFace repo listing
+// is deliberately NOT used as a further fallback, unlike the gallery UI's
+// estimator: a quantization entry's urls routinely point at the base model's
+// repo, and summing every weight file there would overstate one variant badly
+// enough to wrongly filter it out.
+//
+// Zero means the size could not be determined. Callers must read that as
+// unknown rather than as zero, so an unreachable network downgrades a variant's
+// ranking instead of failing the install.
+func probeEntryMemory(ctx context.Context, entry *GalleryModel) uint64 {
+	input := vram.ModelEstimateInput{Size: entry.Size}
+	for _, f := range entry.AdditionalFiles {
+		if vram.IsWeightFile(f.URI) {
+			input.Files = append(input.Files, vram.FileInput{URI: f.URI})
+		}
+	}
+	if len(input.Files) == 0 && input.Size == "" {
+		return 0
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	estimate, err := vram.EstimateModelMultiContext(ctx, input, []uint32{probeContextLength})
+	if err != nil {
+		xlog.Debug("Could not probe a model variant's size; treating it as unknown", "model", entry.Name, "error", err)
+		return 0
+	}
+	return estimate.VRAMForContext(probeContextLength)
+}
+
+// ResolveVariant picks the gallery entry to install for a host, from the
+// variants an entry declares plus the entry itself, and returns it renamed to
+// the entry's name and carrying the entry's presentation metadata.
+//
+// Why the metadata split: the payload (url, config_file, files, overrides)
+// must come from the chosen variant because that is what actually gets
+// downloaded, while the presentation (name, description, icon, tags) must come
+// from the entry the user asked for, so the installed model presents as that
+// model rather than as one of its variants.
+//
+// The base entry always resolves, whatever the host has. It is a complete entry
+// that every older LocalAI release installs unconditionally, so refusing it here
+// would make the gallery behave worse the newer the client is. Being exempt from
+// the filters does not make it exempt from ranking: it is measured and compared
+// like every declared variant, and wins by default only once they have all been
+// ruled out.
+func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv, pin string) (*GalleryModel, Variant, error) {
+	options, err := variantOptions(models, entry, env)
+	if err != nil {
+		return nil, Variant{}, err
+	}
+
+	selection, err := SelectVariant(options, env, pin)
+	if err != nil {
+		return nil, Variant{}, fmt.Errorf("resolving variant for model %q: %w", entry.Name, err)
+	}
+	selected := selection.Option
+
+	if selection.FellBackToBase && len(entry.Variants) > 0 {
+		xlog.Warn("No declared variant of this model fits this system; installing the entry's own build",
+			"model", entry.Name, "available_memory", env.AvailableMemory, "reasons", strings.Join(selection.Reasons, "; "))
+	}
+
+	// A pin is an operator override and deliberately bypasses the hardware
+	// checks, but a silent bypass makes a later out-of-memory failure
+	// impossible to trace back to the pin, so it is recorded loudly here.
+	if pin != "" {
+		if need, known := selected.EffectiveMemory(); known && env.AvailableMemory < need {
+			xlog.Warn("Pinned model variant declares more memory than this system reports; installing anyway because the pin overrides hardware resolution",
+				"model", entry.Name, "variant", selected.Variant.Model, "required_memory", need, "available_memory", env.AvailableMemory)
+		}
+	}
+
+	// Selecting the base means installing the entry's own payload, which is the
+	// entry itself; there is no second entry to look up.
+	source := entry
+	if !selected.IsBase {
+		// variantOptions already proved this lookup succeeds.
+		source = FindGalleryElement(models, selected.Variant.Model)
+	}
+
+	resolved := *source
+	resolved.Name = entry.Name
+	resolved.Description = entry.Description
+	resolved.Icon = entry.Icon
+	resolved.License = entry.License
+	// The resolved entry is a concrete install target, so it must not carry the
+	// variant list any more; leaving it would let a second pass resolve the
+	// already-resolved entry all over again.
+	resolved.Variants = nil
+
+	// The struct copy above is shallow, so every reference-typed field still
+	// aliases the gallery's own entries. The install path mutates Overrides in
+	// place (mergo merges the caller's request overrides into it) and appends to
+	// the URL and tag slices, which would write the caller's request into the
+	// gallery catalog itself and leak between installs the moment this path
+	// reads from a cached, long-lived gallery listing. Detach them here.
+	//
+	// Overrides and ConfigFile are copied all the way down rather than cloned at
+	// the top level only: gallery overrides are nested in practice (a
+	// parameters.model map is near-universal), and mergo recurses into nested
+	// maps and overwrites them in place, so a top-level clone would still hand
+	// the caller the gallery's own inner maps. The slices below hold value types,
+	// so cloning them once fully detaches them.
+	resolved.Overrides = deepCopyStringMap(source.Overrides)
+	resolved.ConfigFile = deepCopyStringMap(source.ConfigFile)
+	resolved.AdditionalFiles = slices.Clone(source.AdditionalFiles)
+	resolved.URLs = slices.Clone(entry.URLs)
+	resolved.Tags = slices.Clone(entry.Tags)
+
+	return &resolved, selected.Variant, nil
+}
+
+// HostResolveEnv describes this machine to variant selection.
+//
+// It exists so the install path and every read-only surface that reports what
+// selection WOULD choose derive the host from one place. Two copies of this
+// wiring would eventually disagree, and a picker that shows a different answer
+// than the installer produces is worse than no picker at all.
+func HostResolveEnv(ctx context.Context, systemState *system.SystemState) ResolveEnv {
+	return ResolveEnv{
+		AvailableMemory: availableModelMemory(systemState),
+		// The whole hardware gate. IsBackendCompatible already derives
+		// Darwin-only, NVIDIA-only, ROCm-only and SYCL-only from the backend
+		// name, so a gallery author never has to describe hardware.
+		//
+		// The uri argument is deliberately empty: it exists for backend OCI
+		// images, and passing a model's gallery url here would let an unrelated
+		// substring in a download link decide hardware compatibility.
+		BackendCompatible: func(backend string) bool {
+			return systemState.IsBackendCompatible(backend, "")
+		},
+		// The ranking half of the hardware story. IsBackendCompatible only rules
+		// out what cannot run; on a Mac both an MLX and a llama.cpp build can,
+		// and this is what makes the native runtime win.
+		//
+		// EnginePreferenceTokens, NOT BackendPreferenceTokens: a variant is
+		// matched on its gallery `backend:` engine name, and the latter reports
+		// build tags that no engine name contains.
+		EnginePreference: systemState.EnginePreferenceTokens(),
+		// The third vocabulary, and the only one that is not host derived: no
+		// hardware prefers a plain build over an equivalent faster one, so this
+		// comes from a package function rather than from systemState.
+		ServingFeaturePreference: system.ServingFeaturePreferenceTokens(),
+		ProbeMemory: func(target *GalleryModel) uint64 {
+			return probeEntryMemory(ctx, target)
+		},
+	}
+}
+
+// noGPUDetected is what SystemState.DetectedCapability() reports when no
+// usable GPU was found. The constant is unexported in pkg/system.
+const noGPUDetected = "default"
+
+// availableModelMemory reports how much memory a model may occupy on this host.
+//
+// With a discrete GPU the model lives in VRAM. Otherwise it lives in system
+// RAM, read through xsysinfo because that path is cgroup-aware: under
+// Kubernetes the container's limit, not the node's physical RAM, is what the
+// model actually gets.
+//
+// A detected GPU whose VRAM reads as zero falls back to RAM rather than to
+// zero. That is the normal shape of a unified-memory host, not an error:
+// arm64 macs report the metal capability unconditionally, yet have no discrete
+// VRAM pool for TotalAvailableVRAM to find, so the model's real budget is
+// system RAM. Returning the zero here would strand every Mac on the base
+// build no matter how much memory it has.
+//
+// An unreadable RAM figure yields 0, which drops every variant with a known
+// requirement and installs the base. That is the safe direction: an unknown
+// host should not be talked into a larger download.
+func availableModelMemory(systemState *system.SystemState) uint64 {
+	if systemState.DetectedCapability() != noGPUDetected && systemState.VRAM > 0 {
+		return systemState.VRAM
+	}
+	ram, err := xsysinfo.GetSystemRAMInfo()
+	if err != nil || ram == nil {
+		xlog.Warn("Could not read system RAM; treating this host as having no memory budget for variant selection", "error", err)
+		return 0
+	}
+	return ram.Total
+}
+
+// deepCopyStringMap copies a decoded YAML map so no part of the result, at any
+// depth, is reachable from the original.
+func deepCopyStringMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = deepCopyYAMLValue(v)
+	}
+	return out
+}
+
+// deepCopyYAMLValue recurses through the only container shapes a YAML decoder
+// produces. Scalars are returned as-is because they cannot be mutated through
+// the copy. map[any]any is handled as well because gopkg.in/yaml.v2 decodes
+// non-string keys into it, and gallery documents are not guaranteed to have
+// passed through the v3 decoder.
+func deepCopyYAMLValue(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		return deepCopyStringMap(t)
+	case map[any]any:
+		out := make(map[any]any, len(t))
+		for k, val := range t {
+			out[k] = deepCopyYAMLValue(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = deepCopyYAMLValue(val)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
 // Installs a model from the gallery
 func InstallModelFromGallery(
 	ctx context.Context,
@@ -81,7 +377,9 @@ func InstallModelFromGallery(
 	modelLoader *model.ModelLoader,
 	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend, requireBackendIntegrity bool, options ...InstallOption) error {
 
-	applyModel := func(model *GalleryModel) error {
+	installOpts := applyInstallOptions(options...)
+
+	applyModel := func(model *GalleryModel, record *ModelConfig) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
 		var config ModelConfig
@@ -104,13 +402,46 @@ func InstallModelFromGallery(
 				ConfigFile:  string(reYamlConfig),
 				Description: model.Description,
 				License:     model.License,
-				URLs:        model.URLs,
 				Name:        model.Name,
 				Files:       make([]File, 0), // Real values get added below, must be blank
+				// URLs are deliberately not seeded here: they are appended once
+				// below for both branches, and seeding them too would write every
+				// URL twice into the persisted gallery file.
 				// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
 			}
 		} else {
-			return fmt.Errorf("invalid gallery model %+v", model)
+			// An entry that names no base config describes itself entirely
+			// through overrides: and files:, so the base is simply empty.
+			//
+			// This is what the several hundred entries pointing at
+			// gallery/virtual.yaml were already getting. That stub carries only
+			// a name, a description and a license, all three of which are
+			// overwritten from the gallery entry a few lines up, and overrides
+			// reach InstallModel as a separate argument rather than being merged
+			// into the fetched config. So the fetch bought nothing beyond a
+			// round trip to GitHub on every install, and an author who omits the
+			// key is asking for exactly the same thing.
+			if !model.installsSomething(req) {
+				return fmt.Errorf("gallery model %q installs nothing: it declares no url, no config_file, no overrides and no files", model.Name)
+			}
+			config = ModelConfig{
+				Description: model.Description,
+				License:     model.License,
+				Name:        model.Name,
+				Files:       make([]File, 0), // Real values get added below, must be blank
+				// URLs are appended once below for every branch, as in the
+				// config_file case above.
+			}
+		}
+
+		if record != nil {
+			config.EntryName = record.EntryName
+			config.ResolvedVariant = record.ResolvedVariant
+			config.PinnedVariant = record.PinnedVariant
+			// The variant's own name would otherwise be persisted here, which
+			// contradicts the whole point of variants: the model is known by
+			// the entry's stable name regardless of which variant backs it.
+			config.Name = record.EntryName
 		}
 
 		installName := model.Name
@@ -157,7 +488,77 @@ func InstallModelFromGallery(
 		return fmt.Errorf("no model found with name %q", name)
 	}
 
-	return applyModel(model)
+	// An entry without variants is installed directly. An entry with them is
+	// still installable as-is; selection below only decides whether one of its
+	// declared alternatives suits this host better.
+	if !model.HasVariants() {
+		// A caller who named a variant asked for something this entry cannot
+		// give. Installing the entry anyway would look like success while
+		// quietly ignoring the choice, so it is refused by name instead.
+		if installOpts.variant != "" {
+			return fmt.Errorf("%w: %q was requested but model %q declares no variants", ErrPinNotFound, installOpts.variant, model.Name)
+		}
+		return applyModel(model, nil)
+	}
+
+	pin := installOpts.variant
+	// A previously recorded pin survives reinstalls and upgrades, so a user
+	// who deliberately chose a variant is not silently re-resolved onto a
+	// different one by a hardware or gallery change.
+	//
+	// The record is keyed by the name the model was installed under, not by the
+	// gallery entry name: applyModel writes it to ._gallery_<installName>.yaml,
+	// where installName is req.Name whenever the caller supplied one. Reading it
+	// back under the entry's own name would miss the record for every custom-named
+	// install and silently re-resolve a deliberately pinned model onto a
+	// different variant, possibly swapping its backend.
+	//
+	// recalledPin tracks where the pin came from, because the two sources must
+	// fail differently when the name no longer resolves. See below.
+	recalledPin := ""
+	if pin == "" {
+		installName := model.Name
+		if req.Name != "" {
+			installName = req.Name
+		}
+		if previous, err := GetLocalModelConfiguration(systemState.Model.ModelsPath, installName); err == nil && previous != nil {
+			recalledPin = previous.PinnedVariant
+			pin = recalledPin
+		}
+	}
+
+	env := HostResolveEnv(ctx, systemState)
+
+	resolved, variant, err := ResolveVariant(models, model, env, pin)
+	// A pin the caller supplied on this request must stay fatal: they named
+	// something this entry cannot give, and installing anything else would
+	// report success for a request that was not honored.
+	//
+	// A pin recalled from disk is different. The gallery can rename or withdraw
+	// a variant long after it was pinned, and the user is not asking for it
+	// again on this call. Failing here would turn one gallery edit into a
+	// permanently unrepairable model whose only remedy is deleting a dotfile
+	// they have never heard of, so the stale pin is dropped and selection runs
+	// as if it had never been recorded.
+	if err != nil && recalledPin != "" && errors.Is(err, ErrPinNotFound) {
+		xlog.Warn("The recorded variant pin for this model no longer exists in the gallery; re-selecting automatically",
+			"model", model.Name, "dropped_pin", recalledPin)
+		pin = ""
+		resolved, variant, err = ResolveVariant(models, model, env, "")
+	}
+	if err != nil {
+		return err
+	}
+
+	xlog.Info("Resolved model to variant",
+		"model", model.Name, "variant", variant.Model,
+		"available_memory", env.AvailableMemory, "pinned", pin != "")
+
+	return applyModel(resolved, &ModelConfig{
+		EntryName:       model.Name,
+		ResolvedVariant: variant.Model,
+		PinnedVariant:   pin,
+	})
 }
 
 func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool, options ...InstallOption) (*lconfig.ModelConfig, error) {

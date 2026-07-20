@@ -25,6 +25,11 @@ type ModelGalleryEndpointService struct {
 
 type GalleryModel struct {
 	ID string `json:"id"`
+	// Variant installs one specific build of an entry that declares variants,
+	// named as it appears in the entry's `variants` list (see the `variants`
+	// and `auto_variant` fields of the gallery listing). Leave it empty to let
+	// LocalAI auto-select the largest build this host can actually run.
+	Variant string `json:"variant,omitempty"`
 	gallery.GalleryModel
 }
 
@@ -86,6 +91,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() echo.Handler
 			Req:                input.GalleryModel,
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
+			Variant:            input.Variant,
 			Galleries:          mgs.galleries,
 			BackendGalleries:   mgs.backendGalleries,
 		}

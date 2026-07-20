@@ -19,6 +19,7 @@ type ArtifactMaterializer interface {
 
 type installOptions struct {
 	materializer ArtifactMaterializer
+	variant      string
 }
 
 type InstallOption func(*installOptions)
@@ -28,6 +29,16 @@ func WithArtifactMaterializer(materializer ArtifactMaterializer) InstallOption {
 		if materializer != nil {
 			options.materializer = materializer
 		}
+	}
+}
+
+// WithVariant pins a gallery entry to a specific variant by name, bypassing
+// hardware-based selection. The entry's own name is a valid pin, since the
+// entry is itself the last resort. Ignored for entries that declare no
+// variants.
+func WithVariant(variant string) InstallOption {
+	return func(options *installOptions) {
+		options.variant = variant
 	}
 }
 

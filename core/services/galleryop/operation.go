@@ -43,6 +43,15 @@ type ManagementOp[T any, E any] struct {
 	// build on one node without touching the rest of the cluster.
 	TargetNodeID string
 
+	// Variant pins a model install to one of the gallery entry's declared
+	// variants, by that variant's model name. Empty means auto-select: LocalAI
+	// picks the largest variant this host's backend support and memory can
+	// actually run, and falls back to the entry's own build.
+	//
+	// A name that is not among the entry's variants fails the install rather
+	// than quietly auto-selecting, so a typo cannot masquerade as a choice.
+	Variant string
+
 	// Upgrade is true if this is an upgrade operation (not a fresh install)
 	Upgrade bool
 
