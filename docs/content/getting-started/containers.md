@@ -111,9 +111,14 @@ services:
     # For CUDA 13, use: localai/localai:latest-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      # start_period, not timeout, is the knob for a slow first boot: startup
+      # preload can download tens of GB before the API binds, and failures
+      # inside the start period leave the container `starting` rather than
+      # marking it unhealthy. timeout is a per-probe deadline.
+      start_period: 60m
       interval: 1m
-      timeout: 20m
-      retries: 5
+      timeout: 10s
+      retries: 3
     ports:
       - 8080:8080
     environment:
@@ -151,9 +156,14 @@ services:
     # For CUDA 13, use: localai/localai:latest-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
+      # start_period, not timeout, is the knob for a slow first boot: startup
+      # preload can download tens of GB before the API binds, and failures
+      # inside the start period leave the container `starting` rather than
+      # marking it unhealthy. timeout is a per-probe deadline.
+      start_period: 60m
       interval: 1m
-      timeout: 20m
-      retries: 5
+      timeout: 10s
+      retries: 3
     ports:
       - 8080:8080
     environment:

@@ -232,6 +232,19 @@ local-ai worker \
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
 
+### Worker Health Probes
+
+The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
+
+| Endpoint | Meaning |
+|----------|---------|
+| `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered *and* its NATS connection is live; 503 otherwise. |
+
+`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+
+The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
+
 ### Worker Address Configuration
 
 The simplest way to configure a worker's network address is with a single variable:
