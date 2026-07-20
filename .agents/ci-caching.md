@@ -114,6 +114,24 @@ Both `backend.yml` (push) and `backend_pr.yml` (PR) generate their matrix dynami
 - **Tag pushes**: `FORCE_ALL=true` is set from the workflow side (`startsWith(github.ref, 'refs/tags/')`) — releases rebuild every backend regardless of diff.
 - **Schedule / `workflow_dispatch`**: no `event.before`, falls through to "run everything" automatically.
 
+### Shared build inputs
+
+The per-backend prefix match only sees files under a backend's own directory, so a change to shared build infrastructure would rebuild *nothing* — an empty matrix, every job green, and the change reaching no image. That silently un-shipped PR #10946 (a partial-cuDNN packaging fix in `scripts/build/package-gpu-libs.sh`), which merged 1h48m after the weekly cron and so sat unbuilt for a week.
+
+`SHARED_BUILD_INPUTS` in `scripts/lib/backend-filter.mjs` closes that hole. Each rule maps a shared path to the narrowest set of matrix entries it can honestly invalidate, since a full matrix is 417 Linux + 56 Darwin builds:
+
+| Changed path | Rebuilds |
+|---|---|
+| `backend/backend.proto` | everything (all languages compile or copy it) |
+| `backend/Dockerfile.<x>` | the Linux entries whose `dockerfile:` names it |
+| `backend/python/common/` | Python, Linux + Darwin |
+| `scripts/build/package-gpu-libs.sh` | Python, Linux only |
+| `scripts/build/<lang>-darwin.sh` | the Darwin entries that build target routes to |
+| `.github/workflows/backend_build[_darwin].yml` | everything on that OS |
+| anything else under `scripts/build/` (except `*_test.sh`) | everything — conservative default for unclassified packaging inputs |
+
+Deliberately excluded: `backend/index.yaml` (gallery metadata, never enters an image), `.github/backend-matrix.yml` (adding a backend would rebuild all of them), `backend/Dockerfile.base-grpc-builder` (owned by `base-images.yml`), and the root `Makefile` (touched in ~11% of commits, and its backend-relevant edits arrive alongside the backend directory anyway). `make test-ci-scripts` pins all of this.
+
 The Sunday 06:00 UTC cron on `backend.yml` exists specifically because path filtering can leave Python backends frozen on stale wheels. `DEPS_REFRESH` (below) only fires when the build actually runs, so an untouched Python backend would never re-resolve its unpinned deps. The weekly cron is the safety net.
 
 ## The `DEPS_REFRESH` cache-buster (Python backends)

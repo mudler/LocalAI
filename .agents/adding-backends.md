@@ -34,7 +34,7 @@ The build matrix is data-only YAML at `.github/backend-matrix.yml` (not inside `
 
 **Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
 
-**`scripts/changed-backends.js` registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/changed-backends.js:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
+**Path-filter registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/lib/backend-filter.mjs:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
 
 ```js
 if (item.dockerfile.endsWith("<your-dockerfile-suffix>")) {
@@ -54,7 +54,9 @@ for (const e of m.include.filter(e => e.backend === '<your-backend>')) {
 }"
 ```
 
-A quick way to find the right insertion point: `grep -n 'item.dockerfile.endsWith' scripts/changed-backends.js`.
+A quick way to find the right insertion point: `grep -n 'item.dockerfile.endsWith' scripts/lib/backend-filter.mjs`.
+
+If your backend consumes a *shared* build input that lives outside its own directory (a new script under `scripts/build/`, a new file copied into every image), add a rule to `SHARED_BUILD_INPUTS` in the same file — the per-backend prefix match cannot see those, and a miss ships your change to no image at all. See `scripts/lib/backend-filter_test.mjs` for the pattern; `make test-ci-scripts` runs it.
 
 **`bump_deps.yaml` registration — REQUIRED for any backend pinning an upstream commit.** If your backend's Makefile has a `*_VERSION?=<sha>` pin to a third-party repo, the daily auto-bump bot at `.github/workflows/bump_deps.yaml` won't notice it unless you register the backend in its matrix. The bot runs `.github/bump_deps.sh` which `grep`s for `^$VAR?=` in the Makefile you list — so the pin MUST live in the Makefile (not in a separate shell script). The bump for ds4 (#9761) had to walk this back because the original landed the pin in `prepare.sh`, which the bot can't see. Pattern (for `antirez/ds4`):
 
@@ -115,7 +117,7 @@ Wiring a backend into `includeDarwin:` is more than the matrix entry:
 
 1. **`includeDarwin:` entry** — `tag-suffix: "-metal-darwin-arm64-<backend>"`, `build-type: "metal"`, `lang: "go"` for go+ggml backends; omit `build-type` for the bespoke C++ ones (llama-cpp / ds4 / privacy-filter). Match an existing entry of the same shape.
 2. **`backend/index.yaml`** — add `metal:` to the backend's `capabilities` map (main and `-development`) and concrete `metal-<backend>` / `metal-<backend>-development` image entries pointing at the `-metal-darwin-arm64-<backend>` images.
-3. **C/C++ backends only** — add an `inferBackendPathDarwin` case in `scripts/changed-backends.js` returning `backend/cpp/<backend>/` (the generic fallthrough assumes `backend/<lang>/`, which is wrong for a C++ source tree driven with `lang: go`), and give `run.sh` a Darwin branch that exports `DYLD_LIBRARY_PATH` instead of `LD_LIBRARY_PATH`. If the build is bespoke (single `grpc-server` + dylib bundling), model it on `scripts/build/ds4-darwin.sh` and add a `backends/<backend>-darwin` make target plus a gated step in `.github/workflows/backend_build_darwin.yml`.
+3. **C/C++ backends only** — add an `inferBackendPathDarwin` case in `scripts/lib/backend-filter.mjs` returning `backend/cpp/<backend>/` (the generic fallthrough assumes `backend/<lang>/`, which is wrong for a C++ source tree driven with `lang: go`), and give `run.sh` a Darwin branch that exports `DYLD_LIBRARY_PATH` instead of `LD_LIBRARY_PATH`. If the build is bespoke (single `grpc-server` + dylib bundling), model it on `scripts/build/ds4-darwin.sh` and add a `backends/<backend>-darwin` make target plus a gated step in `.github/workflows/backend_build_darwin.yml`.
 4. **C++ proto gotcha** — if the backend compiles the generated gRPC/protobuf in a separate CMake target (e.g. `hw_grpc_proto`), that target must link `protobuf::libprotobuf` + `gRPC::grpc++` so the Homebrew include dirs propagate; otherwise macOS fails with `google/protobuf/runtime_version.h not found` (Linux hides this because apt headers sit in `/usr/include`).
 
 The CI path filter only builds a backend on a PR when a file under its directory changes, so a darwin-only YAML edit builds nothing — touch a file under `backend/<lang>/<backend>/` (a one-line comment is enough) in the same PR.
@@ -243,7 +245,7 @@ After adding a new backend, verify:
 
 - [ ] Backend directory structure is complete with all necessary files
 - [ ] Build configurations added to `.github/backend-matrix.yml` for all desired platforms (per-arch entries with `platform-tag` for multi-arch; `builder-base-image` for llama-cpp / ik-llama-cpp / turboquant)
-- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `backend/index.yaml` `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
+- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `backend/index.yaml` `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case (in `scripts/lib/backend-filter.mjs`) for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
 - [ ] Meta definition added to `backend/index.yaml` in the `## metas` section
 - [ ] Image entries added to `backend/index.yaml` for all build variants (latest + development)
 - [ ] Tag suffixes match between workflow file and index.yaml

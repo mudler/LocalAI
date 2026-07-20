@@ -215,6 +215,13 @@ test-backend-cpp:
 test-build-scripts:
 	@set -e; for t in scripts/build/*_test.sh; do echo "== $$t"; bash "$$t"; done
 
+## Runs the unit tests for the CI helper scripts under scripts/lib/. Currently
+## the backend matrix path filter, whose failure mode is invisible in CI: it
+## emits an empty matrix, every job goes green, and the change ships to no
+## image at all (see PR #10946). Plain `node --test`, no dependencies.
+test-ci-scripts:
+	@set -e; for t in scripts/lib/*_test.mjs; do echo "== $$t"; node --test "$$t"; done
+
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
 ## --fail-fast so a single failure doesn't truncate the coverage number, and

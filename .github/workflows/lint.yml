@@ -57,3 +57,12 @@ jobs:
       - uses: actions/checkout@v7
       - name: run packaging script tests
         run: make test-build-scripts
+
+      # The backend matrix path filter fails silently: a miss emits an empty
+      # matrix, every job goes green, and the change reaches no image (#10946).
+      # Its tests need only node, so they ride along with this job.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: run CI script tests
+        run: make test-ci-scripts
