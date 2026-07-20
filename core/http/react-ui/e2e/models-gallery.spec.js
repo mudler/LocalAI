@@ -813,6 +813,266 @@ test.describe("Models Gallery - Variant picker", () => {
   });
 });
 
+// The gallery entries behind two of llama-model's variants, as the listing
+// returns them when asked for one by exact name. Every field is deliberately
+// unlike the parent's, so a test asserting on them proves the panel resolved
+// the variant's own entry rather than re-rendering the row it sits under.
+//
+// llama-model-mlx is absent on purpose: it stands for a name the listing no
+// longer returns, which is a real outcome once a gallery is reloaded between
+// describing an entry's variants and asking about one of them.
+const VARIANT_ENTRIES = {
+  "llama-model-q8": {
+    name: "llama-model-q8",
+    description: "The eight-bit build, kept for quality-sensitive work.",
+    backend: "llama-cpp",
+    installed: false,
+    license: "q8-only-licence",
+    tags: ["chat", "q8-only-tag"],
+    urls: ["https://example.invalid/llama-model-q8"],
+    additionalFiles: [
+      {
+        filename: "llama-model-q8.gguf",
+        uri: "https://example.invalid/q8.gguf",
+        sha256: "q8",
+      },
+    ],
+  },
+  "llama-model-f16": {
+    name: "llama-model-f16",
+    description: "The full-precision build.",
+    backend: "llama-cpp",
+    installed: false,
+    license: "f16-only-licence",
+    tags: ["chat"],
+    urls: [],
+  },
+};
+
+// The variant list answers "how do these differ". This answers "tell me
+// everything about this one", for a build that has no listing row of its own
+// while the collapse is on and so is unreachable anywhere else in the page.
+test.describe("Models Gallery - Variant details", () => {
+  let installUrls;
+  // Requests for a single variant's gallery entry, told apart from the
+  // gallery's own listing by the page size the detail lookup asks for.
+  let detailUrls;
+
+  test.beforeEach(async ({ page }) => {
+    installUrls = [];
+    detailUrls = [];
+
+    await page.route("**/api/models*", (route) => {
+      const url = new URL(route.request().url());
+      const term = (url.searchParams.get("term") || "").trim();
+      const isDetailLookup =
+        url.pathname.endsWith("/api/models") &&
+        url.searchParams.get("items") === "100" &&
+        term !== "";
+      if (isDetailLookup) {
+        detailUrls.push(url.toString());
+        const entry = VARIANT_ENTRIES[term];
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            ...MOCK_MODELS_RESPONSE,
+            models: entry ? [entry] : [],
+          }),
+        });
+      }
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_MODELS_RESPONSE),
+      });
+    });
+    await page.route("**/api/models/install/**", (route) => {
+      installUrls.push(route.request().url());
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ jobID: "variant-install" }),
+      });
+    });
+    await page.route("**/api/models/variants/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_VARIANTS_RESPONSE),
+      }),
+    );
+    await page.goto("/app/models");
+    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
+      timeout: 10_000,
+    });
+    // Expanding the parent is what puts the variant list on screen.
+    await page.locator("tr", { hasText: "llama-model" }).first().click();
+    await expect(page.locator(".variant-row")).toHaveCount(4);
+  });
+
+  // Exact, because the names are prefixes of one another: "llama-model" is a
+  // substring of every other variant's control.
+  const infoFor = (page, variant) =>
+    page.getByRole("button", {
+      name: `Show full details for ${variant}`,
+      exact: true,
+    });
+
+  test("every variant carries its own details control", async ({ page }) => {
+    await expect(page.locator(".variant-row__info")).toHaveCount(4);
+    // The accessible name has to say which build it acts on: a column of
+    // identical "info" buttons is useless to a screen reader user.
+    for (const variant of [
+      "llama-model",
+      "llama-model-q8",
+      "llama-model-mlx",
+      "llama-model-f16",
+    ]) {
+      await expect(infoFor(page, variant)).toBeVisible();
+    }
+  });
+
+  test("no details are fetched until the control is used", async ({ page }) => {
+    // Expanding lists four variants. If the panel prefetched, this would be
+    // four requests for data nobody has asked to see.
+    expect(detailUrls).toHaveLength(0);
+    await infoFor(page, "llama-model-q8").click();
+    await expect.poll(() => detailUrls.length).toBe(1);
+    expect(detailUrls[0]).toContain("term=llama-model-q8");
+  });
+
+  test("the details shown are the variant's own entry, not the parent's", async ({
+    page,
+  }) => {
+    await infoFor(page, "llama-model-q8").click();
+    const panel = page.locator(".variant-detail");
+    await expect(panel).toContainText(
+      "The eight-bit build, kept for quality-sensitive work.",
+    );
+    await expect(panel).toContainText("q8-only-licence");
+    await expect(panel).toContainText("q8-only-tag");
+    await expect(panel).toContainText("https://example.invalid/llama-model-q8");
+    await expect(panel).toContainText("1 file");
+    // The parent's own description renders in the same expanded row. If the
+    // panel were re-rendering the parent, this would be here too.
+    await expect(panel).not.toContainText("A llama model");
+  });
+
+  test("a variant's details never nest another variants list", async ({
+    page,
+  }) => {
+    // Two levels of disclosure is already deep. A picker inside a picker is
+    // where it stops being legible.
+    await infoFor(page, "llama-model-q8").click();
+    await expect(page.locator(".variant-detail")).toBeVisible();
+    await expect(page.locator(".variant-detail .variant-list")).toHaveCount(0);
+  });
+
+  test("opening the details does not install anything", async ({ page }) => {
+    await infoFor(page, "llama-model-q8").click();
+    await expect(page.locator(".variant-detail")).toContainText(
+      "q8-only-licence",
+    );
+    // The panel is fully rendered by now, so an install triggered by the same
+    // click would have fired.
+    expect(installUrls).toHaveLength(0);
+  });
+
+  test("the variant row still installs with the control alongside it", async ({
+    page,
+  }) => {
+    await page.locator(".variant-row", { hasText: "llama-model-q8" }).click();
+    await expect.poll(() => installUrls.length).toBe(1);
+    expect(installUrls[0]).toContain("variant=llama-model-q8");
+    // And installing is not a request for details either.
+    expect(detailUrls).toHaveLength(0);
+  });
+
+  test("a variant whose entry cannot be resolved says so", async ({ page }) => {
+    await infoFor(page, "llama-model-mlx").click();
+    const panel = page.locator(".variant-detail");
+    // Visibly degraded, not silently blank: an empty panel reads as a
+    // rendering fault rather than as a lookup that came back with nothing.
+    await expect(panel).toContainText(
+      "Details for llama-model-mlx could not be loaded.",
+    );
+    await expect(panel.locator(".variant-detail__state--error")).toBeVisible();
+  });
+
+  test("the details are fetched once and reused", async ({ page }) => {
+    await infoFor(page, "llama-model-q8").click();
+    await expect.poll(() => detailUrls.length).toBe(1);
+    await page
+      .getByRole("button", {
+        name: "Hide full details for llama-model-q8",
+        exact: true,
+      })
+      .click();
+    await expect(page.locator(".variant-detail")).toHaveCount(0);
+    await infoFor(page, "llama-model-q8").click();
+    await expect(page.locator(".variant-detail")).toContainText(
+      "q8-only-licence",
+    );
+    expect(detailUrls).toHaveLength(1);
+  });
+
+  test("only one variant's details are open at a time", async ({ page }) => {
+    // The list is a comparison; two open panels push the rows being compared
+    // apart.
+    await infoFor(page, "llama-model-q8").click();
+    await infoFor(page, "llama-model-f16").click();
+    await expect(page.locator(".variant-detail")).toHaveCount(1);
+    await expect(page.locator(".variant-detail")).toContainText(
+      "f16-only-licence",
+    );
+  });
+
+  test("the control is keyboard reachable, activates, and dismisses", async ({
+    page,
+  }) => {
+    const info = infoFor(page, "llama-model-q8");
+    await info.focus();
+    await expect(info).toBeFocused();
+    // A visible focus indicator, not merely a focused element.
+    await expect(info).toHaveCSS("outline-style", "solid");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".variant-detail")).toContainText(
+      "q8-only-licence",
+    );
+    await expect(
+      page.getByRole("button", {
+        name: "Hide full details for llama-model-q8",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".variant-detail")).toHaveCount(0);
+    // Focus comes back to the control that opened it, rather than being
+    // dropped at the top of the document.
+    await expect(infoFor(page, "llama-model-q8")).toBeFocused();
+  });
+
+  test("the variant rows still line up with the control in front of them", async ({
+    page,
+  }) => {
+    // The extra column must be shared like every other, or the names it sits
+    // beside stop forming a column.
+    const rows = page.locator(".variant-row");
+    const columns = await rows.evaluateAll((els) =>
+      els.map((el) => ({
+        name: el.querySelector(".variant-row__name").getBoundingClientRect().x,
+        size: el
+          .querySelector(".variant-row__size")
+          .getBoundingClientRect().right,
+      })),
+    );
+    for (const c of columns) {
+      expect(Math.abs(c.name - columns[0].name)).toBeLessThan(1.5);
+      expect(Math.abs(c.size - columns[0].size)).toBeLessThan(1.5);
+    }
+  });
+});
+
 // The collapsed view is the deduplicated gallery: every entry installable in
 // its own right, with nothing shown twice. Here whisper-model stands in for a
 // build llama-model already offers as a variant, so it is the only row that

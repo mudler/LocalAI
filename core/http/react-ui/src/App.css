@@ -9463,19 +9463,32 @@ button.collapsible-header:focus-visible {
    status is badged: "fits" is true of nearly every row and says nothing, while
    a build that does not fit, and the one that plain Install would pick, do. */
 .variant-list {
-  /* Content-width rather than pane-width: a full-width row would strand the
-     install affordance an inch of empty space away from the name it acts on. */
   display: grid;
-  width: max-content;
-  max-width: 100%;
-  /* name, backend, quantization, size, status, action */
-  grid-template-columns: minmax(0, auto) max-content max-content max-content max-content max-content;
+  width: 100%;
+  /* info, name, backend, quantization, size, status, action, filler.
+     Every informative track is content-sized and the filler takes the slack,
+     so the rows stay packed together rather than stranding the install
+     affordance an inch of empty space away from the name it acts on. The
+     grid still spans the pane, which is what lets a revealed detail panel
+     have the full width its file table needs. */
+  grid-template-columns: max-content minmax(0, auto) max-content max-content max-content max-content max-content 1fr;
   column-gap: var(--spacing-md);
   row-gap: 2px;
 }
-.variant-row {
+/* One variant: the info control, the install row, and the details the control
+   reveals. It spans the list's tracks and passes them down, so the install row
+   still shares its columns with every other row despite the extra nesting. */
+.variant-entry {
   display: grid;
   grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+.variant-row {
+  display: grid;
+  /* Stops short of the filler track so the hover and focus box hugs the row's
+     own content rather than trailing across the empty right-hand side. */
+  grid-column: 2 / -2;
   grid-template-columns: subgrid;
   align-items: center;
   width: 100%;
@@ -9494,6 +9507,7 @@ button.collapsible-header:focus-visible {
 /* Subgrid keeps the columns shared across rows; without it each row falls back
    to sizing its own tracks, which is ragged but still legible. */
 @supports not (grid-template-columns: subgrid) {
+  .variant-entry { grid-template-columns: max-content minmax(22ch, auto) max-content max-content max-content max-content max-content 1fr; }
   .variant-row { grid-template-columns: minmax(22ch, auto) max-content max-content max-content max-content max-content; }
 }
 .variant-row:hover:not(:disabled) {
@@ -9563,7 +9577,71 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-muted);
 }
 
+/* Quiet until asked for: the row's job is to be compared and installed, so the
+   way into "everything about this one" recedes until the eye or the keyboard
+   lands on it. */
+.variant-row__info {
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-disabled);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-default),
+              background-color var(--duration-fast) var(--ease-default);
+}
+.variant-row__info:hover,
+.variant-entry:hover .variant-row__info {
+  color: var(--color-primary);
+}
+.variant-row__info:hover {
+  background: var(--color-bg-hover);
+}
+.variant-row__info:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+  color: var(--color-primary);
+}
+.variant-row__info[aria-expanded="true"] {
+  color: var(--color-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-default);
+}
+
+/* The third level of disclosure on this page, so it leans on an inset and a
+   rule rather than another card: a nested panel with its own border inside an
+   expanded row inside an expanded table reads as debris. */
+.variant-detail {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: var(--spacing-xs) 0 var(--spacing-sm) var(--spacing-lg);
+  border-left: 2px solid var(--color-border-default);
+  background: var(--color-surface-sunken);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  overflow: hidden;
+}
+.variant-detail__state {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.variant-detail__state--error {
+  color: var(--color-error);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .variant-row,
+  .variant-row__info,
   .variant-row__action { transition: none; }
 }

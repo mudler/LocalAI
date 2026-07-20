@@ -128,6 +128,10 @@
     "installVariant": "Install {{variant}}",
     "quantizationTitle": "Weight format",
     "unknownQuantization": "Unknown format",
+    "showDetails": "Show full details for {{variant}}",
+    "hideDetails": "Hide full details for {{variant}}",
+    "detailsLoading": "Loading details...",
+    "detailsUnavailable": "Details for {{variant}} could not be loaded.",
     "features": {
       "dflash": "Faster: DFlash",
       "mtp": "Faster: MTP"

@@ -113,6 +113,10 @@
     "loading": "Loading variants...",
     "quantizationTitle": "权重格式",
     "unknownQuantization": "未知格式",
+    "showDetails": "显示 {{variant}} 的完整详情",
+    "hideDetails": "隐藏 {{variant}} 的完整详情",
+    "detailsLoading": "正在加载详情...",
+    "detailsUnavailable": "无法加载 {{variant}} 的详情。",
     "features": {
       "dflash": "更快：DFlash",
       "mtp": "更快：MTP"

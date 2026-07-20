@@ -113,6 +113,10 @@
     "loading": "Loading variants...",
     "quantizationTitle": "Gewichtsformat",
     "unknownQuantization": "Format unbekannt",
+    "showDetails": "Alle Details zu {{variant}} anzeigen",
+    "hideDetails": "Alle Details zu {{variant}} ausblenden",
+    "detailsLoading": "Details werden geladen...",
+    "detailsUnavailable": "Details zu {{variant}} konnten nicht geladen werden.",
     "features": {
       "dflash": "Schneller: DFlash",
       "mtp": "Schneller: MTP"

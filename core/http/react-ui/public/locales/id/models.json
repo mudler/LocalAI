@@ -126,6 +126,10 @@
     "loading": "Loading variants...",
     "quantizationTitle": "Format bobot",
     "unknownQuantization": "Format tidak diketahui",
+    "showDetails": "Tampilkan detail lengkap {{variant}}",
+    "hideDetails": "Sembunyikan detail lengkap {{variant}}",
+    "detailsLoading": "Memuat detail...",
+    "detailsUnavailable": "Detail untuk {{variant}} tidak dapat dimuat.",
     "features": {
       "dflash": "Lebih cepat: DFlash",
       "mtp": "Lebih cepat: MTP"

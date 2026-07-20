@@ -30,6 +30,12 @@ const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
 // many pages you turn.
 const COLLAPSE_VARIANTS_DEFAULT = true
 
+// How many listing rows to ask for when resolving one variant's gallery entry
+// by exact name. The term is the full name, so the entry is always in the
+// match set; the page size only has to be wide enough that the fuzzy matches
+// sharing that name's prefix cannot push it past the first page.
+const VARIANT_DETAIL_SEARCH_ITEMS = 100
+
 // Only 'on'/'off' counts as a choice. An earlier build wrote '1'/'0' from an
 // effect that ran on mount, so those values record that the page was opened
 // rather than that anyone picked a view, and honouring them would pin a
@@ -103,6 +109,11 @@ export default function Models() {
   // probe per variant, so we ask for one entry at a time and keep the answer
   // for the rest of the page session.
   const [variantData, setVariantData] = useState({})
+  // Gallery entries behind individual variants, keyed by variant name. The
+  // variant description carries only what ranking needs, and a variant the
+  // collapse hides has no listing row of its own, so this is the only place
+  // its description, licence, tags, links and files become reachable.
+  const [variantDetails, setVariantDetails] = useState({})
   const [fitsFilter, setFitsFilter] = useState(() => {
     try {
       return localStorage.getItem(FITS_FILTER_STORAGE_KEY) === '1'
@@ -247,6 +258,32 @@ export default function Models() {
         .then(data => setVariantData(p => ({ ...p, [id]: { loading: false, ...data } })))
         .catch(() => setVariantData(p => ({ ...p, [id]: { loading: false, variants: [] } })))
       return { ...prev, [id]: { loading: true, variants: [] } }
+    })
+  }, [])
+
+  // Resolves one variant's full gallery entry, once, and only when the user
+  // asks to see it.
+  //
+  // The listing already returns every field the detail view renders, and a
+  // search term bypasses the variant collapse server-side, so an entry hidden
+  // behind its parent is still reachable by exact name. That keeps this off
+  // both the listing and DescribeVariants: an expand costs nothing, and a
+  // variant nobody opens costs nothing.
+  //
+  // A name the listing does not return is a real outcome, not a bug to hide:
+  // the gallery can be reloaded between describing the variants and asking
+  // about one of them. It is recorded as an error so the panel can say so.
+  const loadVariantDetail = useCallback((variantName) => {
+    if (!variantName) return
+    setVariantDetails(prev => {
+      if (prev[variantName]) return prev
+      modelsApi.list({ term: variantName, items: VARIANT_DETAIL_SEARCH_ITEMS })
+        .then(data => {
+          const entry = (data?.models || []).find(m => (m.name || m.id) === variantName)
+          setVariantDetails(p => ({ ...p, [variantName]: entry ? { entry } : { error: true } }))
+        })
+        .catch(() => setVariantDetails(p => ({ ...p, [variantName]: { error: true } })))
+      return { ...prev, [variantName]: { loading: true } }
     })
   }, [])
 
@@ -729,7 +766,7 @@ export default function Models() {
                     {isExpanded && (
                       <tr>
                         <td colSpan="8" style={{ padding: 0 }}>
-                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} variantData={hasVariants ? variantData[name] : null} installing={installing} onInstall={handleInstall} t={t} />
+                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} variantData={hasVariants ? variantData[name] : null} variantDetails={variantDetails} onLoadVariantDetail={loadVariantDetail} installing={installing} onInstall={handleInstall} t={t} />
                         </td>
                       </tr>
                     )}
@@ -887,11 +924,44 @@ function DetailRow({ label, children }) {
   )
 }
 
-function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, installing, onInstall, t }) {
+// VariantDetailPanel is the same detail view a top-level row gets, rendered for
+// one variant.
+//
+// It reuses ModelDetail rather than restating what an entry looks like, so a
+// field added to the detail view appears here too. variantData is deliberately
+// withheld: a variant's own entry may declare variants of its own, and
+// recursing would nest a picker inside a picker two levels deep already. The
+// file disclosure gets its own state here because each panel opens and closes
+// independently of the parent's.
+function VariantDetailPanel({ model, t }) {
+  const [expandedFiles, setExpandedFiles] = useState(false)
+  return (
+    <ModelDetail
+      model={model}
+      nested
+      expandedFiles={expandedFiles}
+      setExpandedFiles={setExpandedFiles}
+      variantData={null}
+      t={t}
+    />
+  )
+}
+
+function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, installing, onInstall, nested, t }) {
   const files = model.additionalFiles || model.files || []
   const name = model.name || model.id
+  // Which variant has its details revealed, or null. One at a time: the list is
+  // a comparison, and two open panels push the rows being compared apart.
+  const [openVariant, setOpenVariant] = useState(null)
+  // Escape returns focus to the control that opened the panel, so dismissing by
+  // keyboard does not drop the user back at the top of the document.
+  const infoRefs = useRef({})
   return (
-    <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+    <div style={{
+      padding: 'var(--spacing-md) var(--spacing-lg)',
+      background: nested ? 'transparent' : 'var(--color-bg-primary)',
+      borderTop: nested ? 'none' : '1px solid var(--color-border-subtle)',
+    }}>
       {model.description && (
         // Prose sits outside the label/value table: an eight-line value cell
         // in a grid of one-line ones breaks the rhythm exactly where the eye
@@ -947,13 +1017,52 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
               <div className="variant-list">
                 {variantData.variants.map(v => {
                   const isAuto = v.model === variantData.auto_selected
+                  const detail = variantDetails?.[v.model]
+                  const detailOpen = openVariant === v.model
+                  const panelId = `variant-detail-${v.model}`
                   return (
-                    // Listing the alternatives without offering them made the
-                    // detail view read as a menu that could not be ordered
-                    // from; installing one is the same call the split-button
-                    // chevron already makes.
-                    <button
+                    <div
                       key={v.model}
+                      className="variant-entry"
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Escape' || !detailOpen) return
+                        // Stops the row's own expansion, and any dialog above
+                        // it, from also closing on the same keystroke.
+                        e.stopPropagation()
+                        setOpenVariant(null)
+                        infoRefs.current[v.model]?.focus()
+                      }}
+                    >
+                    {/* A separate control, not a region of the install button:
+                        nesting it would be invalid markup and, worse, would
+                        make "tell me more" a click on "install this". It leads
+                        the row because it acts on the name that follows it. */}
+                    <button
+                      type="button"
+                      ref={(el) => { infoRefs.current[v.model] = el }}
+                      className="variant-row__info"
+                      aria-expanded={detailOpen}
+                      aria-controls={detailOpen ? panelId : undefined}
+                      // Named after the build it describes: a column of
+                      // identical "Details" buttons tells a screen reader
+                      // user nothing about which row they are on.
+                      aria-label={detailOpen
+                        ? t('variants.hideDetails', { variant: v.model })
+                        : t('variants.showDetails', { variant: v.model })}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (detailOpen) { setOpenVariant(null); return }
+                        setOpenVariant(v.model)
+                        onLoadVariantDetail?.(v.model)
+                      }}
+                    >
+                      <i className="fas fa-circle-info" aria-hidden="true" />
+                    </button>
+                    {/* Listing the alternatives without offering them made the
+                        detail view read as a menu that could not be ordered
+                        from; installing one is the same call the split-button
+                        chevron already makes. */}
+                    <button
                       type="button"
                       className={`variant-row${v.fits ? '' : ' variant-row--unfit'}`}
                       disabled={installing}
@@ -995,6 +1104,32 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       </span>
                       <i className="fas fa-download variant-row__action" aria-hidden="true" />
                     </button>
+                    {detailOpen && (
+                      // An inline disclosure rather than a modal. This is
+                      // already inside an expanded row, and a dialog opened
+                      // from there stacks a dismissal on top of a dismissal
+                      // for what is a few more lines of the same entry. The
+                      // rule and inset carry the third level instead.
+                      <div className="variant-detail" id={panelId}>
+                        {(!detail || detail.loading) && (
+                          <div className="variant-detail__state">
+                            <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                            <span>{t('variants.detailsLoading')}</span>
+                          </div>
+                        )}
+                        {detail?.error && (
+                          // Stated, not blank: an empty panel reads as a
+                          // rendering fault rather than as a lookup that
+                          // failed.
+                          <div className="variant-detail__state variant-detail__state--error" role="status">
+                            <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+                            <span>{t('variants.detailsUnavailable', { variant: v.model })}</span>
+                          </div>
+                        )}
+                        {detail?.entry && <VariantDetailPanel model={detail.entry} t={t} />}
+                      </div>
+                    )}
+                    </div>
                   )
                 })}
               </div>
