@@ -94,8 +94,29 @@ type Application struct {
 	// is set; otherwise initialised in start() after galleryService.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
 
+	// startupComplete flips to true once New() has finished its whole startup
+	// sequence. It backs the /readyz probe.
+	//
+	// The expensive step is the model preload: since #10949 it materializes
+	// HuggingFace artifacts for managed backends, which is tens of GB for a
+	// large model (31 GB observed on a live cluster). Tracking it explicitly
+	// means readiness reports lifecycle state instead of "the handler was
+	// reachable", so a replica that is still starting can be kept out of a
+	// load balancer's rotation.
+	startupComplete atomic.Bool
+
 	shutdownOnce sync.Once
 }
+
+// Ready reports whether the application has finished starting up and can serve
+// traffic. It backs the /readyz probe and is safe to call from any goroutine,
+// including while startup is still running.
+func (a *Application) Ready() bool { return a.startupComplete.Load() }
+
+// markStartupComplete flips the application to ready. Called once, at the very
+// end of New(), so every startup step — model preload included — has finished
+// before the process advertises itself as able to serve.
+func (a *Application) markStartupComplete() { a.startupComplete.Store(true) }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
 	ml := model.NewModelLoader(appConfig.SystemState)
