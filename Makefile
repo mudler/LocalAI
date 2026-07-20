@@ -606,6 +606,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 	$(MAKE) -C backend/go/rfdetr-cpp
 	$(MAKE) -C backend/go/locate-anything-cpp
+	$(MAKE) -C backend/go/trellis2cpp
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test

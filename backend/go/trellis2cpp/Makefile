@@ -11,29 +11,18 @@ JOBS?=$(shell nproc --ignore=1)
 # The ggml submodule is pinned by trellis2cpp's .gitmodules and fetched via
 # --recursive. The commit pin lives here so bump_deps.yaml can update it.
 TRELLIS2CPP_REPO?=https://github.com/localai-org/trellis2cpp
-TRELLIS2CPP_VERSION?=62d19ac9ea234a224c4f061e68b804cf56726abb
-
-# CGAL Alpha Wrap print remeshing (t2_prepare_print_mesh /
-# t2_bake_projected_glb). Header-only in the configuration we use: without
-# GMP/MPFR on the system, CGAL >= 6 selects its Boost multiprecision
-# exact-arithmetic backend, so libtrellis2 gains no new shared-library
-# dependencies and package.sh needs no changes. Both archives are plain
-# header drops fetched like sherpa-onnx fetches onnxruntime.
-CGAL_VERSION?=6.1.1
-BOOST_VERSION?=1.88.0
-BOOST_UNDERSCORE=$(subst .,_,$(BOOST_VERSION))
+TRELLIS2CPP_VERSION?=73dfbe5dfc2cbefd0950853718086556c6d9b043
 
 # libtrellis2 + ggml as shared libraries; no example/test binaries.
 CMAKE_ARGS+=-DCMAKE_BUILD_TYPE=Release
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=ON
 CMAKE_ARGS+=-DTRELLIS2_BUILD_EXAMPLES=OFF
 CMAKE_ARGS+=-DTRELLIS2_BUILD_TESTS=OFF
-CMAKE_ARGS+=-DCGAL_DIR=$(CURRENT_DIR)/sources/cgal
-CMAKE_ARGS+=-DBoost_INCLUDE_DIR=$(CURRENT_DIR)/sources/boost
-# CMake >= 3.30 removed module-mode FindBoost, which is the only mode that can
-# find a bare header drop (the raw boost tarball has no BoostConfig.cmake).
-# CMP0167=OLD restores it there; older CMakes ignore the unknown policy.
-CMAKE_ARGS+=-DCMAKE_POLICY_DEFAULT_CMP0167=OLD
+# Print remeshing is part of trellis2cpp's ABI, so upstream owns the tested
+# CGAL/Boost versions, checksums, fetch logic, and update automation. LocalAI
+# only opts into that dependency set and pins the trellis2cpp commit above.
+CMAKE_ARGS+=-DTRELLIS2_FETCH_PRINT_REMESH_DEPS=ON
+CMAKE_ARGS+=-DTRELLIS2_PRINT_REMESH_DEPS_DIR=$(CURRENT_DIR)/sources/print-remesh-deps
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
@@ -82,32 +71,6 @@ sources/trellis2cpp:
 	git checkout $(TRELLIS2CPP_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-# The -library bundle is CGAL's supported header-only distribution (its
-# CGALConfig.cmake sits at the bundle root, hence CGAL_DIR above). Zip rather
-# than .tar.xz because Dockerfile.golang guarantees unzip but not xz.
-# CGAL_SetupBoost.cmake pins cmake_policy(VERSION 3.12...3.30), which on
-# CMake >= 3.30 forces CMP0167 NEW right before its find_package(Boost) —
-# making the lookup config-only, which a bare header drop can never satisfy.
-# Capping the range at 3.29 leaves CMP0167 to the OLD default passed above,
-# so the module-mode FindBoost finds Boost_INCLUDE_DIR on every CMake.
-sources/cgal:
-	mkdir -p sources
-	curl -L https://github.com/CGAL/cgal/releases/download/v$(CGAL_VERSION)/CGAL-$(CGAL_VERSION)-library.zip -o sources/cgal.zip
-	cd sources && unzip -q cgal.zip -d cgal-tmp && rm cgal.zip && \
-		mv cgal-tmp/* cgal && rmdir cgal-tmp
-	sed -i.bak 's/cmake_policy(VERSION 3.12...3.30)/cmake_policy(VERSION 3.12...3.29)/' \
-		sources/cgal/cmake/modules/CGAL_SetupBoost.cmake && \
-		rm sources/cgal/cmake/modules/CGAL_SetupBoost.cmake.bak
-
-# Only the boost/ header tree is extracted (~200MB instead of the full 1GB+
-# source tree with tools and docs).
-sources/boost:
-	mkdir -p sources
-	curl -L https://archives.boost.io/release/$(BOOST_VERSION)/source/boost_$(BOOST_UNDERSCORE).tar.gz -o sources/boost.tgz
-	cd sources && mkdir boost && \
-		tar -xzf boost.tgz -C boost --strip-components=1 boost_$(BOOST_UNDERSCORE)/boost && \
-		rm boost.tgz
-
 # Detect OS
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -135,7 +98,7 @@ VARIANT_FLAGS_fallback = -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML
 # soname, and those sonames collide across SIMD variants — so each variant
 # lives in its own directory and run.sh selects one via LD_LIBRARY_PATH,
 # unlike stablediffusion-ggml's flat renamed-.so scheme.
-variants/%/.built: sources/trellis2cpp sources/cgal sources/boost
+variants/%/.built: sources/trellis2cpp
 	rm -rf build-$* variants/$*
 	mkdir -p build-$* variants/$*
 	cd build-$* && cmake ../sources/trellis2cpp $(CMAKE_ARGS) $(VARIANT_FLAGS_$*) && \

@@ -37,6 +37,7 @@ jobs:
       sglang: ${{ steps.detect.outputs.sglang }}
       acestep-cpp: ${{ steps.detect.outputs.acestep-cpp }}
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
+      trellis2cpp: ${{ steps.detect.outputs.trellis2cpp }}
       rfdetr-cpp: ${{ steps.detect.outputs.rfdetr-cpp }}
       locate-anything-cpp: ${{ steps.detect.outputs.locate-anything-cpp }}
       vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
@@ -902,6 +903,41 @@ jobs:
       - name: Test rfdetr-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp test
+  # Weight-free packaged-backend smoke for trellis2cpp. Starting run.sh loads
+  # libtrellis2 + ggml, resolves the complete C ABI (including remeshing), and
+  # answers gRPC Health without downloading or loading the multi-GB model set.
+  tests-trellis2cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.trellis2cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl unzip
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build trellis2cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/trellis2cpp
+      - name: Test trellis2cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/trellis2cpp test
   # Per-backend e2e for locate-anything-cpp: builds the .so + Go binary and
   # runs `make -C backend/go/locate-anything-cpp test`. test.sh fetches the
   # locate-anything-q8_0 GGUF (~6.3 GB, NVIDIA LocateAnything-3B) from the
