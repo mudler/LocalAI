@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.12.1
-transformers>=4.56.2
+torch==2.12.1+cpu
+transformers>=5.14.1
 huggingface-hub>=1.3.0
 sentencepiece
