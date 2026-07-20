@@ -690,6 +690,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep default value (0)
                 }
             }
+#ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
         } else if (!strcmp(optname, "n_rs_seq") || !strcmp(optname, "rs_seq")) {
             // Recurrent-state rollback snapshots per sequence. Hybrid models
             // (deltanet/conv layers) cannot rewind their state, so without
@@ -704,6 +705,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                     // If conversion fails, keep default value (0)
                 }
             }
+#endif
         } else if (!strcmp(optname, "slot_prompt_similarity") || !strcmp(optname, "sps")) {
             if (optval != NULL) {
                 try {
@@ -1344,6 +1346,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         }
     }
 
+#ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
     // Score-task suffix forking: reserve seq ids (and recurrent-state cells)
     // beyond the slots so one scoring call decodes all candidate tails in a
     // single batch (SERVER_TASK_TYPE_SCORE, patches/). Requires the unified
@@ -1352,6 +1355,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
     // passes so an explicit kv_unified:false wins and disables forking.
     params.score_enabled = request->enablescore();
     params.n_seq_score_forks = params.score_enabled && params.kv_unified ? SERVER_SCORE_FORK_SEQS : 0;
+#endif
 
     // Terminate/pad the override vectors only after BOTH the named-option loop
     // and the generic passthrough (common_params_parse above) have pushed their
@@ -1409,6 +1413,7 @@ public:
         common_params params;
         params_parse(ctx_server, request, params);
 
+#ifndef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
         if (params.score_enabled && !params.kv_unified) {
             const std::string error_msg =
                 "Score requires the unified KV cache; remove kv_unified:false or remove score from known_usecases";
@@ -1416,6 +1421,7 @@ public:
             result->set_success(false);
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, error_msg);
         }
+#endif
 
         common_init();
         // Ensure debug logs are enabled after common_init() sets up logging
@@ -2912,6 +2918,12 @@ public:
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
+#ifdef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
+        (void) request;
+        (void) response;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+            "Score is unavailable in this llama.cpp fork backend");
+#else
         if (!params_base.score_enabled) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
                 "Score was not enabled when the model was loaded; add score to known_usecases");
@@ -3140,6 +3152,7 @@ public:
         }
 
         return grpc::Status::OK;
+#endif
     }
 
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) override {
