@@ -1,12 +1,20 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestTrellis2Cpp(t *testing.T) {
@@ -171,5 +179,69 @@ var _ = Describe("print remesh parameters", func() {
 		Expect(ratioOr("junk", 0.005)).To(BeNumerically("~", 0.005, 1e-6))
 		Expect(ratioOr("-1", 0.005)).To(BeNumerically("~", 0.005, 1e-6))
 		Expect(ratioOr("0.9", 0.005)).To(BeNumerically("~", 0.005, 1e-6), "above the demo's 50% cap")
+	})
+})
+
+var _ = Describe("packaged backend", func() {
+	It("starts and answers Health without loading model weights", func() {
+		runScript := os.Getenv("TRELLIS2CPP_SMOKE_RUN")
+		if runScript == "" {
+			runScript = filepath.Join("package", "run.sh")
+		}
+		if _, err := os.Stat(runScript); os.IsNotExist(err) {
+			Skip("packaged backend is not present; run make before the smoke test")
+		}
+
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		addr := listener.Addr().String()
+		Expect(listener.Close()).To(Succeed())
+
+		cmd := exec.Command("bash", runScript, "--addr="+addr)
+		cmd.Stdout = GinkgoWriter
+		cmd.Stderr = GinkgoWriter
+		Expect(cmd.Start()).To(Succeed())
+		processDone := make(chan error, 1)
+		go func() { processDone <- cmd.Wait() }()
+		processExited := false
+		DeferCleanup(func() {
+			if cmd.Process != nil && !processExited {
+				_ = cmd.Process.Kill()
+				<-processDone
+			}
+		})
+
+		Eventually(func() error {
+			select {
+			case err := <-processDone:
+				processExited = true
+				if err != nil {
+					return StopTrying("backend exited before Health succeeded").Wrap(err)
+				}
+				return StopTrying("backend exited before Health succeeded")
+			default:
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			conn, err := grpc.DialContext(ctx, addr,
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithBlock(),
+			)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = conn.Close() }()
+
+			reply, err := pb.NewBackendClient(conn).Health(ctx, &pb.HealthMessage{})
+			if err != nil {
+				return err
+			}
+			if string(reply.GetMessage()) != "OK" {
+				return fmt.Errorf("unexpected Health reply %q", reply.GetMessage())
+			}
+			return nil
+		}, 30*time.Second, 200*time.Millisecond).Should(Succeed())
 	})
 })
