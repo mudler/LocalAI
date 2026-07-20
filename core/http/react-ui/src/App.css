@@ -2191,6 +2191,68 @@ select.input {
   user-select: none;
   white-space: nowrap;
 }
+/* Models gallery filter block. Three bands (query / taxonomy / refinements)
+   stacked by .filter-bar-group. The refinements live in their own band so the
+   chip row's wrap height can never displace them. */
+.models-filters__query {
+  flex-wrap: nowrap;
+  gap: var(--spacing-sm);
+}
+.models-filters__backend {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* .filter-bar carries its own bottom margin for standalone use; inside the
+   group the parent's gap owns the rhythm. */
+.models-filters > .filter-bar {
+  margin-bottom: 0;
+}
+.models-filters__refine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm) var(--spacing-lg);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-subtle);
+}
+/* Both refinements read as one secondary group: same size, same colour and the
+   same icon-then-label rhythm as .filter-bar-group__toggle. */
+.models-filters__context {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+.models-filters__context > label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.models-filters__context input[type='range'] {
+  width: 140px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+.models-filters__context-value {
+  font-weight: var(--font-weight-medium);
+  min-width: 3em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  /* Search and backend select each take a full row rather than squeezing the
+     input below a usable width. */
+  .models-filters__query {
+    flex-wrap: wrap;
+  }
+  .models-filters__backend {
+    flex: 1 1 100%;
+  }
+}
+
 .filter-btn__count {
   display: inline-flex;
   align-items: center;
@@ -2718,6 +2780,40 @@ button.collapsible-header:focus-visible {
   background: var(--color-primary-light);
   color: var(--color-primary);
   border-color: var(--color-primary-border);
+}
+
+/* The global :focus-visible ring is wrapped in :where(), so it carries the
+   specificity of a bare :focus-visible - the same (0,1,0) as .filter-btn, which
+   is declared later and therefore won with its resting shadow. Chips were left
+   with no visible keyboard focus indicator at all; this restates the ring where
+   it outranks both the resting and the hover shadow. */
+.filter-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  border-color: var(--color-primary);
+}
+
+/* A chip is disabled when the selected backend cannot serve that use case. It
+   keeps its resting colours so the row still reads as a set, dimmed enough to
+   register as out of play. */
+.filter-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.filter-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-btn {
+    transition: none;
+  }
+  .filter-btn:hover {
+    transform: none;
+  }
 }
 
 /* Login page */

@@ -336,73 +336,96 @@ export default function Models() {
 
       <RecommendedModels addToast={addToast} />
 
-      {/* Search */}
-      <div className="search-bar" style={{ marginBottom: 'var(--spacing-md)' }}>
-        <i className="fas fa-search search-icon" />
-        <input
-          className="input"
-          type="text"
-          placeholder={t('search.placeholder')}
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
-      </div>
+      {/* Filters, in three deliberate bands.
+          1. Query scope: free-text search plus the backend select. The backend
+             select leads the taxonomy row rather than trailing it because
+             picking a backend disables the use-cases that backend cannot serve
+             (see isFilterAvailable), so it reads as the gate on what follows.
+          2. Taxonomy: the use-case chips, which wrap freely.
+          3. Refinements: fits-in-GPU and context size. These two are one
+             control group, not two strays - the context size is the length the
+             VRAM estimate is computed at, and that estimate is exactly what the
+             fits filter tests against.
+          Each band owns its container, so how many chips happen to wrap at a
+          given width can no longer decide where the other controls land. */}
+      <div className="filter-bar-group models-filters">
+        <div className="filter-bar-group__row models-filters__query">
+          <div className="search-bar filter-bar-group__search">
+            <i className="fas fa-search search-icon" aria-hidden="true" />
+            <input
+              className="input"
+              type="text"
+              placeholder={t('search.placeholder')}
+              aria-label={t('search.placeholder')}
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+          </div>
+          {allBackends.length > 0 && (
+            <div className="models-filters__backend">
+              <SearchableSelect
+                value={backendFilter}
+                onChange={(v) => { setBackendFilter(v); setPage(1) }}
+                options={allBackends}
+                placeholder={t('filters.allBackends')}
+                allOption={t('filters.allBackends')}
+                searchPlaceholder={t('filters.searchBackends')}
+              />
+            </div>
+          )}
+        </div>
 
-      {/* Filter buttons */}
-      <div className="filter-bar">
-        {FILTERS.map(f => {
-          const isAll = f.key === ''
-          const active = isAll ? filters.length === 0 : filters.includes(f.key)
-          const available = isFilterAvailable(f.key)
-          return (
-            <button
-              key={f.key}
-              className={`filter-btn ${active ? 'active' : ''}`}
-              disabled={!available}
-              style={!available ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
-              onClick={() => toggleFilter(f.key)}
-            >
-              <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
-              {t(f.labelKey)}
-            </button>
-          )
-        })}
-        {totalGpuMemory > 0 && (
-          <label className="filter-bar-group__toggle">
-            <Toggle checked={fitsFilter} onChange={setFitsFilter} />
-            <i className="fas fa-microchip" />
-            <span>{t('filters.fitsGpu')}</span>
-          </label>
-        )}
-        {allBackends.length > 0 && (
-          <SearchableSelect
-            value={backendFilter}
-            onChange={(v) => { setBackendFilter(v); setPage(1) }}
-            options={allBackends}
-            placeholder={t('filters.allBackends')}
-            allOption={t('filters.allBackends')}
-            searchPlaceholder={t('filters.searchBackends')}
-          />
-        )}
-      </div>
+        <div className="filter-bar" role="group" aria-label={t('filters.useCaseLabel')}>
+          {FILTERS.map(f => {
+            const isAll = f.key === ''
+            const active = isAll ? filters.length === 0 : filters.includes(f.key)
+            const available = isFilterAvailable(f.key)
+            return (
+              <button
+                key={f.key}
+                type="button"
+                className={`filter-btn ${active ? 'active' : ''}`}
+                disabled={!available}
+                aria-pressed={active}
+                title={!available ? t('filters.unavailableForBackend') : undefined}
+                onClick={() => toggleFilter(f.key)}
+              >
+                <i className={`fas ${f.icon}`} aria-hidden="true" style={{ marginRight: 4 }} />
+                {t(f.labelKey)}
+              </button>
+            )
+          })}
+        </div>
 
-      {/* Context size slider for VRAM estimates */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
-        <label style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-          <i className="fas fa-memory" style={{ marginRight: 4 }} />
-          Context:
-        </label>
-        <input
-          type="range"
-          min={0}
-          max={CONTEXT_SIZES.length - 1}
-          value={CONTEXT_SIZES.indexOf(contextSize)}
-          onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
-          style={{ width: 140, accentColor: 'var(--color-primary)' }}
-        />
-        <span style={{ fontWeight: 600, minWidth: '3em' }}>
-          {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
-        </span>
+        <div className="models-filters__refine" data-testid="models-filters-refine">
+          {totalGpuMemory > 0 && (
+            <label className="filter-bar-group__toggle">
+              <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+              <i className="fas fa-microchip" aria-hidden="true" />
+              <span>{t('filters.fitsGpu')}</span>
+            </label>
+          )}
+          <div className="models-filters__context">
+            <label htmlFor="models-context-size">
+              <i className="fas fa-memory" aria-hidden="true" />
+              {t('filters.contextSize')}
+            </label>
+            <input
+              id="models-context-size"
+              type="range"
+              min={0}
+              max={CONTEXT_SIZES.length - 1}
+              value={CONTEXT_SIZES.indexOf(contextSize)}
+              // The slider steps over an index, so the raw value ("2") is
+              // meaningless to a screen reader; announce the size instead.
+              aria-valuetext={CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
+              onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
+            />
+            <span className="models-filters__context-value">
+              {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Table */}

@@ -1081,3 +1081,141 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     await expect(detail).toContainText("Backend");
   });
 });
+
+// The filter block is three deliberate bands: query scope (search + backend
+// select), the use-case chip row, and the refinements (fits-in-GPU + context).
+// These assert the separation holds, because the regression they guard against
+// is the refinements being swept back into the chip row's wrap, where their
+// position depends on how many chips happen to wrap at the current width.
+test.describe("Models Gallery - Filter layout structure", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/models*", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_MODELS_RESPONSE),
+      });
+    });
+    await page.route("**/api/backends/usecases", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(BACKEND_USECASES_MOCK),
+      });
+    });
+    await page.route("**/api/resources", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_GPU_RESOURCES_RESPONSE),
+      });
+    });
+    await page.goto("/app/models");
+    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("the chip row contains only use-case chips", async ({ page }) => {
+    const chipRow = page.locator(".filter-bar");
+    await expect(chipRow).toHaveCount(1);
+    // Nothing but .filter-btn children: no toggle, no select, no slider.
+    const childClasses = await chipRow.evaluate((el) =>
+      Array.from(el.children).map((c) => c.className),
+    );
+    expect(childClasses.length).toBeGreaterThan(0);
+    for (const cls of childClasses) {
+      expect(cls).toContain("filter-btn");
+    }
+    await expect(chipRow.locator("input[type='range']")).toHaveCount(0);
+    await expect(chipRow.locator(".filter-bar-group__toggle")).toHaveCount(0);
+    await expect(chipRow.getByText("All Backends")).toHaveCount(0);
+  });
+
+  test("refinements live in their own band, outside the chip row", async ({
+    page,
+  }) => {
+    const refine = page.getByTestId("models-filters-refine");
+    await expect(refine).toBeVisible();
+    await expect(refine.locator(".filter-bar")).toHaveCount(0);
+    await expect(refine.getByText("Fits in GPU")).toBeVisible();
+    await expect(refine.locator("#models-context-size")).toBeVisible();
+    // The band is a sibling of the chip row, never a descendant.
+    const nested = await page
+      .locator(".filter-bar")
+      .locator('[data-testid="models-filters-refine"]')
+      .count();
+    expect(nested).toBe(0);
+  });
+
+  test("the backend select sits in the query band above the chips", async ({
+    page,
+  }) => {
+    const selectBtn = page.locator("button", { hasText: "All Backends" });
+    await expect(selectBtn).toBeVisible();
+    const inChipRow = await page
+      .locator(".filter-bar")
+      .locator("button", { hasText: "All Backends" })
+      .count();
+    expect(inChipRow).toBe(0);
+    // Reads above the chips it gates.
+    const selectBox = await selectBtn.boundingBox();
+    const chipBox = await page.locator(".filter-bar").boundingBox();
+    expect(selectBox.y).toBeLessThan(chipBox.y);
+  });
+
+  test("refinements stay grouped and on one band at a narrow width", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 900 });
+    const refine = page.getByTestId("models-filters-refine");
+    await expect(refine).toBeVisible();
+    const chipBox = await page.locator(".filter-bar").boundingBox();
+    const refineBox = await refine.boundingBox();
+    // Below the chip row, not interleaved with it.
+    expect(refineBox.y).toBeGreaterThanOrEqual(chipBox.y + chipBox.height - 1);
+    await expect(refine.getByText("Fits in GPU")).toBeVisible();
+    await expect(refine.locator("#models-context-size")).toBeVisible();
+  });
+
+  test("chips expose pressed state and the context slider is labelled", async ({
+    page,
+  }) => {
+    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
+    await expect(chatBtn).toHaveAttribute("aria-pressed", "false");
+    await chatBtn.click();
+    await expect(chatBtn).toHaveAttribute("aria-pressed", "true");
+
+    const slider = page.locator("#models-context-size");
+    // The slider steps over an index, so the announced value must be the size.
+    await expect(slider).toHaveAttribute("aria-valuetext", /^\d+K$/);
+    await expect(page.locator("label[for='models-context-size']")).toBeVisible();
+  });
+
+  test("a keyboard-focused chip shows a focus ring", async ({ page }) => {
+    // The global :focus-visible rule is wrapped in :where(), so it ties with
+    // .filter-btn on specificity and loses on order. Without an explicit rule
+    // the chips render their resting shadow while focused, i.e. no indicator.
+    await page.locator(".filter-bar-group__search input").click();
+    await page.keyboard.press("Tab"); // backend select
+    await page.keyboard.press("Tab"); // first chip
+    const focused = page.locator(".filter-btn:focus-visible");
+    await expect(focused).toHaveCount(1);
+    // The ring transitions in, so settle before reading the computed value.
+    await page.waitForTimeout(400);
+    const shadow = await focused.evaluate(
+      (el) => getComputedStyle(el).boxShadow,
+    );
+    // A 3px spread ring, not the 1px/2px resting drop shadow.
+    expect(shadow).toMatch(/0px 0px 0px 3px/);
+  });
+
+  test("the context control is keyboard reachable and drives the value", async ({
+    page,
+  }) => {
+    const slider = page.locator("#models-context-size");
+    const before = await slider.inputValue();
+    await slider.focus();
+    await expect(slider).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(slider).not.toHaveValue(before);
+    await expect(slider).toHaveAttribute("aria-valuetext", /^\d+K$/);
+  });
+});

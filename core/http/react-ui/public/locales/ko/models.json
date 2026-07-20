@@ -31,7 +31,10 @@
     "vad": "VAD",
     "fitsGpu": "GPU에 적합",
     "allBackends": "모든 백엔드",
-    "searchBackends": "백엔드 검색..."
+    "searchBackends": "백엔드 검색...",
+    "contextSize": "컨텍스트:",
+    "useCaseLabel": "사용 사례로 필터링",
+    "unavailableForBackend": "선택한 백엔드에서 사용할 수 없음"
   },
   "search": {
     "placeholder": "모델 검색...",

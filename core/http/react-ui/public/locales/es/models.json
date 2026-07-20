@@ -25,7 +25,10 @@
     "rerank": "Rerank",
     "fitsGpu": "Cabe en la GPU",
     "allBackends": "Todos los backends",
-    "searchBackends": "Buscar backends..."
+    "searchBackends": "Buscar backends...",
+    "contextSize": "Contexto:",
+    "useCaseLabel": "Filtrar por caso de uso",
+    "unavailableForBackend": "No disponible para el backend seleccionado"
   },
   "search": {
     "placeholder": "Buscar modelos...",

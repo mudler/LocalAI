@@ -44,7 +44,10 @@
     "ner": "NER",
     "fitsGpu": "Fits in GPU",
     "allBackends": "All Backends",
-    "searchBackends": "Search backends..."
+    "searchBackends": "Search backends...",
+    "contextSize": "Context:",
+    "useCaseLabel": "Filter by use case",
+    "unavailableForBackend": "Not available for the selected backend"
   },
   "search": {
     "placeholder": "Search models...",

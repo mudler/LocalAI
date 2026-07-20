@@ -32,7 +32,10 @@
     "vad": "VAD",
     "fitsGpu": "Muat di GPU",
     "allBackends": "Semua Backend",
-    "searchBackends": "Cari backends..."
+    "searchBackends": "Cari backends...",
+    "contextSize": "Konteks:",
+    "useCaseLabel": "Filter berdasarkan kasus penggunaan",
+    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih"
   },
   "search": {
     "placeholder": "Cari model...",
