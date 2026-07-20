@@ -6,7 +6,8 @@ model's backend, and the controller's health probe checks liveness rather than
 identity, so the request is dispatched to whatever now occupies the port and
 the caller gets a silent wrong-model answer (#10952).
 
-PredictOptions.ModelIdentity carries the model the request is for, so the
+Every request message that reaches a backend through the distributed router
+carries a ModelIdentity field naming the model the request is for, so the
 backend can reject it at the point of use. This module enforces that for every
 Python backend at once: all 36 of them build their server through
 grpc_auth.get_auth_interceptors(), so wiring it there needs no per-backend
@@ -31,16 +32,51 @@ MODEL_MISMATCH_SENTINEL = "model identity mismatch"
 
 _LOAD_METHOD = "/backend.Backend/LoadModel"
 
-# The four RPCs that carry PredictOptions. Nothing else has an identity field.
-# TTS and SoundGeneration are excluded on purpose: their `model` field is
-# already rewritten to a worker-local path by the controller's
-# FileStagingClient, so comparing it would reject valid requests.
+# Every RPC whose request message carries a ModelIdentity field. This set IS
+# the enforcement surface for all 36 Python backends: an RPC missing here is
+# silently unprotected, so model_identity_test.py pins the full list.
+#
+# The guard reads request.ModelIdentity generically, so nothing here is
+# modality-specific — a backend that does not implement an RPC simply never
+# sees it.
+#
+# TTS and SoundGeneration are guarded on ModelIdentity, NOT on their `model`
+# field: the controller's FileStagingClient rewrites `model` to a worker-local
+# absolute path, so comparing that would reject valid requests in distributed
+# mode. ModelIdentity is a separate, untranslated field for exactly that reason.
+#
+# AudioEncode/AudioDecode are absent deliberately: the opus codec backend they
+# target is loaded from a literal rather than a ModelConfig, so no value carries
+# the load-time/request-time equality guarantee this comparison depends on.
 _GUARDED_METHODS = frozenset(
     (
+        # PredictOptions RPCs (#10970)
         "/backend.Backend/Predict",
         "/backend.Backend/PredictStream",
         "/backend.Backend/Embedding",
         "/backend.Backend/TokenizeString",
+        # Remaining modalities
+        "/backend.Backend/GenerateImage",
+        "/backend.Backend/GenerateVideo",
+        "/backend.Backend/TTS",
+        "/backend.Backend/TTSStream",
+        "/backend.Backend/SoundGeneration",
+        "/backend.Backend/AudioTranscription",
+        "/backend.Backend/AudioTranscriptionStream",
+        "/backend.Backend/Detect",
+        "/backend.Backend/Depth",
+        "/backend.Backend/FaceVerify",
+        "/backend.Backend/FaceAnalyze",
+        "/backend.Backend/VoiceVerify",
+        "/backend.Backend/VoiceAnalyze",
+        "/backend.Backend/VoiceEmbed",
+        "/backend.Backend/Rerank",
+        "/backend.Backend/TokenClassify",
+        "/backend.Backend/Score",
+        "/backend.Backend/VAD",
+        "/backend.Backend/Diarize",
+        "/backend.Backend/SoundDetection",
+        "/backend.Backend/AudioTransform",
     )
 )
 
@@ -87,8 +123,10 @@ class ModelIdentityState:
 def _rebuild(handler, behavior):
     """Return a copy of `handler` with its behavior replaced.
 
-    Only unary-request handlers are ever passed here: LoadModel and the four
-    guarded RPCs all take a single request message.
+    Only unary-request handlers are ever passed here: LoadModel and every
+    entry in _GUARDED_METHODS take a single request message. The bidirectional
+    streams (AudioTranscriptionLive, AudioTransformStream, AudioToAudioStream,
+    Forward) are not guarded and never reach this function.
     """
     if handler.response_streaming:
         return grpc.unary_stream_rpc_method_handler(

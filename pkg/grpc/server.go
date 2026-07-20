@@ -34,11 +34,18 @@ type server struct {
 	pb.UnimplementedBackendServer
 	llm AIModel
 
-	// identityMu guards loadedIdentity: LoadModel writes it, the
-	// PredictOptions RPCs read it, and nothing serialises those against each
-	// other (llm.Locking() is the model's own lock, and it is optional).
+	// identityMu guards loadedIdentity: LoadModel writes it, the inference
+	// RPCs read it, and nothing serialises those against each other
+	// (llm.Locking() is the model's own lock, and it is optional).
 	identityMu     sync.RWMutex
 	loadedIdentity string
+}
+
+// identifiedRequest is satisfied by every request message that carries a
+// ModelIdentity field. protoc-gen-go generates GetModelIdentity with a
+// nil-receiver guard, so a typed-nil request is safe to pass here.
+type identifiedRequest interface {
+	GetModelIdentity() string
 }
 
 // checkModelIdentity reports an error when the request names a model other
@@ -53,18 +60,23 @@ type server struct {
 // requests; the loaded side is empty when such a controller performed the
 // load. Neither can judge the other, and a false rejection is far worse than
 // the miss.
-func (s *server) checkModelIdentity(in *pb.PredictOptions) error {
-	if in == nil || in.ModelIdentity == "" {
+//
+// One guard covers every modality because they all share one exposure: the
+// route is cached by address, the address can be recycled, and only the
+// backend can tell. Which RPCs call it is the whole enforcement surface — see
+// pkg/grpc/model_identity_modalities_test.go, which drives all of them.
+func (s *server) checkModelIdentity(in identifiedRequest) error {
+	if in == nil || in.GetModelIdentity() == "" {
 		return nil
 	}
 	s.identityMu.RLock()
 	loaded := s.loadedIdentity
 	s.identityMu.RUnlock()
 
-	if loaded == "" || loaded == in.ModelIdentity {
+	if loaded == "" || loaded == in.GetModelIdentity() {
 		return nil
 	}
-	return grpcerrors.ModelMismatch("grpc-server", loaded, in.ModelIdentity)
+	return grpcerrors.ModelMismatch("grpc-server", loaded, in.GetModelIdentity())
 }
 
 func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
@@ -124,6 +136,9 @@ func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply,
 }
 
 func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -136,6 +151,9 @@ func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest)
 }
 
 func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -148,6 +166,9 @@ func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest)
 }
 
 func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -160,6 +181,9 @@ func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error)
 }
 
 func (s *server) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer) error {
+	if err := s.checkModelIdentity(in); err != nil {
+		return err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -181,6 +205,9 @@ func (s *server) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer)
 }
 
 func (s *server) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -193,6 +220,9 @@ func (s *server) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 }
 
 func (s *server) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -205,6 +235,9 @@ func (s *server) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectRe
 }
 
 func (s *server) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -217,6 +250,9 @@ func (s *server) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthRespo
 }
 
 func (s *server) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.FaceVerifyResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -229,6 +265,9 @@ func (s *server) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.
 }
 
 func (s *server) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*pb.FaceAnalyzeResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -241,6 +280,9 @@ func (s *server) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*p
 }
 
 func (s *server) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -253,6 +295,9 @@ func (s *server) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*p
 }
 
 func (s *server) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (*pb.VoiceAnalyzeResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -265,6 +310,9 @@ func (s *server) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (
 }
 
 func (s *server) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.VoiceEmbedResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -277,6 +325,9 @@ func (s *server) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.
 }
 
 func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -319,6 +370,9 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 }
 
 func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Backend_AudioTranscriptionStreamServer) error {
+	if err := s.checkModelIdentity(in); err != nil {
+		return err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -536,6 +590,9 @@ func (s *server) StoresFind(ctx context.Context, in *pb.StoresFindOptions) (*pb.
 }
 
 func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -548,6 +605,9 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 }
 
 func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -560,6 +620,9 @@ func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.Diariz
 }
 
 func (s *server) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -592,6 +655,9 @@ func (s *server) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest) (*p
 }
 
 func (s *server) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()

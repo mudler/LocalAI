@@ -40,11 +40,12 @@ func Detection(
 	}
 
 	res, err := detectionModel.Detect(ctx, &proto.DetectOptions{
-		Src:       sourceFile,
-		Prompt:    prompt,
-		Points:    points,
-		Boxes:     boxes,
-		Threshold: threshold,
+		ModelIdentity: modelConfig.Model,
+		Src:           sourceFile,
+		Prompt:        prompt,
+		Points:        points,
+		Boxes:         boxes,
+		Threshold:     threshold,
 	})
 
 	if appConfig.EnableTracing {
