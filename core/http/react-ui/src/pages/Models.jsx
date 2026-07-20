@@ -144,9 +144,11 @@ export default function Models() {
       // Omitted entirely when off rather than sent as false, so opting out asks
       // for exactly the listing every other API client gets.
       //
-      // Sending it does not defeat search: the handler ignores the collapse
-      // whenever a term is present, so a build hidden behind a parent is still
-      // findable by name in the default view.
+      // Sent alongside the term rather than instead of it. The handler matches
+      // the term against every build the gallery holds either way; the collapse
+      // only decides how a match is reported, and grouped, a match on a build
+      // another entry offers comes back as that entry. So a search never dead
+      // ends, and what "collapsed" means stays decided in one place.
       if (collapseVal) queryParams.collapse_variants = 'true'
       if (filtersVal.length > 0) queryParams.tag = filtersVal.join(',')
       if (searchVal) queryParams.term = searchVal
@@ -264,11 +266,13 @@ export default function Models() {
   // Resolves one variant's full gallery entry, once, and only when the user
   // asks to see it.
   //
-  // The listing already returns every field the detail view renders, and a
-  // search term bypasses the variant collapse server-side, so an entry hidden
-  // behind its parent is still reachable by exact name. That keeps this off
-  // both the listing and DescribeVariants: an expand costs nothing, and a
-  // variant nobody opens costs nothing.
+  // The listing already returns every field the detail view renders, so this
+  // keeps the fields off both the listing and DescribeVariants: an expand costs
+  // nothing, and a variant nobody opens costs nothing.
+  //
+  // The query deliberately omits collapse_variants, which is what makes it
+  // reach the build itself. Grouped, the same term would answer with the entry
+  // that offers this build, and the panel is being asked about the build.
   //
   // A name the listing does not return is a real outcome, not a bug to hide:
   // the gallery can be reloaded between describing the variants and asking
@@ -530,11 +534,15 @@ export default function Models() {
           <p className="empty-state-text">
             {search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants ? t('empty.withFilters') : t('empty.noFilters')}
           </p>
-          {/* True again now the control is back, but only in the absence of a
-              search term: a term bypasses the collapse server-side, so with one
-              typed nothing is hidden and pointing at the toggle would send the
-              user to a control that cannot change this result. */}
-          {collapseVariants && !search && (filters.length > 0 || backendFilter || fitsFilter) && (
+          {/* Only the fits filter can leave the collapse to blame. The term,
+              the chips and the backend are applied server-side over every build
+              the gallery holds, and a match there is always reported as some
+              row, so those three can no longer come back empty on account of
+              the collapse. Fits runs here in the browser, after the server
+              substituted a matching build for the entry that offers it, and
+              judges that entry's own size: the build that fits can still be
+              filtered out along with a parent that does not. */}
+          {collapseVariants && fitsFilter && (
             <p className="empty-state-hint">{t('empty.collapsedVariantsHint')}</p>
           )}
           {(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants) && (

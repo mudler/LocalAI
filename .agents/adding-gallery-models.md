@@ -113,9 +113,11 @@ Rules:
 - A variant references another gallery entry **by name**. That entry must exist
   and must not declare `variants` of its own.
 - **A referenced entry keeps its own gallery row by default.** It is hidden only
-  in the collapsed listing (`collapse_variants=true`, which the web UI always
-  requests), where the declaring entry stands in for it. A search term bypasses
-  the collapse, so referencing an entry never makes it unfindable by name.
+  in the collapsed listing (`collapse_variants=true`, which the web UI requests
+  by default), where the declaring entry stands in for it. Searching there still
+  matches the referenced entry and answers with the entry declaring it, so
+  referencing an entry never makes it unfindable; turning the collapse off
+  returns it under its own name.
 - **Order carries no meaning.** Do not try to encode a preference; write the
   list in whatever order reads best.
 - **A variant may be smaller than the declaring entry.** Offering a downgrade

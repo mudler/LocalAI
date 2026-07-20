@@ -209,26 +209,38 @@ it stays reachable by installing that entry. Entries that declare variants are
 always kept, and so is any entry nobody references. The filter is applied
 before pagination, so page counts stay correct.
 
-**A search term bypasses the collapse.** Collapsing is a browsing aid, so when
-`term` is set the listing returns every match, including builds another entry
-offers as variants. Looking a model up by name must not answer "not found" for
-an entry the gallery holds. A term that is empty or only whitespace does not
-count as a search, so browsing still collapses:
+**Searching respects the collapse.** `term` is matched against every entry the
+gallery holds, builds another entry offers included, so nothing becomes
+unfindable. The collapse then decides how a match is reported: a hit on a build
+another entry offers comes back as that entry, since that is the row installable
+in its own right. Looking a model up by name must not answer "not found" for an
+entry the gallery holds, and must not answer with a row the requested view has
+no place for either. A term that is empty or only whitespace does not count as a
+search:
 
 ```bash
 # Collapsed: the parent stands in for the build it offers.
 curl 'http://localhost:8080/api/models?collapse_variants=true'
-# Searched: the build comes back by name even though it is collapsed away above.
+# Collapsed, searching a build the parent offers: the parent comes back.
 curl 'http://localhost:8080/api/models?collapse_variants=true&term=nanbeige4.1-3b-q8'
+# Uncollapsed, same term: the build itself comes back.
+curl 'http://localhost:8080/api/models?term=nanbeige4.1-3b-q8'
 ```
 
-`tag` and `backend` do not bypass the collapse. They refine a listing the user
-is still reading rather than name an entry already known to exist, so the
-deduplicated view is still the more useful one under them.
+A parent appears once however many of its builds match, and once when it matches
+in its own right as well. The substitution runs before the count and the page
+math, so both describe the rows actually handed out.
 
-The web UI always requests the collapsed view. It has no control for this,
-because searching already reaches every build; the parameter stays on the API,
-off by default, for clients that want either view.
+`term`, `tag` and `backend` are all applied before the substitution, so each is
+judged against the build that really carries the name, tag or backend rather
+than against a parent that merely offers it. The consequence is worth knowing:
+filtering by a backend only one variant declares returns that variant's parent,
+whose own `backend` field may say something else. The alternative would be to
+claim the gallery holds no such build.
+
+The web UI requests the collapsed view by default and has a toggle for the other
+one. The parameter stays on the API, off by default, for clients that want
+either view.
 
 Ask for the description one entry at a time, as the web UI does when you open
 a model's variant menu:

@@ -15,18 +15,37 @@ import (
 // ship an entry of the same name, and only the one actually referenced should
 // disappear.
 //
+// This is the key set of VariantParents; see there for the resolution rules.
+func VariantReferencedIDs(models []*GalleryModel) map[string]struct{} {
+	parents := VariantParents(models)
+	referenced := make(map[string]struct{}, len(parents))
+	for id := range parents {
+		referenced[id] = struct{}{}
+	}
+	return referenced
+}
+
+// VariantParents maps the ID of every entry another entry already offers as one
+// of its variants to the entry that offers it. It is what a collapsed listing
+// needs in order to answer a match on a hidden build with the row the user can
+// actually act on: the parent.
+//
 // An entry that declares variants of its own is never reported, even when
 // something else references it. That guard is what keeps a chain from hiding a
 // row the user cannot otherwise reach: parents are always visible, so every
-// hidden entry is guaranteed to have a visible entry that offers it. Such a
-// reference is an authoring error anyway, and variant resolution already
-// refuses to install it, but the listing must stay coherent in the presence of
-// a gallery that has one rather than silently swallowing entries.
+// hidden entry is guaranteed to have a visible entry that offers it, and no
+// parent this returns is itself a key. Such a reference is an authoring error
+// anyway, and variant resolution already refuses to install it, but the listing
+// must stay coherent in the presence of a gallery that has one rather than
+// silently swallowing entries.
+//
+// When two entries reference the same build, the first in gallery order wins,
+// so the listing is deterministic for a gallery the linter would reject.
 //
 // This is a pure pass over metadata already in memory. It resolves nothing over
 // the network and probes no weight files: whether an entry is referenced is
 // answerable from the declared names alone.
-func VariantReferencedIDs(models []*GalleryModel) map[string]struct{} {
+func VariantParents(models []*GalleryModel) map[string]*GalleryModel {
 	// FindGalleryElement resolves a reference by scanning every entry, which
 	// would make this quadratic over the whole gallery. The index below is the
 	// same lookup precomputed once, so the matching rules have to agree with
@@ -51,7 +70,7 @@ func VariantReferencedIDs(models []*GalleryModel) map[string]struct{} {
 		}
 	}
 
-	referenced := map[string]struct{}{}
+	referenced := map[string]*GalleryModel{}
 	for _, m := range models {
 		if m == nil {
 			continue
@@ -75,7 +94,10 @@ func VariantReferencedIDs(models []*GalleryModel) map[string]struct{} {
 			if target.ID() == m.ID() {
 				continue
 			}
-			referenced[target.ID()] = struct{}{}
+			if _, claimed := referenced[target.ID()]; claimed {
+				continue
+			}
+			referenced[target.ID()] = m
 		}
 	}
 

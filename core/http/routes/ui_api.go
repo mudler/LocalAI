@@ -489,45 +489,79 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			models = filtered
 		}
 
-		// Collapse the listing to one row per model: drop the individual builds
-		// a parent entry already offers as variants, and keep everything else.
-		// What survives is every entry installable in its own right, with
-		// nothing shown twice, rather than one row per quantization.
+		// Collapse the listing to one row per model: report every match at the
+		// entry installable in its own right, so an individual build a parent
+		// already offers as a variant is reported as that parent rather than as
+		// a row of its own. What survives is the deduplicated gallery, rather
+		// than one row per quantization.
 		//
 		// Off by default so the response with the parameter absent is exactly
-		// what it was. Adoption is a handful of entries, so this hides little
-		// today, but it is the view the gallery is heading towards and it costs
-		// nothing until someone asks for it.
+		// what it was.
 		//
-		// The referenced set is computed over the whole gallery rather than
-		// over what the other filters left, so an entry is hidden because a
-		// parent offers it, never because of which tag or backend the user
-		// picked while browsing.
+		// The parent map is computed over the whole gallery rather than over
+		// what the other filters left, so an entry is grouped because a parent
+		// offers it, never because of what the user searched or picked.
 		//
-		// A search term is the exception: collapsing serves browsing, but a user
-		// who types a name is looking up a specific entry and must get it even
-		// when a parent offers it as a variant. Otherwise the only answer the
-		// gallery can give for a build it does hold is "no models found", which
-		// reads as "that model does not exist". Tag and backend do not bypass
-		// the collapse because they refine a listing the user is still reading
-		// rather than name something they already know exists.
+		// A hidden build is substituted by the entry that offers it rather than
+		// simply dropped. Dropping was sufficient while nothing could narrow the
+		// listing: every parent was present, so a hidden build always had its
+		// parent on screen anyway. Once a term can remove the parent, dropping
+		// answers "no models found" for a build the gallery does hold, which
+		// reads as "that model does not exist". Substituting keeps the promise
+		// of the grouped view instead: searching sees every build, and a match
+		// is reported at the row the user can act on.
+		//
+		// Deliberately after search, tag and backend, so every filter is judged
+		// against the build that really carries the name, tag or backend, never
+		// against a parent that merely offers it. Substituting first would let a
+		// backend filter match a parent whose own backend is something else. The
+		// price is that the surfaced row shows the parent's own metadata while
+		// the match was on one of its variants, which is what grouping means.
+		//
+		// A parent already in the result keeps its own position and absorbs its
+		// matching variants there, so the browsing listing is ordered exactly as
+		// it was; a parent surfaced only by a variant takes the position of the
+		// first variant that surfaced it. Either way it appears exactly once.
 		//
 		// term is already trimmed, so a stray space in the search box does not
-		// count as a search and cannot silently expand the listing.
+		// count as a search and cannot silently widen the match set.
 		//
 		// Server-side because the listing paginates at 9 items; filtering the
 		// current page in the client would leave the page count describing the
-		// unfiltered set and hand the user empty pages.
-		if term == "" && c.QueryParam("collapse_variants") == "true" {
-			referenced := gallery.VariantReferencedIDs(allModels)
-			filtered := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
+		// unfiltered set and hand the user empty pages. Substituting here, above
+		// the totals, is what keeps the count and the page math describing the
+		// set the user is actually handed.
+		if c.QueryParam("collapse_variants") == "true" {
+			parents := gallery.VariantParents(allModels)
+			present := make(map[string]struct{}, len(models))
 			for _, m := range models {
-				if _, hidden := referenced[m.ID()]; hidden {
+				present[m.ID()] = struct{}{}
+			}
+			collapsed := make(gallery.GalleryElements[*gallery.GalleryModel], 0, len(models))
+			surfaced := make(map[string]struct{}, len(models))
+			for _, m := range models {
+				row := m
+				if parent, hidden := parents[m.ID()]; hidden {
+					// The parent is in the result on its own merits and will be
+					// emitted at its own position, so dropping the variant here
+					// is what keeps that position.
+					if _, parentMatched := present[parent.ID()]; parentMatched {
+						continue
+					}
+					// One hop only. VariantParents never reports an entry that
+					// declares variants, so a parent is never itself hidden and
+					// a second hop cannot be needed; refusing to take one anyway
+					// is what makes a malformed gallery terminate rather than
+					// loop.
+					row = parent
+				}
+				if _, dup := surfaced[row.ID()]; dup {
 					continue
 				}
-				filtered = append(filtered, m)
+				surfaced[row.ID()] = struct{}{}
+				collapsed = append(collapsed, row)
 			}
-			models = filtered
+			models = collapsed
 		}
 
 		// Capability filters are derived from the effective gallery model

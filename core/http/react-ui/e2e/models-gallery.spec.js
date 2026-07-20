@@ -1087,11 +1087,22 @@ const COLLAPSED_RESPONSE = {
   currentPage: 1,
 };
 
-// What a search for the hidden build gets back: the build itself, even though
-// browsing would have collapsed it away behind its parent.
+// What a search for the grouped-away build gets back with the collapse off:
+// the build itself.
 const SEARCH_HIT_RESPONSE = {
   ...MOCK_MODELS_RESPONSE,
   models: MOCK_MODELS_RESPONSE.models.filter((m) => m.name === "whisper-model"),
+  availableModels: 1,
+  totalPages: 1,
+  currentPage: 1,
+};
+
+// And with the collapse on: the same term matched against the same builds, but
+// the match reported at the entry that offers it, which is the row the user can
+// act on. One row, and a count that says one.
+const SEARCH_PARENT_RESPONSE = {
+  ...MOCK_MODELS_RESPONSE,
+  models: MOCK_MODELS_RESPONSE.models.filter((m) => m.name === "llama-model"),
   availableModels: 1,
   totalPages: 1,
   currentPage: 1,
@@ -1117,14 +1128,15 @@ test.describe("Models Gallery - Collapsed Listing", () => {
         listingUrls.push(url);
       }
       const term = (url.searchParams.get("term") || "").trim();
-      const collapsed =
-        url.searchParams.get("collapse_variants") === "true" && term === "";
+      const collapsed = url.searchParams.get("collapse_variants") === "true";
       const tag = url.searchParams.get("tag");
-      // Stands in for the server: an explicit search term bypasses the
-      // collapse, so a build a parent already offers is still findable by
-      // name. Anything else browsing-shaped stays collapsed.
+      // Stands in for the server: the term is matched against every build
+      // either way, and the collapse decides how a match is reported. Grouped,
+      // a hit on a build a parent already offers comes back as that parent;
+      // ungrouped, it comes back as itself.
       let body = collapsed ? COLLAPSED_RESPONSE : MOCK_MODELS_RESPONSE;
-      if (isListing && term === "whisper-model") body = SEARCH_HIT_RESPONSE;
+      if (isListing && term === "whisper-model")
+        body = collapsed ? SEARCH_PARENT_RESPONSE : SEARCH_HIT_RESPONSE;
       // A term matching no entry, so the empty state is reachable from a
       // search as well as from a chip and the two can be told apart.
       else if (isListing && term) body = EMPTY_FILTERED_RESPONSE;
@@ -1230,18 +1242,33 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     }
   });
 
-  test("searching a build the collapse hides still finds it", async ({
+  test("searching a build the collapse groups away surfaces the entry offering it", async ({
     page,
   }) => {
-    // The regression this whole change exists to prevent: typing the name of
-    // an entry the gallery does hold must never answer "no models found",
-    // which reads as "that model does not exist".
+    // Grouped, a search is still answered, and answered with a row that can be
+    // acted on. Typing the name of an entry the gallery does hold must never
+    // produce "no models found", which reads as "that model does not exist";
+    // returning the build itself would instead put a row in the listing that
+    // the view the user asked for has no place for.
     await page.locator(".search-bar input").fill("whisper-model");
 
-    await expect(
-      page.locator("tr", { hasText: "whisper-model" }),
-    ).toBeVisible();
+    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+      0,
+    );
     await expect(page.locator(".empty-state")).toHaveCount(0);
+  });
+
+  test("the same search returns the build itself with the toggle off", async ({
+    page,
+  }) => {
+    // The other half of what the toggle now controls. Off, search answers with
+    // the individual build, exactly as it does for every client that never
+    // sends the parameter.
+    await flipCollapse(page);
+    await page.locator(".search-bar input").fill("whisper-model");
+
+    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
   });
 
   test("the search term is sent alongside the collapse, not instead of it", async ({
@@ -1263,12 +1290,17 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     page,
   }) => {
     await page.locator(".search-bar input").fill("whisper-model");
+    // The search narrowed to the one surfaced row, so the other browsing rows
+    // are gone and their return is what proves the term was dropped.
     await expect(
-      page.locator("tr", { hasText: "whisper-model" }),
-    ).toBeVisible();
+      page.locator("tr", { hasText: "stablediffusion-model" }),
+    ).toHaveCount(0);
 
     await page.locator(".search-bar input").fill("");
 
+    await expect(
+      page.locator("tr", { hasText: "stablediffusion-model" }),
+    ).toBeVisible();
     await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
       0,
     );
@@ -1294,17 +1326,17 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     expect(last.searchParams.get("collapse_variants")).toBe("true");
   });
 
-  test("searching still finds a collapsed-away build with the toggle untouched", async ({
-    page,
-  }) => {
-    // The regression 462583f38 existed to prevent, re-checked now the toggle
-    // is back: the bypass is the improvement, and restoring the control must
-    // not restore the dead end it replaced.
+  test("searching never dead-ends on the default view", async ({ page }) => {
+    // The regression 462583f38 existed to prevent, re-checked now that search
+    // respects the toggle instead of switching it off. A user who never touches
+    // the control must still get an answer for a build the gallery holds; that
+    // the answer is the entry offering it is the collapse doing its job, not
+    // the dead end coming back.
     await expect(collapseToggle(page)).toBeChecked();
 
     await page.locator(".search-bar input").fill("whisper-model");
 
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
     await expect(page.locator(".empty-state")).toHaveCount(0);
     // Still asked for collapsed: the server decides what a term means.
     await expect
@@ -1316,7 +1348,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
       .toBe("true");
   });
 
-  test("the empty state names the collapse as something that may be hiding rows", async ({
+  test("the empty state does not blame the collapse for a chip", async ({
     page,
   }) => {
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
@@ -1327,18 +1359,19 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await expect(page.locator(".empty-state-text")).toHaveText(
       "No models match your current search or filters.",
     );
-    // Truthful again now the control exists to be turned off.
-    await expect(page.locator(".empty-state-hint")).toContainText(
-      "One row per model",
-    );
+    // The chip is applied server-side over every build the gallery holds, and
+    // a match there is always reported as some row, so an empty result means
+    // nothing matched rather than that the collapse swallowed the matches.
+    // Pointing at the toggle would send the user to a control that cannot
+    // change this result.
+    await expect(page.locator(".empty-state-hint")).toHaveCount(0);
   });
 
   test("the empty state does not blame the collapse for a search", async ({
     page,
   }) => {
-    // A term bypasses the collapse server-side, so with one typed nothing is
-    // hidden by it and the hint would send the user to a control that cannot
-    // change this result.
+    // Same reasoning as the chip: the term is matched against every build, so
+    // with one typed the collapse cannot be what emptied the listing.
     await page.locator(".search-bar input").fill("nothing-matches-this");
     await expect(page.locator(".empty-state")).toBeVisible();
 

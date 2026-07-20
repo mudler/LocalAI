@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -42,6 +43,11 @@ var _ = Describe("Model gallery variants API", func() {
 	)
 
 	BeforeEach(func() {
+		// The gallery cache is a package global, so a background refresh the
+		// previous spec triggered can otherwise land here and answer with that
+		// spec's now-closed gallery server.
+		gallery.ResetGalleryModelCache()
+
 		var err error
 		modelsDir, err = os.MkdirTemp("", "ui-api-variants-test-*")
 		Expect(err).NotTo(HaveOccurred())
@@ -79,10 +85,12 @@ var _ = Describe("Model gallery variants API", func() {
       sha256: ""
 # A build served from a directory of weights. Its filename names no weight
 # format, which makes it the fixture for the absent-quantization case a client
-# has to render as unknown rather than as a blank cell.
+# has to render as unknown rather than as a blank cell. Its backend differs
+# from its parent's on purpose: that is what lets the specs pin down which
+# entry a backend filter is judged against once the collapse substitutes.
 - name: dir-entry
   description: A build whose name declares no weight format
-  backend: llama-cpp
+  backend: vllm
   files:
     - filename: weights.safetensors
       uri: %s/weights.safetensors
@@ -356,7 +364,7 @@ var _ = Describe("Model gallery variants API", func() {
 			Expect(names("/api/models?items=9999&collapse_variants=true&backend=whisper")).
 				To(ConsistOf("plain-entry"))
 			Expect(names("/api/models?items=9999&backend=llama-cpp")).
-				To(ConsistOf("base-entry", "big-entry", "dir-entry"))
+				To(ConsistOf("base-entry", "big-entry"))
 		})
 
 		It("still applies the search term when nothing is collapsed away", func() {
@@ -364,30 +372,14 @@ var _ = Describe("Model gallery variants API", func() {
 				To(ConsistOf("plain-entry"))
 		})
 
-		It("lets a search term find a build the collapse would hide", func() {
-			// The term matches the referenced build but not its parent.
-			// Collapsing is a browsing aid; a user who types a name is looking
-			// something up, and answering "no models found" for an entry the
-			// gallery does hold reads as "that model does not exist".
-			Expect(names("/api/models?items=9999&term=big")).To(ConsistOf("big-entry"))
-			Expect(names("/api/models?items=9999&collapse_variants=true&term=big")).
-				To(ConsistOf("big-entry"))
-		})
-
 		It("does not treat an empty or whitespace-only term as a search", func() {
 			// Otherwise a cleared or fat-fingered search box would silently
-			// stop collapsing and the browsing view would grow duplicate rows.
+			// widen the match set and the browsing view would change under a
+			// user who only brushed the search box.
 			Expect(names("/api/models?items=9999&collapse_variants=true&term=")).
 				To(ConsistOf("base-entry", "plain-entry"))
 			Expect(names("/api/models?items=9999&collapse_variants=true&term=%20%20")).
 				To(ConsistOf("base-entry", "plain-entry"))
-		})
-
-		It("does not let tag or backend filters bypass the collapse", func() {
-			// They refine a listing the user is still reading rather than name
-			// an entry they already know exists, so collapsing still helps.
-			Expect(names("/api/models?items=9999&collapse_variants=true&backend=llama-cpp")).
-				NotTo(ContainElement("big-entry"))
 		})
 
 		It("reports the filtered total so pagination stays honest", func() {
@@ -402,6 +394,135 @@ var _ = Describe("Model gallery variants API", func() {
 			names("/api/models?items=9999&collapse_variants=true")
 			Expect(probes.Load()).To(BeZero(),
 				"the filter must select on declared metadata, not by describing variants")
+		})
+	})
+
+	// Searching respects the collapse rather than switching it off. The term is
+	// matched against every entry the gallery holds, hidden builds included, so
+	// nothing becomes unfindable; the result is then reported in the grouped
+	// world the user asked for, which means a match on a build another entry
+	// offers surfaces that entry.
+	//
+	// The fixture: base-entry offers big-entry and dir-entry; plain-entry is
+	// nobody's variant. "big" matches one build, "build" matches both of them,
+	// "entry" matches everything, "plain" matches only the standalone.
+	Context("searching a collapsed listing", func() {
+		names := func(path string) []string {
+			code, body := get(path)
+			Expect(code).To(Equal(http.StatusOK))
+			raw, ok := body["models"].([]any)
+			Expect(ok).To(BeTrue(), "listing must return a models array")
+			out := make([]string, 0, len(raw))
+			for _, m := range raw {
+				out = append(out, m.(map[string]any)["name"].(string))
+			}
+			return out
+		}
+
+		It("surfaces the parent when only a hidden build matches", func() {
+			// The whole point. Answering "no models found" for a build the
+			// gallery does hold reads as "that model does not exist", but
+			// answering with the leaf hands back a row the collapsed view has
+			// no place for. The parent is the row the user can act on, and
+			// installing it is how they reach the build they searched for.
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=big")).
+				To(ConsistOf("base-entry"))
+		})
+
+		It("surfaces the parent exactly once when several of its builds match", func() {
+			// "build" is in both variants' descriptions and in neither their
+			// parent's nor plain-entry's. ConsistOf compares as a multiset, so a
+			// second copy of base-entry fails here.
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=build")).
+				To(ConsistOf("base-entry"))
+		})
+
+		It("surfaces a parent once when it matches in its own right and so do its builds", func() {
+			// "entry" is in every name, so base-entry matches on its own and via
+			// both the builds it offers: three reasons to be listed, one row.
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=entry")).
+				To(ConsistOf("base-entry", "plain-entry"))
+		})
+
+		It("returns a matching standalone entry as itself", func() {
+			// Nobody offers plain-entry, so there is nothing to substitute and
+			// the collapse must leave the match alone.
+			Expect(names("/api/models?items=9999&collapse_variants=true&term=plain")).
+				To(ConsistOf("plain-entry"))
+		})
+
+		It("returns the leaves untouched when the collapse is off", func() {
+			// The other half of the toggle's promise: with grouping off, search
+			// answers with the individual builds exactly as it always did.
+			Expect(names("/api/models?items=9999&term=big")).To(ConsistOf("big-entry"))
+			Expect(names("/api/models?items=9999&term=build")).
+				To(ConsistOf("big-entry", "dir-entry"))
+			Expect(names("/api/models?items=9999&term=entry")).
+				To(ConsistOf("base-entry", "big-entry", "dir-entry", "plain-entry"))
+		})
+
+		It("counts and pages the substituted set, not the matches", func() {
+			// Substitution changes the size of the result, so a count taken
+			// before it would promise rows the response cannot deliver: "build"
+			// matches two builds that collapse into one row. At one item per
+			// page that is the difference between one page and two.
+			_, body := get("/api/models?items=9999&collapse_variants=true&term=build")
+			Expect(body["availableModels"]).To(BeEquivalentTo(1))
+			Expect(body["totalPages"]).To(BeEquivalentTo(1))
+
+			_, paged := get("/api/models?items=1&collapse_variants=true&term=entry")
+			Expect(paged["availableModels"]).To(BeEquivalentTo(2))
+			Expect(paged["totalPages"]).To(BeEquivalentTo(2))
+
+			// Uncollapsed, the same term matches four entries, so the counts
+			// above are the substitution's doing and not the fixture's.
+			_, all := get("/api/models?items=1&term=entry")
+			Expect(all["availableModels"]).To(BeEquivalentTo(4))
+			Expect(all["totalPages"]).To(BeEquivalentTo(4))
+		})
+
+		It("hands out every substituted row across the pages, none twice", func() {
+			// A count that matches the set is not enough: the page slices have
+			// to carry that set. A substitution done per page rather than over
+			// the whole result would repeat or drop rows at a page boundary.
+			first := names("/api/models?items=1&collapse_variants=true&term=entry&page=1")
+			second := names("/api/models?items=1&collapse_variants=true&term=entry&page=2")
+			Expect(first).To(HaveLen(1))
+			Expect(second).To(HaveLen(1))
+			Expect(append(first, second...)).To(ConsistOf("base-entry", "plain-entry"))
+		})
+
+		It("judges the backend filter against the build, then surfaces its parent", func() {
+			// dir-entry is vllm; the parent offering it is llama-cpp. The filter
+			// is applied before the substitution, so it selects the build that
+			// really is vllm rather than a parent that merely offers one. The
+			// row that comes back is therefore its parent, whose own backend
+			// column reads llama-cpp: the honest consequence of grouping, and
+			// the alternative is claiming the gallery has no vllm build.
+			Expect(names("/api/models?items=9999&collapse_variants=true&backend=vllm")).
+				To(ConsistOf("base-entry"))
+			// The other order would have matched nothing at all here, since no
+			// visible row in the collapsed gallery declares vllm.
+			Expect(names("/api/models?items=9999&backend=vllm")).To(ConsistOf("dir-entry"))
+		})
+
+		It("judges a tag the same way, and composes with a term", func() {
+			// dflash is big-entry's tag, not its parent's.
+			Expect(names("/api/models?items=9999&collapse_variants=true&tag=dflash")).
+				To(ConsistOf("base-entry"))
+			// Both filters still narrow: a term that misses the tagged build
+			// leaves nothing to surface.
+			Expect(names("/api/models?items=9999&collapse_variants=true&tag=dflash&term=plain")).
+				To(BeEmpty())
+		})
+
+		It("issues no variant probes while searching", func() {
+			// Substitution reads the declared names it already has in memory.
+			// Resolving a match through DescribeVariants would put a network
+			// round trip per variant on the search path.
+			names("/api/models?items=9999&collapse_variants=true&term=build")
+			Expect(probes.Load()).To(BeZero(),
+				"searching a collapsed listing probed variant weight files")
 		})
 	})
 })
