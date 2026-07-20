@@ -10,7 +10,8 @@
     "installing": "Installing",
     "installStarted": "Installing {{model}}…",
     "installFailed": "Install failed: {{message}}",
-    "dismiss": "Dismiss recommendations"
+    "dismiss": "Dismiss recommendations",
+    "summary": "{{n}} models suggested"
   },
   "stats": {
     "available": "Available",

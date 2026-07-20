@@ -2,6 +2,17 @@
   "title": "Instal Model",
   "subtitle": "Telusuri dan instal model AI dari galeri",
   "models": "Model",
+  "recommended": {
+    "title": "Direkomendasikan untuk perangkat keras Anda",
+    "cpuNote": "GPU tidak terdeteksi - model kecil yang tetap responsif di CPU.",
+    "gpuNote": "Disesuaikan dengan VRAM yang tersedia, menyisakan ruang untuk konteks.",
+    "install": "Instal",
+    "installing": "Menginstal",
+    "installStarted": "Menginstal {{model}}…",
+    "installFailed": "Instalasi gagal: {{message}}",
+    "dismiss": "Tutup rekomendasi",
+    "summary": "{{n}} model disarankan"
+  },
   "stats": {
     "available": "Tersedia",
     "installed": "Terinstal"

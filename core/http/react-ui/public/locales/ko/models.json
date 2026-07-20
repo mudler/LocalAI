@@ -1,6 +1,17 @@
 {
   "title": "모델 설치",
   "subtitle": "갤러리에서 AI 모델을 둘러보고 설치합니다",
+  "recommended": {
+    "title": "하드웨어에 맞는 추천",
+    "cpuNote": "GPU가 감지되지 않았습니다 - CPU에서도 빠르게 동작하는 소형 모델입니다.",
+    "gpuNote": "사용 가능한 VRAM에 맞추고 컨텍스트 여유를 남겼습니다.",
+    "install": "설치",
+    "installing": "설치 중",
+    "installStarted": "{{model}} 설치 중…",
+    "installFailed": "설치 실패: {{message}}",
+    "dismiss": "추천 닫기",
+    "summary": "추천 모델 {{n}}개"
+  },
   "stats": {
     "available": "사용 가능",
     "installed": "설치됨"

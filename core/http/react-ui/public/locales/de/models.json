@@ -1,6 +1,17 @@
 {
   "title": "Modelle installieren",
   "subtitle": "Durchsuchen und installieren Sie KI-Modelle aus der Galerie",
+  "recommended": {
+    "title": "Empfohlen für Ihre Hardware",
+    "cpuNote": "Keine GPU erkannt - kleine Modelle, die auf der CPU reaktionsschnell bleiben.",
+    "gpuNote": "Passend zum verfügbaren VRAM, mit Spielraum für den Kontext.",
+    "install": "Installieren",
+    "installing": "Installation läuft",
+    "installStarted": "{{model}} wird installiert…",
+    "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "dismiss": "Empfehlungen ausblenden",
+    "summary": "{{n}} Modelle vorgeschlagen"
+  },
   "stats": {
     "available": "Verfügbar",
     "installed": "Installiert"

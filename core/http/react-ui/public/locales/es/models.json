@@ -1,6 +1,17 @@
 {
   "title": "Instalar modelos",
   "subtitle": "Explora e instala modelos de IA desde la galería",
+  "recommended": {
+    "title": "Recomendado para tu hardware",
+    "cpuNote": "No se detectó GPU - modelos pequeños que responden bien en CPU.",
+    "gpuNote": "Ajustados a tu VRAM disponible, con margen para el contexto.",
+    "install": "Instalar",
+    "installing": "Instalando",
+    "installStarted": "Instalando {{model}}…",
+    "installFailed": "Error al instalar: {{message}}",
+    "dismiss": "Descartar recomendaciones",
+    "summary": "{{n}} modelos sugeridos"
+  },
   "stats": {
     "available": "Disponibles",
     "installed": "Instalados"

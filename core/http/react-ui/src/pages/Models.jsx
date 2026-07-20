@@ -64,6 +64,9 @@ export default function Models() {
   const [expandedRow, setExpandedRow] = useState(null)
   const [expandedFiles, setExpandedFiles] = useState(false)
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
+  // Distinguishes "nothing installed" from "not asked yet". The recommendations
+  // panel defaults off the installed count, so it must not read the initial 0.
+  const [statsLoaded, setStatsLoaded] = useState(false)
   const [backendFilter, setBackendFilter] = useState('')
   const [allBackends, setAllBackends] = useState([])
   const [backendUsecases, setBackendUsecases] = useState({})
@@ -121,6 +124,7 @@ export default function Models() {
         total: data?.availableModels || 0,
         installed: data?.installedModels || 0,
       })
+      setStatsLoaded(true)
       setAllBackends(data?.allBackends || [])
     } catch (err) {
       addToast(t('errors.loadFailed', { message: err.message }), 'error')
@@ -334,7 +338,7 @@ export default function Models() {
         }
       />
 
-      <RecommendedModels addToast={addToast} />
+      <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
 
       {/* Filters, in three deliberate bands.
           1. Query scope: free-text search plus the backend select. The backend

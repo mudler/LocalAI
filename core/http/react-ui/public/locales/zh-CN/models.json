@@ -1,6 +1,17 @@
 {
   "title": "安装模型",
   "subtitle": "从模型库浏览和安装 AI 模型",
+  "recommended": {
+    "title": "适合你硬件的推荐",
+    "cpuNote": "未检测到 GPU - 这些小模型在 CPU 上依然流畅。",
+    "gpuNote": "已按可用显存选择，并为上下文留出空间。",
+    "install": "安装",
+    "installing": "安装中",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}",
+    "dismiss": "关闭推荐",
+    "summary": "已推荐 {{n}} 个模型"
+  },
   "stats": {
     "available": "可用",
     "installed": "已安装"

@@ -6555,24 +6555,47 @@ button.collapsible-header:focus-visible {
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-md) var(--spacing-lg);
 }
+/* Collapsed keeps the strip and its heading, only dropping the cards, so the
+   panel is recoverable in place rather than gone. Tighter block padding is
+   what actually returns vertical space to the gallery. */
+.rec-models--collapsed {
+  padding-top: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+}
 .rec-models-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-}
-.rec-models-title {
-  display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-sm) var(--spacing-md);
   flex-wrap: wrap;
 }
-.rec-models-title i {
+.rec-models-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.rec-models-toggle i {
   color: var(--color-primary);
+}
+.rec-models-chevron {
+  font-size: 0.75rem;
+  transition: transform 150ms ease;
+}
+.rec-models--collapsed .rec-models-chevron {
+  transform: rotate(-90deg);
 }
 .rec-models-note {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 .rec-models-dismiss {
   background: none;
@@ -6587,9 +6610,36 @@ button.collapsible-header:focus-visible {
 }
 .rec-models-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  /* min() keeps the 220px track from forcing horizontal overflow on narrow
+     phones, where one column is all that fits anyway. */
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: var(--spacing-sm);
   margin-top: var(--spacing-md);
+  /* Reveal animates opacity and transform only; the collapsed state is the
+     [hidden] attribute, so no height is being animated. */
+  animation: rec-models-reveal 180ms ease-out;
+}
+/* The class sets display:grid, which would otherwise beat the UA [hidden] rule. */
+.rec-models-grid[hidden] {
+  display: none;
+}
+@keyframes rec-models-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-models-grid {
+    animation: none;
+  }
+  .rec-models-chevron {
+    transition: none;
+  }
 }
 .rec-models-item {
   display: flex;
