@@ -410,7 +410,28 @@ func InstallModelFromGallery(
 				// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
 			}
 		} else {
-			return fmt.Errorf("invalid gallery model %+v", model)
+			// An entry that names no base config describes itself entirely
+			// through overrides: and files:, so the base is simply empty.
+			//
+			// This is what the several hundred entries pointing at
+			// gallery/virtual.yaml were already getting. That stub carries only
+			// a name, a description and a license, all three of which are
+			// overwritten from the gallery entry a few lines up, and overrides
+			// reach InstallModel as a separate argument rather than being merged
+			// into the fetched config. So the fetch bought nothing beyond a
+			// round trip to GitHub on every install, and an author who omits the
+			// key is asking for exactly the same thing.
+			if !model.installsSomething(req) {
+				return fmt.Errorf("gallery model %q installs nothing: it declares no url, no config_file, no overrides and no files", model.Name)
+			}
+			config = ModelConfig{
+				Description: model.Description,
+				License:     model.License,
+				Name:        model.Name,
+				Files:       make([]File, 0), // Real values get added below, must be blank
+				// URLs are appended once below for every branch, as in the
+				// config_file case above.
+			}
 		}
 
 		if record != nil {

@@ -27,6 +27,27 @@ type GalleryModel struct {
 	Variants []Variant `json:"variants,omitempty" yaml:"variants,omitempty"`
 }
 
+// installsSomething reports whether this entry, combined with the caller's
+// request, would put anything on disk.
+//
+// It exists to keep an authoring mistake loud. Once an entry with no url and no
+// config_file is accepted as an empty base, the only thing separating a
+// deliberate overrides-only entry from a half-written stanza is whether it
+// carries a payload at all. Without this check the stub would install cleanly
+// and leave a model directory holding a config naming no weights, which fails
+// far from the entry that caused it.
+//
+// The request is counted because its overrides and files are merged into the
+// install exactly as the entry's own are, so a caller supplying them really has
+// asked for something installable.
+//
+// An entry with a url or a config_file never reaches this: it has a base config
+// to install, however thin.
+func (m *GalleryModel) installsSomething(req GalleryModel) bool {
+	return len(m.Overrides) > 0 || len(m.AdditionalFiles) > 0 ||
+		len(req.Overrides) > 0 || len(req.AdditionalFiles) > 0
+}
+
 func (m *GalleryModel) GetInstalled() bool {
 	return m.Installed
 }
