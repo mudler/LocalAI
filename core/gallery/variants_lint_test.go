@@ -75,6 +75,49 @@ func checkVariantReferences(entries []gallery.GalleryModel) []variantViolation {
 	return violations
 }
 
+// checkVariantTargetsInstallable verifies every entry referenced as a variant
+// carries the payload an install needs, which is a non-empty url or a non-empty
+// config_file.
+//
+// This mirrors the precondition InstallModelFromGallery's applyModel enforces:
+// with neither field it has nothing to build a config from and fails with
+// "invalid gallery model". Structural validity is not enough, because an entry
+// can exist, declare no variants of its own, and still be uninstallable. That
+// gap is how a grouping shipped whose every target failed on click: the parent
+// resolved correctly and then routed the install into a dead entry.
+//
+// The message names the parent, the target and what is missing, because whoever
+// hits this is reading a gallery entry and has no reason to know applyModel
+// exists.
+func checkVariantTargetsInstallable(entries []gallery.GalleryModel) []variantViolation {
+	byName := indexEntriesByName(entries)
+	var violations []variantViolation
+	for _, e := range entries {
+		if !e.HasVariants() {
+			continue
+		}
+		for _, v := range e.Variants {
+			target, ok := byName[v.Model]
+			if !ok {
+				// checkVariantReferences already reports the dangling name, and
+				// reporting it twice buries two distinct rules under duplicates.
+				continue
+			}
+			if len(target.URL) == 0 && len(target.ConfigFile) == 0 {
+				violations = append(violations, variantViolation{
+					Entry:   e.Name,
+					Variant: v.Model,
+					Detail: fmt.Sprintf("entry %q is not installable on its own: it declares neither url: nor config_file:, "+
+						"so installing it fails with \"invalid gallery model\". Give it the url: its family uses "+
+						"(commonly github:mudler/LocalAI/gallery/virtual.yaml@master) or an inline config_file:. "+
+						"urls: (plural) is informational only and does not satisfy this", v.Model),
+				})
+			}
+		}
+	}
+	return violations
+}
+
 // loadGalleryIndex parses gallery/index.yaml once for the whole suite. The
 // index carries well over a thousand entries, so re-parsing it per spec is
 // pure overhead.
@@ -139,6 +182,69 @@ var _ = Describe("gallery variant lint helpers", func() {
 		)
 
 		Expect(checkVariantReferences(entries)).To(BeEmpty())
+		Expect(checkVariantTargetsInstallable(entries)).To(BeEmpty())
+	})
+
+	Describe("checkVariantTargetsInstallable", func() {
+		// The defect this rule exists for: a target carrying everything except
+		// the one field applyModel reads.
+		uninstallable := func(name string) gallery.GalleryModel {
+			e := gallery.GalleryModel{}
+			e.Name = name
+			// urls: is the informational HuggingFace link list, and the entry
+			// that shipped broken had exactly this and nothing else. It must
+			// not be mistaken for url:.
+			e.URLs = []string{"https://huggingface.co/example/" + name}
+			e.Overrides = map[string]any{"backend": "ds4"}
+			return e
+		}
+
+		It("flags a target with neither url nor config_file", func() {
+			entries := variantFixture(
+				entryWithVariants("base", "u://base", gallery.Variant{Model: "dead"}),
+				uninstallable("dead"),
+			)
+
+			violations := checkVariantTargetsInstallable(entries)
+			Expect(violations).To(HaveLen(1))
+			Expect(violations[0].Entry).To(Equal("base"))
+			Expect(violations[0].Variant).To(Equal("dead"))
+			Expect(violations[0].Detail).To(ContainSubstring("neither url: nor config_file:"))
+			Expect(violations[0].Detail).To(ContainSubstring("invalid gallery model"))
+		})
+
+		It("accepts a target described by an inline config_file rather than a url", func() {
+			target := gallery.GalleryModel{ConfigFile: map[string]any{"backend": "llama-cpp"}}
+			target.Name = "inline"
+			entries := variantFixture(
+				entryWithVariants("base", "u://base", gallery.Variant{Model: "inline"}),
+				target,
+			)
+
+			Expect(checkVariantTargetsInstallable(entries)).To(BeEmpty())
+		})
+
+		It("leaves an unknown target to checkVariantReferences rather than reporting it twice", func() {
+			entries := variantFixture(
+				entryWithVariants("base", "u://base", gallery.Variant{Model: "ghost"}),
+			)
+
+			Expect(checkVariantTargetsInstallable(entries)).To(BeEmpty())
+			Expect(checkVariantReferences(entries)).To(HaveLen(1))
+		})
+
+		It("reports every breach in one pass rather than stopping at the first", func() {
+			entries := variantFixture(
+				entryWithVariants("base", "u://base",
+					gallery.Variant{Model: "dead-a"},
+					gallery.Variant{Model: "dead-b"},
+				),
+				uninstallable("dead-a"),
+				uninstallable("dead-b"),
+			)
+
+			Expect(checkVariantTargetsInstallable(entries)).To(HaveLen(2))
+		})
 	})
 
 	Describe("checkVariantReferences", func() {
@@ -196,5 +302,81 @@ var _ = Describe("gallery/index.yaml variant invariants", Ordered, func() {
 	It("references only existing entries that declare no variants themselves", func() {
 		v := checkVariantReferences(entries)
 		Expect(v).To(BeEmpty(), formatViolations(v))
+	})
+
+	It("references only entries that are installable on their own", func() {
+		v := checkVariantTargetsInstallable(entries)
+		Expect(v).To(BeEmpty(), formatViolations(v))
+	})
+})
+
+// The lint rules above check the catalog as text. This drives the real
+// resolution path for the entry a user actually clicked and failed to install,
+// so the fix is proven at the layer that broke and not only at the layer that
+// should have caught it.
+//
+// It is a container of its own rather than another spec beside the lint rules
+// because an Ordered container stops at its first failure: sharing one would
+// let a lint breach skip these silently, which is precisely the kind of
+// vacuously-green spec this file exists to avoid.
+var _ = Describe("gallery/index.yaml deepseek-v4-flash resolution", Ordered, func() {
+	var entries []gallery.GalleryModel
+	var models []*gallery.GalleryModel
+	var entry *gallery.GalleryModel
+
+	BeforeAll(func() {
+		var err error
+		entries, err = loadGalleryIndex()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).ToNot(BeEmpty())
+	})
+
+	BeforeEach(func() {
+		models = make([]*gallery.GalleryModel, 0, len(entries))
+		for i := range entries {
+			models = append(models, &entries[i])
+		}
+		entry = gallery.FindGalleryElement(models, "deepseek-v4-flash")
+		Expect(entry).ToNot(BeNil())
+		Expect(entry.HasVariants()).To(BeTrue())
+	})
+
+	// The unpinned pass covers the entry the user clicks. It does NOT prove the
+	// variants are installable: with no probe wired every size is unknown and
+	// the ranking ties, so the base wins and this only ever exercises the
+	// parent's own url. The pin spec below is what covers the four targets.
+	//
+	// Note that a base selection reports Variant.Model as the ENTRY's name
+	// rather than as empty, so asserting a non-empty Model here would look like
+	// a check that a declared variant won while passing on the base every time.
+	It("yields an installable entry for the entry itself", func() {
+		env := gallery.ResolveEnv{
+			AvailableMemory:   512 << 30,
+			BackendCompatible: func(string) bool { return true },
+		}
+
+		resolved, selected, err := gallery.ResolveVariant(models, entry, env, "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(resolved.URL) > 0 || len(resolved.ConfigFile) > 0).To(BeTrue(),
+			"resolved entry %q (variant %q) has neither url nor config_file, so InstallModelFromGallery would fail with \"invalid gallery model\"",
+			resolved.Name, selected.Model)
+	})
+
+	// Pinning reaches each target directly, which is what actually proves all
+	// four are installable: every one of them is resolved, not just whichever
+	// the ranking happens to prefer. This is the spec that fails on the
+	// unfixed index.
+	It("yields an installable entry for every declared variant pin", func() {
+		env := gallery.ResolveEnv{
+			AvailableMemory:   512 << 30,
+			BackendCompatible: func(string) bool { return true },
+		}
+
+		for _, v := range entry.Variants {
+			resolved, _, err := gallery.ResolveVariant(models, entry, env, v.Model)
+			Expect(err).ToNot(HaveOccurred(), "pinning %q", v.Model)
+			Expect(len(resolved.URL) > 0 || len(resolved.ConfigFile) > 0).To(BeTrue(),
+				"variant %q has neither url nor config_file", v.Model)
+		}
 	})
 })
