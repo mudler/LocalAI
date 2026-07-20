@@ -263,7 +263,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Health Checks should always be exempt from auth, so register these first
-	routes.HealthRoutes(e)
+	routes.HealthRoutes(e, application.Ready)
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.

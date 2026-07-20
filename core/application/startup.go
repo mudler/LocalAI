@@ -496,6 +496,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Watch the configuration directory
 	startWatcher(options)
 
+	// Everything that must happen before this process can serve a request has
+	// happened. Flip readiness last, and only on the success path — the early
+	// `return nil, err` exits above abort startup, and an application that
+	// never finished starting must never report itself ready.
+	application.markStartupComplete()
+
 	xlog.Info("core/startup process completed!")
 	return application, nil
 }
