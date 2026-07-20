@@ -6,6 +6,11 @@ FROM ${BASE_IMAGE} AS builder
 ARG BACKEND=rerankers
 ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
+# AMD GPU target arch(es) for ROCm builds (e.g. gfx1151, or a ';'-list). Exposed
+# to install.sh so ROCm backends can select AMD's per-GPU torch and target the
+# right arch when building from source, instead of hardcoding one.
+ARG AMDGPU_TARGETS
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
 ARG CUDA_MAJOR_VERSION
 ARG CUDA_MINOR_VERSION
 ARG SKIP_DRIVERS=false

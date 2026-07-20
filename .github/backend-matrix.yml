@@ -2371,6 +2371,11 @@ include:
     base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "transformers"
+    # AMD torch device packages are per-GPU-arch and ~1.6 GB installed each, so
+    # this image carries a deliberate set instead of the repo-wide 11-arch default
+    # (which would add ~17 GB): both CDNA data-center arches plus Strix Halo.
+    # Adding an arch is one entry here at ~1.6 GB.
+    amdgpu-targets: 'gfx942,gfx950,gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'
@@ -2384,6 +2389,11 @@ include:
     base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "diffusers"
+    # AMD torch device packages are per-GPU-arch and ~1.6 GB installed each, so
+    # this image carries a deliberate set instead of the repo-wide 11-arch default
+    # (which would add ~17 GB): both CDNA data-center arches plus Strix Halo.
+    # Adding an arch is one entry here at ~1.6 GB.
+    amdgpu-targets: 'gfx942,gfx950,gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'
@@ -2411,6 +2421,11 @@ include:
     base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "kokoro"
+    # AMD torch device packages are per-GPU-arch and ~1.6 GB installed each, so
+    # this image carries a deliberate set instead of the repo-wide 11-arch default
+    # (which would add ~17 GB): both CDNA data-center arches plus Strix Halo.
+    # Adding an arch is one entry here at ~1.6 GB.
+    amdgpu-targets: 'gfx942,gfx950,gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'
