@@ -1,4 +1,4 @@
-torch==2.12.1+cpu
+torch==2.10.0
 trl
 peft
 datasets>=3.0.0
