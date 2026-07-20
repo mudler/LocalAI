@@ -74,6 +74,8 @@ const TYPE_COLORS = {
   transcription: { bg: 'var(--color-warning-light)', color: 'var(--color-data-4)' },
   image_generation: { bg: 'var(--color-success-light)', color: 'var(--color-data-5)' },
   video_generation: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
+  '3d_generation': { bg: 'var(--color-success-light)', color: 'var(--color-data-5)' },
+  '3d_remesh': { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
   tts: { bg: 'var(--color-warning-light)', color: 'var(--color-data-6)' },
   sound_generation: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
   rerank: { bg: 'var(--color-primary-light)', color: 'var(--color-data-1)' },

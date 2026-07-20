@@ -110,10 +110,10 @@ func registerLibFuncsWith(register func(fptr any, name string)) {
 // modelSet holds the resolved path for every pipeline role; optional roles are
 // "" when disabled (the C side treats NULL/"" as "omit").
 type modelSet struct {
-	dino, ssFlow, ssDec          string
-	slatFlow, slatFlow1024       string
-	shapeDec                     string
-	shapeEnc, texDec             string
+	dino, ssFlow, ssDec             string
+	slatFlow, slatFlow1024          string
+	shapeDec                        string
+	shapeEnc, texDec                string
 	texSlatFlow512, texSlatFlow1024 string
 }
 
@@ -324,6 +324,11 @@ func (t *Trellis2) Generate3D(opts *pb.Generate3DRequest) error {
 	if opts.Dst == "" {
 		return fmt.Errorf("dst is empty")
 	}
+	if opts.GetParams()["operation"] == "print_remesh" {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		return remeshGLB(opts)
+	}
 	img, err := os.ReadFile(opts.Src)
 	if err != nil {
 		return fmt.Errorf("reading conditioning image: %w", err)
@@ -346,10 +351,11 @@ func (t *Trellis2) Generate3D(opts *pb.Generate3DRequest) error {
 	// Optional CGAL Alpha Wrap: wrap the generated mesh into a watertight,
 	// intersection-free 2-manifold for 3D printing. Ratios are fractions of
 	// the bounding-box diagonal; offset defaults to alpha/30 per the CGAL
-	// guideline the upstream header recommends.
+	// guideline the upstream demo uses. Offset is deliberately not an
+	// independent parameter: looser values produce puffy or degenerate wraps.
 	printRemesh := boolParam(opts.GetParams()["print_remesh"])
 	alphaRatio := ratioOr(opts.GetParams()["alpha_ratio"], 0.005)
-	offsetRatio := ratioOr(opts.GetParams()["offset_ratio"], alphaRatio/30)
+	offsetRatio := alphaRatio / 30
 	if printRemesh && t2PrintRemeshAvailable() == 0 {
 		return fmt.Errorf("print_remesh requested but libtrellis2 was built without CGAL Alpha Wrap")
 	}
@@ -422,6 +428,77 @@ func (t *Trellis2) Generate3D(opts *pb.Generate3DRequest) error {
 	out := make([]byte, int(outLen))
 	copy(out, unsafe.Slice(glb, int(outLen)))
 	return os.WriteFile(opts.Dst, out, 0600)
+}
+
+// remeshGLB applies the demo's post-generation print workflow to an existing
+// dense vertex-PBR GLB. It does not touch the inference pipeline: CGAL wrapping,
+// UV unwrapping, and PBR projection are CPU-only post-processing operations.
+func remeshGLB(opts *pb.Generate3DRequest) error {
+	if opts.Src == "" {
+		return fmt.Errorf("src is empty")
+	}
+	if t2PrintRemeshAvailable() == 0 {
+		return fmt.Errorf("print remeshing is unavailable (libtrellis2 was built without CGAL Alpha Wrap)")
+	}
+	data, err := os.ReadFile(opts.Src)
+	if err != nil {
+		return fmt.Errorf("reading source GLB: %w", err)
+	}
+	mesh, err := parseVertexGLB(data)
+	if err != nil {
+		return fmt.Errorf("reading source GLB: %w", err)
+	}
+
+	params := opts.GetParams()
+	alphaRatio := ratioOr(params["alpha_ratio"], 0.005)
+	offsetRatio := alphaRatio / 30
+	componentFilter := componentFilterFor(params["components"])
+	textureSize := atoiOr(params["texture_size"], 2048)
+	var sourcePBR *float32
+	if len(mesh.pbr) != 0 {
+		sourcePBR = &mesh.pbr[0]
+	}
+	errBuf := make([]byte, 512)
+	wrap := t2PreparePrintMesh(
+		&mesh.verts[0], int32(len(mesh.verts)/3),
+		&mesh.tris[0], int32(len(mesh.tris)/3),
+		sourcePBR, componentFilter, alphaRatio, offsetRatio,
+		&errBuf[0], int32(len(errBuf)),
+	)
+	if wrap == 0 {
+		return fmt.Errorf("trellis2 print remesh: %s", cstr(errBuf))
+	}
+	defer t2MeshFree(wrap)
+
+	wrappedVerts, wrappedTris := t2MeshNVerts(wrap), t2MeshNTris(wrap)
+	if wrappedVerts == 0 || wrappedTris == 0 {
+		return fmt.Errorf("empty print mesh")
+	}
+	var outLen int32
+	var glb *byte
+	if sourcePBR != nil {
+		glb = t2BakeProjectedGLB(
+			t2MeshVerts(wrap), wrappedVerts, t2MeshTris(wrap), wrappedTris,
+			&mesh.verts[0], int32(len(mesh.verts)/3),
+			&mesh.tris[0], int32(len(mesh.tris)/3), sourcePBR,
+			int32(textureSize), componentFilter,
+			&outLen, &errBuf[0], int32(len(errBuf)),
+		)
+	} else {
+		glb = t2BakeGLB(
+			t2MeshVerts(wrap), wrappedVerts, t2MeshTris(wrap), wrappedTris,
+			nil, int32(textureSize), 2,
+			&outLen, &errBuf[0], int32(len(errBuf)),
+		)
+	}
+	if glb == nil || outLen <= 0 {
+		return fmt.Errorf("trellis2 GLB bake: %s", cstr(errBuf))
+	}
+	defer t2FreeBuffer(glb)
+
+	out := make([]byte, int(outLen))
+	copy(out, unsafe.Slice(glb, int(outLen)))
+	return os.WriteFile(opts.Dst, out, 0o600)
 }
 
 func cstr(b []byte) string {

@@ -49,8 +49,6 @@ The request body is JSON with the following fields:
 
 Backend-specific `params`: `texture_size` (UV-atlas resolution hint when atlas baking is enabled) and `components` (`tiny` removes small islands, `largest` keeps only the biggest connected component, `all` — the default — keeps everything).
 
-For 3D printing, `params.print_remesh: "true"` wraps the generated mesh with CGAL Alpha Wrap into a watertight, oriented, intersection-free 2-manifold; when the source is textured, the PBR material is re-projected per texel onto the wrap's UV atlas. `alpha_ratio` (default `0.005`) sets the smallest preserved detail and `offset_ratio` (default `alpha_ratio / 30`) the shell standoff, both as fractions of the mesh bounding-box diagonal. Smaller `alpha_ratio` keeps more detail but produces more triangles and takes longer.
-
 ### Response
 
 Returns a JSON response using LocalAI's OpenAI-style generation envelope:
@@ -62,6 +60,28 @@ Returns a JSON response using LocalAI's OpenAI-style generation envelope:
 | `data`            | `array`  | Array with the generated asset                                 |
 | `data[].url`      | `string` | URL path to the `.glb` under `/generated-3d` (if `url`)        |
 | `data[].b64_json` | `string` | Base64-encoded GLB (if `response_format` is `b64_json`)        |
+
+### Watertight print remeshing
+
+`POST /3d/remesh` applies the same post-generation CGAL Alpha Wrap workflow as the trellis2.cpp demo. It accepts `multipart/form-data` and returns the remeshed GLB directly as `model/gltf-binary`:
+
+| Field    | Type     | Required | Default | Description |
+|----------|----------|----------|---------|-------------|
+| `model`  | `string` | Yes      |         | Installed TRELLIS.2 model name |
+| `mesh`   | `file`   | Yes      |         | Source GLB produced by TRELLIS.2 |
+| `detail` | `float`  | No       | `0.5`   | Smallest preserved detail as a percentage of the source bounding-box diagonal (`0.35`–`2.5`) |
+
+There is intentionally no independent offset control. The enclosing offset follows the trellis2.cpp demo and is derived as `detail / 30`; independent tuning tends to produce puffy or degenerate wraps. Lower detail percentages retain finer features but take longer and generally produce more triangles. The output is watertight, oriented, intersection-free, and 2-manifold. For textured sources, LocalAI unwraps the replacement mesh and reprojects its PBR material onto a new UV atlas.
+
+Source GLBs may be up to 512 MiB. This route uses its own upload limit because fine TRELLIS.2 meshes commonly exceed LocalAI's default `--upload-limit`.
+
+```bash
+curl http://localhost:8080/3d/remesh \
+  -F model=trellis2-4b \
+  -F mesh=@generated.glb \
+  -F detail=0.5 \
+  --output printable.glb
+```
 
 ## Usage
 
@@ -93,7 +113,7 @@ curl http://localhost:8080/3d/generations \
 
 ## WebUI
 
-The React UI includes a 3D tab in the Studio (and a `/3d` page) with an interactive PBR viewer: upload an image, pick the quality, and preview the generated mesh with orbit/pan/zoom and a wireframe toggle. Past generations are kept in the browser (IndexedDB) with a GLB download button.
+The React UI includes a 3D tab in the Studio (and a `/3d` page) with an interactive PBR viewer: upload an image, pick the quality, and preview the generated mesh with orbit/pan/zoom and a wireframe toggle. Past generations are kept in the browser (IndexedDB). After generation, a single Detail slider and **Apply remeshing** button replace the preview with the exact watertight model that the GLB download exports; **Show original** switches back without regenerating.
 
 ## Notes
 

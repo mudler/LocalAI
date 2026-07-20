@@ -274,6 +274,18 @@ export const videoApi = {
 
 export const threeDApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.threeDGenerations, body),
+  remesh: async (mesh, model, detail) => {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('detail', String(detail))
+    form.append('mesh', mesh, 'source.glb')
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.threeDRemesh), {
+      method: 'POST',
+      body: form,
+    })
+    await handleResponse(response)
+    return response.blob()
+  },
 }
 
 // parseAudioBlobResponse — shared response handling for audio-blob endpoints.

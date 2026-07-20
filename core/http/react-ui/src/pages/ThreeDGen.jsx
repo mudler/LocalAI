@@ -18,6 +18,17 @@ import useObjectUrl from '../hooks/useObjectUrl'
 const QUALITIES = ['auto', 'coarse', '512', '1024']
 const BACKGROUNDS = ['auto', 'keep', 'black', 'white']
 const MAX_3D_INPUT_BYTES = 32 * 1024 * 1024
+const REMESH_DETAIL_COARSE = 2.5
+const REMESH_DETAIL_FINE = 0.35
+
+function remeshDetail(sliderValue) {
+  const position = Number(sliderValue) / 100
+  return REMESH_DETAIL_COARSE * Math.pow(REMESH_DETAIL_FINE / REMESH_DETAIL_COARSE, position)
+}
+
+function remeshedName(name = '3d-model.glb') {
+  return `${name.replace(/\.glb$/i, '')}-remeshed.glb`
+}
 
 // Small thumbnail of the conditioning image for the history list — full-size
 // data URLs would bloat every IndexedDB entry for no visual gain.
@@ -55,10 +66,19 @@ export default function ThreeDGen() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [result, setResult] = useState(null) // { blob, name }
+  const [result, setResult] = useState(null) // { blob, name, model }
+  const [remeshSlider, setRemeshSlider] = useState(82)
+  const [remeshState, setRemeshState] = useState(null) // { sourceBlob, blob?, name?, error? }
+  const [remeshLoading, setRemeshLoading] = useState(false)
   const { entries, addEntry, deleteEntry, clearAll, selectEntry, selectedId, selectedEntry } = use3DHistory()
 
-  const active = selectedEntry ? { blob: selectedEntry.glb, name: selectedEntry.name } : result
+  const source = selectedEntry
+    ? { blob: selectedEntry.glb, name: selectedEntry.name, model: selectedEntry.model }
+    : result
+  const showingRemesh = !!source && remeshState?.sourceBlob === source.blob && !!remeshState.blob
+  const active = showingRemesh ? { blob: remeshState.blob, name: remeshState.name } : source
+  const remeshError = source && remeshState?.sourceBlob === source.blob ? remeshState.error : null
+  const detail = remeshDetail(remeshSlider)
   const downloadUrl = useObjectUrl(active?.blob)
 
   const handleGenerate = async (e) => {
@@ -68,6 +88,7 @@ export default function ThreeDGen() {
 
     setLoading(true)
     setResult(null)
+    setRemeshState(null)
     setError(null)
 
     const body = { model, image: image.base64, quality, background, response_format: 'url' }
@@ -87,7 +108,7 @@ export default function ThreeDGen() {
       if (!glbResp.ok) throw new Error(`fetching the generated GLB failed: HTTP ${glbResp.status}`)
       const glb = await glbResp.blob()
       const name = url.split('/').pop()
-      setResult({ blob: glb, name })
+      setResult({ blob: glb, name, model })
       selectEntry(null)
       const inputThumb = image.dataUrl ? await makeThumb(image.dataUrl) : null
       await addEntry({
@@ -102,6 +123,31 @@ export default function ThreeDGen() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleRemesh = async () => {
+    if (!source?.blob || !source.model) return
+    if (showingRemesh) {
+      setRemeshState(null)
+      return
+    }
+
+    const sourceBlob = source.blob
+    setRemeshLoading(true)
+    setRemeshState({ sourceBlob, error: null })
+    try {
+      const blob = await threeDApi.remesh(sourceBlob, source.model, detail)
+      setRemeshState({ sourceBlob, blob, name: remeshedName(source.name), error: null })
+    } catch (err) {
+      setRemeshState({ sourceBlob, error: err.message })
+    } finally {
+      setRemeshLoading(false)
+    }
+  }
+
+  const handleRemeshDetail = (value) => {
+    setRemeshSlider(value)
+    if (source && remeshState?.sourceBlob === source.blob) setRemeshState(null)
   }
 
   return (
@@ -180,6 +226,43 @@ export default function ThreeDGen() {
           ) : active?.blob ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%' }}>
               <GlbViewer blob={active.blob} />
+              <div className="threed-remesh-controls">
+                <div className="threed-remesh-heading">
+                  <span>{t('threed.remesh.title')}</span>
+                  <output htmlFor="threed-remesh-detail">{detail.toFixed(2)}%</output>
+                </div>
+                <input
+                  id="threed-remesh-detail"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={remeshSlider}
+                  onChange={(e) => handleRemeshDetail(e.target.value)}
+                  disabled={remeshLoading}
+                  aria-label={t('threed.remesh.detail')}
+                />
+                <div className="threed-remesh-scale" aria-hidden="true">
+                  <span>{t('threed.remesh.coarser')}</span>
+                  <span>{t('threed.remesh.finer')}</span>
+                </div>
+                <p className="form-hint">{t('threed.remesh.hint')}</p>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-full"
+                  onClick={handleRemesh}
+                  disabled={remeshLoading}
+                  data-testid="glb-remesh"
+                >
+                  {remeshLoading
+                    ? <><LoadingSpinner size="sm" /> {t('threed.actions.remeshing')}</>
+                    : showingRemesh
+                      ? <><i className="fas fa-rotate-left" /> {t('threed.actions.showOriginal')}</>
+                      : <><i className="fas fa-cubes-stacked" /> {t('threed.actions.remesh')}</>}
+                </button>
+                {remeshError && <p className="form-error" role="alert">{remeshError}</p>}
+                {showingRemesh && <p className="threed-remesh-ready">{t('threed.remesh.ready')}</p>}
+              </div>
               <a
                 className="btn btn-secondary"
                 href={downloadUrl}

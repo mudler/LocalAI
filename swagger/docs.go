@@ -49,6 +49,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/3d/remesh": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "model/gltf-binary"
+                ],
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Applies watertight print remeshing to an existing 3D asset.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "3D model name",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Source GLB",
+                        "name": "mesh",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Detail size as percent of the source bounding-box diagonal (0.35–2.5; default 0.5)",
+                        "name": "detail",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Remeshed GLB",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [

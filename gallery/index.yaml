@@ -30898,6 +30898,7 @@
       uri: https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors
 - name: trellis2-4b
   url: github:mudler/LocalAI/gallery/trellis2cpp.yaml@master
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png
   urls:
     - https://huggingface.co/microsoft/TRELLIS.2-4B
     - https://huggingface.co/LocalAI-io/TRELLIS.2-4B-GGUF
@@ -30952,6 +30953,7 @@
       uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/tex_slat_flow_1024_f16.gguf
 - name: trellis2-4b-geometry
   url: github:mudler/LocalAI/gallery/trellis2cpp.yaml@master
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png
   urls:
     - https://huggingface.co/microsoft/TRELLIS.2-4B
     - https://huggingface.co/LocalAI-io/TRELLIS.2-4B-GGUF

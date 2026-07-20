@@ -2766,6 +2766,36 @@ paths:
       summary: Creates a 3D asset (binary glTF / GLB) from a conditioning image.
       tags:
       - 3d
+  /3d/remesh:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 3D model name
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: Source GLB
+        in: formData
+        name: mesh
+        required: true
+        type: file
+      - description: Detail size as percent of the source bounding-box diagonal (0.35–2.5;
+          default 0.5)
+        in: formData
+        name: detail
+        type: number
+      produces:
+      - model/gltf-binary
+      responses:
+        "200":
+          description: Remeshed GLB
+          schema:
+            type: file
+      summary: Applies watertight print remeshing to an existing 3D asset.
+      tags:
+      - 3d
   /api/agent/jobs:
     get:
       parameters:
