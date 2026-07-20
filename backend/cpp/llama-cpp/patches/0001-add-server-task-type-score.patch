@@ -1,0 +1,599 @@
+diff --git a/common/common.cpp b/common/common.cpp
+index 8f13217..fc584e1 100644
+--- a/common/common.cpp
++++ b/common/common.cpp
+@@ -1591,8 +1591,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+     auto cparams = llama_context_default_params();
+
+     cparams.n_ctx             = params.n_ctx;
+-    cparams.n_seq_max         = params.n_parallel;
+-    cparams.n_rs_seq          = params.speculative.need_n_rs_seq();
++    // score-task forks need seq ids (and recurrent-state cells) of their
++    // own beyond the parallel slots
++    cparams.n_seq_max         = params.n_parallel + params.n_seq_score_forks;
++    cparams.n_rs_seq          = std::max(params.speculative.need_n_rs_seq(), (uint32_t) std::max(0, params.n_rs_seq));
+     cparams.n_outputs_max     = std::max(params.n_outputs_max, 0);
+     cparams.n_batch           = params.n_batch;
+     cparams.n_ubatch          = params.n_ubatch;
+diff --git a/common/common.h b/common/common.h
+index bffc176..e313bd6 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -455,6 +455,9 @@ struct common_params {
+     int32_t n_keep                =     0; // number of tokens to keep from initial prompt
+     int32_t n_chunks              =    -1; // max number of chunks to process (-1 = unlimited)
+     int32_t n_parallel            =     1; // number of parallel sequences to decode
++    int32_t n_seq_score_forks     =     0; // extra seq ids beyond n_parallel, reserved for server score-task forks
++    int32_t n_rs_seq              =     0; // recurrent-state rollback snapshots per seq (hybrid models cannot rewind without them; lets score tasks reuse a cached prompt across probe changes)
++    bool    score_enabled          = false; // reserve server resources for the Score task type
+     int32_t n_sequences           =     1; // number of sequences to decode
+     int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
+     int32_t grp_attn_n            =     1; // group-attention factor
+diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
+index 780df32..1d2fe8f 100644
+--- a/tools/CMakeLists.txt
++++ b/tools/CMakeLists.txt
+@@ -41,3 +41,4 @@ else()
+     add_subdirectory(fit-params)
+     add_subdirectory(results)
+ endif()
++add_subdirectory(grpc-server)
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 715477e..de5bed8 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -49,7 +49,16 @@ static uint32_t server_n_outputs_max(const common_params & params) {
+
+     const uint32_t n_outputs_per_seq = 1 + common_speculative_n_max(&params.speculative);
+
+-    const uint64_t n_outputs = (uint64_t) params.n_parallel * n_outputs_per_seq;
++    // score tasks (SERVER_TASK_TYPE_SCORE) output logits for every candidate
++    // token, so reserve room for a bounded candidate tail per parallel slot
++    if (!params.score_enabled) {
++        return std::max<uint32_t>(1, std::min<uint64_t>(n_batch,
++            (uint64_t) params.n_parallel * n_outputs_per_seq));
++    }
++
++    const uint32_t n_outputs_score_seq = 1 + SERVER_SCORE_MAX_CAND_TOKENS;
++
++    const uint64_t n_outputs = (uint64_t) params.n_parallel * std::max(n_outputs_per_seq, n_outputs_score_seq);
+
+     return std::max<uint32_t>(1, std::min<uint64_t>(n_batch, n_outputs));
+ }
+@@ -202,6 +211,26 @@ struct server_slot {
+
+     std::vector<completion_token_output> generated_token_probs;
+
++    // SERVER_TASK_TYPE_SCORE: shared-prefix token logprobs harvested
++    // incrementally across batch views (NaN = not yet produced)
++    std::vector<float> score_logprobs;
++
++    // SERVER_TASK_TYPE_SCORE: per-candidate suffix token logprobs; entry
++    // [c][0] comes from the last shared token's logits during prompt
++    // processing, the rest from the forked suffix decode
++    std::vector<std::vector<float>> score_cand_logprobs;
++
++    // SERVER_TASK_TYPE_SCORE: the prompt completed but some candidate has
++    // suffix tokens beyond the first, so a forked decode is still needed
++    bool score_suffix_pending = false;
++
++    // SERVER_TASK_TYPE_SCORE: where the current task's tokens diverged from
++    // the slot's previous cache. When the memory cannot rewind there and a
++    // re-prefill follows, a checkpoint at this position lets the next
++    // scoring call over the same stable prefix (e.g. a classifier's option
++    // list) resume from it instead of re-processing the whole prompt.
++    int32_t score_divergence = -1;
++
+     bool has_next_token = true;
+     bool has_new_line   = false;
+     bool truncated      = false;
+@@ -311,6 +340,10 @@ struct server_slot {
+         }
+         generated_tokens.clear();
+         generated_token_probs.clear();
++        score_logprobs.clear();
++        score_cand_logprobs.clear();
++        score_suffix_pending = false;
++        score_divergence = -1;
+         json_schema = json();
+
+         // clear speculative decoding stats
+@@ -2205,6 +2238,229 @@ private:
+         queue_results.send(std::move(res));
+     }
+
++    // log(sum(exp(logits))) with max-subtraction for stability — the
++    // log_softmax denominator shared by every token read from one output
++    static double score_log_denom(const float * logits, int32_t n_vocab) {
++        float max_logit = logits[0];
++        for (int32_t v = 1; v < n_vocab; ++v) {
++            max_logit = std::max(max_logit, logits[v]);
++        }
++        double sum_exp = 0.0;
++        for (int32_t v = 0; v < n_vocab; ++v) {
++            sum_exp += std::exp((double)(logits[v] - max_logit));
++        }
++        return (double) max_logit + std::log(sum_exp);
++    }
++
++    // Harvest logprobs for SCORE tasks from the current batch view: the
++    // shared-prefix scored tokens, and — from the last shared token's
++    // logits — the first suffix token of every candidate. The scored
++    // region can straddle ubatch boundaries for long prompts, so this
++    // accumulates view by view instead of reading everything when the
++    // prompt completes.
++    void collect_score_logprobs(server_slot & slot, const llama_batch & batch) {
++        const int32_t n_prompt = slot.task->n_score_prompt;
++        const int32_t n_total  = slot.task->n_tokens();
++        const auto &  suffixes = slot.task->score_suffixes;
++
++        const size_t n_shared_scored = (size_t) std::max(0, n_total - n_prompt);
++
++        if (slot.score_logprobs.size() != n_shared_scored) {
++            slot.score_logprobs.assign(n_shared_scored, NAN);
++        }
++        if (slot.score_cand_logprobs.size() != suffixes.size()) {
++            slot.score_cand_logprobs.resize(suffixes.size());
++            for (size_t c = 0; c < suffixes.size(); ++c) {
++                slot.score_cand_logprobs[c].assign(suffixes[c].size(), NAN);
++            }
++        }
++
++        const int32_t n_vocab = llama_vocab_n_tokens(vocab);
++
++        for (int32_t i = 0; i < batch.n_tokens; ++i) {
++            if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
++                continue;
++            }
++
++            // the output at position p predicts the task token at index p + 1;
++            // score tasks are text-only, so positions equal token indices
++            const int32_t target = batch.pos[i] + 1;
++            if (target < n_prompt || target > n_total) {
++                continue;
++            }
++
++            const float * logits = llama_get_logits_ith(slot.ctx_tgt, i);
++            if (logits == nullptr) {
++                SLT_ERR(slot, "failed to get logits for score target %d\n", target);
++                continue;
++            }
++
++            const double log_denom = score_log_denom(logits, n_vocab);
++
++            if (target < n_total) {
++                const llama_token tok = slot.task->tokens[target];
++                slot.score_logprobs[target - n_prompt] = (float) ((double) logits[tok] - log_denom);
++            } else {
++                // the last shared token predicts the first suffix token of
++                // every candidate
++                for (size_t c = 0; c < suffixes.size(); ++c) {
++                    if (!suffixes[c].empty()) {
++                        slot.score_cand_logprobs[c][0] = (float) ((double) logits[suffixes[c][0]] - log_denom);
++                    }
++                }
++            }
++        }
++    }
++
++    void send_score(server_slot & slot) {
++        auto res = std::make_unique<server_task_result_score>();
++        res->id              = slot.task->id;
++        res->index           = slot.task->index;
++        res->shared_logprobs = std::move(slot.score_logprobs);
++        res->cand_logprobs   = std::move(slot.score_cand_logprobs);
++
++        slot.score_logprobs.clear();
++        slot.score_cand_logprobs.clear();
++
++        SLT_DBG(slot, "sending score result, n_shared = %zu, n_cand = %zu\n",
++                res->shared_logprobs.size(), res->cand_logprobs.size());
++
++        queue_results.send(std::move(res));
++    }
++
++    // Decode the candidate suffixes of a completed score prompt: fork one
++    // sequence per candidate off the slot's shared prefix (metadata-only
++    // for the unified KV cache, copy-on-write for recurrent state) and
++    // decode all unique suffix tokens in as few llama_decode calls as the
++    // fork/batch/output budgets allow, harvesting a logprob for every
++    // suffix token that predicts a following one.
++    bool decode_score_suffixes(server_slot & slot) {
++        const auto & suffixes = slot.task->score_suffixes;
++
++        auto * mem = llama_get_memory(ctx_tgt);
++
++        // seq ids beyond the slots are reserved for score forks at context
++        // creation (common_params::n_seq_score_forks)
++        const int32_t seq_base    = (int32_t) slots.size();
++        const int32_t n_forks_max = std::min<int32_t>(SERVER_SCORE_FORK_SEQS, (int32_t) llama_n_seq_max(ctx_tgt) - seq_base);
++
++        if (n_forks_max < 1) {
++            SLT_ERR(slot, "no fork sequences reserved for score suffixes (n_seq_max = %d, n_slots = %d)\n",
++                    (int32_t) llama_n_seq_max(ctx_tgt), seq_base);
++            return false;
++        }
++
++        const int32_t   n_batch_max = llama_n_batch(ctx_tgt);
++        const int32_t   n_vocab     = llama_vocab_n_tokens(vocab);
++        const llama_pos pos0        = slot.prompt.tokens.pos_next();
++
++        std::vector<size_t> pending;
++        for (size_t c = 0; c < suffixes.size(); ++c) {
++            // single-token suffixes were fully scored from the last shared
++            // token's logits during prompt processing
++            if (suffixes[c].size() > 1) {
++                if ((int32_t) suffixes[c].size() > n_batch_max) {
++                    SLT_ERR(slot, "score suffix of candidate %zu (%zu tokens) exceeds n_batch (%d)\n",
++                            c, suffixes[c].size(), n_batch_max);
++                    return false;
++                }
++                pending.push_back(c);
++            }
++        }
++
++        size_t next = 0;
++        while (next < pending.size()) {
++            // greedy-pack candidates into one decode within the fork,
++            // batch and reserved-output budgets
++            std::vector<size_t> chunk;
++            int32_t n_tok = 0;
++            int32_t n_out = 0;
++            while (next < pending.size() && (int32_t) chunk.size() < n_forks_max) {
++                const int32_t m = (int32_t) suffixes[pending[next]].size();
++                if (!chunk.empty() && (n_tok + m > n_batch_max || n_out + m - 1 > SERVER_SCORE_MAX_CAND_TOKENS)) {
++                    break;
++                }
++                chunk.push_back(pending[next]);
++                n_tok += m;
++                n_out += m - 1;
++                next++;
++            }
++
++            llama_batch fb = llama_batch_init(n_tok, 0, 1);
++
++            for (size_t k = 0; k < chunk.size(); ++k) {
++                const llama_seq_id seq = seq_base + (llama_seq_id) k;
++                const auto & sfx = suffixes[chunk[k]];
++
++                llama_memory_seq_rm(mem, seq, -1, -1);
++                llama_memory_seq_cp(mem, slot.id, seq, -1, -1);
++
++                for (size_t j = 0; j < sfx.size(); ++j) {
++                    common_batch_add(fb, sfx[j], pos0 + (llama_pos) j, { seq }, j + 1 < sfx.size());
++                }
++            }
++
++            const int ret = llama_decode(ctx_tgt, fb);
++
++            if (ret == 0) {
++                int32_t i = 0;
++                for (size_t k = 0; k < chunk.size(); ++k) {
++                    const auto & sfx = suffixes[chunk[k]];
++                    auto & out = slot.score_cand_logprobs[chunk[k]];
++
++                    for (size_t j = 0; j < sfx.size(); ++j, ++i) {
++                        if (j + 1 >= sfx.size()) {
++                            continue; // last suffix token predicts nothing
++                        }
++                        const float * logits = llama_get_logits_ith(ctx_tgt, i);
++                        if (logits == nullptr) {
++                            SLT_ERR(slot, "failed to get logits for suffix token %zu of score candidate %zu\n", j, chunk[k]);
++                            continue;
++                        }
++                        const double log_denom = score_log_denom(logits, n_vocab);
++                        out[j + 1] = (float) ((double) logits[sfx[j + 1]] - log_denom);
++                    }
++                }
++            }
++
++            for (size_t k = 0; k < chunk.size(); ++k) {
++                llama_memory_seq_rm(mem, seq_base + (llama_seq_id) k, -1, -1);
++            }
++
++            llama_batch_free(fb);
++
++            if (ret != 0) {
++                SLT_ERR(slot, "score suffix decode failed, ret = %d\n", ret);
++                return false;
++            }
++        }
++
++        return true;
++    }
++
++    // score slots whose prompt completed this iteration decode their
++    // candidate suffixes here, after every batch view was consumed — a
++    // mid-view llama_decode would clobber logits other slots still read
++    void update_score_suffixes() {
++        for (auto & slot : slots) {
++            if (!slot.score_suffix_pending) {
++                continue;
++            }
++            slot.score_suffix_pending = false;
++
++            if (!slot.is_processing() || !slot.task || slot.task->type != SERVER_TASK_TYPE_SCORE) {
++                continue; // the task was aborted mid-iteration
++            }
++
++            if (decode_score_suffixes(slot)) {
++                send_score(slot);
++            } else {
++                send_error(slot, "failed to decode score candidate suffixes", ERROR_TYPE_SERVER);
++            }
++            slot.release();
++        }
++    }
++
+     //
+     // Functions to process the task
+     //
+@@ -2341,6 +2597,7 @@ private:
+             case SERVER_TASK_TYPE_INFILL:
+             case SERVER_TASK_TYPE_EMBEDDING:
+             case SERVER_TASK_TYPE_RERANK:
++            case SERVER_TASK_TYPE_SCORE:
+                 {
+                     // special case: if input is provided via CLI, tokenize it first
+                     // otherwise, no need to tokenize as it's already done inside the HTTP thread
+@@ -2832,6 +3089,13 @@ private:
+                 break; // stop any further processing
+             }
+         }
++
++        try {
++            update_score_suffixes();
++        } catch (const std::exception & e) {
++            SRV_ERR("update_score_suffixes() failed: %s\n", e.what());
++            abort_all_slots("update_score_suffixes() failed: " + std::string(e.what()));
++        }
+     }
+
+     void pre_decode() {
+@@ -3154,6 +3418,16 @@ private:
+                                     n_past = std::min(n_past, slot.alora_invocation_start - 1);
+                                 }
+
++                                // score tasks need the logits that predict the first candidate
++                                // token, so the last shared-prompt token must be (re-)decoded
++                                // even when the cache already covers it
++                                if (slot.task->type == SERVER_TASK_TYPE_SCORE) {
++                                    n_past = std::min(n_past, std::max(0, slot.task->n_score_prompt - 1));
++                                    // remember the divergence point before the checkpoint
++                                    // logic below possibly resets n_past to 0
++                                    slot.score_divergence = n_past;
++                                }
++
+                                 const auto n_cache_reuse = slot.task->params.n_cache_reuse;
+
+                                 const bool can_cache_reuse =
+@@ -3395,8 +3669,12 @@ private:
+
+                     bool do_checkpoint = params_base.n_ctx_checkpoints > 0;
+
+-                    // make checkpoints only for completion tasks
+-                    do_checkpoint = do_checkpoint && slot.task->type == SERVER_TASK_TYPE_COMPLETION;
++                    // make checkpoints for completion tasks, and for score tasks at the
++                    // shared-prompt boundary: models whose memory cannot be partially
++                    // rewound (SWA/hybrid/recurrent) would otherwise re-process the whole
++                    // prompt for every candidate of a scoring call
++                    do_checkpoint = do_checkpoint && (slot.task->type == SERVER_TASK_TYPE_COMPLETION ||
++                                                      slot.task->type == SERVER_TASK_TYPE_SCORE);
+
+                     // make a checkpoint of the parts of the memory that cannot be rolled back.
+                     // checkpoints are created only if:
+@@ -3463,10 +3741,17 @@ private:
+                         // embedding requires all tokens in the batch to be output;
+                         // MTP also wants logits at every prompt position so the
+                         // streaming hook can mirror t_h_nextn into ctx_dft.
++                        // score tasks need outputs at the positions that predict
++                        // each candidate token (the token at index i predicts the
++                        // task token at index i+1).
++                        const bool need_score_logit =
++                            slot.task->type == SERVER_TASK_TYPE_SCORE &&
++                            slot.prompt.n_tokens() + 1 >= slot.task->n_score_prompt &&
++                            slot.prompt.n_tokens() + 1 <  slot.task->n_tokens();
+                         add_ok &= batch.add(slot.id,
+                             cur_tok,
+                             slot.prompt.tokens.pos_next(),
+-                            slot.need_embd());
++                            slot.need_embd() || need_score_logit);
+                         slot.prompt.tokens.push_back(cur_tok);
+
+                         slot.n_prompt_tokens_processed++;
+@@ -3481,6 +3766,32 @@ private:
+                             }
+                         }
+
++                        // score tasks: break at the shared-prompt boundary so the checkpoint
++                        // below lands exactly there — the other candidates of the same
++                        // scoring call re-process only their own tokens. Also break at the
++                        // point where this task diverged from the previous cache: after a
++                        // forced re-prefill a checkpoint there serves the next scoring call
++                        // over the same stable prefix (e.g. a classifier's option list).
++                        // The caller-declared stable-prefix boundary is the strongest of
++                        // these: a checkpoint there is at or before every future task's
++                        // divergence within the same option list, so it always survives
++                        // and always restores.
++                        if (do_checkpoint && slot.task->type == SERVER_TASK_TYPE_SCORE &&
++                            (slot.prompt.n_tokens() == slot.task->n_score_prompt - 1 ||
++                             (slot.task->n_stable_prompt > 0 &&
++                              slot.prompt.n_tokens() == slot.task->n_stable_prompt &&
++                              slot.prompt.n_tokens() <  slot.task->n_score_prompt - 1) ||
++                             (slot.prompt.n_tokens() == slot.score_divergence &&
++                              slot.prompt.n_tokens() <  slot.task->n_score_prompt - 1))) {
++                            bool have_ckpt = false;
++                            for (const auto & ckpt : slot.prompt.checkpoints) {
++                                have_ckpt |= ckpt.n_tokens == slot.prompt.n_tokens();
++                            }
++                            if (!have_ckpt) {
++                                break;
++                            }
++                        }
++
+                         // process the last few tokens of the prompt separately in order to allow for a checkpoint to be created.
+                         // create checkpoints that many tokens before the end of the prompt:
+                         //  - 4 + n_ubatch
+@@ -3513,6 +3824,15 @@ private:
+                     const bool is_user_start = spans.is_user_start(n_tokens_start);
+                     const bool is_last_user_message = n_tokens_start == last_user_pos;
+
++                    // a batch starting at the score boundary or divergence point must
++                    // always checkpoint — min-step spacing would otherwise suppress it
++                    // and every candidate / next scoring call would re-process the prompt
++                    const bool is_score_boundary = slot.task->type == SERVER_TASK_TYPE_SCORE &&
++                                                   (n_tokens_start == slot.task->n_score_prompt - 1 ||
++                                                    (slot.task->n_stable_prompt > 0 &&
++                                                     n_tokens_start == slot.task->n_stable_prompt) ||
++                                                    n_tokens_start == slot.score_divergence);
++
+                     // entire prompt has been processed
+                     if (slot.prompt.n_tokens() == slot.task->n_tokens()) {
+                         slot.state = SLOT_STATE_DONE_PROMPT;
+@@ -3528,8 +3848,8 @@ private:
+                         slot.init_sampler();
+                     } else {
+                         // skip ordinary mid-prompt checkpoints, unless the batch starts a user
+-                        // message or we are near the end of the prompt
+-                        if (!is_user_start && !near_prompt_end) {
++                        // message, the score boundary, or we are near the end of the prompt
++                        if (!is_user_start && !is_score_boundary && !near_prompt_end) {
+                             do_checkpoint = false;
+                         }
+                     }
+@@ -3546,10 +3866,10 @@ private:
+                     // do not checkpoint after mtmd chunks
+                     do_checkpoint = do_checkpoint && !has_mtmd;
+
+-                    // no need to create checkpoints that are too close together, unless it's the last user message
++                    // no need to create checkpoints that are too close together, unless it's the last user message or the score boundary
+                     do_checkpoint = do_checkpoint && (
+                             slot.prompt.checkpoints.empty() ||
+-                            is_last_user_message || near_prompt_end ||
++                            is_last_user_message || near_prompt_end || is_score_boundary ||
+                             n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
+                     SLT_DBG(slot, "main/do_checkpoint = %s, pos_min = %d, pos_max = %d\n", do_checkpoint ? "yes" : "no", pos_min, pos_max);
+
+@@ -3703,6 +4023,13 @@ private:
+                 }
+             }
+
++            // score slots harvest logprobs from every view that contains
++            // their outputs, not just the one holding the final token
++            if (slot.task && slot.task->type == SERVER_TASK_TYPE_SCORE &&
++                (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_DONE_PROMPT)) {
++                collect_score_logprobs(slot, batch_view);
++            }
++
+             if (!is_inside_view(slot.i_batch)) {
+                 // the required token not in this sub-batch, skip
+                 return;
+@@ -3724,6 +4051,25 @@ private:
+                     return;
+                 }
+
++                if (slot.task->type == SERVER_TASK_TYPE_SCORE) {
++                    // shared-prefix logprobs (and every candidate's first
++                    // suffix logprob) were accumulated per view above;
++                    // candidates with more suffix tokens still need the
++                    // forked decode at the end of update_slots()
++                    for (const auto & sfx : slot.task->score_suffixes) {
++                        if (sfx.size() > 1) {
++                            slot.score_suffix_pending = true;
++                            break;
++                        }
++                    }
++                    if (!slot.score_suffix_pending) {
++                        send_score(slot);
++                        slot.release();
++                    }
++                    slot.i_batch = -1;
++                    return;
++                }
++
+                 GGML_ASSERT(slot.task->need_sampling());
+
+                 // prompt evaluated for next-token prediction
+diff --git a/tools/server/server-task.h b/tools/server/server-task.h
+index c3eea2e..fb3c178 100644
+--- a/tools/server/server-task.h
++++ b/tools/server/server-task.h
+@@ -13,10 +13,25 @@
+
+ using json = nlohmann::ordered_json;
+
++// SERVER_TASK_TYPE_SCORE emits one logits output per candidate token (plus
++// the forced last-token output), and the context's output budget
++// (n_outputs_max) is reserved up front — so candidate length must be
++// bounded. Raising this raises the worst-case compute-buffer reservation
++// by ~n_vocab * 4 bytes per extra output.
++constexpr int32_t SERVER_SCORE_MAX_CAND_TOKENS = 64;
++
++// Maximum sequences forked off the shared prefix in one score suffix
++// decode. The context is created with this many seq ids (and
++// recurrent-state cells) beyond the parallel slots — see
++// common_params::n_seq_score_forks; candidates in excess of the budget
++// are decoded in successive chunks.
++constexpr int32_t SERVER_SCORE_FORK_SEQS = 16;
++
+ enum server_task_type {
+     SERVER_TASK_TYPE_COMPLETION,
+     SERVER_TASK_TYPE_EMBEDDING,
+     SERVER_TASK_TYPE_RERANK,
++    SERVER_TASK_TYPE_SCORE,
+     SERVER_TASK_TYPE_INFILL,
+     SERVER_TASK_TYPE_CANCEL,
+     SERVER_TASK_TYPE_CONTROL,
+@@ -153,6 +168,18 @@ struct server_task {
+     task_params   params;
+     server_tokens tokens;
+
++    // used by SERVER_TASK_TYPE_SCORE: `tokens` holds the shared prefix
++    // (prompt + longest common candidate token prefix) and logprobs are
++    // returned for its tokens from n_score_prompt onward. Each candidate's
++    // tokens beyond the shared prefix ride a forked sequence.
++    int32_t n_score_prompt = 0;
++    std::vector<llama_tokens> score_suffixes;
++    // token index where the caller-declared stable prompt prefix ends
++    // (0 = no hint): the option-list system prompt that repeats across
++    // scoring calls. A context checkpoint is forced there so models that
++    // cannot rewind state re-process only the per-call tail next time.
++    int32_t n_stable_prompt = 0;
++
+     // only used by CLI, this allow tokenizing CLI inputs on server side
+     // we need this because mtmd_context and vocab are not accessible outside of server_context
+     bool                    cli = false;
+@@ -197,6 +224,7 @@ struct server_task {
+         switch (type) {
+             case SERVER_TASK_TYPE_COMPLETION:
+             case SERVER_TASK_TYPE_INFILL:
++            case SERVER_TASK_TYPE_SCORE:
+                 return true;
+             default:
+                 return false;
+@@ -494,6 +522,25 @@ struct server_task_result_rerank : server_task_result {
+     virtual json to_json() override;
+ };
+
++struct server_task_result_score : server_task_result {
++    // log P(token | prefix) for the shared-prefix tokens after
++    // n_score_prompt, in order; NaN marks positions the decode never
++    // produced an output for
++    std::vector<float> shared_logprobs;
++
++    // per candidate: logprobs of its suffix tokens, in task order (entry
++    // 0 is the token right after the shared prefix, predicted by the last
++    // shared token's logits)
++    std::vector<std::vector<float>> cand_logprobs;
++
++    virtual json to_json() override {
++        return json {
++            {"shared_logprobs", shared_logprobs},
++            {"cand_logprobs",   cand_logprobs},
++        };
++    }
++};
++
+ struct server_task_result_error : server_task_result {
+     error_type err_type = ERROR_TYPE_SERVER;
+     std::string err_msg;
