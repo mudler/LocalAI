@@ -843,7 +843,7 @@
     - https://huggingface.co/Qwen/Qwen3-4B
     - https://huggingface.co/unsloth/Qwen3-4B-GGUF
     - https://huggingface.co/z-lab/Qwen3-4B-DFlash
-    - https://huggingface.co/lym00/Qwen3-4B-DFlash-GGUF-Test
+    - https://huggingface.co/AtomicChat/Qwen3-4B-DFlash-GGUF
   description: |
     Qwen3-4B paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend. This is the canonical DFlash pairing documented upstream (`z-lab/Qwen3-4B-DFlash` + `Qwen/Qwen3-4B`).
 
@@ -864,7 +864,7 @@
   overrides:
     backend: llama-cpp
     flash_attention: "on"
-    draft_model: llama-cpp/models/Qwen3-4B-DFlash-GGUF-Test/Qwen3-4B-DFlash-q8_0.gguf
+    draft_model: llama-cpp/models/Qwen3-4B-DFlash-GGUF/Qwen3-4B-DFlash.Q8_0.gguf
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -883,9 +883,9 @@
     - filename: llama-cpp/models/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf
       sha256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
       uri: https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
-    - filename: llama-cpp/models/Qwen3-4B-DFlash-GGUF-Test/Qwen3-4B-DFlash-q8_0.gguf
-      sha256: 5ecf02bb269fc42277f43961794387fea11ecc367ea2d99e86b2b71cc249aff6
-      uri: https://huggingface.co/lym00/Qwen3-4B-DFlash-GGUF-Test/resolve/main/Qwen3-4B-DFlash-q8_0.gguf
+    - filename: llama-cpp/models/Qwen3-4B-DFlash-GGUF/Qwen3-4B-DFlash.Q8_0.gguf
+      sha256: 2913a8a5619b30233c0745ccd58de8fbe144b831b54770eb04d4a371221ca273
+      uri: https://huggingface.co/AtomicChat/Qwen3-4B-DFlash-GGUF/resolve/main/Qwen3-4B-DFlash.Q8_0.gguf
 - name: "qwen3.5-4b-dflash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -941,7 +941,7 @@
     - https://huggingface.co/Qwen/Qwen3.5-9B
     - https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
     - https://huggingface.co/z-lab/Qwen3.5-9B-DFlash
-    - https://huggingface.co/lym00/Qwen3.5-9B-DFlash-GGUF-Test
+    - https://huggingface.co/AtomicChat/Qwen3.5-9B-DFlash-GGUF
   description: |
     Qwen3.5-9B paired with its DFlash block-diffusion drafter for speculative decoding on the llama.cpp backend.
 
@@ -962,7 +962,7 @@
   overrides:
     backend: llama-cpp
     flash_attention: "on"
-    draft_model: llama-cpp/models/Qwen3.5-9B-DFlash-GGUF-Test/Qwen3.5-9B-DFlash-q8_0.gguf
+    draft_model: llama-cpp/models/Qwen3.5-9B-DFlash-GGUF/Qwen3.5-9B-DFlash.Q8_0.gguf
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -981,9 +981,9 @@
     - filename: llama-cpp/models/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
       sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
       uri: https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
-    - filename: llama-cpp/models/Qwen3.5-9B-DFlash-GGUF-Test/Qwen3.5-9B-DFlash-q8_0.gguf
-      sha256: 4f76ecff951dd371eea318be9ca60b4dd0800a677c11e14c092fab3358251dc1
-      uri: https://huggingface.co/lym00/Qwen3.5-9B-DFlash-GGUF-Test/resolve/main/Qwen3.5-9B-DFlash-q8_0.gguf
+    - filename: llama-cpp/models/Qwen3.5-9B-DFlash-GGUF/Qwen3.5-9B-DFlash.Q8_0.gguf
+      sha256: 27b9d18e605aea9c50ef506e4b63921e0dc624cc91c63c60617a8295f153d436
+      uri: https://huggingface.co/AtomicChat/Qwen3.5-9B-DFlash-GGUF/resolve/main/Qwen3.5-9B-DFlash.Q8_0.gguf
 - name: "qwen3.6-27b-dflash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
