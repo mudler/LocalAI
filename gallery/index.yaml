@@ -1,4 +1,55 @@
 ---
+- name: "qwythos-9b-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF
+  description: |
+    Empero AI
+
+    # Qwythos-9B-v2 — the new and improved Qwythos
+
+    The next iteration of Qwythos: **all the reasoning of Qwythos-9B, with the looping behavior fixed.** v2 keeps the deep chain-of-thought, the uncensored research posture, and the 1M-token context of its predecessor, and cleans up the rough edges that showed up in real use.
+
+      - 🔁 **Looping behavior eliminated** — repetition/degeneration under greedy or low-temperature decoding dropped from **6.7% → 0%**. You can serve it *without* leaning on `repetition_penalty` as a band-aid.
+      - 🧠 **Reasoning fully preserved** — MMLU, GSM8K, GPQA, ARC and HumanEval are all held at (or above) the v1 level. This is a *hygiene* upgrade, not a capability regression.
+      - 🧩 **MTP head restored** — the native multi-token-prediction module (dropped in the previous export) is back, so config and weights agree and speculative-decoding setups work.
+      - 🪪 **Cleaner identity** — the model no longer prefaces unrelated answers with its identity; it introduces itself only when you actually ask.
+      - 🔓 **Still intentionally uncensored** for research, cybersecurity, red-teaming, biology, chemistry, pharmacology and clinical work.
+      - 📜 **St
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwythos-9B-v2-MTP-Q4_K_M/mmproj-Qwythos-9B-v2-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwythos-9B-v2-MTP-Q4_K_M/Qwythos-9B-v2-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwythos-9B-v2-MTP-Q4_K_M/Qwythos-9B-v2-MTP-Q4_K_M.gguf
+      sha256: cfdd00ac1c1dc9ced33f23817fb4282f2594067e02e34d82e3e63bc0ea275b05
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF/resolve/main/Qwythos-9B-v2-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwythos-9B-v2-MTP-Q4_K_M/mmproj-Qwythos-9B-v2-BF16.gguf
+      sha256: 0d1687cb33124c78acab788b342d4a2eaf85b3035e87c3abe4ee9d0b84ddb4f5
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF/resolve/main/mmproj-Qwythos-9B-v2-BF16.gguf
 - name: "qwen3.6-27b-fable-fusion-711-uncensored-heretic-nm-dau-neo-max-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
