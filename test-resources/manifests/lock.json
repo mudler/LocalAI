@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "bundles": {
+    "aio": "embedded",
+    "backend": "embedded",
+    "default": "embedded",
+    "distributed-e2e": "embedded",
+    "external-probes": "embedded",
+    "hardware": "embedded"
+  }
+}

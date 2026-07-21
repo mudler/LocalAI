@@ -354,8 +354,20 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 	})
 
-	Context("when getting file SHA on remote model", func() {
+	Context("when getting file SHA from repository metadata", func() {
 		It("should get file SHA successfully", func() {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, err := w.Write([]byte(`[{
+					"type":"file",
+					"path":"localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf",
+					"size":42,
+					"oid":"pointer-oid",
+					"lfs":{"oid":"4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4","size":42,"pointerSize":128}
+				}]`))
+				Expect(err).NotTo(HaveOccurred())
+			}))
+			client.SetBaseURL(server.URL + "/api/models")
 			sha, err := client.GetFileSHA(
 				"mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF", "localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf")
 			Expect(err).ToNot(HaveOccurred())
@@ -886,14 +898,33 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 	})
 
-	Context("integration test with real HuggingFace API", func() {
-		It("should recursively list all files including subfolders from real repository", func() {
-			// This test makes actual API calls to HuggingFace
-			// Skip if running in CI or if network is not available
-			realClient := hfapi.NewClient()
+	Context("repository API compatibility fixtures", func() {
+		It("should recursively list all files including subfolders", func() {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				var response string
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/tree/main"):
+					response = `[
+						{"type":"file","path":"README.md","size":100,"oid":"readme-oid"},
+						{"type":"directory","path":"Q4_K_M","size":0,"oid":"directory-oid"}
+					]`
+				case strings.HasSuffix(r.URL.Path, "/tree/main/Q4_K_M"):
+					response = `[
+						{"type":"file","path":"Q4_K_M/model-00001-of-00002.gguf","size":1000,"oid":"model-oid"}
+					]`
+				default:
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				_, err := w.Write([]byte(response))
+				Expect(err).NotTo(HaveOccurred())
+			}))
+			fixtureClient := hfapi.NewClient()
+			fixtureClient.SetBaseURL(server.URL + "/api/models")
 			repoID := "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF"
 
-			files, err := realClient.ListFiles(repoID)
+			files, err := fixtureClient.ListFiles(repoID)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).ToNot(BeEmpty(), "should return at least some files")
@@ -956,12 +987,19 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 
 		It("should populate PipelineTag and LibraryName on ModelDetails", func() {
-			// Sentence-transformers/all-MiniLM-L6-v2 is a public, stable repo:
-			// pipeline_tag: sentence-similarity, library_name: sentence-transformers.
-			// This exercises the /api/models/{repo} metadata fetch layered on top
-			// of ListFiles in GetModelDetails.
-			realClient := hfapi.NewClient()
-			details, err := realClient.GetModelDetails("sentence-transformers/all-MiniLM-L6-v2")
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if strings.Contains(r.URL.Path, "/tree/main") {
+					_, err := w.Write([]byte(`[{"type":"file","path":"config.json","size":100,"oid":"config-oid"}]`))
+					Expect(err).NotTo(HaveOccurred())
+					return
+				}
+				_, err := w.Write([]byte(`{"pipeline_tag":"sentence-similarity","library_name":"sentence-transformers"}`))
+				Expect(err).NotTo(HaveOccurred())
+			}))
+			fixtureClient := hfapi.NewClient()
+			fixtureClient.SetBaseURL(server.URL + "/api/models")
+			details, err := fixtureClient.GetModelDetails("sentence-transformers/all-MiniLM-L6-v2")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(details).ToNot(BeNil())
 			Expect(details.PipelineTag).To(Equal("sentence-similarity"))

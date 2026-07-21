@@ -1,12 +1,18 @@
 package gallery
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -15,9 +21,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	testImage = "quay.io/mudler/tests:localai-backend-test"
-)
+func writeBackendImageFixture(path string) {
+	var layerTar bytes.Buffer
+	w := tar.NewWriter(&layerTar)
+	contents := []byte("#!/bin/sh\necho test backend\n")
+	Expect(w.WriteHeader(&tar.Header{Name: "run.sh", Mode: 0o755, Size: int64(len(contents))})).To(Succeed())
+	_, err := w.Write(contents)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(w.Close()).To(Succeed())
+
+	layer, err := tarball.LayerFromReader(bytes.NewReader(layerTar.Bytes()))
+	Expect(err).NotTo(HaveOccurred())
+	image, err := mutate.AppendLayers(empty.Image, layer)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(tarball.WriteToFile(path, name.MustParseReference("localai/backend-test:fixture"), image)).To(Succeed())
+}
 
 var _ = Describe("Runtime capability-based backend selection", func() {
 	var tempDir string
@@ -99,6 +117,7 @@ var _ = Describe("Gallery Backends", func() {
 		galleries   []config.Gallery
 		ml          *model.ModelLoader
 		systemState *system.SystemState
+		testImage   string
 	)
 
 	BeforeEach(func() {
@@ -106,11 +125,21 @@ var _ = Describe("Gallery Backends", func() {
 		tempDir, err = os.MkdirTemp("", "gallery-test-*")
 		Expect(err).NotTo(HaveOccurred())
 
-		// Setup test galleries
+		imagePath := filepath.Join(tempDir, "backend-image.tar")
+		writeBackendImageFixture(imagePath)
+		testImage = "ocifile://" + imagePath
+
+		galleryPath := filepath.Join(tempDir, "backend-gallery.yaml")
+		galleryData, err := yaml.Marshal(GalleryBackends{
+			&GalleryBackend{Metadata: Metadata{Name: "test-backend"}, URI: testImage},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(galleryPath, galleryData, 0o644)).To(Succeed())
+
 		galleries = []config.Gallery{
 			{
 				Name: "test-gallery",
-				URL:  "https://gist.githubusercontent.com/mudler/71d5376bc2aa168873fa519fa9f4bd56/raw/0557f9c640c159fa8e4eab29e8d98df6a3d6e80f/backend-gallery.yaml",
+				URL:  "file://" + galleryPath,
 			},
 		}
 		systemState, err = system.GetSystemState(system.WithBackendPath(tempDir))
@@ -877,7 +906,7 @@ var _ = Describe("Gallery Backends", func() {
 				Metadata: Metadata{
 					Name: "test-backend",
 				},
-				URI:   "quay.io/mudler/tests:localai-backend-test",
+				URI:   testImage,
 				Alias: "test-alias",
 			}
 
@@ -907,7 +936,7 @@ var _ = Describe("Gallery Backends", func() {
 				Metadata: Metadata{
 					Name: "test-backend",
 				},
-				URI:   "quay.io/mudler/tests:localai-backend-test",
+				URI:   testImage,
 				Alias: "test-alias",
 			}
 
@@ -931,7 +960,7 @@ var _ = Describe("Gallery Backends", func() {
 				Metadata: Metadata{
 					Name: "test-backend",
 				},
-				URI:   "quay.io/mudler/tests:localai-backend-test",
+				URI:   testImage,
 				Alias: "test-alias",
 			}
 

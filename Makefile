@@ -104,9 +104,13 @@ COVERAGE_SUITE_TIMEOUT?=5m
 COVERAGE_PROGRESS_AFTER?=30s
 ## Drop generated protobuf from the denominator (it has no tests by design).
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
+TEST_RESOURCE_TARGET?=default
+TEST_RESOURCE_CACHE?=$(abspath ./.cache/test-resources)
+TEST_RESOURCE_MANIFESTS?=$(abspath ./test-resources/manifests)
+OFFLINE_RUN=$(abspath ./scripts/run-test-offline.sh)
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test test-resources update-test-resources test-network-lint test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -198,11 +202,24 @@ prepare-test: protogen-go build-mock-backend
 ## now drives the mock-backend binary built by build-mock-backend; real-backend
 ## inference moved into tests/e2e-backends/ (per-backend, path-filtered) and
 ## tests/e2e-aio/ (nightly).
-test: prepare-test
+test-resources:
+	@test -n "$(TARGET)" || { echo 'TARGET is required, for example: make test-resources TARGET=default'; exit 2; }
+	$(GOCMD) run ./cmd/test-resources prepare "$(TARGET)" "$(TEST_RESOURCE_MANIFESTS)" "$(TEST_RESOURCE_CACHE)"
+
+test-network-lint:
+	scripts/test-network-lint.sh
+
+update-test-resources:
+	@test -n "$(TARGET)" || { echo 'TARGET is required, for example: make update-test-resources TARGET=default'; exit 2; }
+	@test "$$LOCALAI_TEST_RESOURCES_ONLINE" = 1 || { echo 'Set LOCALAI_TEST_RESOURCES_ONLINE=1 to enter explicit online record mode'; exit 2; }
+	$(GOCMD) run ./cmd/test-resources update "$(TARGET)" "$(TEST_RESOURCE_MANIFESTS)" "$(TEST_RESOURCE_CACHE)"
+
+test: TARGET=default
+test: test-resources test-network-lint prepare-test
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+	$(OFFLINE_RUN) $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 
 ## Compiles and runs the standalone C++ unit tests for the backends (pure
 ## helpers that depend only on the stdlib + nlohmann/json, no full backend
@@ -229,7 +246,8 @@ test-ci-scripts:
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
 ## --fail-fast so a single failure doesn't truncate the coverage number, and
 ## uses covermode=atomic so the result is deterministic. Prints the total.
-test-coverage: prepare-test
+test-coverage: TARGET=default
+test-coverage: test-resources test-network-lint prepare-test
 	@echo 'Running tests with coverage (test failures stop before the percentage ratchet)'
 	GINKGO_TAGS="$(COVERAGE_TAGS)" \
 	COVERAGE_COVERPKG="$(COVERAGE_COVERPKG)" \
@@ -240,7 +258,7 @@ test-coverage: prepare-test
 	COVERAGE_PROGRESS_AFTER="$(COVERAGE_PROGRESS_AFTER)" \
 	COVERAGE_EXCLUDE_RE='$(COVERAGE_EXCLUDE_RE)' \
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
-	scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
+	$(OFFLINE_RUN) scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
 	@$(GOCMD) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_DIR)/coverage.html
 	@$(GOCMD) tool cover -func=$(COVERAGE_PROFILE) | tail -n1
 
@@ -333,16 +351,18 @@ e2e-aio:
 	LOCALAI_IMAGE=local-ai \
 	$(MAKE) run-e2e-aio
 
-run-e2e-aio: protogen-go
+run-e2e-aio: TARGET=aio
+run-e2e-aio: test-resources protogen-go
 	@echo 'Running e2e AIO tests'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
+	$(OFFLINE_RUN) $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
 # Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
 # Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
-test-e2e-distributed: protogen-go
+test-e2e-distributed: TARGET=distributed-e2e
+test-e2e-distributed: test-resources protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+	$(OFFLINE_RUN) $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
