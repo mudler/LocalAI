@@ -16,6 +16,10 @@ import (
 )
 
 func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader func(ocispec.Descriptor) io.Writer) error {
+	return fetchImageBlob(ctx, r, reference, dst, statusReader, false)
+}
+
+func fetchImageBlob(ctx context.Context, r, reference, dst string, statusReader func(ocispec.Descriptor) io.Writer, plainHTTP bool) error {
 	// 0. Create a file store for the output
 	fs, err := os.Create(dst)
 	if err != nil {
@@ -29,6 +33,7 @@ func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader 
 		return fmt.Errorf("failed to create repository: %v", err)
 	}
 	repo.SkipReferrersGC = true
+	repo.PlainHTTP = plainHTTP
 
 	// Identify LocalAI to the registry. This mirrors oras' auth.DefaultClient
 	// (same retry policy) but advertises a LocalAI User-Agent instead of the

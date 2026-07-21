@@ -3,6 +3,8 @@ package startup_test
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 
@@ -39,7 +41,11 @@ var _ = Describe("Preload test", func() {
 
 	Context("Preloading from strings", func() {
 		It("loads from embedded full-urls", func() {
-			url := "https://raw.githubusercontent.com/mudler/LocalAI-examples/main/configurations/phi-2.yaml"
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("name: phi-2\nbackend: llama-cpp\nparameters:\n  model: phi-2.gguf\n"))
+			}))
+			defer server.Close()
+			url := server.URL + "/phi-2.yaml"
 			fileName := fmt.Sprintf("%s.yaml", "phi-2")
 
 			galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
@@ -59,7 +65,11 @@ var _ = Describe("Preload test", func() {
 			Expect(string(content)).To(ContainSubstring("name: phi-2"))
 		})
 		It("downloads from urls", func() {
-			url := "huggingface://TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/tinyllama-1.1b-chat-v0.3.Q2_K.gguf"
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("tiny local GGUF fixture"))
+			}))
+			defer server.Close()
+			url := server.URL + "/tinyllama-1.1b-chat-v0.3.Q2_K.gguf"
 			fileName := fmt.Sprintf("%s.gguf", "tinyllama-1.1b-chat-v0.3.Q2_K")
 
 			galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{

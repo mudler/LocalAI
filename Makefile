@@ -99,6 +99,9 @@ COVERAGE_COVERPKG?=github.com/mudler/LocalAI/core/...,github.com/mudler/LocalAI/
 ## the coverage CI job doesn't do.
 COVERAGE_E2E_ROOTS?=./tests/e2e
 COVERAGE_E2E_LABELS?=!real-models
+COVERAGE_PROCS?=0
+COVERAGE_SUITE_TIMEOUT?=5m
+COVERAGE_PROGRESS_AFTER?=30s
 ## Drop generated protobuf from the denominator (it has no tests by design).
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
@@ -232,6 +235,9 @@ test-coverage: prepare-test
 	COVERAGE_COVERPKG="$(COVERAGE_COVERPKG)" \
 	COVERAGE_E2E_ROOTS="$(COVERAGE_E2E_ROOTS)" \
 	COVERAGE_E2E_LABELS="$(COVERAGE_E2E_LABELS)" \
+	COVERAGE_PROCS="$(COVERAGE_PROCS)" \
+	COVERAGE_SUITE_TIMEOUT="$(COVERAGE_SUITE_TIMEOUT)" \
+	COVERAGE_PROGRESS_AFTER="$(COVERAGE_PROGRESS_AFTER)" \
 	COVERAGE_EXCLUDE_RE='$(COVERAGE_EXCLUDE_RE)' \
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)

@@ -75,13 +75,18 @@ func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.Gal
 			}
 
 			var status *galleryop.OpStatus
-			// wait for op to finish
+			poll := time.NewTicker(50 * time.Millisecond)
+			defer poll.Stop()
 			for {
 				status = galleryService.GetStatus(uuid.String())
 				if status != nil && status.Processed {
 					break
 				}
-				time.Sleep(1 * time.Second)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-poll.C:
+				}
 			}
 
 			if status.Error != nil {

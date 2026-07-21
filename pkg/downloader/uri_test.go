@@ -263,9 +263,7 @@ var _ = Describe("Download Test", func() {
 		_, err = _mockDataSha.Write(mockData)
 		Expect(err).ToNot(HaveOccurred())
 		mockDataSha = fmt.Sprintf("%x", _mockDataSha.Sum(nil))
-		dir, err := os.Getwd()
-		filePath = dir + "/my_supercool_model"
-		Expect(err).NotTo(HaveOccurred())
+		filePath = GinkgoT().TempDir() + "/my_supercool_model"
 	})
 
 	Context("URI DownloadFile", func() {
