@@ -106,8 +106,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
 
-			if len(config.PromptStrings) > 1 {
-				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
+			if len(config.PromptStrings) != 1 {
+				return errors.New("streaming completions require exactly 1 `PromptStrings`")
 			}
 
 			// Response/output PII redaction is out of scope for now —
