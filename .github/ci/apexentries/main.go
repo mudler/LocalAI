@@ -68,6 +68,13 @@ type family struct {
 	stem      string
 	hasMMProj bool
 	children  []childBuild
+
+	// skippedRepos are counterpart candidates HuggingFace would not describe.
+	// Carried on the family rather than printed and forgotten so the run can
+	// summarize them next to everything else a reviewer has to eyeball.
+	skippedRepos []string
+	unclassified int
+	unaccounted  int
 }
 
 // sortedChildren returns the family's builds in ladder order, best first.
@@ -180,10 +187,12 @@ func generate(indexPath, only, outPath string, apply bool) error {
 	}
 	reportHubs(ixText, inserts, newHubs)
 
+	skipped, unclassified, unaccounted := reportSkipped(families)
+
 	add = append(add, newHubs...)
 
-	fmt.Printf("\nentries generated: %d\nentries to add:    %d\nentries reused:    %d\nhubs spliced:      %d\nhubs created:      %d\n",
-		len(generated), len(add), len(reused), len(inserts), len(newHubs))
+	fmt.Printf("\nentries generated: %d\nentries to add:    %d\nentries reused:    %d\nhubs spliced:      %d\nhubs created:      %d\nrepos skipped:     %d\nunclassified:      %d\nunaccounted:       %d\n",
+		len(generated), len(add), len(reused), len(inserts), len(newHubs), len(skipped), unclassified, unaccounted)
 
 	lines, err := galleryedit.Apply(ixText.Lines, inserts)
 	if err != nil {
@@ -228,7 +237,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	imatrix, plain := DiscoverAPEXTiers(files)
 	mmproj, hasMMProj := DiscoverMMProj(files)
 
-	reportUnclassified(repo, files, imatrix, plain)
+	unclassified := reportUnclassified(repo, files, imatrix, plain)
 
 	// The imatrix ladder is preferred, but two of the 45 repos publish no
 	// imatrix tiers at all and must still contribute their plain ladder.
@@ -250,7 +259,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	}
 
 	repoBase := strings.TrimSuffix(path.Base(repo), "-GGUF")
-	f := &family{repo: repo, repoBase: repoBase, hasMMProj: hasMMProj}
+	f := &family{repo: repo, repoBase: repoBase, hasMMProj: hasMMProj, unclassified: unclassified}
 
 	for _, t := range ladder {
 		f.children = append(f.children, childBuild{
@@ -271,7 +280,8 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	fmt.Printf("%s: %d %s tier(s) [%s], stem %s, mmproj %v\n",
 		repo, len(ladder), ladderKind, tierLabels(ladder), stem, hasMMProj)
 
-	counterpart, cpFiles, err := resolveCounterpart(client, repoBase, stem)
+	counterpart, cpFiles, skipped, err := resolveCounterpart(client, repoBase, stem)
+	f.skippedRepos = skipped
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +291,9 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 		// Called here rather than inside Verify: a quant dropped at discovery
 		// leaves no trace at all in the finished gallery file, so the only place
 		// the shortfall is still visible is the moment of discovery.
-		for _, p := range UnaccountedQuants(cpFiles, builds) {
+		unaccounted := UnaccountedQuants(cpFiles, builds)
+		f.unaccounted = len(unaccounted)
+		for _, p := range unaccounted {
 			fmt.Fprintf(os.Stderr, "UNACCOUNTED QUANT %s: %s\n", counterpart, p)
 		}
 
@@ -432,18 +444,28 @@ func hasTag(tags []string, want string) bool {
 // CounterpartCandidates is handed a BARE repo name: its cleaner does not strip
 // an owner prefix, so passing "mudler/Foo-APEX-GGUF" would yield "mudler/Foo"
 // and compose into the nonsense probe "unsloth/mudler/Foo".
-func resolveCounterpart(client *http.Client, repoBase, stem string) (string, []GGUFFile, error) {
+//
+// It also returns the candidates HuggingFace refused to describe. Those are
+// indistinguishable from absent without credentials, so they are skipped, but
+// they are named rather than dropped: one of them could be a real gated repo
+// whose quants belong in the gallery.
+func resolveCounterpart(client *http.Client, repoBase, stem string) (string, []GGUFFile, []string, error) {
+	var unavailable []string
 	for _, cand := range CounterpartCandidates(repoBase, stem) {
 		repo := unslothOwner + "/" + cand + "-GGUF"
-		files, err := FetchRepoFiles(client, repo)
+		files, unreadable, err := FetchOptionalRepoFiles(client, repo)
 		if err != nil {
-			return "", nil, fmt.Errorf("probing %s: %w", repo, err)
+			return "", nil, unavailable, fmt.Errorf("probing %s: %w", repo, err)
+		}
+		if unreadable {
+			unavailable = append(unavailable, repo)
+			continue
 		}
 		if len(files) > 0 {
-			return repo, files, nil
+			return repo, files, unavailable, nil
 		}
 	}
-	return "", nil, nil
+	return "", nil, unavailable, nil
 }
 
 // reportUnclassified prints the files discovery turned into nothing.
@@ -456,7 +478,8 @@ func resolveCounterpart(client *http.Client, repoBase, stem string) (string, []G
 // fail to match silently downgrades the whole family instead of erroring. The
 // downstream HTTP check cannot catch that: it validates URLs that were emitted,
 // and an undiscovered tier emits none.
-func reportUnclassified(repo string, files []GGUFFile, imatrix, plain []Tier) {
+// It returns how many files went unclassified so the run can total them.
+func reportUnclassified(repo string, files []GGUFFile, imatrix, plain []Tier) int {
 	mmprojCount := 0
 	for _, f := range files {
 		if strings.HasPrefix(f.Name, "mmproj") {
@@ -465,10 +488,12 @@ func reportUnclassified(repo string, files []GGUFFile, imatrix, plain []Tier) {
 	}
 
 	classified := len(imatrix) + len(plain) + mmprojCount
-	if classified < len(files) {
-		fmt.Fprintf(os.Stderr, "UNCLASSIFIED %s: %d of %d .gguf files classified, %d unaccounted for\n",
-			repo, classified, len(files), len(files)-classified)
+	if classified >= len(files) {
+		return 0
 	}
+	fmt.Fprintf(os.Stderr, "UNCLASSIFIED %s: %d of %d .gguf files classified, %d unaccounted for\n",
+		repo, classified, len(files), len(files)-classified)
+	return len(files) - classified
 }
 
 // reportReuse splits Merge's single reused map into the two cases it conflates.
@@ -539,6 +564,32 @@ func reportHubs(ix *IndexText, inserts []galleryedit.Insert, newHubs []GalleryEn
 			fmt.Printf("    - model: %s\n", v.Model)
 		}
 	}
+}
+
+// reportSkipped names the counterpart repos HuggingFace would not describe, and
+// totals the other two silent-shortfall counters alongside them.
+//
+// A skipped repo is not the same as a clean 404. HuggingFace answers 401 for a
+// nonexistent repo to an unauthenticated client, so the overwhelmingly likely
+// reading is "there is no such counterpart", which is the normal case for the
+// community merges. But a private or gated repo answers 401 too, and that one
+// WOULD have quants worth shipping. Printing the list is what keeps that
+// possibility auditable instead of silently discarded.
+func reportSkipped(families []family) ([]string, int, int) {
+	var skipped []string
+	unclassified, unaccounted := 0, 0
+	for _, f := range families {
+		skipped = append(skipped, f.skippedRepos...)
+		unclassified += f.unclassified
+		unaccounted += f.unaccounted
+	}
+	sort.Strings(skipped)
+
+	fmt.Printf("\nREPOS SKIPPED AS UNAVAILABLE (%d) - HuggingFace answered 401/403, which is indistinguishable from absent without a token; check none of these is a real gated repo\n", len(skipped))
+	for _, r := range skipped {
+		fmt.Printf("  %s\n", r)
+	}
+	return skipped, unclassified, unaccounted
 }
 
 func hasName(ix *ExistingIndex, name string) bool {
