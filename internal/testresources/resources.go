@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,9 +26,17 @@ type Manifest struct {
 }
 
 type HTTP struct {
-	Method string `json:"method"`
-	URL    string `json:"url"`
-	SHA256 string `json:"sha256"`
+	Method         string            `json:"method"`
+	URL            string            `json:"url"`
+	SHA256         string            `json:"sha256"`
+	RequestHeaders map[string]string `json:"request_headers,omitempty"`
+}
+
+type HTTPEntry struct {
+	Digest string      `json:"digest"`
+	Size   int64       `json:"size"`
+	Status int         `json:"status"`
+	Header http.Header `json:"header"`
 }
 
 type File struct {
@@ -67,6 +76,15 @@ func LoadLock(path string) (Lock, error) {
 		return lock, fmt.Errorf("%s: unsupported version %d", path, lock.Version)
 	}
 	return lock, nil
+}
+
+func WriteLock(path string, lock Lock) error {
+	data, err := json.MarshalIndent(lock, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(path, data, 0o644)
 }
 
 func decode(path string, value any) error {
@@ -115,6 +133,33 @@ func (m Manifest) Validate() error {
 
 func BlobPath(cacheDir, digest string) string {
 	return filepath.Join(cacheDir, "blobs", "sha256", digest)
+}
+
+func RequestKey(method, rawURL string, headers ...http.Header) string {
+	key := strings.ToUpper(method) + " " + rawURL
+	if len(headers) == 0 {
+		return key
+	}
+	for _, name := range []string{"Authorization", "Range"} {
+		value := headers[0].Get(name)
+		if value == "" {
+			continue
+		}
+		if name == "Authorization" {
+			digest := sha256.Sum256([]byte(value))
+			value = "sha256:" + hex.EncodeToString(digest[:])
+		}
+		key += "\n" + strings.ToLower(name) + ":" + value
+	}
+	return key
+}
+
+func (resource HTTP) Headers() http.Header {
+	header := make(http.Header, len(resource.RequestHeaders))
+	for name, value := range resource.RequestHeaders {
+		header.Set(name, value)
+	}
+	return header
 }
 
 func VerifyBlob(cacheDir, digest string) (string, error) {

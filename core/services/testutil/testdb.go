@@ -2,11 +2,14 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"time"
 
+	"github.com/mudler/LocalAI/internal/testfixtures"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -23,17 +26,22 @@ func SetupTestDB() *gorm.DB {
 		Skip("testcontainers requires Docker, not available on macOS CI")
 	}
 	ctx := context.Background()
-	pgC, err := tcpostgres.Run(ctx, "postgres:16",
+	Expect(testfixtures.RequireImage(ctx, testfixtures.Postgres16, "default")).To(Succeed())
+	testNetwork, err := testfixtures.DockerNetwork()
+	Expect(err).NotTo(HaveOccurred())
+	pgC, err := tcpostgres.Run(ctx, testfixtures.Postgres16,
 		tcpostgres.WithDatabase("testdb"),
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),
 		testcontainers.WithWaitStrategyAndDeadline(60*time.Second,
 			wait.ForLog("database system is ready to accept connections").WithOccurrence(2)),
+		tcnetwork.WithNetworkName([]string{"postgres"}, testNetwork),
 	)
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(func() { pgC.Terminate(context.Background()) })
-	connStr, err := pgC.ConnectionString(ctx, "sslmode=disable")
+	endpoint, err := testfixtures.ContainerEndpoint(ctx, pgC, "5432")
 	Expect(err).ToNot(HaveOccurred())
+	connStr := fmt.Sprintf("postgres://test:test@%s/testdb?sslmode=disable", endpoint)
 	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
