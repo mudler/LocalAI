@@ -5,7 +5,7 @@ weight = 41
 url = "/features/object-detection/"
 +++
 
-LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) (Python) and [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp) (native C++/ggml) for object detection and segmentation, and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
+LocalAI supports object detection and image segmentation through various backends. This feature allows you to identify and locate objects within images with high accuracy and real-time performance. Available backends include [RF-DETR](https://github.com/roboflow/rf-detr) (Python) and [rf-detr.cpp](https://github.com/localai-org/rf-detr.cpp) (native C++/ggml) for object detection and segmentation, and [sam3.cpp](https://github.com/PABannier/sam3.cpp) for image segmentation (SAM 3/2/EdgeTAM).
 
 For detecting **faces** specifically, see the dedicated
 [Face Recognition](/features/face-recognition/) feature - its
@@ -138,7 +138,7 @@ You can browse and install this model through the LocalAI web interface or using
 ### RF-DETR Native Backend (rfdetr-cpp)
 
 The `rfdetr-cpp` backend is a native C++/ggml implementation of RF-DETR
-inference based on [rf-detr.cpp](https://github.com/mudler/rf-detr.cpp). It
+inference based on [rf-detr.cpp](https://github.com/localai-org/rf-detr.cpp). It
 runs as a Go gRPC service that dlopens a per-CPU-variant shared library, so
 there is no Python runtime on the inference path - startup is fast and the
 binary is self-contained.
