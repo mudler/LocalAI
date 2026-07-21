@@ -3,21 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF
-  description: |
-    Empero AI
-
-    # Qwythos-9B-v2 — the new and improved Qwythos
-
-    The next iteration of Qwythos: **all the reasoning of Qwythos-9B, with the looping behavior fixed.** v2 keeps the deep chain-of-thought, the uncensored research posture, and the 1M-token context of its predecessor, and cleans up the rough edges that showed up in real use.
-
-      - 🔁 **Looping behavior eliminated** — repetition/degeneration under greedy or low-temperature decoding dropped from **6.7% → 0%**. You can serve it *without* leaning on `repetition_penalty` as a band-aid.
-      - 🧠 **Reasoning fully preserved** — MMLU, GSM8K, GPQA, ARC and HumanEval are all held at (or above) the v1 level. This is a *hygiene* upgrade, not a capability regression.
-      - 🧩 **MTP head restored** — the native multi-token-prediction module (dropped in the previous export) is back, so config and weights agree and speculative-decoding setups work.
-      - 🪪 **Cleaner identity** — the model no longer prefaces unrelated answers with its identity; it introduces itself only when you actually ask.
-      - 🔓 **Still intentionally uncensored** for research, cybersecurity, red-teaming, biology, chemistry, pharmacology and clinical work.
-      - 📜 **St
-
-    ...
+  description: "Empero AI\n\n# Qwythos-9B-v2 — the new and improved Qwythos\n\nThe next iteration of Qwythos: **all the reasoning of Qwythos-9B, with the looping behavior fixed.** v2 keeps the deep chain-of-thought, the uncensored research posture, and the 1M-token context of its predecessor, and cleans up the rough edges that showed up in real use.\n\n  - \U0001F501 **Looping behavior eliminated** — repetition/degeneration under greedy or low-temperature decoding dropped from **6.7% → 0%**. You can serve it *without* leaning on `repetition_penalty` as a band-aid.\n  - \U0001F9E0 **Reasoning fully preserved** — MMLU, GSM8K, GPQA, ARC and HumanEval are all held at (or above) the v1 level. This is a *hygiene* upgrade, not a capability regression.\n  - \U0001F9E9 **MTP head restored** — the native multi-token-prediction module (dropped in the previous export) is back, so config and weights agree and speculative-decoding setups work.\n  - \U0001FAAA **Cleaner identity** — the model no longer prefaces unrelated answers with its identity; it introduces itself only when you actually ask.\n  - \U0001F513 **Still intentionally uncensored** for research, cybersecurity, red-teaming, biology, chemistry, pharmacology and clinical work.\n  - \U0001F4DC **St\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -525,7 +511,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 54abd2e5620f88dc59db8fc22967932b0318384bb595464a42569a9e58a06c2d
+      sha256: 4127d81b1d77a8b71170c8e41186d60abe19e851ebfeabd817d269d3269f9ea7
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
