@@ -195,6 +195,24 @@ concurrency:
 - **PR events** group by PR number → newer pushes to the same PR cancel old runs (intended).
 - **Push events** group by `github.sha` → each master commit gets its own run; rapid-fire merges don't cancel each other (this was a real issue prior — two master pushes 11 seconds apart would cancel the first's CI).
 
+### Consequence: builds finish out of commit order
+
+Because no master run supersedes another, and because the backend queue routinely runs hours deep (measured 259.7 min average queue wait against 18.6 min average execution), **completion order does not track commit order**. A build of an older commit can finish long after a newer one.
+
+That used to move mutable tags backwards. On 19 Jul 2026 a build of commit `10211948b` (pushed 06:45 UTC) finished at 15:40 UTC and overwrote `master-nvidia-l4t-cuda-13-arm64-longcat-video`, which a 10:41 UTC build of `626ae4d51` had already advanced to a commit containing a merged cuDNN packaging fix. Everyone pulling `master-*` got the pre-fix image for two days, hitting `CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH` at inference.
+
+## Mutable tag ordering guard
+
+`scripts/tag-guard.mjs` (logic in `scripts/lib/tag-guard.mjs`, tests in `scripts/lib/tag-guard_test.mjs`, run by `make test-ci-scripts`) refuses to advance a mutable tag unless the incoming commit descends from the one the tag currently points at.
+
+- **Tag classes**: `sha-<commit>-<suffix>` is immutable and *always* publishes: it is how a human pins a known-good artifact, and it is how the incident above was worked around. `master-*`, `latest-*` and `v<version>-*` are mutable and go through the guard.
+- **How it decides**: reads `org.opencontainers.image.revision` off whatever the mutable tag currently points at (docker/metadata-action already stamps this at build time on the Linux path), then asks the GitHub compare API how the incoming commit relates to it. `ahead`/`identical` publish; `behind`/`diverged` are withheld.
+- **Why the compare API and not `git merge-base --is-ancestor`**: the merge and darwin-publish jobs use shallow sparse checkouts. Fetching full history into each of the ~200 merge jobs per push to answer one ancestry question is not worth it.
+- **Fail-open, loudly**: a tag that doesn't exist yet, an image with no revision label, an unreachable commit, or a registry/API error all publish anyway with a `::warning::` annotation and a job-summary line. A guard that failed closed on an API blip would itself stop shipping merged fixes. Every non-trivial decision is annotated; silence is the bug being fixed.
+- **Where it runs**: `backend_merge.yml` (both the quay and Docker Hub `imagetools create` steps, which are the multi-arch manifest merge *and* the tagging step for single-arch backends, since `backend_build.yml` pushes by digest only) and `backend_build_darwin.yml`'s publish job.
+- **Darwin caveat**: darwin images are `crane push`ed from a raw OCI tarball and carried no labels at all, so the publish job now stamps the revision with `crane mutate` after pushing. Until each darwin tag has gone through that step once, the guard has nothing to compare and fails open with a warning.
+- **Release tags**: `v*` tags go through the guard too. A fresh version tag has never been published, so it hits the "tag does not exist yet" path and always publishes. The guard costs nothing there, and it does protect `latest-*` if an old release build is ever re-run.
+
 ## Self-warming, no separate populator
 
 There is no cron job that pre-warms the BuildKit cache for individual backends. The production builds *are* the populators. The first master build of a given matrix entry pays the cold cost; subsequent same-entry master builds reuse everything that hasn't changed (apt installs, gRPC compile in the variant `builder-fromsource` stage or skipped entirely when consuming `base-grpc-*`, Python wheel installs, etc.). The base-images workflow's weekly cron is the closest thing to a populator and only refreshes the prebuilt builder bases.

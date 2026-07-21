@@ -281,6 +281,15 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      # Sparse checkout: the publish job needs `scripts/` for the mutable-tag
+      # ordering guard, nothing else from the source tree.
+      - name: Checkout (scripts only)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts
+          sparse-checkout-cone-mode: false
+
       - name: Download ${{ inputs.backend }}.tar
         uses: actions/download-artifact@v8
         with:
@@ -328,14 +337,47 @@ jobs:
             latest=auto
             suffix=${{ inputs.tag-suffix }},onlatest=true
 
+      # Mutable tags (master-*, latest-*, v*-*) must never move backwards: a
+      # straggler build of an older commit finishing after a newer one would
+      # silently un-ship whatever the newer one fixed. See
+      # scripts/lib/tag-guard.mjs. Immutable sha-* tags always publish.
+      #
+      # Darwin images are pushed as a raw OCI tarball, so unlike the Linux path
+      # (where docker/metadata-action bakes its labels in at build time) they
+      # carry no org.opencontainers.image.revision label for the guard to read.
+      # `crane mutate` stamps it after the push. Until each tag has been
+      # republished once through this step the guard has nothing to compare and
+      # fails open with a warning, which is the pre-existing behaviour.
+      #
+      # DOCKER_METADATA_OUTPUT_JSON is set per step rather than inherited: this
+      # job runs docker/metadata-action twice, so the ambient env var only ever
+      # holds the last one's output.
       - name: Push Docker image (DockerHub)
+        env:
+          REGISTRY_PREFIX: 'localai/'
+          GITHUB_TOKEN: ${{ github.token }}
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
         run: |
-          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
-            crane push ${{ inputs.backend }}.tar $tag
-          done
+          set -euo pipefail
+          node scripts/tag-guard.mjs > "${RUNNER_TEMP}/allowed-hub-tags.txt"
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            crane push "${{ inputs.backend }}.tar" "$tag"
+            crane mutate "$tag" -t "$tag" \
+              --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+          done < "${RUNNER_TEMP}/allowed-hub-tags.txt"
 
       - name: Push Docker image (Quay)
+        env:
+          REGISTRY_PREFIX: 'quay.io/'
+          GITHUB_TOKEN: ${{ github.token }}
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.quaymeta.outputs.json }}
         run: |
-          for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do
-            crane push ${{ inputs.backend }}.tar $tag
-          done
+          set -euo pipefail
+          node scripts/tag-guard.mjs > "${RUNNER_TEMP}/allowed-quay-tags.txt"
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            crane push "${{ inputs.backend }}.tar" "$tag"
+            crane mutate "$tag" -t "$tag" \
+              --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+          done < "${RUNNER_TEMP}/allowed-quay-tags.txt"
