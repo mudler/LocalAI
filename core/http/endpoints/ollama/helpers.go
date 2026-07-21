@@ -3,6 +3,7 @@ package ollama
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -57,7 +58,16 @@ func applyOllamaOptions(opts *schema.OllamaOptions, cfg *config.ModelConfig) {
 		cfg.StopWords = append(cfg.StopWords, opts.Stop...)
 	}
 	if opts.NumCtx > 0 {
-		cfg.ContextSize = &opts.NumCtx
+		// ContextSize is cast to int32 before it reaches the backend
+		// (core/backend/options.go), so a client-supplied num_ctx above
+		// math.MaxInt32 would silently wrap into a negative context size.
+		// Cap it to the largest representable value to keep the cast safe.
+		// See issue #11022.
+		numCtx := opts.NumCtx
+		if numCtx > math.MaxInt32 {
+			numCtx = math.MaxInt32
+		}
+		cfg.ContextSize = &numCtx
 	}
 }
 
