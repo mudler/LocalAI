@@ -116,6 +116,77 @@ func checkEntriesInstallSomething(entries []gallery.GalleryModel) []variantViola
 	return violations
 }
 
+// checkNoDuplicateEntryNames verifies no two entries share a name.
+//
+// FindGalleryElement resolves a reference by scanning and returning the first
+// match, so a second entry carrying an already-used name is unreachable: it can
+// never be installed, never be selected as a variant target, and never be
+// corrected, because every edit to it goes to a copy nobody reads. A reference
+// to such a name is also ambiguous to a reader and to any tooling that reasons
+// over the catalog, which is the harm even when the two copies happen to agree
+// today.
+func checkNoDuplicateEntryNames(entries []gallery.GalleryModel) []variantViolation {
+	seen := make(map[string]struct{}, len(entries))
+	var violations []variantViolation
+	for _, e := range entries {
+		if _, dup := seen[e.Name]; dup {
+			violations = append(violations, variantViolation{
+				Entry: e.Name,
+				Detail: fmt.Sprintf("entry %q is declared more than once: FindGalleryElement returns the first match, "+
+					"so only the first declaration is reachable and this one is dead weight. "+
+					"Remove the extra copy, or rename it if the two are meant to be different models", e.Name),
+			})
+			continue
+		}
+		seen[e.Name] = struct{}{}
+	}
+	return violations
+}
+
+// checkSingleVariantClaim verifies no entry is offered as a variant by more
+// than one parent.
+//
+// VariantParents hides a claimed build from a collapsed listing and answers
+// matches on it with the parent instead. With two parents claiming the same
+// build it picks the first in gallery order, which is deterministic but
+// arbitrary: the user is shown one of two equally valid rows, and which one
+// depends on authoring order rather than on anything about the models. That
+// resolution exists so the listing stays coherent for a catalog carrying the
+// mistake; this is the rule that keeps the catalog from carrying it.
+func checkSingleVariantClaim(entries []gallery.GalleryModel) []variantViolation {
+	byName := indexEntriesByName(entries)
+	// Only the first claim per parent counts, so a parent listing the same
+	// target twice is a redundancy inside one stanza and not two parents
+	// fighting over a build.
+	claimedBy := make(map[string]string, len(entries))
+	var violations []variantViolation
+	for _, e := range entries {
+		for _, v := range e.Variants {
+			// A dangling reference and a nested one are checkVariantReferences'
+			// business, and neither claims anything VariantParents would hide.
+			target, ok := byName[v.Model]
+			if !ok || target.HasVariants() || v.Model == e.Name {
+				continue
+			}
+			first, claimed := claimedBy[v.Model]
+			if !claimed {
+				claimedBy[v.Model] = e.Name
+				continue
+			}
+			if first == e.Name {
+				continue
+			}
+			violations = append(violations, variantViolation{
+				Entry:   e.Name,
+				Variant: v.Model,
+				Detail: fmt.Sprintf("already offered as a variant by %q; a build may have only one parent, "+
+					"otherwise which row a collapsed listing shows for it depends on authoring order", first),
+			})
+		}
+	}
+	return violations
+}
+
 // loadGalleryIndex parses gallery/index.yaml once for the whole suite. The
 // index carries well over a thousand entries, so re-parsing it per spec is
 // pure overhead.
@@ -181,6 +252,118 @@ var _ = Describe("gallery variant lint helpers", func() {
 
 		Expect(checkVariantReferences(entries)).To(BeEmpty())
 		Expect(checkEntriesInstallSomething(entries)).To(BeEmpty())
+		Expect(checkNoDuplicateEntryNames(entries)).To(BeEmpty())
+		Expect(checkSingleVariantClaim(entries)).To(BeEmpty())
+	})
+
+	Describe("checkNoDuplicateEntryNames", func() {
+		It("flags a second entry carrying an already-used name", func() {
+			entries := []gallery.GalleryModel{
+				plainEntry("twin", "u://first"),
+				plainEntry("other", "u://other"),
+				plainEntry("twin", "u://second"),
+			}
+
+			violations := checkNoDuplicateEntryNames(entries)
+			Expect(violations).To(HaveLen(1))
+			Expect(violations[0].Entry).To(Equal("twin"))
+			Expect(violations[0].Detail).To(ContainSubstring("declared more than once"))
+			Expect(violations[0].Detail).To(ContainSubstring("only the first declaration is reachable"))
+		})
+
+		// The copies in gallery/index.yaml were identical, so a rule that only
+		// fired on differing copies would have let every one of them through.
+		It("flags a duplicate whose fields match the first copy exactly", func() {
+			entries := []gallery.GalleryModel{
+				plainEntry("twin", "u://same"),
+				plainEntry("twin", "u://same"),
+			}
+
+			Expect(checkNoDuplicateEntryNames(entries)).To(HaveLen(1))
+		})
+
+		It("reports every breach in one pass rather than stopping at the first", func() {
+			entries := []gallery.GalleryModel{
+				plainEntry("a", "u://a"),
+				plainEntry("b", "u://b"),
+				plainEntry("a", "u://a2"),
+				plainEntry("b", "u://b2"),
+			}
+
+			Expect(checkNoDuplicateEntryNames(entries)).To(HaveLen(2))
+		})
+
+		// A name used three times costs two removals, so all the copies past
+		// the first have to be named rather than only the second.
+		It("flags every copy past the first", func() {
+			entries := []gallery.GalleryModel{
+				plainEntry("a", "u://1"),
+				plainEntry("a", "u://2"),
+				plainEntry("a", "u://3"),
+			}
+
+			Expect(checkNoDuplicateEntryNames(entries)).To(HaveLen(2))
+		})
+	})
+
+	Describe("checkSingleVariantClaim", func() {
+		It("flags a build offered as a variant by two parents", func() {
+			entries := variantFixture(
+				entryWithVariants("base-a", "u://a", gallery.Variant{Model: "shared"}),
+				entryWithVariants("base-b", "u://b", gallery.Variant{Model: "shared"}),
+				plainEntry("shared", "u://shared"),
+			)
+
+			violations := checkSingleVariantClaim(entries)
+			Expect(violations).To(HaveLen(1))
+			Expect(violations[0].Entry).To(Equal("base-b"))
+			Expect(violations[0].Variant).To(Equal("shared"))
+			Expect(violations[0].Detail).To(ContainSubstring(`already offered as a variant by "base-a"`))
+		})
+
+		It("accepts two parents offering different builds", func() {
+			entries := variantFixture(
+				entryWithVariants("base-a", "u://a", gallery.Variant{Model: "one"}),
+				entryWithVariants("base-b", "u://b", gallery.Variant{Model: "two"}),
+				plainEntry("one", "u://one"),
+				plainEntry("two", "u://two"),
+			)
+
+			Expect(checkSingleVariantClaim(entries)).To(BeEmpty())
+		})
+
+		// VariantParents takes the first claim per parent, so a repeat inside
+		// one stanza hides nothing extra and is not this rule's business.
+		It("does not treat one parent listing a build twice as two claims", func() {
+			entries := variantFixture(
+				entryWithVariants("base", "u://base",
+					gallery.Variant{Model: "dup"},
+					gallery.Variant{Model: "dup"},
+				),
+				plainEntry("dup", "u://dup"),
+			)
+
+			Expect(checkSingleVariantClaim(entries)).To(BeEmpty())
+		})
+
+		// VariantParents skips these too, so flagging them here would report
+		// the same authoring mistake twice under two different names.
+		It("leaves dangling and nested references to checkVariantReferences", func() {
+			entries := variantFixture(
+				entryWithVariants("base-a", "u://a",
+					gallery.Variant{Model: "ghost"},
+					gallery.Variant{Model: "nested"},
+				),
+				entryWithVariants("base-b", "u://b",
+					gallery.Variant{Model: "ghost"},
+					gallery.Variant{Model: "nested"},
+				),
+				entryWithVariants("nested", "u://nested", gallery.Variant{Model: "leaf"}),
+				plainEntry("leaf", "u://leaf"),
+			)
+
+			Expect(checkSingleVariantClaim(entries)).To(BeEmpty())
+		})
 	})
 
 	Describe("checkEntriesInstallSomething", func() {
@@ -320,6 +503,16 @@ var _ = Describe("gallery/index.yaml variant invariants", Ordered, func() {
 	// exempt and the gate covers the whole catalog in one step.
 	It("contains no entry that would install nothing", func() {
 		v := checkEntriesInstallSomething(entries)
+		Expect(v).To(BeEmpty(), formatViolations(v))
+	})
+
+	It("declares every entry name exactly once", func() {
+		v := checkNoDuplicateEntryNames(entries)
+		Expect(v).To(BeEmpty(), formatViolations(v))
+	})
+
+	It("gives every variant build a single parent", func() {
+		v := checkSingleVariantClaim(entries)
 		Expect(v).To(BeEmpty(), formatViolations(v))
 	})
 })

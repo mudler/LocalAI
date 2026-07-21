@@ -10,7 +10,7 @@
 #   go build -o ced-grpc .
 
 CED_VERSION?=c04ac14b7992d00584d9e812c9bb6268598a6ce7
-CED_REPO?=https://github.com/mudler/ced.cpp
+CED_REPO?=https://github.com/localai-org/ced.cpp
 
 GOCMD?=go
 GO_TAGS?=

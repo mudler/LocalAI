@@ -96,6 +96,7 @@ const (
 	subjectAgentCancelPrefix    = "agent."
 	subjectFineTuneCancelPrefix = "finetune."
 	subjectGalleryCancelPrefix  = "gallery."
+	subjectResponseCancelPrefix = "responses."
 )
 
 // Wildcard subjects for NATS subscriptions that match all IDs.
@@ -106,6 +107,7 @@ const (
 	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"
+	SubjectResponseCancelWildcard  = "responses.*.cancel"
 )
 
 // SubjectJobCancel returns the NATS subject to cancel a running job.
@@ -126,6 +128,17 @@ func SubjectFineTuneCancel(jobID string) string {
 // SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
 func SubjectGalleryCancel(opID string) string {
 	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".cancel"
+}
+
+// SubjectResponseCancel returns the NATS subject used to cancel an in-flight
+// Open Responses generation. Only the replica that created the response holds
+// its context.CancelFunc, so a cancel that lands on any other replica is
+// broadcast here and applied by whichever replica actually owns the function.
+// Broadcast rather than request/reply on purpose: if the owner crashed or was
+// scaled down, nobody answers and the caller must not block waiting for a
+// reply that will never come.
+func SubjectResponseCancel(responseID string) string {
+	return subjectResponseCancelPrefix + sanitizeSubjectToken(responseID) + ".cancel"
 }
 
 // Node Backend Lifecycle (Pub/Sub — targeted to specific nodes)

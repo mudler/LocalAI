@@ -60,6 +60,11 @@ type Manager struct {
 	huggingFaceToken string
 	newLocker        func(string) Locker
 	lockWait         time.Duration
+	// writerID names this manager's staging trees. It is drawn once, at
+	// construction, and deliberately never persisted: a partial tree belongs to
+	// the process run that created it, and outliving that run is precisely what
+	// it must not do.
+	writerID string
 }
 
 type ManagerOption func(*Manager)
@@ -100,6 +105,7 @@ func NewManager(resolver SnapshotResolver, options ...ManagerOption) *Manager {
 		resolver:  resolver,
 		newLocker: func(path string) Locker { return flock.New(path) },
 		lockWait:  DefaultLockWait,
+		writerID:  newWriterID(),
 	}
 	for _, option := range options {
 		option(manager)
@@ -310,6 +316,22 @@ func removeInvalidFinal(layout Layout) error {
 }
 
 func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec Spec, snapshot hfapi.Snapshot, token string, layout Layout) (Result, error) {
+	layout, err := layout.WithWriter(m.writerID)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := os.MkdirAll(layout.PartialRoot, 0o750); err != nil {
+		return Result{}, err
+	}
+	// Reclaim before staging, while the lock is held, so the two operations
+	// that touch foreign trees only ever run when a peer that respects the lock
+	// cannot be writing.
+	if removed, err := SweepStalePartialTrees(modelsPath, PartialOrphanTTL, layout.Partial); err != nil {
+		xlog.Warn("failed to sweep abandoned artifact partials", "error", err)
+	} else if removed > 0 {
+		xlog.Info("reclaimed abandoned artifact partials", "count", removed)
+	}
+	adoptOrphanPartial(layout)
 	if err := os.MkdirAll(layout.Partial, 0o750); err != nil {
 		return Result{}, err
 	}
@@ -434,8 +456,29 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 		return Result{}, err
 	}
 	ReportProgress(ctx, ProgressEvent{Phase: PhaseCommitting, Artifact: spec.Name, CurrentBytes: totalBytes, TotalBytes: totalBytes, CompletedFiles: len(snapshot.Files), TotalFiles: len(snapshot.Files)})
+	return m.commit(modelsPath, spec, layout, manifest)
+}
+
+// commit publishes this writer's staging tree under the artifact's final path.
+//
+// The rename is atomic and refuses to land on a populated destination, so a
+// peer either published before us or has not published at all. Losing that race
+// is not an error worth surfacing: the artifact is content-addressed, so the
+// peer's tree holds the same bytes we just downloaded and verified. Adopting it
+// and dropping ours is what keeps a broken lock cheap - without this, two
+// writers racing to commit would hand one caller a bare ENOTEMPTY for work that
+// actually succeeded.
+func (m *Manager) commit(modelsPath string, spec Spec, layout Layout, manifest Manifest) (Result, error) {
 	if err := os.Rename(layout.Partial, layout.Final); err != nil {
-		return Result{}, err
+		cached, ok := committedResult(modelsPath, spec)
+		if !ok {
+			return Result{}, err
+		}
+		xlog.Info("another writer published this artifact first; discarding the duplicate", "partial", layout.Partial)
+		if rmErr := removePartialTree(layout.PartialRoot, layout.Partial); rmErr != nil {
+			xlog.Warn("failed to discard a duplicate artifact partial", "partial", layout.Partial, "error", rmErr)
+		}
+		return cached, nil
 	}
 	relative, err := RelativeSnapshotPath(spec.Resolved.CacheKey)
 	if err != nil {

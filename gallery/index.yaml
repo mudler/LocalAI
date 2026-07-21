@@ -1,23 +1,107 @@
 ---
+- name: "inkling"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/inkling-GGUF
+  description: |
+    # Inkling
+
+    BF16 |
+    NVFP4 |
+    Playground |
+    Tinker Cookbook |
+    Acceptable Use
+
+    ## 1. General Information
+
+    Inkling is a general-purpose multimodal model that accepts text, image and audio inputs and generates text outputs. It is intended for use in English and other languages, and across multiple coding languages. The model is designed to be used by developers building AI-powered applications, including agentic and tool-use systems, coding assistants, chatbots, and retrieval-augmented generation systems, and is suitable for general-purpose conversational use, instruction-following, and other natural language and multimodal tasks. It is released with open weights to support research, fine-tuning and integration into third-party products by downstream developers.
+
+    **Languages:** English, with general multilingual capabilities across other languages.
+
+    ## 2. Getting Started
+
+    Try Inkling on the Tinker Playground or access via API using the Tinker Cookbook.
+
+    Inkling supports local deployment using the following open-source libraries:
+
+    * SGLang (recipe, PR)
+    * vLLM (recipe, PR)
+    * TokenSpeed (recipe, PR)
+    * Unsloth (recipe, PR)
+    * Huggingface (recipe, PR)
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/inkling-UD-Q4_K_XL/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00001-of-00014.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00001-of-00014.gguf
+      sha256: 357731bfbcfc9b8f4cc19d6d344ee02795785f06cb33f2084b7783eebcdd86f8
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00001-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00002-of-00014.gguf
+      sha256: a9493e151f5f332395908575cca9fd695ed4d416aad21bbeb9ee5f68194074d1
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00002-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00003-of-00014.gguf
+      sha256: 99b485f3e7a35213defd8e49c24afa98264ca439e800fa8611079362a210cbd4
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00003-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00004-of-00014.gguf
+      sha256: 831e843b4d8be4cbb92f7467c6df11f9f96f8f0d937ae03cd507b0f6dca19267
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00004-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00005-of-00014.gguf
+      sha256: 1ba50f8527ca6ff186e0825c21df5f870af9a6ba896187572cf560aab9164081
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00005-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00006-of-00014.gguf
+      sha256: 3a40f15f380090460b04b1f2f9ad30ba22f07e178be9230900ab278edcb13b34
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00006-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00007-of-00014.gguf
+      sha256: 0ae846f4ed59aa2c4d5f5de6776a2f86baa1edd1ded103a57dca54c4e5a7c6ed
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00007-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00008-of-00014.gguf
+      sha256: e1b004ff002d4551ebcf53021a43a2bf8f12a044d238b805879b9a4bc86aad7d
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00008-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00009-of-00014.gguf
+      sha256: fd9144da92f908c1b2f7969db8cb037dfeb51260db2e5b1e9b236a5bfb844896
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00009-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00010-of-00014.gguf
+      sha256: 665063b2386964133555c3e215d8c942bfba806a40a6c3bf595b518e1217220b
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00010-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00011-of-00014.gguf
+      sha256: 036558f8e8e9afad993f221d62679af01cd9956ff403e98709820da3b497e90b
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00011-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00012-of-00014.gguf
+      sha256: 3591a13899b1938d7313d6881c37cc06d139831082aedb57762dd160430434a4
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00012-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00013-of-00014.gguf
+      sha256: 31f9c05516ca08cca8538d46b8f144cc106481bcab0beb1310457ce0eeb6bf0a
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00013-of-00014.gguf
+    - filename: llama-cpp/models/inkling-UD-Q4_K_XL/inkling-UD-Q4_K_XL-00014-of-00014.gguf
+      sha256: bc4aaa9dd7f71da45ad7e0314dca8b78fc09bf1f767e6aed1d71743c62440a1b
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/UD-Q4_K_XL/inkling-UD-Q4_K_XL-00014-of-00014.gguf
+    - filename: llama-cpp/mmproj/inkling-UD-Q4_K_XL/mmproj-BF16.gguf
+      sha256: 662c925e1df293cfba16ffd6bd53dac31d3c73160ba65dff7270d7a70f351e91
+      uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/mmproj-BF16.gguf
 - name: "qwythos-9b-v2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF
-  description: |
-    Empero AI
-
-    # Qwythos-9B-v2 — the new and improved Qwythos
-
-    The next iteration of Qwythos: **all the reasoning of Qwythos-9B, with the looping behavior fixed.** v2 keeps the deep chain-of-thought, the uncensored research posture, and the 1M-token context of its predecessor, and cleans up the rough edges that showed up in real use.
-
-      - 🔁 **Looping behavior eliminated** — repetition/degeneration under greedy or low-temperature decoding dropped from **6.7% → 0%**. You can serve it *without* leaning on `repetition_penalty` as a band-aid.
-      - 🧠 **Reasoning fully preserved** — MMLU, GSM8K, GPQA, ARC and HumanEval are all held at (or above) the v1 level. This is a *hygiene* upgrade, not a capability regression.
-      - 🧩 **MTP head restored** — the native multi-token-prediction module (dropped in the previous export) is back, so config and weights agree and speculative-decoding setups work.
-      - 🪪 **Cleaner identity** — the model no longer prefaces unrelated answers with its identity; it introduces itself only when you actually ask.
-      - 🔓 **Still intentionally uncensored** for research, cybersecurity, red-teaming, biology, chemistry, pharmacology and clinical work.
-      - 📜 **St
-
-    ...
+  description: "Empero AI\n\n# Qwythos-9B-v2 — the new and improved Qwythos\n\nThe next iteration of Qwythos: **all the reasoning of Qwythos-9B, with the looping behavior fixed.** v2 keeps the deep chain-of-thought, the uncensored research posture, and the 1M-token context of its predecessor, and cleans up the rough edges that showed up in real use.\n\n  - \U0001F501 **Looping behavior eliminated** — repetition/degeneration under greedy or low-temperature decoding dropped from **6.7% → 0%**. You can serve it *without* leaning on `repetition_penalty` as a band-aid.\n  - \U0001F9E0 **Reasoning fully preserved** — MMLU, GSM8K, GPQA, ARC and HumanEval are all held at (or above) the v1 level. This is a *hygiene* upgrade, not a capability regression.\n  - \U0001F9E9 **MTP head restored** — the native multi-token-prediction module (dropped in the previous export) is back, so config and weights agree and speculative-decoding setups work.\n  - \U0001FAAA **Cleaner identity** — the model no longer prefaces unrelated answers with its identity; it introduces itself only when you actually ask.\n  - \U0001F513 **Still intentionally uncensored** for research, cybersecurity, red-teaming, biology, chemistry, pharmacology and clinical work.\n  - \U0001F4DC **St\n\n...\n"
   license: "apache-2.0"
   tags:
     - llm
@@ -525,7 +609,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 54abd2e5620f88dc59db8fc22967932b0318384bb595464a42569a9e58a06c2d
+      sha256: 4127d81b1d77a8b71170c8e41186d60abe19e851ebfeabd817d269d3269f9ea7
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -3473,37 +3557,6 @@
     - filename: llama-cpp/models/supergemma4-26b-uncensored-gguf-v2/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
       sha256: e773b0a209d48524f9d485bca0818247f75d7ddde7cce951367a7e441fb59137
       uri: https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2/resolve/main/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
-- name: qwopus-glm-18b-merged
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/KyleHessling1/Qwopus-GLM-18B-Merged-GGUF
-  description: "# \U0001FA90 Qwen3.5-9B-GLM5.1-Distill-v1\n\n## \U0001F4CC Model Overview\n\n**Model Name:** `Jackrong/Qwen3.5-9B-GLM5.1-Distill-v1`\n**Base Model:** Qwen3.5-9B\n**Training Type:** Supervised Fine-Tuning (SFT, Distillation)\n**Parameter Scale:** 9B\n**Training Framework:** Unsloth\n\nThis model is a distilled variant of **Qwen3.5-9B**, trained on high-quality reasoning data derived from **GLM-5.1**.\n\nThe primary goals are to:\n\n  - Improve **structured reasoning ability**\n  - Enhance **instruction-following consistency**\n  - Activate **latent knowledge via better reasoning structure**\n\n## \U0001F4CA Training Data\n\n### Main Dataset\n\n  - `Jackrong/GLM-5.1-Reasoning-1M-Cleaned`\n  - Cleaned from the original `Kassadin88/GLM-5.1-1000000x` dataset.\n  - Generated from a **GLM-5.1 teacher model**\n  - Approximately **700x** the scale of `Qwen3.5-reasoning-700x`\n  - Training used a **filtered subset**, not the full source dataset.\n\n### Auxiliary Dataset\n\n  - `Jackrong/Qwen3.5-reasoning-700x`\n\n...\n"
-  license: apache-2.0
-  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/BnSg_x99v9bG9T5-8sKa1.png
-  tags:
-    - llm
-    - gguf
-    - reasoning
-  last_checked: "2026-04-30"
-  overrides:
-    backend: llama-cpp
-    function:
-      automatic_tool_parsing_fallback: true
-      grammar:
-        disable: true
-    known_usecases:
-      - chat
-      - completion
-    options:
-      - use_jinja:true
-    parameters:
-      model: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: llama-cpp/models/Qwopus-GLM-18B-Merged-GGUF/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
-      sha256: 13bd039f95c9ea46ef1d75905faa7be6ca4e47a5af9d4cf62e298a738a5b195f
-      uri: https://huggingface.co/KyleHessling1/Qwopus-GLM-18B-Merged-GGUF/resolve/main/Qwopus-GLM-18B-Healed-Q4_K_M.gguf
 - name: qwen3.6-35b-a3b-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -8455,54 +8508,6 @@
     - filename: mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
       sha256: 2bd5459571f8230a0c251d3d0dd36267753f0800ed145449a34f220a31f93898
       uri: huggingface://ggml-org/Qwen3-Omni-30B-A3B-Thinking-GGUF/mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
-- name: qwen3-asr-0.6b
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/Qwen/Qwen3-ASR-0.6B
-  description: |
-    Qwen3-ASR is an automatic speech recognition model supporting multiple languages and batch inference.
-  license: apache-2.0
-  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
-  tags:
-    - speech-recognition
-    - asr
-  last_checked: "2026-04-30"
-  overrides:
-    backend: qwen-asr
-    known_usecases:
-      - transcript
-    parameters:
-      model: Qwen/Qwen3-ASR-0.6B
-    artifacts:
-      - name: model
-        target: model
-        source:
-          type: huggingface
-          repo: Qwen/Qwen3-ASR-0.6B
-- name: qwen3-asr-1.7b
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/Qwen/Qwen3-ASR-1.7B
-  description: |
-    Qwen3-ASR is an automatic speech recognition model supporting multiple languages and batch inference.
-  license: apache-2.0
-  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
-  tags:
-    - speech-recognition
-    - asr
-  last_checked: "2026-04-30"
-  overrides:
-    backend: qwen-asr
-    known_usecases:
-      - transcript
-    parameters:
-      model: Qwen/Qwen3-ASR-1.7B
-    artifacts:
-      - name: model
-        target: model
-        source:
-          type: huggingface
-          repo: Qwen/Qwen3-ASR-1.7B
 - name: glm-ocr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -20064,33 +20069,6 @@
     - filename: calme-3.1-llamaloi-3b.Q5_K_M.gguf
       sha256: 06b900c7252423329ca57a02a8b8d18a1294934709861d09af96e74694c9a3f1
       uri: huggingface://MaziyarPanahi/calme-3.1-llamaloi-3b-GGUF/calme-3.1-llamaloi-3b.Q5_K_M.gguf
-- name: llama3.2-3b-enigma
-  url: github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master
-  urls:
-    - https://huggingface.co/QuantFactory/Llama3.2-3B-Enigma-GGUF
-  description: |
-    Enigma is a code-instruct model built on Llama 3.2 3b. It is a high quality code instruct model with the Llama 3.2 Instruct chat format. The model is finetuned on synthetic code-instruct data generated with Llama 3.1 405b and supplemented with generalist synthetic data. It uses the Llama 3.2 Instruct prompt format.
-  license: llama3.2
-  icon: https://cdn-uploads.huggingface.co/production/uploads/64f267a8a4f79a118e0fcc89/it7MY5MyLCLpFQev5dUis.jpeg
-  tags:
-    - llama
-    - llama-3.2
-    - 3b
-    - gguf
-    - quantized
-    - code
-    - code-instruct
-    - chat
-    - instruct
-    - llm
-  last_checked: "2026-05-04"
-  overrides:
-    parameters:
-      model: Llama3.2-3B-Enigma.Q4_K_M.gguf
-  files:
-    - filename: Llama3.2-3B-Enigma.Q4_K_M.gguf
-      sha256: 4304e6ee1e348b228470700ec1e9423f5972333d376295195ce6cd5c70cae5e4
-      uri: huggingface://QuantFactory/Llama3.2-3B-Enigma-GGUF/Llama3.2-3B-Enigma.Q4_K_M.gguf
 - name: llama3.2-3b-shiningvaliant2-i1
   url: github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master
   urls:
@@ -25401,38 +25379,6 @@
     - filename: DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf
       sha256: bed9b0f551f5b95bf9da5888a48f0f87c37ad6b72519c4cbd775f54ac0b9fc62
       uri: huggingface://bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf
-- name: deepseek-r1-distill-llama-8b
-  url: github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master
-  urls:
-    - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B
-    - https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF
-  description: |
-    DeepSeek-R1 is our advanced first-generation reasoning model designed to enhance performance in reasoning tasks.
-    Building on the foundation laid by its predecessor, DeepSeek-R1-Zero, which was trained using large-scale reinforcement learning (RL) without supervised fine-tuning, DeepSeek-R1 addresses the challenges faced by R1-Zero, such as endless repetition, poor readability, and language mixing.
-    By incorporating cold-start data prior to the RL phase,DeepSeek-R1 significantly improves reasoning capabilities and achieves performance levels comparable to OpenAI-o1 across a variety of domains, including mathematics, coding, and complex reasoning tasks.
-  license: llama3.1
-  icon: https://avatars.githubusercontent.com/u/148330874
-  tags:
-    - deepseek
-    - llama
-    - llama-3
-    - gguf
-    - quantized
-    - 8b
-    - llm
-    - reasoning
-    - code
-    - math
-    - distilled
-    - chat
-  last_checked: "2026-05-04"
-  overrides:
-    parameters:
-      model: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
-  files:
-    - filename: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
-      sha256: 0addb1339a82385bcd973186cd80d18dcc71885d45eabd899781a118d03827d9
-      uri: huggingface://unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf
 - name: deepseek-r1-distill-llama-70b
   url: github:mudler/LocalAI/gallery/deepseek-r1.yaml@master
   urls:
@@ -31893,33 +31839,6 @@
     - filename: ggml-small.en.bin
       sha256: c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d
       uri: huggingface://ggerganov/whisper.cpp/ggml-small.en.bin
-- name: whisper-small-q5_1
-  url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
-  urls:
-    - https://github.com/ggerganov/whisper.cpp
-    - https://huggingface.co/ggerganov/whisper.cpp
-  description: |
-    Port of OpenAI's Whisper model in C/C++
-  license: mit
-  icon: https://avatars.githubusercontent.com/u/14957082
-  tags:
-    - whisper
-    - small
-    - gguf
-    - quantized
-    - q5_1
-    - speech-recognition
-    - multilingual
-    - transcription
-    - whisper.cpp
-  last_checked: "2026-05-04"
-  overrides:
-    parameters:
-      model: ggml-small-q5_1.bin
-  files:
-    - filename: ggml-small-q5_1.bin
-      sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
-      uri: huggingface://ggerganov/whisper.cpp/ggml-small-q5_1.bin
 - name: whisper-tiny
   variants:
     - model: whisper-tiny-q5_1
@@ -32082,34 +32001,6 @@
     - filename: ggml-large-v3.bin
       sha256: 64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2
       uri: huggingface://ggerganov/whisper.cpp/ggml-large-v3.bin
-- name: whisper-large-q5_0
-  url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
-  urls:
-    - https://github.com/ggerganov/whisper.cpp
-    - https://huggingface.co/ggerganov/whisper.cpp
-  description: |
-    Port of OpenAI's Whisper model in C/C++
-  license: mit
-  icon: https://avatars.githubusercontent.com/u/14957082
-  tags:
-    - whisper
-    - gguf
-    - quantized
-    - q5_0
-    - large
-    - asr
-    - speech-recognition
-    - transcription
-    - multilingual
-    - audio
-  last_checked: "2026-05-04"
-  overrides:
-    parameters:
-      model: ggml-large-v3-q5_0.bin
-  files:
-    - filename: ggml-large-v3-q5_0.bin
-      sha256: d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1
-      uri: huggingface://ggerganov/whisper.cpp/ggml-large-v3-q5_0.bin
 - name: whisper-large-turbo
   variants:
     - model: whisper-large-turbo-q5_0
@@ -32506,25 +32397,6 @@
     - filename: voice-en-us-danny-low.tar.gz
       sha256: 0c8fbb42526d5fbd3a0bded5f18041c0a893a70a7fb8756f97866624b932264b
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-danny-low.tar.gz
-- name: voice-en-us-kathleen-low
-  url: github:mudler/LocalAI/gallery/piper.yaml@master
-  urls:
-    - https://github.com/rhasspy/piper
-  description: |
-    A fast, local neural text to speech system that sounds great and is optimized for the Raspberry Pi 4. Piper is used in a variety of [projects](https://github.com/rhasspy/piper#people-using-piper).
-  license: mit
-  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
-  tags:
-    - tts
-    - text-to-speech
-    - cpu
-  overrides:
-    parameters:
-      model: en-us-kathleen-low.onnx
-  files:
-    - filename: voice-en-us-kathleen-low.tar.gz
-      sha256: 18e32f009f864d8061af8a4be4ae9018b5aa8b49c37f9e108bbfd782c6a38fbf
-      uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-kathleen-low.tar.gz
 - name: voice-en-us-lessac-low
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   urls:

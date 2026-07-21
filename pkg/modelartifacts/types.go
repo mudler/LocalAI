@@ -23,6 +23,7 @@ const (
 var (
 	commitPattern       = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	cacheKeyPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	writerIDPattern     = regexp.MustCompile(`^[0-9a-f]{16}$`)
 	artifactNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 )
 

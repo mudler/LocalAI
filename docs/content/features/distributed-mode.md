@@ -75,7 +75,13 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | `5m` | Deadline for the `LoadModel` gRPC call the frontend issues to a worker. It starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint load and pipeline init. Raise it for very large checkpoints: a multi-tens-of-GB diffusion or video model on unified memory routinely needs more than 5 minutes, and the load then fails with `rpc error: code = DeadlineExceeded` at exactly the timeout. Raising this also widens the cold-load lock ceiling below, so the two knobs never fight. |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
-The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That ceiling is **derived**, not configured: `max(backend-install-timeout + model-load-timeout + 5m, 25m)`. With the defaults that is `15m + 5m + 5m = 25m`, matching previous releases; raising either timeout widens the ceiling in step, so a longer load deadline is never clipped by it.
+The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That bound is **derived**, not configured, and it is based on *progress* rather than on wall-clock time.
+
+The load starts with a base budget of `max(backend-install-timeout + model-load-timeout + 5m, 25m)` — with the defaults, `15m + 5m + 5m = 25m`. That budget covers the steps that report no progress: node selection, backend install, and the remote `LoadModel` call. Raising either timeout widens it in step, so a longer load deadline is never clipped.
+
+While **model files are staging**, however, the deadline extends every time bytes actually move, and expires only once the transfer has been silent for a 5-minute stall window. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
+
+An absolute cap of 24h ends the hold even if progress keeps arriving, so a degenerate peer trickling a few bytes at a time cannot pin the lock forever. No configuration is needed for either value; both are sized well above any legitimate transfer.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -231,6 +237,19 @@ local-ai worker \
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
+
+### Worker Health Probes
+
+The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
+
+| Endpoint | Meaning |
+|----------|---------|
+| `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered *and* its NATS connection is live; 503 otherwise. |
+
+`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+
+The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
 
 ### Worker Address Configuration
 

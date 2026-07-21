@@ -192,10 +192,18 @@ The response contains the SDP answer to complete the WebRTC handshake.
 
 #### Opus backend requirement
 
-WebRTC uses the Opus audio codec for encoding and decoding audio on RTP tracks. The **opus** backend must be installed for WebRTC to work. Install it from the model gallery:
+WebRTC uses the Opus audio codec for encoding and decoding audio on RTP tracks. The **opus** backend must be installed for WebRTC to work. Install it from the **Backends** page in the web UI, or from the backend gallery with the API:
 
 ```bash
-curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '{"id": "opus"}'
+curl -X POST http://localhost:8080/backends/apply \
+  -H "Content-Type: application/json" \
+  -d '{"id": "opus"}'
+```
+
+For a local binary installation, you can instead use the CLI:
+
+```bash
+local-ai backends install opus
 ```
 
 Or set the `EXTERNAL_GRPC_BACKENDS` environment variable if running a local build:

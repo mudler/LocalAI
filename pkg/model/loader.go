@@ -601,6 +601,20 @@ func (ml *ModelLoader) shutdownModel(ctx context.Context, modelName string, forc
 	return ml.deleteProcess(ctx, modelName, force)
 }
 
+// isResident reports whether the model store already holds an entry for
+// modelID. Unlike checkIsLoaded it never probes the backend and never evicts,
+// so it is safe to call on a per-request hot path: it answers "have we been
+// here before?", which is exactly what the load logging needs to distinguish a
+// cold load from routine traffic against a resident model.
+func (ml *ModelLoader) isResident(modelID string) bool {
+	ml.mu.Lock()
+	store := ml.store
+	ml.mu.Unlock()
+
+	_, ok := store.Get(modelID)
+	return ok
+}
+
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
 	release := ml.operations.acquire(s, false)
 	defer release()

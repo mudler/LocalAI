@@ -117,11 +117,8 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	xlog.Info("Uploading file to remote node", "node", nodeID, "file", filepath.Base(localPath), "size", humanFileSize(fileSize), "url", url)
 
 	// Outer time budget: bound the total resumable-upload duration so a
-	// permanently-unreachable worker doesn't hold the request forever. Default
-	// matches the existing per-response timeout.
-	outerBudget := h.resumeBudget()
-
-	resumeCtx, cancel := context.WithTimeout(ctx, outerBudget)
+	// permanently-unreachable worker doesn't hold the request forever.
+	resumeCtx, cancel, outerBudget := h.resumeContext(ctx)
 	defer cancel()
 
 	var lastErr error
@@ -178,13 +175,33 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	}
 }
 
-// resumeBudget returns the maximum total time the resumable upload loop will
-// spend retrying transient failures end-to-end. Past this budget the upload
-// fails rather than spinning forever — 1h covers multi-GB transfers on
-// pathological links without letting a wedged server jam the master.
-func (h *HTTPFileStager) resumeBudget() time.Duration {
-	return 1 * time.Hour
+// resumeContext bounds the resumable upload loop so it can't spin forever, and
+// returns the budget it ended up with for error reporting.
+//
+// When the caller already imposed a deadline, that deadline IS the budget:
+// nesting a second one under it was actively misleading. In production a 1h
+// resume budget sat inside a 25m cold-load ceiling, so the inner budget was
+// unreachable and the failure still reported "failed after 1 attempts within
+// 1h0m0s budget" while the real killer was the 25m parent. Worse, the parent's
+// cold-load hold is now progress-extended (see load_deadline.go) precisely so a
+// 600 GB transfer can run for hours — a fixed 1h nested inside it would
+// reintroduce the very size cliff that change removes.
+//
+// The fixed fallback only applies when nobody above bounded the transfer.
+func (h *HTTPFileStager) resumeContext(ctx context.Context) (context.Context, context.CancelFunc, time.Duration) {
+	if deadline, ok := ctx.Deadline(); ok {
+		resumeCtx, cancel := context.WithCancel(ctx)
+		return resumeCtx, cancel, time.Until(deadline)
+	}
+	resumeCtx, cancel := context.WithTimeout(ctx, defaultResumeBudget)
+	return resumeCtx, cancel, defaultResumeBudget
 }
+
+// defaultResumeBudget bounds an unparented resumable upload. 1h covers multi-GB
+// transfers on pathological links without letting a wedged server jam the
+// master. Callers that need longer (a cold load staging a 600 GB checkpoint)
+// impose their own, progress-extended deadline instead.
+const defaultResumeBudget = 1 * time.Hour
 
 // nextBackoff returns the sleep before retry #attempt: 1s, 2s, 4s, ..., capped
 // at 30s, with the first sleep (attempt=2) being 1s.
