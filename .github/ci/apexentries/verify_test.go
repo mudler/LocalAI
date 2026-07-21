@@ -286,7 +286,7 @@ var _ = Describe("Verify", func() {
 `))).To(BeEmpty())
 	})
 
-	It("says nothing about an auxiliary non-gguf file carrying no sha256", func() {
+	It("says nothing about an auxiliary metadata file carrying no sha256", func() {
 		Expect(Verify(write(`
 - name: aux
   files:
@@ -296,6 +296,31 @@ var _ = Describe("Verify", func() {
     - filename: params.json
       sha256: ""
       uri: https://example.com/params.json
+`))).To(BeEmpty())
+	})
+
+	// safetensors weights are downloaded and loaded exactly like GGUF weights,
+	// so an unverified one is the same supply-chain hole.
+	It("reports a safetensors weight carrying no sha256", func() {
+		Expect(Verify(write(`
+- name: vae
+  files:
+    - filename: wan_2.1_vae.safetensors
+      sha256: ""
+      uri: https://example.com/vae.safetensors
+`))).To(ContainElement(ContainSubstring("no sha256")))
+	})
+
+	It("says nothing about a txt or md file carrying no sha256", func() {
+		Expect(Verify(write(`
+- name: docs
+  files:
+    - filename: notes.txt
+      sha256: ""
+      uri: https://example.com/notes.txt
+    - filename: README.md
+      sha256: ""
+      uri: https://example.com/README.md
 `))).To(BeEmpty())
 	})
 })
@@ -329,5 +354,37 @@ var _ = Describe("UnaccountedQuants", func() {
 		files := []GGUFFile{{Name: "Model-UD-Q4_K_M.gguf", SHA256: "aa"}}
 
 		Expect(UnaccountedQuants(files, DiscoverUnslothQuants(files))).To(BeEmpty())
+	})
+
+	// UD-Q8_0 is its own quant label and is not a wanted one. Reading it as a
+	// publication of Q8_0 is the substring collision this diagnostic exists to
+	// warn about, and subdirectory-sharded UD quants are the normal unsloth
+	// layout for large repos, so the false positive would fire on every batch.
+	It("does not read a subdirectory-sharded UD-Q8_0 as a published Q8_0", func() {
+		files := []GGUFFile{
+			{Name: "UD-Q8_0/Model-UD-Q8_0-00001-of-00002.gguf", SHA256: "aa"},
+			{Name: "UD-Q8_0/Model-UD-Q8_0-00002-of-00002.gguf", SHA256: "bb"},
+		}
+
+		Expect(UnaccountedQuants(files, DiscoverUnslothQuants(files))).To(BeEmpty())
+	})
+
+	// A quant in its own subdirectory but not shard-numbered matches neither
+	// branch of DiscoverUnslothQuants, so it is genuinely published and
+	// genuinely undiscovered.
+	It("reports a wanted quant published in its own subdirectory without shard numbering", func() {
+		files := []GGUFFile{{Name: "Q8_0/Model-Q8_0.gguf", SHA256: "aa"}}
+
+		Expect(UnaccountedQuants(files, DiscoverUnslothQuants(files))).
+			To(ContainElement(ContainSubstring("quant Q8_0 is published upstream")))
+	})
+
+	// builds is empty on purpose: it isolates the file-to-quant match from
+	// whatever DiscoverUnslothQuants would have made of the same file.
+	It("matches the flat single-file layout", func() {
+		files := []GGUFFile{{Name: "Model-Q8_0.gguf", SHA256: "aa"}}
+
+		Expect(UnaccountedQuants(files, nil)).
+			To(ConsistOf(ContainSubstring("quant Q8_0 is published upstream")))
 	})
 })

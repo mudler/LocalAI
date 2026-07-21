@@ -68,14 +68,8 @@ func Verify(path string) []string {
 			}
 		}
 
-		// sha256 is required on .gguf files only. Every non-GGUF asset in the
-		// index today belongs to a hand-curated entry this generator does not
-		// produce, and gating on them would make the verifier unusable as a gate
-		// over work that is outside its scope. Their missing checksums are a real
-		// gallery-hygiene issue, but one for the curators of those entries, not
-		// something this tool can act on.
 		for _, f := range e.Files {
-			if strings.HasSuffix(f.Filename, ".gguf") && f.SHA256 == "" {
+			if requiresSHA256(f.Filename) && f.SHA256 == "" {
 				problems = append(problems, fmt.Sprintf("%s: file %s has no sha256", e.Name, f.Filename))
 			}
 		}
@@ -86,6 +80,26 @@ func Verify(path string) []string {
 	}
 
 	return problems
+}
+
+// auxiliaryExtensions are the metadata formats an entry ships beside its
+// weights, where an unverified download is a nuisance rather than a hole.
+//
+// The exclusion is stated as a list of metadata formats on purpose. Requiring
+// the checksum only on a blessed list of weight formats would silently exempt
+// every format nobody has shipped yet, and it already exempted safetensors
+// weights, which are downloaded and loaded exactly like GGUF ones.
+var auxiliaryExtensions = []string{".json", ".txt", ".md"}
+
+// requiresSHA256 reports whether an unverified download of this file would be
+// a supply-chain hole rather than a cosmetic gap.
+func requiresSHA256(filename string) bool {
+	for _, ext := range auxiliaryExtensions {
+		if strings.HasSuffix(filename, ext) {
+			return false
+		}
+	}
+	return true
 }
 
 // checkWeightCount catches an entry carrying two whole models. The flat-match
@@ -210,11 +224,41 @@ func UnaccountedQuants(files []GGUFFile, builds []QuantBuild) []string {
 			continue
 		}
 		for _, f := range files {
-			if strings.Contains(f.Name, q) {
+			if filePublishesQuant(f.Name, q) {
 				problems = append(problems, fmt.Sprintf("quant %s is published upstream (%s) but produced no build", q, f.Name))
 				break
 			}
 		}
 	}
 	return problems
+}
+
+// filePublishesQuant reports whether an upstream file is a publication of
+// quant q. It anchors on the quant label the way DiscoverUnslothQuants does,
+// as the trailing token of the base name or as the sharding subdirectory, so
+// the diagnostic and the discovery it audits cannot disagree about what a file
+// is.
+//
+// An unanchored match would reproduce the very collision this diagnostic warns
+// about: Q8_0 is a substring of UD-Q8_0, so a repo publishing only UD-Q8_0
+// would be reported as publishing an unbuilt Q8_0, which it does not, and
+// UD-Q8_0 is not a wanted quant at all.
+func filePublishesQuant(name, q string) bool {
+	if strings.HasPrefix(name, q+"/") {
+		return true
+	}
+
+	base := name[strings.LastIndex(name, "/")+1:]
+	// Shard numbering sits between the quant label and the extension, so it has
+	// to come off before the label can be read as the trailing token. Root-level
+	// shards are the layout that matches neither branch of
+	// DiscoverUnslothQuants, and so the layout this diagnostic mainly catches.
+	base = shardRE.ReplaceAllString(base, ".gguf")
+
+	if !strings.HasSuffix(base, "-"+q+".gguf") {
+		return false
+	}
+	// UD- is unsloth's dynamic-quant modifier, and UD-<q> is a distinct quant
+	// label rather than a publication of <q>.
+	return !strings.HasSuffix(base, "-UD-"+q+".gguf")
 }
