@@ -1,45 +1,248 @@
 package main
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/.github/ci/galleryedit"
 )
 
-var _ = Describe("renderParent", func() {
-	It("orders variants by quality rung rather than discovery order", func() {
+func mustIndex(text string) *IndexText {
+	ix, err := ParseIndexText(text)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return ix
+}
+
+// buildOf renders a realistic child so the specs exercise the payload a hub
+// actually inherits rather than a bare name.
+func buildOf(name, repo, file string, rank int) childBuild {
+	return childBuild{
+		rank: rank,
+		entry: RenderChild(ChildInput{
+			Name:     name,
+			Repo:     repo,
+			Template: entryTemplate,
+			Weights:  []GGUFFile{{Name: file, SHA256: "aa"}},
+			BaseTags: baseTags,
+		}),
+	}
+}
+
+var _ = Describe("ResolveHub", func() {
+	It("picks the base model name over the APEX name, even when both are in the gallery", func() {
+		// The hub is the entry a user searches for. If the *-apex entry were
+		// chosen the family would be gathered under a name nobody looks up, and
+		// the base entry would go on advertising only its own build.
+		ix := mustIndex("- name: qwen3.6-35b-a3b\n  url: u\n- name: qwen3.6-35b-a3b-apex\n  url: u\n")
+
+		name, exists := ResolveHub(ix, "Qwen3.6-35B-A3B-APEX", "Qwen3.6-35B-A3B-APEX")
+
+		Expect(name).To(Equal("qwen3.6-35b-a3b"))
+		Expect(exists).To(BeTrue())
+	})
+
+	It("falls back to the stem-derived candidate when the repo-derived one is absent", func() {
+		// gemma's repo says "-it" and its published files do not, so only one of
+		// the two candidates can match whatever the base entry was named after.
+		ix := mustIndex("- name: gemma-4-26b-a4b\n  url: u\n")
+
+		name, exists := ResolveHub(ix, "gemma-4-26B-A4B-it-APEX", "gemma-4-26B-A4B-APEX")
+
+		Expect(name).To(Equal("gemma-4-26b-a4b"))
+		Expect(exists).To(BeTrue())
+	})
+
+	It("reports the base name as absent rather than settling for the APEX entry", func() {
+		ix := mustIndex("- name: qwen3.5-35b-a3b-apex\n  url: u\n")
+
+		name, exists := ResolveHub(ix, "Qwen3.5-35B-A3B-APEX", "Qwen3.5-35B-A3B-APEX")
+
+		Expect(name).To(Equal("qwen3.5-35b-a3b"))
+		Expect(exists).To(BeFalse())
+	})
+
+	It("strips the MTP and TQ markers as well as APEX", func() {
+		ix := mustIndex("- name: qwen3.6-35b-a3b\n  url: u\n")
+
+		name, exists := ResolveHub(ix, "Qwen3.6-35B-A3B-APEX-MTP", "Qwen3.6-35B-A3B-APEX-MTP")
+
+		Expect(name).To(Equal("qwen3.6-35b-a3b"))
+		Expect(exists).To(BeTrue())
+	})
+})
+
+var _ = Describe("planHubs", func() {
+	noReuse := map[string]string{}
+	allAdded := func(names ...string) map[string]bool {
+		out := map[string]bool{}
+		for _, n := range names {
+			out[n] = true
+		}
+		return out
+	}
+
+	It("splices into the existing base entry instead of emitting an *-apex parent", func() {
+		ix := mustIndex("- name: step-3.7-flash\n  url: u\n- name: other\n  url: u\n")
+		fams := []family{{
+			repo:     "mudler/Step-3.7-Flash-APEX-GGUF",
+			repoBase: "Step-3.7-Flash-APEX",
+			stem:     "Step-3.7-Flash-APEX",
+			children: []childBuild{buildOf("step-3.7-flash-apex-i-quality", "mudler/Step-3.7-Flash-APEX-GGUF", "a.gguf", 0)},
+		}}
+
+		inserts, newHubs, err := planHubs(fams, ix, noReuse, allAdded("step-3.7-flash-apex-i-quality"))
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newHubs).To(BeEmpty())
+		Expect(inserts).To(HaveLen(1))
+		Expect(inserts[0].Entry.Name).To(Equal("step-3.7-flash"))
+		Expect(inserts[0].Variants).To(Equal([]string{"step-3.7-flash-apex-i-quality"}))
+	})
+
+	It("merges into an entry that already declares variants, without repeating one", func() {
+		// The gallery's qwen3.6-35b-a3b already lists its APEX build. Re-adding it
+		// would put a duplicate key's worth of noise in the diff and a duplicate
+		// reference in the entry.
+		ix := mustIndex("- name: qwen3.6-35b-a3b\n  variants:\n    - model: qwen3.6-35b-a3b-apex\n  url: u\n" +
+			"- name: qwen3.6-35b-a3b-apex\n  url: u\n")
+		fams := []family{{
+			repo:     "mudler/Qwen3.6-35B-A3B-APEX-GGUF",
+			repoBase: "Qwen3.6-35B-A3B-APEX",
+			stem:     "Qwen3.6-35B-A3B-APEX",
+			children: []childBuild{buildOf("qwen3.6-35b-a3b-apex-i-quality", "mudler/Qwen3.6-35B-A3B-APEX-GGUF", "a.gguf", 0)},
+		}}
+
+		inserts, newHubs, err := planHubs(fams, ix, noReuse, allAdded("qwen3.6-35b-a3b-apex-i-quality"))
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newHubs).To(BeEmpty())
+		Expect(inserts[0].Variants).To(Equal([]string{"qwen3.6-35b-a3b-apex-i-quality"}))
+
+		out, err := galleryedit.Apply(ix.Lines, inserts)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.Count(strings.Join(out, "\n"), "variants:")).To(Equal(1))
+		Expect(out).To(HaveLen(len(ix.Lines) + 1))
+	})
+
+	It("never lets the hub reference itself", func() {
+		// An unsloth rung whose weights the gallery already ships under the base
+		// name resolves, through Merge, straight back to the hub. The verifier
+		// reads a self reference as a variant that declares variants of its own.
+		ix := mustIndex("- name: step-3.7-flash\n  url: u\n")
+		fams := []family{{
+			repo:     "mudler/Step-3.7-Flash-APEX-GGUF",
+			repoBase: "Step-3.7-Flash-APEX",
+			stem:     "Step-3.7-Flash-APEX",
+			children: []childBuild{buildOf("step-3.7-flash-ud-q4-k-m", "unsloth/Step-3.7-Flash-GGUF", "a.gguf", 100)},
+		}}
+
+		inserts, _, err := planHubs(fams, ix, map[string]string{"step-3.7-flash-ud-q4-k-m": "step-3.7-flash"}, map[string]bool{})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(inserts).To(BeEmpty())
+	})
+
+	It("emits a hub named for the base model when the gallery has none", func() {
+		ix := mustIndex("- name: qwen3.5-35b-a3b-apex\n  url: u\n")
+		fams := []family{{
+			repo:      "mudler/Qwen3.5-35B-A3B-APEX-GGUF",
+			repoBase:  "Qwen3.5-35B-A3B-APEX",
+			stem:      "Qwen3.5-35B-A3B-APEX",
+			hasMMProj: true,
+			children: []childBuild{
+				buildOf("qwen3.5-35b-a3b-apex-i-quality", "mudler/Qwen3.5-35B-A3B-APEX-GGUF", "a.gguf", 0),
+				buildOf("qwen3.5-35b-a3b-ud-q6-k", "unsloth/Qwen3.5-35B-A3B-GGUF", "b.gguf", 102),
+			},
+		}}
+
+		inserts, newHubs, err := planHubs(fams, ix, noReuse,
+			allAdded("qwen3.5-35b-a3b-apex-i-quality", "qwen3.5-35b-a3b-ud-q6-k"))
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(inserts).To(BeEmpty())
+		Expect(newHubs).To(HaveLen(1))
+
+		hub := newHubs[0]
+		Expect(hub.Name).To(Equal("qwen3.5-35b-a3b"))
+		Expect(hub.Name).ToNot(HaveSuffix("-apex"))
+
+		// A hand-written *-apex entry is an ordinary build, referenced like any
+		// other rung and never deleted or renamed.
+		Expect(hub.Variants).To(Equal([]VariantRef{
+			{Model: "qwen3.5-35b-a3b-apex"},
+			{Model: "qwen3.5-35b-a3b-apex-i-quality"},
+			{Model: "qwen3.5-35b-a3b-ud-q6-k"},
+		}))
+
+		// The verifier skips entries with no declared backend, so a hub without
+		// one would escape the tagging check in silence.
+		Expect(hub.Overrides).To(HaveKeyWithValue("backend", "llama-cpp"))
+		Expect(hub.Files).ToNot(BeEmpty())
+		Expect(hub.Tags).To(ContainElement("vision"))
+	})
+
+	It("gathers two APEX repos that share one base model under a single hub", func() {
+		ix := mustIndex("- name: unrelated\n  url: u\n")
+		fams := []family{
+			{
+				repo:     "mudler/Solo-APEX-GGUF",
+				repoBase: "Solo-APEX",
+				stem:     "Solo-APEX",
+				children: []childBuild{buildOf("solo-apex-i-quality", "mudler/Solo-APEX-GGUF", "a.gguf", 0)},
+			},
+			{
+				repo:     "mudler/Solo-APEX-MTP-GGUF",
+				repoBase: "Solo-APEX-MTP",
+				stem:     "Solo-APEX-MTP",
+				children: []childBuild{buildOf("solo-apex-mtp-i-quality", "mudler/Solo-APEX-MTP-GGUF", "b.gguf", 0)},
+			},
+		}
+
+		_, newHubs, err := planHubs(fams, ix, noReuse, allAdded("solo-apex-i-quality", "solo-apex-mtp-i-quality"))
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newHubs).To(HaveLen(1))
+		Expect(newHubs[0].Name).To(Equal("solo"))
+		Expect(newHubs[0].Variants).To(Equal([]VariantRef{
+			{Model: "solo-apex-i-quality"},
+			{Model: "solo-apex-mtp-i-quality"},
+		}))
+	})
+})
+
+var _ = Describe("hubVariants", func() {
+	It("orders builds by quality rung rather than discovery order", func() {
 		// DiscoverAPEXTiers preserves input order and the HF API returns siblings
 		// alphabetically, so an unsorted list reads I-Balanced, I-Compact, I-Mini,
 		// I-Nano, I-Quality. Selection ignores authored order; this is for the
 		// human reading the file.
-		children := []childBuild{
+		f := family{repoBase: "X-APEX", stem: "X-APEX", children: []childBuild{
 			{rank: rungRank["I-Nano"], entry: GalleryEntry{Name: "x-i-nano"}},
 			{rank: 100, entry: GalleryEntry{Name: "x-ud-q4-k-m"}},
 			{rank: rungRank["I-Quality"], entry: GalleryEntry{Name: "x-i-quality"}},
 			{rank: rungRank["I-Compact"], entry: GalleryEntry{Name: "x-i-compact"}},
-		}
+		}}
 
-		p := renderParent("mudler/X-APEX-GGUF", "X-APEX", children, true)
+		got := hubVariants(&f, mustIndex("- name: x\n  url: u\n"), map[string]string{}, map[string]bool{})
 
-		var names []string
-		for _, v := range p.Variants {
-			names = append(names, v.Model)
-		}
-		Expect(names).To(Equal([]string{"x-i-quality", "x-i-compact", "x-i-nano", "x-ud-q4-k-m"}))
+		Expect(got).To(Equal([]string{"x-i-quality", "x-i-compact", "x-i-nano", "x-ud-q4-k-m"}))
+	})
+})
+
+var _ = Describe("ParseIndexText", func() {
+	It("refuses to edit by line number when the two views of the file disagree", func() {
+		_, err := ParseIndexText("- name: one\n  url: u\n-\n")
+		Expect(err).To(MatchError(ContainSubstring("empty")))
 	})
 
-	It("carries no dflash or mtp tag, since it declares no backend", func() {
-		// The verifier skips entries with no declared backend, so a feature tag on
-		// a parent would escape the tagging check entirely.
-		p := renderParent("mudler/X-APEX-MTP-GGUF", "X-APEX-MTP", nil, false)
+	It("records the line range of each entry", func() {
+		ix := mustIndex("- name: first\n  url: u\n- name: second\n  url: u\n")
 
-		Expect(p.Overrides).To(BeEmpty())
-		Expect(p.Tags).ToNot(ContainElement("mtp"))
-		Expect(p.Tags).ToNot(ContainElement("dflash"))
-	})
-
-	It("tags a multimodal family vision", func() {
-		p := renderParent("mudler/X-APEX-GGUF", "X-APEX", nil, true)
-		Expect(p.Tags).To(ContainElement("vision"))
+		Expect(ix.Find("FIRST").Pos.StartLine).To(Equal(0))
+		Expect(ix.Find("first").Pos.EndLine).To(Equal(2))
+		Expect(ix.Find("second").Pos.StartLine).To(Equal(2))
 	})
 })
 

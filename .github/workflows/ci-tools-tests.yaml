@@ -31,3 +31,9 @@ jobs:
 
       - name: 'Test the variant proposer'
         run: go test ./.github/ci/variantproposals/
+
+      # Shared by both generators above. Its behaviour is exercised through their
+      # specs; this step exists so a break in the shared package fails under its
+      # own name rather than as a puzzling failure in whichever caller ran first.
+      - name: 'Test the shared gallery editor'
+        run: go test ./.github/ci/galleryedit/

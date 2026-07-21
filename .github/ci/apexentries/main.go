@@ -1,7 +1,13 @@
 // Command apexentries generates gallery entries for the mudler APEX GGUF
-// repositories: one parent entry per model carrying a variants list, plus one
-// child entry per imatrix tier, per unsloth quant rung, and per speculative
-// build.
+// repositories: one entry per imatrix tier, per unsloth quant rung and per
+// speculative build, all gathered under the BASE model's entry.
+//
+// The base model entry is the hub. Somebody looking for qwen3.6-35b-a3b must
+// find every build of those weights under that one name, so when the gallery
+// already ships the base entry this command splices a variants block into it
+// rather than emitting a competing *-apex parent beside it. Only a family whose
+// base model the gallery does not ship at all gets a new hub entry, and that one
+// is still named for the base model.
 //
 // Builds are discovered by inspecting the filenames a repo actually publishes.
 // Repo names do not reliably predict them: mudler/gemma-4-26B-A4B-it-APEX-GGUF
@@ -21,6 +27,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mudler/LocalAI/.github/ci/galleryedit"
 )
 
 const (
@@ -55,9 +63,18 @@ type childBuild struct {
 
 // family is one APEX repo's full generated output.
 type family struct {
-	repo     string
-	parent   GalleryEntry
-	children []childBuild
+	repo      string
+	repoBase  string
+	stem      string
+	hasMMProj bool
+	children  []childBuild
+}
+
+// sortedChildren returns the family's builds in ladder order, best first.
+func (f *family) sortedChildren() []childBuild {
+	sorted := append([]childBuild{}, f.children...)
+	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].rank < sorted[j].rank })
+	return sorted
 }
 
 func main() {
@@ -126,19 +143,23 @@ func generate(indexPath, only, outPath string, apply bool) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("existing index: %d names, %d weight URIs\n", len(existing.ByName), len(existing.ByURI))
+	ixText, err := LoadIndexText(indexPath)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("existing index: %d names, %d weight URIs, %d lines\n",
+		len(existing.ByName), len(existing.ByURI), len(ixText.Lines))
 
-	// Children first, then parents, in one Merge call so the batch dedups against
-	// itself across both kinds.
+	// Only the builds go through Merge. A hub is deliberately kept out of it: a
+	// new hub carries the family's top rung as its own payload, so Merge's URI
+	// dedup would fold the hub into that rung and the family would lose the very
+	// entry point this command exists to create. Hub names are checked against
+	// the index directly, by ResolveHub.
 	var generated []GalleryEntry
 	for _, f := range families {
 		for _, c := range f.children {
 			generated = append(generated, c.entry)
 		}
-	}
-	parentStart := len(generated)
-	for _, f := range families {
-		generated = append(generated, f.parent)
 	}
 
 	add, reused := Merge(existing, generated)
@@ -152,18 +173,24 @@ func generate(indexPath, only, outPath string, apply bool) error {
 	for _, e := range add {
 		added[e.Name] = true
 	}
-	for i := range add {
-		for j, v := range add[i].Variants {
-			add[i].Variants[j].Model = resolveVariant(v.Model, reused, added)
-		}
+
+	inserts, newHubs, err := planHubs(families, ixText, reused, added)
+	if err != nil {
+		return err
+	}
+	reportHubs(ixText, inserts, newHubs)
+
+	add = append(add, newHubs...)
+
+	fmt.Printf("\nentries generated: %d\nentries to add:    %d\nentries reused:    %d\nhubs spliced:      %d\nhubs created:      %d\n",
+		len(generated), len(add), len(reused), len(inserts), len(newHubs))
+
+	lines, err := galleryedit.Apply(ixText.Lines, inserts)
+	if err != nil {
+		return err
 	}
 
-	reportDroppedParents(generated[parentStart:], reused, added)
-
-	fmt.Printf("\nentries generated: %d\nentries to add:    %d\nentries reused:    %d\n",
-		len(generated), len(add), len(reused))
-
-	if err := writeEntries(add, outPath, apply, indexPath); err != nil {
+	if err := writeEntries(add, lines, outPath, apply, indexPath); err != nil {
 		return err
 	}
 
@@ -223,7 +250,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	}
 
 	repoBase := strings.TrimSuffix(path.Base(repo), "-GGUF")
-	f := &family{repo: repo}
+	f := &family{repo: repo, repoBase: repoBase, hasMMProj: hasMMProj}
 
 	for _, t := range ladder {
 		f.children = append(f.children, childBuild{
@@ -240,6 +267,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	}
 
 	stem := FileStem(ladder[0])
+	f.stem = stem
 	fmt.Printf("%s: %d %s tier(s) [%s], stem %s, mmproj %v\n",
 		repo, len(ladder), ladderKind, tierLabels(ladder), stem, hasMMProj)
 
@@ -282,32 +310,120 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 		fmt.Printf("%s: no unsloth counterpart\n", repo)
 	}
 
-	f.parent = renderParent(repo, repoBase, f.children, hasMMProj)
 	return f, nil
 }
 
-// renderParent builds the family root. It carries no overrides, so it must carry
-// no dflash/mtp tag either: the verifier skips entries that declare no backend,
-// and a feature tag there would escape the tagging check entirely.
-func renderParent(repo, repoBase string, children []childBuild, hasMMProj bool) GalleryEntry {
-	sorted := append([]childBuild{}, children...)
-	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].rank < sorted[j].rank })
+// planHubs decides, per family, whether the family's builds are spliced into a
+// base model entry the gallery already ships or gathered under a new hub.
+//
+// Splicing is strongly preferred and is the measured majority-adjacent case. The
+// existing entry keeps its description, icon, tags, overrides and files
+// untouched; only variant lines are added to it.
+func planHubs(families []family, ix *IndexText, reused map[string]string, added map[string]bool) ([]galleryedit.Insert, []GalleryEntry, error) {
+	// Several APEX repos can resolve to one base model, so both paths accumulate
+	// by hub name rather than assuming one family per hub.
+	wantByHub := map[string][]string{}
+	var spliceOrder []string
 
-	tags := append([]string{}, baseTags...)
-	if hasMMProj {
-		tags = append(tags, "vision")
+	var newHubs []GalleryEntry
+	hubAt := map[string]int{}
+
+	for i := range families {
+		f := &families[i]
+
+		hubName, exists := ResolveHub(ix, f.repoBase, f.stem)
+		want := hubVariants(f, ix, reused, added)
+
+		if exists {
+			if _, seen := wantByHub[hubName]; !seen {
+				spliceOrder = append(spliceOrder, hubName)
+			}
+			wantByHub[hubName] = append(wantByHub[hubName], want...)
+			continue
+		}
+
+		if at, dup := hubAt[hubName]; dup {
+			for _, v := range filterVariants(hubName, newHubs[at].Variants, want) {
+				newHubs[at].Variants = append(newHubs[at].Variants, VariantRef{Model: v})
+			}
+			continue
+		}
+
+		builds := f.sortedChildren()
+		if len(builds) == 0 {
+			return nil, nil, fmt.Errorf("%s: no builds to hang a hub on", f.repo)
+		}
+		hubAt[hubName] = len(newHubs)
+		newHubs = append(newHubs, renderHub(hubName, f, builds[0], filterVariants(hubName, nil, want)))
 	}
 
-	e := GalleryEntry{
-		Name:        slug(repoBase),
-		URL:         fmt.Sprintf("github:mudler/LocalAI/gallery/%s@master", entryTemplate),
-		Description: fmt.Sprintf("%s. Quality ladder and quantization rungs published by %s and its unsloth counterpart; LocalAI picks the build that fits the hardware.", repoBase, repo),
-		Tags:        tags,
+	var inserts []galleryedit.Insert
+	for _, name := range spliceOrder {
+		e := ix.Find(name)
+		items := filterVariants(name, e.Variants, wantByHub[name])
+		if len(items) == 0 {
+			continue
+		}
+		inserts = append(inserts, galleryedit.Insert{Entry: e.Pos, Variants: items})
 	}
-	for _, c := range sorted {
-		e.Variants = append(e.Variants, VariantRef{Model: c.entry.Name})
+	return inserts, newHubs, nil
+}
+
+// hubVariants is a family's full build list, in ladder order, named as the hub
+// must reference them after the merge.
+func hubVariants(f *family, ix *IndexText, reused map[string]string, added map[string]bool) []string {
+	var out []string
+
+	// A hand-written *-apex entry is an ordinary build of these weights. It is
+	// never deleted, never renamed and never treated as a hub; it is simply
+	// referenced like any other rung.
+	if apex := slug(f.repoBase); ix.Find(apex) != nil {
+		out = append(out, apex)
+	}
+	for _, c := range f.sortedChildren() {
+		out = append(out, resolveVariant(c.entry.Name, reused, added))
+	}
+	return out
+}
+
+// renderHub builds the hub for a family whose base model the gallery does not
+// ship at all. It is named for the BASE model, never for the APEX repo.
+//
+// It carries one of the discovered builds as its own payload so it is a complete
+// installable entry rather than a bare index pointing at other entries. That
+// payload is what supplies overrides.backend, which matters beyond installation:
+// the verifier can only judge the tagging rule for a backend it can read, so a
+// hub carrying feature tags and no backend would escape the check in silence.
+//
+// The payload's own tags are kept rather than rebuilt from baseTags, so a hub
+// whose payload configures a spec_type stays tagged for it and consistent with
+// the overrides copied alongside.
+func renderHub(name string, f *family, payload childBuild, variants []string) GalleryEntry {
+	e := payload.entry
+	e.Name = name
+	e.Description = fmt.Sprintf(
+		"%s. Quality ladder and quantization rungs published by %s and its unsloth counterpart; LocalAI picks the build that fits the hardware.",
+		HubLabel(f.repoBase, f.stem), f.repo)
+
+	e.Tags = append([]string{}, payload.entry.Tags...)
+	if f.hasMMProj && !hasTag(e.Tags, "vision") {
+		e.Tags = append(e.Tags, "vision")
+	}
+
+	e.Variants = nil
+	for _, v := range variants {
+		e.Variants = append(e.Variants, VariantRef{Model: v})
 	}
 	return e
+}
+
+func hasTag(tags []string, want string) bool {
+	for _, t := range tags {
+		if t == want {
+			return true
+		}
+	}
+	return false
 }
 
 // resolveCounterpart probes the unsloth candidates in order and returns the
@@ -403,26 +519,24 @@ func reportReuse(existing *ExistingIndex, generated []GalleryEntry, reused map[s
 	}
 }
 
-// reportDroppedParents prints the variants list of every parent that lost its
-// name to an existing entry. Without this the family's grouping would vanish
-// from the run with nothing said, and a name collision on a parent is exactly
-// the case a human has to resolve by hand.
-func reportDroppedParents(parents []GalleryEntry, reused map[string]string, added map[string]bool) {
-	var dropped []GalleryEntry
-	for _, p := range parents {
-		if !added[p.Name] {
-			dropped = append(dropped, p)
+// reportHubs prints exactly what will be written where. The splices are the part
+// a human has to read: they modify entries the gallery already ships, so the
+// review needs the target, the line, and every added reference spelled out.
+func reportHubs(ix *IndexText, inserts []galleryedit.Insert, newHubs []GalleryEntry) {
+	fmt.Printf("\nHUBS SPLICED (%d) - variants added to the EXISTING base model entry, nothing else touched\n", len(inserts))
+	for _, in := range inserts {
+		e := ix.Find(in.Entry.Name)
+		fmt.Printf("  %s (line %d, %d variant(s) already declared):\n", in.Entry.Name, in.Entry.StartLine+1, len(e.Variants))
+		for _, v := range in.Variants {
+			fmt.Printf("    + - model: %s\n", galleryedit.QuoteName(v))
 		}
 	}
-	if len(dropped) == 0 {
-		return
-	}
 
-	fmt.Printf("\nPARENTS NOT EMITTED (%d) - the gallery already owns the name; the intended variants list follows\n", len(dropped))
-	for _, p := range dropped {
-		fmt.Printf("  %s:\n", p.Name)
-		for _, v := range p.Variants {
-			fmt.Printf("    - model: %s\n", resolveVariant(v.Model, reused, added))
+	fmt.Printf("\nHUBS CREATED (%d) - the gallery ships no base model entry, so one is emitted for it\n", len(newHubs))
+	for _, h := range newHubs {
+		fmt.Printf("  %s:\n", h.Name)
+		for _, v := range h.Variants {
+			fmt.Printf("    - model: %s\n", v.Model)
 		}
 	}
 }
@@ -439,12 +553,23 @@ func orNone(s string) string {
 	return s
 }
 
-// writeEntries emits the additions. -apply appends rather than rewriting: the
-// index is 40,000 lines and a YAML round trip would reflow the whole file into
-// an unreviewable diff.
-func writeEntries(add []GalleryEntry, outPath string, apply bool, indexPath string) error {
+// writeEntries emits the additions.
+//
+// -apply does two things in one pass: it writes back the spliced lines, which
+// differ from the original only by the variant lines galleryedit inserted, and
+// then appends the new entries. New entries are APPENDED rather than merged into
+// the structure, for the same reason the splice is textual: a YAML round trip
+// over 40,000 lines would reflow the whole file into an unreviewable diff.
+func writeEntries(add []GalleryEntry, lines []string, outPath string, apply bool, indexPath string) error {
+	if apply {
+		if err := os.WriteFile(indexPath, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+			return err
+		}
+		fmt.Printf("spliced %s\n", indexPath)
+	}
+
 	if len(add) == 0 {
-		fmt.Println("\nnothing to write")
+		fmt.Println("nothing to append")
 		return nil
 	}
 
