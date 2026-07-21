@@ -79,13 +79,17 @@ type SmartRouterOptions struct {
 	// it from the default install budget and ModelLoadTimeout via
 	// ModelLoadCeilingFor.
 	ModelLoadCeiling time.Duration
-	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call, which
-	// runs after the backend install and file staging have already completed and
-	// so covers only the worker backend's checkpoint load and pipeline init.
-	// Zero selects config.DefaultModelLoadTimeout. Operators raise it via
-	// LOCALAI_NATS_MODEL_LOAD_TIMEOUT for very large checkpoints; ModelLoadCeiling
-	// must be widened in step (see ModelLoadCeilingFor) or the ceiling clips the
-	// longer deadline before it can be used.
+	// ModelLoadTimeout pins the gRPC deadline for the remote LoadModel call,
+	// which runs after the backend install and file staging have already
+	// completed and so covers only the worker backend's checkpoint load and
+	// pipeline init.
+	//
+	// Zero means "derive it per model from the checkpoint size" via
+	// config.ModelLoadTimeoutForSize — the default, because load duration is
+	// proportional to the bytes the worker reads and any fixed value is a
+	// model-size cliff. A non-zero value is an explicit operator override
+	// (LOCALAI_NATS_MODEL_LOAD_TIMEOUT) and always wins over the derived budget,
+	// in BOTH directions: an operator who wants faster failure gets it.
 	ModelLoadTimeout time.Duration
 	// StagingStallWindow is how long file staging may report zero bytes before
 	// the cold load is declared wedged and the advisory lock released. While
@@ -116,6 +120,12 @@ const minModelLoadCeiling = 25 * time.Minute
 // raising LOCALAI_NATS_MODEL_LOAD_TIMEOUT for an 80 GB video checkpoint actually
 // takes effect, instead of being cut short by a constant that silently went
 // stale. Non-positive inputs fall back to their package defaults.
+//
+// This is the hold's STARTING budget, not its maximum. A per-model budget
+// derived from checkpoint size (config.ModelLoadTimeoutForSize) can exceed any
+// ceiling computed here, so scheduleAndLoad widens the hold as it enters the
+// load phase — see extendLoadDeadline. Without that, a 70 GB checkpoint's ~28m
+// load budget would be cancelled by a 25m ceiling that knew nothing about it.
 func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duration {
 	if installTimeout <= 0 {
 		installTimeout = config.DefaultBackendInstallTimeout
@@ -160,8 +170,9 @@ type SmartRouter struct {
 	// modelLoadCeiling bounds how long a cold load may hold the per-model
 	// advisory lock (see SmartRouterOptions.ModelLoadCeiling).
 	modelLoadCeiling time.Duration
-	// modelLoadTimeout is the deadline for the remote LoadModel gRPC call
-	// (see SmartRouterOptions.ModelLoadTimeout).
+	// modelLoadTimeout is the operator's explicit override for the remote
+	// LoadModel deadline, or zero to derive it per model from the checkpoint
+	// size (see SmartRouterOptions.ModelLoadTimeout and loadTimeoutFor).
 	modelLoadTimeout time.Duration
 	// stagingStallWindow and modelLoadAbsoluteMax turn modelLoadCeiling from a
 	// hard countdown into a progress-extended hold (see load_deadline.go).
@@ -183,10 +194,10 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if factory == nil {
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
-	loadTimeout := opts.ModelLoadTimeout
-	if loadTimeout <= 0 {
-		loadTimeout = config.DefaultModelLoadTimeout
-	}
+	// Keep the override RAW: zero has to stay distinguishable from an explicit
+	// 5m, because zero now means "derive per model from the checkpoint size"
+	// while an explicit 5m means "hold every load to 5m".
+	loadTimeout := max(opts.ModelLoadTimeout, 0)
 	ceiling := opts.ModelLoadCeiling
 	if ceiling <= 0 {
 		ceiling = ModelLoadCeilingFor(config.DefaultBackendInstallTimeout, loadTimeout)
@@ -293,6 +304,12 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// that built modelOpts may have no GPU at all in distributed mode.
 	applyNodeHardwareDefaults(modelOpts, node, backendType)
 
+	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
+	// path fields to their remote equivalents on a clone, and only the local
+	// paths can be stat'ed here.
+	payloadBytes := modelPayloadBytes(modelOpts)
+	loadTimeout := r.loadTimeoutFor(payloadBytes)
+
 	// Pre-stage model files via FileStager before loading
 	loadOpts := modelOpts
 	if r.fileStager != nil && modelOpts != nil {
@@ -307,13 +324,30 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 
 	// Load the model on the remote node
 	if loadOpts != nil {
-		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
+		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr,
+			"payloadBytes", payloadBytes, "loadBudget", loadTimeout)
 
-		loadCtx, cancel := context.WithTimeout(ctx, r.modelLoadTimeout)
+		// The cold-load hold above this call extends on STAGING progress, and
+		// the remote LoadModel reports none — so once the last byte lands the
+		// hold expires a stall window later and would cancel a load that is
+		// still well inside its own budget (#11026 in miniature). Widen the hold
+		// to cover the load phase before entering it.
+		extendLoadDeadline(ctx, loadTimeout+modelLoadStagingMargin)
+
+		loadCtx, cancel := context.WithTimeout(ctx, loadTimeout)
 		defer cancel()
 
 		res, err := client.LoadModel(loadCtx, loadOpts)
 		if err != nil {
+			// A bare "context deadline exceeded" tells the operator nothing
+			// about which of the several budgets in a cold load ran out, and
+			// cost real debugging time in production. Name the budget, the
+			// payload it was derived from, and the knob that overrides it.
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = fmt.Errorf("model load budget of %s for a %s checkpoint exceeded; "+
+					"raise it with LOCALAI_NATS_MODEL_LOAD_TIMEOUT (%s): %w",
+					loadTimeout, humanFileSize(payloadBytes), config.FlagModelLoadTimeout, err)
+			}
 			// A gRPC deadline only cancels the CLIENT side of the call. A
 			// backend blocked in a synchronous weight load never observes its
 			// cancelled handler context, so it keeps loading with nobody
@@ -1366,6 +1400,80 @@ func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, file
 		}
 		r.stagingTracker.UpdateFile(trackingKey, fn, fileIdx, bytesSent, totalBytes, speed)
 	})
+}
+
+// loadTimeoutFor resolves the gRPC deadline for one remote LoadModel call.
+//
+// An explicit LOCALAI_NATS_MODEL_LOAD_TIMEOUT wins outright — including when it
+// is SHORTER than the derived value, because an operator who deliberately wants
+// fast failure must not have a size heuristic silently extend their loads.
+// Otherwise the budget scales with the checkpoint, which is what the worker
+// actually spends its time reading.
+func (r *SmartRouter) loadTimeoutFor(payloadBytes int64) time.Duration {
+	if r.modelLoadTimeout > 0 {
+		return r.modelLoadTimeout
+	}
+	return config.ModelLoadTimeoutForSize(payloadBytes)
+}
+
+// modelPayloadBytes totals the on-disk size of everything the worker will have
+// to read for this model, over the same field set stageModelFiles uploads.
+//
+// Paths that do not exist locally contribute nothing: a backend handed a bare
+// HuggingFace repo id gets an optimistically constructed path that was never
+// materialized and fetches its own weights on the worker. There is no way to
+// size that from here, so it falls back to the plain default budget rather than
+// to a guess (see config.ModelLoadTimeoutForSize).
+func modelPayloadBytes(opts *pb.ModelOptions) int64 {
+	if opts == nil {
+		return 0
+	}
+	paths := []string{
+		opts.ModelFile, opts.MMProj, opts.LoraAdapter, opts.DraftModel,
+		opts.CLIPModel, opts.Tokenizer, opts.AudioPath, opts.LoraBase,
+	}
+	paths = append(paths, opts.LoraAdapters...)
+
+	// The same file can legitimately appear in two fields (a GGUF that is both
+	// ModelFile and Tokenizer, say); counting it twice would inflate the budget.
+	seen := make(map[string]struct{}, len(paths))
+	var total int64
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, dup := seen[p]; dup {
+			continue
+		}
+		seen[p] = struct{}{}
+		total += pathBytes(p)
+	}
+	return total
+}
+
+// pathBytes returns the size of a regular file, the total size of a directory's
+// contents, or 0 if the path cannot be stat'ed.
+func pathBytes(path string) int64 {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	if !fi.IsDir() {
+		return fi.Size()
+	}
+	var total int64
+	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil
+		}
+		total += info.Size()
+		return nil
+	})
+	return total
 }
 
 // countStageableFiles returns the number of regular files a model path expands

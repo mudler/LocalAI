@@ -72,12 +72,38 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
-| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | `5m` | Deadline for the `LoadModel` gRPC call the frontend issues to a worker. It starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint load and pipeline init. Raise it for very large checkpoints: a multi-tens-of-GB diffusion or video model on unified memory routinely needs more than 5 minutes, and the load then fails with `rpc error: code = DeadlineExceeded` at exactly the timeout. Raising this also widens the cold-load lock ceiling below, so the two knobs never fight. |
+| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+### The model load deadline scales with the checkpoint
+
+The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
+
+So the deadline is derived per model:
+
+```
+budget = 5m + 20s per GiB of checkpoint,  capped at 6h
+```
+
+| Checkpoint | Derived budget |
+|---|---|
+| 2 GB | 5m40s |
+| 70 GB | 28m20s |
+| 600 GB | 3h25m |
+
+The per-GiB rate is deliberately pessimistic — it corresponds to reading weights at about 54 MB/s, below what any supported storage sustains — because the two errors are not symmetric: a budget that is too long costs only *failure latency* on a load that was going to fail anyway, while a budget that is too short causes a guaranteed false failure on a load that was perfectly healthy.
+
+The size is measured from the model files on the frontend's disk, over the same set of paths that get staged to the worker. If those files are not present locally — a backend handed a bare HuggingFace repo id fetches its own weights on the worker — there is nothing to measure and the budget stays at the plain 5m default. Pin `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` for those models if their load is slow.
+
+When the budget *is* exceeded, the error names the budget, the checkpoint size it was derived from, and the knob that overrides it, instead of surfacing a bare `context deadline exceeded`.
+
+### The cold-load lock ceiling
 
 The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That bound is **derived**, not configured, and it is based on *progress* rather than on wall-clock time.
 
 The load starts with a base budget of `max(backend-install-timeout + model-load-timeout + 5m, 25m)` — with the defaults, `15m + 5m + 5m = 25m`. That budget covers the steps that report no progress: node selection, backend install, and the remote `LoadModel` call. Raising either timeout widens it in step, so a longer load deadline is never clipped.
+
+That base is the hold's *starting* budget, not its maximum. Because the derived load budget above can exceed it — a 70 GB checkpoint's 28m20s against a 25m base — the hold is widened again as the router enters the load phase, by the derived budget plus the same 5m of slack. Without that step the ceiling would cancel a load that was still comfortably inside its own deadline.
 
 While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all — on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard — so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
 
