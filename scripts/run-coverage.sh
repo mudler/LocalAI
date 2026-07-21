@@ -22,6 +22,10 @@
 #   COVERAGE_EXCLUDE_RE  egrep pattern of profile lines to drop before merging,
 #                        e.g. generated protobuf (grpc/proto/.*\.pb\.go).
 #
+# Verbose Ginkgo output is retained in OUTPUT_DIR/logs. The previous run's log
+# for each root is kept with a .previous suffix, so a noisy failure remains
+# available without flooding the commit-hook output.
+#
 # Why one ginkgo invocation per root: passing several recursive roots to a
 # single ginkgo run only merges ONE root's coverprofile into --output-dir
 # (verified ginkgo 2.29.0) — the rest are silently dropped. So each root runs
@@ -41,10 +45,25 @@ shift 3
 unit_roots="$*" # space-free tokens (./pkg ./core)
 
 mkdir -p "$out_dir"
+lock_dir="$out_dir/.run-coverage.lock"
+if ! mkdir "$lock_dir" 2>/dev/null; then
+	echo "run-coverage: another coverage run is using $out_dir" >&2
+	echo "run-coverage: wait for it to finish; if none is running, remove stale lock $lock_dir" >&2
+	exit 2
+fi
+cleanup() {
+	rmdir "$lock_dir" 2>/dev/null || :
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+
+log_dir="$out_dir/logs"
+mkdir -p "$log_dir"
 # Clear per-root profiles from a previous run: the merge collects them by glob,
 # so a stale profile (e.g. from a root that failed to rebuild this run) must not
 # leak into the merged result.
 rm -f "$out_dir"/cover-*.out
+rm -f "$merged"
 fail=0
 
 # Common optional flags go into "$@"; unquoted ${VAR:+...} would word-split a
@@ -59,25 +78,71 @@ profile_name() {
 	printf 'cover-%s.out' "$(printf '%s' "$1" | sed 's#[./][./]*#_#g; s#^_##; s#_$##')"
 }
 
+log_name() {
+	printf '%s.log' "$(printf '%s' "$1" | sed 's#[./][./]*#_#g; s#^_##; s#_$##')"
+}
+
+rotate_log() {
+	log="$1"
+	if [ -f "$log" ]; then
+		mv -f "$log" "$log.previous"
+	fi
+}
+
+report_failure() {
+	root="$1"
+	log="$2"
+	echo "run-coverage: FAIL — tests under coverage failed for $root" >&2
+	echo "run-coverage: full output: $log" >&2
+	echo "run-coverage: relevant tail:" >&2
+	# Keep the terminal useful even when Ginkgo emits thousands of verbose lines.
+	# The complete log remains available when this short extract is insufficient.
+	summary="$(grep -E 'Summarizing|\[FAIL(ED)?\]|FAIL!|--- FAIL:|Test Suite Failed|could not finalize|Status code: 429|HTTP 429|rate limit|timed out|panic:|fork/exec|no such file or directory|Expected.*(but got|success)' "$log" \
+		| tail -n 30)"
+	if [ -n "$summary" ]; then
+		printf '%s\n' "$summary" >&2
+	else
+		tail -n 30 "$log" >&2
+	fi
+}
+
 # Unit/suite roots: recursive.
 for root in $unit_roots; do
 	base="$(profile_name "$root")"
+	log="$log_dir/$(log_name "$root")"
+	rotate_log "$log"
+	echo "run-coverage: testing $root (full output: $log)"
 	go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts "$flakes" -v -r "$@" \
-		--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" || fail=1
+		--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
+		&& echo "run-coverage: PASS — $root" \
+		|| { fail=1; report_failure "$root" "$log"; }
 done
 
 # In-process integration roots: NON-recursive + optional label filter.
 for root in ${COVERAGE_E2E_ROOTS:-}; do
 	base="$(profile_name "$root")"
+	log="$log_dir/$(log_name "$root")"
+	rotate_log "$log"
+	echo "run-coverage: testing $root (full output: $log)"
 	if [ -n "${COVERAGE_E2E_LABELS:-}" ]; then
 		go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts "$flakes" -v "$@" \
 			--label-filter="$COVERAGE_E2E_LABELS" \
-			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" || fail=1
+			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
+			&& echo "run-coverage: PASS — $root" \
+			|| { fail=1; report_failure "$root" "$log"; }
 	else
 		go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts "$flakes" -v "$@" \
-			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" || fail=1
+			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
+			&& echo "run-coverage: PASS — $root" \
+			|| { fail=1; report_failure "$root" "$log"; }
 	fi
 done
+
+if [ "$fail" -ne 0 ]; then
+	echo "run-coverage: FAILED — one or more test suites failed; no merged profile was produced." >&2
+	echo "run-coverage: the coverage percentage ratchet was not run." >&2
+	exit "$fail"
+fi
 
 # Collect the per-root profiles by glob (space-safe, no list to track).
 set -- "$out_dir"/cover-*.out
@@ -98,4 +163,4 @@ fi
 	' "$@"
 } > "$merged"
 
-exit "$fail"
+echo "run-coverage: all test suites passed; merged profile: $merged"
