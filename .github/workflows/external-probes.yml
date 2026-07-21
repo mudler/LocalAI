@@ -1,0 +1,38 @@
+---
+name: external compatibility probes
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  external-probe-huggingface-xet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Probe Hugging Face Xet compatibility
+        run: LOCALAI_HF_XET_SMOKE=1 go test ./pkg/huggingface-api -ginkgo.focus='pinned public Xet fixture' -count=1
+
+  external-probe-sigstore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Probe public Sigstore compatibility
+        env:
+          LOCALAI_COSIGN_LIVE: '1'
+          LOCALAI_COSIGN_LIVE_IMAGE: ${{ vars.LOCALAI_COSIGN_LIVE_IMAGE }}
+          LOCALAI_COSIGN_LIVE_ISSUER: ${{ vars.LOCALAI_COSIGN_LIVE_ISSUER }}
+          LOCALAI_COSIGN_LIVE_IDENTITY_REGEX: ${{ vars.LOCALAI_COSIGN_LIVE_IDENTITY_REGEX }}
+        run: go test ./pkg/oci/cosignverify -ginkgo.focus='VerifyImage' -count=1

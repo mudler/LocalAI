@@ -6,14 +6,13 @@ import (
 	"os"
 	"runtime"
 	"testing"
-	"time"
 
+	"github.com/mudler/LocalAI/internal/testfixtures"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 var container testcontainers.Container
@@ -39,10 +38,10 @@ var _ = BeforeSuite(func() {
 
 	if apiEndpoint == "" {
 		startDockerImage()
-		apiPort, err := container.MappedPort(context.Background(), defaultApiPort)
+		apiAddress, err := testfixtures.ContainerEndpoint(context.Background(), container, defaultApiPort)
 		Expect(err).To(Not(HaveOccurred()))
 
-		apiEndpoint = "http://localhost:" + apiPort.Port() + "/v1" // So that other tests can reference this value safely.
+		apiEndpoint = "http://" + apiAddress + "/v1" // test-network: fixture
 	} else {
 		GinkgoWriter.Printf("docker apiEndpoint set from env: %q\n", apiEndpoint)
 	}
@@ -122,15 +121,16 @@ func startDockerImage() {
 				Target: "/backends",
 			},
 		},
-		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(defaultApiPort).WithStartupTimeout(10*time.Minute),
-			wait.ForHTTP("/v1/models").WithPort(defaultApiPort).WithStartupTimeout(10*time.Minute),
-		),
 	}
 
 	GinkgoWriter.Printf("Launching Docker Container %s:%s\n", containerImage, containerImageTag)
 
 	ctx := context.Background()
+	imageReference := fmt.Sprintf("%s:%s", containerImage, containerImageTag)
+	Expect(testfixtures.RequireImage(ctx, imageReference, "aio")).To(Succeed())
+	testNetwork, err := testfixtures.DockerNetwork()
+	Expect(err).NotTo(HaveOccurred())
+	req.Networks = []string{testNetwork}
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,

@@ -21,12 +21,34 @@ cache from pinned declarations only by explicitly enabling online mode:
 LOCALAI_TEST_RESOURCES_ONLINE=1 make update-test-resources TARGET=default
 ```
 
-Ordinary test recipes execute through `scripts/run-test-offline.sh`. It denies
-public HTTP(S) through a closed proxy while allowing loopback and private
-Docker networks. Linux CI may additionally place this runner in a restricted
-network namespace; macOS relies on the proxy, declared resources, and guarded
-Go transports because it has no equivalent portable kernel-level subprocess
-filter.
+The update command records declared responses, files, and digest-pinned images,
+then writes a deterministic local bundle at
+`.cache/test-resources/bundles/<target>.tar`. Its SHA-256 is written to the
+lock file. Until registry publication is enabled, CI transfers this tar as a
+workflow artifact and verifies it after deleting the recording cache.
+
+HTTP declarations may include `request_headers`. `Range` participates in the
+cache key, and authorization values participate only through a SHA-256 value;
+credentials are never written verbatim to the cache index. Redirect responses
+are recorded without following them, so every hop needed by a test must be
+declared explicitly.
+
+Ordinary test recipes execute through `scripts/run-test-offline.sh`. Its
+supervised replay proxy terminates HTTP and HTTPS and returns an immediate
+error containing the method and URL for undeclared requests. Linux CI also
+runs the command in a cgroup with public IPv4 and IPv6 rejected; macOS relies
+on replay, declared resources, guarded Go transports, and static lint because
+kernel-level subprocess enforcement is Linux-only.
+
+Testcontainer images must be registry-digest pinned and loaded during
+preparation. Container helpers check that an image exists before startup and
+attach services to internal-only Docker networks, preventing testcontainers
+from silently pulling a missing tag.
+
+The default Linux and macOS suites use separate resource targets because
+Docker archives are platform-specific. Backend and hardware resources remain
+separate targets so ordinary contributors do not acquire large model fixtures
+that their test command does not use.
 
 Real third-party compatibility checks belong in separately named
 `external-probe-*` scheduled workflows and must not be part of deterministic

@@ -33,6 +33,8 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore-go/pkg/verify"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // Policy is the verification policy a backend image must satisfy.
@@ -288,7 +290,7 @@ func enforceNotBefore(result *verify.VerificationResult, cutoff time.Time) error
 func (v *Verifier) remoteOptions(ctx context.Context) []remote.Option {
 	t := v.transport
 	if t == nil {
-		t = http.DefaultTransport
+		t = httpclient.HardenedTransport()
 	}
 	// Match the retry policy used elsewhere in pkg/oci so transient
 	// registry hiccups don't fail verification.

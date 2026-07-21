@@ -23,15 +23,17 @@ import (
 // in its intercept allowlist; non-allowlisted hosts get a plain
 // TCP CONNECT tunnel.
 type Server struct {
-	addr            string
-	ca              *CA
-	interceptHosts  map[string]bool
-	handler         InterceptHandler
-	connectTimeout  time.Duration
-	dialTimeout     time.Duration
-	upstreamTLS     *tls.Config
-	events          pii.EventStore
-	eventSeq        atomic.Uint64
+	addr           string
+	ca             *CA
+	interceptHosts map[string]bool
+	handler        InterceptHandler
+	connectTimeout time.Duration
+	dialTimeout    time.Duration
+	upstreamTLS    *tls.Config
+	events         pii.EventStore
+	eventSeq       atomic.Uint64
+	allowPlainHTTP bool
+	interceptAll   bool
 
 	listener net.Listener
 	srv      *http.Server
@@ -51,6 +53,12 @@ type Config struct {
 	CA             *CA
 	InterceptHosts []string
 	Handler        InterceptHandler
+	// AllowPlainHTTP is used by the deterministic test-resource proxy.
+	// Production listeners leave it false and continue to require CONNECT.
+	AllowPlainHTTP bool
+	// InterceptAll prevents undeclared HTTPS hosts from being tunnelled by
+	// strict test-resource replay. Production listeners use the host allowlist.
+	InterceptAll bool
 	// EventStore optionally receives a proxy_connect event for every
 	// CONNECT, recording the destination host and whether the proxy
 	// intercepted or tunneled it. nil disables connect-event recording.
@@ -73,6 +81,8 @@ func NewServer(cfg Config) (*Server, error) {
 		ca:             cfg.CA,
 		interceptHosts: hosts,
 		handler:        cfg.Handler,
+		allowPlainHTTP: cfg.AllowPlainHTTP,
+		interceptAll:   cfg.InterceptAll,
 		connectTimeout: 30 * time.Second,
 		dialTimeout:    15 * time.Second,
 		upstreamTLS:    &tls.Config{NextProtos: []string{"http/1.1"}},
@@ -126,6 +136,10 @@ func (s *Server) Stop() {
 
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodConnect {
+		if s.allowPlainHTTP && r.URL != nil && r.URL.IsAbs() {
+			s.handler(w, r, r.URL.Host)
+			return
+		}
 		http.Error(w, "this proxy only supports HTTPS via CONNECT", http.StatusMethodNotAllowed)
 		return
 	}
@@ -168,6 +182,9 @@ func (s *Server) recordConnectEvent(host string, intercepted bool) {
 // shouldIntercept reports whether host is in the allowlist. An
 // empty allowlist tunnels everything.
 func (s *Server) shouldIntercept(host string) bool {
+	if s.interceptAll {
+		return true
+	}
 	if len(s.interceptHosts) == 0 {
 		return false
 	}
