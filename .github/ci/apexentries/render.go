@@ -36,8 +36,13 @@ type VariantRef struct {
 
 // ChildInput is everything needed to render one non-parent entry.
 type ChildInput struct {
-	Name      string
-	Repo      string
+	Name string
+	Repo string
+	// DraftRepo is the repo publishing the drafter, when it is not the repo
+	// publishing the weights. Speculative pairings routinely cross repos, so
+	// the drafter cannot be assumed to sit next to the weights. Empty means
+	// same-repo, which is how the *-APEX-MTP-GGUF repos ship.
+	DraftRepo string
 	Template  string
 	Weights   []GGUFFile
 	MMProj    *GGUFFile
@@ -70,6 +75,13 @@ func RenderChild(in ChildInput) GalleryEntry {
 		Overrides: map[string]any{},
 	}
 
+	// gallery/virtual.yaml carries no backend, so nothing else would name an
+	// engine for these entries. Matching the hand-written entries on
+	// known_usecases too: LocalAI would fall back to the backend defaults, but
+	// generated entries should not read differently from their neighbours.
+	e.Overrides["backend"] = "llama-cpp"
+	e.Overrides["known_usecases"] = []string{"chat"}
+
 	options := []string{"use_jinja:true"}
 
 	for _, w := range in.Weights {
@@ -93,13 +105,21 @@ func RenderChild(in ChildInput) GalleryEntry {
 	}
 
 	if in.SpecType != "" && in.DraftFile != nil {
+		// Fall back to the weights repo so pairings that publish the drafter
+		// alongside the weights keep working without restating the repo.
+		draftRepo := in.DraftRepo
+		if draftRepo == "" {
+			draftRepo = in.Repo
+		}
+		draftPath := localPath("models", draftRepo, in.DraftFile.Name)
+
 		options = append(options, "spec_type:"+in.SpecType)
-		e.Overrides["draft_model"] = localPath("models", in.Repo, in.DraftFile.Name)
+		e.Overrides["draft_model"] = draftPath
 		e.Overrides["flash_attention"] = "on"
 		e.Files = append(e.Files, EntryFile{
-			Filename: localPath("models", in.Repo, in.DraftFile.Name),
+			Filename: draftPath,
 			SHA256:   in.DraftFile.SHA256,
-			URI:      hfURI(in.Repo, in.DraftFile.Name),
+			URI:      hfURI(draftRepo, in.DraftFile.Name),
 		})
 		e.Tags = append(e.Tags, strings.TrimPrefix(in.SpecType, "draft-"))
 	}
