@@ -59,9 +59,7 @@ var _ = Describe("Download cancellation", func() {
 	}
 
 	BeforeEach(func() {
-		dir, err := os.Getwd()
-		Expect(err).ToNot(HaveOccurred())
-		filePath = dir + "/cancel_model"
+		filePath = GinkgoT().TempDir() + "/cancel_model"
 	})
 
 	AfterEach(func() {
@@ -112,7 +110,7 @@ var _ = Describe("Download cancellation", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(err, context.Canceled)).To(BeTrue())
 
-		Expect(filePath + ".partial").ToNot(BeAnExistingFile(),
+		Expect(filePath+".partial").ToNot(BeAnExistingFile(),
 			"a deliberate user cancel must not leave a dangling .partial behind")
 	})
 

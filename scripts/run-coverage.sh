@@ -21,6 +21,9 @@
 #                        "!real-models" (those specs need a downloaded model).
 #   COVERAGE_EXCLUDE_RE  egrep pattern of profile lines to drop before merging,
 #                        e.g. generated protobuf (grpc/proto/.*\.pb\.go).
+#   COVERAGE_PROCS       parallel Ginkgo processes; 0 lets Ginkgo detect CPUs.
+#   COVERAGE_SUITE_TIMEOUT maximum duration of each recursive root (default 5m).
+#   COVERAGE_PROGRESS_AFTER emit diagnostics when a spec is slow (default 30s).
 #
 # Verbose Ginkgo output is retained in OUTPUT_DIR/logs. The previous run's log
 # for each root is kept with a .previous suffix, so a noisy failure remains
@@ -65,6 +68,14 @@ mkdir -p "$log_dir"
 rm -f "$out_dir"/cover-*.out
 rm -f "$merged"
 fail=0
+
+procs="${COVERAGE_PROCS:-0}"
+suite_timeout="${COVERAGE_SUITE_TIMEOUT:-5m}"
+progress_after="${COVERAGE_PROGRESS_AFTER:-30s}"
+parallel_flags="-p --keep-going --timeout=$suite_timeout --poll-progress-after=$progress_after --poll-progress-interval=10s"
+if [ "$procs" -gt 0 ] 2>/dev/null; then
+	parallel_flags="$parallel_flags --procs=$procs --compilers=$procs"
+fi
 
 # Common optional flags go into "$@"; unquoted ${VAR:+...} would word-split a
 # --tags value that contains a space. The unit roots were captured above, so
@@ -112,7 +123,9 @@ for root in $unit_roots; do
 	log="$log_dir/$(log_name "$root")"
 	rotate_log "$log"
 	echo "run-coverage: testing $root (full output: $log)"
-	go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts "$flakes" -v -r "$@" \
+	# parallel_flags is intentionally word-split: it contains CLI arguments only.
+	# shellcheck disable=SC2086
+	go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --flake-attempts "$flakes" -v -r "$@" \
 		--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
 		&& echo "run-coverage: PASS — $root" \
 		|| { fail=1; report_failure "$root" "$log"; }
@@ -125,13 +138,15 @@ for root in ${COVERAGE_E2E_ROOTS:-}; do
 	rotate_log "$log"
 	echo "run-coverage: testing $root (full output: $log)"
 	if [ -n "${COVERAGE_E2E_LABELS:-}" ]; then
-		go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts "$flakes" -v "$@" \
+		# shellcheck disable=SC2086
+		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --flake-attempts "$flakes" -v "$@" \
 			--label-filter="$COVERAGE_E2E_LABELS" \
 			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
 			&& echo "run-coverage: PASS — $root" \
 			|| { fail=1; report_failure "$root" "$log"; }
 	else
-		go run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts "$flakes" -v "$@" \
+		# shellcheck disable=SC2086
+		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --flake-attempts "$flakes" -v "$@" \
 			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
 			&& echo "run-coverage: PASS — $root" \
 			|| { fail=1; report_failure "$root" "$log"; }
