@@ -87,6 +87,15 @@ type SmartRouterOptions struct {
 	// must be widened in step (see ModelLoadCeilingFor) or the ceiling clips the
 	// longer deadline before it can be used.
 	ModelLoadTimeout time.Duration
+	// StagingStallWindow is how long file staging may report zero bytes before
+	// the cold load is declared wedged and the advisory lock released. While
+	// bytes keep moving the hold extends, so transfer size no longer bounds the
+	// load. Zero selects stagingStallWindow. It is clamped to ModelLoadCeiling.
+	StagingStallWindow time.Duration
+	// ModelLoadAbsoluteMax bounds the cold-load hold even while progress keeps
+	// arriving, so a peer trickling bytes forever cannot pin the advisory lock
+	// indefinitely. Zero selects modelLoadAbsoluteMax (24h).
+	ModelLoadAbsoluteMax time.Duration
 }
 
 // modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
@@ -154,6 +163,10 @@ type SmartRouter struct {
 	// modelLoadTimeout is the deadline for the remote LoadModel gRPC call
 	// (see SmartRouterOptions.ModelLoadTimeout).
 	modelLoadTimeout time.Duration
+	// stagingStallWindow and modelLoadAbsoluteMax turn modelLoadCeiling from a
+	// hard countdown into a progress-extended hold (see load_deadline.go).
+	stagingStallWindow   time.Duration
+	modelLoadAbsoluteMax time.Duration
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -194,6 +207,11 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		sharedModels:     opts.SharedModels,
 		modelLoadCeiling: ceiling,
 		modelLoadTimeout: loadTimeout,
+		// Zero values are resolved to their defaults inside
+		// newLoadDeadlineContext, which also clamps the stall window to the
+		// ceiling, so nothing to normalize here.
+		stagingStallWindow:   opts.StagingStallWindow,
+		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 	}
 }
 
@@ -526,7 +544,13 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// even if a sub-step wedges. Each long step still has its own (tighter)
 	// bound; this only backstops them. The per-model advisory lock below
 	// de-dupes concurrent loaders across replicas.
-	loadCtx, cancelLoad := context.WithTimeout(context.WithoutCancel(ctx), r.modelLoadCeiling)
+	// The backstop is progress-based, not wall-clock: staging time is bytes over
+	// bandwidth, so a fixed ceiling is a model-size cliff (a 70 GB checkpoint
+	// transferring healthily at 26 MB/s needs ~45m and was killed at exactly
+	// 25m00s). The hold instead extends while the transfer reports bytes and
+	// expires a stall window after they stop. See load_deadline.go.
+	loadCtx, cancelLoad := newLoadDeadlineContext(context.WithoutCancel(ctx),
+		r.modelLoadCeiling, r.stagingStallWindow, r.modelLoadAbsoluteMax)
 	defer cancelLoad()
 	loadModel := func(ctx context.Context) (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
@@ -1328,6 +1352,12 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, fileName string, fileIdx, totalFiles int) context.Context {
 	start := time.Now()
 	return WithStagingProgress(ctx, func(fn string, bytesSent, totalBytes int64) {
+		// Byte-level movement is what keeps the cold-load hold alive. Observing
+		// here (rather than at per-file completion) is what makes a single
+		// 600 GB shard distinguishable from a wedged worker: file-granular
+		// progress would look identical to a stall for hours.
+		observeLoadProgress(ctx)
+
 		var speed string
 		elapsed := time.Since(start)
 		if elapsed > 0 {
