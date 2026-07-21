@@ -1,6 +1,8 @@
 // Command apexentries generates gallery entries for the mudler APEX GGUF
-// repositories: one entry per imatrix tier, per unsloth quant rung and per
-// speculative build, all gathered under the BASE model's entry.
+// repositories: one entry per imatrix tier and per unsloth quant rung, all
+// gathered under the BASE model's entry. Builds off a *-APEX-MTP-GGUF repo turn
+// speculative decoding on, because those weights retain the model's MTP heads
+// and are only worth their extra size with the heads in use.
 //
 // The base model entry is the hub. Somebody looking for qwen3.6-35b-a3b must
 // find every build of those weights under that one name, so when the gallery
@@ -11,7 +13,7 @@
 //
 // Builds are discovered by inspecting the filenames a repo actually publishes.
 // Repo names do not reliably predict them: mudler/gemma-4-26B-A4B-it-APEX-GGUF
-// ships gemma-4-26B-A4B-APEX-*.gguf, and three other repos drop a suffix or a
+// ships gemma-4-26B-A4B-APEX-*.gguf, and six of the 45 repos drop a suffix or a
 // vendor prefix in the same way.
 package main
 
@@ -242,6 +244,23 @@ func resolveVariant(name string, reused map[string]string, added map[string]bool
 	return name
 }
 
+// SpecTypeForRepo reports the speculative decoding mechanism a repo's builds can
+// turn on with no extra download.
+//
+// The *-APEX-MTP-GGUF repos republish the base weights with the model's own MTP
+// heads retained, so those builds are only worth their extra size if the heads
+// are actually used. Every other APEX repo drops them, and switching MTP on
+// there would name a mechanism the weights cannot serve.
+//
+// The suffix is read off the repo the FILES come from, so nothing downstream has
+// to infer a capability from an entry name.
+func SpecTypeForRepo(repo string) string {
+	if strings.HasSuffix(path.Base(repo), "-APEX-MTP-GGUF") {
+		return "draft-mtp"
+	}
+	return ""
+}
+
 // buildFamily discovers everything one APEX repo and its unsloth counterpart
 // publish, and renders it.
 func buildFamily(client *http.Client, repo string) (*family, error) {
@@ -280,6 +299,10 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	repoBase := strings.TrimSuffix(path.Base(repo), "-GGUF")
 	f := &family{repo: repo, repoBase: repoBase, hasMMProj: hasMMProj, census: census}
 
+	// Only the APEX ladder can carry MTP heads; the unsloth counterpart quantizes
+	// the plain weights and gets nothing from this.
+	specType := SpecTypeForRepo(repo)
+
 	for _, t := range ladder {
 		f.children = append(f.children, childBuild{
 			rank: rungRank[t.Label],
@@ -287,6 +310,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 				Name:     slug(repoBase) + "-" + slug(t.Label),
 				Repo:     repo,
 				Template: entryTemplate,
+				SpecType: specType,
 				Weights:  []GGUFFile{t.File},
 				MMProj:   mm,
 				BaseTags: baseTags,

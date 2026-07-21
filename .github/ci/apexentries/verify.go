@@ -79,6 +79,54 @@ func Verify(path string) []string {
 		problems = append(problems, checkFeatureTag(e, "mtp")...)
 	}
 
+	problems = append(problems, checkPathCollisions(entries)...)
+
+	return problems
+}
+
+// checkPathCollisions catches two different upstream files claiming one local
+// path. The install layer keys on the local filename, so whichever entry is
+// installed second either overwrites weights the first entry recorded a
+// different sha256 for or is skipped as already present. Either way some entry
+// afterwards serves bytes that do not match its own checksum, and nothing at
+// install time says so.
+//
+// This is an index-wide invariant rather than a per-entry one: neither entry is
+// wrong on its own and the collision exists only in their pairing. The usual
+// source is a path scheme built from the repo's BARE name, because two owners
+// publishing the same model name is routine for quantizers.
+//
+// Sharing a path is fine when the uri is the same, which is how several entries
+// legitimately reuse one projector. Files with no uri are skipped: there is
+// nothing to compare.
+func checkPathCollisions(entries []verifyEntry) []string {
+	type source struct{ uri, entry string }
+
+	first := map[string]source{}
+	reported := map[string]bool{}
+
+	var problems []string
+	for _, e := range entries {
+		for _, f := range e.Files {
+			if f.Filename == "" || f.URI == "" {
+				continue
+			}
+			prev, seen := first[f.Filename]
+			if !seen {
+				first[f.Filename] = source{uri: f.URI, entry: e.Name}
+				continue
+			}
+			if prev.uri == f.URI || reported[f.Filename] {
+				continue
+			}
+			// Reported once per path however many entries pile onto it, so one
+			// heavily reused filename cannot bury the rest of the report.
+			reported[f.Filename] = true
+			problems = append(problems, fmt.Sprintf(
+				"local path %s is claimed by two different uris: %s (%s) and %s (%s)",
+				f.Filename, prev.uri, prev.entry, f.URI, e.Name))
+		}
+	}
 	return problems
 }
 

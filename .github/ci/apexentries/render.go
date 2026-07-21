@@ -51,14 +51,41 @@ type ChildInput struct {
 	BaseTags  []string
 }
 
+// specTuning is the acceptance-window tuning each spec type ships with, copied
+// from the hand-written entries that already run these two mechanisms rather
+// than invented here. The two differ because the drafters differ: self-drafted
+// MTP heads produce a short, high-confidence proposal (15+ hand-written entries
+// use 6 with a 0.75 floor), while a separate DFlash drafter is cheap enough to
+// run far ahead unconditionally (the five hand-written dflash entries use 15 and
+// set no floor).
+var specTuning = map[string][]string{
+	"draft-mtp":    {"spec_n_max:6", "spec_p_min:0.75"},
+	"draft-dflash": {"spec_n_max:15"},
+}
+
 func hfURI(repo, file string) string {
 	return fmt.Sprintf("https://huggingface.co/%s/resolve/main/%s", repo, file)
 }
 
-// localPath is where a downloaded file lands, namespaced by repo so two
-// entries drawing on different repos never collide on a bare filename.
+// localPath is where a downloaded file lands.
+//
+// The hand-written entries namespace by the repo's BARE name
+// (llama-cpp/models/<repo>/<file>), which is not unique. LiquidAI/LFM2.5-8B-A1B-GGUF
+// and unsloth/LFM2.5-8B-A1B-GGUF share a basename, so both claim
+// llama-cpp/models/LFM2.5-8B-A1B-GGUF/, and installing the second after the first
+// either overwrites weights whose recorded sha256 belongs to the other file or is
+// skipped as already present. Two owners publishing the same model name is the
+// normal case for quantizers, not an edge case, so the owner has to be in the path.
+//
+// The owner becomes its own path segment rather than being folded into the
+// directory name: owner/repo is unique on HuggingFace and "/" cannot occur inside
+// either half, so this is the only form that is collision-proof by construction.
+// It still reads as the hand-written convention with the owner restored, and the
+// extra depth is already present in the index for sharded builds.
 func localPath(kind, repo, file string) string {
-	return path.Join("llama-cpp", kind, path.Base(repo), file)
+	// path.Dir yields "." for a repo named without an owner, which path.Join
+	// drops, so such a caller keeps the historical two-segment layout.
+	return path.Join("llama-cpp", kind, path.Dir(repo), path.Base(repo), file)
 }
 
 // RenderChild builds one child entry.
@@ -110,6 +137,21 @@ func RenderChild(in ChildInput) GalleryEntry {
 		})
 	}
 
+	// A spec type is configured independently of a drafter FILE. Weights that
+	// carry their own MTP heads need no second download, and requiring one left
+	// the *-APEX-MTP-GGUF builds shipping the larger heads-bearing weights with
+	// the heads switched off: a strictly bigger download at the same speed,
+	// ranked identically to the plain rung at the same tier.
+	if in.SpecType != "" {
+		options = append(options, "spec_type:"+in.SpecType)
+		options = append(options, specTuning[in.SpecType]...)
+		// The tag is derived from the spec type this entry sets and from nothing
+		// else. Variant ranking reads tags only, so a tag taken from a repo or
+		// entry NAME would promote a build that is no faster whenever the name
+		// and the configuration disagree.
+		e.Tags = append(e.Tags, strings.TrimPrefix(in.SpecType, "draft-"))
+	}
+
 	if in.SpecType != "" && in.DraftFile != nil {
 		// Fall back to the weights repo so pairings that publish the drafter
 		// alongside the weights keep working without restating the repo.
@@ -119,7 +161,6 @@ func RenderChild(in ChildInput) GalleryEntry {
 		}
 		draftPath := localPath("models", draftRepo, in.DraftFile.Name)
 
-		options = append(options, "spec_type:"+in.SpecType)
 		e.Overrides["draft_model"] = draftPath
 		e.Overrides["flash_attention"] = "on"
 		e.Files = append(e.Files, EntryFile{
@@ -127,7 +168,6 @@ func RenderChild(in ChildInput) GalleryEntry {
 			SHA256:   in.DraftFile.SHA256,
 			URI:      hfURI(draftRepo, in.DraftFile.Name),
 		})
-		e.Tags = append(e.Tags, strings.TrimPrefix(in.SpecType, "draft-"))
 	}
 
 	e.Overrides["options"] = options

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -386,5 +387,94 @@ var _ = Describe("UnaccountedQuants", func() {
 
 		Expect(UnaccountedQuants(files, nil)).
 			To(ConsistOf(ContainSubstring("quant Q8_0 is published upstream")))
+	})
+})
+
+var _ = Describe("Verify local path collisions", func() {
+	write := func(body string) string {
+		dir := GinkgoT().TempDir()
+		p := filepath.Join(dir, "index.yaml")
+		Expect(os.WriteFile(p, []byte(body), 0o600)).To(Succeed())
+		return p
+	}
+
+	It("reports one local path claimed by two different uris", func() {
+		// The shape that shipped: LiquidAI and unsloth both publish
+		// LFM2.5-8B-A1B-GGUF, so a path built from the bare repo name gives both
+		// entries the same local file under two different checksums.
+		Expect(Verify(write(`
+- name: lfm2.5-8b-a1b
+  files:
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
+      sha256: 33ab3b8c
+      uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q8_0.gguf
+- name: lfm2.5-8b-a1b-q8-0
+  files:
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
+      sha256: ec11666b
+      uri: https://huggingface.co/unsloth/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q8_0.gguf
+`))).To(ContainElement(SatisfyAll(
+			ContainSubstring("claimed by two different uris"),
+			ContainSubstring("lfm2.5-8b-a1b-q8-0"),
+		)))
+	})
+
+	It("accepts two entries reusing one file from the same uri", func() {
+		// Sibling builds of one repo legitimately share a projector.
+		Expect(Verify(write(`
+- name: a
+  files:
+    - filename: llama-cpp/mmproj/mudler/Example-GGUF/mmproj-F16.gguf
+      sha256: cc
+      uri: https://huggingface.co/mudler/Example-GGUF/resolve/main/mmproj-F16.gguf
+- name: b
+  files:
+    - filename: llama-cpp/mmproj/mudler/Example-GGUF/mmproj-F16.gguf
+      sha256: cc
+      uri: https://huggingface.co/mudler/Example-GGUF/resolve/main/mmproj-F16.gguf
+`))).To(BeEmpty())
+	})
+
+	It("reports a collision once however many entries pile onto the path", func() {
+		problems := Verify(write(`
+- name: a
+  files:
+    - filename: shared.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+- name: b
+  files:
+    - filename: shared.gguf
+      sha256: bb
+      uri: https://example.com/b.gguf
+- name: c
+  files:
+    - filename: shared.gguf
+      sha256: cc
+      uri: https://example.com/c.gguf
+`))
+
+		var collisions int
+		for _, p := range problems {
+			if strings.Contains(p, "claimed by two different uris") {
+				collisions++
+			}
+		}
+		Expect(collisions).To(Equal(1))
+	})
+
+	It("says nothing about files that carry no uri", func() {
+		// A hand-written entry may record only a checksum. There is no upstream
+		// to compare, so the check cannot conclude anything either way.
+		Expect(Verify(write(`
+- name: a
+  files:
+    - filename: shared.gguf
+      sha256: aa
+- name: b
+  files:
+    - filename: shared.gguf
+      sha256: bb
+`))).To(BeEmpty())
 	})
 })

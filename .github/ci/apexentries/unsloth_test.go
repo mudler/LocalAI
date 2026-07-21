@@ -14,10 +14,20 @@ var _ = Describe("CounterpartCandidates", func() {
 		Expect(got).To(Equal([]string{"gemma-4-26B-A4B-it", "gemma-4-26B-A4B"}))
 	})
 
-	It("strips MTP and TQ markers", func() {
+	It("strips the MTP marker", func() {
 		got := CounterpartCandidates("Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF", "Qwopus3.6-35B-A3B-v1-APEX-MTP")
 
 		Expect(got[0]).To(Equal("Qwopus3.6-35B-A3B-v1"))
+	})
+
+	It("strips the TQ marker", func() {
+		// This is the branch that folds mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF into
+		// the qwen3.5-35b-a3b hub. Without it the probe is
+		// unsloth/Qwen3.5-35B-A3B-TQ-GGUF, which does not exist, so the family
+		// silently loses every unsloth rung.
+		got := CounterpartCandidates("Qwen3.5-35B-A3B-APEX-TQ-GGUF", "Qwen3.5-35B-A3B-APEX-TQ")
+
+		Expect(got).To(Equal([]string{"Qwen3.5-35B-A3B"}))
 	})
 
 	It("does not repeat a candidate when both derivations agree", func() {

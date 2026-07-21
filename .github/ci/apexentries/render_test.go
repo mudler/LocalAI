@@ -108,9 +108,9 @@ var _ = Describe("RenderChild", func() {
 		Expect(e.Files[1].URI).To(Equal(
 			"https://huggingface.co/AtomicChat/Qwen3-4B-DFlash-GGUF/resolve/main/Qwen3-4B-DFlash.Q8_0.gguf"))
 		Expect(e.Files[1].Filename).To(Equal(
-			"llama-cpp/models/Qwen3-4B-DFlash-GGUF/Qwen3-4B-DFlash.Q8_0.gguf"))
+			"llama-cpp/models/AtomicChat/Qwen3-4B-DFlash-GGUF/Qwen3-4B-DFlash.Q8_0.gguf"))
 		Expect(e.Overrides["draft_model"]).To(Equal(
-			"llama-cpp/models/Qwen3-4B-DFlash-GGUF/Qwen3-4B-DFlash.Q8_0.gguf"))
+			"llama-cpp/models/AtomicChat/Qwen3-4B-DFlash-GGUF/Qwen3-4B-DFlash.Q8_0.gguf"))
 	})
 
 	It("falls back to the weights repo for the drafter when DraftRepo is empty", func() {
@@ -128,7 +128,7 @@ var _ = Describe("RenderChild", func() {
 		Expect(e.Files[1].URI).To(Equal(
 			"https://huggingface.co/mudler/Example-APEX-GGUF/resolve/main/Example-DFlash.Q8_0.gguf"))
 		Expect(e.Files[1].Filename).To(Equal(
-			"llama-cpp/models/Example-APEX-GGUF/Example-DFlash.Q8_0.gguf"))
+			"llama-cpp/models/mudler/Example-APEX-GGUF/Example-DFlash.Q8_0.gguf"))
 	})
 })
 
@@ -158,5 +158,92 @@ var _ = Describe("RenderChild known_usecases", func() {
 		})
 
 		Expect(e.Overrides["known_usecases"]).To(ConsistOf("chat"))
+	})
+})
+
+var _ = Describe("localPath", func() {
+	It("keeps two repos with the same basename but different owners apart", func() {
+		// LiquidAI and unsloth both publish LFM2.5-8B-A1B-GGUF. A path built from
+		// the bare repo name gives both the same local file, so installing the
+		// second overwrites or skips the first and one of them then serves bytes
+		// that do not match its recorded sha256.
+		liquid := RenderChild(ChildInput{
+			Name:     "lfm2.5-8b-a1b-i-quality",
+			Repo:     "LiquidAI/LFM2.5-8B-A1B-GGUF",
+			Template: "virtual.yaml",
+			Weights:  []GGUFFile{{Name: "LFM2.5-8B-A1B-Q8_0.gguf", SHA256: "33ab3b8c"}},
+			BaseTags: []string{"llm", "gguf"},
+		})
+		unsloth := RenderChild(ChildInput{
+			Name:     "lfm2.5-8b-a1b-q8-0",
+			Repo:     "unsloth/LFM2.5-8B-A1B-GGUF",
+			Template: "virtual.yaml",
+			Weights:  []GGUFFile{{Name: "LFM2.5-8B-A1B-Q8_0.gguf", SHA256: "ec11666b"}},
+			BaseTags: []string{"llm", "gguf"},
+		})
+
+		Expect(liquid.Files[0].Filename).ToNot(Equal(unsloth.Files[0].Filename))
+		Expect(unsloth.Files[0].Filename).To(Equal(
+			"llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf"))
+	})
+
+	It("namespaces the mmproj by owner too", func() {
+		e := RenderChild(ChildInput{
+			Name:     "example-i-quality",
+			Repo:     "mudler/Example-APEX-GGUF",
+			Template: "virtual.yaml",
+			Weights:  []GGUFFile{{Name: "Example-APEX-I-Quality.gguf", SHA256: "a"}},
+			MMProj:   &GGUFFile{Name: "mmproj-F16.gguf", SHA256: "c"},
+			BaseTags: []string{"llm", "gguf"},
+		})
+
+		Expect(e.Overrides["mmproj"]).To(Equal(
+			"llama-cpp/mmproj/mudler/Example-APEX-GGUF/mmproj-F16.gguf"))
+	})
+})
+
+var _ = Describe("MTP builds", func() {
+	renderTier := func(repo string) GalleryEntry {
+		return RenderChild(ChildInput{
+			Name:     "example-i-quality",
+			Repo:     repo,
+			Template: "virtual.yaml",
+			SpecType: SpecTypeForRepo(repo),
+			Weights:  []GGUFFile{{Name: "Example-I-Quality.gguf", SHA256: "a"}},
+			BaseTags: []string{"llm", "gguf"},
+		})
+	}
+
+	It("turns MTP on for a build off an APEX-MTP repo", func() {
+		// These weights retain the model's own MTP heads, so shipping them with
+		// speculation off is a strictly larger download at the same speed,
+		// ranked identically to the plain rung at the same tier.
+		e := renderTier("mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF")
+
+		Expect(e.Overrides["options"]).To(ContainElements(
+			"spec_type:draft-mtp", "spec_n_max:6", "spec_p_min:0.75"))
+		Expect(e.Tags).To(ContainElement("mtp"))
+	})
+
+	It("needs no drafter file, because the heads travel with the weights", func() {
+		e := renderTier("mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF")
+
+		Expect(e.Overrides).ToNot(HaveKey("draft_model"))
+		Expect(e.Files).To(HaveLen(1))
+	})
+
+	It("leaves a build off a plain APEX repo alone", func() {
+		e := renderTier("mudler/Qwen3.6-35B-A3B-APEX-GGUF")
+
+		Expect(e.Tags).ToNot(ContainElement("mtp"))
+		Expect(e.Overrides["options"]).To(ConsistOf("use_jinja:true"))
+	})
+
+	It("leaves an unsloth counterpart rung alone", func() {
+		// The counterpart quantizes the plain weights; nothing there carries heads.
+		e := renderTier("unsloth/Qwen3.6-35B-A3B-GGUF")
+
+		Expect(e.Tags).ToNot(ContainElement("mtp"))
+		Expect(e.Overrides["options"]).To(ConsistOf("use_jinja:true"))
 	})
 })
