@@ -30,7 +30,7 @@
     "@lezer/highlight": "^1.2.1",
     "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "highlight.js": "^11.11.1",
     "i18next": "^26.0.8",
     "i18next-browser-languagedetector": "^8.2.1",
