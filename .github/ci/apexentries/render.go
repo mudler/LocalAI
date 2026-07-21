@@ -96,6 +96,12 @@ func RenderChild(in ChildInput) GalleryEntry {
 	}
 
 	if in.MMProj != nil {
+		// An explicit known_usecases SUPPRESSES the backend-default fallback in
+		// core/gallery/models_types.go, so a multimodal entry left at chat-only
+		// never matches FilterGalleryModelsByUsecase(FLAG_VISION) or
+		// FilterGalleryModelsByMultimodal and vanishes from the UI's vision and
+		// multimodal filters. 19 of the 45 APEX repos ship an mmproj.
+		e.Overrides["known_usecases"] = []string{"chat", "vision"}
 		e.Overrides["mmproj"] = localPath("mmproj", in.Repo, in.MMProj.Name)
 		e.Files = append(e.Files, EntryFile{
 			Filename: localPath("mmproj", in.Repo, in.MMProj.Name),

@@ -131,3 +131,32 @@ var _ = Describe("RenderChild", func() {
 			"llama-cpp/models/Example-APEX-GGUF/Example-DFlash.Q8_0.gguf"))
 	})
 })
+
+var _ = Describe("RenderChild known_usecases", func() {
+	It("declares vision alongside chat when the entry carries an mmproj", func() {
+		// An explicit known_usecases suppresses the backend-default fallback, so a
+		// chat-only multimodal entry disappears from the UI's vision filter.
+		e := RenderChild(ChildInput{
+			Name:     "example-i-quality",
+			Repo:     "mudler/Example-APEX-GGUF",
+			Template: "virtual.yaml",
+			Weights:  []GGUFFile{{Name: "Example-APEX-I-Quality.gguf", SHA256: "a"}},
+			MMProj:   &GGUFFile{Name: "mmproj-F16.gguf", SHA256: "c"},
+			BaseTags: []string{"llm", "gguf"},
+		})
+
+		Expect(e.Overrides["known_usecases"]).To(ConsistOf("chat", "vision"))
+	})
+
+	It("leaves a text-only entry at chat", func() {
+		e := RenderChild(ChildInput{
+			Name:     "example-i-quality",
+			Repo:     "mudler/Example-APEX-GGUF",
+			Template: "virtual.yaml",
+			Weights:  []GGUFFile{{Name: "Example-APEX-I-Quality.gguf", SHA256: "a"}},
+			BaseTags: []string{"llm", "gguf"},
+		})
+
+		Expect(e.Overrides["known_usecases"]).To(ConsistOf("chat"))
+	})
+})
