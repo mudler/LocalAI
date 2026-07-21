@@ -5704,6 +5704,36 @@ include:
     context: "./"
     ubuntu-version: '2404'
 
+  # avian (cloud LLM inference provider — Go backend, no GPU needed)
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-avian'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avian"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-avian'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "avian"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+
 # Darwin matrix (consumed by backend-jobs-darwin).
 includeDarwin:
   - backend: "diffusers"
@@ -5901,6 +5931,10 @@ includeDarwin:
     lang: "go"
   - backend: "cloud-proxy"
     tag-suffix: "-metal-darwin-arm64-cloud-proxy"
+    build-type: "metal"
+    lang: "go"
+  - backend: "avian"
+    tag-suffix: "-metal-darwin-arm64-avian"
     build-type: "metal"
     lang: "go"
   - backend: "llama-cpp-quantization"
