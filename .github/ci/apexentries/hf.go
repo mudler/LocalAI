@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // ErrNoSHA256 marks a GGUF the HuggingFace API describes without an
@@ -85,6 +87,12 @@ func FetchRepoFiles(client *http.Client, repo string) ([]GGUFFile, error) {
 	return ParseRepoFiles(body)
 }
 
+// newHTTPClient builds the client used against the HuggingFace API. It goes
+// through pkg/httpclient rather than a bare &http.Client{} because the std
+// client follows redirects and forwards custom credential headers to the
+// redirect target on a cross-host hop (GHSA-3mj3-57v2-4636). This caller sends
+// only a User-Agent today, but it talks to an external API that could start
+// redirecting, and an HF_TOKEN header here later would then leak.
 func newHTTPClient() *http.Client {
-	return &http.Client{Timeout: 60 * time.Second}
+	return httpclient.NewWithTimeout(60 * time.Second)
 }
