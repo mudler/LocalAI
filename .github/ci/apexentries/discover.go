@@ -11,6 +11,21 @@ import (
 // vendor prefix ("NVIDIA-") that the repo name carries.
 var tierRE = regexp.MustCompile(`-(I-)?(Quality|Balanced|Compact|Mini|Nano)\.gguf$`)
 
+// fullPrecisionRE matches the unquantized source weights an APEX repo publishes
+// alongside its ladder, flat (-F16.gguf) or sharded across a numbered set
+// (-F16-00001-of-00010.gguf). bf16 is accepted because some repos publish that
+// instead, and the match is case-insensitive because the casing varies between
+// publishing scripts.
+//
+// These are deliberately not tiers: they are the weights the ladder is quantized
+// FROM, and generation is scoped to the ladder itself.
+var fullPrecisionRE = regexp.MustCompile(`(?i)-b?f16(-\d{5}-of-\d{5})?\.gguf$`)
+
+// IsFullPrecision reports whether a weight filename is an unquantized source.
+func IsFullPrecision(name string) bool {
+	return fullPrecisionRE.MatchString(name)
+}
+
 // Tier is one discovered build of an APEX repo.
 type Tier struct {
 	Label string

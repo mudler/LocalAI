@@ -73,8 +73,26 @@ type family struct {
 	// Carried on the family rather than printed and forgotten so the run can
 	// summarize them next to everything else a reviewer has to eyeball.
 	skippedRepos []string
-	unclassified int
+	census       fileCensus
 	unaccounted  int
+}
+
+// fileCensus splits the files discovery emitted nothing for into the ones a
+// reviewer must chase and the ones that are deliberately out of scope.
+//
+// Full-precision sources are the second kind: they are the unquantized weights
+// the ladder is derived FROM, not a rung of it. Folding them into the
+// unclassified total would leave a permanent benign baseline, and a permanent
+// baseline is exactly what hides the one file that ever genuinely matters.
+type fileCensus struct {
+	unclassified  int
+	fullPrecision int
+}
+
+// add accumulates one repo's census into a running total.
+func (c *fileCensus) add(o fileCensus) {
+	c.unclassified += o.unclassified
+	c.fullPrecision += o.fullPrecision
 }
 
 // sortedChildren returns the family's builds in ladder order, best first.
@@ -187,12 +205,13 @@ func generate(indexPath, only, outPath string, apply bool) error {
 	}
 	reportHubs(ixText, inserts, newHubs)
 
-	skipped, unclassified, unaccounted := reportSkipped(families)
+	skipped, census, fullPrecisionRepos, unaccounted := reportSkipped(families)
 
 	add = append(add, newHubs...)
 
-	fmt.Printf("\nentries generated: %d\nentries to add:    %d\nentries reused:    %d\nhubs spliced:      %d\nhubs created:      %d\nrepos skipped:     %d\nunclassified:      %d\nunaccounted:       %d\n",
-		len(generated), len(add), len(reused), len(inserts), len(newHubs), len(skipped), unclassified, unaccounted)
+	fmt.Printf("\nentries generated: %d\nentries to add:    %d\nentries reused:    %d\nhubs spliced:      %d\nhubs created:      %d\nrepos skipped:     %d\nexcluded (full precision): %d files across %d repos\nunclassified:      %d\nunaccounted:       %d\n",
+		len(generated), len(add), len(reused), len(inserts), len(newHubs), len(skipped),
+		census.fullPrecision, fullPrecisionRepos, census.unclassified, unaccounted)
 
 	lines, err := galleryedit.Apply(ixText.Lines, inserts)
 	if err != nil {
@@ -237,7 +256,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	imatrix, plain := DiscoverAPEXTiers(files)
 	mmproj, hasMMProj := DiscoverMMProj(files)
 
-	unclassified := reportUnclassified(repo, files, imatrix, plain)
+	census := reportUnclassified(repo, files, imatrix, plain)
 
 	// The imatrix ladder is preferred, but two of the 45 repos publish no
 	// imatrix tiers at all and must still contribute their plain ladder.
@@ -259,7 +278,7 @@ func buildFamily(client *http.Client, repo string) (*family, error) {
 	}
 
 	repoBase := strings.TrimSuffix(path.Base(repo), "-GGUF")
-	f := &family{repo: repo, repoBase: repoBase, hasMMProj: hasMMProj, unclassified: unclassified}
+	f := &family{repo: repo, repoBase: repoBase, hasMMProj: hasMMProj, census: census}
 
 	for _, t := range ladder {
 		f.children = append(f.children, childBuild{
@@ -478,22 +497,29 @@ func resolveCounterpart(client *http.Client, repoBase, stem string) (string, []G
 // fail to match silently downgrades the whole family instead of erroring. The
 // downstream HTTP check cannot catch that: it validates URLs that were emitted,
 // and an undiscovered tier emits none.
-// It returns how many files went unclassified so the run can total them.
-func reportUnclassified(repo string, files []GGUFFile, imatrix, plain []Tier) int {
-	mmprojCount := 0
+// It returns the census so the run can total it.
+func reportUnclassified(repo string, files []GGUFFile, imatrix, plain []Tier) fileCensus {
+	mmprojCount, fullPrecision := 0, 0
 	for _, f := range files {
+		// The mmproj test comes first because projectors are themselves often
+		// published at f16 (mmproj-F16.gguf), and counting such a file in both
+		// buckets would understate the unclassified remainder.
 		if strings.HasPrefix(f.Name, "mmproj") {
 			mmprojCount++
+			continue
+		}
+		if IsFullPrecision(f.Name) {
+			fullPrecision++
 		}
 	}
 
-	classified := len(imatrix) + len(plain) + mmprojCount
+	classified := len(imatrix) + len(plain) + mmprojCount + fullPrecision
 	if classified >= len(files) {
-		return 0
+		return fileCensus{fullPrecision: fullPrecision}
 	}
 	fmt.Fprintf(os.Stderr, "UNCLASSIFIED %s: %d of %d .gguf files classified, %d unaccounted for\n",
 		repo, classified, len(files), len(files)-classified)
-	return len(files) - classified
+	return fileCensus{unclassified: len(files) - classified, fullPrecision: fullPrecision}
 }
 
 // reportReuse splits Merge's single reused map into the two cases it conflates.
@@ -575,12 +601,16 @@ func reportHubs(ix *IndexText, inserts []galleryedit.Insert, newHubs []GalleryEn
 // community merges. But a private or gated repo answers 401 too, and that one
 // WOULD have quants worth shipping. Printing the list is what keeps that
 // possibility auditable instead of silently discarded.
-func reportSkipped(families []family) ([]string, int, int) {
+func reportSkipped(families []family) ([]string, fileCensus, int, int) {
 	var skipped []string
-	unclassified, unaccounted := 0, 0
+	var census fileCensus
+	fullPrecisionRepos, unaccounted := 0, 0
 	for _, f := range families {
 		skipped = append(skipped, f.skippedRepos...)
-		unclassified += f.unclassified
+		census.add(f.census)
+		if f.census.fullPrecision > 0 {
+			fullPrecisionRepos++
+		}
 		unaccounted += f.unaccounted
 	}
 	sort.Strings(skipped)
@@ -589,7 +619,7 @@ func reportSkipped(families []family) ([]string, int, int) {
 	for _, r := range skipped {
 		fmt.Printf("  %s\n", r)
 	}
-	return skipped, unclassified, unaccounted
+	return skipped, census, fullPrecisionRepos, unaccounted
 }
 
 func hasName(ix *ExistingIndex, name string) bool {

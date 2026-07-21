@@ -294,3 +294,51 @@ var _ = Describe("restrict", func() {
 		Expect(restrict([]string{"mudler/A-APEX-GGUF"}, "mudler/typo")).To(BeEmpty())
 	})
 })
+
+var _ = Describe("reportUnclassified", func() {
+	// One real imatrix rung is always present so the specs measure how the
+	// remaining files are bucketed, not an empty-repo edge case.
+	tier := Tier{Label: "I-Quality", File: GGUFFile{Name: "Model-APEX-I-Quality.gguf"}}
+
+	censusOf := func(names ...string) fileCensus {
+		files := []GGUFFile{tier.File}
+		for _, n := range names {
+			files = append(files, GGUFFile{Name: n})
+		}
+		return reportUnclassified("mudler/Model-APEX-GGUF", files, []Tier{tier}, nil)
+	}
+
+	It("counts a flat full-precision source as excluded, not unclassified", func() {
+		got := censusOf("Carnice-MoE-35B-A3B-F16.gguf")
+		Expect(got.fullPrecision).To(Equal(1))
+		Expect(got.unclassified).To(Equal(0))
+	})
+
+	It("counts every shard of a sharded full-precision source as excluded", func() {
+		got := censusOf(
+			"MiniMax-M2.7-APEX-F16-00001-of-00003.gguf",
+			"MiniMax-M2.7-APEX-F16-00002-of-00003.gguf",
+			"MiniMax-M2.7-APEX-F16-00003-of-00003.gguf",
+		)
+		Expect(got.fullPrecision).To(Equal(3))
+		Expect(got.unclassified).To(Equal(0))
+	})
+
+	It("treats bf16 the same as f16, in either case", func() {
+		got := censusOf("Model-APEX-BF16.gguf", "Model-APEX-bf16-00001-of-00002.gguf", "Model-APEX-f16.gguf")
+		Expect(got.fullPrecision).To(Equal(3))
+		Expect(got.unclassified).To(Equal(0))
+	})
+
+	It("still reports a genuinely unknown filename as unclassified", func() {
+		got := censusOf("Model-APEX-Turbo.gguf")
+		Expect(got.unclassified).To(Equal(1))
+		Expect(got.fullPrecision).To(Equal(0))
+	})
+
+	It("separates the two kinds when a repo publishes both", func() {
+		got := censusOf("Model-APEX-F16.gguf", "Model-APEX-Turbo.gguf")
+		Expect(got.fullPrecision).To(Equal(1))
+		Expect(got.unclassified).To(Equal(1))
+	})
+})
