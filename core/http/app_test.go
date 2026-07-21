@@ -297,9 +297,7 @@ func getRequest(url string, header http.Header) (error, int, []byte) {
 	return nil, resp.StatusCode, body
 }
 
-const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
-
-var _ = Describe("API test", func() {
+var _ = Describe("API test", Serial, func() {
 
 	var app *echo.Echo
 	var client *openai.Client
@@ -308,6 +306,7 @@ var _ = Describe("API test", func() {
 	var cancel context.CancelFunc
 	var tmpdir string
 	var modelDir string
+	var bertEmbeddingsURL string
 	// localAIApp captures the Application so AfterEach can synchronously
 	// stop the spawned gRPC backend processes. application.New cancels
 	// them asynchronously on context cancel, which races with test-binary
@@ -331,6 +330,17 @@ var _ = Describe("API test", func() {
 
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0750)
+			Expect(err).ToNot(HaveOccurred())
+			fixtureDir := filepath.Join(modelDir, ".fixtures")
+			err = os.Mkdir(fixtureDir, 0750)
+			Expect(err).ToNot(HaveOccurred())
+			galleryFixturePath := filepath.Join(fixtureDir, "bert-embeddings-gallery.yaml")
+			err = os.WriteFile(galleryFixturePath, []byte("name: bert\nconfig_file: |\n  name: bert\n  backend: embeddings\n  usage: You can test this model with curl like this\n  parameters:\n    model: bert\n"), 0600)
+			Expect(err).ToNot(HaveOccurred())
+			bertEmbeddingsURL = "file://" + galleryFixturePath
+			// Additional files are cache inputs, not behavior under test here. Seed the
+			// destination so model application never reaches the public network.
+			err = os.WriteFile(filepath.Join(modelDir, "foo.yaml"), []byte("fixture: true\n"), 0600)
 			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())
@@ -511,7 +521,7 @@ var _ = Describe("API test", func() {
 					fmt.Println(response)
 					resp = response
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "30s", "50ms").Should(Equal(true))
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert2.yaml"))
@@ -556,7 +566,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "30s", "50ms").Should(Equal(true))
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
@@ -580,7 +590,7 @@ var _ = Describe("API test", func() {
 				Eventually(func() bool {
 					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "30s", "50ms").Should(Equal(true))
 
 				dat, err := os.ReadFile(filepath.Join(modelDir, "bert.yaml"))
 				Expect(err).ToNot(HaveOccurred())
