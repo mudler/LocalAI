@@ -244,7 +244,7 @@ test-python-helpers:
 ## --fail-fast so a single failure doesn't truncate the coverage number, and
 ## uses covermode=atomic so the result is deterministic. Prints the total.
 test-coverage: prepare-test
-	@echo 'Running tests with coverage'
+	@echo 'Running tests with coverage (test failures stop before the percentage ratchet)'
 	GINKGO_TAGS="$(COVERAGE_TAGS)" \
 	COVERAGE_COVERPKG="$(COVERAGE_COVERPKG)" \
 	COVERAGE_E2E_ROOTS="$(COVERAGE_E2E_ROOTS)" \
@@ -267,6 +267,7 @@ test-coverage-baseline: test-coverage
 ## run-to-run jitter from the in-process tests/e2e suite folded in via
 ## --coverpkg (timing-dependent which handler lines execute).
 test-coverage-check: test-coverage
+	@echo 'Running coverage percentage ratchet'
 	@scripts/coverage-check.sh $(COVERAGE_PROFILE) $(COVERAGE_BASELINE)
 
 ########################################################
