@@ -34,6 +34,9 @@ if [ "$go_changed" -eq 0 ] && [ "$ui_changed" -eq 0 ] && [ "$rt_changed" -eq 0 ]
 fi
 
 if [ "$go_changed" -eq 1 ]; then
+	echo "pre-commit ▶ gRPC generation (make protogen-go)"
+	make protogen-go
+
 	# Resolve the ref golangci-lint's new-from-merge-base should compare
 	# against. .golangci.yml pins origin/master, which is correct in CI
 	# (origin == the canonical repo) but wrong from a fork clone, where
