@@ -9,4 +9,26 @@
 // vendor prefix in the same way.
 package main
 
-func main() {}
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+func main() {
+	verify := flag.String("verify", "", "verify a gallery index and exit")
+	flag.Parse()
+
+	if *verify != "" {
+		problems := Verify(*verify)
+		for _, p := range problems {
+			fmt.Fprintln(os.Stderr, p)
+		}
+		if len(problems) > 0 {
+			fmt.Fprintf(os.Stderr, "%d problem(s)\n", len(problems))
+			os.Exit(1)
+		}
+		fmt.Println("index is sound")
+		return
+	}
+}
