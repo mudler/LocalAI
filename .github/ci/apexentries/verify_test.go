@@ -99,6 +99,7 @@ var _ = Describe("Verify", func() {
   tags:
     - dflash
   overrides:
+    backend: llama-cpp
     options:
       - use_jinja:true
   files:
@@ -112,6 +113,7 @@ var _ = Describe("Verify", func() {
 		Expect(Verify(write(`
 - name: shy
   overrides:
+    backend: llama-cpp
     options:
       - spec_type:draft-mtp
   files:
@@ -121,6 +123,80 @@ var _ = Describe("Verify", func() {
 `))).To(ContainElement(ContainSubstring("not tagged mtp")))
 	})
 
+	// ds4 carries the MTP heads in the weights and names them with mtp_path, so
+	// the rule holds there in a different vocabulary rather than not at all.
+	It("reports a ds4 entry configuring mtp_path without the tag", func() {
+		Expect(Verify(write(`
+- name: ds4-shy
+  overrides:
+    backend: ds4
+    options:
+      - mtp_path:model-mtp.gguf
+      - mtp_draft:2
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+`))).To(ContainElement(ContainSubstring("not tagged mtp")))
+	})
+
+	It("reports a ds4 entry tagged mtp that configures no mtp_path", func() {
+		Expect(Verify(write(`
+- name: ds4-liar
+  tags:
+    - mtp
+  overrides:
+    backend: ds4
+    options:
+      - context_size:4096
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+`))).To(ContainElement(ContainSubstring("tagged mtp")))
+	})
+
+	It("accepts a ds4 entry that both configures mtp_path and carries the tag", func() {
+		Expect(Verify(write(`
+- name: ds4-honest
+  tags:
+    - mtp
+  overrides:
+    backend: ds4
+    options:
+      - mtp_path:model-mtp.gguf
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+`))).To(BeEmpty())
+	})
+
+	// sglang declares speculative_algorithm in the referenced gallery/*.yaml,
+	// which Verify never reads, so it may not judge such an entry either way.
+	It("says nothing about an sglang entry tagged mtp", func() {
+		Expect(Verify(write(`
+- name: sglang-mtp
+  tags:
+    - mtp
+  overrides:
+    backend: sglang
+  files: []
+`))).To(BeEmpty())
+	})
+
+	It("says nothing about the tag on an entry with no declared backend", func() {
+		Expect(Verify(write(`
+- name: templated
+  tags:
+    - mtp
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+`))).To(BeEmpty())
+	})
+
 	// The flat-match branch in unsloth.go appends every match, so a repo
 	// publishing both a plain and a UD Q8_0 renders one entry holding two full
 	// models while model: points at only the first.
@@ -128,6 +204,7 @@ var _ = Describe("Verify", func() {
 		Expect(Verify(write(`
 - name: greedy
   overrides:
+    backend: llama-cpp
     options:
       - use_jinja:true
     parameters:
@@ -148,6 +225,7 @@ var _ = Describe("Verify", func() {
   tags:
     - mtp
   overrides:
+    backend: llama-cpp
     options:
       - spec_type:draft-mtp
     mmproj: llama-cpp/mmproj/repo/mm.gguf
@@ -165,6 +243,59 @@ var _ = Describe("Verify", func() {
     - filename: llama-cpp/models/repo/Model-draft.gguf
       sha256: dd
       uri: https://example.com/d.gguf
+`))).To(BeEmpty())
+	})
+
+	// Multi-component TTS and ASR engines legitimately ship an encoder, a
+	// tokenizer, a vocoder and so on as one model, so the collision the weight
+	// count catches does not exist for them.
+	It("accepts a multi-component non-llama-cpp entry declaring five weights", func() {
+		Expect(Verify(write(`
+- name: multi
+  overrides:
+    backend: qwen3-tts-cpp
+  files:
+    - filename: talker.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+    - filename: tokenizer.gguf
+      sha256: bb
+      uri: https://example.com/b.gguf
+    - filename: vocoder.gguf
+      sha256: cc
+      uri: https://example.com/c.gguf
+    - filename: encoder.gguf
+      sha256: dd
+      uri: https://example.com/d.gguf
+    - filename: vae.gguf
+      sha256: ee
+      uri: https://example.com/e.gguf
+`))).To(BeEmpty())
+	})
+
+	It("says nothing about the weight count of an entry with no declared backend", func() {
+		Expect(Verify(write(`
+- name: templated-weights
+  files:
+    - filename: model-Q4_K_M.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+    - filename: model-mmproj-f16.gguf
+      sha256: bb
+      uri: https://example.com/b.gguf
+`))).To(BeEmpty())
+	})
+
+	It("says nothing about an auxiliary non-gguf file carrying no sha256", func() {
+		Expect(Verify(write(`
+- name: aux
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+    - filename: params.json
+      sha256: ""
+      uri: https://example.com/params.json
 `))).To(BeEmpty())
 	})
 })

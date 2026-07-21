@@ -13,6 +13,10 @@ type verifyEntry struct {
 	Tags      []string     `yaml:"tags"`
 	Variants  []VariantRef `yaml:"variants"`
 	Overrides struct {
+		// Backend scopes the checks that only hold for one engine. An entry that
+		// declares none takes its configuration from the referenced url: template,
+		// which this verifier never reads, so it cannot be judged either way.
+		Backend string   `yaml:"backend"`
 		Options []string `yaml:"options"`
 		// MMProj and DraftModel name the files that are not weights. They are
 		// the only signal for it: a drafter lands in the same models/ prefix as
@@ -64,8 +68,14 @@ func Verify(path string) []string {
 			}
 		}
 
+		// sha256 is required on .gguf files only. Every non-GGUF asset in the
+		// index today belongs to a hand-curated entry this generator does not
+		// produce, and gating on them would make the verifier unusable as a gate
+		// over work that is outside its scope. Their missing checksums are a real
+		// gallery-hygiene issue, but one for the curators of those entries, not
+		// something this tool can act on.
 		for _, f := range e.Files {
-			if f.SHA256 == "" {
+			if strings.HasSuffix(f.Filename, ".gguf") && f.SHA256 == "" {
 				problems = append(problems, fmt.Sprintf("%s: file %s has no sha256", e.Name, f.Filename))
 			}
 		}
@@ -85,7 +95,16 @@ func Verify(path string) []string {
 // twice the bytes and serves whichever file sorted first, silently.
 //
 // Shards are exempt because a sharded build is legitimately many files.
+//
+// The collision is a property of llama-cpp quant discovery, so the check is
+// scoped to that backend. Multi-component TTS, ASR and diffusion engines ship an
+// encoder, a decoder and a vocoder as one model, and there the second GGUF is
+// the design rather than a bug.
 func checkWeightCount(e verifyEntry) []string {
+	if e.Overrides.Backend != "llama-cpp" {
+		return nil
+	}
+
 	var weights []string
 	for _, f := range e.Files {
 		switch {
@@ -107,7 +126,15 @@ func checkWeightCount(e verifyEntry) []string {
 // checkFeatureTag enforces the rule in both directions. A tag without the
 // configuration promotes a build that is no faster; configuration without the
 // tag leaves a genuinely faster build ranked as plain.
+//
+// It only speaks about backends whose declaration it can actually read, because
+// a rule applied where the evidence is invisible reports noise rather than bugs.
 func checkFeatureTag(e verifyEntry, feature string) []string {
+	decl, configured, judgeable := featureDeclaration(e, feature)
+	if !judgeable {
+		return nil
+	}
+
 	tagged := false
 	for _, t := range e.Tags {
 		if t == feature {
@@ -116,21 +143,54 @@ func checkFeatureTag(e verifyEntry, feature string) []string {
 		}
 	}
 
-	configured := false
-	for _, o := range e.Overrides.Options {
-		if strings.TrimSpace(o) == "spec_type:draft-"+feature {
-			configured = true
-			break
-		}
-	}
-
 	switch {
 	case tagged && !configured:
-		return []string{fmt.Sprintf("%s: tagged %s but sets no spec_type:draft-%s", e.Name, feature, feature)}
+		return []string{fmt.Sprintf("%s: tagged %s but sets no %s", e.Name, feature, decl)}
 	case configured && !tagged:
-		return []string{fmt.Sprintf("%s: sets spec_type:draft-%s but is not tagged %s", e.Name, feature, feature)}
+		return []string{fmt.Sprintf("%s: sets %s but is not tagged %s", e.Name, decl, feature)}
 	}
 	return nil
+}
+
+// featureDeclaration implements the per-backend table in
+// .agents/adding-gallery-models.md. It returns the declaration the backend uses
+// to configure the feature, whether the entry carries it, and whether this
+// verifier is in a position to answer at all.
+func featureDeclaration(e verifyEntry, feature string) (decl string, configured, judgeable bool) {
+	switch e.Overrides.Backend {
+	case "llama-cpp":
+		decl = "spec_type:draft-" + feature
+		for _, o := range e.Overrides.Options {
+			if strings.TrimSpace(o) == decl {
+				return decl, true, true
+			}
+		}
+		return decl, false, true
+
+	case "ds4":
+		// ds4 carries the MTP heads in the weights and turns them on with
+		// mtp_path / mtp_draft. It has no dflash counterpart, so dflash is not a
+		// question that can be asked of a ds4 entry.
+		if feature != "mtp" {
+			return "", false, false
+		}
+		decl = "mtp_path:"
+		for _, o := range e.Overrides.Options {
+			o = strings.TrimSpace(o)
+			if strings.HasPrefix(o, "mtp_path:") || strings.HasPrefix(o, "mtp_draft:") {
+				return decl, true, true
+			}
+		}
+		return decl, false, true
+
+	default:
+		// sglang configures the feature with speculative_algorithm: in the
+		// referenced gallery/*.yaml, and an entry that declares no backend takes
+		// its whole configuration from its url: template. Verify reads one index
+		// file and follows neither, so it must not judge these in either
+		// direction.
+		return "", false, false
+	}
 }
 
 // UnaccountedQuants reports a wanted quant the repo demonstrably publishes but
