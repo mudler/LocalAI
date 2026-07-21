@@ -222,7 +222,7 @@
     It does joint long-form transcription, speaker diarization and timestamping in a single pass, emitting a speaker-labelled,
     time-aligned transcript, and runs on CPU, NVIDIA CUDA, AMD ROCm/HIP, Intel SYCL, Vulkan, Apple Metal and NVIDIA Jetson (L4T) targets.
   urls:
-    - https://github.com/mudler/moss-transcribe.cpp
+    - https://github.com/localai-org/moss-transcribe.cpp
   tags:
     - audio-transcription
     - CPU
@@ -253,7 +253,7 @@
     /v1/audio/classification REST endpoint. It runs on CPU, NVIDIA CUDA,
     AMD ROCm/HIP, Intel SYCL, Vulkan and NVIDIA Jetson (L4T) targets.
   urls:
-    - https://github.com/mudler/ced.cpp
+    - https://github.com/localai-org/ced.cpp
   tags:
     - audio-classification
     - CPU
@@ -287,7 +287,7 @@
     gRPC rpcs and the /v1/voice/* REST endpoints. It runs on CPU, NVIDIA
     CUDA, AMD ROCm/HIP, Intel SYCL, Vulkan and NVIDIA Jetson (L4T) targets.
   urls:
-    - https://github.com/mudler/voice-detect.cpp
+    - https://github.com/localai-org/voice-detect.cpp
   tags:
     - voice-recognition
     - speaker-verification
@@ -487,7 +487,7 @@
     and returns bounding boxes, class labels, confidence scores, and
     (for segmentation variants) PNG-encoded per-detection masks.
   urls:
-    - https://github.com/mudler/rf-detr.cpp
+    - https://github.com/localai-org/rf-detr.cpp
   tags:
     - object-detection
     - image-segmentation
