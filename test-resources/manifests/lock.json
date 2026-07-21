@@ -1,10 +1,11 @@
 {
   "version": 1,
   "bundles": {
-    "aio": "embedded",
+    "aio": "sha256:03b05eedb51c853b0f05f2f3f592e2edc210e337388d3ff5a766680c0a166e55",
     "backend": "embedded",
-    "default": "embedded",
-    "distributed-e2e": "embedded",
+    "default": "sha256:185ebd3cfb994b9c1d1d1d9fad0a5d95c9de698b45e010276db388a9d66474bd",
+    "default-darwin": "embedded",
+    "distributed-e2e": "sha256:797dad68952914bf6612a42486086aa45eb17112067bec9955e2f5cf65a030dc",
     "external-probes": "embedded",
     "hardware": "embedded"
   }

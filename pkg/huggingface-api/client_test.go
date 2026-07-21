@@ -336,8 +336,12 @@ var _ = Describe("HuggingFace API Client", func() {
 
 	Context("when handling network errors", func() {
 		It("should handle connection failures gracefully", func() {
-			// Use an invalid URL to simulate connection failure
-			client.SetBaseURL("http://invalid-url-that-does-not-exist")
+			// A closed loopback listener produces a deterministic connection
+			// failure without relying on DNS or public network access.
+			closedServer := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+			closedURL := closedServer.URL
+			closedServer.Close()
+			client.SetBaseURL(closedURL)
 
 			params := hfapi.SearchParams{
 				Sort:      "lastModified",

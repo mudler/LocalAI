@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/internal/testfixtures"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nkeys"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/testcontainers/testcontainers-go"
 	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
+	tcnetwork "github.com/testcontainers/testcontainers-go/network"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // JWTTestInfra holds a NATS server configured with JWT auth and minted worker credentials.
@@ -34,6 +37,9 @@ func SetupJWTInfra() *JWTTestInfra {
 	GinkgoHelper()
 
 	infra := &JWTTestInfra{TestInfra: &TestInfra{Ctx: context.Background()}}
+	Expect(testfixtures.RequireImage(infra.Ctx, testfixtures.NATS2Alpine, "distributed-e2e")).To(Succeed())
+	testNetwork, err := testfixtures.DockerNetwork()
+	Expect(err).NotTo(HaveOccurred())
 
 	operatorJWT, accountJWT, accountSeed, err := jwtResolverMaterial()
 	Expect(err).ToNot(HaveOccurred())
@@ -51,15 +57,18 @@ resolver_preload: {
 
 	var natsContainer *tcnats.NATSContainer
 	// Override default testcontainers -js: JetStream fails without a system account in JWT mode.
-	natsContainer, err = tcnats.Run(infra.Ctx, "nats:2-alpine",
+	natsContainer, err = tcnats.Run(infra.Ctx, testfixtures.NATS2Alpine,
 		tcnats.WithConfigFile(bytes.NewBufferString(conf)),
 		testcontainers.WithCmd("-c", "/etc/nats.conf"),
+		tcnetwork.WithNetworkName([]string{"nats"}, testNetwork),
+		testcontainers.WithWaitStrategy(wait.ForLog("Server is ready")),
 	)
 	Expect(err).ToNot(HaveOccurred())
 	infra.NATSContainer = natsContainer
 
-	infra.NatsURL, err = infra.NATSContainer.ConnectionString(infra.Ctx)
+	natsEndpoint, err := testfixtures.ContainerEndpoint(infra.Ctx, infra.NATSContainer, "4222")
 	Expect(err).ToNot(HaveOccurred())
+	infra.NatsURL = "nats://" + natsEndpoint
 
 	infra.NodeID = "550e8400-e29b-41d4-a716-446655440000"
 	cfg := natsauth.Config{AccountSeed: infra.AccountSeed, WorkerJWTTTL: time.Hour}

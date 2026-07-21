@@ -1,1 +1,12 @@
-{"version":1,"target":"aio"}
+{
+  "version": 1,
+  "target": "aio",
+  "files": [
+    {
+      "url": "https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav",
+      "sha256": "37de21902b32aa2fc147ccbfdcc0566cc7061fffb2c0b10874f05147c0b9de0f",
+      "destination": "audio/micro-machines.wav",
+      "environment": "AIO_AUDIO_FIXTURE"
+    }
+  ]
+}

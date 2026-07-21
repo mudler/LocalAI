@@ -2,9 +2,11 @@ package distributed_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/internal/testfixtures"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +14,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -32,9 +35,13 @@ func SetupInfra(dbName string) *TestInfra {
 
 	infra := &TestInfra{Ctx: context.Background()}
 	var err error
+	Expect(testfixtures.RequireImage(infra.Ctx, testfixtures.Postgres16Alpine, "distributed-e2e")).To(Succeed())
+	Expect(testfixtures.RequireImage(infra.Ctx, testfixtures.NATS2Alpine, "distributed-e2e")).To(Succeed())
+	testNetwork, err := testfixtures.DockerNetwork()
+	Expect(err).NotTo(HaveOccurred())
 
 	// Start PostgreSQL container
-	infra.PGContainer, err = tcpostgres.Run(infra.Ctx, "postgres:16-alpine",
+	infra.PGContainer, err = tcpostgres.Run(infra.Ctx, testfixtures.Postgres16Alpine,
 		tcpostgres.WithDatabase(dbName),
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),
@@ -43,18 +50,23 @@ func SetupInfra(dbName string) *TestInfra {
 				WithOccurrence(2).
 				WithStartupTimeout(30*time.Second),
 		),
+		tcnetwork.WithNetworkName([]string{"postgres"}, testNetwork),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	infra.PGURL, err = infra.PGContainer.ConnectionString(infra.Ctx, "sslmode=disable")
+	pgEndpoint, err := testfixtures.ContainerEndpoint(infra.Ctx, infra.PGContainer, "5432")
 	Expect(err).ToNot(HaveOccurred())
+	infra.PGURL = fmt.Sprintf("postgres://test:test@%s/%s?sslmode=disable", pgEndpoint, dbName)
 
 	// Start NATS container
-	infra.NATSContainer, err = tcnats.Run(infra.Ctx, "nats:2-alpine")
+	infra.NATSContainer, err = tcnats.Run(infra.Ctx, testfixtures.NATS2Alpine,
+		tcnetwork.WithNetworkName([]string{"nats"}, testNetwork),
+		testcontainers.WithWaitStrategy(wait.ForLog("Server is ready")))
 	Expect(err).ToNot(HaveOccurred())
 
-	infra.NatsURL, err = infra.NATSContainer.ConnectionString(infra.Ctx)
+	natsEndpoint, err := testfixtures.ContainerEndpoint(infra.Ctx, infra.NATSContainer, "4222")
 	Expect(err).ToNot(HaveOccurred())
+	infra.NatsURL = "nats://" + natsEndpoint
 
 	// Connect messaging client
 	infra.NC, err = messaging.New(infra.NatsURL)
@@ -83,12 +95,18 @@ func SetupNATSOnly() *TestInfra {
 
 	infra := &TestInfra{Ctx: context.Background()}
 	var err error
+	Expect(testfixtures.RequireImage(infra.Ctx, testfixtures.NATS2Alpine, "distributed-e2e")).To(Succeed())
+	testNetwork, err := testfixtures.DockerNetwork()
+	Expect(err).NotTo(HaveOccurred())
 
-	infra.NATSContainer, err = tcnats.Run(infra.Ctx, "nats:2-alpine")
+	infra.NATSContainer, err = tcnats.Run(infra.Ctx, testfixtures.NATS2Alpine,
+		tcnetwork.WithNetworkName([]string{"nats"}, testNetwork),
+		testcontainers.WithWaitStrategy(wait.ForLog("Server is ready")))
 	Expect(err).ToNot(HaveOccurred())
 
-	infra.NatsURL, err = infra.NATSContainer.ConnectionString(infra.Ctx)
+	natsEndpoint, err := testfixtures.ContainerEndpoint(infra.Ctx, infra.NATSContainer, "4222")
 	Expect(err).ToNot(HaveOccurred())
+	infra.NatsURL = "nats://" + natsEndpoint
 
 	infra.NC, err = messaging.New(infra.NatsURL)
 	Expect(err).ToNot(HaveOccurred())
