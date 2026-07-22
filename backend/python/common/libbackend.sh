@@ -408,24 +408,36 @@ function runProtogen() {
     # mismatch crashes the backend with "grpc service not ready" before it ever
     # loads a model).
     #
-    # Constrain the install to the protobuf already present and let the resolver
-    # pick the newest grpcio-tools compatible with it. That both selects a
-    # generator whose gencode the runtime accepts and stops the install from
-    # moving the runtime out from under the rest of the backend's dependencies.
+    # Resolve the generator in a THROWAWAY environment, constrained to the
+    # protobuf the backend actually ships. The resolver then picks the newest
+    # grpcio-tools whose gencode that runtime accepts, and because none of it is
+    # installed into the backend's venv, the backend's own pinned dependencies
+    # are left exactly as its requirements files declared them. Installing
+    # grpcio-tools into the venv instead would drag grpcio along with it
+    # (grpcio-tools 1.82.1 requires grpcio>=1.82.1), silently overriding pins
+    # like llama-cpp-quantization's grpcio==1.78.1. The generator is a build
+    # tool; it has no business editing the runtime dependency set.
     # Falls back to unpinned when protobuf isn't installed yet.
     # See mudler/LocalAI#10718, #10940.
-    local -a grpcio_tools_spec=("grpcio-tools")
-    local protobuf_version
+    local protobuf_version protogen_env protogen_python
     protobuf_version="$(python -c 'import importlib.metadata as m; print(m.version("protobuf"))' 2>/dev/null || true)"
+
+    local -a protogen_spec=("grpcio-tools")
     if [ -n "${protobuf_version}" ]; then
-        grpcio_tools_spec=("grpcio-tools" "protobuf==${protobuf_version}")
+        protogen_spec+=("protobuf==${protobuf_version}")
     fi
 
+    protogen_env="$(mktemp -d)"
+
     if [ "x${USE_PIP}" == "xtrue" ]; then
-        pip install "${grpcio_tools_spec[@]}"
+        python -m venv "${protogen_env}"
+        "${protogen_env}/bin/pip" install "${protogen_spec[@]}"
     else
-        uv pip install "${grpcio_tools_spec[@]}"
+        uv venv "${protogen_env}"
+        VIRTUAL_ENV="${protogen_env}" uv pip install "${protogen_spec[@]}"
     fi
+    protogen_python="${protogen_env}/bin/python"
+
     pushd "${EDIR}" >/dev/null
         # Drop the cached bytecode along with the sources. CPython validates a
         # .pyc against the source's mtime *and size*, both of which can be
@@ -434,17 +446,22 @@ function runProtogen() {
         # reused in place of the stub we just generated.
         rm -f backend_pb2.py backend_pb2.pyi backend_pb2_grpc.py
         rm -rf __pycache__
-        # use the venv python (ensures correct interpreter & sys.path)
-        python -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
+        # Generate with the throwaway toolchain; the output is plain Python and
+        # carries no dependency on the interpreter that produced it.
+        "${protogen_python}" -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
 
-        # Fail the build rather than ship a backend that cannot import its own
-        # stubs. Without this the gencode/runtime mismatch only surfaces at model
-        # load time, in a released image, as an opaque "grpc service not ready".
+        # Verify with the BACKEND's python, which is the interpreter that has to
+        # import these at model load. Fail the build rather than ship a backend
+        # that cannot import its own stubs: otherwise the gencode/runtime
+        # mismatch only surfaces in a released image, as an opaque
+        # "grpc service not ready".
         if ! python -c 'import backend_pb2' >/dev/null; then
             echo "runProtogen: generated stubs are not importable against the installed protobuf runtime (${protobuf_version:-unknown})" >&2
             exit 1
         fi
     popd >/dev/null
+
+    rm -rf "${protogen_env}"
 }
 
 
