@@ -158,35 +158,36 @@ type RunCMD struct {
 	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
 
 	// Distributed / Horizontal Scaling
-	Distributed               bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
-	InstanceID                string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
-	NatsURL                   string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
-	StorageURL                string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
-	StorageBucket             string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
-	StorageRegion             string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
-	StorageAccessKey          string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
-	StorageSecretKey          string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
-	RegistrationToken         string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
-	RegistrationRequireAuth   bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
-	DistributedRequireAuth    bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
-	AutoApproveNodes          bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
-	DistributedSharedModels   bool   `env:"LOCALAI_DISTRIBUTED_SHARED_MODELS" default:"false" help:"Assert that every node mounts the SAME models directory at the SAME path (shared volume). When true, the router skips staging model files to workers and loads them directly from the shared path, avoiding re-downloads." group:"distributed"`
-	DistributedPrefixCache    bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
-	DistributedPrefixCacheTTL string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
-	BackendInstallTimeout     string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
-	BackendUpgradeTimeout     string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
-	ModelLoadTimeout          string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"Fixed gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged. Unset (the default), the deadline is derived from the checkpoint size instead: 5m plus 20s per GiB, capped at 6h, so multi-tens-of-GB diffusion/video checkpoints get the minutes they need without a fixed cliff. Set this only to pin a specific budget; the value is used verbatim, including when it is shorter than the derived one." group:"distributed"`
-	NatsAccountSeed           string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
-	NatsServiceJWT            string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
-	NatsServiceSeed           string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
-	NatsWorkerJWTTTL          string `env:"LOCALAI_NATS_WORKER_JWT_TTL" help:"Lifetime of minted per-node NATS JWTs (e.g. 24h, default 24h)" group:"distributed"`
-	NatsRequireAuth           bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT credentials (service JWT + account seed) when distributed mode is enabled" group:"distributed"`
-	NatsTLSCA                 string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
-	NatsTLSCert               string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
-	NatsTLSKey                string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
-	ExposeNodeHeader          bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
-	ModelScheduling           string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
-	ModelSchedulingConfig     string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
+	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
+	InstanceID                   string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
+	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
+	StorageURL                   string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
+	StorageBucket                string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
+	StorageRegion                string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
+	StorageAccessKey             string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
+	StorageSecretKey             string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
+	RegistrationToken            string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
+	RegistrationRequireAuth      bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
+	DistributedRequireAuth       bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
+	AutoApproveNodes             bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
+	DistributedSharedModels      bool   `env:"LOCALAI_DISTRIBUTED_SHARED_MODELS" default:"false" help:"Assert that every node mounts the SAME models directory at the SAME path (shared volume). When true, the router skips staging model files to workers and loads them directly from the shared path, avoiding re-downloads." group:"distributed"`
+	DistributedPrefixCache       bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
+	DistributedDiskHeadroomCheck bool   `env:"LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK" default:"true" help:"Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging (default true). Free space is measured on the filesystem backing each worker's models directory, and compared against the model's own size plus a small margin. When false, node selection ignores free disk (pre-#11054 behaviour); the check still runs and warns when it would have rejected every node. Can also be toggled at runtime via the distributed_disk_headroom_check setting." group:"distributed"`
+	DistributedPrefixCacheTTL    string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
+	BackendInstallTimeout        string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
+	BackendUpgradeTimeout        string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
+	ModelLoadTimeout             string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"Fixed gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged. Unset (the default), the deadline is derived from the checkpoint size instead: 5m plus 20s per GiB, capped at 6h, so multi-tens-of-GB diffusion/video checkpoints get the minutes they need without a fixed cliff. Set this only to pin a specific budget; the value is used verbatim, including when it is shorter than the derived one." group:"distributed"`
+	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
+	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
+	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
+	NatsWorkerJWTTTL             string `env:"LOCALAI_NATS_WORKER_JWT_TTL" help:"Lifetime of minted per-node NATS JWTs (e.g. 24h, default 24h)" group:"distributed"`
+	NatsRequireAuth              bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT credentials (service JWT + account seed) when distributed mode is enabled" group:"distributed"`
+	NatsTLSCA                    string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
+	NatsTLSCert                  string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey                   string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	ExposeNodeHeader             bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
+	ModelScheduling              string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
+	ModelSchedulingConfig        string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
 
 	Version bool
 
@@ -408,6 +409,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if !r.DistributedPrefixCache {
 		opts = append(opts, config.DisablePrefixCache)
+	}
+	if !r.DistributedDiskHeadroomCheck {
+		opts = append(opts, config.DisableDiskHeadroomCheck)
 	}
 	if r.DistributedPrefixCacheTTL != "" {
 		d, err := time.ParseDuration(r.DistributedPrefixCacheTTL)

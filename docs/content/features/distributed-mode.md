@@ -69,6 +69,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
+| `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
@@ -475,7 +476,21 @@ This is deliberately a scheduling-time verdict. Without it, a worker with a full
 
 Workers that predate this feature (or whose disk reading fails) report `total_disk` as `0`. Such nodes are treated as *unknown*, not *full*, and stay in rotation, so a rolling upgrade never empties the candidate pool. A full disk is distinguishable because it reports a non-zero `total_disk` with `available_disk` at `0`.
 
-Low disk does **not** mark a node `unhealthy`. Disk is compared per model rather than against a global threshold, so a node that is too small for one model remains a valid target for smaller ones.
+Low disk does **not** mark a node `unhealthy`. Disk is compared per model rather than against a global threshold, so a node that is too small for one model remains a valid target for smaller ones. The check is also skipped entirely in [shared-models mode](#shared-models-directory), where nothing is staged to the worker at all.
+
+#### Turning the check off
+
+The check is **on by default**. To disable it, start the frontend with `--distributed-disk-headroom-check=false` / `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK=false`, or toggle **Settings → Distributed → Disk headroom check** in the WebUI (`distributed_disk_headroom_check` via `POST /api/settings`). The runtime setting takes effect on the next placement, with no restart; the env/CLI flag only sets the value LocalAI boots with, and both write the same underlying value, so the last change wins.
+
+Disabling means **warn, do not block**. Node selection goes back to ignoring free disk (the pre-check behaviour), but the check still runs, and when it would have rejected *every* node it logs a warning naming the shortfall:
+
+```
+WARN No node has room to store this model, but the disk-headroom check is DISABLED;
+     scheduling anyway — staging will most likely fail with ENOSPC
+     model=longcat-video-avatar-1.5 knob=distributed-disk-headroom-check
+```
+
+The alternative — skipping the check outright — was rejected because it reproduces the condition that made the original bug expensive: the cluster was doing something that could not work and said nothing about it. The escape hatch exists for setups where the size estimate is wrong (deduplicating or compressing filesystems, a backend that fetches its own weights rather than using the staged copy), and in exactly those cases the operator needs to see what LocalAI thought was wrong. Disabling is logged once at startup as well.
 
 The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 

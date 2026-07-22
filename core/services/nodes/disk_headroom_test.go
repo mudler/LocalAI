@@ -172,6 +172,71 @@ var _ = Describe("scheduling a model onto a cluster without disk headroom", func
 		Expect(unloader.installCalls).To(BeEmpty())
 	})
 
+	It("restores the pre-check behaviour when the operator disables the knob", func() {
+		// LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK=false (or the runtime
+		// toggle) must give back exactly today's behaviour: the node that
+		// lacks space IS selected and the load proceeds.
+		reg.narrowByDiskErr = fmt.Errorf("%w: nvidia-thor has 0 B free of 937.0 GB", ErrInsufficientDisk)
+		router = NewSmartRouter(reg, SmartRouterOptions{
+			Unloader:            unloader,
+			ClientFactory:       &holdClientFactory{client: backend},
+			DiskHeadroomEnabled: func() bool { return false },
+		})
+
+		Expect(route(sparseCheckpoint(dir, "big.gguf", 70<<30))).To(Succeed())
+		Expect(unloader.installCalls).To(HaveLen(1))
+	})
+
+	It("still evaluates the check when disabled, so the operator is not left blind", func() {
+		// Disabled means "do not block", NOT "do not look". A silently
+		// disabled safety check is how the original bug stayed invisible.
+		reg.narrowByDiskErr = fmt.Errorf("%w: nvidia-thor has 0 B free of 937.0 GB", ErrInsufficientDisk)
+		router = NewSmartRouter(reg, SmartRouterOptions{
+			Unloader:            unloader,
+			ClientFactory:       &holdClientFactory{client: backend},
+			DiskHeadroomEnabled: func() bool { return false },
+		})
+
+		Expect(route(sparseCheckpoint(dir, "big.gguf", 70<<30))).To(Succeed())
+		Expect(reg.narrowByDiskRequired).ToNot(BeEmpty(),
+			"the disabled check must still run so it can warn about the shortfall")
+	})
+
+	It("reads the toggle live, so a runtime change applies without a restart", func() {
+		// The router is constructed ONCE; the operator flips the setting
+		// afterwards. Snapshotting the value at construction would make the
+		// runtime setting a lie.
+		enabled := true
+		reg.narrowByDiskErr = fmt.Errorf("%w: nvidia-thor has 0 B free of 937.0 GB", ErrInsufficientDisk)
+		router = NewSmartRouter(reg, SmartRouterOptions{
+			Unloader:            unloader,
+			ClientFactory:       &holdClientFactory{client: backend},
+			DiskHeadroomEnabled: func() bool { return enabled },
+		})
+
+		Expect(route(sparseCheckpoint(dir, "big.gguf", 70<<30))).To(MatchError(ErrInsufficientDisk))
+
+		enabled = false
+		Expect(route(sparseCheckpoint(dir, "big2.gguf", 70<<30))).To(Succeed())
+	})
+
+	It("skips the check in shared-models mode, where nothing is staged to the worker", func() {
+		// With LOCALAI_DISTRIBUTED_SHARED_MODELS every node mounts the same
+		// models directory and stageModelFiles uploads nothing, so demanding
+		// 73GB free per node would reject a cluster that needs no new bytes
+		// at all.
+		reg.narrowByDiskErr = fmt.Errorf("%w: nvidia-thor has 0 B free of 937.0 GB", ErrInsufficientDisk)
+		router = NewSmartRouter(reg, SmartRouterOptions{
+			Unloader:      unloader,
+			ClientFactory: &holdClientFactory{client: backend},
+			SharedModels:  true,
+		})
+
+		Expect(route(sparseCheckpoint(dir, "big.gguf", 70<<30))).To(Succeed())
+		Expect(reg.narrowByDiskRequired).To(BeEmpty(),
+			"shared-models mode stages nothing, so the check must not run at all")
+	})
+
 	It("sizes the disk requirement from the model, not from a fixed threshold", func() {
 		Expect(route(sparseCheckpoint(dir, "big.gguf", 70<<30))).To(Succeed())
 

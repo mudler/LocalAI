@@ -356,6 +356,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
 		SharedModels:     cfg.Distributed.SharedModels,
+		// A closure over the live ApplicationConfig, NOT a snapshot: the
+		// runtime setting (distributed_disk_headroom_check) mutates this exact
+		// member, so a snapshot here would make the toggle a no-op until
+		// restart. env/CLI sets the boot value, POST /api/settings overrides it
+		// live, and this is the single member both write.
+		DiskHeadroomEnabled: func() bool { return !cfg.Distributed.DiskHeadroomDisabled },
 		// RAW, not OrDefault: zero means "derive the budget per model from the
 		// checkpoint size" (config.ModelLoadTimeoutForSize), which is what makes
 		// a 70 GB video checkpoint work without the operator first hitting a
@@ -377,6 +383,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// replica, not just the one performing the transfer. Without this, a
 	// /api/operations poll that round-robins onto a peer sees no staging row and
 	// the progress flickers. The origin publishes; peers mirror via the wildcard.
+	// A silently disabled safety check is how the original incident stayed
+	// invisible for sixteen minutes. Say so once, loudly, at startup.
+	if cfg.Distributed.DiskHeadroomDisabled {
+		xlog.Info("Disk-headroom admission check is DISABLED: node selection will ignore whether a worker can store the model, and staging may fail with ENOSPC partway through a transfer",
+			"knob", config.FlagDiskHeadroomCheck, "env", "LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK")
+	}
+
 	router.StagingTracker().SetPublisher(natsClient)
 	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
 		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)

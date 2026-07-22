@@ -66,6 +66,11 @@ type SmartRouterOptions struct {
 	// The reconciler reads the same instance to autoscale a saturated cache-warm
 	// replica. nil disables recording (the disabled path stays a no-op).
 	Pressure *prefixcache.Pressure
+	// DiskHeadroomEnabled is read LIVE on every scheduling decision (not
+	// snapshotted at construction) so the operator's runtime toggle takes
+	// effect without a restart. nil means enabled — the safe default, and what
+	// every embedder/test that never wires the knob gets.
+	DiskHeadroomEnabled func() bool
 	// SharedModels asserts that every node mounts the same models directory at
 	// the same path. When true, stageModelFiles skips all uploading and leaves
 	// the absolute model paths untouched so the worker loads them directly from
@@ -167,6 +172,10 @@ type SmartRouter struct {
 	// sharedModels skips file staging when all nodes mount the same models
 	// directory at the same path (see SmartRouterOptions.SharedModels).
 	sharedModels bool
+	// diskHeadroomEnabled is the live read of the operator's disk-headroom
+	// toggle (see SmartRouterOptions.DiskHeadroomEnabled). Never nil after
+	// NewSmartRouter.
+	diskHeadroomEnabled func() bool
 	// modelLoadCeiling bounds how long a cold load may hold the per-model
 	// advisory lock (see SmartRouterOptions.ModelLoadCeiling).
 	modelLoadCeiling time.Duration
@@ -202,22 +211,28 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if ceiling <= 0 {
 		ceiling = ModelLoadCeilingFor(config.DefaultBackendInstallTimeout, loadTimeout)
 	}
+	// Default ON: a nil provider must not silently disable a safety check.
+	diskHeadroom := opts.DiskHeadroomEnabled
+	if diskHeadroom == nil {
+		diskHeadroom = func() bool { return true }
+	}
 	return &SmartRouter{
-		registry:         registry,
-		unloader:         opts.Unloader,
-		fileStager:       opts.FileStager,
-		galleriesJSON:    opts.GalleriesJSON,
-		clientFactory:    factory,
-		db:               opts.DB,
-		stagingTracker:   NewStagingTracker(),
-		conflictResolver: opts.ConflictResolver,
-		probeCache:       newProbeCache(probeCacheTTL),
-		prefixProvider:   opts.PrefixProvider,
-		prefixConfig:     opts.PrefixConfig,
-		pressure:         opts.Pressure,
-		sharedModels:     opts.SharedModels,
-		modelLoadCeiling: ceiling,
-		modelLoadTimeout: loadTimeout,
+		registry:            registry,
+		unloader:            opts.Unloader,
+		fileStager:          opts.FileStager,
+		galleriesJSON:       opts.GalleriesJSON,
+		clientFactory:       factory,
+		db:                  opts.DB,
+		stagingTracker:      NewStagingTracker(),
+		conflictResolver:    opts.ConflictResolver,
+		probeCache:          newProbeCache(probeCacheTTL),
+		prefixProvider:      opts.PrefixProvider,
+		prefixConfig:        opts.PrefixConfig,
+		pressure:            opts.Pressure,
+		sharedModels:        opts.SharedModels,
+		diskHeadroomEnabled: diskHeadroom,
+		modelLoadCeiling:    ceiling,
+		modelLoadTimeout:    loadTimeout,
 		// Zero values are resolved to their defaults inside
 		// newLoadDeadlineContext, which also clamps the stall window to the
 		// ceiling, so nothing to normalize here.
@@ -948,23 +963,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// matter how much VRAM it advertises. Doing this here, before the replica
 	// slot and VRAM passes, is the whole point: the alternative is discovering
 	// it sixteen minutes into a transfer, from the worker, as a 500.
-	//
-	// modelPayloadBytes stats the same local paths stageModelFiles uploads,
-	// which is why it can be answered before a node is chosen at all.
-	requiredDisk := DiskRequirementFor(modelPayloadBytes(modelOpts))
-	diskCandidates, diskErr := r.registry.NarrowByDiskHeadroom(ctx, candidateNodeIDs, requiredDisk)
-	switch {
-	case errors.Is(diskErr, ErrInsufficientDisk):
-		// Fail here rather than picking a node and letting staging discover it.
-		return nil, "", 0, fmt.Errorf("scheduling %s: %w", modelID, diskErr)
-	case diskErr != nil:
-		// A registry read failure is not a capacity verdict. Log and schedule
-		// with the unnarrowed set — the old (worse) behaviour, but never a
-		// wedged cluster because a query hiccuped.
-		xlog.Warn("Failed to check node disk headroom; scheduling without the disk filter",
-			"model", modelID, "required", vram.FormatBytes(requiredDisk), "error", diskErr)
-	default:
-		candidateNodeIDs = diskCandidates
+	candidateNodeIDs, err = r.narrowByDiskHeadroom(ctx, modelID, modelOpts, candidateNodeIDs)
+	if err != nil {
+		return nil, "", 0, err
 	}
 
 	// Narrow candidates to nodes that still have a free replica slot for this
@@ -1080,6 +1081,54 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	}
 
 	return node, addr, replicaIdx, nil
+}
+
+// narrowByDiskHeadroom drops candidate nodes that cannot store the model and
+// returns the surviving set.
+//
+// When nothing fits it returns an error wrapping ErrInsufficientDisk so the
+// caller fails at scheduling time — unless the operator disabled the check, in
+// which case it warns and hands back the original candidates unchanged.
+//
+// modelPayloadBytes stats the same local paths stageModelFiles uploads, which
+// is why the requirement can be answered before a node is chosen at all.
+func (r *SmartRouter) narrowByDiskHeadroom(ctx context.Context, modelID string, modelOpts *pb.ModelOptions, candidateNodeIDs []string) ([]string, error) {
+	// Shared-models mode uploads nothing: every node already mounts this exact
+	// models directory at this exact path (stageModelFiles returns early).
+	// Demanding the full checkpoint size of free space per node would reject a
+	// cluster that needs no new bytes at all.
+	if r.sharedModels {
+		return candidateNodeIDs, nil
+	}
+
+	requiredDisk := DiskRequirementFor(modelPayloadBytes(modelOpts))
+	diskCandidates, diskErr := r.registry.NarrowByDiskHeadroom(ctx, candidateNodeIDs, requiredDisk)
+
+	// The check runs even when disabled. "Disabled" means do not BLOCK, not do
+	// not LOOK: a safety check that goes quiet when switched off is how the
+	// original incident stayed invisible for sixteen minutes. The operator
+	// surrenders the veto and keeps the diagnosis.
+	if !r.diskHeadroomEnabled() {
+		if errors.Is(diskErr, ErrInsufficientDisk) {
+			xlog.Warn("No node has room to store this model, but the disk-headroom check is DISABLED; scheduling anyway — staging will most likely fail with ENOSPC",
+				"model", modelID, "knob", config.FlagDiskHeadroomCheck, "detail", diskErr)
+		}
+		return candidateNodeIDs, nil
+	}
+
+	switch {
+	case errors.Is(diskErr, ErrInsufficientDisk):
+		// Fail here rather than picking a node and letting staging discover it.
+		return nil, fmt.Errorf("scheduling %s: %w", modelID, diskErr)
+	case diskErr != nil:
+		// A registry read failure is not a capacity verdict. Log and schedule
+		// with the unnarrowed set — the old (worse) behaviour, but never a
+		// wedged cluster because a query hiccuped.
+		xlog.Warn("Failed to check node disk headroom; scheduling without the disk filter",
+			"model", modelID, "required", vram.FormatBytes(requiredDisk), "error", diskErr)
+		return candidateNodeIDs, nil
+	}
+	return diskCandidates, nil
 }
 
 // estimateModelVRAM estimates the VRAM required for a model using the unified estimator.
