@@ -108,8 +108,8 @@ var _ = Describe("Declared test resources", func() {
 		Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
 		Expect(os.WriteFile(path, content, 0o644)).To(Succeed())
 		manifest := testresources.Manifest{Version: 1, Target: "fixture", Files: []testresources.File{{URL: "https://example.invalid/file", SHA256: digest, Destination: "file"}}}
-		first := filepath.Join(GinkgoT().TempDir(), "first.tar.gz")
-		second := filepath.Join(GinkgoT().TempDir(), "second.tar.gz")
+		first := filepath.Join(GinkgoT().TempDir(), "first.tar.zst")
+		second := filepath.Join(GinkgoT().TempDir(), "second.tar.zst")
 		firstDigest, err := testresources.PackBundle(cache, first, manifest)
 		Expect(err).NotTo(HaveOccurred())
 		secondDigest, err := testresources.PackBundle(cache, second, manifest)
@@ -117,7 +117,7 @@ var _ = Describe("Declared test resources", func() {
 		Expect(secondDigest).To(Equal(firstDigest))
 		compressed, err := os.ReadFile(first)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(compressed[:2]).To(Equal([]byte{0x1f, 0x8b}))
+		Expect(compressed[:4]).To(Equal([]byte{0x28, 0xb5, 0x2f, 0xfd}))
 
 		restored := GinkgoT().TempDir()
 		Expect(testresources.RestoreBundle(restored, first, firstDigest)).To(Succeed())
