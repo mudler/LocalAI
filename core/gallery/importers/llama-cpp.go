@@ -19,9 +19,20 @@ import (
 )
 
 var (
-	_ Importer                   = &LlamaCPPImporter{}
-	_ AdditionalBackendsProvider = &LlamaCPPImporter{}
+	_               Importer                   = &LlamaCPPImporter{}
+	_               AdditionalBackendsProvider = &LlamaCPPImporter{}
+	parseRemoteGGUF                            = func(ctx context.Context, url string) (*gguf.GGUFFile, error) {
+		return gguf.ParseGGUFFileRemote(ctx, url, gguf.SkipLargeMetadata())
+	}
 )
+
+// SetMTPProbeForTest replaces the remote GGUF header reader and returns a
+// restore function. It must only be called during serial suite setup.
+func SetMTPProbeForTest(probe func(context.Context, string) (*gguf.GGUFFile, error)) func() {
+	previous := parseRemoteGGUF
+	parseRemoteGGUF = probe
+	return func() { parseRemoteGGUF = previous }
+}
 
 type LlamaCPPImporter struct{}
 
@@ -415,10 +426,7 @@ func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg
 		}
 	}()
 
-	// MTP markers are architecture scalars. Avoid allocating tokenizer and
-	// other large arrays from an untrusted remote header; panic recovery cannot
-	// contain a fatal out-of-memory condition.
-	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL, gguf.SkipLargeMetadata())
+	f, err := parseRemoteGGUF(ctx, probeURL)
 	if err != nil {
 		xlog.Debug("[mtp-importer] failed to read remote GGUF header for MTP detection", "uri", probeURL, "error", err)
 		return

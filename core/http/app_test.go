@@ -642,7 +642,7 @@ parameters:
 					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					resp = response
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "360s", "50ms").Should(Equal(true))
 
 				// Check that the model was imported successfully
 				Expect(resp["message"]).ToNot(ContainSubstring("error"))
@@ -713,7 +713,7 @@ parameters:
 					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
 					resp = response
 					return response["processed"].(bool)
-				}, "360s", "10s").Should(Equal(true))
+				}, "360s", "50ms").Should(Equal(true))
 
 				// Check that the model was imported successfully
 				Expect(resp["message"]).To(ContainSubstring("error"))
