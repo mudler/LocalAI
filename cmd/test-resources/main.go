@@ -62,9 +62,9 @@ func prepare(target, manifestDir, cacheDir string) error {
 		return fmt.Errorf("cache bundle is not locked for resource set %q; run `make update-offline-test-cache TEST_RESOURCE_SET=%s`", target, target)
 	}
 	if digest, ok := strings.CutPrefix(locked, "sha256:"); ok {
-		bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.gz")
+		bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.zst")
 		if _, err := os.Stat(bundlePath); errors.Is(err, os.ErrNotExist) {
-			bundlePath = filepath.Join(cacheDir, "bundles", target+".tar") // legacy uncompressed bundle
+			bundlePath = filepath.Join(cacheDir, "bundles", target+".tar")
 		}
 		if err := testresources.RestoreBundle(cacheDir, bundlePath, digest); err != nil {
 			return preparationError(target, err)
@@ -155,7 +155,7 @@ func update(target, manifestDir, cacheDir string) error {
 			return err
 		}
 	}
-	bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.gz")
+	bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.zst")
 	digest, err := testresources.PackBundle(cacheDir, bundlePath, manifest)
 	if err != nil {
 		return err

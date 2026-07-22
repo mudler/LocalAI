@@ -54,13 +54,12 @@ if ! mkdir "$lock_dir" 2>/dev/null; then
 	echo "run-coverage: wait for it to finish; if none is running, remove stale lock $lock_dir" >&2
 	exit 2
 fi
-run_marker="$lock_dir/generated-after"
-touch "$run_marker"
 cleanup() {
 	for root in $unit_roots ${COVERAGE_E2E_ROOTS:-}; do
-		find "$root" -type f -name '*.test' -newer "$run_marker" -delete 2>/dev/null || :
+		# --keep-separate-coverprofiles leaves Go's package test binaries behind.
+		# They are deterministic runner artifacts, never source inputs.
+		find "$root" -type f -name '*.test' -delete 2>/dev/null || :
 	done
-	rm -f "$run_marker"
 	rmdir "$lock_dir" 2>/dev/null || :
 }
 trap cleanup EXIT
@@ -75,6 +74,9 @@ rm -f "$out_dir"/cover-*.out
 rm -f "$out_dir"/*_cover-*.out
 rm -f "$merged"
 fail=0
+timings="$out_dir/timings.tsv"
+: > "$timings"
+run_started="$(date +%s)"
 
 procs="${COVERAGE_PROCS:-0}"
 suite_timeout="${COVERAGE_SUITE_TIMEOUT:-5m}"
@@ -147,12 +149,38 @@ report_failure() {
 	fi
 }
 
+record_timing() {
+	root="$1"
+	started="$2"
+	elapsed="$(( $(date +%s) - started ))"
+	printf '%s\t%s\n' "$root" "$elapsed" >> "$timings"
+	echo "run-coverage: TIMING — $root ${elapsed}s"
+}
+
+print_timing_summary() {
+	echo "run-coverage: wall-clock summary"
+	sort -t "$(printf '\t')" -k2,2nr "$timings" | awk -F '\t' '{ printf "  %5ss  %s\n", $2, $1 }'
+	echo "  $(( $(date +%s) - run_started ))s  total"
+	echo "run-coverage: slowest specs/hooks taking at least ${COVERAGE_SLOW_SPEC_THRESHOLD:-3}s (up to ${COVERAGE_SLOW_SPEC_LIMIT:-25} per root)"
+	found=0
+	while IFS="$(printf '\t')" read -r root elapsed; do
+		log="$log_dir/$(log_name "$root")"
+		entries="$(scripts/summarize-ginkgo-waits.sh "${COVERAGE_SLOW_SPEC_THRESHOLD:-3}" "$root" "$log" "${COVERAGE_SLOW_SPEC_LIMIT:-25}")"
+		if [ -n "$entries" ]; then
+			printf '%s\n' "$entries"
+			found=1
+		fi
+	done < "$timings"
+	[ "$found" -eq 1 ] || echo "  none"
+}
+
 # Unit/suite roots: recursive.
 for root in $unit_roots; do
 	base="$(profile_name "$root")"
 	log="$log_dir/$(log_name "$root")"
 	rotate_log "$log"
 	echo "run-coverage: testing $root (full output: $log)"
+	started="$(date +%s)"
 	# parallel_flags is intentionally word-split: it contains CLI arguments only.
 	# shellcheck disable=SC2086
 	go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --keep-separate-coverprofiles --flake-attempts "$flakes" -v -r "$@" \
@@ -160,6 +188,7 @@ for root in $unit_roots; do
 		&& consolidate_root_profiles "$base" \
 		&& echo "run-coverage: PASS — $root" \
 		|| { fail=1; report_failure "$root" "$log"; }
+	record_timing "$root" "$started"
 done
 
 # In-process integration roots: NON-recursive + optional label filter.
@@ -168,6 +197,7 @@ for root in ${COVERAGE_E2E_ROOTS:-}; do
 	log="$log_dir/$(log_name "$root")"
 	rotate_log "$log"
 	echo "run-coverage: testing $root (full output: $log)"
+	started="$(date +%s)"
 	if [ -n "${COVERAGE_E2E_LABELS:-}" ]; then
 		# shellcheck disable=SC2086
 		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --keep-separate-coverprofiles --flake-attempts "$flakes" -v "$@" \
@@ -184,7 +214,10 @@ for root in ${COVERAGE_E2E_ROOTS:-}; do
 			&& echo "run-coverage: PASS — $root" \
 			|| { fail=1; report_failure "$root" "$log"; }
 	fi
+	record_timing "$root" "$started"
 done
+
+print_timing_summary
 
 if [ "$fail" -ne 0 ]; then
 	echo "run-coverage: FAILED — one or more test suites failed; no merged profile was produced." >&2

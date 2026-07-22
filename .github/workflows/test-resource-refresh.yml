@@ -69,7 +69,7 @@ jobs:
           oras push \
             --artifact-type application/vnd.localai.test-resources.v1 \
             "${repository}:${RESOURCE_SET},${RESOURCE_SET}-${digest}" \
-            ".cache/test-resources/bundles/${RESOURCE_SET}.tar.gz:application/vnd.localai.test-resources.bundle.v1+gzip" \
+            ".cache/test-resources/bundles/${RESOURCE_SET}.tar.zst:application/vnd.localai.test-resources.bundle.v1+zstd" \
             "test-resources/manifests/${RESOURCE_SET}.json:application/vnd.localai.test-resources.manifest.v1+json"
       - name: Fail after preserving evidence
         if: steps.refresh.outcome == 'failure'

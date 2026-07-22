@@ -60,7 +60,7 @@ jobs:
         with:
           name: test-resources-default-${{ github.run_id }}
           path: |
-            .cache/test-resources/bundles/default.tar.gz
+            .cache/test-resources/bundles/default.tar.zst
             test-resources/manifests/lock.json
       - name: Clear recorded resource cache
         run: rm -rf .cache/test-resources
