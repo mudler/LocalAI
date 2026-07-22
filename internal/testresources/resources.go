@@ -28,6 +28,7 @@ type Manifest struct {
 type HTTP struct {
 	Method         string            `json:"method"`
 	URL            string            `json:"url"`
+	Mirrors        []string          `json:"mirrors,omitempty"`
 	SHA256         string            `json:"sha256"`
 	RequestHeaders map[string]string `json:"request_headers,omitempty"`
 }
@@ -40,10 +41,11 @@ type HTTPEntry struct {
 }
 
 type File struct {
-	URL         string `json:"url"`
-	SHA256      string `json:"sha256"`
-	Destination string `json:"destination,omitempty"`
-	Environment string `json:"environment,omitempty"`
+	URL         string   `json:"url"`
+	Mirrors     []string `json:"mirrors,omitempty"`
+	SHA256      string   `json:"sha256"`
+	Destination string   `json:"destination,omitempty"`
+	Environment string   `json:"environment,omitempty"`
 }
 
 type OCIImage struct {
@@ -114,6 +116,9 @@ func (m Manifest) Validate() error {
 		if resource.Method == "" || resource.URL == "" || !validDigest(resource.SHA256) {
 			return fmt.Errorf("HTTP resources require method, URL, and lowercase sha256: %s %s", resource.Method, resource.URL)
 		}
+		if err := validateMirrors(resource.Mirrors); err != nil {
+			return fmt.Errorf("HTTP resource %s: %w", resource.URL, err)
+		}
 	}
 	for _, resource := range m.Files {
 		if resource.URL == "" || !validDigest(resource.SHA256) || (resource.Destination == "" && resource.Environment == "") {
@@ -122,11 +127,28 @@ func (m Manifest) Validate() error {
 		if filepath.IsAbs(resource.Destination) || strings.HasPrefix(filepath.Clean(resource.Destination), "..") {
 			return fmt.Errorf("file destination must stay inside the resource directory: %s", resource.Destination)
 		}
+		if err := validateMirrors(resource.Mirrors); err != nil {
+			return fmt.Errorf("file resource %s: %w", resource.URL, err)
+		}
 	}
 	for _, resource := range m.Images {
 		if !strings.Contains(resource.Reference, "@sha256:") || !validDigest(resource.SHA256) {
 			return fmt.Errorf("OCI image must be digest-pinned and have a packed sha256: %s", resource.Reference)
 		}
+	}
+	return nil
+}
+
+func validateMirrors(mirrors []string) error {
+	seen := map[string]bool{}
+	for _, mirror := range mirrors {
+		if !strings.HasPrefix(mirror, "https://") {
+			return fmt.Errorf("mirror must use HTTPS: %s", mirror)
+		}
+		if seen[mirror] {
+			return fmt.Errorf("duplicate mirror: %s", mirror)
+		}
+		seen[mirror] = true
 	}
 	return nil
 }

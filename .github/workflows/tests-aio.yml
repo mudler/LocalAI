@@ -77,7 +77,7 @@ jobs:
       - name: Test
         run: |
             PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-e2e
-            LOCALAI_TEST_RESOURCES_ONLINE=1 PATH="$PATH:$HOME/go/bin" make update-test-resources TARGET=aio
+            LOCALAI_TEST_RESOURCES_ONLINE=1 PATH="$PATH:$HOME/go/bin" make update-offline-test-cache TEST_RESOURCE_SET=aio
             LOCALAI_BACKEND_DIR="$GITHUB_WORKSPACE/backends" LOCALAI_MODELS_DIR="$GITHUB_WORKSPACE/tests/e2e-aio/models" LOCALAI_IMAGE_TAG=tests LOCALAI_IMAGE=local-ai PATH="$PATH:$HOME/go/bin" make run-e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
