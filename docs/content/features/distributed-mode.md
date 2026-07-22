@@ -25,12 +25,13 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
-2. If no node has the model → prefer nodes with enough free VRAM
-3. Fall back to idle nodes (zero models), then least-loaded nodes
-4. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
-5. If all models are busy → wait (with timeout) for a model to become idle, then evict
-6. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
-7. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
+2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom))
+3. If no node has the model → prefer nodes with enough free VRAM
+4. Fall back to idle nodes (zero models), then least-loaded nodes
+5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
+6. If all models are busy → wait (with timeout) for a model to become idle, then evict
+7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
+8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
 
 Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
 
@@ -456,6 +457,25 @@ curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
 ```
 
 The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "advanced/vram-management#vram-budget-allocation-ceiling" %}}).
+
+### Disk headroom
+
+Model weights are **staged onto the worker's disk** before the backend loads them, so a node needs free space as well as free VRAM. Each worker reports the capacity of the filesystem backing its **models directory** (`--models-path`), not the root filesystem, on registration and on every heartbeat. Those figures appear as `total_disk` and `available_disk` in the nodes API and as **Models disk free** on the node detail page.
+
+Before placing a model, the SmartRouter removes any node whose models filesystem cannot hold it. The requirement is derived from the model's actual on-disk size plus a small margin (5%, at least 1 GiB), rather than a fixed percentage of the node's disk — a fixed threshold would take a small-but-usable node out of rotation for models it could comfortably store. When the model's size cannot be determined locally (a bare HuggingFace repo id that the worker fetches itself), the node only has to clear a 2 GiB floor.
+
+If **no** node has enough space, the request fails immediately with a capacity error naming the requirement and each node's free space, for example:
+
+```
+scheduling longcat-video-avatar-1.5: no node has enough free disk for the model:
+need 73.5 GB free on the models filesystem, but nvidia-thor has 0 B free of 937.0 GB
+```
+
+This is deliberately a scheduling-time verdict. Without it, a worker with a full disk still reported `status: healthy`, accepted the staging request, transferred tens of gigabytes and only then failed with `no space left on device` — minutes after a decision that could never have succeeded.
+
+Workers that predate this feature (or whose disk reading fails) report `total_disk` as `0`. Such nodes are treated as *unknown*, not *full*, and stay in rotation, so a rolling upgrade never empties the candidate pool. A full disk is distinguishable because it reports a non-zero `total_disk` with `available_disk` at `0`.
+
+Low disk does **not** mark a node `unhealthy`. Disk is compared per model rather than against a global threshold, so a node that is too small for one model remains a valid target for smaller ones.
 
 The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 

@@ -941,6 +941,32 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		return nil, "", 0, err
 	}
 
+	// Narrow candidates to nodes that can physically STORE the model.
+	//
+	// Staging writes the checkpoint into the worker's models directory before
+	// the backend ever sees it, so a node without room there cannot succeed no
+	// matter how much VRAM it advertises. Doing this here, before the replica
+	// slot and VRAM passes, is the whole point: the alternative is discovering
+	// it sixteen minutes into a transfer, from the worker, as a 500.
+	//
+	// modelPayloadBytes stats the same local paths stageModelFiles uploads,
+	// which is why it can be answered before a node is chosen at all.
+	requiredDisk := DiskRequirementFor(modelPayloadBytes(modelOpts))
+	diskCandidates, diskErr := r.registry.NarrowByDiskHeadroom(ctx, candidateNodeIDs, requiredDisk)
+	switch {
+	case errors.Is(diskErr, ErrInsufficientDisk):
+		// Fail here rather than picking a node and letting staging discover it.
+		return nil, "", 0, fmt.Errorf("scheduling %s: %w", modelID, diskErr)
+	case diskErr != nil:
+		// A registry read failure is not a capacity verdict. Log and schedule
+		// with the unnarrowed set — the old (worse) behaviour, but never a
+		// wedged cluster because a query hiccuped.
+		xlog.Warn("Failed to check node disk headroom; scheduling without the disk filter",
+			"model", modelID, "required", vram.FormatBytes(requiredDisk), "error", diskErr)
+	default:
+		candidateNodeIDs = diskCandidates
+	}
+
 	// Narrow candidates to nodes that still have a free replica slot for this
 	// model. Without this filter, the scheduler would happily pick a node
 	// already at capacity for this model (e.g. when MinReplicas > free

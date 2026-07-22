@@ -100,6 +100,9 @@ func (f *fakeModelRouterForSmartRouter) FindNodesBySelector(_ context.Context, _
 func (f *fakeModelRouterForSmartRouter) FindNodesWithFreeSlot(_ context.Context, _ string, _ []string) ([]BackendNode, error) {
 	return nil, nil
 }
+func (f *fakeModelRouterForSmartRouter) NarrowByDiskHeadroom(_ context.Context, candidateNodeIDs []string, _ uint64) ([]string, error) {
+	return candidateNodeIDs, nil
+}
 func (f *fakeModelRouterForSmartRouter) ReserveVRAM(_ context.Context, _ string, _ uint64) error {
 	return nil
 }

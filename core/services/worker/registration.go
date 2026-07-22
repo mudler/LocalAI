@@ -157,6 +157,20 @@ func (cfg *Config) registrationBody() map[string]any {
 		"max_replicas_per_model": maxReplicas,
 	}
 
+	// Report free space on the filesystem that backs the MODELS directory.
+	// That is where staged weights land, so it is the only mount whose free
+	// space decides whether this node can accept a model — the scheduler uses
+	// it to avoid picking a node that would fail with ENOSPC mid-transfer.
+	if diskInfo, err := xsysinfo.GetDiskInfo(cfg.ModelsPath); err != nil {
+		// Omitted, not zeroed: total_disk == 0 is how the frontend recognises
+		// "this worker does not report disk" and keeps it in rotation.
+		xlog.Warn("Failed to detect worker models-path disk capacity; registering without it",
+			"path", cfg.ModelsPath, "error", err)
+	} else {
+		body["total_disk"] = diskInfo.Total
+		body["available_disk"] = diskInfo.Available
+	}
+
 	// Report the operator-set budget as a STRING so the server resolves and
 	// enforces it against the raw VRAM above. The worker never caps its own
 	// total_vram/available_vram, and never touches the xsysinfo process-global
@@ -220,6 +234,18 @@ func (cfg *Config) heartbeatBody() map[string]any {
 		} else {
 			body["available_ram"] = ramInfo.Available
 		}
+	}
+
+	// Free disk changes far faster than VRAM under staging traffic (each
+	// accepted model permanently consumes space), so it has to be refreshed
+	// every heartbeat rather than only at registration — a node that filled up
+	// hours after registering is precisely the case that broke.
+	if diskInfo, err := xsysinfo.GetDiskInfo(cfg.ModelsPath); err != nil {
+		xlog.Debug("Failed to detect worker models-path disk capacity for heartbeat",
+			"path", cfg.ModelsPath, "error", err)
+	} else {
+		body["total_disk"] = diskInfo.Total
+		body["available_disk"] = diskInfo.Available
 	}
 	return body
 }
