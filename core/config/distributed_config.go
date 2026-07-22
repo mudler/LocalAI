@@ -88,6 +88,22 @@ type DistributedConfig struct {
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
 	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
 
+	// DiskHeadroomDisabled turns off the scheduler's free-disk admission check,
+	// restoring the pre-#11054 behaviour where node selection ignores whether a
+	// node can actually store the model. The check is ON by default because it
+	// prevents a measured failure (a node with 0 bytes free accepted a 70GB
+	// model and failed 16 minutes into staging); this is the escape hatch for
+	// setups where our size estimate is wrong (deduplicating filesystems, a
+	// worker that fetches its own weights), not the norm.
+	//
+	// Disabling does NOT silence the check: it still runs and warns when it
+	// would have rejected every node, so the operator keeps the diagnosis
+	// without being blocked. See SmartRouter.scheduleNewModel.
+	//
+	// Stored as the negation of the CLI/runtime flag so the zero value is
+	// "enabled" (mirrors PrefixCacheDisabled).
+	DiskHeadroomDisabled bool
+
 	// PrefixCacheDisabled turns off prefix-cache-aware routing, falling back to
 	// round-robin (the floor). Prefix-cache routing is ON by default in
 	// distributed mode; this flag exists so operators can opt out. The CLI
@@ -310,6 +326,13 @@ var EnableDistributedSharedModels = func(o *ApplicationConfig) {
 	o.Distributed.SharedModels = true
 }
 
+// DisableDiskHeadroomCheck turns off the scheduler's free-disk admission
+// check (see DistributedConfig.DiskHeadroomDisabled). The check is enabled by
+// default in distributed mode.
+var DisableDiskHeadroomCheck = func(o *ApplicationConfig) {
+	o.Distributed.DiskHeadroomDisabled = true
+}
+
 // DisablePrefixCache turns off prefix-cache-aware routing (falls back to
 // round-robin). Prefix-cache routing is enabled by default in distributed mode.
 var DisablePrefixCache = func(o *ApplicationConfig) {
@@ -356,6 +379,10 @@ const (
 	FlagBackendInstallTimeout = "backend-install-timeout"
 	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
 	FlagModelLoadTimeout      = "model-load-timeout"
+	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
+	// the warning the check emits while disabled, so the operator reading a
+	// log line knows exactly which knob produced it.
+	FlagDiskHeadroomCheck = "distributed-disk-headroom-check"
 )
 
 // Defaults for distributed timeouts.

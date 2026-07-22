@@ -96,6 +96,16 @@ export default function NodeDetail() {
             <span className="cell-mono">{formatVRAM(usedVRAM) || '0'} / {formatVRAM(node.total_vram)}</span>
           </div>
         )}
+        {node.total_disk > 0 && (
+          <div>
+            {/* Free space on the worker's MODELS filesystem. A node can look
+                perfectly healthy on VRAM while having nowhere to put the
+                weights, which is why this sits next to VRAM rather than
+                buried in a diagnostics panel. */}
+            <div className="drawer-eyebrow">Models disk free</div>
+            <span className="cell-mono">{formatVRAM(node.available_disk || 0) || '0'} / {formatVRAM(node.total_disk)}</span>
+          </div>
+        )}
         <div>
           <div className="drawer-eyebrow">In-flight</div>
           <span className="cell-mono">{node.in_flight_count || 0}</span>

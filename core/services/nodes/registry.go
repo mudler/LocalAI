@@ -35,9 +35,21 @@ type BackendNode struct {
 	// reservation is only here to keep two scheduling decisions within the
 	// same heartbeat window from over-committing the same node.
 	ReservedVRAM uint64 `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
-	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
-	GPUVendor    string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	// TotalDisk / AvailableDisk describe the filesystem that BACKS THE WORKER'S
+	// MODELS DIRECTORY, not the root filesystem: staged weights are written
+	// there, so that is the only mount whose free space decides whether a
+	// staging request can succeed. Reported by the worker on registration and
+	// refreshed on every heartbeat.
+	//
+	// TotalDisk == 0 means "this worker does not report disk" (pre-upgrade
+	// worker, or a stat that failed) and is the ONLY value readers may treat as
+	// unknown. AvailableDisk == 0 is a real, actionable reading: it is exactly
+	// what a 100%-full node reports, and the case this pair exists to catch.
+	TotalDisk     uint64 `gorm:"column:total_disk;default:0" json:"total_disk"`
+	AvailableDisk uint64 `gorm:"column:available_disk;default:0" json:"available_disk"`
+	GPUVendor     string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
 	// GPUComputeCapability is the worker GPU's compute capability as
 	// "major.minor" (e.g. "12.1" for GB10 / DGX Spark). Reported by the worker
 	// on registration; used by the router to pick per-arch options (e.g. a
@@ -94,6 +106,8 @@ const (
 	ColTotalVRAM           = "total_vram"
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
+	ColTotalDisk           = "total_disk"
+	ColAvailableDisk       = "available_disk"
 	ColGPUVendor           = "gpu_vendor"
 	ColGPUComputeCap       = "gpu_compute_capability"
 	ColLastHeartbeat       = "last_heartbeat"
@@ -422,6 +436,18 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
 			}
 		}
+		// Force-write the disk columns. Updates(struct) above zero-skips, and a
+		// worker whose models filesystem is 100% full re-registers with
+		// available_disk == 0 — the single most important reading there is.
+		// Zero-skipping it would leave the last healthy-looking value in place
+		// and put the full node straight back into rotation.
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+			Updates(map[string]any{
+				ColTotalDisk:     node.TotalDisk,
+				ColAvailableDisk: node.AvailableDisk,
+			}).Error; err != nil {
+			return fmt.Errorf("recording disk capacity for node %s: %w", node.Name, err)
+		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
 		// the old auth_user_id/api_key_id but the caller's struct is empty.
@@ -687,6 +713,11 @@ type HeartbeatUpdate struct {
 	AvailableVRAM *uint64 `json:"available_vram,omitempty"`
 	TotalVRAM     *uint64 `json:"total_vram,omitempty"`
 	AvailableRAM  *uint64 `json:"available_ram,omitempty"`
+	// AvailableDisk / TotalDisk describe the worker's models filesystem.
+	// Pointers so a worker that cannot read them omits the fields rather than
+	// reporting a zero the scheduler would act on.
+	AvailableDisk *uint64 `json:"available_disk,omitempty"`
+	TotalDisk     *uint64 `json:"total_disk,omitempty"`
 	GPUVendor     string  `json:"gpu_vendor,omitempty"`
 }
 
@@ -719,6 +750,14 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 		if update.AvailableRAM != nil {
 			updates[ColAvailableRAM] = *update.AvailableRAM
+		}
+		// Written unconditionally when reported, INCLUDING zero: a full disk
+		// reports 0 free, and that is the reading the scheduler must act on.
+		if update.AvailableDisk != nil {
+			updates[ColAvailableDisk] = *update.AvailableDisk
+		}
+		if update.TotalDisk != nil {
+			updates[ColTotalDisk] = *update.TotalDisk
 		}
 		if update.GPUVendor != "" {
 			updates[ColGPUVendor] = update.GPUVendor

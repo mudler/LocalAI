@@ -23,6 +23,7 @@
       "agents": "Trabajos de agentes",
       "agentpool": "Pool de agentes",
       "assistant": "LocalAI Assistant",
+      "distributed": "Distribuido",
       "responses": "Respuestas"
     }
   },

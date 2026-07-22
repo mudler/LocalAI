@@ -23,6 +23,7 @@
       "agents": "智能体任务",
       "agentpool": "智能体池",
       "assistant": "LocalAI Assistant",
+      "distributed": "分布式",
       "responses": "响应"
     }
   },

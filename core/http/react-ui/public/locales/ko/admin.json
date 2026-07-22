@@ -23,6 +23,7 @@
       "agents": "에이전트 작업",
       "agentpool": "에이전트 풀",
       "assistant": "LocalAI 어시스턴트",
+      "distributed": "분산",
       "responses": "응답"
     }
   },
