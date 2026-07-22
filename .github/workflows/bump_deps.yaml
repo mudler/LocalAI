@@ -115,6 +115,12 @@ jobs:
       - uses: actions/checkout@v7
       - name: Bump dependencies 🔧
         id: bump
+        env:
+          # This job fans out to ~25 parallel matrix entries, all querying
+          # api.github.com from runner IPs that share the 60/hour anonymous
+          # rate limit. Authenticating raises it to 1000/hour, which is what
+          # kept a random handful of these red every night.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }} ${{ matrix.file }}
           {
@@ -151,6 +157,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Bump vLLM cu130 wheel pin 🔧
         id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_vllm_wheel.sh vllm-project/vllm backend/python/vllm/requirements-cublas13-after.txt VLLM_VERSION
           {
@@ -187,6 +195,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Bump vllm-metal pin 🔧
         id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_vllm_metal.sh vllm-project/vllm-metal backend/python/vllm/install.sh VLLM_METAL_VERSION
           {

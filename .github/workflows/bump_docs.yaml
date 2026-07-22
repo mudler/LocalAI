@@ -15,6 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Bump dependencies 🔧
+        env:
+          # Authenticated API calls get 1000 req/hour instead of the 60/hour
+          # anonymous cap that is shared across every job on the runner's IP.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_docs.sh ${{ matrix.repository }}
       - name: Create Pull Request

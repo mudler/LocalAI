@@ -11,6 +11,9 @@
 # darwin build can only use the exact vLLM version vllm-metal supports, so it may
 # lag the Linux pin (requirements-cublas13-after.txt) until vllm-metal catches up.
 set -xe
+
+source "$(dirname "${BASH_SOURCE[0]}")/gh_curl.sh"
+
 REPO=$1   # vllm-project/vllm-metal
 FILE=$2   # backend/python/vllm/install.sh
 VAR=$3    # VLLM_METAL_VERSION (used for the workflow's output file names)
@@ -22,12 +25,12 @@ fi
 
 # vllm-metal ships frequent dev releases, all flagged as non-prerelease, so
 # /releases/latest returns the newest one (with its cp312 wheel asset).
-LATEST_TAG=$(curl -sS -H "Accept: application/vnd.github+json" \
+LATEST_TAG=$(gh_curl -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/$REPO/releases/latest" \
     | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
 
 # The coupled vLLM source version lives in vllm-metal's installer at that tag.
-NEW_VLLM_VERSION=$(curl -fsSL \
+NEW_VLLM_VERSION=$(gh_curl \
     "https://raw.githubusercontent.com/$REPO/$LATEST_TAG/install.sh" \
     | grep -oE 'vllm_v="[0-9]+\.[0-9]+\.[0-9]+"' | head -1 | cut -d'"' -f2)
 
