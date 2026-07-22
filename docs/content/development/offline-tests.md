@@ -22,10 +22,11 @@ LOCALAI_TEST_RESOURCES_ONLINE=1 make update-offline-test-cache TEST_RESOURCE_SET
 ```
 
 The update command records declared responses, files, and digest-pinned images,
-then writes a deterministic, low-level gzip-compressed bundle at
-`.cache/test-resources/bundles/<resource-set>.tar.gz`. Its SHA-256 is written to the
-lock file. Until registry publication is enabled, CI transfers this tar as a
-workflow artifact and verifies it after deleting the recording cache.
+then writes a deterministic, zstd level-1 bundle at
+`.cache/test-resources/bundles/<resource-set>.tar.zst`. Its SHA-256 is written to the
+lock file. The test workflow transfers the bundle as a workflow artifact and
+verifies it after deleting the recording cache; the scheduled refresh workflow
+also publishes verified bundles to GHCR as OCI artifacts.
 
 HTTP declarations may include `request_headers`. `Range` participates in the
 cache key, and authorization values participate only through a SHA-256 value;
@@ -60,6 +61,16 @@ The default Linux and macOS suites use separate resource sets because
 Docker archives are platform-specific. Backend and hardware resources remain
 separate targets so ordinary contributors do not acquire large model fixtures
 that their test command does not use.
+
+Coverage runs print a wall-clock summary for each test root and list every
+Ginkgo spec or hook taking at least three seconds, including its source
+location. Set `COVERAGE_SLOW_SPEC_THRESHOLD=<seconds>` to tune the reporting
+threshold. This measures the whole spec or hook, so it exposes time spent in
+sleeps, polling, channel waits, cleanup, and resource contention without
+replacing Go's global clock or changing test semantics. The same timings are
+written to `coverage/timings.tsv` for CI artifacts and comparisons. The report
+shows the slowest 25 entries per root by default; set
+`COVERAGE_SLOW_SPEC_LIMIT=<count>` to change the cap.
 
 Real third-party compatibility checks belong in separately named
 `external-probe-*` scheduled workflows and must not be part of deterministic
