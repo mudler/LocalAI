@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+// maxSchemaDepth bounds how deeply visit may recurse into a client-supplied
+// schema. A cyclic $ref is caught by refsInProgress, but a deeply nested yet
+// acyclic schema (e.g. thousands of nested arrays/objects) could still recurse
+// until the goroutine stack is exhausted and crash the whole process. Rejecting
+// the request once this depth is exceeded turns that potential crash into an
+// ordinary per-request error. The limit is far above any realistic schema.
+const maxSchemaDepth = 256
+
 type JSONSchemaConverter struct {
 	propOrder map[string]int
 	rules     Rules
@@ -18,6 +26,9 @@ type JSONSchemaConverter struct {
 	// pushed before descending into a referenced schema and popped afterwards,
 	// so sibling (non-cyclic) reuse of the same $ref is still allowed.
 	refsInProgress map[string]bool
+	// depth is the current recursion depth of visit, bounded by maxSchemaDepth
+	// to guard against stack exhaustion on deeply nested acyclic schemas.
+	depth int
 }
 
 func NewJSONSchemaConverter(propOrder string) *JSONSchemaConverter {
@@ -66,6 +77,11 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 }
 
 func (sc *JSONSchemaConverter) visit(schema map[string]any, name string, rootSchema map[string]any) (string, error) {
+	sc.depth++
+	defer func() { sc.depth-- }()
+	if sc.depth > maxSchemaDepth {
+		return "", fmt.Errorf("schema nesting exceeds maximum depth %d while building grammar", maxSchemaDepth)
+	}
 	st, existType := schema["type"]
 	var schemaType string
 	var schemaTypes []string

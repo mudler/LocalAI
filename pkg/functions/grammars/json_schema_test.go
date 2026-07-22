@@ -647,4 +647,31 @@ var _ = Describe("JSON schema grammar cyclic $ref handling", func() {
 		Expect(err).To(BeNil())
 		Expect(grammar).ToNot(BeEmpty())
 	})
+
+	// A deeply nested but acyclic schema has no $ref cycle to catch, yet it can
+	// still recurse deeply enough to exhaust the goroutine stack. The bounded
+	// depth counter must reject it with an ordinary error instead of crashing.
+	It("returns an error for a schema nested deeper than the depth limit", func() {
+		// Wrap a string leaf in enough nested "array"/"items" layers to exceed
+		// maxSchemaDepth; each layer is one visit() recursion.
+		const layers = 400
+		schema := `{"type": "string"}`
+		for i := 0; i < layers; i++ {
+			schema = `{"type": "array", "items": ` + schema + `}`
+		}
+		_, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("maximum depth"))
+	})
+
+	It("still builds a grammar for a moderately nested acyclic schema", func() {
+		const layers = 32
+		schema := `{"type": "string"}`
+		for i := 0; i < layers; i++ {
+			schema = `{"type": "array", "items": ` + schema + `}`
+		}
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(BeNil())
+		Expect(grammar).ToNot(BeEmpty())
+	})
 })
