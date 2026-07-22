@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -197,7 +199,7 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 		req.Header.Add("Authorization", authorization)
 	}
 
-	response, err := downloadClient.Do(req)
+	response, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return err
 	}
@@ -388,8 +390,32 @@ func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
 // downloadClient is the shared client for HTTP(S) downloads and size
 // probes. It follows redirects (model hosts and CDNs rely on them) but
 // strips credential headers on any cross-host hop, and sets no body
-// deadline so large downloads are not truncated.
-var downloadClient = httpclient.New(httpclient.WithFollowRedirects())
+// deadline so large downloads are not truncated. It does bound the wait for
+// response *headers*, which is a different window entirely and the one an
+// unresponsive origin wedges on.
+//
+// The client is cached rather than rebuilt per request so connection pooling
+// survives; it is rebuilt only when DownloadResponseHeaderTimeout changes, so
+// the knob stays live the way DownloadStallTimeout is.
+var (
+	downloadClientMu      sync.Mutex
+	downloadClientCached  *http.Client
+	downloadClientTimeout time.Duration
+)
+
+func downloadHTTPClient() *http.Client {
+	downloadClientMu.Lock()
+	defer downloadClientMu.Unlock()
+	if downloadClientCached == nil || downloadClientTimeout != DownloadResponseHeaderTimeout {
+		downloadClientTimeout = DownloadResponseHeaderTimeout
+		opts := []httpclient.Option{httpclient.WithFollowRedirects()}
+		if downloadClientTimeout > 0 {
+			opts = append(opts, httpclient.WithResponseHeaderTimeout(downloadClientTimeout))
+		}
+		downloadClientCached = httpclient.New(opts...)
+	}
+	return downloadClientCached
+}
 
 func newDownloadRequest(
 	ctx context.Context,
@@ -412,7 +438,7 @@ func (uri URI) checkServerSupportsRangeHeader(ctx context.Context, bearerToken s
 	if err != nil {
 		return false, err
 	}
-	resp, err := downloadClient.Do(req)
+	resp, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -439,7 +465,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	resp, err := downloadClient.Do(req)
+	resp, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -458,7 +484,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	req2.Header.Set("Range", "bytes=0-0")
-	resp2, err := downloadClient.Do(req2)
+	resp2, err := downloadHTTPClient().Do(req2)
 	if err != nil {
 		return 0, err
 	}
@@ -628,7 +654,11 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		if uri.LooksLikeHTTPURL() {
 			support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
 			if err != nil {
-				return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+				// The probe only ever fails on transport trouble (the status is
+				// not consulted), so it says nothing permanent about the URL. It
+				// must stay retryable, or a momentarily wedged origin turns a
+				// resumable download into a hard install failure.
+				return asTransient(fmt.Errorf("failed to check if uri server supports range header: %w", err))
 			}
 			resumable = support
 		}
@@ -659,7 +689,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		contentLength = l.Size()
 	} else {
 		// Start the request
-		resp, err := downloadClient.Do(req)
+		resp, err := downloadHTTPClient().Do(req)
 		if err != nil {
 			// Detect cancellation via the context, not the returned error: a
 			// request cancelled *with a cause* surfaces the cause error (not
