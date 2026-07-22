@@ -140,12 +140,12 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint(systemState *system.Syst
 		if err != nil {
 			return err
 		}
-		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
+		mgs.backendApplier.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
 			Force:              input.Force,
-		}
+		})
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}
@@ -221,16 +221,20 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		backendName := c.Param("name")
 
-		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
-			Delete:             true,
-			GalleryElementName: backendName,
-			Galleries:          mgs.galleries,
-		}
-
 		uuid, err := uuid.NewUUID()
 		if err != nil {
 			return err
 		}
+
+		// The op carries the same ID the caller is handed back: without it the
+		// deletion ran under an empty ID and StatusURL pointed at a job that
+		// could never have a status.
+		mgs.backendApplier.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 uuid.String(),
+			Delete:             true,
+			GalleryElementName: backendName,
+			Galleries:          mgs.galleries,
+		})
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}
@@ -313,12 +317,12 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 			return err
 		}
 
-		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
+		mgs.backendApplier.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uuid.String(),
 			GalleryElementName: backendName,
 			Galleries:          mgs.galleries,
 			Upgrade:            true,
-		}
+		})
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}

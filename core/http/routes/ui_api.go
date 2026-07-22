@@ -986,9 +986,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.ModelGalleryChannel <- op
-		}()
+		galleryService.EnqueueModelOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1035,10 +1033,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.ModelGalleryChannel <- op
-			cl.RemoveModelConfig(galleryName)
-		}()
+		galleryService.EnqueueModelOp(op)
+		cl.RemoveModelConfig(galleryName)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1444,9 +1440,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1508,9 +1502,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1556,9 +1548,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1677,11 +1667,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		// Non-blocking send — BackendGalleryChannel is unbuffered and a direct
-		// send would hang the HTTP handler whenever the worker is busy.
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":     uid,

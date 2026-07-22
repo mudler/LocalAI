@@ -203,6 +203,20 @@ func (s *GalleryStore) Cancel(id string) error {
 	return s.UpdateStatus(id, "cancelled", "")
 }
 
+// ListStale returns the IDs of in-progress operations that CleanStale would
+// reap. Callers need the IDs, not just a count: the reaper corrects the
+// database, but each replica also holds an in-memory copy of the operation
+// status that the API actually serves, and that copy has to be corrected too
+// or the reaped op keeps reporting "downloading" forever.
+func (s *GalleryStore) ListStale(age time.Duration) ([]string, error) {
+	cutoff := time.Now().Add(-age)
+	var ids []string
+	err := s.db.Model(&GalleryOperationRecord{}).
+		Where("updated_at < ? AND status IN ?", cutoff, activeStatuses).
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
 // CleanStale marks abandoned in-progress operations as failed and returns the
 // number of rows reaped. Called on startup AND periodically to recover from
 // crashed/restarted instances that left records in pending/downloading/

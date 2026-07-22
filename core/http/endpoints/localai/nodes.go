@@ -521,9 +521,7 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 			CancelFunc:         cancelFunc,
 		}
 		galleryService.StoreCancellation(jobID, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		xlog.Info("Node-scoped backend install dispatched", "node", nodeID, "backend", req.Backend, "uri", req.URI, "jobID", jobID)
 		return c.JSON(http.StatusAccepted, map[string]string{
@@ -586,9 +584,7 @@ func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opca
 			CancelFunc:         cancelFunc,
 		}
 		galleryService.StoreCancellation(jobID, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		xlog.Info("Node-scoped backend upgrade dispatched", "node", nodeID, "backend", req.Backend, "jobID", jobID)
 		return c.JSON(http.StatusAccepted, map[string]string{
