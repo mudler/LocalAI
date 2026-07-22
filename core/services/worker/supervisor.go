@@ -119,6 +119,11 @@ type backendSupervisor struct {
 	// the same not-yet-cached backend) are serialized here so the gallery
 	// download path doesn't race itself on the same directory.
 	backendLocks map[string]*sync.Mutex
+
+	// backendFreeTimeout bounds the best-effort Free call before process
+	// termination. Zero uses workerBackendFreeTimeout; tests use a shorter
+	// deadline to exercise a wedged backend without waiting five seconds.
+	backendFreeTimeout time.Duration
 }
 
 // defaultPortQuarantine is how long a released gRPC port waits before it can be
@@ -140,6 +145,13 @@ type backendSupervisor struct {
 // clusters. Eager row removal, not this delay, is what actually fixes stale
 // rows; raising this value is not a substitute for it.
 const defaultPortQuarantine = 15 * time.Second
+
+func (s *backendSupervisor) freeTimeout() time.Duration {
+	if s.backendFreeTimeout > 0 {
+		return s.backendFreeTimeout
+	}
+	return workerBackendFreeTimeout
+}
 
 // quarantinedPort is a released port that must not be re-bound until `until`.
 type quarantinedPort struct {
@@ -723,8 +735,9 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 
 	if !force {
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
-		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
-		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
+		freeTimeout := s.freeTimeout()
+		freeCtx, cancel := context.WithTimeout(context.Background(), freeTimeout)
+		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", freeTimeout)
 		if err := client.Free(freeCtx); err != nil {
 			xlog.Warn("Free() failed (best-effort)", "backend", key, "error", err)
 		}

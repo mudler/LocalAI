@@ -112,7 +112,8 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 		Expect(pidAlive(procPID)).To(BeTrue(), "the fixture process must be running before the stop")
 
 		s = &backendSupervisor{
-			cfg: &Config{},
+			cfg:                &Config{},
+			backendFreeTimeout: 20 * time.Millisecond,
 			processes: map[string]*backendProcess{
 				"wedged-model#0": {
 					proc:        proc,
