@@ -41,6 +41,20 @@ type RemoteModelContextUnloader interface {
 	UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error
 }
 
+// RemoteModelPresenceChecker reports whether any node in the cluster currently
+// holds the model.
+//
+// Unloading is deliberately idempotent: UnloadRemoteModel succeeds when no node
+// has the model, because cleanup paths (model deletion, config edits, watchdog
+// eviction) legitimately run against an already-unloaded model and must not
+// fail. That makes the unload result unable to distinguish "stopped it" from
+// "there was nothing to stop", so the one caller that needs the distinction —
+// ShutdownModel, which must report 404 rather than a misleading success for a
+// model loaded nowhere — asks separately, before unloading.
+type RemoteModelPresenceChecker interface {
+	HasRemoteModel(ctx context.Context, modelName string) (bool, error)
+}
+
 // ModelRouter is a callback that routes model loading to a remote node
 // instead of starting a local process. When set on the ModelLoader,
 // grpcModel() will delegate to this function before attempting local loading.
@@ -585,6 +599,20 @@ func (ml *ModelLoader) shutdownModel(ctx context.Context, modelName string, forc
 	}
 	defer release()
 	return ml.deleteProcess(ctx, modelName, force)
+}
+
+// isResident reports whether the model store already holds an entry for
+// modelID. Unlike checkIsLoaded it never probes the backend and never evicts,
+// so it is safe to call on a per-request hot path: it answers "have we been
+// here before?", which is exactly what the load logging needs to distinguish a
+// cold load from routine traffic against a resident model.
+func (ml *ModelLoader) isResident(modelID string) bool {
+	ml.mu.Lock()
+	store := ml.store
+	ml.mu.Unlock()
+
+	_, ok := store.Get(modelID)
+	return ok
 }
 
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {

@@ -38,7 +38,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/mudler/cogito v0.10.1-0.20260609212329-bf4010d31047
 	github.com/mudler/edgevpn v0.34.0
-	github.com/mudler/go-processmanager v0.1.1
+	github.com/mudler/go-processmanager v0.1.2-0.20260720195933-3d64f5c974fc
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/jwt/v2 v2.7.4
@@ -399,7 +399,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.9.2 // indirect
 	github.com/ipld/go-ipld-prime v0.23.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/jaypipes/pcidb v1.1.1 // indirect
+	github.com/jaypipes/pcidb v1.1.1
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/klauspost/compress v1.18.6
 	github.com/klauspost/pgzip v1.2.6 // indirect

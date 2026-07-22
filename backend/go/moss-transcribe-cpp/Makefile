@@ -16,7 +16,7 @@
 # clone-at-pin + cmake build so CI doesn't need a side-checkout.
 
 MOSS_VERSION?=190a569c13b4b247450f2fb3b2a431244e84833e
-MOSS_REPO?=https://github.com/mudler/moss-transcribe.cpp
+MOSS_REPO?=https://github.com/localai-org/moss-transcribe.cpp
 
 GOCMD?=go
 GO_TAGS?=

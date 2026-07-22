@@ -34,6 +34,43 @@ func IsModelNotLoaded(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "model not loaded")
 }
 
+// ModelMismatchSentinel is the fixed marker every backend puts in a
+// model-identity mismatch error, in every language. IsModelMismatch requires
+// it, so it is part of the cross-language wire contract: changing it breaks
+// detection for backends that have not been rebuilt.
+const ModelMismatchSentinel = "model identity mismatch"
+
+// ModelMismatch returns the canonical error a backend returns when the request
+// names a model other than the one it has loaded. That means the router's
+// cached row is stale and points at a recycled port, so the caller should drop
+// the row rather than retry against the same replica.
+func ModelMismatch(backend, loaded, requested string) error {
+	return status.Errorf(codes.NotFound, "%s: %s: loaded %q, requested %q",
+		backend, ModelMismatchSentinel, loaded, requested)
+}
+
+// IsModelMismatch reports whether err signals that the backend has a DIFFERENT
+// model loaded than the request asked for.
+//
+// It requires BOTH the code and the sentinel, which inverts the "code OR
+// message" style of the helpers above. That is deliberate, and must not be
+// "simplified" to a code check: codes.NotFound is not exclusively ours on the
+// PredictOptions RPCs. backend/python/insightface/backend.py:127 returns
+// NOT_FOUND "no face detected" from Embedding, and a code-only check would
+// make the router drop a healthy replica row on every faceless image.
+//
+// Unlike IsModelNotLoaded, a false positive here is NOT harmless in the same
+// way, which is the other half of why the sentinel is mandatory.
+func IsModelMismatch(err error) bool {
+	if err == nil {
+		return false
+	}
+	if status.Code(err) != codes.NotFound {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), ModelMismatchSentinel)
+}
+
 // LiveTranscriptionUnsupported returns the canonical error a backend returns
 // when it (or the loaded model) cannot serve the bidirectional
 // AudioTranscriptionLive RPC. It carries codes.Unimplemented deliberately:

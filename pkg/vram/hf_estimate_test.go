@@ -25,6 +25,11 @@ var _ = Describe("ParseSizeString", func() {
 		Entry("short suffix 100M", "100M", uint64(100_000_000)),
 		Entry("short suffix 2G", "2G", uint64(2_000_000_000)),
 		Entry("short suffix 1K", "1K", uint64(1_000)),
+		Entry("binary 1KiB", "1KiB", uint64(1024)),
+		Entry("binary 512MiB", "512MiB", uint64(512*1024*1024)),
+		Entry("binary 6GiB", "6GiB", uint64(6*1024*1024*1024)),
+		Entry("binary 2TiB", "2TiB", uint64(2*1024*1024*1024*1024)),
+		Entry("binary 1.5 gib lowercase with space", "1.5 gib", uint64(1.5*1024*1024*1024)),
 	)
 
 	DescribeTable("invalid sizes",

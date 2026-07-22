@@ -96,6 +96,7 @@ const (
 	subjectAgentCancelPrefix    = "agent."
 	subjectFineTuneCancelPrefix = "finetune."
 	subjectGalleryCancelPrefix  = "gallery."
+	subjectResponseCancelPrefix = "responses."
 )
 
 // Wildcard subjects for NATS subscriptions that match all IDs.
@@ -106,6 +107,7 @@ const (
 	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"
+	SubjectResponseCancelWildcard  = "responses.*.cancel"
 )
 
 // SubjectJobCancel returns the NATS subject to cancel a running job.
@@ -126,6 +128,17 @@ func SubjectFineTuneCancel(jobID string) string {
 // SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
 func SubjectGalleryCancel(opID string) string {
 	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".cancel"
+}
+
+// SubjectResponseCancel returns the NATS subject used to cancel an in-flight
+// Open Responses generation. Only the replica that created the response holds
+// its context.CancelFunc, so a cancel that lands on any other replica is
+// broadcast here and applied by whichever replica actually owns the function.
+// Broadcast rather than request/reply on purpose: if the owner crashed or was
+// scaled down, nobody answers and the caller must not block waiting for a
+// reply that will never come.
+func SubjectResponseCancel(responseID string) string {
+	return subjectResponseCancelPrefix + sanitizeSubjectToken(responseID) + ".cancel"
 }
 
 // Node Backend Lifecycle (Pub/Sub — targeted to specific nodes)
@@ -226,6 +239,14 @@ type BackendUpgradeRequest struct {
 type BackendUpgradeReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
+
+	// StoppedProcessKeys / ReportsStoppedProcesses carry the same
+	// stale-row-invalidation contract as on BackendDeleteReply; an upgrade
+	// force-stops every process using the binary and starts none back up, so it
+	// recycles ports exactly the way a delete does. See that type for why the
+	// boolean is not redundant with an empty list.
+	StoppedProcessKeys      []string `json:"stopped_process_keys,omitempty"`
+	ReportsStoppedProcesses bool     `json:"reports_stopped_processes,omitempty"`
 }
 
 // SubjectNodeBackendList queries a worker node for its installed backends.
@@ -290,6 +311,23 @@ type BackendDeleteRequest struct {
 type BackendDeleteReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
+
+	// StoppedProcessKeys names every `modelID#replica` process the worker
+	// terminated while serving this delete. Stopping a process returns its gRPC
+	// port to the worker's allocator, so any NodeModel row still pointing at
+	// that address becomes a live misroute the moment an unrelated backend
+	// binds the recycled port: probeHealth verifies liveness, not identity, so
+	// the request is served by the wrong backend rather than failing. The
+	// controller uses these keys to drop the rows eagerly.
+	StoppedProcessKeys []string `json:"stopped_process_keys,omitempty"`
+
+	// ReportsStoppedProcesses distinguishes "this worker enumerates what it
+	// stopped and stopped nothing" from "this worker predates the field". Both
+	// send an empty list, and only the first is authoritative. Without this
+	// flag a controller cannot tell them apart and would eventually be tempted
+	// to read silence as a completed cleanup, which is precisely the wrong
+	// conclusion against an older worker.
+	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
 }
 
 // SubjectNodeModelUnload tells a worker node to unload a model (gRPC Free) without killing the backend.

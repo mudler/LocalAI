@@ -3789,6 +3789,15 @@ const docTemplate = `{
                 }
             }
         },
+        "gallery.Variant": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model is the name of a gallery entry that declares no variants of its own.",
+                    "type": "string"
+                }
+            }
+        },
         "galleryop.NodeProgress": {
             "type": "object",
             "properties": {
@@ -4007,6 +4016,17 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "variant": {
+                    "description": "Variant installs one specific build of an entry that declares variants,\nnamed as it appears in the entry's ` + "`" + `variants` + "`" + ` list (see the ` + "`" + `variants` + "`" + `\nand ` + "`" + `auto_variant` + "`" + ` fields of the gallery listing). Leave it empty to let\nLocalAI auto-select the largest build this host can actually run.",
+                    "type": "string"
+                },
+                "variants": {
+                    "description": "Variants is an optional, UNORDERED list of alternative builds of the same\nmodel (other backends such as MLX or vLLM, other quantizations) that the\ninstaller may pick instead of this entry's own payload. Authoring is\ndeliberately dumb: name the models, and the selector works out which one\nthis host should get.\n\nThe entry itself is always the last resort, so an entry carrying variants\nstays a complete, installable entry and older LocalAI releases, which drop\nthis key, install it exactly as before.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.Variant"
                     }
                 }
             }

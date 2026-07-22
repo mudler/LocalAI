@@ -151,6 +151,150 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
+### Model variants
+
+Some gallery entries offer several builds of the same model: different
+quantizations, or the same weights served by a different engine. Such an entry
+carries a `variants` list, and installing it normally lets LocalAI choose:
+
+- variants whose backend cannot run on this machine are dropped;
+- variants that do not fit the available memory are dropped. That budget is
+  VRAM on a discrete-GPU host, and system RAM otherwise — including on
+  unified-memory machines such as Apple Silicon, where the GPU shares system
+  RAM and reports no separate VRAM pool;
+- the entry's own build is never dropped. It competes with whatever survived
+  rather than waiting for everything else to fail, so an entry that is itself
+  the largest build that fits keeps its own payload;
+- among the remaining builds the engine this machine prefers wins first: a vLLM
+  build on an NVIDIA or AMD host, an MLX build on Apple Silicon, llama.cpp
+  otherwise. The native accelerated runtime is worth more than a bigger
+  download, so preference is settled before size;
+- the largest build on the preferred engine then wins, because a bigger
+  footprint means a higher quality build of the same model. A machine with no
+  preferred engine picks purely by size;
+- a build whose size could not be measured ranks below the entry's own build,
+  so an unreadable size never quietly displaces the payload the entry ships;
+- if nothing else survives, the entry's own build is installed. The entry is
+  always installable, on any machine.
+
+Because the entry's own build competes like every other candidate, the order of
+the list means nothing and a `variants` list may offer smaller builds, larger
+ones, or both.
+
+Sizes are measured from the model's weights rather than downloaded, and cached.
+
+The gallery listing only flags which entries offer variants, with a
+`has_variants` field. It deliberately does not describe them: measuring a
+variant is a network round trip per referenced build, so describing every
+entry inline would make one listing request cost as many round trips as the
+whole page has variants.
+
+```bash
+curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
+```
+
+### Collapsing the listing to one row per model
+
+By default the listing returns every entry, including the individual builds a
+parent entry offers as variants, so one model can occupy several rows. Pass
+`collapse_variants=true` for the deduplicated view: every entry that is
+installable in its own right, with nothing shown twice.
+
+```bash
+curl 'http://localhost:8080/api/models?collapse_variants=true'
+```
+
+An entry is hidden only when another entry already offers it as a variant, so
+it stays reachable by installing that entry. Entries that declare variants are
+always kept, and so is any entry nobody references. The filter is applied
+before pagination, so page counts stay correct.
+
+**Searching respects the collapse.** `term` is matched against every entry the
+gallery holds, builds another entry offers included, so nothing becomes
+unfindable. The collapse then decides how a match is reported: a hit on a build
+another entry offers comes back as that entry, since that is the row installable
+in its own right. Looking a model up by name must not answer "not found" for an
+entry the gallery holds, and must not answer with a row the requested view has
+no place for either. A term that is empty or only whitespace does not count as a
+search:
+
+```bash
+# Collapsed: the parent stands in for the build it offers.
+curl 'http://localhost:8080/api/models?collapse_variants=true'
+# Collapsed, searching a build the parent offers: the parent comes back.
+curl 'http://localhost:8080/api/models?collapse_variants=true&term=nanbeige4.1-3b-q8'
+# Uncollapsed, same term: the build itself comes back.
+curl 'http://localhost:8080/api/models?term=nanbeige4.1-3b-q8'
+```
+
+A parent appears once however many of its builds match, and once when it matches
+in its own right as well. The substitution runs before the count and the page
+math, so both describe the rows actually handed out.
+
+`term`, `tag` and `backend` are all applied before the substitution, so each is
+judged against the build that really carries the name, tag or backend rather
+than against a parent that merely offers it. The consequence is worth knowing:
+filtering by a backend only one variant declares returns that variant's parent,
+whose own `backend` field may say something else. The alternative would be to
+claim the gallery holds no such build.
+
+The web UI requests the collapsed view by default and has a toggle for the other
+one. The parameter stays on the API, off by default, for clients that want
+either view.
+
+Ask for the description one entry at a time, as the web UI does when you open
+a model's variant menu:
+
+```bash
+curl http://localhost:8080/api/models/variants/localai@nanbeige4.1-3b-q4
+```
+
+```json
+{
+  "auto_selected": "nanbeige4.1-3b-q8",
+  "variants": [
+    { "model": "nanbeige4.1-3b-q8", "backend": "llama-cpp", "memory_bytes": 4187593113, "fits": true, "is_base": false },
+    { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "fits": true, "is_base": true }
+  ]
+}
+```
+
+`auto_selected` is what installing without a choice would pick right now. `fits`
+is whether auto-selection would consider that variant on this machine, and
+`is_base` marks the entry's own build. `memory_bytes` is omitted entirely, as on
+the second entry above, when the size could not be measured; read a missing
+`memory_bytes` as unknown rather than as a free build.
+
+An entry that declares no variants carries no `has_variants` field and answers
+this endpoint with an empty list, so a client never has to ask about it.
+
+To install a specific one, pass its name as `variant`:
+
+```bash
+curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
+     "id": "localai@nanbeige4.1-3b-q4",
+     "variant": "nanbeige4.1-3b-q8"
+   }'
+```
+
+An explicit choice is honored even when the machine looks too small for it, so
+you can deliberately install a build LocalAI would not have picked. A `variant`
+the entry does not declare fails the install and names what was requested; it
+never quietly falls back to auto-selection. The choice is recorded, so a later
+reinstall or upgrade of the same model stays on the variant you picked.
+
+The same option exists on the CLI:
+
+```bash
+local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
+```
+
+The `install_model` MCP tool takes the same `variant` argument, so an assistant
+managing installs conversationally can pick a build too.
+
+Entries without a `variants` list are unaffected by any of this and install
+exactly as they always have.
+
 ### Artifact-backed models
 
 Gallery models with an `artifacts` declaration are fully materialized during

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc"
@@ -54,6 +55,25 @@ func snapshotLoadParams() *pb.ModelOptions {
 	return lastLoadParams
 }
 
+// checkModelIdentity mirrors the guard the real backends apply (pkg/grpc,
+// backend/python/common/model_identity.py, backend/cpp/*/grpc-server.cpp) so
+// the distributed e2e suite exercises the #10952 fix rather than only the
+// unit tests. Empty on either side means skip, which is why every existing
+// spec that sends a bare request struct keeps working.
+//
+// It takes an interface rather than *pb.PredictOptions because every modality
+// request message now carries the field, and the rule must not drift per RPC.
+func checkModelIdentity(in interface{ GetModelIdentity() string }) error {
+	if in == nil || in.GetModelIdentity() == "" {
+		return nil
+	}
+	opts := snapshotLoadParams()
+	if opts == nil || opts.Model == "" || opts.Model == in.GetModelIdentity() {
+		return nil
+	}
+	return grpcerrors.ModelMismatch("mock-backend", opts.Model, in.GetModelIdentity())
+}
+
 // promptHasToolResults checks if the prompt contains evidence of prior tool
 // execution — specifically the output from the mock MCP server's get_weather tool.
 func promptHasToolResults(prompt string) bool {
@@ -79,6 +99,9 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 }
 
 func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
@@ -232,6 +255,9 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 }
 
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
+	if err := checkModelIdentity(in); err != nil {
+		return err
+	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
 		return fmt.Errorf("mock backend stream error: simulated failure")
@@ -391,6 +417,9 @@ func mockToolNameFromRequest(in *pb.PredictOptions) string {
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Embedding called", "prompt", in.Prompt)
 	// Return a mock embedding vector of 768 dimensions
 	embeddings := make([]float32, 768)
@@ -401,6 +430,9 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 }
 
 func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("GenerateImage called", "prompt", in.PositivePrompt)
 	return &pb.Result{
 		Message: "Image generated successfully (mocked)",
@@ -409,6 +441,9 @@ func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageReq
 }
 
 func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("GenerateVideo called", "prompt", in.Prompt)
 	return &pb.Result{
 		Message: "Video generated successfully (mocked)",
@@ -417,6 +452,9 @@ func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoReq
 }
 
 func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("TTS called", "text", in.Text)
 	dst := in.GetDst()
 	if dst != "" {
@@ -434,6 +472,9 @@ func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, e
 }
 
 func (m *MockBackend) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer) error {
+	if err := checkModelIdentity(in); err != nil {
+		return err
+	}
 	xlog.Debug("TTSStream called", "text", in.Text)
 	// Stream mock audio chunks (simplified - just send a few bytes)
 	chunks := [][]byte{
@@ -450,6 +491,9 @@ func (m *MockBackend) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamSe
 }
 
 func (m *MockBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest) (*pb.Result, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("SoundGeneration called",
 		"text", in.Text,
 		"caption", in.GetCaption(),
@@ -529,6 +573,9 @@ func writeMinimalWAV(path string) error {
 }
 
 func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	dst := in.GetDst()
 	wavSR := 0
 	dataLen := 0
@@ -574,6 +621,9 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 }
 
 func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("TokenizeString called", "prompt_len", len(in.Prompt))
 	// Approximate BPE: ~4 chars/token, minimum 1. Realistic enough for the
 	// router's fitMessages to exercise the budget/rune-pretrim path with
@@ -600,6 +650,9 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 // scores equally, softmax is uniform, and (with a sensible activation
 // threshold) the router falls back.
 func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Score called", "candidates", len(in.Candidates))
 	hint := extractRouteHint(in.Prompt)
 	out := &pb.ScoreResponse{Candidates: make([]*pb.CandidateScore, len(in.Candidates))}
@@ -673,6 +726,9 @@ func (m *MockBackend) Status(ctx context.Context, in *pb.HealthMessage) (*pb.Sta
 }
 
 func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Detect called", "src", in.Src)
 	return &pb.DetectResponse{
 		Detections: []*pb.Detection{
@@ -741,6 +797,9 @@ func (m *MockBackend) StoresFind(ctx context.Context, in *pb.StoresFindOptions) 
 }
 
 func (m *MockBackend) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.RerankResult, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Rerank called", "query", in.Query, "documents", len(in.Documents))
 	// Return mock reranking results
 	results := make([]*pb.DocumentResult, len(in.Documents))
@@ -772,6 +831,9 @@ func (m *MockBackend) GetMetrics(ctx context.Context, in *pb.MetricsRequest) (*p
 }
 
 func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	// Compute RMS of the received float32 audio to decide whether speech is present.
 	var sumSq float64
 	for _, s := range in.Audio {
@@ -807,6 +869,9 @@ func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADRespon
 // should reflect two segments (1.0s + 1.5s = 2.5s), and IncludeText must
 // gate the per-segment Text field.
 func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Diarize called",
 		"dst", in.Dst,
 		"num_speakers", in.NumSpeakers,
@@ -904,6 +969,9 @@ func voiceEmbedFromWAV(path string) []float32 {
 // VoiceEmbed returns a deterministic 2-d speaker embedding for the audio clip.
 // See voiceEmbedFromWAV for the (test-only) DC-offset discrimination scheme.
 func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.VoiceEmbedResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	emb := voiceEmbedFromWAV(in.GetAudio())
 	xlog.Debug("VoiceEmbed called", "audio", in.GetAudio(), "embedding", emb)
 	if len(emb) == 0 {
@@ -914,6 +982,9 @@ func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) 
 
 // VoiceVerify compares two clips by cosine distance over their mock embeddings.
 func (m *MockBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	a := voiceEmbedFromWAV(in.GetAudio1())
 	b := voiceEmbedFromWAV(in.GetAudio2())
 	dist := float32(1)

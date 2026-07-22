@@ -25,7 +25,8 @@ func VAD(request *schema.VADRequest,
 	}
 
 	req := proto.VADRequest{
-		Audio: request.Audio,
+		ModelIdentity: modelConfig.Model,
+		Audio:         request.Audio,
 	}
 	resp, err := vadModel.VAD(ctx, &req)
 	if err != nil {

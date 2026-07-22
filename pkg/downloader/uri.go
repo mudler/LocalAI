@@ -614,23 +614,34 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
 	var startPos int64
-	tmpFileInfo, err := os.Stat(tmpFilePath)
-	if err == nil && uri.LooksLikeHTTPURL() {
-		support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
-		if err != nil {
-			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+	tmpFileInfo, statErr := os.Stat(tmpFilePath)
+	switch {
+	case statErr == nil:
+		// A leftover partial is only usable when we can ask the server to
+		// continue from where it stopped. Resume is probed only for raw
+		// http(s) URIs; every other transport (local files, and schemes we do
+		// not probe) has to restart, because the writer opens the partial with
+		// O_APPEND and would otherwise concatenate a fresh full body onto the
+		// stale bytes. Discarding here is what makes a retry after an
+		// interrupted download recover on its own instead of failing forever.
+		resumable := false
+		if uri.LooksLikeHTTPURL() {
+			support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
+			if err != nil {
+				return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+			}
+			resumable = support
 		}
-		if support {
+		if resumable {
 			startPos = tmpFileInfo.Size()
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
-		} else {
-			err := removePartialFile(tmpFilePath)
-			if err != nil {
-				return err
-			}
+		} else if err := removePartialFile(tmpFilePath); err != nil {
+			return err
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
+	case errors.Is(statErr, os.ErrNotExist):
+		// Nothing to resume or discard: this is a fresh download.
+	default:
+		return fmt.Errorf("failed to check partial download file %q: %w", tmpFilePath, statErr)
 	}
 
 	var source io.ReadCloser
@@ -662,21 +673,33 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				}
 				return ctx.Err()
 			}
-			return fmt.Errorf("failed to download file %q: %v", filePath, err)
+			// The transport failed before the response was established (reset
+			// connection, refused dial, TLS hiccup). Nothing about it is
+			// specific to this URL, so another attempt may well succeed.
+			return asTransient(fmt.Errorf("failed to download file %q: %v", filePath, err))
 		}
 		//defer resp.Body.Close()
 
 		if startPos > 0 && resp.StatusCode != http.StatusPartialContent {
 			_ = resp.Body.Close()
 			_ = removePartialFile(tmpFilePath)
-			return fmt.Errorf(
+			// The partial has just been discarded, so a further attempt starts
+			// clean and no longer needs the server to honour the range.
+			return asTransient(fmt.Errorf(
 				"resume request for %q returned status %d instead of 206",
 				filePath,
 				resp.StatusCode,
-			)
+			))
 		}
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+			err := fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+			// 5xx and 429 describe the server's current state, not the request;
+			// every other 4xx (missing file, bad auth) is settled and retrying
+			// it only delays the real error.
+			if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+				return asTransient(err)
+			}
+			return err
 		}
 		source = resp.Body
 		// Guard against a silently-stalled stream: a dropped TCP connection
@@ -721,7 +744,12 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		ctx:            ctx,
 	}
 
-	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
+	// io.Copy reports read and write failures indistinguishably, so the source
+	// is wrapped to record which side actually broke. Labelling a peer-cancelled
+	// HTTP/2 stream "failed to write file" once sent an incident investigation
+	// after filesystem permissions while the disk was perfectly healthy.
+	tracked := &readErrorRecorder{r: source}
+	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), tracked)
 	if err != nil {
 		// Detect cancellation via the context (a cause-cancelled read surfaces
 		// the cause, not context.Canceled). Keep the .partial for resume,
@@ -734,7 +762,18 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			}
 			return ctx.Err()
 		}
-		return fmt.Errorf("failed to write file %q: %v", filePath, err)
+		if readErr := tracked.err; readErr != nil && errors.Is(err, readErr) {
+			// The source died mid-transfer (peer cancelled the stream, the
+			// connection dropped, the stall guard fired). The bytes already on
+			// disk are valid, so the .partial is kept and the failure is
+			// retryable from where it stopped.
+			return asTransient(fmt.Errorf("failed to read %q while downloading to %q: %v", url, tmpFilePath, readErr))
+		}
+		// A genuine local write failure: no space, bad permissions, a broken
+		// mount. Retrying writes the same bytes to the same broken target, so
+		// this stays permanent. Name the partial, which is the file actually
+		// being written, rather than the final blob path.
+		return fmt.Errorf("failed to write file %q: %v", tmpFilePath, err)
 	}
 
 	// Check for cancellation before finalizing. Keep the .partial for resume

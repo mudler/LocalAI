@@ -23,7 +23,7 @@
 # checklist in .agents/adding-backends.md (includeDarwin entry, the index.yaml
 # `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD
 # branch for C/C++ backends, and the inferBackendPathDarwin case in
-# scripts/changed-backends.js so the path filter actually builds it).
+# scripts/lib/backend-filter.mjs so the path filter actually builds it).
 
 # Linux matrix (consumed by backend-jobs).
 include:

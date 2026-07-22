@@ -7,10 +7,10 @@ GO_TAGS?=
 JOBS?=$(shell nproc --ignore=1)
 
 # rt-detr.cpp (GitHub redirects the historical mudler/rt-detr.cpp to the new
-# mudler/rf-detr.cpp slug). Pin to a specific commit if you need a stable
+# localai-org/rf-detr.cpp slug). Pin to a specific commit if you need a stable
 # build; leaving this on `master` always picks up the latest C-API surface
 # (incl. the per-detection accessor functions used by gorfdetrcpp.go).
-RFDETR_REPO?=https://github.com/mudler/rf-detr.cpp.git
+RFDETR_REPO?=https://github.com/localai-org/rf-detr.cpp.git
 RFDETR_VERSION?=65c0ffcc9a9bc9dae38252f63d0417c9845a6cf7
 
 ifeq ($(NATIVE),false)

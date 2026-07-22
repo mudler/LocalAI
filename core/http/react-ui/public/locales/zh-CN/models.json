@@ -1,6 +1,17 @@
 {
   "title": "安装模型",
   "subtitle": "从模型库浏览和安装 AI 模型",
+  "recommended": {
+    "title": "适合你硬件的推荐",
+    "cpuNote": "未检测到 GPU - 这些小模型在 CPU 上依然流畅。",
+    "gpuNote": "已按可用显存选择，并为上下文留出空间。",
+    "install": "安装",
+    "installing": "安装中",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}",
+    "dismiss": "关闭推荐",
+    "summary": "已推荐 {{n}} 个模型"
+  },
   "stats": {
     "available": "可用",
     "installed": "已安装"
@@ -24,8 +35,12 @@
     "embedding": "嵌入",
     "rerank": "重排",
     "fitsGpu": "适合 GPU",
+    "collapseVariants": "每个模型一行",
     "allBackends": "所有后端",
-    "searchBackends": "搜索后端..."
+    "searchBackends": "搜索后端...",
+    "contextSize": "上下文：",
+    "useCaseLabel": "按用例筛选",
+    "unavailableForBackend": "所选后端不支持"
   },
   "search": {
     "placeholder": "搜索模型...",
@@ -71,6 +86,7 @@
   "empty": {
     "title": "未找到模型",
     "withFilters": "没有模型与当前搜索或筛选条件匹配。",
+    "collapsedVariantsHint": "其他条目已经提供的替代构建已被隐藏。关闭“每个模型一行”即可将其包含在内。",
     "noFilters": "模型库为空。"
   },
   "deleteDialog": {
@@ -83,5 +99,27 @@
     "loadFailed": "加载模型失败：{{message}}",
     "installFailed": "安装失败：{{message}}",
     "deleteFailed": "删除失败：{{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "权重格式",
+    "unknownQuantization": "未知格式",
+    "showDetails": "显示 {{variant}} 的完整详情",
+    "hideDetails": "隐藏 {{variant}} 的完整详情",
+    "detailsLoading": "正在加载详情...",
+    "detailsUnavailable": "无法加载 {{variant}} 的详情。",
+    "features": {
+      "dflash": "更快：DFlash",
+      "mtp": "更快：MTP"
+    }
   }
 }

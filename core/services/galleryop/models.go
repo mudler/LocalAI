@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -174,6 +175,9 @@ func installModelFromRemoteConfig(ctx context.Context, systemState *system.Syste
 type galleryModel struct {
 	gallery.GalleryModel `yaml:",inline"` // https://github.com/go-yaml/yaml/issues/63
 	ID                   string           `json:"id"`
+	// Variant pins the install to one of the entry's declared variants. Empty
+	// means auto-select.
+	Variant string `json:"variant,omitempty" yaml:"variant,omitempty"`
 }
 
 func processRequests(systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, automaticallyInstallBackend bool, galleries []config.Gallery, backendGalleries []config.Gallery, requests []galleryModel, requireBackendIntegrity bool, options ...gallery.InstallOption) error {
@@ -185,8 +189,15 @@ func processRequests(systemState *system.SystemState, modelLoader *model.ModelLo
 			err = installModelFromRemoteConfig(ctx, systemState, modelLoader, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, backendGalleries, requireBackendIntegrity, options...)
 
 		} else {
+			// Cloned rather than appended to in place: `options` is shared by
+			// every request in the batch, so appending would leak one request's
+			// pin onto the next request that reuses the same backing array.
+			requestOptions := options
+			if r.Variant != "" {
+				requestOptions = append(slices.Clone(options), gallery.WithVariant(r.Variant))
+			}
 			err = gallery.InstallModelFromGallery(
-				ctx, galleries, backendGalleries, systemState, modelLoader, r.ID, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, requireBackendIntegrity, options...)
+				ctx, galleries, backendGalleries, systemState, modelLoader, r.ID, r.GalleryModel, utils.DisplayDownloadFunction, enforceScan, automaticallyInstallBackend, requireBackendIntegrity, requestOptions...)
 		}
 	}
 	return err

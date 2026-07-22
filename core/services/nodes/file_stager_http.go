@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +21,6 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -106,8 +107,14 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	// attempt — the server uses it to detect mid-flight content drift and
 	// reject (409) if a partial upload claims a new identity, forcing a clean
 	// restart.
-	localHash, err := downloader.CalculateSHA(localPath)
+	localHash, err := hashFileWithActivity(ctx, localPath)
 	if err != nil {
+		if ctx.Err() != nil {
+			// The cold load was cancelled or expired while hashing. Uploading
+			// on a dead context can only fail, so surface it rather than
+			// pressing on without resume-safety.
+			return "", fmt.Errorf("hashing %s for upload to node %s: %w", localPath, nodeID, err)
+		}
 		// Hash failure isn't fatal — we can still upload; we just lose
 		// resume-safety and end-of-transfer integrity checks.
 		xlog.Warn("Failed to hash local file for upload integrity check", "localPath", localPath, "error", err)
@@ -117,11 +124,8 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	xlog.Info("Uploading file to remote node", "node", nodeID, "file", filepath.Base(localPath), "size", humanFileSize(fileSize), "url", url)
 
 	// Outer time budget: bound the total resumable-upload duration so a
-	// permanently-unreachable worker doesn't hold the request forever. Default
-	// matches the existing per-response timeout.
-	outerBudget := h.resumeBudget()
-
-	resumeCtx, cancel := context.WithTimeout(ctx, outerBudget)
+	// permanently-unreachable worker doesn't hold the request forever.
+	resumeCtx, cancel, outerBudget := h.resumeContext(ctx)
 	defer cancel()
 
 	var lastErr error
@@ -178,13 +182,33 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	}
 }
 
-// resumeBudget returns the maximum total time the resumable upload loop will
-// spend retrying transient failures end-to-end. Past this budget the upload
-// fails rather than spinning forever — 1h covers multi-GB transfers on
-// pathological links without letting a wedged server jam the master.
-func (h *HTTPFileStager) resumeBudget() time.Duration {
-	return 1 * time.Hour
+// resumeContext bounds the resumable upload loop so it can't spin forever, and
+// returns the budget it ended up with for error reporting.
+//
+// When the caller already imposed a deadline, that deadline IS the budget:
+// nesting a second one under it was actively misleading. In production a 1h
+// resume budget sat inside a 25m cold-load ceiling, so the inner budget was
+// unreachable and the failure still reported "failed after 1 attempts within
+// 1h0m0s budget" while the real killer was the 25m parent. Worse, the parent's
+// cold-load hold is now progress-extended (see load_deadline.go) precisely so a
+// 600 GB transfer can run for hours — a fixed 1h nested inside it would
+// reintroduce the very size cliff that change removes.
+//
+// The fixed fallback only applies when nobody above bounded the transfer.
+func (h *HTTPFileStager) resumeContext(ctx context.Context) (context.Context, context.CancelFunc, time.Duration) {
+	if deadline, ok := ctx.Deadline(); ok {
+		resumeCtx, cancel := context.WithCancel(ctx)
+		return resumeCtx, cancel, time.Until(deadline)
+	}
+	resumeCtx, cancel := context.WithTimeout(ctx, defaultResumeBudget)
+	return resumeCtx, cancel, defaultResumeBudget
 }
+
+// defaultResumeBudget bounds an unparented resumable upload. 1h covers multi-GB
+// transfers on pathological links without letting a wedged server jam the
+// master. Callers that need longer (a cold load staging a 600 GB checkpoint)
+// impose their own, progress-extended deadline instead.
+const defaultResumeBudget = 1 * time.Hour
 
 // nextBackoff returns the sleep before retry #attempt: 1s, 2s, 4s, ..., capped
 // at 30s, with the first sleep (attempt=2) being 1s.
@@ -444,7 +468,12 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 		return "", false
 	}
 
-	localHash, err := downloader.CalculateSHA(localPath)
+	// A 200 with a content hash is proof the worker is alive and serving right
+	// now, so it counts as progress in its own right — otherwise a long run of
+	// legitimately skipped shards accrues no activity at all.
+	observeLoadProgress(ctx)
+
+	localHash, err := hashFileWithActivity(ctx, localPath)
 	if err != nil {
 		return "", false
 	}
@@ -454,6 +483,59 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 	}
 
 	return remotePath, true
+}
+
+// hashChunkSize is how much of a file is hashed between activity ticks and
+// cancellation checks. 1 MiB is small enough that a cancelled cold load aborts
+// promptly even on a huge shard, and large enough that the per-chunk bookkeeping
+// is irrelevant next to the hashing itself.
+const hashChunkSize = 1 << 20
+
+// hashFileWithActivity computes a file's SHA-256 while reporting activity to the
+// cold-load deadline, and aborts if that deadline expires.
+//
+// Hashing is the long pole of the resumable-upload verify phase, which moves
+// zero upload bytes: the client HEADs the worker, hashes the local file to
+// confirm it matches, and skips the transfer. On the live cluster that measured
+// ~45s per ~4 GB shard, with six-plus consecutive minutes of no uploaded bytes.
+// A stall window watching only upload bytes would eventually mistake that for a
+// wedged worker — and precisely in the 600 GB case this machinery exists to
+// enable, where one shard can hash for longer than the window.
+//
+// Counting hash progress as progress is safe because it is bounded, terminating
+// work proportional to file size: it cannot make a dead transfer look alive
+// indefinitely. In probeExisting it also runs only after a successful HEAD
+// proved the worker was serving, and the absolute cap still bounds the whole
+// hold regardless.
+func hashFileWithActivity(ctx context.Context, path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+
+	h := sha256.New()
+	buf := make([]byte, hashChunkSize)
+	for {
+		// Checked per chunk: CalculateSHA consulted no context at all, so an
+		// expired cold load used to hash to completion and report the file as
+		// staged, turning a dead load into a silent success.
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		n, readErr := f.Read(buf)
+		if n > 0 {
+			h.Write(buf[:n])
+			observeLoadProgress(ctx)
+		}
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // progressReader wraps an io.Reader and logs upload progress periodically.

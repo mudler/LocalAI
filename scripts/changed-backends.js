@@ -2,136 +2,24 @@ import fs from "fs";
 import * as yaml from "js-yaml";
 import { Octokit } from "@octokit/core";
 
+import {
+  getAllBackendPaths,
+  filterMatrix,
+  BACKEND_MATRIX_FILE,
+} from "./lib/backend-filter.mjs";
+
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
 // and backend_pr.yml (pull_request) can use a dynamic `matrix: ${{ fromJson(...) }}`
 // for the live job, while this script remains the single source of truth for
 // "what backends does the project know about".
-const matrixYml = yaml.load(fs.readFileSync(".github/backend-matrix.yml", "utf8"));
+const matrixYml = yaml.load(fs.readFileSync(BACKEND_MATRIX_FILE, "utf8"));
 const includes = matrixYml.include;
 const includesDarwin = matrixYml.includeDarwin;
 
 const eventPath = process.env.GITHUB_EVENT_PATH;
 const event = JSON.parse(fs.readFileSync(eventPath, "utf8"));
 
-// Infer backend path
-function inferBackendPath(item) {
-  if (item.dockerfile.endsWith("python")) {
-    return `backend/python/${item.backend}/`;
-  }
-  // parakeet-cpp is a Go backend (Dockerfile.golang) wrapping the parakeet.cpp
-  // ggml port via purego. It lives in backend/go/parakeet-cpp/; this explicit
-  // branch (placed before the generic golang one, which would also resolve it
-  // correctly) documents the mapping and guards against a future
-  // dockerfile-suffix change.
-  if (item.backend === "parakeet-cpp") {
-    return `backend/go/parakeet-cpp/`;
-  }
-  // ced is a Go backend (Dockerfile.golang) wrapping the ced.cpp ggml port via
-  // purego, living in backend/go/ced/. Same explicit-branch rationale as
-  // parakeet-cpp above: the generic golang fallthrough would also resolve it,
-  // but this documents the mapping and guards a future dockerfile-suffix change.
-  if (item.backend === "ced") {
-    return `backend/go/ced/`;
-  }
-  // moss-transcribe-cpp is a Go backend (Dockerfile.golang) wrapping the
-  // moss-transcribe.cpp ggml port via purego, living in
-  // backend/go/moss-transcribe-cpp/. Same explicit-branch rationale as
-  // parakeet-cpp / ced: the generic golang fallthrough would also resolve it,
-  // but this documents the mapping and guards a future dockerfile-suffix change.
-  if (item.backend === "moss-transcribe-cpp") {
-    return `backend/go/moss-transcribe-cpp/`;
-  }
-  // moss-tts-cpp is a Go backend (Dockerfile.golang) wrapping the moss-tts.cpp
-  // ggml port via purego, living in backend/go/moss-tts-cpp/. Same
-  // explicit-branch rationale as parakeet-cpp / ced / moss-transcribe-cpp: the
-  // generic golang fallthrough would also resolve it, but this documents the
-  // mapping and guards a future dockerfile-suffix change.
-  if (item.backend === "moss-tts-cpp") {
-    return `backend/go/moss-tts-cpp/`;
-  }
-  if (item.dockerfile.endsWith("golang")) {
-    return `backend/go/${item.backend}/`;
-  }
-  if (item.dockerfile.endsWith("rust")) {
-    return `backend/rust/${item.backend}/`;
-  }
-  if (item.dockerfile.endsWith("ik-llama-cpp")) {
-    return `backend/cpp/ik-llama-cpp/`;
-  }
-  if (item.dockerfile.endsWith("turboquant")) {
-    // turboquant is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
-    // via a thin wrapper Makefile. Changes to either dir should retrigger it.
-    return `backend/cpp/turboquant/`;
-  }
-  if (item.dockerfile.endsWith("bonsai")) {
-    // bonsai is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
-    // via a thin wrapper Makefile. Changes to either dir should retrigger it.
-    return `backend/cpp/bonsai/`;
-  }
-  if (item.dockerfile.endsWith("privacy-filter")) {
-    return `backend/cpp/privacy-filter/`;
-  }
-  if (item.dockerfile.endsWith("ds4")) {
-    return `backend/cpp/ds4/`;
-  }
-  if (item.dockerfile.endsWith("llama-cpp")) {
-    return `backend/cpp/llama-cpp/`;
-  }
-  return null;
-}
-
-function inferBackendPathDarwin(item) {
-  // llama-cpp on Darwin builds from the C++ sources, not a backend/go/llama-cpp
-  // tree (which doesn't exist). The Darwin job is matrix-driven with lang=go
-  // for runner/toolchain selection, but the source path is C++.
-  if (item.backend === "llama-cpp") {
-    return `backend/cpp/llama-cpp/`;
-  }
-  // ds4 is C++ too (built via `make backends/ds4-darwin`); the matrix entry
-  // carries lang=go for runner/toolchain selection, but the source is C++.
-  if (item.backend === "ds4") {
-    return `backend/cpp/ds4/`;
-  }
-  // privacy-filter is C++ too (built via `make backends/privacy-filter-darwin`);
-  // same lang=go-for-runner convention, source under backend/cpp.
-  if (item.backend === "privacy-filter") {
-    return `backend/cpp/privacy-filter/`;
-  }
-  if (!item.lang) {
-    return `backend/python/${item.backend}/`;
-  }
-
-  return `backend/${item.lang}/${item.backend}/`;
-}
-
-// Build a deduplicated map of backend name -> path prefix from all matrix entries
-function getAllBackendPaths() {
-  const paths = new Map();
-  for (const item of includes) {
-    const p = inferBackendPath(item);
-    if (p && !paths.has(item.backend)) {
-      paths.set(item.backend, p);
-    }
-  }
-  for (const item of includesDarwin) {
-    const p = inferBackendPathDarwin(item);
-    if (p && !paths.has(item.backend)) {
-      paths.set(item.backend, p);
-    }
-  }
-  return paths;
-}
-
-const allBackendPaths = getAllBackendPaths();
-
-function backendChanged(backend, pathPrefix, changedFiles) {
-  if (changedFiles.some(file => file.startsWith(pathPrefix))) return true;
-
-  // Fork backends reuse backend/cpp/llama-cpp sources via thin wrappers;
-  // changes to either directory must retrigger their pipelines.
-  return (backend === "turboquant" || backend === "bonsai") &&
-    changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
-}
+const allBackendPaths = getAllBackendPaths(includes, includesDarwin);
 
 const token = process.env.GITHUB_TOKEN;
 const octokit = new Octokit({ auth: token });
@@ -187,6 +75,45 @@ async function getChangedFilesForPush(event) {
     return null;
   }
   return res.data.files.map(f => f.filename);
+}
+
+// The matrix file's contents at the base revision, so filterMatrix can rebuild
+// only the entries whose fields actually changed instead of all 417 (or, as
+// before, none of them). Returns null when the previous revision cannot be
+// resolved, which filterMatrix treats as "rebuild everything".
+//
+// Only called when the changed-file list actually names the matrix file, so the
+// common path costs no extra API request.
+async function getPreviousMatrix(event) {
+  const ref = event.pull_request ? event.pull_request.base.sha : event.before;
+  if (!ref || /^0+$/.test(ref)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  try {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: BACKEND_MATRIX_FILE,
+      ref,
+      mediaType: { format: 'raw' },
+    });
+    // `format: raw` yields a string; fall back to the JSON representation in
+    // case a proxy or a future Octokit version ignores the media type.
+    const raw = typeof res.data === 'string'
+      ? res.data
+      : Buffer.from(res.data.content, 'base64').toString('utf8');
+    const previous = yaml.load(raw);
+    return {
+      include: previous.include || [],
+      includeDarwin: previous.includeDarwin || [],
+    };
+  } catch (err) {
+    console.log(
+      `could not read ${BACKEND_MATRIX_FILE} at ${ref}, falling back to run-all:`,
+      err.message
+    );
+    return null;
+  }
 }
 
 // Group matrix entries by tag-suffix and emit a merge-matrix entry per group.
@@ -313,18 +240,14 @@ function emitFullMatrix() {
   }
 }
 
-function emitFilteredMatrix(changedFiles) {
+function emitFilteredMatrix(changedFiles, previousMatrix) {
   console.log("Changed files:", changedFiles);
 
-  const filtered = includes.filter(item => {
-    const backendPath = inferBackendPath(item);
-    if (!backendPath) return false;
-    return backendChanged(item.backend, backendPath, changedFiles);
-  });
-
-  const filteredDarwin = includesDarwin.filter(item => {
-    const backendPath = inferBackendPathDarwin(item);
-    return changedFiles.some(file => file.startsWith(backendPath));
+  const { filtered, filteredDarwin, changedBackends } = filterMatrix({
+    includes,
+    includesDarwin,
+    changedFiles,
+    previousMatrix,
   });
 
   console.log("Filtered files:", filtered);
@@ -350,8 +273,8 @@ function emitFilteredMatrix(changedFiles) {
   emitSinglearchShards(singlearch);
 
   // Per-backend boolean outputs
-  for (const [backend, pathPrefix] of allBackendPaths) {
-    const changed = backendChanged(backend, pathPrefix, changedFiles);
+  for (const backend of allBackendPaths.keys()) {
+    const changed = changedBackends.has(backend);
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `${backend}=${changed ? 'true' : 'false'}\n`);
   }
 }
@@ -378,5 +301,10 @@ function emitFilteredMatrix(changedFiles) {
     emitFullMatrix();
     return;
   }
-  emitFilteredMatrix(changedFiles);
+
+  const previousMatrix = changedFiles.includes(BACKEND_MATRIX_FILE)
+    ? await getPreviousMatrix(event)
+    : null;
+
+  emitFilteredMatrix(changedFiles, previousMatrix);
 })();

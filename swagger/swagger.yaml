@@ -210,6 +210,13 @@ definitions:
           $ref: '#/definitions/gallery.NodeDriftInfo'
         type: array
     type: object
+  gallery.Variant:
+    properties:
+      model:
+        description: Model is the name of a gallery entry that declares no variants
+          of its own.
+        type: string
+    type: object
   galleryop.NodeProgress:
     properties:
       current:
@@ -371,6 +378,27 @@ definitions:
       urls:
         items:
           type: string
+        type: array
+      variant:
+        description: |-
+          Variant installs one specific build of an entry that declares variants,
+          named as it appears in the entry's `variants` list (see the `variants`
+          and `auto_variant` fields of the gallery listing). Leave it empty to let
+          LocalAI auto-select the largest build this host can actually run.
+        type: string
+      variants:
+        description: |-
+          Variants is an optional, UNORDERED list of alternative builds of the same
+          model (other backends such as MLX or vLLM, other quantizations) that the
+          installer may pick instead of this entry's own payload. Authoring is
+          deliberately dumb: name the models, and the selector works out which one
+          this host should get.
+
+          The entry itself is always the last resort, so an entry carrying variants
+          stays a complete, installable entry and older LocalAI releases, which drop
+          this key, install it exactly as before.
+        items:
+          $ref: '#/definitions/gallery.Variant'
         type: array
     type: object
   localai.ModelResponse:

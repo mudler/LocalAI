@@ -109,6 +109,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.device_index = 0
         self.cp_split_hw = None
         self._dist_store_dir = None
+        self.model_path = ""
 
     def Health(self, request, context):
         return backend_pb2.Reply(message=b"OK")
@@ -117,6 +118,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model = request.Model
         if request.ModelFile and os.path.isdir(request.ModelFile):
             model = request.ModelFile
+
+        # A managed companion snapshot (see base_model) is passed as a path
+        # relative to the models directory, which is ModelPath here and a
+        # different directory on a remote worker once staging has rewritten it.
+        self.model_path = getattr(request, "ModelPath", "") or ""
 
         model_kind = classify_model(model)
         if model_kind is None:
@@ -376,6 +382,26 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
             self.cp_split_hw = self.context_parallel_util.get_optimal_split(1)
 
+    def _resolve_option_path(self, value):
+        """Resolve an option that may name a local directory or a HF repo id.
+
+        A managed companion artifact is handed to us relative to the models
+        directory, so it only becomes a real path once joined with ModelPath;
+        that indirection is what lets the same config work on a remote worker,
+        where staging puts the snapshot somewhere else entirely. Anything that
+        is already an absolute directory, or is not a path at all (a plain repo
+        id), is passed through untouched for snapshot_download to handle.
+        """
+        if not value:
+            return value
+        candidate = normalize_model_source(str(value))
+        if os.path.isabs(candidate) or not self.model_path:
+            return value
+        joined = os.path.join(self.model_path, candidate)
+        if os.path.isdir(joined):
+            return joined
+        return value
+
     def _resolve_checkpoint(self, model, patterns):
         source = normalize_model_source(model)
         if os.path.isdir(source):
@@ -440,13 +466,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         avatar_patterns.append(f"{model_subfolder}/**")
         checkpoint = self._resolve_checkpoint(model, avatar_patterns)
 
-        base_model = self.options.get("base_model")
-        if not base_model and os.path.isdir(normalize_model_source(model)):
-            sibling = os.path.join(
-                os.path.dirname(normalize_model_source(model)), "LongCat-Video"
-            )
-            if os.path.isdir(sibling):
-                base_model = sibling
+        base_model = self._resolve_option_path(self.options.get("base_model"))
         base_model = base_model or BASE_MODEL_ID
         if classify_model(str(base_model)) != MODEL_KIND_BASE:
             raise ValueError("base_model must point to a LongCat-Video checkpoint")

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/xlog"
 )
 
 // managedArtifactBackends is the set of backends that load a model from a
@@ -21,6 +22,7 @@ var managedArtifactBackends = map[string]struct{}{
 	"transformers-musicgen": {}, "mamba": {}, "diffusers": {}, "qwen-asr": {},
 	"fish-speech": {}, "nemo": {}, "voxcpm": {}, "qwen-tts": {},
 	"liquid-audio": {}, "vllm": {}, "vllm-omni": {}, "sglang": {},
+	"longcat-video": {},
 }
 
 // IsManagedArtifactBackend reports whether backend consumes a model as a
@@ -30,6 +32,26 @@ var managedArtifactBackends = map[string]struct{}{
 func IsManagedArtifactBackend(backend string) bool {
 	_, ok := managedArtifactBackends[backend]
 	return ok
+}
+
+// LogArtifactFallback records a degradation to the legacy loading path. For a
+// backend that consumes a snapshot *directory*, "legacy loading" is not a
+// graceful degradation: the backend downloads the whole repo itself, in-band,
+// inside LoadModel, on every load. That reliably exceeds the remote-load
+// deadline and surfaces as a bare timeout, so it is logged at error to survive
+// a default log level and give the timeout a named cause (#10981).
+//
+// Today every inferred artifact already comes from such a backend, but the gate
+// is checked explicitly so widening PrimaryArtifactSpec later cannot silently
+// promote an ordinary fallback to an error.
+func LogArtifactFallback(model, backend string, err error) {
+	if IsManagedArtifactBackend(backend) {
+		xlog.Error("artifact materialization failed; the backend will download the model in-band on every load",
+			"model", model, "backend", backend, "error", err)
+		return
+	}
+	xlog.Warn("falling back to legacy model loading after artifact materialization failed",
+		"model", model, "backend", backend, "error", err)
 }
 
 // PrimaryArtifactSpec returns the managed primary artifact to materialize for

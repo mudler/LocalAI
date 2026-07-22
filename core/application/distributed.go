@@ -356,12 +356,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
 		SharedModels:     cfg.Distributed.SharedModels,
-		// Cap how long a cold load may hold the per-model advisory lock: the
-		// configured backend.install deadline plus a margin for file staging and
-		// the remote LoadModel. Derived from the install timeout so raising it
-		// (for slow links pulling multi-GB images) widens the ceiling too,
-		// instead of letting the static default cut a legitimately slow load.
-		ModelLoadCeiling: cfg.Distributed.BackendInstallTimeoutOrDefault() + 10*time.Minute,
+		// RAW, not OrDefault: zero means "derive the budget per model from the
+		// checkpoint size" (config.ModelLoadTimeoutForSize), which is what makes
+		// a 70 GB video checkpoint work without the operator first hitting a
+		// DeadlineExceeded and going looking for a knob. A non-zero value here is
+		// an explicit override and is used verbatim.
+		ModelLoadTimeout: cfg.Distributed.ModelLoadTimeout,
+		// Cap how long a cold load may hold the per-model advisory lock. Derived
+		// from BOTH configured budgets it has to cover, so raising either the
+		// install timeout (slow links pulling multi-GB images) or the model load
+		// timeout (very large checkpoints) widens the ceiling too, instead of
+		// letting a stale bound cut a legitimately slow load short.
+		ModelLoadCeiling: nodes.ModelLoadCeilingFor(
+			cfg.Distributed.BackendInstallTimeoutOrDefault(),
+			cfg.Distributed.ModelLoadTimeoutOrDefault(),
+		),
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every

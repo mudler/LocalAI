@@ -19,19 +19,21 @@ import (
 // don't act on. IncludeText only matters for backends that emit
 // per-segment transcripts as a by-product (e.g. vibevoice.cpp).
 type DiarizationRequest struct {
-	Audio                string
-	Language             string
-	NumSpeakers          int32
-	MinSpeakers          int32
-	MaxSpeakers          int32
-	ClusteringThreshold  float32
-	MinDurationOn        float32
-	MinDurationOff       float32
-	IncludeText          bool
+	Audio               string
+	Language            string
+	NumSpeakers         int32
+	MinSpeakers         int32
+	MaxSpeakers         int32
+	ClusteringThreshold float32
+	MinDurationOn       float32
+	MinDurationOff      float32
+	IncludeText         bool
 }
 
-func (r *DiarizationRequest) toProto(threads uint32) *proto.DiarizeRequest {
+// modelIdentity: see the note on TranscriptionRequest.toProto.
+func (r *DiarizationRequest) toProto(threads uint32, modelIdentity string) *proto.DiarizeRequest {
 	return &proto.DiarizeRequest{
+		ModelIdentity:       modelIdentity,
 		Dst:                 r.Audio,
 		Threads:             threads,
 		Language:            r.Language,
@@ -74,7 +76,7 @@ func ModelDiarization(ctx context.Context, req DiarizationRequest, ml *model.Mod
 		threads = uint32(*modelConfig.Threads)
 	}
 
-	r, err := m.Diarize(ctx, req.toProto(threads))
+	r, err := m.Diarize(ctx, req.toProto(threads, modelConfig.Model))
 	if err != nil {
 		return nil, err
 	}

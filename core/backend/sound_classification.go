@@ -22,11 +22,13 @@ type SoundDetectionRequest struct {
 	Threshold float32
 }
 
-func (r *SoundDetectionRequest) toProto() *proto.SoundDetectionRequest {
+// modelIdentity: see the note on TranscriptionRequest.toProto.
+func (r *SoundDetectionRequest) toProto(modelIdentity string) *proto.SoundDetectionRequest {
 	return &proto.SoundDetectionRequest{
-		Src:       r.Audio,
-		TopK:      r.TopK,
-		Threshold: r.Threshold,
+		ModelIdentity: modelIdentity,
+		Src:           r.Audio,
+		TopK:          r.TopK,
+		Threshold:     r.Threshold,
 	}
 }
 
@@ -54,7 +56,7 @@ func ModelSoundDetection(ctx context.Context, req SoundDetectionRequest, ml *mod
 		return nil, err
 	}
 
-	r, err := m.SoundDetection(ctx, req.toProto())
+	r, err := m.SoundDetection(ctx, req.toProto(modelConfig.Model))
 	if err != nil {
 		return nil, err
 	}

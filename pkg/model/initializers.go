@@ -219,15 +219,29 @@ func parallelSlotsFromOptions(opts []string) string {
 func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
-	xlog.Info("BackendLoader starting", "modelID", o.modelID, "backend", o.backendString, "model", o.model)
+	// backendLoader is not a synonym for "a model is being loaded": in
+	// distributed mode Load() deliberately bypasses the local cache and calls
+	// it on every inference request so SmartRouter re-picks a replica per
+	// request. Announcing a load unconditionally therefore made ordinary
+	// traffic against a resident model look like a retry storm in the INFO
+	// log. Reserve INFO for a genuine cold load; keep the per-call trace at
+	// DEBUG for anyone actually following the routing path.
+	coldLoad := !ml.isResident(o.modelID)
+
+	if coldLoad {
+		xlog.Info("BackendLoader starting", "modelID", o.modelID, "backend", o.backendString, "model", o.model)
+	} else {
+		xlog.Debug("BackendLoader invoked for an already-resident model", "modelID", o.modelID, "backend", o.backendString, "model", o.model)
+	}
 
 	// Surface the effective performance-relevant runtime options at load (some of
 	// these are auto-tuned for the detected hardware). Logged once per load so an
 	// admin can see what will actually run and pin or override any value in the
 	// model YAML — or set LOCALAI_DISABLE_HARDWARE_DEFAULTS=true to turn the
 	// hardware auto-tuning off entirely. Gated on an LLM-ish load (context set) so
-	// TTS/audio/other backends stay quiet.
-	if opt := o.gRPCOptions; opt != nil && opt.ContextSize > 0 {
+	// TTS/audio/other backends stay quiet, and on a cold load so it stays "once
+	// per load" rather than once per request.
+	if opt := o.gRPCOptions; coldLoad && opt != nil && opt.ContextSize > 0 {
 		xlog.Info("effective runtime tuning (override in the model YAML; LOCALAI_DISABLE_HARDWARE_DEFAULTS=true disables hardware auto-tuning)",
 			"modelID", o.modelID,
 			"context", opt.ContextSize,

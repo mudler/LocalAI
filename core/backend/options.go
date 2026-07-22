@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -280,6 +281,48 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 	return DefaultBatchSize
 }
 
+// withCompanionArtifactOptions surfaces each resolved companion snapshot to the
+// backend as "<artifact name>:<snapshot path>", reusing the key:value option
+// convention backends already parse.
+//
+// The value is deliberately relative to the models directory and deliberately
+// not persisted to the config YAML. It is derived from a content-addressed cache
+// key that only exists after the artifact resolves, so a static gallery override
+// could not carry it, and a persisted copy would rot the moment a re-resolve
+// produced a new key. Staying relative also lets a remote worker resolve it
+// under its own ModelPath after staging rewrites the model root.
+//
+// An option the author set explicitly always wins: pinning a companion to a
+// local checkout has to beat the managed snapshot.
+func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.Spec) []string {
+	configured := make(map[string]struct{}, len(options))
+	for _, option := range options {
+		if name, _, found := strings.Cut(option, ":"); found {
+			configured[name] = struct{}{}
+		}
+	}
+
+	// Copy before appending: opts.Options would otherwise share (and could
+	// reallocate away from) the config's own slice.
+	combined := slices.Clone(options)
+	for _, artifact := range artifacts {
+		if artifact.Target != modelartifacts.TargetCompanion || artifact.Resolved == nil {
+			continue
+		}
+		if _, exists := configured[artifact.Name]; exists {
+			xlog.Debug("keeping the configured companion option over the managed snapshot", "artifact", artifact.Name)
+			continue
+		}
+		snapshot, err := modelartifacts.RelativeSnapshotPath(artifact.Resolved.CacheKey)
+		if err != nil {
+			xlog.Warn("skipping companion artifact with an unusable cache key", "artifact", artifact.Name, "error", err)
+			continue
+		}
+		combined = append(combined, artifact.Name+":"+snapshot)
+	}
+	return combined
+}
+
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	ctxSize := EffectiveContextSize(c)
 	b := EffectiveBatchSize(c)
@@ -370,7 +413,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		IMG2IMG:              c.Diffusers.IMG2IMG,
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
-		Options:              c.Options,
+		Options:              withCompanionArtifactOptions(c.Options, c.Artifacts),
 		Overrides:            c.Overrides,
 		EngineArgs:           engineArgsJSON,
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
@@ -471,6 +514,13 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 	}
 
 	pbOpts := &pb.PredictOptions{
+		// c.Model, not c.ModelID()/c.ModelFileName(): this must be the SAME
+		// expression ModelOptions feeds to model.WithModel, which is what the
+		// backend receives as ModelOptions.Model at LoadModel time. Both are
+		// read from this same config value, so the backend's equality check
+		// cannot false-reject. See PredictOptions.ModelIdentity in
+		// backend/backend.proto and #10952.
+		ModelIdentity:       c.Model,
 		Temperature:         float32(*c.Temperature),
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,

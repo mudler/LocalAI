@@ -39,7 +39,8 @@ func VoiceEmbed(
 	}
 
 	res, err := voiceModel.VoiceEmbed(ctx, &proto.VoiceEmbedRequest{
-		Audio: audioPath,
+		ModelIdentity: modelConfig.Model,
+		Audio:         audioPath,
 	})
 
 	if appConfig.EnableTracing {

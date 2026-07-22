@@ -136,6 +136,10 @@ message MetricsResponse {
 message TokenClassifyRequest {
   string text = 1;
   float threshold = 2;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 3;
 }
 
 // TokenClassifyEntity is one detected entity span. Byte offsets are
@@ -173,6 +177,10 @@ message ScoreRequest {
   // candidates differ in length and the consumer wants a per-token
   // measure comparable across them (PMI-style scoring).
   bool length_normalize = 4;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 5;
 }
 
 // CandidateScore is one row in the ScoreResponse, matching by index
@@ -204,6 +212,10 @@ message RerankRequest {
   string query = 1;
   repeated string documents = 2;
   int32 top_n = 3;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 4;
 }
 
 message RerankResult {
@@ -315,6 +327,39 @@ message PredictOptions {
   int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
   map<string, string> Metadata = 52;  // Generic per-request metadata (e.g., enable_thinking)
   float MinP = 53;  // Minimum probability sampling threshold (0.0 = disabled)
+
+  // ModelIdentity names the model this request is for, so a backend can reject
+  // a request that reached it by mistake instead of answering from whatever
+  // model it happens to hold. In distributed mode a worker can recycle a
+  // stopped backend's gRPC port for a different model's backend, and a
+  // liveness-only health probe cannot tell that apart from a valid cached
+  // route (#10952).
+  //
+  // The value is the controller's ModelConfig.Model, the SAME expression that
+  // produces ModelOptions.Model at LoadModel time, so the two are equal by
+  // construction rather than by convention.
+  //
+  // Empty means "no identity supplied": backends MUST skip the check. That
+  // keeps an old controller talking to a new backend working, and covers
+  // callers that legitimately synthesize a PredictOptions internally.
+  //
+  // Do NOT reuse TTSRequest.model or SoundGenerationRequest.model for this
+  // purpose. FileStagingClient already rewrites those to worker-local absolute
+  // paths (core/services/nodes/file_staging_client.go), so in distributed mode
+  // they already differ from the load-time value and comparing them would
+  // reject valid requests. Extending identity to those RPCs needs a separate
+  // field carrying the untranslated value - which is exactly what
+  // TTSRequest.ModelIdentity and SoundGenerationRequest.ModelIdentity are.
+  //
+  // Every other request message that reaches a backend through the distributed
+  // router now carries the same ModelIdentity field, populated from the same
+  // ModelConfig.Model. FileStagingClient rewrites Src/Dst/Voice/Model/
+  // StartImage/EndImage/Audio and never ModelIdentity, so what the backend
+  // compares is always what the controller sent.
+  string ModelIdentity = 54;
+
+  // 24 was never assigned; reserve it so it is not silently reused.
+  reserved 24;
 }
 
 // ToolCallDelta represents an incremental tool call update from the C++ parser.
@@ -484,6 +529,10 @@ message TranscriptRequest {
   float temperature = 8;
   repeated string timestamp_granularities = 9;
   bool stream = 10;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 11;
 }
 
 message TranscriptResult {
@@ -562,6 +611,10 @@ message GenerateImageRequest {
 
   // Reference images for models that support them (e.g., Flux Kontext)
   repeated string ref_images = 12;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 13;
 }
 
 message GenerateVideoRequest {
@@ -581,6 +634,10 @@ message GenerateVideoRequest {
   // Backend-specific per-request generation parameters. Values are strings
   // and are validated/coerced by the selected backend.
   map<string, string> params = 14;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 15;
 }
 
 message TTSRequest {
@@ -598,10 +655,26 @@ message TTSRequest {
   // (e.g. Chatterbox exaggeration/cfg_weight/temperature). Values are strings and
   // coerced by the backend; unset leaves the backend's configured defaults.
   map<string, string> params = 7;
+  // ModelIdentity is a SEPARATE field from `model` above and carries the
+  // UNTRANSLATED controller-side ModelConfig.Model, so a backend can reject a
+  // request that reached it through a stale distributed route (#10952).
+  //
+  // `model` cannot be reused for this: FileStagingClient.TTS/.TTSStream and the
+  // SoundGeneration path rewrite it into a worker-local absolute path
+  // (core/services/nodes/file_staging_client.go), while the load-time value is
+  // untranslated. In distributed mode - exactly the configuration this guards -
+  // the two already differ, so comparing them would reject valid requests.
+  //
+  // Empty means "no identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 8;
 }
 
 message VADRequest {
   repeated float audio = 1;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 2;
 }
 
 message VADSegment {
@@ -633,6 +706,10 @@ message DiarizeRequest {
   float  min_duration_on = 8;          // discard segments shorter than this (seconds); 0 = backend default
   float  min_duration_off = 9;         // merge gaps shorter than this (seconds); 0 = backend default
   bool   include_text = 10;            // when the backend can emit per-segment transcript for free, ask it to populate `text`
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 11;
 }
 
 message DiarizeSegment {
@@ -667,6 +744,18 @@ message SoundGenerationRequest {
   optional string language = 14;
   optional string timesignature = 15;
   optional bool instrumental = 17;
+  // ModelIdentity is a SEPARATE field from `model` above and carries the
+  // UNTRANSLATED controller-side ModelConfig.Model, so a backend can reject a
+  // request that reached it through a stale distributed route (#10952).
+  //
+  // `model` cannot be reused for this: FileStagingClient.TTS/.TTSStream and the
+  // SoundGeneration path rewrite it into a worker-local absolute path
+  // (core/services/nodes/file_staging_client.go), while the load-time value is
+  // untranslated. In distributed mode - exactly the configuration this guards -
+  // the two already differ, so comparing them would reject valid requests.
+  //
+  // Empty means "no identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 18;
 }
 
 message TokenizationResponse {
@@ -706,6 +795,10 @@ message DetectOptions {
   repeated float points = 3;   // Point coordinates as [x1, y1, label1, x2, y2, label2, ...] (label: 1=pos, 0=neg)
   repeated float boxes = 4;    // Box coordinates as [x1, y1, x2, y2, ...]
   float threshold = 5;         // Detection confidence threshold
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 6;
 }
 
 message Detection {
@@ -728,6 +821,10 @@ message SoundDetectionRequest {
   string src = 1;       // audio file path (LocalAI writes the upload to disk)
   int32 top_k = 2;      // number of top tags to return (0 = all classes)
   float threshold = 3;  // optional: drop tags scoring below this
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 4;
 }
 
 message SoundClass {
@@ -752,6 +849,10 @@ message DepthRequest {
   bool include_points = 7;         // back-project to a 3D point cloud (DualDPT)
   float points_conf_thresh = 8;    // keep points with confidence >= this threshold
   repeated string exports = 9;     // requested exports: "glb", "colmap"
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 10;
 }
 
 message DepthResponse {
@@ -783,6 +884,10 @@ message FaceVerifyRequest {
   string img2 = 2;              // base64-encoded image
   float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
   bool   anti_spoofing = 4;     // run MiniFASNet liveness on each image; failed liveness forces verified=false
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 5;
 }
 
 message FaceVerifyResponse {
@@ -804,6 +909,10 @@ message FaceAnalyzeRequest {
   string          img = 1;          // base64-encoded image
   repeated string actions = 2;      // subset of ["age","gender","emotion","race"]; empty = all-supported
   bool            anti_spoofing = 3;
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 4;
 }
 
 message FaceAnalysis {
@@ -836,6 +945,10 @@ message VoiceVerifyRequest {
   string audio2 = 2;            // path to second audio clip
   float  threshold = 3;         // cosine-distance threshold; 0 = use backend default
   bool   anti_spoofing = 4;     // reserved for future AASIST bolt-on
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 5;
 }
 
 message VoiceVerifyResponse {
@@ -850,6 +963,10 @@ message VoiceVerifyResponse {
 message VoiceAnalyzeRequest {
   string          audio = 1;        // path to audio clip
   repeated string actions = 2;      // subset of ["age","gender","emotion"]; empty = all-supported
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 3;
 }
 
 message VoiceAnalysis {
@@ -868,6 +985,10 @@ message VoiceAnalyzeResponse {
 
 message VoiceEmbedRequest {
   string audio = 1;              // path to audio clip
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 2;
 }
 
 message VoiceEmbedResponse {
@@ -962,6 +1083,10 @@ message AudioTransformRequest {
   string reference_path = 2;         // optional auxiliary; empty => zero-fill
   string dst = 3;                    // required, output file path
   map<string, string> params = 4;    // backend-specific tuning
+  // ModelIdentity names the model this request is for; see
+  // PredictOptions.ModelIdentity for the full rationale. Empty means "no
+  // identity supplied" and backends MUST skip the check.
+  string ModelIdentity = 5;
 }
 
 message AudioTransformResult {

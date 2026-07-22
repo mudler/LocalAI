@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-git+https://github.com/huggingface/diffusers
+diffusers
 opencv-python
 transformers>=4.51.3,<5.0.0
 torchvision==0.22.1

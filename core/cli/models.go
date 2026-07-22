@@ -39,6 +39,7 @@ type ModelsInstall struct {
 	RequireBackendIntegrity  bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, reject backend installs without a configured signature verification policy (OCI URIs) or SHA256 (tarball/HTTP URIs)." group:"hardening" default:"false"`
 	AutoloadBackendGalleries bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES" help:"If true, automatically loads backend galleries" group:"backends" default:"true"`
 	ModelArgs                []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	Variant                  string   `name:"variant" help:"Install a specific variant of a gallery entry that declares them, by the variant's model name. Leave unset to let LocalAI auto-select: builds this hardware cannot run or cannot fit are dropped, the engine this hardware prefers wins, and size decides among equals." group:"models"`
 
 	ModelsCMDFlags `embed:""`
 }
@@ -147,7 +148,11 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		}
 
 		modelLoader := model.NewModelLoader(systemState)
-		err = startup.InstallModels(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, mi.RequireBackendIntegrity, progressCallback, modelName)
+		var installOptions []gallery.InstallOption
+		if mi.Variant != "" {
+			installOptions = append(installOptions, gallery.WithVariant(mi.Variant))
+		}
+		err = startup.InstallModelsWithOptions(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, mi.RequireBackendIntegrity, progressCallback, installOptions, modelName)
 		if err != nil {
 			return err
 		}

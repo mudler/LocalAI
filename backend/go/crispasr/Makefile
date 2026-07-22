@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # CrispASR version (release tag)
 CRISPASR_REPO?=https://github.com/CrispStrobe/CrispASR
-CRISPASR_VERSION?=1e6f3ad962dc46d86422c3baa4f3c1110d037e4d
+CRISPASR_VERSION?=644a8b1b31ca42e26f641df38e323ed9d698a1ff
 SO_TARGET?=libgocrispasr.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -60,10 +60,11 @@ sources/CrispASR:
 	git remote add origin $(CRISPASR_REPO) && \
 	git fetch origin && \
 	git checkout $(CRISPASR_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
+	git submodule update --init --recursive --depth 1 --single-branch -- \
+		ggml third_party/c2pa-audio
 	# CrispASR's src/CMakeLists.txt locates its vendored llama.cpp
-	# (crispasr-llama-core, used by the chat C-ABI) and the c2pa-audio
-	# submodule (crispasr_c2pa_native, the pure-C++ C2PA signer) via
+	# (crispasr-llama-core, used by the chat C-ABI), c2pa-audio submodule
+	# (crispasr_c2pa_native, the pure-C++ C2PA signer), and WebRTC VAD via
 	# ${CMAKE_SOURCE_DIR}, which assumes CrispASR is the top-level CMake
 	# project. We add_subdirectory it, so ${CMAKE_SOURCE_DIR} is THIS backend
 	# dir and those sources aren't found. Rewrite to ${PROJECT_SOURCE_DIR}
@@ -72,6 +73,7 @@ sources/CrispASR:
 	sed -i.bak \
 		-e 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' \
 		-e 's#\$${CMAKE_SOURCE_DIR}/third_party/c2pa-audio#\$${PROJECT_SOURCE_DIR}/third_party/c2pa-audio#' \
+		-e 's#\$${CMAKE_SOURCE_DIR}/third_party#\$${PROJECT_SOURCE_DIR}/third_party#' \
 		sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
 
 # Detect OS

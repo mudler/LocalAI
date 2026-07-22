@@ -42,6 +42,20 @@ var _ = Describe("PrimaryArtifactSpec backend gating", func() {
 		Expect(spec.Source.Repo).To(Equal("owner/repo"))
 	})
 
+	It("infers a managed artifact for longcat-video from a bare repo id", func() {
+		// longcat-video loads a checkpoint directory (its backend.py takes
+		// request.ModelFile when os.path.isdir), so it belongs to the same
+		// class as transformers/vllm/diffusers. Off the allow-list, the
+		// controller never acquires the weights and the backend re-downloads
+		// them from HuggingFace inside the remote LoadModel deadline.
+		c := parse("backend: longcat-video\nparameters: {model: meituan-longcat/LongCat-Video-Avatar-1.5}\n")
+		spec, inferred, managed, err := c.PrimaryArtifactSpec("/models")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(managed).To(BeTrue())
+		Expect(inferred).To(BeTrue())
+		Expect(spec.Source.Repo).To(Equal("meituan-longcat/LongCat-Video-Avatar-1.5"))
+	})
+
 	It("keeps explicit artifacts managed even on a single-file backend", func() {
 		// An explicitly declared artifacts: block is a deliberate choice;
 		// single-file resolution (PrimaryFile) handles the load path.

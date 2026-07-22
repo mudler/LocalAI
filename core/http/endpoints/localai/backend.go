@@ -251,7 +251,7 @@ func (mgs *BackendEndpointService) ListBackendsEndpoint() echo.HandlerFunc {
 	}
 }
 
-// ListModelGalleriesEndpoint list the available galleries configured in LocalAI
+// ListBackendGalleriesEndpoint lists the available backend galleries configured in LocalAI.
 // @Summary List all Galleries
 // @Tags backends
 // @Success 200 {object} []config.Gallery "Response"
@@ -349,12 +349,52 @@ func resolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityP
 	return capabilities
 }
 
+// ClusterInstalledProvider reports the backends installed somewhere in the
+// cluster. It is nil in single-node deployments, where the local filesystem is
+// the only install state that exists.
+type ClusterInstalledProvider func(ctx context.Context) ([]string, error)
+
+// resolveClusterInstalled reads the backends installed across the cluster,
+// degrading to the local-only view on error.
+//
+// Every discovery endpoint that filters on installed-state shares this: a
+// backend lives on the worker node that runs it, so the controller's own
+// filesystem reports it missing and the endpoint hides it. A nil set leaves
+// the local filesystem as the only source, so single-node listings are
+// untouched, and a registry hiccup degrades to that same listing rather than
+// erroring the request.
+func resolveClusterInstalled(ctx context.Context, provider ClusterInstalledProvider) map[string]struct{} {
+	if provider == nil {
+		return nil
+	}
+	names, err := provider(ctx)
+	if err != nil {
+		xlog.Warn("Could not read cluster backend install state, reporting the local system only", "error", err)
+		return nil
+	}
+	installed := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		installed[name] = struct{}{}
+	}
+	return installed
+}
+
+// installedInCluster reports whether a backend is installed on the host serving
+// the listing or on any node of the cluster.
+func installedInCluster(backend *gallery.GalleryBackend, clusterInstalled map[string]struct{}) bool {
+	if backend.Installed {
+		return true
+	}
+	_, ok := clusterInstalled[backend.Name]
+	return ok
+}
+
 // ListAvailableBackendsEndpoint list the available backends in the galleries configured in LocalAI
 // @Summary List all available Backends
 // @Tags backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends/available [get]
-func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState, clusterCapabilities ClusterCapabilityProvider) echo.HandlerFunc {
+func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
 
@@ -362,6 +402,12 @@ func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *sy
 		if err != nil {
 			return err
 		}
+
+		installed := resolveClusterInstalled(c.Request().Context(), clusterInstalled)
+		for _, b := range backends {
+			b.SetInstalled(installedInCluster(b, installed))
+		}
+
 		return c.JSON(200, backends)
 	}
 }

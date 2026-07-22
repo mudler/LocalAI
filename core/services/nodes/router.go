@@ -18,9 +18,12 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 	"golang.org/x/sync/singleflight"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -72,9 +75,65 @@ type SmartRouterOptions struct {
 	// attempt (node selection -> backend install -> file staging -> LoadModel)
 	// may run while holding the per-model advisory lock. It backstops every
 	// sub-step's own timeout so a wedged worker can never pin the lock - and
-	// every other replica's request for that model - indefinitely. Zero selects
-	// defaultModelLoadCeiling.
+	// every other replica's request for that model - indefinitely. Zero derives
+	// it from the default install budget and ModelLoadTimeout via
+	// ModelLoadCeilingFor.
 	ModelLoadCeiling time.Duration
+	// ModelLoadTimeout pins the gRPC deadline for the remote LoadModel call,
+	// which runs after the backend install and file staging have already
+	// completed and so covers only the worker backend's checkpoint load and
+	// pipeline init.
+	//
+	// Zero means "derive it per model from the checkpoint size" via
+	// config.ModelLoadTimeoutForSize — the default, because load duration is
+	// proportional to the bytes the worker reads and any fixed value is a
+	// model-size cliff. A non-zero value is an explicit operator override
+	// (LOCALAI_NATS_MODEL_LOAD_TIMEOUT) and always wins over the derived budget,
+	// in BOTH directions: an operator who wants faster failure gets it.
+	ModelLoadTimeout time.Duration
+	// StagingStallWindow is how long file staging may report zero bytes before
+	// the cold load is declared wedged and the advisory lock released. While
+	// bytes keep moving the hold extends, so transfer size no longer bounds the
+	// load. Zero selects stagingStallWindow. It is clamped to ModelLoadCeiling.
+	StagingStallWindow time.Duration
+	// ModelLoadAbsoluteMax bounds the cold-load hold even while progress keeps
+	// arriving, so a peer trickling bytes forever cannot pin the advisory lock
+	// indefinitely. Zero selects modelLoadAbsoluteMax (24h).
+	ModelLoadAbsoluteMax time.Duration
+}
+
+// modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
+// install + remote-load budgets to cover the steps that have no deadline of
+// their own: node selection, replica allocation and model file staging.
+const modelLoadStagingMargin = 5 * time.Minute
+
+// minModelLoadCeiling floors the derived ceiling at the historical 25m constant
+// so shrinking the install or load budgets can never tighten the hold ceiling
+// below what clusters relied on before it became derived.
+const minModelLoadCeiling = 25 * time.Minute
+
+// ModelLoadCeilingFor derives the cold-load hold ceiling from the budgets it has
+// to cover. The ceiling bounds how long one cold load may hold the per-model
+// advisory lock; it must comfortably exceed the slowest legitimate load (backend
+// install + staging + remote LoadModel) so it only ever fires when a step is
+// genuinely wedged - e.g. a worker that died mid-install. Deriving it means
+// raising LOCALAI_NATS_MODEL_LOAD_TIMEOUT for an 80 GB video checkpoint actually
+// takes effect, instead of being cut short by a constant that silently went
+// stale. Non-positive inputs fall back to their package defaults.
+//
+// This is the hold's STARTING budget, not its maximum. A per-model budget
+// derived from checkpoint size (config.ModelLoadTimeoutForSize) can exceed any
+// ceiling computed here, so scheduleAndLoad widens the hold as it enters the
+// load phase — see extendLoadDeadline. Without that, a 70 GB checkpoint's ~28m
+// load budget would be cancelled by a 25m ceiling that knew nothing about it.
+func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duration {
+	if installTimeout <= 0 {
+		installTimeout = config.DefaultBackendInstallTimeout
+	}
+	if loadTimeout <= 0 {
+		loadTimeout = config.DefaultModelLoadTimeout
+	}
+	return max(installTimeout+loadTimeout+modelLoadStagingMargin, minModelLoadCeiling)
 }
 
 // SmartRouter routes inference requests to the best available backend node.
@@ -111,14 +170,15 @@ type SmartRouter struct {
 	// modelLoadCeiling bounds how long a cold load may hold the per-model
 	// advisory lock (see SmartRouterOptions.ModelLoadCeiling).
 	modelLoadCeiling time.Duration
+	// modelLoadTimeout is the operator's explicit override for the remote
+	// LoadModel deadline, or zero to derive it per model from the checkpoint
+	// size (see SmartRouterOptions.ModelLoadTimeout and loadTimeoutFor).
+	modelLoadTimeout time.Duration
+	// stagingStallWindow and modelLoadAbsoluteMax turn modelLoadCeiling from a
+	// hard countdown into a progress-extended hold (see load_deadline.go).
+	stagingStallWindow   time.Duration
+	modelLoadAbsoluteMax time.Duration
 }
-
-// defaultModelLoadCeiling is the fallback hold ceiling for a cold model load.
-// It must comfortably exceed the slowest legitimate load - a multi-GB backend
-// install (DefaultBackendInstallTimeout, 15m) plus staging and the remote
-// LoadModel (5m) - so it never cuts a real load short; it only ever fires when
-// a step is genuinely wedged (e.g. a worker that died mid-install).
-const defaultModelLoadCeiling = 25 * time.Minute
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
 // trusted before the next request re-probes. Matches healthCheckTTL in
@@ -134,9 +194,13 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if factory == nil {
 		factory = &tokenClientFactory{token: opts.AuthToken}
 	}
+	// Keep the override RAW: zero has to stay distinguishable from an explicit
+	// 5m, because zero now means "derive per model from the checkpoint size"
+	// while an explicit 5m means "hold every load to 5m".
+	loadTimeout := max(opts.ModelLoadTimeout, 0)
 	ceiling := opts.ModelLoadCeiling
 	if ceiling <= 0 {
-		ceiling = defaultModelLoadCeiling
+		ceiling = ModelLoadCeilingFor(config.DefaultBackendInstallTimeout, loadTimeout)
 	}
 	return &SmartRouter{
 		registry:         registry,
@@ -153,6 +217,12 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		pressure:         opts.Pressure,
 		sharedModels:     opts.SharedModels,
 		modelLoadCeiling: ceiling,
+		modelLoadTimeout: loadTimeout,
+		// Zero values are resolved to their defaults inside
+		// newLoadDeadlineContext, which also clamps the stall window to the
+		// ceiling, so nothing to normalize here.
+		stagingStallWindow:   opts.StagingStallWindow,
+		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 	}
 }
 
@@ -234,6 +304,12 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// that built modelOpts may have no GPU at all in distributed mode.
 	applyNodeHardwareDefaults(modelOpts, node, backendType)
 
+	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
+	// path fields to their remote equivalents on a clone, and only the local
+	// paths can be stat'ed here.
+	payloadBytes := modelPayloadBytes(modelOpts)
+	loadTimeout := r.loadTimeoutFor(payloadBytes)
+
 	// Pre-stage model files via FileStager before loading
 	loadOpts := modelOpts
 	if r.fileStager != nil && modelOpts != nil {
@@ -248,13 +324,40 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 
 	// Load the model on the remote node
 	if loadOpts != nil {
-		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr)
+		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr,
+			"payloadBytes", payloadBytes, "loadBudget", loadTimeout)
 
-		loadCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		// The cold-load hold above this call extends on STAGING progress, and
+		// the remote LoadModel reports none — so once the last byte lands the
+		// hold expires a stall window later and would cancel a load that is
+		// still well inside its own budget (#11026 in miniature). Widen the hold
+		// to cover the load phase before entering it.
+		extendLoadDeadline(ctx, loadTimeout+modelLoadStagingMargin)
+
+		loadCtx, cancel := context.WithTimeout(ctx, loadTimeout)
 		defer cancel()
 
 		res, err := client.LoadModel(loadCtx, loadOpts)
 		if err != nil {
+			// A bare "context deadline exceeded" tells the operator nothing
+			// about which of the several budgets in a cold load ran out, and
+			// cost real debugging time in production. Name the budget, the
+			// payload it was derived from, and the knob that overrides it.
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = fmt.Errorf("model load budget of %s for a %s checkpoint exceeded; "+
+					"raise it with LOCALAI_NATS_MODEL_LOAD_TIMEOUT (%s): %w",
+					loadTimeout, humanFileSize(payloadBytes), config.FlagModelLoadTimeout, err)
+			}
+			// A gRPC deadline only cancels the CLIENT side of the call. A
+			// backend blocked in a synchronous weight load never observes its
+			// cancelled handler context, so it keeps loading with nobody
+			// waiting: an 83GB checkpoint was seen still downloading 30
+			// minutes past the client timeout, and each retry stacked another
+			// multi-GB loader process on the worker. Reap the replica we just
+			// abandoned before handing the failure back.
+			if loadAbandonedOnWorker(err) {
+				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
+			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
 		}
 		if !res.Success {
@@ -283,6 +386,51 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	}
 
 	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr, ReplicaIndex: replicaIndex}, nil
+}
+
+// loadAbandonedOnWorker reports whether a failed remote LoadModel left the
+// worker process still running the load.
+//
+// Only a deadline or a cancellation qualifies: those are OUR side giving up
+// while the backend keeps going. Every other failure (an unsupported model, a
+// bad option, an OOM) is the backend answering, which means its handler
+// returned and the process is idle — stopping it there would throw away a
+// warm process and its downloaded weights for the next attempt.
+func loadAbandonedOnWorker(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	// The deadline usually reaches us as a gRPC status rather than a wrapped
+	// context error. errors.As (not status.Code) so a wrapped status is still
+	// recognised.
+	var st interface{ GRPCStatus() *status.Status }
+	if errors.As(err, &st) {
+		switch st.GRPCStatus().Code() {
+		case codes.DeadlineExceeded, codes.Canceled:
+			return true
+		}
+	}
+	return false
+}
+
+// reapAbandonedLoad tells the worker to stop the one replica whose load we
+// just abandoned. The exact `modelID#replicaIndex` process key matters: the
+// bare model ID would stop every replica of the model on that node, including
+// healthy ones serving traffic.
+//
+// Best-effort by design — the caller is waiting on the load failure, and a
+// failed reap must be visible in the logs, never substituted for it.
+func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, replicaIndex int) {
+	if r.unloader == nil {
+		return
+	}
+	processKey := model.BackendProcessKey(trackingKey, replicaIndex)
+	xlog.Warn("Reaping abandoned model load on worker",
+		"node", node.Name, "model", trackingKey, "replica", replicaIndex)
+	if err := r.unloader.StopBackend(node.ID, processKey); err != nil {
+		xlog.Warn("Failed to reap abandoned model load; the worker may still be loading",
+			"node", node.Name, "backend", processKey, "error", err)
+	}
 }
 
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.
@@ -430,7 +578,13 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// even if a sub-step wedges. Each long step still has its own (tighter)
 	// bound; this only backstops them. The per-model advisory lock below
 	// de-dupes concurrent loaders across replicas.
-	loadCtx, cancelLoad := context.WithTimeout(context.WithoutCancel(ctx), r.modelLoadCeiling)
+	// The backstop is progress-based, not wall-clock: staging time is bytes over
+	// bandwidth, so a fixed ceiling is a model-size cliff (a 70 GB checkpoint
+	// transferring healthily at 26 MB/s needs ~45m and was killed at exactly
+	// 25m00s). The hold instead extends while the transfer reports bytes and
+	// expires a stall window after they stop. See load_deadline.go.
+	loadCtx, cancelLoad := newLoadDeadlineContext(context.WithoutCancel(ctx),
+		r.modelLoadCeiling, r.stagingStallWindow, r.modelLoadAbsoluteMax)
 	defer cancelLoad()
 	loadModel := func(ctx context.Context) (*RouteResult, error) {
 		// Re-check after acquiring lock — another request may have loaded it
@@ -1030,10 +1184,9 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	// Derive the frontend models directory from ModelFile and Model.
 	// Example: ModelFile="/models/sd-cpp/models/flux.gguf", Model="sd-cpp/models/flux.gguf"
 	// → frontendModelsDir="/models"
-	frontendModelsDir := ""
-	if opts.ModelFile != "" && opts.Model != "" {
-		frontendModelsDir = filepath.Clean(strings.TrimSuffix(opts.ModelFile, opts.Model))
-	}
+	// A managed artifact anchors on the models root that holds the whole
+	// .artifacts tree instead, so sibling companion snapshots stay in scope.
+	frontendModelsDir := ModelsRootForModelFile(opts.ModelFile, opts.Model)
 
 	// Local model directory, captured before the ModelFile field is rewritten to
 	// its remote path below. Companion assets declared as option paths (e.g.
@@ -1101,9 +1254,15 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		if *f.val == "" {
 			continue
 		}
-		// Skip non-existent files
+		// Skip non-existent files. This is legitimate — a backend that takes a
+		// bare HuggingFace repo id gets an optimistically constructed path that
+		// was never materialized, and fetches its own weights on the worker — so
+		// it must not fail the load. But it is warn-level because the same skip
+		// is what a genuine controller-side acquisition gap looks like, and at
+		// debug it left the operator with a reassuring "Staging model files"
+		// line for work that never happened.
 		if _, err := os.Stat(*f.val); os.IsNotExist(err) {
-			xlog.Debug("Skipping staging for non-existent path", "field", f.name, "path", *f.val)
+			xlog.Warn("Skipping staging for non-existent path; the worker will have to source this itself", "field", f.name, "path", *f.val, "node", node.Name, "trackingKey", trackingKey)
 			*f.val = ""
 			continue
 		}
@@ -1126,8 +1285,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 				continue
 			}
 			*f.val = remoteDir
-			if f.name == "ModelFile" && opts.Model != "" {
-				opts.ModelPath = DeriveRemoteModelPath(remoteDir, opts.Model)
+			if f.name == "ModelFile" {
+				opts.ModelPath = DeriveRemoteModelPath(remoteDir, relativeToModelsDir(frontendModelsDir, localPath, opts.Model))
 				xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 			}
 			continue
@@ -1164,8 +1323,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		// remotePath = "/worker/models/{trackingKey}/sd-cpp/models/flux.gguf"
 		// Model = "sd-cpp/models/flux.gguf"
 		// → ModelPath = "/worker/models/{trackingKey}"
-		if f.name == "ModelFile" && opts.Model != "" {
-			opts.ModelPath = DeriveRemoteModelPath(remotePath, opts.Model)
+		if f.name == "ModelFile" {
+			opts.ModelPath = DeriveRemoteModelPath(remotePath, relativeToModelsDir(frontendModelsDir, localPath, opts.Model))
 			xlog.Debug("Derived remote ModelPath", "modelPath", opts.ModelPath)
 		}
 
@@ -1227,6 +1386,12 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, fileName string, fileIdx, totalFiles int) context.Context {
 	start := time.Now()
 	return WithStagingProgress(ctx, func(fn string, bytesSent, totalBytes int64) {
+		// Byte-level movement is what keeps the cold-load hold alive. Observing
+		// here (rather than at per-file completion) is what makes a single
+		// 600 GB shard distinguishable from a wedged worker: file-granular
+		// progress would look identical to a stall for hours.
+		observeLoadProgress(ctx)
+
 		var speed string
 		elapsed := time.Since(start)
 		if elapsed > 0 {
@@ -1235,6 +1400,80 @@ func (r *SmartRouter) withStagingCallback(ctx context.Context, trackingKey, file
 		}
 		r.stagingTracker.UpdateFile(trackingKey, fn, fileIdx, bytesSent, totalBytes, speed)
 	})
+}
+
+// loadTimeoutFor resolves the gRPC deadline for one remote LoadModel call.
+//
+// An explicit LOCALAI_NATS_MODEL_LOAD_TIMEOUT wins outright — including when it
+// is SHORTER than the derived value, because an operator who deliberately wants
+// fast failure must not have a size heuristic silently extend their loads.
+// Otherwise the budget scales with the checkpoint, which is what the worker
+// actually spends its time reading.
+func (r *SmartRouter) loadTimeoutFor(payloadBytes int64) time.Duration {
+	if r.modelLoadTimeout > 0 {
+		return r.modelLoadTimeout
+	}
+	return config.ModelLoadTimeoutForSize(payloadBytes)
+}
+
+// modelPayloadBytes totals the on-disk size of everything the worker will have
+// to read for this model, over the same field set stageModelFiles uploads.
+//
+// Paths that do not exist locally contribute nothing: a backend handed a bare
+// HuggingFace repo id gets an optimistically constructed path that was never
+// materialized and fetches its own weights on the worker. There is no way to
+// size that from here, so it falls back to the plain default budget rather than
+// to a guess (see config.ModelLoadTimeoutForSize).
+func modelPayloadBytes(opts *pb.ModelOptions) int64 {
+	if opts == nil {
+		return 0
+	}
+	paths := []string{
+		opts.ModelFile, opts.MMProj, opts.LoraAdapter, opts.DraftModel,
+		opts.CLIPModel, opts.Tokenizer, opts.AudioPath, opts.LoraBase,
+	}
+	paths = append(paths, opts.LoraAdapters...)
+
+	// The same file can legitimately appear in two fields (a GGUF that is both
+	// ModelFile and Tokenizer, say); counting it twice would inflate the budget.
+	seen := make(map[string]struct{}, len(paths))
+	var total int64
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, dup := seen[p]; dup {
+			continue
+		}
+		seen[p] = struct{}{}
+		total += pathBytes(p)
+	}
+	return total
+}
+
+// pathBytes returns the size of a regular file, the total size of a directory's
+// contents, or 0 if the path cannot be stat'ed.
+func pathBytes(path string) int64 {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	if !fi.IsDir() {
+		return fi.Size()
+	}
+	var total int64
+	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil
+		}
+		total += info.Size()
+		return nil
+	})
+	return total
 }
 
 // countStageableFiles returns the number of regular files a model path expands

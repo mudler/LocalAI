@@ -2,6 +2,7 @@ package model
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,39 @@ import (
 // worker's buildProcessKey — duplicated as a constant here to keep this
 // package free of CLI imports.
 const replicaSeparator = "#"
+
+// BackendProcessKey builds the worker supervisor's process key for one replica
+// of a model (e.g. "qwen3-0.6b#0"). The worker keys its process map by this
+// string and resolves an exact key to exactly that replica, so any caller that
+// wants to address a single replica over NATS must format it identically —
+// a mismatch degrades silently into "no process found" and leaks the process.
+// This package is the lowest common dependency of the router and the worker,
+// so the format lives here instead of being hand-rolled at each call site.
+func BackendProcessKey(modelID string, replicaIndex int) string {
+	return modelID + replicaSeparator + strconv.Itoa(replicaIndex)
+}
+
+// ParseBackendProcessKey is the inverse of BackendProcessKey. It exists so the
+// controller can map process keys a worker reports back to the (model_name,
+// replica_index) pair identifying a NodeModel row, without a fourth hand-rolled
+// copy of the format.
+//
+// The split is anchored at the LAST separator because model IDs may contain
+// '#' themselves and BackendProcessKey appends the index at the end. Splitting
+// at the first separator would address a row that does not exist and silently
+// leave the real one in place. ok is false for anything this function did not
+// produce, so callers drop unparseable keys rather than acting on a guess.
+func ParseBackendProcessKey(key string) (modelID string, replicaIndex int, ok bool) {
+	i := strings.LastIndex(key, replicaSeparator)
+	if i <= 0 || i == len(key)-1 {
+		return "", 0, false
+	}
+	idx, err := strconv.Atoi(key[i+1:])
+	if err != nil || idx < 0 {
+		return "", 0, false
+	}
+	return key[:i], idx, true
+}
 
 // BackendLogLine represents a single line of output from a backend process.
 type BackendLogLine struct {

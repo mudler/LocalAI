@@ -1,6 +1,17 @@
 {
   "title": "Installa modelli",
   "subtitle": "Sfoglia e installa modelli AI dalla galleria",
+  "recommended": {
+    "title": "Consigliati per il tuo hardware",
+    "cpuNote": "Nessuna GPU rilevata - modelli piccoli che restano reattivi su CPU.",
+    "gpuNote": "Dimensionati per la VRAM disponibile, con spazio per il contesto.",
+    "install": "Installa",
+    "installing": "Installazione",
+    "installStarted": "Installazione di {{model}}…",
+    "installFailed": "Installazione non riuscita: {{message}}",
+    "dismiss": "Nascondi i consigli",
+    "summary": "{{n}} modelli suggeriti"
+  },
   "stats": {
     "available": "Disponibili",
     "installed": "Installati"
@@ -24,8 +35,12 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Entra nella GPU",
+    "collapseVariants": "Una riga per modello",
     "allBackends": "Tutti i backend",
-    "searchBackends": "Cerca backend..."
+    "searchBackends": "Cerca backend...",
+    "contextSize": "Contesto:",
+    "useCaseLabel": "Filtra per caso d'uso",
+    "unavailableForBackend": "Non disponibile per il backend selezionato"
   },
   "search": {
     "placeholder": "Cerca modelli...",
@@ -71,6 +86,7 @@
   "empty": {
     "title": "Nessun modello trovato",
     "withFilters": "Nessun modello corrisponde ai filtri attuali.",
+    "collapsedVariantsHint": "Le build alternative gia offerte da un'altra voce sono nascoste. Disattiva \"Una riga per modello\" per includerle.",
     "noFilters": "La galleria modelli è vuota."
   },
   "deleteDialog": {
@@ -83,5 +99,27 @@
     "loadFailed": "Caricamento modelli fallito: {{message}}",
     "installFailed": "Installazione fallita: {{message}}",
     "deleteFailed": "Eliminazione fallita: {{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "Formato dei pesi",
+    "unknownQuantization": "Formato sconosciuto",
+    "showDetails": "Mostra tutti i dettagli di {{variant}}",
+    "hideDetails": "Nascondi tutti i dettagli di {{variant}}",
+    "detailsLoading": "Caricamento dettagli...",
+    "detailsUnavailable": "Impossibile caricare i dettagli di {{variant}}.",
+    "features": {
+      "dflash": "Più veloce: DFlash",
+      "mtp": "Più veloce: MTP"
+    }
   }
 }

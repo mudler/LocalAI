@@ -34,7 +34,7 @@ The build matrix is data-only YAML at `.github/backend-matrix.yml` (not inside `
 
 **Without an entry here no image is ever built or pushed, and the gallery entry in `backend/index.yaml` will point at a tag that does not exist.** The `dockerfile:` field must point at `./backend/Dockerfile.<lang>` matching the language bucket from step 1 (e.g. `Dockerfile.python`, `Dockerfile.golang`, `Dockerfile.rust`). The `tag-suffix` must match the `uri:` in the corresponding `backend/index.yaml` image entry exactly.
 
-**`scripts/changed-backends.js` registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/changed-backends.js:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
+**Path-filter registration — REQUIRED for any new dockerfile suffix.** This is the single most common omission, because it has no effect on the PR that adds the backend (when no prior path filter could catch it anyway) — it only breaks the *next* PR that touches your backend's directory, which then gets zero CI jobs and looks broken for unrelated reasons. Edit `scripts/lib/backend-filter.mjs:inferBackendPath` and add a branch BEFORE the more-generic suffixes:
 
 ```js
 if (item.dockerfile.endsWith("<your-dockerfile-suffix>")) {
@@ -54,7 +54,9 @@ for (const e of m.include.filter(e => e.backend === '<your-backend>')) {
 }"
 ```
 
-A quick way to find the right insertion point: `grep -n 'item.dockerfile.endsWith' scripts/changed-backends.js`.
+A quick way to find the right insertion point: `grep -n 'item.dockerfile.endsWith' scripts/lib/backend-filter.mjs`.
+
+If your backend consumes a *shared* build input that lives outside its own directory (a new script under `scripts/build/`, a new file copied into every image), add a rule to `SHARED_BUILD_INPUTS` in the same file — the per-backend prefix match cannot see those, and a miss ships your change to no image at all. See `scripts/lib/backend-filter_test.mjs` for the pattern; `make test-ci-scripts` runs it.
 
 **`bump_deps.yaml` registration — REQUIRED for any backend pinning an upstream commit.** If your backend's Makefile has a `*_VERSION?=<sha>` pin to a third-party repo, the daily auto-bump bot at `.github/workflows/bump_deps.yaml` won't notice it unless you register the backend in its matrix. The bot runs `.github/bump_deps.sh` which `grep`s for `^$VAR?=` in the Makefile you list — so the pin MUST live in the Makefile (not in a separate shell script). The bump for ds4 (#9761) had to walk this back because the original landed the pin in `prepare.sh`, which the bot can't see. Pattern (for `antirez/ds4`):
 
@@ -115,7 +117,7 @@ Wiring a backend into `includeDarwin:` is more than the matrix entry:
 
 1. **`includeDarwin:` entry** — `tag-suffix: "-metal-darwin-arm64-<backend>"`, `build-type: "metal"`, `lang: "go"` for go+ggml backends; omit `build-type` for the bespoke C++ ones (llama-cpp / ds4 / privacy-filter). Match an existing entry of the same shape.
 2. **`backend/index.yaml`** — add `metal:` to the backend's `capabilities` map (main and `-development`) and concrete `metal-<backend>` / `metal-<backend>-development` image entries pointing at the `-metal-darwin-arm64-<backend>` images.
-3. **C/C++ backends only** — add an `inferBackendPathDarwin` case in `scripts/changed-backends.js` returning `backend/cpp/<backend>/` (the generic fallthrough assumes `backend/<lang>/`, which is wrong for a C++ source tree driven with `lang: go`), and give `run.sh` a Darwin branch that exports `DYLD_LIBRARY_PATH` instead of `LD_LIBRARY_PATH`. If the build is bespoke (single `grpc-server` + dylib bundling), model it on `scripts/build/ds4-darwin.sh` and add a `backends/<backend>-darwin` make target plus a gated step in `.github/workflows/backend_build_darwin.yml`.
+3. **C/C++ backends only** — add an `inferBackendPathDarwin` case in `scripts/lib/backend-filter.mjs` returning `backend/cpp/<backend>/` (the generic fallthrough assumes `backend/<lang>/`, which is wrong for a C++ source tree driven with `lang: go`), and give `run.sh` a Darwin branch that exports `DYLD_LIBRARY_PATH` instead of `LD_LIBRARY_PATH`. If the build is bespoke (single `grpc-server` + dylib bundling), model it on `scripts/build/ds4-darwin.sh` and add a `backends/<backend>-darwin` make target plus a gated step in `.github/workflows/backend_build_darwin.yml`.
 4. **C++ proto gotcha** — if the backend compiles the generated gRPC/protobuf in a separate CMake target (e.g. `hw_grpc_proto`), that target must link `protobuf::libprotobuf` + `gRPC::grpc++` so the Homebrew include dirs propagate; otherwise macOS fails with `google/protobuf/runtime_version.h not found` (Linux hides this because apt headers sit in `/usr/include`).
 
 The CI path filter only builds a backend on a PR when a file under its directory changes, so a darwin-only YAML edit builds nothing — touch a file under `backend/<lang>/<backend>/` (a one-line comment is enough) in the same PR.
@@ -216,6 +218,69 @@ docker-build-backends: ... docker-build-<backend-name>
 - If the backend is in `backend/python/<backend-name>/` but uses `.` as context in the workflow file, use `.` context
 - Check similar backends to determine the correct context
 
+## Engine preference for gallery model variants
+
+A gallery entry can declare `variants`, alternative builds of the same weights,
+and LocalAI picks one per host: it drops builds whose backend cannot run here or
+that do not fit memory, then ranks the survivors by **engine preference
+first, serving feature second, size third** (`SelectVariant` in
+`core/gallery/resolve_variant.go`).
+
+Ask whether your backend should outrank another one on some hardware. If it
+should, add it to `engineNamePreferenceRules` in `pkg/system/capabilities.go`,
+best engine first for that capability:
+
+```go
+ 	{Nvidia, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
++	{Nvidia, []string{engineVLLM, engineSGLang, engineMyEngine, engineLlamaCpp}},
+```
+
+That is the ENGINE NAME table, matched as a substring of a gallery entry's
+`backend:` value. Two sibling tables in the same file speak different
+vocabularies and are matched against different things:
+
+| Table | Vocabulary | Matched against | Consumer |
+|-------|-----------|-----------------|----------|
+| `backendBuildTagPreferenceRules` | build tags (`cuda`, `rocm`, `metal`) | installed build directory names, as a substring | alias resolution in `ListSystemBackends` |
+| `engineNamePreferenceRules` | engine names (`vllm`, `llama-cpp`, `mlx`) | a gallery entry's `backend:`, as a substring | gallery variant ranking |
+| `servingFeaturePreferenceTokens` | serving features (`dflash`, `mtp`) | a gallery entry's `tags:`, compared whole and case-insensitively, and nothing else | gallery variant ranking, one rank below the engine |
+
+**Putting a token in the wrong table matches nothing and does not error**: every
+candidate scores equal and the next sort key decides, so the preference silently
+stops existing. The block comment above all three tables spells the contract out.
+
+The serving feature table is the odd one: it is not keyed by capability, because
+no hardware prefers a plain build over an equivalent faster build of the same
+weights. It reads a declared tag and nothing else. The entry name was the
+original signal and is gone: a naming convention is not a contract, and names
+are author-supplied free text where a short marker like `mtp` turns up inside
+unrelated words or on weights whose entry enables nothing.
+`overrides.options` was rejected for the mirror-image reason: `spec_type:` is
+llama.cpp's config vocabulary, whereas a cross-backend ranking decision must
+work the same for `ds4`'s `mtp_path:` and `sglang`'s `speculative_algorithm:`.
+
+**If your backend can serve the same weights faster** (speculative decoding,
+multi-token prediction), say so in the docs for its gallery entries so curators
+tag them: the tagging rule and the per-backend evidence table live in
+[adding-gallery-models.md](adding-gallery-models.md). A backend never needs to
+appear in the token table itself; it ranks builds, not engines.
+
+Leaving your backend out is a valid choice when no ordering can be justified for
+it. It then ranks below every known engine and selection falls back to size,
+which is the behaviour that predates preference.
+
+**Leaving a whole capability out is not.** A missing row gives that host an
+empty preference list, so size alone decides among everything that survives the
+filters, and the filter will not save you: `IsBackendCompatible` derives hardware
+support from the engine NAME, so `vllm` and `sglang` carry no darwin, cuda, rocm
+or sycl token and are never dropped on a host with no GPU. That is why `default`
+(no usable accelerator, including a GPU under the 4 GiB VRAM floor) and
+`darwin-x86` both have rows putting `llama-cpp` first. Every capability
+`getSystemCapabilities()` can return needs a row unless every engine really is
+equally at home there. When you add one, enumerate the engines you are demoting
+rather than relying on them falling through unmatched: unmatched engines all tie
+with each other, so size decides among them.
+
 ## Documenting the backend (README + docs)
 
 A backend is not "added" until it is discoverable. Update the user-facing docs:
@@ -243,7 +308,7 @@ After adding a new backend, verify:
 
 - [ ] Backend directory structure is complete with all necessary files
 - [ ] Build configurations added to `.github/backend-matrix.yml` for all desired platforms (per-arch entries with `platform-tag` for multi-arch; `builder-base-image` for llama-cpp / ik-llama-cpp / turboquant)
-- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `backend/index.yaml` `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
+- [ ] **OS coverage considered**: added to `includeDarwin:` (macOS/Apple Silicon) if the backend can build there — with the `backend/index.yaml` `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD branch and `inferBackendPathDarwin` case (in `scripts/lib/backend-filter.mjs`) for C++ backends — or the PR explains why an OS is unsupported. Do not ship Linux-only by default.
 - [ ] Meta definition added to `backend/index.yaml` in the `## metas` section
 - [ ] Image entries added to `backend/index.yaml` for all build variants (latest + development)
 - [ ] Tag suffixes match between workflow file and index.yaml
@@ -252,6 +317,7 @@ After adding a new backend, verify:
 - [ ] No Makefile syntax errors (check with linter)
 - [ ] Follows the same pattern as similar backends (e.g., if it's a transcription backend, follow `faster-whisper` pattern)
 - [ ] **`Load` validates its input and refuses models it can't serve.** When a model config has no explicit `backend:`, the model loader greedily probes *every* installed backend with the model's name and binds to the first `Load` that succeeds — an accept-anything `Load` will capture arbitrary LLMs (issue #9287). Backends that load a real artefact get this for free (the load fails); backends with no artefact must gate on the name: `opus` accepts only its own name (or none), `local-store` requires the `store.NamespacePrefix` namespace marker sent by `core/backend/stores.go`.
+- [ ] **Gallery variant ranking considered**: if this backend should be preferred over another on some hardware, it is listed in `engineNamePreferenceRules` (NOT `backendBuildTagPreferenceRules`, NOT `servingFeaturePreferenceTokens`) in `pkg/system/capabilities.go`. A missing entry silently ranks it last and lets the next sort key decide.
 - [ ] Documented: added to the category list in `docs/content/features/backends.md` (and any new endpoint/realtime capability documented under `docs/content/`)
 - [ ] If it is an in-house native C/C++/GGML engine, added to the maintained-engines table in the top-level `README.md`
 

@@ -37,9 +37,10 @@ func FaceAnalyze(
 	}
 
 	res, err := faceModel.FaceAnalyze(ctx, &proto.FaceAnalyzeRequest{
-		Img:          img,
-		Actions:      actions,
-		AntiSpoofing: antiSpoofing,
+		ModelIdentity: modelConfig.Model,
+		Img:           img,
+		Actions:       actions,
+		AntiSpoofing:  antiSpoofing,
 	})
 
 	if appConfig.EnableTracing {

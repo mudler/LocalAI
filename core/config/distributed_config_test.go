@@ -33,6 +33,18 @@ var _ = Describe("DistributedConfig backend NATS timeouts", func() {
 			Expect(c.BackendUpgradeTimeoutOrDefault()).To(Equal(30 * time.Minute))
 		})
 	})
+
+	Context("ModelLoadTimeoutOrDefault", func() {
+		It("returns 5 minutes when unset so existing clusters keep today's behaviour", func() {
+			c := config.DistributedConfig{}
+			Expect(c.ModelLoadTimeoutOrDefault()).To(Equal(5 * time.Minute))
+		})
+
+		It("returns the configured value when set", func() {
+			c := config.DistributedConfig{ModelLoadTimeout: 45 * time.Minute}
+			Expect(c.ModelLoadTimeoutOrDefault()).To(Equal(45 * time.Minute))
+		})
+	})
 })
 
 var _ = Describe("DistributedConfig flag-name constants", func() {
@@ -53,6 +65,7 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("MCP CI job timeout", config.FlagMCPCIJobTimeout, "mcp-ci-job-timeout"),
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),
+		Entry("model load timeout", config.FlagModelLoadTimeout, "model-load-timeout"),
 	)
 })
 
@@ -78,6 +91,18 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		err := c.Validate()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(config.FlagBackendUpgradeTimeout))
+	})
+
+	It("rejects a negative ModelLoadTimeout with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:          true,
+			NatsURL:          "nats://localhost:4222",
+			ModelLoadTimeout: -1 * time.Second,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagModelLoadTimeout))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
 	})
 
 	It("accepts all-zero durations as valid (defaults apply)", func() {

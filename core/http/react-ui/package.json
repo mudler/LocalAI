@@ -30,7 +30,7 @@
     "@lezer/highlight": "^1.2.1",
     "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "dompurify": "^3.4.0",
+    "dompurify": "^3.4.12",
     "highlight.js": "^11.11.1",
     "i18next": "^26.0.8",
     "i18next-browser-languagedetector": "^8.2.1",
@@ -39,7 +39,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.6",
-    "react-router-dom": "^7.6.1",
+    "react-router-dom": "^7.18.1",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
