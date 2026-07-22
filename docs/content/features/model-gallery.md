@@ -666,3 +666,14 @@ Returns a json containing the error, and if the job is being processed:
 ```json
 {"error":null,"processed":true,"message":"completed"}
 ```
+
+Installations are processed one at a time. A job submitted while another install
+is still running is reported as queued until the installer picks it up:
+
+```json
+{"error":null,"processed":false,"message":"queued","phase":"queued"}
+```
+
+A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
+from this endpoint means the ID is genuinely unknown rather than merely waiting
+its turn.
