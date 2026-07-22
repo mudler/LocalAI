@@ -13,6 +13,11 @@ import (
 type JSONSchemaConverter struct {
 	propOrder map[string]int
 	rules     Rules
+	// refsInProgress tracks the $ref targets currently on the recursion stack
+	// so a self- or mutually-referential schema cannot recurse forever. It is
+	// pushed before descending into a referenced schema and popped afterwards,
+	// so sibling (non-cyclic) reuse of the same $ref is still allowed.
+	refsInProgress map[string]bool
 }
 
 func NewJSONSchemaConverter(propOrder string) *JSONSchemaConverter {
@@ -26,8 +31,9 @@ func NewJSONSchemaConverter(propOrder string) *JSONSchemaConverter {
 	rules["space"] = SPACE_RULE
 
 	return &JSONSchemaConverter{
-		propOrder: propOrderMap,
-		rules:     rules,
+		propOrder:      propOrderMap,
+		rules:          rules,
+		refsInProgress: make(map[string]bool),
 	}
 }
 
@@ -115,11 +121,21 @@ func (sc *JSONSchemaConverter) visit(schema map[string]any, name string, rootSch
 		rule := strings.Join(alternatives, " | ")
 		return sc.addRule(ruleName, rule), nil
 	} else if ref, exists := schema["$ref"].(string); exists {
+		// A client-supplied schema may contain a cyclic $ref (e.g. a $def that
+		// references itself directly or through a chain). Without this guard the
+		// recursion below never terminates and exhausts the goroutine stack,
+		// crashing the whole process rather than just failing the request.
+		if sc.refsInProgress[ref] {
+			return "", fmt.Errorf("cyclic $ref detected while building grammar: %s", ref)
+		}
 		referencedSchema, err := sc.resolveReference(ref, rootSchema)
 		if err != nil {
 			return "", err
 		}
-		return sc.visit(referencedSchema, name, rootSchema)
+		sc.refsInProgress[ref] = true
+		result, err := sc.visit(referencedSchema, name, rootSchema)
+		delete(sc.refsInProgress, ref)
+		return result, err
 	} else if constVal, exists := schema["const"]; exists {
 		literal, err := sc.formatLiteral((constVal))
 		if err != nil {
