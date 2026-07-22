@@ -3,14 +3,14 @@ title: "Offline test resources"
 ---
 
 LocalAI tests separate resource acquisition from test execution. Resources are
-declared by target in `test-resources/manifests/`; files and packed container
+declared by resource set in `test-resources/manifests/`; files and packed container
 images are content-addressed by SHA-256 under
 `.cache/test-resources/blobs/sha256/`.
 
 Prepare the resources before running a target:
 
 ```sh
-make test-resources TARGET=default
+make prepare-offline-test-cache TEST_RESOURCE_SET=default
 ```
 
 Preparation verifies every cached blob and fails closed. It never substitutes
@@ -18,12 +18,12 @@ a live request for a missing or corrupt entry. Maintainers can populate a
 cache from pinned declarations only by explicitly enabling online mode:
 
 ```sh
-LOCALAI_TEST_RESOURCES_ONLINE=1 make update-test-resources TARGET=default
+LOCALAI_TEST_RESOURCES_ONLINE=1 make update-offline-test-cache TEST_RESOURCE_SET=default
 ```
 
 The update command records declared responses, files, and digest-pinned images,
-then writes a deterministic local bundle at
-`.cache/test-resources/bundles/<target>.tar`. Its SHA-256 is written to the
+then writes a deterministic, low-level gzip-compressed bundle at
+`.cache/test-resources/bundles/<resource-set>.tar.gz`. Its SHA-256 is written to the
 lock file. Until registry publication is enabled, CI transfers this tar as a
 workflow artifact and verifies it after deleting the recording cache.
 
@@ -32,6 +32,17 @@ cache key, and authorization values participate only through a SHA-256 value;
 credentials are never written verbatim to the cache index. Redirect responses
 are recorded without following them, so every hop needed by a test must be
 declared explicitly.
+
+File and HTTP declarations may list HTTPS `mirrors`. Recording tries the
+canonical URL twice, then each mirror twice, and reports the duration of every
+attempt. Every candidate must produce the same declared SHA-256; mirrors are
+alternate transports, not alternate content.
+
+A digest mismatch is never accepted automatically. The updater prints the
+observed failure for every source and directs maintainers to compare upstream
+checksums, signatures, release notes, and redirects, then check the GitHub
+Advisory Database and OSV before approving a new digest. Repeated mismatches can
+mean a legitimate upstream release, a corrupt mirror, or a supply-chain event.
 
 Ordinary test recipes execute through `scripts/run-test-offline.sh`. Its
 supervised replay proxy terminates HTTP and HTTPS and returns an immediate
@@ -45,7 +56,7 @@ preparation. Container helpers check that an image exists before startup and
 attach services to internal-only Docker networks, preventing testcontainers
 from silently pulling a missing tag.
 
-The default Linux and macOS suites use separate resource targets because
+The default Linux and macOS suites use separate resource sets because
 Docker archives are platform-specific. Backend and hardware resources remain
 separate targets so ordinary contributors do not acquire large model fixtures
 that their test command does not use.

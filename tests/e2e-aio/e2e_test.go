@@ -442,7 +442,7 @@ var _ = Describe("E2E test", func() {
 
 func preparedAudioFixture() string {
 	path := os.Getenv("AIO_AUDIO_FIXTURE")
-	Expect(path).NotTo(BeEmpty(), "run `make test-resources TARGET=aio` before the AIO suite")
+	Expect(path).NotTo(BeEmpty(), "run `make prepare-offline-test-cache TEST_RESOURCE_SET=aio` before the AIO suite")
 	return path
 }
 

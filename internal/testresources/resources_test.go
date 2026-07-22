@@ -26,6 +26,17 @@ var _ = Describe("Declared test resources", func() {
 		Expect(manifest.Validate()).To(MatchError(ContainSubstring("digest-pinned")))
 	})
 
+	It("requires HTTPS and unique mirrors", func() {
+		digest := fmt.Sprintf("%064d", 0)
+		manifest := testresources.Manifest{Version: 1, Target: "fixture", Files: []testresources.File{{
+			URL: "https://primary.invalid/file", Mirrors: []string{"http://mirror.invalid/file"},
+			SHA256: digest, Destination: "file",
+		}}}
+		Expect(manifest.Validate()).To(MatchError(ContainSubstring("mirror must use HTTPS")))
+		manifest.Files[0].Mirrors = []string{"https://mirror.invalid/file", "https://mirror.invalid/file"}
+		Expect(manifest.Validate()).To(MatchError(ContainSubstring("duplicate mirror")))
+	})
+
 	It("fails before tests when a CAS blob is missing or corrupt", func() {
 		cache := GinkgoT().TempDir()
 		digest := fmt.Sprintf("%064d", 0)
@@ -97,13 +108,16 @@ var _ = Describe("Declared test resources", func() {
 		Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
 		Expect(os.WriteFile(path, content, 0o644)).To(Succeed())
 		manifest := testresources.Manifest{Version: 1, Target: "fixture", Files: []testresources.File{{URL: "https://example.invalid/file", SHA256: digest, Destination: "file"}}}
-		first := filepath.Join(GinkgoT().TempDir(), "first.tar")
-		second := filepath.Join(GinkgoT().TempDir(), "second.tar")
+		first := filepath.Join(GinkgoT().TempDir(), "first.tar.gz")
+		second := filepath.Join(GinkgoT().TempDir(), "second.tar.gz")
 		firstDigest, err := testresources.PackBundle(cache, first, manifest)
 		Expect(err).NotTo(HaveOccurred())
 		secondDigest, err := testresources.PackBundle(cache, second, manifest)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(secondDigest).To(Equal(firstDigest))
+		compressed, err := os.ReadFile(first)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(compressed[:2]).To(Equal([]byte{0x1f, 0x8b}))
 
 		restored := GinkgoT().TempDir()
 		Expect(testresources.RestoreBundle(restored, first, firstDigest)).To(Succeed())
