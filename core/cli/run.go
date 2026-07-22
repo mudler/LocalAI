@@ -69,6 +69,8 @@ type RunCMD struct {
 	CORS                               bool     `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
 	CORSAllowOrigins                   string   `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
 	DisableCSRF                        bool     `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
+	DisableHTTPCompression             bool     `env:"LOCALAI_DISABLE_HTTP_COMPRESSION" default:"false" help:"Disable gzip compression of HTTP responses (enabled by default). Streaming endpoints are never compressed" group:"api"`
+	HTTPCompressionMinLength           int      `env:"LOCALAI_HTTP_COMPRESSION_MIN_LENGTH" default:"1024" help:"Minimum response size in bytes before gzip compression is applied" group:"api"`
 	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
 	APIKeys                            []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
 	DisableWebUI                       bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
@@ -279,6 +281,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithDisableCSRF(r.DisableCSRF),
+		config.WithDisableHTTPCompression(r.DisableHTTPCompression),
+		config.WithHTTPCompressionMinLength(r.HTTPCompressionMinLength),
 		config.WithThreads(r.Threads),
 		config.WithUploadLimitMB(r.UploadLimit),
 		config.WithApiKeys(r.APIKeys),

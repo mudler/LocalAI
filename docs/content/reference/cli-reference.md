@@ -83,6 +83,8 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
 | `--csrf` | `false` | Enable Fiber CSRF middleware | `$LOCALAI_CSRF` |
+| `--disable-http-compression` | `false` | Disable gzip compression of HTTP responses. Compression is enabled by default; streaming endpoints (streaming chat completions, SSE bridges, WebSocket upgrades) and already-compressed formats are never compressed | `$LOCALAI_DISABLE_HTTP_COMPRESSION` |
+| `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
 | `--upload-limit` | `15` | Default upload-limit in MB | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |
 | `--api-keys` | | List of API Keys to enable API authentication. When this is set, all requests must be authenticated with one of these API keys | `$LOCALAI_API_KEY`, `$API_KEY` |
 | `--disable-webui` | `false` | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | `$LOCALAI_DISABLE_WEBUI`, `$DISABLE_WEBUI` |

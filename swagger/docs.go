@@ -599,7 +599,7 @@ const docTemplate = `{
         },
         "/api/backend-traces": {
             "get": {
-                "description": "Returns captured backend traces (LLM calls, embeddings, TTS, etc.) in reverse chronological order",
+                "description": "Returns a bounded, newest-first page of captured backend traces (LLM calls, embeddings, TTS, etc). The heavy body and data fields are omitted unless full=true; fetch them per-trace from /api/backend-traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
                 "produces": [
                     "application/json"
                 ],
@@ -607,6 +607,26 @@ const docTemplate = `{
                     "monitoring"
                 ],
                 "summary": "List backend operation traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default 50, max 1000, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the body and data payloads (default false)",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Backend operation traces",
@@ -628,6 +648,42 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/backend-traces/{id}": {
+            "get": {
+                "description": "Returns a single captured backend trace, including the body and data payloads omitted from the list response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get one backend operation trace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Backend operation trace",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1370,7 +1426,7 @@ const docTemplate = `{
         },
         "/api/traces": {
             "get": {
-                "description": "Returns captured API exchange traces (request/response pairs) in reverse chronological order",
+                "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
                 "produces": [
                     "application/json"
                 ],
@@ -1378,6 +1434,26 @@ const docTemplate = `{
                     "monitoring"
                 ],
                 "summary": "List API request/response traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default 50, max 1000, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include request/response bodies and headers (default false)",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Traced API exchanges",
@@ -1399,6 +1475,42 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/traces/{id}": {
+            "get": {
+                "description": "Returns a single captured API exchange, including the request and response bodies omitted from the list response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get one API trace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Traced API exchange",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
