@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/internal/testresources"
@@ -32,14 +33,14 @@ func run(args []string) error {
 		return runOffline(args[1], args[2], args[3], args[5:])
 	}
 	if len(args) != 4 {
-		return errors.New("usage: test-resources <prepare|update> TARGET MANIFEST_DIR CACHE_DIR | test-resources run TARGET MANIFEST_DIR CACHE_DIR -- COMMAND")
+		return errors.New("usage: test-resources <prepare|update> RESOURCE_SET MANIFEST_DIR CACHE_DIR | test-resources run RESOURCE_SET MANIFEST_DIR CACHE_DIR -- COMMAND")
 	}
 	target, manifestDir, cacheDir := args[1], args[2], args[3]
 	if args[0] == "update" {
 		return update(target, manifestDir, cacheDir)
 	}
 	if args[0] != "prepare" {
-		return errors.New("usage: test-resources <prepare|update> TARGET MANIFEST_DIR CACHE_DIR")
+		return errors.New("usage: test-resources <prepare|update> RESOURCE_SET MANIFEST_DIR CACHE_DIR")
 	}
 	return prepare(target, manifestDir, cacheDir)
 }
@@ -47,7 +48,7 @@ func run(args []string) error {
 func prepare(target, manifestDir, cacheDir string) error {
 	manifest, err := testresources.LoadManifest(filepath.Join(manifestDir, target+".json"))
 	if err != nil {
-		return fmt.Errorf("%w; run `make update-test-resources TARGET=%s`", err, target)
+		return fmt.Errorf("%w; run `make update-offline-test-cache TEST_RESOURCE_SET=%s`", err, target)
 	}
 	if manifest.Target != target {
 		return fmt.Errorf("manifest target %q does not match %q", manifest.Target, target)
@@ -58,10 +59,13 @@ func prepare(target, manifestDir, cacheDir string) error {
 	}
 	locked, ok := lock.Bundles[target]
 	if !ok {
-		return fmt.Errorf("cache bundle is not locked for target %q; run `make update-test-resources TARGET=%s`", target, target)
+		return fmt.Errorf("cache bundle is not locked for resource set %q; run `make update-offline-test-cache TEST_RESOURCE_SET=%s`", target, target)
 	}
 	if digest, ok := strings.CutPrefix(locked, "sha256:"); ok {
-		bundlePath := filepath.Join(cacheDir, "bundles", target+".tar")
+		bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.gz")
+		if _, err := os.Stat(bundlePath); errors.Is(err, os.ErrNotExist) {
+			bundlePath = filepath.Join(cacheDir, "bundles", target+".tar") // legacy uncompressed bundle
+		}
 		if err := testresources.RestoreBundle(cacheDir, bundlePath, digest); err != nil {
 			return preparationError(target, err)
 		}
@@ -111,7 +115,7 @@ func prepare(target, manifestDir, cacheDir string) error {
 		cmd := exec.Command("docker", "load", "--input", path)
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("load declared image %s: %w", resource.Reference, err)
+			return fmt.Errorf("load declared image %s: %w (verify Docker is running and this user can access its socket)", resource.Reference, err)
 		}
 	}
 	return nil
@@ -132,7 +136,7 @@ func update(target, manifestDir, cacheDir string) error {
 		return err
 	}
 	for _, resource := range manifest.HTTP {
-		entry, err := fetchHTTP(client, resource, cacheDir)
+		entry, err := fetchHTTPWithMirrors(client, resource, cacheDir)
 		if err != nil {
 			return err
 		}
@@ -142,7 +146,7 @@ func update(target, manifestDir, cacheDir string) error {
 		return err
 	}
 	for _, resource := range manifest.Files {
-		if err := fetch(client, resource.URL, resource.SHA256, cacheDir); err != nil {
+		if err := fetchWithMirrors(client, resource.URL, resource.Mirrors, resource.SHA256, cacheDir); err != nil {
 			return err
 		}
 	}
@@ -151,7 +155,7 @@ func update(target, manifestDir, cacheDir string) error {
 			return err
 		}
 	}
-	bundlePath := filepath.Join(cacheDir, "bundles", target+".tar")
+	bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.gz")
 	digest, err := testresources.PackBundle(cacheDir, bundlePath, manifest)
 	if err != nil {
 		return err
@@ -165,8 +169,25 @@ func update(target, manifestDir, cacheDir string) error {
 	return testresources.WriteLock(lockPath, lock)
 }
 
-func fetchHTTP(client *http.Client, resource testresources.HTTP, cacheDir string) (testresources.HTTPEntry, error) {
-	request, err := http.NewRequest(resource.Method, resource.URL, nil)
+func fetchHTTPWithMirrors(client *http.Client, resource testresources.HTTP, cacheDir string) (testresources.HTTPEntry, error) {
+	urls := append([]string{resource.URL}, resource.Mirrors...)
+	var failures []error
+	for _, candidate := range urls {
+		for attempt := 1; attempt <= 2; attempt++ {
+			started := time.Now()
+			entry, err := fetchHTTP(client, resource, candidate, cacheDir)
+			fmt.Fprintf(os.Stderr, "test-resources: download %s attempt %d took %s\n", candidate, attempt, time.Since(started).Round(time.Millisecond))
+			if err == nil {
+				return entry, nil
+			}
+			failures = append(failures, fmt.Errorf("%s attempt %d: %w", candidate, attempt, err))
+		}
+	}
+	return testresources.HTTPEntry{}, resourceChangeError(resource.URL, resource.SHA256, failures)
+}
+
+func fetchHTTP(client *http.Client, resource testresources.HTTP, sourceURL, cacheDir string) (testresources.HTTPEntry, error) {
+	request, err := http.NewRequest(resource.Method, sourceURL, nil)
 	if err != nil {
 		return testresources.HTTPEntry{}, err
 	}
@@ -181,6 +202,27 @@ func fetchHTTP(client *http.Client, resource testresources.HTTP, cacheDir string
 		return testresources.HTTPEntry{}, err
 	}
 	return testresources.HTTPEntry{Digest: resource.SHA256, Size: size, Status: response.StatusCode, Header: testresources.SanitizeHeaders(response.Header)}, nil
+}
+
+func fetchWithMirrors(client *http.Client, primary string, mirrors []string, expected, cacheDir string) error {
+	urls := append([]string{primary}, mirrors...)
+	var failures []error
+	for _, candidate := range urls {
+		for attempt := 1; attempt <= 2; attempt++ {
+			started := time.Now()
+			err := fetch(client, candidate, expected, cacheDir)
+			fmt.Fprintf(os.Stderr, "test-resources: download %s attempt %d took %s\n", candidate, attempt, time.Since(started).Round(time.Millisecond))
+			if err == nil {
+				return nil
+			}
+			failures = append(failures, fmt.Errorf("%s attempt %d: %w", candidate, attempt, err))
+		}
+	}
+	return resourceChangeError(primary, expected, failures)
+}
+
+func resourceChangeError(resourceURL, expected string, failures []error) error {
+	return fmt.Errorf("resource verification failed for %s (expected sha256:%s) after retrying every declared mirror: %w\nsecurity review required before changing the manifest: compare the upstream release checksum/signature and changelog, inspect redirects, and search https://github.com/advisories and https://osv.dev; a mismatch may be an upstream release, mirror corruption, or a supply-chain incident", resourceURL, expected, errors.Join(failures...))
 }
 
 func fetch(client *http.Client, rawURL, expected, cacheDir string) error {
@@ -251,7 +293,7 @@ func pullAndPack(reference, expected, cacheDir string) error {
 }
 
 func preparationError(target string, err error) error {
-	return fmt.Errorf("%w; run `make test-resources TARGET=%s` during the network-enabled preparation phase", err, target)
+	return fmt.Errorf("%w; run `make prepare-offline-test-cache TEST_RESOURCE_SET=%s` during the network-enabled preparation phase", err, target)
 }
 
 func copyFile(source, destination string) error {

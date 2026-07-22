@@ -54,13 +54,13 @@ jobs:
       - name: Build React UI
         run: make react-ui
       - name: Record and pack declared test resources
-        run: LOCALAI_TEST_RESOURCES_ONLINE=1 make update-test-resources TARGET=default
+        run: LOCALAI_TEST_RESOURCES_ONLINE=1 make update-offline-test-cache TEST_RESOURCE_SET=default
       - name: Transfer local test-resource bundle
         uses: actions/upload-artifact@v4
         with:
           name: test-resources-default-${{ github.run_id }}
           path: |
-            .cache/test-resources/bundles/default.tar
+            .cache/test-resources/bundles/default.tar.gz
             test-resources/manifests/lock.json
       - name: Clear recorded resource cache
         run: rm -rf .cache/test-resources
@@ -129,7 +129,7 @@ jobs:
           # Used to run the newer GNUMake version from brew that supports --output-sync
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
           PATH="$PATH:$HOME/go/bin" make protogen-go
-          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target TARGET=default-darwin test
+          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target TEST_RESOURCE_SET=default-darwin test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23

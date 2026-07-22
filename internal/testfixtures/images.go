@@ -28,7 +28,7 @@ func RequireImage(ctx context.Context, reference, target string) error {
 	}
 	defer func() { _ = docker.Close() }()
 	if _, err := docker.ImageInspect(ctx, reference); err != nil {
-		return fmt.Errorf("required offline test image %s is not loaded; run `make test-resources TARGET=%s`: %w", reference, target, err)
+		return fmt.Errorf("required offline test image %s is not loaded; run `make prepare-offline-test-cache TEST_RESOURCE_SET=%s`: %w", reference, target, err)
 	}
 	return nil
 }

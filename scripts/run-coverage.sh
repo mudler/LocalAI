@@ -54,7 +54,13 @@ if ! mkdir "$lock_dir" 2>/dev/null; then
 	echo "run-coverage: wait for it to finish; if none is running, remove stale lock $lock_dir" >&2
 	exit 2
 fi
+run_marker="$lock_dir/generated-after"
+touch "$run_marker"
 cleanup() {
+	for root in $unit_roots ${COVERAGE_E2E_ROOTS:-}; do
+		find "$root" -type f -name '*.test' -newer "$run_marker" -delete 2>/dev/null || :
+	done
+	rm -f "$run_marker"
 	rmdir "$lock_dir" 2>/dev/null || :
 }
 trap cleanup EXIT
@@ -66,6 +72,7 @@ mkdir -p "$log_dir"
 # so a stale profile (e.g. from a root that failed to rebuild this run) must not
 # leak into the merged result.
 rm -f "$out_dir"/cover-*.out
+rm -f "$out_dir"/*_cover-*.out
 rm -f "$merged"
 fail=0
 
@@ -100,6 +107,29 @@ rotate_log() {
 	fi
 }
 
+# Ginkgo's recursive-run merger can fail after every suite has passed when a
+# large --coverpkg run produces many profiles. Keep its profiles separate and
+# merge them here using the same block-summing rule as the cross-root merge.
+consolidate_root_profiles() {
+	base="$1"
+	set -- "$out_dir"/*_"$base"
+	if [ ! -e "$1" ]; then
+		echo "run-coverage: no per-package profiles produced for $base" >&2
+		return 1
+	fi
+	tmp="$out_dir/.${base}.tmp"
+	{
+		echo "mode: atomic"
+		awk '
+			/^mode:/ { next }
+			{ stmts[$1] = $2; cnt[$1] += $3 }
+			END { for (k in stmts) print k, stmts[k], cnt[k] }
+		' "$@"
+	} > "$tmp"
+	mv "$tmp" "$out_dir/$base"
+	rm -f "$@"
+}
+
 report_failure() {
 	root="$1"
 	log="$2"
@@ -125,8 +155,9 @@ for root in $unit_roots; do
 	echo "run-coverage: testing $root (full output: $log)"
 	# parallel_flags is intentionally word-split: it contains CLI arguments only.
 	# shellcheck disable=SC2086
-	go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --flake-attempts "$flakes" -v -r "$@" \
+	go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --keep-separate-coverprofiles --flake-attempts "$flakes" -v -r "$@" \
 		--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
+		&& consolidate_root_profiles "$base" \
 		&& echo "run-coverage: PASS — $root" \
 		|| { fail=1; report_failure "$root" "$log"; }
 done
@@ -139,15 +170,17 @@ for root in ${COVERAGE_E2E_ROOTS:-}; do
 	echo "run-coverage: testing $root (full output: $log)"
 	if [ -n "${COVERAGE_E2E_LABELS:-}" ]; then
 		# shellcheck disable=SC2086
-		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --flake-attempts "$flakes" -v "$@" \
+		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --keep-separate-coverprofiles --flake-attempts "$flakes" -v "$@" \
 			--label-filter="$COVERAGE_E2E_LABELS" \
 			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
+			&& consolidate_root_profiles "$base" \
 			&& echo "run-coverage: PASS — $root" \
 			|| { fail=1; report_failure "$root" "$log"; }
 	else
 		# shellcheck disable=SC2086
-		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --flake-attempts "$flakes" -v "$@" \
+		go run github.com/onsi/ginkgo/v2/ginkgo $parallel_flags --keep-separate-coverprofiles --flake-attempts "$flakes" -v "$@" \
 			--cover --covermode=atomic --coverprofile="$base" --output-dir="$out_dir" "$root" >"$log" 2>&1 \
+			&& consolidate_root_profiles "$base" \
 			&& echo "run-coverage: PASS — $root" \
 			|| { fail=1; report_failure "$root" "$log"; }
 	fi

@@ -30,7 +30,7 @@ var _ = Describe("applyOllamaOptions num_ctx clamping (issue #11022)", func() {
 	It("does not let an oversized num_ctx raise an existing context ceiling", func() {
 		for _, ceiling := range []int{4096, 8192} {
 			existing := ceiling
-			cfg := &config.ModelConfig{ContextSize: &existing}
+			cfg := &config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &existing}}
 			applyOllamaOptions(&schema.OllamaOptions{NumCtx: 2000000000}, cfg)
 
 			Expect(cfg.ContextSize).ToNot(BeNil())
@@ -41,7 +41,7 @@ var _ = Describe("applyOllamaOptions num_ctx clamping (issue #11022)", func() {
 
 	It("still honors a num_ctx smaller than the existing ceiling", func() {
 		existing := 8192
-		cfg := &config.ModelConfig{ContextSize: &existing}
+		cfg := &config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &existing}}
 		applyOllamaOptions(&schema.OllamaOptions{NumCtx: 2048}, cfg)
 
 		Expect(cfg.ContextSize).ToNot(BeNil())

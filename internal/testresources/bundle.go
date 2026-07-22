@@ -5,6 +5,7 @@ package testresources
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -48,7 +49,16 @@ func PackBundle(cacheDir, output string, manifest Manifest) (string, error) {
 	name := tmp.Name()
 	defer func() { _ = os.Remove(name) }()
 	hash := sha256.New()
-	tw := tar.NewWriter(io.MultiWriter(tmp, hash))
+	gzipWriter, err := gzip.NewWriterLevel(io.MultiWriter(tmp, hash), gzip.BestSpeed)
+	if err != nil {
+		_ = tmp.Close()
+		return "", err
+	}
+	gzipWriter.Name = ""
+	gzipWriter.Comment = ""
+	gzipWriter.ModTime = time.Unix(0, 0).UTC()
+	gzipWriter.OS = 255
+	tw := tar.NewWriter(gzipWriter)
 	indexData, err := json.Marshal(targetIndex)
 	if err == nil {
 		err = writeTarBytes(tw, "http-index.json", indexData)
@@ -73,7 +83,7 @@ func PackBundle(cacheDir, output string, manifest Manifest) (string, error) {
 			err = writeTarBytes(tw, filepath.ToSlash(filepath.Join("blobs", "sha256", digest)), data)
 		}
 	}
-	err = errors.Join(err, tw.Close(), tmp.Close())
+	err = errors.Join(err, tw.Close(), gzipWriter.Close(), tmp.Close())
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +102,16 @@ func RestoreBundle(cacheDir, bundle, expected string) error {
 	if actual != expected {
 		return fmt.Errorf("test resource bundle checksum mismatch: expected %s, got %s", expected, actual)
 	}
-	tr := tar.NewReader(bytes.NewReader(data))
+	var bundleReader io.Reader = bytes.NewReader(data)
+	if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
+		gzipReader, err := gzip.NewReader(bundleReader)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = gzipReader.Close() }()
+		bundleReader = gzipReader
+	}
+	tr := tar.NewReader(bundleReader)
 	recorded := map[string]HTTPEntry{}
 	for {
 		header, err := tr.Next()
