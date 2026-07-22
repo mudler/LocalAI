@@ -54,10 +54,19 @@ func IsRetryable(ctx context.Context, err error) bool {
 	if err == nil || ctx.Err() != nil {
 		return false
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrUserCancelled) {
+	if errors.Is(err, ErrUserCancelled) {
 		return false
 	}
-	return errors.Is(err, ErrTransientDownload)
+	// An explicit transient marking outranks the cancellation sentinels. A
+	// transport guard firing on a wedged peer (net/http reports a
+	// ResponseHeaderTimeout as context.DeadlineExceeded) is *our* abort, not
+	// the caller's, and must still be retried. A caller who genuinely gave up
+	// is already caught by the ctx.Err() check above, so nothing that should
+	// stop is let through here.
+	if errors.Is(err, ErrTransientDownload) {
+		return true
+	}
+	return false
 }
 
 // readErrorRecorder remembers the last non-EOF error the source returned.
