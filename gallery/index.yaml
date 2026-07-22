@@ -609,7 +609,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 4127d81b1d77a8b71170c8e41186d60abe19e851ebfeabd817d269d3269f9ea7
+      sha256: 356676f2a54bc4c8b92ef535d2c446477db6edfddc43b67cd53073c71ff2ffed
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -40292,13 +40292,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Agents-A1-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Quality.gguf
       sha256: c1bf8c3dcf08060f5d525d2026f6905894f245188593e8a53e2597590d30e52e
@@ -40316,13 +40316,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Agents-A1-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Balanced.gguf
       sha256: 4ba81259e1b717e80a3957e59ffc91a2f84f5fcf4e44766acbc7ebec19cb265c
@@ -40340,13 +40340,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Agents-A1-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Compact.gguf
       sha256: dbdd972647ae4c16a0c018bbf49d4b9f59e08de5f1d8c5f4cabaec275ad9e7cf
@@ -40364,13 +40364,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Agents-A1-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Mini.gguf
       sha256: 17ed2881c7ccaf855eeecfb9ff39cf85ade638a0a15e2e4367387ccd8657260f
@@ -40388,11 +40388,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Quality.gguf
       sha256: 5e4d97368f638edf06fd42014994f8a8e40e73ea42d960f00b602f0aa01a0e78
@@ -40407,11 +40407,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Balanced.gguf
       sha256: 461f796389ceddcf52be0efa99a13bbda6bb2cf75bf63b99516d69eaab28a2b2
@@ -40426,11 +40426,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Compact.gguf
       sha256: db5b0b1bb19d2606eeba66ca5b6d3c9993b74d037e50f9f1384a441c031b3796
@@ -40445,11 +40445,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Mini.gguf
       sha256: f94e9220e341c282f86ba82bb2cf976d83eaad4c4e155334aa696214894548eb
@@ -40464,11 +40464,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Quality.gguf
       sha256: f1fef05db8f1fd8d6b346320af393e64ab91c837ec621c09f5bcf99ece837876
@@ -40483,11 +40483,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Balanced.gguf
       sha256: 5f130f37310800fd8c0237aca18e68ebdeb1fe456fd87d21e02161302811798a
@@ -40502,11 +40502,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Compact.gguf
       sha256: 49e4400f8b6c87463545f218d1e448a3a16bf29f87a6c8023ba951b6b93689be
@@ -40521,11 +40521,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Mini.gguf
       sha256: 182ec450fce07a4074e9499cbe3dcb4ab642c7142ec4eba1fc988c7b1a4af162
@@ -40541,14 +40541,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Quality.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Quality.gguf
       sha256: a605afc0048aceb6c96b86c09e9958b221b20ba33544a5dfaab5869e0b9327da
@@ -40564,14 +40564,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Balanced.gguf
       sha256: 9903cde3419584f5bf0e0563337108ba811f258de7c445675def4134904a29d1
@@ -40587,14 +40587,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Compact.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Compact.gguf
       sha256: 8c06bb09410cd0e54b52cec4a1d4f020372f402ac43db3d2a8345efbeb36587b
@@ -40610,14 +40610,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Mini.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Mini.gguf
       sha256: e93499610575d1a8dea1836a41823eb94ecf731428191dbbd41090fb687e3aba
@@ -40633,14 +40633,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Nano.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Nano.gguf
       sha256: dac5480f2dd08e590e4827428412b7dd4fe9c2cceaade263109b86c5b23d5f58
@@ -40655,11 +40655,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Quality.gguf
       sha256: aee6e3629b68193680444f5cec3c288348c4b46047af3e5f9ff7d8dd3633df80
@@ -40674,11 +40674,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Balanced.gguf
       sha256: 45436dfc9ed77b0ecc045ab1544f493677496d1a0d6360ed0cf225db7370d02c
@@ -40693,11 +40693,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Compact.gguf
       sha256: 7c5fbc924cc3bcceac40ec42816dd368bf49098707ab0a5f53217add089126c1
@@ -40712,11 +40712,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Mini.gguf
       sha256: efd53dc30617830e0393c22b4c937f1ba134c76519c4f5ed4ba19f61f1c3a87b
@@ -40731,11 +40731,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Nano.gguf
+      model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Nano.gguf
       sha256: 0d091db1d46c35e5ca4fa82271b2918809ada4a722611be6ddd92d0646dc921e
@@ -40750,11 +40750,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Quality.gguf
       sha256: ebf4d1c46f6ab9218872a2cf2ed14f387ff83cead3da43791cdb6f0737145d75
@@ -40769,11 +40769,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Balanced.gguf
       sha256: 8420668e5cf3c9d8314b6a3f8c1803279916f60882fe9d4ad75d2c2bfa2f08c2
@@ -40788,11 +40788,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Compact.gguf
       sha256: b9b04d8867de176d39acf73309f2ad90612ea27c86eaf8b15e82038432d42287
@@ -40807,11 +40807,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/GLM-4.7-Flash-APEX-GGUF/GLM-4.7-Flash-APEX-I-Mini.gguf
       sha256: 30b9098d2f1395689a307375dbb63a54aad43de425adc07d6d932ba0d5280944
@@ -40826,11 +40826,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/GLM-4.7-Flash-GGUF/GLM-4.7-Flash-Q8_0.gguf
+      model: llama-cpp/models/unsloth/GLM-4.7-Flash-GGUF/GLM-4.7-Flash-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/GLM-4.7-Flash-GGUF/GLM-4.7-Flash-Q8_0.gguf
       sha256: 8c0922b03326932a40315ce92bbee01cc836ad18664268019143c898bdd7dd0b
@@ -40845,11 +40845,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Quality.gguf
       sha256: 839f2a4df38758ad7db1bdf3e1bd06398429b119cd0fe2cc3dde1f5d133c766c
@@ -40864,11 +40864,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Balanced.gguf
       sha256: e00e485855be43ee6133814fe696a085074bc7af4332edec75c25290137453ca
@@ -40883,11 +40883,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Compact.gguf
       sha256: bd2cb748f732c629fa6ebb05f44f54b09043efc7eb4842641da275efa4f3c20b
@@ -40902,11 +40902,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Mini.gguf
       sha256: 96b7acfa10749a0b79b29452d367c720c88d4c2af9765982a9ab74577bf1fa8e
@@ -40921,13 +40921,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Holo3-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Quality.gguf
       sha256: 57ce61073d6f11798c8644bc04fbbd31397e9c2647aa911202ead521bcef8f93
@@ -40945,13 +40945,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Holo3-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Balanced.gguf
       sha256: 47133973387e56b1869113721aeb457358c5478363b542a252cadbe2c6b24263
@@ -40969,13 +40969,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Holo3-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Compact.gguf
       sha256: 66fbc642f1d12f0464ab2175bae240efda60dd00dff3aefab08d8861cbaf04ec
@@ -40993,13 +40993,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Holo3-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Mini.gguf
       sha256: 1427ff13f9f6c6278c0715ee8c2faee276eed2fe00634460e1d9bfc8ceb40e5e
@@ -41017,11 +41017,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Quality.gguf
       sha256: 48755ebca7650a944ceb520da00ff9e77c97e52ec78b83ac9c428deba7fae6ed
@@ -41036,11 +41036,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Balanced.gguf
       sha256: 0dc15029db1e21d69853f7335941df3d784c2103a70933bb726437e8b9750379
@@ -41055,11 +41055,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Compact.gguf
       sha256: 8cc1b88caca2b2fc68a5f2b5ae55a05ef14c3b18b01115a81db4c0a17eb7466b
@@ -41074,11 +41074,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Mini.gguf
       sha256: 2c6f91d6bc6a33469f17a78778d4ae7fed73730301dfafac7dc268ba31bb9c4f
@@ -41093,11 +41093,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Quality.gguf
       sha256: 0313aa47547d302ffd88c538d381145888b5b2bd739cf5058c8cdda81268992d
@@ -41112,11 +41112,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Balanced.gguf
       sha256: f9599d24f0dd571847c9de06ba8b00206a3b77edb39d27c6cf156283d106a727
@@ -41131,11 +41131,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Compact.gguf
       sha256: ff25d3481126b5467f38471d1b2adc75277beac4e869bebefbd0b570c11168a9
@@ -41150,11 +41150,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Mini.gguf
       sha256: cb7bb851a0c8b6a7e2620d833c307bdbf9090a28f6aa1bc4cd2e94b8f781404b
@@ -41169,11 +41169,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Quality.gguf
       sha256: be32a7bb170be66d644275f0884f23e98562143a76ac5a08d971e6f0914a9693
@@ -41188,11 +41188,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Balanced.gguf
       sha256: c6a7021aeee1af784c755d923e53e544a563bc9f530f483b8cf5480d033aa06d
@@ -41207,11 +41207,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Compact.gguf
       sha256: a0bd7d37a474c780306d36cd6925889d8e984a3800c44987da7207a091c6e8c0
@@ -41226,11 +41226,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2.5-8B-A1B-APEX-GGUF/LFM2.5-8B-A1B-APEX-I-Mini.gguf
       sha256: 2d23a76a36c15afa0c560e37664abc3e6ce065c60e160a39dffa5621d13f298d
@@ -41245,11 +41245,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q4_K_M.gguf
+      model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q4_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q4_K_M.gguf
       sha256: e2c8350d5e6e7c633b2ba4e20805a2c86bc46884cd285e8f3fe36ad917b772c7
@@ -41264,11 +41264,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q5_K_M.gguf
+      model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q5_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q5_K_M.gguf
       sha256: 90e0b86095c6485fd5a9b7fa9822a02ebb103b6846f3eb3648643cea946fe9cf
@@ -41283,11 +41283,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q6_K.gguf
+      model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q6_K.gguf
   files:
     - filename: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q6_K.gguf
       sha256: f5c60637503fcbb479275b1bca9358a315ca5916556f1eeed40013da45a914c3
@@ -41302,11 +41302,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
+      model: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
       sha256: ec11666b6129f0b4fe893760b66797f22e1c478a561b40e365f2b6930729b8d2
@@ -41321,11 +41321,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Quality.gguf
       sha256: 54b4e8c0185aa6b58857dd7d64173e2a8760f6e4a144a45c906211d73a6f7eb8
@@ -41340,11 +41340,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Balanced.gguf
       sha256: 04c42f283f860e8c4496ed0ea05cc43b72752be0a9872e6c54eadc1d7e4d6a8b
@@ -41359,11 +41359,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Compact.gguf
       sha256: 22bc22cfc26dba0575a0529a27f20e6d9957efab6248a2acb45f1ea10a6dcfaf
@@ -41378,11 +41378,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Mini.gguf
       sha256: 335a458b0db220433a6db02c6fc4723f91cf01369285257a047c899508ffa341
@@ -41397,11 +41397,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/MiniMax-M2.5-GGUF/Q8_0/MiniMax-M2.5-Q8_0-00001-of-00006.gguf
+      model: llama-cpp/models/unsloth/MiniMax-M2.5-GGUF/Q8_0/MiniMax-M2.5-Q8_0-00001-of-00006.gguf
   files:
     - filename: llama-cpp/models/unsloth/MiniMax-M2.5-GGUF/Q8_0/MiniMax-M2.5-Q8_0-00001-of-00006.gguf
       sha256: f8d8e8905bc23e108d77e4bd66229060e610314305ccc0dac657ad5c168ff129
@@ -41431,11 +41431,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Quality.gguf
       sha256: 1270f5ce024ff1444df43294c86124a7053cd7f4681b4ac7719f2c3a49834405
@@ -41450,11 +41450,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Balanced.gguf
       sha256: bdc9154c2679f710e5ad3af43dd1c33be95c11650c0322ea612e69fd6c6d5a25
@@ -41469,11 +41469,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Compact.gguf
       sha256: 557ba4fb822d347a8b81f37f5d31cf9d301fd8a668efb58bded63fa7032f910a
@@ -41488,11 +41488,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Mini.gguf
       sha256: 9cc9b4a2d66d0d527fc75bec3e2bc84f48b38a061f8215d4b70f3aa796fed93a
@@ -41507,11 +41507,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Nano.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Nano.gguf
       sha256: 42e7b072a54e6a328aff61598314332c84b05b5d675c039312be59fdc06ef01c
@@ -41526,11 +41526,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q4_K_M/MiniMax-M2.7-UD-Q4_K_M-00001-of-00004.gguf
       sha256: 92986e39a0c0b5f12c2c9b6a811dad59e3317caaf1b7ad5c7f0d7d12abc4a6e8
@@ -41554,11 +41554,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q5_K_M/MiniMax-M2.7-UD-Q5_K_M-00001-of-00005.gguf
+      model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q5_K_M/MiniMax-M2.7-UD-Q5_K_M-00001-of-00005.gguf
   files:
     - filename: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q5_K_M/MiniMax-M2.7-UD-Q5_K_M-00001-of-00005.gguf
       sha256: 1a642e418767ed89a22326bf130259f807b46d4cc94ba72b9c340db7af34222f
@@ -41585,11 +41585,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q6_K/MiniMax-M2.7-UD-Q6_K-00001-of-00005.gguf
+      model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q6_K/MiniMax-M2.7-UD-Q6_K-00001-of-00005.gguf
   files:
     - filename: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/UD-Q6_K/MiniMax-M2.7-UD-Q6_K-00001-of-00005.gguf
       sha256: da39783926866dcb87101bebc083ed95d614a21a20741dbd2156720b2294305f
@@ -41616,11 +41616,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/Q8_0/MiniMax-M2.7-Q8_0-00001-of-00006.gguf
+      model: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/Q8_0/MiniMax-M2.7-Q8_0-00001-of-00006.gguf
   files:
     - filename: llama-cpp/models/unsloth/MiniMax-M2.7-GGUF/Q8_0/MiniMax-M2.7-Q8_0-00001-of-00006.gguf
       sha256: a0991934ab08119f12f00af0ef81cba73e995a07dc5b53f4dd4c6f8dfa86b4e4
@@ -41650,13 +41650,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Quality.gguf
       sha256: 2832cb7ef12b934eebd9baec0dfcde3807cd5101237bdfc33f2b265e6283c860
@@ -41674,13 +41674,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Balanced.gguf
       sha256: d162ea82330bc1bf18ace7c38d30bdb814f6f0878d22dce8fb84b51d6db21b45
@@ -41698,13 +41698,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Compact.gguf
       sha256: e7bc0186e900caf00f58b1b32c2a9665e23aaa9ad27ad48337fec1ad9c4c7d1b
@@ -41722,13 +41722,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Mini.gguf
       sha256: 7c76c46552b8c3bf054fb3c4cd05d4f3038928ad8e26351f255c12e89714799e
@@ -41746,13 +41746,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Mistral-Small-4-119B-2603-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q4_K_M/Mistral-Small-4-119B-2603-UD-Q4_K_M-00001-of-00003.gguf
+      model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q4_K_M/Mistral-Small-4-119B-2603-UD-Q4_K_M-00001-of-00003.gguf
   files:
     - filename: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q4_K_M/Mistral-Small-4-119B-2603-UD-Q4_K_M-00001-of-00003.gguf
       sha256: fd3cc46082e4e64eb623eea4611b02583d1de4c20a59411bf1820925d5117dfe
@@ -41776,13 +41776,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Mistral-Small-4-119B-2603-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q5_K_M/Mistral-Small-4-119B-2603-UD-Q5_K_M-00001-of-00003.gguf
+      model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q5_K_M/Mistral-Small-4-119B-2603-UD-Q5_K_M-00001-of-00003.gguf
   files:
     - filename: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q5_K_M/Mistral-Small-4-119B-2603-UD-Q5_K_M-00001-of-00003.gguf
       sha256: 6d3a3d2428d254314a3305628afb4d27141be3597903fa5d61413b69b40e8e30
@@ -41806,13 +41806,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Mistral-Small-4-119B-2603-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q6_K/Mistral-Small-4-119B-2603-UD-Q6_K-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q6_K/Mistral-Small-4-119B-2603-UD-Q6_K-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/UD-Q6_K/Mistral-Small-4-119B-2603-UD-Q6_K-00001-of-00004.gguf
       sha256: 793d292f8c5235e5aa82780e90bb08702b7152187656842b74299980b2c1ff1f
@@ -41839,13 +41839,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Mistral-Small-4-119B-2603-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/Q8_0/Mistral-Small-4-119B-2603-Q8_0-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/Q8_0/Mistral-Small-4-119B-2603-Q8_0-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/Mistral-Small-4-119B-2603-GGUF/Q8_0/Mistral-Small-4-119B-2603-Q8_0-00001-of-00004.gguf
       sha256: 204b226d54373fd36d1025565e0f607b002b8a56527751453bad6cac8ca3331e
@@ -41872,11 +41872,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Quality.gguf
       sha256: d6eeef1836655ca3e04ddd851f22feb1dd23edb2599ac50db8326fcdcd21cd14
@@ -41891,11 +41891,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Balanced.gguf
       sha256: 92b6d4a446c7fb19df85b00560b448c63bf213ba88b2efa870872d04b754b247
@@ -41910,11 +41910,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Compact.gguf
       sha256: 4b3da08d42199ccf31ab0f1b6c60f3cd32fe3ecbe81000d87fe5a58aa34119ed
@@ -41929,11 +41929,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Mini.gguf
       sha256: e0f4cf9c14ff81537cae1f6fd5cc7b098726ae3ed5dce913b69ee789cb88d60e
@@ -41948,11 +41948,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q4_K_M/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_M-00001-of-00003.gguf
+      model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q4_K_M/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_M-00001-of-00003.gguf
   files:
     - filename: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q4_K_M/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_M-00001-of-00003.gguf
       sha256: f22083eb6b15acb52905308ab083e8b0cc38897005cc45e8881abd164580aac2
@@ -41973,11 +41973,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q5_K_M/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q5_K_M-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q5_K_M/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q5_K_M-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q5_K_M/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q5_K_M-00001-of-00004.gguf
       sha256: d1d07a4920c4a72e7ca9bb036826cbe330393ea8526604b7e0d3a31bc7ec50d6
@@ -42001,11 +42001,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q6_K/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q6_K-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q6_K/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q6_K-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/UD-Q6_K/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q6_K-00001-of-00004.gguf
       sha256: ef6605689bbb052dea4e005edb8b70e25d79168e98e4eb2b1494200975a2a68d
@@ -42029,11 +42029,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/Q8_0/NVIDIA-Nemotron-3-Super-120B-A12B-Q8_0-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/Q8_0/NVIDIA-Nemotron-3-Super-120B-A12B-Q8_0-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/Q8_0/NVIDIA-Nemotron-3-Super-120B-A12B-Q8_0-00001-of-00004.gguf
       sha256: 7efc3a9c77a65929897e2fed1d1d670d514297508485f80996e77004f5e81332
@@ -42057,11 +42057,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Quality.gguf
       sha256: 649ccc24aa75282cebf361638f149b056a6a9d022c574aa916d6b01f9296484e
@@ -42076,11 +42076,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Balanced.gguf
       sha256: 3b580f27d72a78d0bb9fbfd5e421b6bc89228cb899c07948b4aac38ca595a945
@@ -42095,11 +42095,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Compact.gguf
       sha256: 1cb1dc86c9bcfd4745fa17d958f4810fe52e781a948da5050183e41fc9f78444
@@ -42114,11 +42114,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Mini.gguf
       sha256: ba320bfaf22ec567c40e70879edc8b450a4a1a45584110984c129a56178fe555
@@ -42133,11 +42133,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Nemotron-3-Nano-30B-A3B-GGUF/Nemotron-3-Nano-30B-A3B-Q8_0.gguf
+      model: llama-cpp/models/unsloth/Nemotron-3-Nano-30B-A3B-GGUF/Nemotron-3-Nano-30B-A3B-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/Nemotron-3-Nano-30B-A3B-GGUF/Nemotron-3-Nano-30B-A3B-Q8_0.gguf
       sha256: 433a9c0d39c6c3434204797b30991c4d147c0f25328690d60862ec39e2a92188
@@ -42152,13 +42152,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Quality.gguf
       sha256: aa1734147522810d52c6c59f269301eed98d34e50438475ab5544d7a6ee1821a
@@ -42176,13 +42176,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Balanced.gguf
       sha256: 7fda624cb5d43579cf379997f1888399bb3e078c83cf7a421aabfe42a198d297
@@ -42200,13 +42200,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Compact.gguf
       sha256: 7f573f83b7c7886e86fbd2b66ad37948271cb755fb6381dae52d923880b28593
@@ -42224,13 +42224,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Mini.gguf
       sha256: 362c47fa692be146f54ad87d6797afe3845a41f29dee5deb96f6eb1307c53949
@@ -42248,13 +42248,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Nano.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Nano.gguf
       sha256: 0991fd06fac58525ca55920244cf7752042fa4a95e79113c495a635865e2428f
@@ -42272,13 +42272,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nex-N2-mini-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Quality.gguf
       sha256: 7f8895584cb494f7331cd81e67e898ab68100b94aed9725cf13653b1df9db8b1
@@ -42296,13 +42296,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nex-N2-mini-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Balanced.gguf
       sha256: e593a56bb1df6701cd741571fb2c271b022f412e113675e4846d41437b9f0f15
@@ -42320,13 +42320,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nex-N2-mini-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Compact.gguf
       sha256: 61ecb5c70070694ee15ec9e7cca79bab44ec91b4110411d47923607287e300ec
@@ -42344,13 +42344,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nex-N2-mini-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Mini.gguf
       sha256: 6aacb9f16cfc8136f7de784f5e66bd2019753017b2f189122f7e213f04624ef2
@@ -42368,13 +42368,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Ornith-1.0-35B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Quality.gguf
       sha256: 71291afbbf9158f41d062a391e9418eb9c5e62774e9d3db4d79e29a1ee8a2335
@@ -42392,13 +42392,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Ornith-1.0-35B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Balanced.gguf
       sha256: 22a806250ed1bb459e0b5241b1fbf971db6296dc99d27b922662d6df4eff0e21
@@ -42416,13 +42416,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Ornith-1.0-35B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Compact.gguf
       sha256: c747c8627be16f002597a9ddfaf93310f520d0c02c7d22d2a4419ba140fef7c2
@@ -42440,13 +42440,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Ornith-1.0-35B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Ornith-1.0-35B-APEX-GGUF/Ornith-1.0-35B-APEX-I-Mini.gguf
       sha256: ede66e72de5e5801690d824f0d517dae9792a4b1c80d174c0708ad4a89c108df
@@ -42464,13 +42464,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Ornith-1.0-35B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q4_K_M.gguf
+      model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q4_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q4_K_M.gguf
       sha256: 4c93716d7c9650285ab7af11e45044aeebd7d3828e513efcd582b0fa988af5ad
@@ -42488,13 +42488,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Ornith-1.0-35B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q5_K_M.gguf
+      model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q5_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q5_K_M.gguf
       sha256: fd0c2ab1c7b1b0e382e519f62889ddff374a5769873b984fa03966e40fc0d000
@@ -42512,13 +42512,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Ornith-1.0-35B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q6_K.gguf
+      model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q6_K.gguf
   files:
     - filename: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-UD-Q6_K.gguf
       sha256: 1ba828db13615279dd9cb0c4b30ed797417696e75ddac7c6c5247c6d6bdfea3f
@@ -42536,13 +42536,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Ornith-1.0-35B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-Q8_0.gguf
+      model: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/Ornith-1.0-35B-GGUF/Ornith-1.0-35B-Q8_0.gguf
       sha256: 8f94f093f907065e182924225ef2182a7fc35cae3822a3eab29cc5a8ee02fe4f
@@ -42560,11 +42560,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Quality.gguf
       sha256: bf4d49e6f2e526436a29a9481aab7d8dc97987a9e446e2d395a83a0f12bd7134
@@ -42579,11 +42579,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Balanced.gguf
       sha256: 81530ce8fb2f0bcb354d1bdb9cc874acfa7c68f56de4ded4143946f524738b78
@@ -42598,11 +42598,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Compact.gguf
       sha256: e883cea614708d6f0ef26c1d7e6409c56b4a7182ad1e36b5fba3598e1bcf7788
@@ -42617,11 +42617,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Quality.gguf
       sha256: a31e629119c0dea4d294cc3ed230e6aac72e552f36ba09218d71d82340b5b755
@@ -42636,11 +42636,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Balanced.gguf
       sha256: 2051277beb9d9161daa808cbc6a4de87c58f74b737e5846b865546614da39cd1
@@ -42655,11 +42655,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Compact.gguf
       sha256: 05b67d98ea9754c50c75f74b28ebdbede5b7b62f3265f0843fb245f3d8a93e4a
@@ -42674,11 +42674,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Mini.gguf
       sha256: c0f3a931366aef306b36d0c3d1803f9801d790bbd1bae96d677eb3c68d2ab15d
@@ -42693,11 +42693,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-UD-Q4_K_M.gguf
+      model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-UD-Q4_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-UD-Q4_K_M.gguf
       sha256: 3a47167ad1bf9e9a79f233f799588d54f85bc65644e72c19251165823e7ae612
@@ -42712,11 +42712,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/UD-Q5_K_M/Qwen3-Coder-Next-UD-Q5_K_M-00001-of-00003.gguf
+      model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/UD-Q5_K_M/Qwen3-Coder-Next-UD-Q5_K_M-00001-of-00003.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/UD-Q5_K_M/Qwen3-Coder-Next-UD-Q5_K_M-00001-of-00003.gguf
       sha256: cc49a0fde9c28ea8ce9bd4bdf053ca96a25c8c1fe4993a33b5db543a8eaf92eb
@@ -42737,11 +42737,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/UD-Q6_K/Qwen3-Coder-Next-UD-Q6_K-00001-of-00003.gguf
+      model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/UD-Q6_K/Qwen3-Coder-Next-UD-Q6_K-00001-of-00003.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/UD-Q6_K/Qwen3-Coder-Next-UD-Q6_K-00001-of-00003.gguf
       sha256: 68f03d9c0cc72c3359ed94e2058230a1ff484e6403b842e5db499c12f9157fd6
@@ -42762,11 +42762,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/Q8_0/Qwen3-Coder-Next-Q8_0-00001-of-00003.gguf
+      model: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/Q8_0/Qwen3-Coder-Next-Q8_0-00001-of-00003.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3-Coder-Next-GGUF/Q8_0/Qwen3-Coder-Next-Q8_0-00001-of-00003.gguf
       sha256: 8fceb6409e609f9d4d92658fc926c7fb1dc045d229cf509ef5bbae352867ba41
@@ -42787,13 +42787,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-122B-A10B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Quality.gguf
       sha256: e12fe56bea8435940454c88ee93c334b42f93202f49aabf9833be92cd668e341
@@ -42811,13 +42811,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-122B-A10B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Balanced.gguf
       sha256: bbb5f1fa67c213d60d0ada4fe3218fad1dc17191ab619c44de64d6de6213a39c
@@ -42835,13 +42835,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-122B-A10B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Compact.gguf
       sha256: fee6482b91e2ee1e34562626f827a6b4725c0f2e0576a933be52acf9c0758a9e
@@ -42859,13 +42859,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-122B-A10B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-122B-A10B-APEX-GGUF/Qwen3.5-122B-A10B-APEX-I-Mini.gguf
       sha256: 6106f9db580b6e1f44f117bc92f8b507fd7add620518a0cbb5f219f12cc674e7
@@ -42883,13 +42883,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.5-122B-A10B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.5-122B-A10B-GGUF/Q8_0/Qwen3.5-122B-A10B-Q8_0-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/Qwen3.5-122B-A10B-GGUF/Q8_0/Qwen3.5-122B-A10B-Q8_0-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.5-122B-A10B-GGUF/Q8_0/Qwen3.5-122B-A10B-Q8_0-00001-of-00004.gguf
       sha256: a6cc4bf06d44a96739a200841d2335fc437fa2d790d0975baba9da8af9e228e1
@@ -42916,13 +42916,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-35B-A3B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Quality.gguf
       sha256: 5e0fa27a9b0841ca8fffc039c6a2e8d933f1d0be12369a14fd4abce090103f20
@@ -42940,13 +42940,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-35B-A3B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Balanced.gguf
       sha256: b3d3b39e079fff18311b24b88217badca56381b76c6798dcf12e2dcccaa4dae7
@@ -42964,13 +42964,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-35B-A3B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Compact.gguf
       sha256: 25fe188e2570366bebbf260c5ebd9fafe714a8458d364fb0b3809cf8b9303866
@@ -42988,13 +42988,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.5-35B-A3B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.5-35B-A3B-GGUF/Qwen3.5-35B-A3B-Q8_0.gguf
+      model: llama-cpp/models/unsloth/Qwen3.5-35B-A3B-GGUF/Qwen3.5-35B-A3B-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.5-35B-A3B-GGUF/Qwen3.5-35B-A3B-Q8_0.gguf
       sha256: 3808866c016ab02b4adb26b873f7008a2cdd2c0704a39704050119ab0631db46
@@ -43012,11 +43012,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Quality.gguf
       sha256: 3a9f46c7c3986983d4e465973007259e973a1a9cee9ae7a8d4d3e97f7116a252
@@ -43031,11 +43031,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Balanced.gguf
       sha256: c1de8303e61d8d49d6bbf6f0a3db0f7b7a84c3246d2fd8cfe45e5ef3282a4791
@@ -43050,11 +43050,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-TQ-GGUF/Qwen3.5-35B-A3B-APEX-TQ-Compact.gguf
       sha256: 5a8c14979e6f79bbe2a251a63515863e5621a27986ca862ef753100c1e2fb164
@@ -43069,11 +43069,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Quality.gguf
       sha256: 99ebd4c27e6957d75396fdccec79cf26f332ffd9503e95751785ed5352e54981
@@ -43088,11 +43088,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Balanced.gguf
       sha256: 3c2a866546716193a715e37a7b690421d17b8174c00054311aaa1737bea077fa
@@ -43107,11 +43107,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Compact.gguf
       sha256: c278bdacad22d25a57778eed4da7439e1ad86fe72f450d7d6c5335cd095e6e3c
@@ -43126,11 +43126,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Mini.gguf
       sha256: 09ce279daab7d544cb604350e4d381691fc9ea18a31dd22750bcb6414e6e6e78
@@ -43145,11 +43145,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Quality.gguf
       sha256: 6b145382be701da5cdc2f6c630a3543c47e54a114c160da5357d6b3ad2abf7ea
@@ -43164,11 +43164,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Balanced.gguf
       sha256: e5dcf17c18e010f48219d787b8bfd5251a9d1f9c8c1115fa73d7744924d65f6f
@@ -43183,11 +43183,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Compact.gguf
       sha256: 60bdc1727edf663d9a1a2de0b432be86d05d0a8a963e8aa03b994c0f582ab99a
@@ -43202,11 +43202,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Mini.gguf
       sha256: 56b7b012d9202676d2fdad7b802a0598318cb992a95713d2ec10bb05f1b1b227
@@ -43221,11 +43221,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Nano.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Nano.gguf
       sha256: 6fa17618ac657c762d031a41d06527d7425b5c1fcda19638ca8111f2cc7a06ee
@@ -43240,13 +43240,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-397B-A17B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Quality.gguf
       sha256: d41f62529b5738709960b334c3194e64bd66a72315c90f663357d224cf3f5b64
@@ -43264,13 +43264,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-397B-A17B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Balanced.gguf
       sha256: 001ca6a45ac1863084b5ce989729da2db26c23ed47cedc1d2f0d611b43d75956
@@ -43288,13 +43288,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-397B-A17B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-397B-A17B-APEX-GGUF/Qwen3.5-397B-A17B-APEX-Compact.gguf
       sha256: ce2e94a73f96a06c0d7040913ba9302a74f8ed5626a87cc01760ec7b225d5bd0
@@ -43312,13 +43312,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.5-397B-A17B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q4_K_M/Qwen3.5-397B-A17B-UD-Q4_K_M-00001-of-00006.gguf
+      model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q4_K_M/Qwen3.5-397B-A17B-UD-Q4_K_M-00001-of-00006.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q4_K_M/Qwen3.5-397B-A17B-UD-Q4_K_M-00001-of-00006.gguf
       sha256: 63c290c9be83e1b4dd41833d81bd933afd535d65657579b9f92f5c3f76e0218d
@@ -43351,13 +43351,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.5-397B-A17B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q5_K_M/Qwen3.5-397B-A17B-UD-Q5_K_M-00001-of-00008.gguf
+      model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q5_K_M/Qwen3.5-397B-A17B-UD-Q5_K_M-00001-of-00008.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q5_K_M/Qwen3.5-397B-A17B-UD-Q5_K_M-00001-of-00008.gguf
       sha256: c82146df8eca3ee9611f9ed1925a19ab7ec32f69c4695ed66e1ed87233cd6a79
@@ -43396,13 +43396,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.5-397B-A17B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q6_K/Qwen3.5-397B-A17B-UD-Q6_K-00001-of-00008.gguf
+      model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q6_K/Qwen3.5-397B-A17B-UD-Q6_K-00001-of-00008.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/UD-Q6_K/Qwen3.5-397B-A17B-UD-Q6_K-00001-of-00008.gguf
       sha256: 0a409159a8b206ef81bdd5736ae6bcc300445ed1adcb7e3faaf9167a8fb79f07
@@ -43441,13 +43441,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.5-397B-A17B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/Q8_0/Qwen3.5-397B-A17B-Q8_0-00001-of-00010.gguf
+      model: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/Q8_0/Qwen3.5-397B-A17B-Q8_0-00001-of-00010.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.5-397B-A17B-GGUF/Q8_0/Qwen3.5-397B-A17B-Q8_0-00001-of-00010.gguf
       sha256: ba984516e0fb4000dc2d097bed53add6ecf615930ac4a3da89e351fc23abf17a
@@ -43492,13 +43492,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Quality.gguf
       sha256: ffb9535b3133942909c3973272d8e65748edafaae5272273baedc7ad78ad2ea6
@@ -43516,13 +43516,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Balanced.gguf
       sha256: cc62ad396e94c783b6fd233d59c2fe5a88e3bdb807e37efd130de350f35d49a2
@@ -43540,13 +43540,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Compact.gguf
       sha256: 50e1122946854f2272b44d466c03d17d410d3f02dcd1c021a1f29f6b384a7126
@@ -43564,13 +43564,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-GGUF/Qwen3.6-35B-A3B-APEX-I-Mini.gguf
       sha256: 5a9cbafc304f7766ff55be089e066b1d86f4beac3bf45bbdf3d27b07949e1d46
@@ -43588,13 +43588,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.6-35B-A3B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q5_K_M.gguf
+      model: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q5_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q5_K_M.gguf
       sha256: c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932
@@ -43612,13 +43612,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.6-35B-A3B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q6_K.gguf
+      model: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q6_K.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q6_K.gguf
       sha256: 4fe53b148b46f9b88830e2a3055c5b15c3a4d1e3ddc9a1384a108d8b9d59f043
@@ -43636,13 +43636,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Qwen3.6-35B-A3B-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-Q8_0.gguf
+      model: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-Q8_0.gguf
       sha256: d1a395809f65a43a13ad119eb4e7acdef1ac6d68120f39902c8ab96e72794a59
@@ -43661,14 +43661,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Quality.gguf
       sha256: eb0883790326b76ebf90e791b4c3689e9000f337634456f7569060546b650abe
@@ -43684,14 +43684,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Balanced.gguf
       sha256: 9bf7d96bb3a9d363e645dd998aee9e9bff8e016a82aec7ff081e0e6cdb53419e
@@ -43707,14 +43707,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Compact.gguf
       sha256: 7758ab03a600f486e8b50b2a454874a03b52c11a6f813db561749e9beb3ab06e
@@ -43730,14 +43730,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Mini.gguf
       sha256: 6c2092ff43056701fdf431f01fb62334d60500953dc270dea2a387f1bb53d99b
@@ -43753,14 +43753,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Nano.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-APEX-MTP-GGUF/Qwen3.6-35B-A3B-APEX-MTP-I-Nano.gguf
       sha256: c41cdce38c767a13eccc65a676d28a5506ef285c31614d1e7d822979b9b3559e
@@ -43775,11 +43775,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
       sha256: 361867cba2a9e3839153de7b660df8b4e6ff7199529266a446e4dd8990b67de0
@@ -43794,11 +43794,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Balanced.gguf
       sha256: 3857fd436972ffb61c81563f8e22414d308ee8e3d5afb0658b2f477b6597153a
@@ -43813,11 +43813,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Compact.gguf
       sha256: 976f3cb1a738a0bf013d9a734453580cc3649d7f1753dec8f71e41583bb1814f
@@ -43832,11 +43832,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-I-Mini.gguf
       sha256: fcb468276232c32da30d585c1081dee1a5a3bcee8d4d0247df30c0e5a9cf753f
@@ -43852,14 +43852,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Quality.gguf
       sha256: 11ca498862e628ac8198c127724e0eb999d18688f43b3559c8af1f41101dda83
@@ -43875,14 +43875,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Balanced.gguf
       sha256: a3a3bd9a195e6d51218e7dbd68e99dcd623d67efc5b25b35be3066fff246e157
@@ -43898,14 +43898,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Compact.gguf
       sha256: 2abe5a7acc2a5ef6406c1f83845712e5bb68272dcbd73d8931deaab51d9ca794
@@ -43921,14 +43921,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Mini.gguf
       sha256: 438d8fee2e1d96fdea7eccb6daf27ac236b7d8bd8dc4891c56f5108fa4a99b60
@@ -43944,14 +43944,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Nano.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-APEX-MTP-I-Nano.gguf
       sha256: 2308dc2c04e83f82adbb8e40f9293f8103592c350215d08b79676a5f299ace0b
@@ -43966,13 +43966,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
       sha256: 5785096c8c2c0e3fb3d59f5c1a429e7c6345ebd569b317a5356b142459119cf9
@@ -43990,13 +43990,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Balanced.gguf
       sha256: d027e05e0d2decc01bfcf1d9ce53693a917535a5150d242ef333028cfef2d391
@@ -44014,13 +44014,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Compact.gguf
       sha256: 6179139dc9d779b0d3d0e7747cf715cc533f97e68fdc079b2e97844819538da6
@@ -44038,13 +44038,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Mini.gguf
       sha256: ce6f5471856abb7d2a9aed57bd5e9e9a8f2c63166a214118a0b02ddcb4d952c3
@@ -44062,13 +44062,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Nano.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Nano.gguf
       sha256: f0c650ca96a452093286181cd5618a7c131a3c0a139471ba6548b3cbedb47450
@@ -44087,14 +44087,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Quality.gguf
       sha256: 44472af62a067e6fbb652d88e26778c31b156caa2be371491120762fe0424d32
@@ -44110,14 +44110,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Balanced.gguf
       sha256: 47b3b3955eac4da40bd4bafc35bf4ff1d1c377f34ec639a06400a5f405b8178f
@@ -44133,14 +44133,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Compact.gguf
       sha256: 78e96b456cc587d416b4dc0abf4e3b205a896d722d0b7a700a5932c10a4ec100
@@ -44156,14 +44156,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Mini.gguf
       sha256: 42587e47ec309bfd197eaf72e38f71e3e29dedcd2fc69c26aca01bb362be381c
@@ -44179,14 +44179,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Nano.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-MTP-I-Nano.gguf
       sha256: 1fb8a998362ebb5f7f3c8ece6d4803a74ba32211c751de2e76b81e3379fbf050
@@ -44201,13 +44201,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Quality.gguf
       sha256: 667bd985a00bf5a47e5ba582f0bb573578e215c54b504525c13b8d4f573e5b59
@@ -44225,13 +44225,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Balanced.gguf
       sha256: 7e4d28f5728cb0df835c4bd4cb1afe8157b1ba9faea14b125565fdee0ee7fda5
@@ -44249,13 +44249,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Compact.gguf
       sha256: aa80e8a52e7fa62fd9101eba8c412095a7abe0db1ef1105ddc3848e65a2cbe51
@@ -44273,13 +44273,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Mini.gguf
       sha256: 956dd8cde3dc9d5af5467da037e2724677b9434c15ef93f66f52c26a0c271852
@@ -44297,11 +44297,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Quality.gguf
       sha256: 36a7848c43b3c7db701aba61b71729e2a172da7b2c5338f5121d2c31f2ab86ee
@@ -44316,11 +44316,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Balanced.gguf
       sha256: 18e6979a777f313cec57329cb9c5a736cf1fc9120f8c8d3284d1b50f57fff0ce
@@ -44335,11 +44335,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Compact.gguf
       sha256: 1c4b0b62ae97e183532e307cf945f9658d89f958dd15e449957983f5d2eed4f0
@@ -44354,11 +44354,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Mini.gguf
       sha256: 166892da3c52a5a67c560393fcd69daf3c68961d955bfdd29c7ffec4690eac99
@@ -44373,13 +44373,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Quality.gguf
       sha256: b86b2398d38337b0485217d0be0a90ac32adec1d25ff9d2c4dfa84e1a826ebce
@@ -44397,13 +44397,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Balanced.gguf
       sha256: 059faf65390b7341da46b60ebe2bc052601c87ee3b3395a8f28f321d87417c34
@@ -44421,13 +44421,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Compact.gguf
       sha256: 16835025e2cfde01085527d804c0a4d6392ff1c08236bd086b7a9a99d43d1435
@@ -44445,13 +44445,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Mini.gguf
       sha256: edf46cefe889fdb71e9af47f7908bc79315d656d78dbb5501da9db3fe70d3f48
@@ -44470,16 +44470,16 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Quality.gguf
       sha256: 83016f27e7eced4811f36c7dc73a07b34b8447fa7ccc5d31b0681993b28dc395
@@ -44498,16 +44498,16 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Balanced.gguf
       sha256: 63ac79da814cdeb131f3ad739787ae124ee0c58580fc9b110c3b757236820d04
@@ -44526,16 +44526,16 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Compact.gguf
       sha256: 22cc915b2e8f0f449e33db4a56cdbd45a464c9207e2940200337a16084f95815
@@ -44554,16 +44554,16 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-MTP-I-Mini.gguf
       sha256: 9f4a27e173fa27e7b827e298d5058066c2e8ad94fd4d219574dacf15e1ae2845
@@ -44581,11 +44581,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Quality.gguf
       sha256: 2abdc3df406413b4c492d8189216d7914d6525652d2fe9f8fb6d56b156d7da70
@@ -44600,11 +44600,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Balanced.gguf
       sha256: 91ccaee664d01f73c0e090b486084f02671e327eecf78133e729d3fa10c008f5
@@ -44619,11 +44619,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Compact.gguf
       sha256: 38dcb1fa39acb3284f3f9be780a9aa6ea0699b72d400a35671db34251d831320
@@ -44638,11 +44638,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-GGUF/Qwopus3.6-35B-A3B-v1-APEX-I-Mini.gguf
       sha256: 426127010859519ff190d0e6ea734e8212f7982c7a7cc23fe3a9f9f324b2cfd7
@@ -44658,14 +44658,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Quality.gguf
       sha256: 1a777fcda83a60228fe4978ab5a1ce373d92bf38a5a58d98d3d0ffbb4f7f00a8
@@ -44681,14 +44681,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Balanced.gguf
       sha256: 016e26ee859045e6e914ce2a844133c6707fc1314dd261ad19c1b8d32a668abf
@@ -44704,14 +44704,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Compact.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Compact.gguf
       sha256: 595c68e7b1ed2b7fd070ca07c98c9fc830c0b7ec6e225578ff9aeb0355f3a9a6
@@ -44727,14 +44727,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Mini.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Mini.gguf
       sha256: b82e1ac06fb28783e638e2d9b63a9d8118cc0462bed3f542e1b57f465a09863c
@@ -44750,14 +44750,14 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
-        - spec_type:draft-mtp
-        - spec_n_max:6
-        - spec_p_min:0.75
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Nano.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-v1-APEX-MTP-GGUF/Qwopus3.6-35B-A3B-v1-APEX-MTP-I-Nano.gguf
       sha256: ee6e4d5bc0cb3240f1d159d4eab86058196b0ac580aa19c2ddda3e766ee76c48
@@ -44772,11 +44772,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Quality.gguf
       sha256: e4fdf83cd3ad931ee0d0448104460c4685a0ee419002e6a7cdd217ff352a03c4
@@ -44791,11 +44791,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Balanced.gguf
       sha256: bf57255e8825fafccf0d5a7d387a2e99df10bee1d053ed99cdb155793f41828f
@@ -44810,11 +44810,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Compact.gguf
       sha256: 893161c2ec99cd8fe9d9491609fda311e0f7fc9a6f3cb98f525b5503e48852b8
@@ -44829,11 +44829,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Mini.gguf
       sha256: 360f2f9d220d8eef5fa6a7b4f2537f5812e4dd604b3a45421dae62929f9cfb79
@@ -44848,13 +44848,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Step-3.7-Flash-APEX-GGUF/mmproj-step3.7-flash-f16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Quality.gguf
       sha256: fe8db9753d4a0bfc0adb890510f3a7389d3fa79cf07af1c10bb1a37140da6e73
@@ -44872,13 +44872,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Step-3.7-Flash-APEX-GGUF/mmproj-step3.7-flash-f16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Balanced.gguf
       sha256: 58a81b534d648440c7f6570fbd4d8ab88908d7603116baaea9de0f4a1d553201
@@ -44896,13 +44896,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Step-3.7-Flash-APEX-GGUF/mmproj-step3.7-flash-f16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Compact.gguf
       sha256: 16acaffa8d6c276db2d11afeac3a6cfdb6d25e1e353d792ef49e09c627c3a681
@@ -44920,13 +44920,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Step-3.7-Flash-APEX-GGUF/mmproj-step3.7-flash-f16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.7-Flash-APEX-GGUF/Step-3.7-Flash-APEX-I-Mini.gguf
       sha256: 946033b1f38d3661561978857aee0ea1fce4e575d2120d728f0e9914bb703d5e
@@ -44944,13 +44944,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Step-3.7-Flash-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/UD-Q5_K_M/Step-3.7-Flash-UD-Q5_K_M-00001-of-00004.gguf
+      model: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/UD-Q5_K_M/Step-3.7-Flash-UD-Q5_K_M-00001-of-00004.gguf
   files:
     - filename: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/UD-Q5_K_M/Step-3.7-Flash-UD-Q5_K_M-00001-of-00004.gguf
       sha256: 87a5ae1d4ec56045181d6cbbb7991d909e300cde4717d6e6504bbdd985a3f19d
@@ -44977,13 +44977,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Step-3.7-Flash-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/UD-Q6_K/Step-3.7-Flash-UD-Q6_K-00001-of-00005.gguf
+      model: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/UD-Q6_K/Step-3.7-Flash-UD-Q6_K-00001-of-00005.gguf
   files:
     - filename: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/UD-Q6_K/Step-3.7-Flash-UD-Q6_K-00001-of-00005.gguf
       sha256: 8d64916e4c34dfffdbd30f788d90c0782eeb20979330eb642e0c2928b9f4250d
@@ -45013,13 +45013,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/Step-3.7-Flash-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/Q8_0/Step-3.7-Flash-Q8_0-00001-of-00006.gguf
+      model: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/Q8_0/Step-3.7-Flash-Q8_0-00001-of-00006.gguf
   files:
     - filename: llama-cpp/models/unsloth/Step-3.7-Flash-GGUF/Q8_0/Step-3.7-Flash-Q8_0-00001-of-00006.gguf
       sha256: 66e8a389e5dd943108f40fafca8970fd7edb76a96609550252839d0a67db9eb6
@@ -45052,13 +45052,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Quality.gguf
       sha256: 472828ccd00bcf52d6ca72e97d49526fd254371a90ae6a77505409e6e2bf3304
@@ -45076,13 +45076,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Balanced.gguf
       sha256: 0640553a14cd6010b285288e0d91d7c34811579a3e3ef0f7369e5c645e8e41b6
@@ -45100,13 +45100,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Compact.gguf
       sha256: 6af4e64b2060af7afa01aa44863e6192a215ee43379bd75bab4688e1f95d4212
@@ -45124,13 +45124,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Mini.gguf
       sha256: 1b0b1d3986e5213f291f04edb5910f33c975352ab1ab06b717ef3753da8e6b7a
@@ -45148,13 +45148,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Nano.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Nano.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-APEX-GGUF/gemma-4-26B-A4B-APEX-I-Nano.gguf
       sha256: 2629f050b2ed313b40b7290d3fda64dbd4ab948ccba55db4a5023ac7ed87d351
@@ -45172,13 +45172,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
+      model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
       sha256: f2c28b3dc4776931ac6f879e11f203dec637ea0f14267a86ec8f6165f63f293f
@@ -45196,13 +45196,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
+      model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
   files:
     - filename: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
       sha256: 769d386a69d43782321c1bad04d41d29a2e84b2c06e6a277cd99fd6265ec0e80
@@ -45220,13 +45220,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q6_K.gguf
+      model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q6_K.gguf
   files:
     - filename: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-UD-Q6_K.gguf
       sha256: 76bf3eee49cca5b076b34a4b575ecd505dabc470512b46f1207b4f9da08385f0
@@ -45244,13 +45244,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/unsloth/gemma-4-26B-A4B-it-GGUF/mmproj-BF16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q8_0.gguf
+      model: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q8_0.gguf
   files:
     - filename: llama-cpp/models/unsloth/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q8_0.gguf
       sha256: 5f7cbd0f4564e84342fc34321a09acb54b1a3da9215124e5bf444baa6dda152c
@@ -45268,13 +45268,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Quality.gguf
       sha256: 4b5a331ce4edaf1b286f269eb6db8d878ebd0c56fa9e0635be505c87867b673e
@@ -45292,13 +45292,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Balanced.gguf
       sha256: bf9377ea45ee44e920565be56326b2c356f00173ed8597260c32453f1fb9b935
@@ -45316,13 +45316,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Compact.gguf
       sha256: 05ae030d1a227ec8c3b438baa2e4a5916364ab7689399017b6954f55818108a0
@@ -45340,13 +45340,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Mini.gguf
       sha256: 15263c2222c6f202a114c1eab40cffb4de56c33932e5db292ccbd937b3179218
@@ -45364,13 +45364,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Quality.gguf
       sha256: 2def9529490558630809bdb1c9f3b82c6b8567409c850bbf4a3eeb5c35986de6
@@ -45388,13 +45388,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Balanced.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Balanced.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Balanced.gguf
       sha256: 964d8ce13421263198c06eff327e09c2533213605b298e8404f084a7103cc40b
@@ -45412,13 +45412,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Compact.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Compact.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Compact.gguf
       sha256: ff2e7a1f7949e80ec011dd60b32a0659272fbe7571090754e87f6ca042293c67
@@ -45436,13 +45436,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Mini.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Mini.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Mini.gguf
       sha256: 1dee90dc11557a249fd5799886c69a583fbcfd440ac6391dae569f94fd499f1c
@@ -45462,13 +45462,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Agents-A1-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Agents-A1-APEX-GGUF/Agents-A1-APEX-I-Quality.gguf
       sha256: c1bf8c3dcf08060f5d525d2026f6905894f245188593e8a53e2597590d30e52e
@@ -45492,11 +45492,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-MoE-35B-A3B-APEX-GGUF/Carnice-MoE-35B-A3B-APEX-I-Quality.gguf
       sha256: 5e4d97368f638edf06fd42014994f8a8e40e73ea42d960f00b602f0aa01a0e78
@@ -45517,11 +45517,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Carnice-Qwen3.6-MoE-35B-A3B-APEX-GGUF/Carnice-Qwen3.6-MoE-35B-A3B-APEX-I-Quality.gguf
       sha256: f1fef05db8f1fd8d6b346320af393e64ab91c837ec621c09f5bcf99ece837876
@@ -45547,11 +45547,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Darwin-36B-Opus-APEX-GGUF/Darwin-36B-Opus-APEX-I-Quality.gguf
       sha256: aee6e3629b68193680444f5cec3c288348c4b46047af3e5f9ff7d8dd3633df80
@@ -45573,11 +45573,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Gemopus-4-26B-A4B-it-Preview-APEX-GGUF/gemopus-4-26B-A4B-APEX-I-Quality.gguf
       sha256: 839f2a4df38758ad7db1bdf3e1bd06398429b119cd0fe2cc3dde1f5d133c766c
@@ -45599,13 +45599,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Holo3-35B-A3B-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Holo3-35B-A3B-APEX-GGUF/Holo3-35B-A3B-APEX-I-Quality.gguf
       sha256: 57ce61073d6f11798c8644bc04fbbd31397e9c2647aa911202ead521bcef8f93
@@ -45629,11 +45629,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Huihui3.5-67B-A3B-APEX-GGUF/Huihui3.5-67B-A3B-APEX-I-Quality.gguf
       sha256: 48755ebca7650a944ceb520da00ff9e77c97e52ec78b83ac9c428deba7fae6ed
@@ -45654,11 +45654,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/LFM2-24B-A2B-APEX-GGUF/LFM2-24B-A2B-APEX-I-Quality.gguf
       sha256: 0313aa47547d302ffd88c538d381145888b5b2bd739cf5058c8cdda81268992d
@@ -45679,11 +45679,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.5-APEX-GGUF/MiniMax-M2.5-APEX-I-Quality.gguf
       sha256: 54b4e8c0185aa6b58857dd7d64173e2a8760f6e4a144a45c906211d73a6f7eb8
@@ -45705,11 +45705,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/MiniMax-M2.7-APEX-GGUF/MiniMax-M2.7-APEX-I-Quality.gguf
       sha256: 1270f5ce024ff1444df43294c86124a7053cd7f4681b4ac7719f2c3a49834405
@@ -45736,13 +45736,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Mistral-Small-4-119B-2603-APEX-GGUF/Mistral-Small-4-119B-APEX-I-Quality.gguf
       sha256: 2832cb7ef12b934eebd9baec0dfcde3807cd5101237bdfc33f2b265e6283c860
@@ -45770,11 +45770,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/NVIDIA-Nemotron-3-Super-120B-A12B-APEX-GGUF/Nemotron-3-Super-120B-A12B-APEX-I-Quality.gguf
       sha256: d6eeef1836655ca3e04ddd851f22feb1dd23edb2599ac50db8326fcdcd21cd14
@@ -45799,11 +45799,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-30B-A3B-APEX-GGUF/Nemotron-3-Nano-30B-A3B-APEX-I-Quality.gguf
       sha256: 649ccc24aa75282cebf361638f149b056a6a9d022c574aa916d6b01f9296484e
@@ -45826,13 +45826,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-I-Quality.gguf
       sha256: aa1734147522810d52c6c59f269301eed98d34e50438475ab5544d7a6ee1821a
@@ -45859,13 +45859,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Nex-N2-mini-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Nex-N2-mini-APEX-GGUF/Nex-N2-mini-APEX-I-Quality.gguf
       sha256: 7f8895584cb494f7331cd81e67e898ab68100b94aed9725cf13653b1df9db8b1
@@ -45889,11 +45889,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-30B-APEX-GGUF/Qwen3-Coder-30B-APEX-I-Quality.gguf
       sha256: bf4d49e6f2e526436a29a9481aab7d8dc97987a9e446e2d395a83a0f12bd7134
@@ -45913,11 +45913,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3-Coder-Next-APEX-GGUF/Qwen3-Coder-Next-APEX-I-Quality.gguf
       sha256: a31e629119c0dea4d294cc3ed230e6aac72e552f36ba09218d71d82340b5b755
@@ -45943,13 +45943,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.5-35B-A3B-APEX-GGUF/mmproj-F16.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-I-Quality.gguf
       sha256: 5e0fa27a9b0841ca8fffc039c6a2e8d933f1d0be12369a14fd4abce090103f20
@@ -45977,11 +45977,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Claude-Distilled-APEX-GGUF/Qwen3.5-35B-A3B-Claude-Distilled-APEX-I-Quality.gguf
       sha256: 99ebd4c27e6957d75396fdccec79cf26f332ffd9503e95751785ed5352e54981
@@ -46002,11 +46002,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-GGUF/Qwen3.5-35B-A3B-Uncensored-FernflowerAI-APEX-I-Quality.gguf
       sha256: 6b145382be701da5cdc2f6c630a3543c47e54a114c160da5357d6b3ad2abf7ea
@@ -46029,13 +46029,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-GGUF/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-APEX-I-Quality.gguf
       sha256: 5785096c8c2c0e3fb3d59f5c1a429e7c6345ebd569b317a5356b142459119cf9
@@ -46066,13 +46066,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwen3.6-35B-A3B-uncensored-heretic-APEX-GGUF/Qwen3.6-35B-A3B-uncensored-heretic-APEX-I-Quality.gguf
       sha256: 667bd985a00bf5a47e5ba582f0bb573578e215c54b504525c13b8d4f573e5b59
@@ -46096,11 +46096,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/Qwopus-MoE-35B-A3B-APEX-I-Quality.gguf
       sha256: 36a7848c43b3c7db701aba61b71729e2a172da7b2c5338f5121d2c31f2ab86ee
@@ -46122,13 +46122,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Qwopus3.6-35B-A3B-Coder-APEX-GGUF/Qwopus3.6-35B-A3B-Coder-APEX-I-Quality.gguf
       sha256: b86b2398d38337b0485217d0be0a90ac32adec1d25ff9d2c4dfa84e1a826ebce
@@ -46156,11 +46156,11 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
+      - chat
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/Step-3.5-Flash-APEX-GGUF/Step-3.5-Flash-APEX-I-Quality.gguf
       sha256: e4fdf83cd3ad931ee0d0448104460c4685a0ee419002e6a7cdd217ff352a03c4
@@ -46182,13 +46182,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-Claude-Opus-Distill-APEX-GGUF/gemma-4-26B-A4B-Claude-Distill-APEX-I-Quality.gguf
       sha256: 4b5a331ce4edaf1b286f269eb6db8d878ebd0c56fa9e0635be505c87867b673e
@@ -46213,13 +46213,13 @@
   overrides:
     backend: llama-cpp
     known_usecases:
-        - chat
-        - vision
+      - chat
+      - vision
     mmproj: llama-cpp/mmproj/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/mmproj.gguf
     options:
-        - use_jinja:true
+      - use_jinja:true
     parameters:
-        model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Quality.gguf
+      model: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Quality.gguf
   files:
     - filename: llama-cpp/models/mudler/gemma-4-26B-A4B-it-heretic-APEX-GGUF/gemma-4-26B-A4B-heretic-APEX-I-Quality.gguf
       sha256: 2def9529490558630809bdb1c9f3b82c6b8567409c850bbf4a3eeb5c35986de6
