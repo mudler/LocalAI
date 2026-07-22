@@ -356,7 +356,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
 		SharedModels:     cfg.Distributed.SharedModels,
-		ModelLoadTimeout: cfg.Distributed.ModelLoadTimeoutOrDefault(),
+		// RAW, not OrDefault: zero means "derive the budget per model from the
+		// checkpoint size" (config.ModelLoadTimeoutForSize), which is what makes
+		// a 70 GB video checkpoint work without the operator first hitting a
+		// DeadlineExceeded and going looking for a knob. A non-zero value here is
+		// an explicit override and is used verbatim.
+		ModelLoadTimeout: cfg.Distributed.ModelLoadTimeout,
 		// Cap how long a cold load may hold the per-model advisory lock. Derived
 		// from BOTH configured budgets it has to cover, so raising either the
 		// install timeout (slow links pulling multi-GB images) or the model load

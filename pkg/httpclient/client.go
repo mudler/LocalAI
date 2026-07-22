@@ -121,9 +121,10 @@ func HardenedTransport() *http.Transport {
 }
 
 type options struct {
-	timeout         time.Duration
-	transport       http.RoundTripper
-	followRedirects bool
+	timeout               time.Duration
+	responseHeaderTimeout time.Duration
+	transport             http.RoundTripper
+	followRedirects       bool
 }
 
 // Option configures a client built by New.
@@ -138,6 +139,20 @@ func WithTimeout(d time.Duration) Option { return func(o *options) { o.timeout =
 // credential-injecting wrapper). The caller is responsible for the transport's
 // TLS configuration; base it on HardenedTransport to keep the TLS floor.
 func WithTransport(rt http.RoundTripper) Option { return func(o *options) { o.transport = rt } }
+
+// WithResponseHeaderTimeout bounds how long the transport waits for a
+// response's headers after the request has been written. Unlike WithTimeout it
+// does NOT bound the response body, so it is safe for long transfers: it only
+// catches a peer that accepts the connection and then never answers, which
+// would otherwise park Do() for the process lifetime.
+//
+// Opt-in rather than a default in HardenedTransport, because a streaming
+// endpoint may legitimately withhold headers until it has something to say (a
+// queued or slow-to-first-token completion), and capping that would break
+// streaming clients. Use it for request/response traffic and bulk downloads.
+func WithResponseHeaderTimeout(d time.Duration) Option {
+	return func(o *options) { o.responseHeaderTimeout = d }
+}
 
 // WithFollowRedirects opts into following redirects, while still stripping
 // credential headers on any cross-host hop. Use only when an endpoint legitimately
@@ -156,6 +171,14 @@ func New(opts ...Option) *http.Client {
 	rt := o.transport
 	if rt == nil {
 		rt = HardenedTransport()
+	}
+	// Only an *http.Transport carries the knob; a caller-supplied wrapper
+	// (bearer-token RoundTripper, IP-pinned dialer) is left untouched rather
+	// than silently ignored-with-a-lie, so it must set the field itself.
+	if o.responseHeaderTimeout > 0 {
+		if t, ok := rt.(*http.Transport); ok {
+			t.ResponseHeaderTimeout = o.responseHeaderTimeout
+		}
 	}
 
 	check := NoRedirect

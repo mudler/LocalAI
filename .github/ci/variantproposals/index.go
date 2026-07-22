@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mudler/LocalAI/.github/ci/galleryedit"
 )
 
 // File is the subset of a gallery file entry the proposer reads.
@@ -57,7 +59,6 @@ type Index struct {
 }
 
 var (
-	entryStart  = regexp.MustCompile(`^-(?: |$)`)
 	anchorStart = regexp.MustCompile(`^- &(\S+)`)
 	mergeStart  = regexp.MustCompile(`^- !!merge <<: \*(\S+)`)
 )
@@ -82,13 +83,7 @@ func ParseIndex(text string) (*Index, error) {
 		return nil, fmt.Errorf("decoding gallery index: %w", err)
 	}
 
-	lines := strings.Split(text, "\n")
-	var starts []int
-	for i, line := range lines {
-		if entryStart.MatchString(line) {
-			starts = append(starts, i)
-		}
-	}
+	lines, starts := galleryedit.Scan(text)
 	if len(starts) != len(entries) {
 		return nil, fmt.Errorf("gallery index has %d decoded entries but %d top level list items; refusing to edit by line number", len(entries), len(starts))
 	}

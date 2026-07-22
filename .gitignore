@@ -112,3 +112,10 @@ core/http/react-ui/test-results/
 # the realtime-conformance gate; only the .fizz sources are authoritative.
 formal-verification/*.json
 formal-verification/out/
+
+# `go build ./.github/ci/apexentries` drops a binary of the package name into
+# whatever directory it runs in, one `git add -A` away from being committed.
+# Both paths are anchored: an unanchored `apexentries` would also match the
+# package directory itself and untrack the source.
+/apexentries
+/.github/ci/apexentries/apexentries

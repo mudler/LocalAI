@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +21,6 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -106,8 +107,14 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	// attempt — the server uses it to detect mid-flight content drift and
 	// reject (409) if a partial upload claims a new identity, forcing a clean
 	// restart.
-	localHash, err := downloader.CalculateSHA(localPath)
+	localHash, err := hashFileWithActivity(ctx, localPath)
 	if err != nil {
+		if ctx.Err() != nil {
+			// The cold load was cancelled or expired while hashing. Uploading
+			// on a dead context can only fail, so surface it rather than
+			// pressing on without resume-safety.
+			return "", fmt.Errorf("hashing %s for upload to node %s: %w", localPath, nodeID, err)
+		}
 		// Hash failure isn't fatal — we can still upload; we just lose
 		// resume-safety and end-of-transfer integrity checks.
 		xlog.Warn("Failed to hash local file for upload integrity check", "localPath", localPath, "error", err)
@@ -461,7 +468,12 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 		return "", false
 	}
 
-	localHash, err := downloader.CalculateSHA(localPath)
+	// A 200 with a content hash is proof the worker is alive and serving right
+	// now, so it counts as progress in its own right — otherwise a long run of
+	// legitimately skipped shards accrues no activity at all.
+	observeLoadProgress(ctx)
+
+	localHash, err := hashFileWithActivity(ctx, localPath)
 	if err != nil {
 		return "", false
 	}
@@ -471,6 +483,59 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 	}
 
 	return remotePath, true
+}
+
+// hashChunkSize is how much of a file is hashed between activity ticks and
+// cancellation checks. 1 MiB is small enough that a cancelled cold load aborts
+// promptly even on a huge shard, and large enough that the per-chunk bookkeeping
+// is irrelevant next to the hashing itself.
+const hashChunkSize = 1 << 20
+
+// hashFileWithActivity computes a file's SHA-256 while reporting activity to the
+// cold-load deadline, and aborts if that deadline expires.
+//
+// Hashing is the long pole of the resumable-upload verify phase, which moves
+// zero upload bytes: the client HEADs the worker, hashes the local file to
+// confirm it matches, and skips the transfer. On the live cluster that measured
+// ~45s per ~4 GB shard, with six-plus consecutive minutes of no uploaded bytes.
+// A stall window watching only upload bytes would eventually mistake that for a
+// wedged worker — and precisely in the 600 GB case this machinery exists to
+// enable, where one shard can hash for longer than the window.
+//
+// Counting hash progress as progress is safe because it is bounded, terminating
+// work proportional to file size: it cannot make a dead transfer look alive
+// indefinitely. In probeExisting it also runs only after a successful HEAD
+// proved the worker was serving, and the absolute cap still bounds the whole
+// hold regardless.
+func hashFileWithActivity(ctx context.Context, path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+
+	h := sha256.New()
+	buf := make([]byte, hashChunkSize)
+	for {
+		// Checked per chunk: CalculateSHA consulted no context at all, so an
+		// expired cold load used to hash to completion and report the file as
+		// staged, turning a dead load into a silent success.
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		n, readErr := f.Read(buf)
+		if n > 0 {
+			h.Write(buf[:n])
+			observeLoadProgress(ctx)
+		}
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // progressReader wraps an io.Reader and logs upload progress periodically.

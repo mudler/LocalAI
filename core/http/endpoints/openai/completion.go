@@ -2,8 +2,8 @@ package openai
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -18,6 +18,18 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
+
+// validateStreamingPromptStrings enforces that a streaming completion request
+// resolves to exactly one prompt string. Malformed inputs — an omitted prompt,
+// an empty array, or an array whose elements do not reduce to a single string —
+// return a 400 error instead of panicking on PromptStrings[0] or opening a
+// half-written event stream (which Echo surfaces as a 500). See issue #11021.
+func validateStreamingPromptStrings(cfg *config.ModelConfig) error {
+	if len(cfg.PromptStrings) != 1 {
+		return echo.NewHTTPError(http.StatusBadRequest, "streaming completions require exactly one prompt string")
+	}
+	return nil
+}
 
 // CompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
 // @Summary Generate completions for a given prompt and model.
@@ -102,13 +114,17 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 		if input.Stream {
 			xlog.Debug("Stream request received")
+
+			// Validate before writing any SSE headers so a malformed request
+			// yields a 400 JSON error instead of a half-opened event stream
+			// (which Echo would otherwise surface as a 500). See issue #11021.
+			if err := validateStreamingPromptStrings(config); err != nil {
+				return err
+			}
+
 			c.Response().Header().Set("Content-Type", "text/event-stream")
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
-
-			if len(config.PromptStrings) > 1 {
-				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
-			}
 
 			// Response/output PII redaction is out of scope for now —
 			// redaction runs request-side via the NER middleware only.

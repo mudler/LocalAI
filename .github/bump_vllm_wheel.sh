@@ -9,6 +9,9 @@
 # vars in Makefiles; this script handles the two-value rewrite specific to the
 # vLLM requirements file.
 set -xe
+
+source "$(dirname "${BASH_SOURCE[0]}")/gh_curl.sh"
+
 REPO=$1   # vllm-project/vllm
 FILE=$2   # backend/python/vllm/requirements-cublas13-after.txt
 VAR=$3    # VLLM_VERSION (used for output file names so the workflow can read them)
@@ -19,7 +22,7 @@ if [ -z "$FILE" ] || [ -z "$REPO" ] || [ -z "$VAR" ]; then
 fi
 
 # /releases/latest returns the most recent non-prerelease tag.
-LATEST_TAG=$(curl -sS -H "Accept: application/vnd.github+json" \
+LATEST_TAG=$(gh_curl -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/$REPO/releases/latest" \
     | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
 
