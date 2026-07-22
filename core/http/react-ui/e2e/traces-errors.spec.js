@@ -3,7 +3,7 @@ import { test, expect } from './coverage-fixtures.js'
 test.describe('Traces - Error Display', () => {
   test.beforeEach(async ({ page }) => {
     // Mock API traces with sample data so the table renders
-    await page.route('**/api/traces', (route) => {
+    await page.route('**/api/traces?*', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([
@@ -16,7 +16,7 @@ test.describe('Traces - Error Display', () => {
       })
     })
     // Mock backend traces with sample data
-    await page.route('**/api/backend-traces', (route) => {
+    await page.route('**/api/backend-traces?*', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([
@@ -59,10 +59,10 @@ test.describe('Traces - Error Display', () => {
 // uncovered, dragging UI line coverage below the regression gate.
 test.describe('Traces - vector_store backend trace detail', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/traces', (route) => {
+    await page.route('**/api/traces?*', (route) => {
       route.fulfill({ contentType: 'application/json', body: '[]' })
     })
-    await page.route('**/api/backend-traces', (route) => {
+    await page.route('**/api/backend-traces?*', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([

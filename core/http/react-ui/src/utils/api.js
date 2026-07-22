@@ -210,10 +210,29 @@ export const backendLogsApi = {
 }
 
 // Traces API
+//
+// The list endpoints return a bounded page with the heavy request/response
+// bodies stripped; the total buffered count arrives in X-Total-Count and the
+// full record is fetched per trace when a row is expanded. Polling the
+// unbounded form used to move tens of megabytes every few seconds.
+export const DEFAULT_TRACE_PAGE_SIZE = 50
+
+async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offset = 0, full = false } = {}) {
+  const response = await fetch(buildUrl(endpoint, { limit, offset, full: full ? 'true' : undefined }), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const items = await handleResponse(response)
+  const list = Array.isArray(items) ? items : []
+  const total = parseInt(response.headers.get('X-Total-Count') || '', 10)
+  return { items: list, total: Number.isNaN(total) ? list.length : total }
+}
+
 export const tracesApi = {
-  get: () => fetchJSON(API_CONFIG.endpoints.traces),
+  get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
+  getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
-  getBackend: () => fetchJSON(API_CONFIG.endpoints.backendTraces),
+  getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
+  getBackendOne: (id) => fetchJSON(API_CONFIG.endpoints.backendTrace(id)),
   clearBackend: () => postJSON(API_CONFIG.endpoints.clearBackendTraces, {}),
 }
 
