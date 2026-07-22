@@ -1,9 +1,11 @@
 package importers_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	. "github.com/onsi/ginkgo/v2"
@@ -59,6 +61,12 @@ func TestImporters(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	restore := importers.SetHuggingFaceMetadataFactoryForTest(func() importers.HuggingFaceMetadata { return fixtures })
-	DeferCleanup(restore)
+	restoreMetadata := importers.SetHuggingFaceMetadataFactoryForTest(func() importers.HuggingFaceMetadata { return fixtures })
+	restoreMTP := importers.SetMTPProbeForTest(func(context.Context, string) (*gguf.GGUFFile, error) {
+		return nil, errors.New("remote GGUF probing disabled in fixture-backed importer tests")
+	})
+	DeferCleanup(func() {
+		restoreMTP()
+		restoreMetadata()
+	})
 })

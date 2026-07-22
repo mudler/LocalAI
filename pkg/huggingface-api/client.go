@@ -96,21 +96,49 @@ type Client struct {
 	maxRetries   int
 	retryBackoff time.Duration
 	maxBackoff   time.Duration
-	sleepFn      func(time.Duration)
+	clock        Clock
+}
+
+// Clock is the small portion of wall-clock time used by retry handling.
+// Supplying a fake clock lets tests verify backoff behavior without sleeping.
+type Clock interface {
+	Now() time.Time
+	Sleep(time.Duration)
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time        { return time.Now() }
+func (realClock) Sleep(d time.Duration) { time.Sleep(d) }
+
+// ClientOption configures a Hugging Face API client.
+type ClientOption func(*Client)
+
+// WithClock replaces the clock used for retry delays.
+func WithClock(clock Clock) ClientOption {
+	return func(client *Client) {
+		if clock != nil {
+			client.clock = clock
+		}
+	}
 }
 
 var ErrRateLimited = errors.New("huggingface API rate limited")
 
 // NewClient creates a new Hugging Face API client
-func NewClient() *Client {
-	return &Client{
+func NewClient(options ...ClientOption) *Client {
+	client := &Client{
 		baseURL:      "https://huggingface.co/api/models",
 		client:       httpclient.New(httpclient.WithFollowRedirects()),
 		maxRetries:   5,
 		retryBackoff: 1 * time.Second,
 		maxBackoff:   30 * time.Second,
-		sleepFn:      time.Sleep,
+		clock:        realClock{},
 	}
+	for _, option := range options {
+		option(client)
+	}
+	return client
 }
 
 func (c *Client) newRequest(ctx context.Context, method, rawURL, token string) (*http.Request, error) {
@@ -143,7 +171,7 @@ func (c *Client) SearchModels(params SearchParams) ([]Model, error) {
 		resp, err := c.client.Do(req)
 		if err != nil {
 			if attempt < c.maxRetries {
-				c.sleepFn(c.exponentialBackoff(attempt))
+				c.clock.Sleep(c.exponentialBackoff(attempt))
 				continue
 			}
 			return nil, fmt.Errorf("failed to make request: %w", err)
@@ -154,7 +182,7 @@ func (c *Client) SearchModels(params SearchParams) ([]Model, error) {
 				return nil, fmt.Errorf("failed to close response body: %w", err)
 			}
 			if c.isRetryableStatus(resp.StatusCode) && attempt < c.maxRetries {
-				c.sleepFn(c.retryDelay(resp, attempt))
+				c.clock.Sleep(c.retryDelay(resp, attempt))
 				continue
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
@@ -199,7 +227,7 @@ func (c *Client) retryDelay(resp *http.Response, attempt int) time.Duration {
 			return delay
 		}
 		if at, err := http.ParseTime(retryAfter); err == nil {
-			delay := time.Until(at)
+			delay := at.Sub(c.clock.Now())
 			if delay > 0 {
 				if delay > c.maxBackoff {
 					return c.maxBackoff
