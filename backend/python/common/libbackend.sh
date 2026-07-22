@@ -398,39 +398,52 @@ function ensureVenv() {
 function runProtogen() {
     ensureVenv
 
-    # Match grpcio-tools to the grpcio already installed by the backend's
-    # requirements. grpcio and grpcio-tools are released in lockstep, and the
-    # protoc that grpcio-tools bundles stamps a Protobuf "gencode" version into
-    # backend_pb2.py. Left unpinned, `uv pip install grpcio-tools` pulls the
-    # newest release, whose newer gencode (e.g. 7.35.0) trips Protobuf's
-    # runtime >= gencode guarantee at import time when a backend caps the
-    # protobuf runtime lower (vLLM pins it to 6.33.6), crashing the backend with
-    # "grpc service not ready" before it ever loads a model. Pinning
-    # grpcio-tools to the installed grpcio version keeps the gencode in step with
-    # the runtime. Backends whose protobuf runtime trails grpcio can set
-    # GRPCIO_TOOLS_VERSION to the newest generator their runtime accepts. Falls
-    # back to unpinned when grpcio isn't installed yet.
-    # See mudler/LocalAI#10718.
-    local grpcio_tools_spec="grpcio-tools"
-    local grpcio_version
-    if [ -n "${GRPCIO_TOOLS_VERSION:-}" ]; then
-        grpcio_tools_spec="grpcio-tools==${GRPCIO_TOOLS_VERSION}"
-    else
-        grpcio_version="$(python -c 'import importlib.metadata as m; print(m.version("grpcio"))' 2>/dev/null || true)"
-    fi
-    if [ "${grpcio_tools_spec}" = "grpcio-tools" ] && [ -n "${grpcio_version}" ]; then
-        grpcio_tools_spec="grpcio-tools==${grpcio_version}"
+    # The protoc that grpcio-tools bundles stamps a Protobuf "gencode" version
+    # into backend_pb2.py, and Protobuf refuses to import a stub whose gencode is
+    # newer than the installed runtime. The generator therefore has to be chosen
+    # from the *protobuf runtime* in the venv, not from grpcio: grpcio-tools
+    # tracks grpcio's version, but the gencode it emits tracks protobuf's, and the
+    # two move independently (grpcio-tools 1.82.1 requires protobuf>=7.35.1 and
+    # emits gencode 7.35.0, while vLLM resolves the runtime to 6.33.6, and the
+    # mismatch crashes the backend with "grpc service not ready" before it ever
+    # loads a model).
+    #
+    # Constrain the install to the protobuf already present and let the resolver
+    # pick the newest grpcio-tools compatible with it. That both selects a
+    # generator whose gencode the runtime accepts and stops the install from
+    # moving the runtime out from under the rest of the backend's dependencies.
+    # Falls back to unpinned when protobuf isn't installed yet.
+    # See mudler/LocalAI#10718, #10940.
+    local -a grpcio_tools_spec=("grpcio-tools")
+    local protobuf_version
+    protobuf_version="$(python -c 'import importlib.metadata as m; print(m.version("protobuf"))' 2>/dev/null || true)"
+    if [ -n "${protobuf_version}" ]; then
+        grpcio_tools_spec=("grpcio-tools" "protobuf==${protobuf_version}")
     fi
 
     if [ "x${USE_PIP}" == "xtrue" ]; then
-        pip install "${grpcio_tools_spec}"
+        pip install "${grpcio_tools_spec[@]}"
     else
-        uv pip install "${grpcio_tools_spec}"
+        uv pip install "${grpcio_tools_spec[@]}"
     fi
     pushd "${EDIR}" >/dev/null
+        # Drop the cached bytecode along with the sources. CPython validates a
+        # .pyc against the source's mtime *and size*, both of which can be
+        # unchanged across a regeneration (the gencode triple is the same width
+        # whether it reads 7.35.0 or 6.33.5), so a stale backend_pb2.pyc can be
+        # reused in place of the stub we just generated.
         rm -f backend_pb2.py backend_pb2.pyi backend_pb2_grpc.py
+        rm -rf __pycache__
         # use the venv python (ensures correct interpreter & sys.path)
         python -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
+
+        # Fail the build rather than ship a backend that cannot import its own
+        # stubs. Without this the gencode/runtime mismatch only surfaces at model
+        # load time, in a released image, as an opaque "grpc service not ready".
+        if ! python -c 'import backend_pb2' >/dev/null; then
+            echo "runProtogen: generated stubs are not importable against the installed protobuf runtime (${protobuf_version:-unknown})" >&2
+            exit 1
+        fi
     popd >/dev/null
 }
 
