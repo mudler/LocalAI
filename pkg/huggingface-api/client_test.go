@@ -14,14 +14,28 @@ import (
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
 
+type fakeClock struct {
+	now    time.Time
+	sleeps []time.Duration
+}
+
+func (c *fakeClock) Now() time.Time { return c.now }
+
+func (c *fakeClock) Sleep(d time.Duration) {
+	c.sleeps = append(c.sleeps, d)
+	c.now = c.now.Add(d)
+}
+
 var _ = Describe("HuggingFace API Client", func() {
 	var (
 		client *hfapi.Client
 		server *httptest.Server
+		clock  *fakeClock
 	)
 
 	BeforeEach(func() {
-		client = hfapi.NewClient()
+		clock = &fakeClock{now: time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)}
+		client = hfapi.NewClient(hfapi.WithClock(clock))
 	})
 
 	AfterEach(func() {
@@ -211,14 +225,35 @@ var _ = Describe("HuggingFace API Client", func() {
 				Search:    "GGUF",
 			}
 
-			start := time.Now()
 			models, err := client.SearchModels(params)
-			elapsed := time.Since(start)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(0))
 			Expect(attempts).To(Equal(2))
-			Expect(elapsed).To(BeNumerically(">=", 900*time.Millisecond))
+			Expect(clock.sleeps).To(Equal([]time.Duration{time.Second}))
+		})
+
+		It("should calculate HTTP-date Retry-After using the injected clock", func() {
+			attempts := 0
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				attempts++
+				if attempts == 1 {
+					w.Header().Set("Retry-After", clock.now.Add(2*time.Second).Format(http.TimeFormat))
+					w.WriteHeader(http.StatusTooManyRequests)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, err := w.Write([]byte("[]"))
+				Expect(err).ToNot(HaveOccurred())
+			}))
+			client.SetBaseURL(server.URL)
+
+			models, err := client.SearchModels(hfapi.SearchParams{Search: "GGUF"})
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(BeEmpty())
+			Expect(attempts).To(Equal(2))
+			Expect(clock.sleeps).To(Equal([]time.Duration{2 * time.Second}))
 		})
 
 		It("should fail fast on non-retryable 4xx responses", func() {
@@ -267,6 +302,9 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(errors.Is(err, hfapi.ErrRateLimited)).To(BeTrue())
 			Expect(err.Error()).To(ContainSubstring("Status code: 429"))
 			Expect(models).To(BeNil())
+			Expect(clock.sleeps).To(Equal([]time.Duration{
+				time.Second, time.Second, time.Second, time.Second,
+			}))
 		})
 	})
 
@@ -355,6 +393,9 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to make request"))
 			Expect(models).To(BeNil())
+			Expect(clock.sleeps).To(Equal([]time.Duration{
+				time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second,
+			}))
 		})
 	})
 
