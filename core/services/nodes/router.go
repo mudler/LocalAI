@@ -105,6 +105,12 @@ type SmartRouterOptions struct {
 	// arriving, so a peer trickling bytes forever cannot pin the advisory lock
 	// indefinitely. Zero selects modelLoadAbsoluteMax (24h).
 	ModelLoadAbsoluteMax time.Duration
+	// CompanionOptionsFor re-derives a model's managed companion options from its
+	// current config (backend.CompanionArtifactOptions). The reconciler replays a
+	// stored ModelOptions blob that never runs grpcModelOpts; without this a
+	// companion resolved after the blob was captured never reaches a scaled-up
+	// replica. nil disables re-derivation.
+	CompanionOptionsFor func(modelName string) []string
 }
 
 // modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
@@ -187,6 +193,13 @@ type SmartRouter struct {
 	// hard countdown into a progress-extended hold (see load_deadline.go).
 	stagingStallWindow   time.Duration
 	modelLoadAbsoluteMax time.Duration
+	// companionOptionsFor re-derives a model's managed companion options from its
+	// CURRENT config. The reconciler's scale-up path replays a stored ModelOptions
+	// proto blob that never runs grpcModelOpts, so a companion resolved AFTER that
+	// blob was captured would otherwise never reach the replica. nil disables the
+	// re-derivation (single-node and tests that don't wire it). See
+	// SmartRouterOptions.CompanionOptionsFor.
+	companionOptionsFor func(modelName string) []string
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -238,6 +251,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		// ceiling, so nothing to normalize here.
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
+		companionOptionsFor:  opts.CompanionOptionsFor,
 	}
 }
 
@@ -448,6 +462,39 @@ func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, r
 	}
 }
 
+// applyCompanionOptions merges a model's freshly re-derived managed companion
+// options into opts.Options, adding only those the blob does not already carry.
+// Merge, not replace: an option the blob already has (including an author-pinned
+// one) wins, so this only ever ADDS a missing companion. No-op when no resolver
+// is wired (single-node) or opts is nil.
+func (r *SmartRouter) applyCompanionOptions(modelName string, opts *pb.ModelOptions) {
+	if r.companionOptionsFor == nil || opts == nil {
+		return
+	}
+	present := make(map[string]struct{}, len(opts.Options))
+	for _, opt := range opts.Options {
+		if name, _, found := strings.Cut(opt, ":"); found {
+			present[name] = struct{}{}
+		}
+	}
+	for _, opt := range r.companionOptionsFor(modelName) {
+		name, _, found := strings.Cut(opt, ":")
+		if !found {
+			continue
+		}
+		if _, exists := present[name]; exists {
+			continue
+		}
+		// Debug (not info): a correctly-captured blob already carries the option,
+		// so this only fires on the rarer stale-blob recovery — worth surfacing to
+		// an operator tracing a companion, but not on every replay.
+		xlog.Debug("reconciler injecting companion option missing from the stored blob",
+			"model", modelName, "option", opt)
+		opts.Options = append(opts.Options, opt)
+		present[name] = struct{}{}
+	}
+}
+
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.
 // It retrieves stored model options from an existing replica and performs the
 // full load sequence (stage files, LoadModel, SetNodeModel) on a new node.
@@ -469,6 +516,12 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 	if err := proto.Unmarshal(optsBlob, &modelOpts); err != nil {
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
+
+	// Re-derive managed companion options from the CURRENT config and merge in any
+	// the stored blob is missing. This path replays a proto blob captured at first
+	// load and never runs grpcModelOpts, so a companion resolved after the blob was
+	// captured would otherwise never reach the scaled-up replica.
+	r.applyCompanionOptions(modelName, &modelOpts)
 
 	// initialInFlight=0: reconciler is pre-loading, not serving a request.
 	// scheduleAndLoad picks both the node and the replica slot internally.

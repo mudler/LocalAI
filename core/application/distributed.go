@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -377,6 +378,22 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			cfg.Distributed.BackendInstallTimeoutOrDefault(),
 			cfg.Distributed.ModelLoadTimeoutOrDefault(),
 		),
+		// Re-derive managed companion options from the model's current config when
+		// the reconciler replays a stored ModelOptions blob (which never runs
+		// grpcModelOpts). Without this, a replica scaled up from a blob captured
+		// before the companion resolved loads without the companion option and the
+		// backend fetches its own wrong default. nil-safe: an unknown model or a
+		// config with no companions yields no options.
+		CompanionOptionsFor: func(modelName string) []string {
+			if configLoader == nil {
+				return nil
+			}
+			modelCfg, ok := configLoader.GetModelConfig(modelName)
+			if !ok {
+				return nil
+			}
+			return backend.CompanionArtifactOptions(modelCfg)
+		},
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every
