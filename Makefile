@@ -408,7 +408,7 @@ test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='!Distributed' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 	$(MAKE) clean-mock-backend
 	$(MAKE) clean-cloud-proxy-backend
 	$(MAKE) teardown-e2e

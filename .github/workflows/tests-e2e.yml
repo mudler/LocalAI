@@ -52,9 +52,12 @@ jobs:
           node-version: '22'
       - name: Build React UI
         run: make react-ui
+      - name: Record declared distributed test resources
+        run: LOCALAI_TEST_RESOURCES_ONLINE=1 make update-offline-test-cache TEST_RESOURCE_SET=distributed-e2e
       - name: Test Backend E2E
         run: |
           PATH="$PATH:$HOME/go/bin" make build-mock-backend test-e2e
+          PATH="$PATH:$HOME/go/bin" make test-e2e-distributed
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23

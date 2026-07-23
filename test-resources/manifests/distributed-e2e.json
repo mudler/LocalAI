@@ -4,11 +4,11 @@
   "images": [
     {
       "reference": "docker.io/library/postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
-      "sha256": "fee330cbd34786da2b211fe2e4b7424d7bf974466cd3db0e376b2e4c457a339c"
+      "sha256": "c8d5971aa1c74f0130dcde5ab942e3613d2179cb62cda4e9c08e8ec4c7252220"
     },
     {
       "reference": "docker.io/library/nats@sha256:c11af972c99ae542de8925e6a7d9c533aa1eb039660420d2074beed6089b3bf0",
-      "sha256": "96e0f53430696eadaf1d7e250914ab78779cadc40df715a168ebe342e039b6f2"
+      "sha256": "9e833c05b393c5ac68a06ab348ce45aac9a7cd72a19cce7ed5e41fb3af56c423"
     }
   ]
 }

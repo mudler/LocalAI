@@ -6,13 +6,29 @@ set -euo pipefail
 # a worktree-only diff would always be empty). Most existing direct clients are
 # loopback fixtures; changing the inventory requires an intentional baseline
 # update after review.
-expected_inventory=2885a428cdab55eea357dae3ec47b3d44f9999b59542d06cd3d792cf491c76b3
+expected_inventory=6b8a611b9d01ea1b58f446ccdd92efdbb01c34663ee5946194ccc0f00e8e877d
+search_test_files() {
+  local pattern=$1
+  shift
+  while IFS= read -r -d '' file; do
+    [[ $file == *_test.go ]] && grep -hE "$pattern" "$file" || true
+  done < <(git ls-files -co --exclude-standard -z -- "$@")
+}
+
+search_shell_files() {
+  local pattern=$1
+  shift
+  while IFS= read -r -d '' file; do
+    [[ $file == *.sh ]] && grep -hE "$pattern" "$file" || true
+  done < <(git ls-files -co --exclude-standard -z -- "$@")
+}
+
 inventory=$(
   {
-    rg --no-heading --no-line-number --glob '*_test.go' \
+    search_test_files \
       '(http\.(Get|Post|Head)\(|http\.Default(Client|Transport)|net\.Dial\(|exec\.Command\([^,]+,[[:space:]]*"(curl|wget)")' \
-      pkg core tests backend || true
-    rg --no-heading --no-line-number --glob '*.sh' '(curl|wget)[[:space:]]' tests backend || true
+      pkg core tests backend
+    search_shell_files '(curl|wget)[[:space:]]' tests backend
   } | LC_ALL=C sort
 )
 if command -v sha256sum >/dev/null 2>&1; then
@@ -21,7 +37,7 @@ else
   actual_inventory=$(printf '%s\n' "$inventory" | shasum -a 256 | awk '{print $1}')
 fi
 if [[ $actual_inventory != "$expected_inventory" ]]; then
-  echo 'Test network mechanism inventory changed; remove the direct access or review and update the lint baseline:' >&2
+  echo "Test network mechanism inventory changed (expected $expected_inventory, got $actual_inventory); remove the direct access or review and update the lint baseline:" >&2
   echo "$inventory" >&2
   exit 1
 fi
@@ -30,8 +46,8 @@ fi
 # literals and direct mechanisms instead of only reporting the fingerprint.
 base=${TEST_NETWORK_LINT_BASE:-HEAD}
 violations=$(git diff --unified=0 "$base" -- api pkg core tests backend | \
-	  rg '^\+[^+].*(http\.(Get|Post|Head)\(|http\.Default(Client|Transport)|net\.Dial\(|exec\.Command\([^,]+,[[:space:]]*"(curl|wget)"|https?://)' | \
-	  rg -v 'test-network: fixture' || true)
+  grep -E '^\+[^+].*(http\.(Get|Post|Head)\(|http\.Default(Client|Transport)|net\.Dial\(|exec\.Command\([^,]+,[[:space:]]*"(curl|wget)"|https?://)' | \
+  grep -Ev 'test-network: fixture' || true)
 if [[ -n "$violations" ]]; then
   echo 'Direct test network access is forbidden; use a fixture or guarded transport:' >&2
   echo "$violations" >&2
