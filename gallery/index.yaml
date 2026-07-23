@@ -1,4 +1,70 @@
 ---
+- name: "qwen3.6-35b-a3b-uncensored-genesis-hermes-v5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V5-GGUF
+  description: |
+    # Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive
+
+    > **Join the Discord** for updates, roadmaps, projects, or just to chat.
+
+    Qwen3.6-35B-A3B uncensored by HauhauCS. **0/465 Refusals.**
+
+    > **HuggingFace's "Hardware Compatibility" widget doesn't recognize K_P quants** — it may show fewer files than actually exist. Click **"View +X variants"** or go to **Files and versions** to see all available downloads.
+
+    ## About
+
+    No changes to datasets or capabilities. Fully functional, 100% of what the original authors intended - just without the refusals.
+
+    These are meant to be the best lossless uncensored models out there.
+
+    ## Aggressive Variant
+
+    Stronger uncensoring — model is fully unlocked and won't refuse prompts. May occasionally append short disclaimers (baked into base model training, not refusals) but full content is always generated.
+
+    For a more conservative uncensor that keeps some safety guardrails, check the Balanced variant when it's available.
+
+    ## Downloads
+
+    All quants generated with importance matrix (imatrix) for optimal quality preservation on abliterated weights.
+
+    ## What are K_P quants?
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P.gguf
+      sha256: 80e9ef9748bb32b67eeebae49493d876d43f627bc0e6917c20ebaa9f9088c7c2
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V5-GGUF/resolve/main/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V5-Q8_K_P/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V5-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
