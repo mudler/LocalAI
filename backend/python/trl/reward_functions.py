@@ -5,10 +5,24 @@ All reward functions follow TRL's signature: (completions, **kwargs) -> list[flo
 """
 
 import json
+import os
 import re
 import math
 import string
 import functools
+
+
+# Opt-in flag for inline reward code. Compiling a caller-supplied Python body
+# is arbitrary code execution: the _SAFE_BUILTINS allowlist below is NOT a
+# security boundary — expressions like ().__class__.__bases__[0].__subclasses__()
+# escape it trivially to reach os.system. Since the fine-tuning endpoint is
+# unauthenticated by default, inline reward functions are disabled unless the
+# operator explicitly opts in by setting this env var to a truthy value.
+ALLOW_INLINE_ENV = "LOCALAI_TRL_ALLOW_INLINE_REWARD"
+
+
+def _inline_rewards_allowed():
+    return os.environ.get(ALLOW_INLINE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +238,14 @@ def build_reward_functions(specs_json):
             reward_funcs.append(func)
 
         elif spec_type == "inline":
+            if not _inline_rewards_allowed():
+                raise ValueError(
+                    f"Inline reward function '{name}' rejected: inline reward code "
+                    f"executes arbitrary Python and is disabled by default. Set "
+                    f"{ALLOW_INLINE_ENV}=true on the backend to enable it (only on a "
+                    f"trusted, access-controlled instance), or use a builtin reward "
+                    f"function instead."
+                )
             code = spec.get("code", "")
             if not code.strip():
                 raise ValueError(f"Inline reward function '{name}' has no code")
