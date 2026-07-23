@@ -342,6 +342,15 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr,
 			"payloadBytes", payloadBytes, "loadBudget", loadTimeout)
 
+		// The exact option strings that cross to the worker. A managed companion
+		// (e.g. longcat-video's base_model) rides here as a key:value option, and
+		// its absence is otherwise invisible until the backend fails far away
+		// having fetched the wrong weights. Logged at debug so a load that
+		// "downloaded the base model" can be traced to whether the option was
+		// present in what the worker actually received.
+		xlog.Debug("Remote LoadModel options", "node", node.Name, "model", modelName,
+			"options", loadOpts.Options, "modelPath", loadOpts.ModelPath, "modelFile", loadOpts.ModelFile)
+
 		// The cold-load hold above this call extends on STAGING progress, and
 		// the remote LoadModel reports none — so once the last byte lands the
 		// hold expires a stall window later and would cancel a load that is

@@ -113,11 +113,34 @@ var _ = Describe("companion artifact backend options", func() {
 		Expect(opts.Options).To(Equal([]string{"attention_backend:sdpa"}))
 	})
 
-	It("skips a companion that has not been resolved yet", func() {
+	It("names the source repository when the companion is not resolved yet", func() {
+		// A companion that reaches load time WITHOUT a resolved snapshot must not
+		// vanish silently: emitting no option lets the backend fall back to its own
+		// hardcoded default, which is how a distributed longcat-video worker ended
+		// up trying to load the wrong base model and failing "base_model must point
+		// to a LongCat-Video checkpoint". Naming the DECLARED repository instead
+		// points the backend at the artifact the config actually asked for. The
+		// snapshot path (the staged, no-download fast path) is still preferred
+		// whenever the companion IS resolved.
 		cfg := configWithCompanion()
 		cfg.Artifacts[1].Resolved = nil
 		opts := grpcModelOpts(cfg, "/models")
-		_, found := optionValue(opts.Options, "base_model")
-		Expect(found).To(BeFalse())
+
+		value, found := optionValue(opts.Options, "base_model")
+		Expect(found).To(BeTrue())
+		Expect(value).To(Equal("meituan-longcat/LongCat-Video"))
+		// The fallback is a repo reference, never a models-relative snapshot path.
+		Expect(value).ToNot(ContainSubstring(".artifacts"))
+	})
+
+	It("prefers the resolved snapshot path over the source repository", func() {
+		opts := grpcModelOpts(configWithCompanion(), "/models")
+		value, found := optionValue(opts.Options, "base_model")
+		Expect(found).To(BeTrue())
+		expected, err := modelartifacts.RelativeSnapshotPath(companionKey)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(value).To(Equal(expected))
+		// The resolved fast path must never degrade to a bare repo id.
+		Expect(value).ToNot(Equal("meituan-longcat/LongCat-Video"))
 	})
 })

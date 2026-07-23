@@ -294,6 +294,13 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 //
 // An option the author set explicitly always wins: pinning a companion to a
 // local checkout has to beat the managed snapshot.
+//
+// A companion that is declared but NOT resolved falls back to its source
+// repository id rather than being dropped: a dropped companion is invisible to
+// the backend, which then loads its own hardcoded default and fails far away
+// from the cause. The repo-id fallback trades the staging fast path (the weights
+// are fetched on the worker) for correctness, and logs a warning so the missing
+// controller-side resolution is diagnosable.
 func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.Spec) []string {
 	configured := make(map[string]struct{}, len(options))
 	for _, option := range options {
@@ -306,19 +313,46 @@ func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.S
 	// reallocate away from) the config's own slice.
 	combined := slices.Clone(options)
 	for _, artifact := range artifacts {
-		if artifact.Target != modelartifacts.TargetCompanion || artifact.Resolved == nil {
+		if artifact.Target != modelartifacts.TargetCompanion {
 			continue
 		}
 		if _, exists := configured[artifact.Name]; exists {
 			xlog.Debug("keeping the configured companion option over the managed snapshot", "artifact", artifact.Name)
 			continue
 		}
-		snapshot, err := modelartifacts.RelativeSnapshotPath(artifact.Resolved.CacheKey)
-		if err != nil {
-			xlog.Warn("skipping companion artifact with an unusable cache key", "artifact", artifact.Name, "error", err)
+
+		// Preferred fast path: a resolved companion is surfaced as its staged,
+		// models-relative snapshot directory. Staging materializes exactly this
+		// path on a remote worker and the backend resolves it under its own
+		// ModelPath, so the weights are never fetched again at load time.
+		if artifact.Resolved != nil {
+			if snapshot, err := modelartifacts.RelativeSnapshotPath(artifact.Resolved.CacheKey); err == nil {
+				xlog.Debug("surfacing resolved companion snapshot to the backend", "artifact", artifact.Name, "path", snapshot)
+				combined = append(combined, artifact.Name+":"+snapshot)
+				continue
+			} else {
+				xlog.Warn("companion artifact has an unusable cache key; falling back to its source repository", "artifact", artifact.Name, "error", err)
+			}
+		}
+
+		// Fallback: the companion reached load time without a resolved snapshot
+		// (its resolved state never made it into the config the loader is serving
+		// from, e.g. after a controller restart or a peer-replica config reload).
+		// Emitting nothing here is what makes the failure so hard to see: the
+		// backend then falls back to its OWN hardcoded default companion, which on
+		// a distributed longcat-video worker meant fetching the wrong base model
+		// and failing "base_model must point to a LongCat-Video checkpoint". Name
+		// the DECLARED repository instead, so the backend at least fetches the
+		// artifact the config actually asked for. It is a warn because it means the
+		// no-download fast path was lost: the controller-side materialization or
+		// persistence for this companion needs investigating.
+		if repo := strings.TrimSpace(artifact.Source.Repo); repo != "" {
+			xlog.Warn("companion artifact is not resolved on the controller; the backend will fetch it by repository id (no staging fast path)",
+				"artifact", artifact.Name, "repo", repo)
+			combined = append(combined, artifact.Name+":"+repo)
 			continue
 		}
-		combined = append(combined, artifact.Name+":"+snapshot)
+		xlog.Warn("companion artifact is neither resolved nor has a source repository; the backend will get no option for it", "artifact", artifact.Name)
 	}
 	return combined
 }
