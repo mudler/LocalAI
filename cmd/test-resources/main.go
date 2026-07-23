@@ -3,6 +3,7 @@
 package main
 
 import (
+	"archive/tar"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -150,14 +151,19 @@ func update(target, manifestDir, cacheDir string) error {
 			return err
 		}
 	}
-	for _, resource := range manifest.Images {
-		if err := pullAndPack(resource.Reference, resource.SHA256, cacheDir); err != nil {
+	for i := range manifest.Images {
+		digest, err := pullAndPack(manifest.Images[i].Reference, cacheDir)
+		if err != nil {
 			return err
 		}
+		manifest.Images[i].SHA256 = digest
 	}
 	bundlePath := filepath.Join(cacheDir, "bundles", target+".tar.zst")
 	digest, err := testresources.PackBundle(cacheDir, bundlePath, manifest)
 	if err != nil {
+		return err
+	}
+	if err := testresources.WriteManifest(filepath.Join(manifestDir, target+".json"), manifest); err != nil {
 		return err
 	}
 	lockPath := filepath.Join(manifestDir, "lock.json")
@@ -272,24 +278,93 @@ func storeVerified(reader io.Reader, expected, cacheDir string) (int64, error) {
 	return size, nil
 }
 
-func pullAndPack(reference, expected, cacheDir string) error {
+func pullAndPack(reference, cacheDir string) (string, error) {
 	if !strings.Contains(reference, "@sha256:") {
-		return fmt.Errorf("refusing mutable image reference %s", reference)
+		return "", fmt.Errorf("refusing mutable image reference %s", reference)
 	}
 	if err := exec.Command("docker", "pull", reference).Run(); err != nil {
-		return fmt.Errorf("pull image %s: %w", reference, err)
+		return "", fmt.Errorf("pull image %s: %w", reference, err)
 	}
 	cmd := exec.Command("docker", "save", reference)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := cmd.Start(); err != nil {
-		return err
+		return "", err
 	}
-	_, storeErr := storeVerified(stdout, expected, cacheDir)
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		return "", err
+	}
+	normalized, err := os.CreateTemp(cacheDir, ".docker-save-*.tar")
+	if err != nil {
+		return "", err
+	}
+	normalizedName := normalized.Name()
+	defer func() { _ = os.Remove(normalizedName) }()
+	normalizeErr := normalizeDockerArchive(stdout, normalized)
 	waitErr := cmd.Wait()
-	return errors.Join(storeErr, waitErr)
+	closeErr := normalized.Close()
+	if err := errors.Join(normalizeErr, waitErr, closeErr); err != nil {
+		return "", err
+	}
+	input, err := os.Open(normalizedName)
+	if err != nil {
+		return "", err
+	}
+	digest, _, storeErr := storeContentAddressed(input, cacheDir)
+	return digest, errors.Join(storeErr, input.Close())
+}
+
+func normalizeDockerArchive(reader io.Reader, writer io.Writer) error {
+	tr := tar.NewReader(reader)
+	tw := tar.NewWriter(writer)
+	for {
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		stable := *header
+		stable.Uid, stable.Gid = 0, 0
+		stable.Uname, stable.Gname = "", ""
+		stable.ModTime = time.Unix(0, 0).UTC()
+		stable.AccessTime, stable.ChangeTime = time.Time{}, time.Time{}
+		stable.PAXRecords, stable.Xattrs = nil, nil
+		if err := tw.WriteHeader(&stable); err != nil {
+			return err
+		}
+		if _, err := io.Copy(tw, tr); err != nil {
+			return err
+		}
+	}
+	return tw.Close()
+}
+
+func storeContentAddressed(reader io.Reader, cacheDir string) (string, int64, error) {
+	directory := filepath.Join(cacheDir, "blobs", "sha256")
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return "", 0, err
+	}
+	temporary, err := os.CreateTemp(directory, ".record-*")
+	if err != nil {
+		return "", 0, err
+	}
+	name := temporary.Name()
+	defer func() { _ = os.Remove(name) }()
+	hash := sha256.New()
+	size, copyErr := io.Copy(io.MultiWriter(temporary, hash), reader)
+	closeErr := temporary.Close()
+	if err := errors.Join(copyErr, closeErr); err != nil {
+		return "", 0, err
+	}
+	digest := fmt.Sprintf("%x", hash.Sum(nil))
+	if err := os.Rename(name, testresources.BlobPath(cacheDir, digest)); err != nil {
+		return "", 0, err
+	}
+	return digest, size, nil
 }
 
 func preparationError(target string, err error) error {

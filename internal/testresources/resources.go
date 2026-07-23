@@ -81,7 +81,15 @@ func LoadLock(path string) (Lock, error) {
 }
 
 func WriteLock(path string, lock Lock) error {
-	data, err := json.MarshalIndent(lock, "", "  ")
+	return writeJSON(path, lock)
+}
+
+func WriteManifest(path string, manifest Manifest) error {
+	return writeJSON(path, manifest)
+}
+
+func writeJSON(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}
