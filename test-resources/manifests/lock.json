@@ -3,9 +3,9 @@
   "bundles": {
     "aio": "sha256:03b05eedb51c853b0f05f2f3f592e2edc210e337388d3ff5a766680c0a166e55",
     "backend": "embedded",
-    "default": "sha256:185ebd3cfb994b9c1d1d1d9fad0a5d95c9de698b45e010276db388a9d66474bd",
+    "default": "sha256:533e2744151ce8a4df3a9b0ba073222135f17c3e2ee0e5cfeddfb836f41efbca",
     "default-darwin": "embedded",
-    "distributed-e2e": "sha256:797dad68952914bf6612a42486086aa45eb17112067bec9955e2f5cf65a030dc",
+    "distributed-e2e": "sha256:524db2b4cedb091c0604eaf6dcd7b0d73fd84e3b262405b6cdb98df099f54965",
     "external-probes": "embedded",
     "hardware": "embedded"
   }
