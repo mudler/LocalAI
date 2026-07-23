@@ -10,9 +10,18 @@ import (
 	"strings"
 )
 
+// maxVisitDepth bounds recursion in visit(). Client-supplied schemas can
+// contain cyclic $ref chains (e.g. "A": {"$ref": "#/$defs/A"}) which would
+// otherwise recurse until the goroutine stack is exhausted, crashing the whole
+// process with a fatal "stack overflow". A legitimate function-calling schema
+// nests far shallower than this.
+// ponytail: flat depth cap, switch to per-ref cycle tracking if real schemas ever exceed it
+const maxVisitDepth = 100
+
 type JSONSchemaConverter struct {
 	propOrder map[string]int
 	rules     Rules
+	depth     int
 }
 
 func NewJSONSchemaConverter(propOrder string) *JSONSchemaConverter {
@@ -60,6 +69,12 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 }
 
 func (sc *JSONSchemaConverter) visit(schema map[string]any, name string, rootSchema map[string]any) (string, error) {
+	sc.depth++
+	defer func() { sc.depth-- }()
+	if sc.depth > maxVisitDepth {
+		return "", fmt.Errorf("schema recursion depth exceeded %d (possible cyclic $ref)", maxVisitDepth)
+	}
+
 	st, existType := schema["type"]
 	var schemaType string
 	var schemaTypes []string

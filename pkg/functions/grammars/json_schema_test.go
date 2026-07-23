@@ -548,6 +548,20 @@ realvalue
 	})
 })
 
+var _ = Describe("JSON schema cyclic $ref (issue #11020)", func() {
+	It("errors instead of crashing on a self-referencing $ref", func() {
+		// "A" references itself, so a naive converter recurses until the
+		// goroutine stack overflows and takes down the whole process.
+		const cyclic = `{
+			"$defs": {"A": {"$ref": "#/$defs/A"}},
+			"oneOf": [{"type": "object", "properties": {"x": {"$ref": "#/$defs/A"}}}]
+		}`
+		_, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(cyclic))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("recursion depth"))
+	})
+})
+
 var _ = Describe("JSON schema property ordering (issue #10052)", func() {
 	// A function-call shaped schema. The grammar must honor the configured
 	// properties_order. Before the fix, the sort guard `aOrder != 0 && bOrder != 0`
