@@ -3,12 +3,6 @@ set -e
 
 EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
 
-# grpcio 1.82 bundles protoc 7.x, while vLLM's resolved protobuf runtime is
-# still 6.33.x. Generate the backend stubs with the newest grpcio-tools release
-# that emits protobuf 6.x gencode; the newer grpcio runtime can consume those
-# stubs, but protobuf 6.x cannot import 7.x gencode.
-export GRPCIO_TOOLS_VERSION="1.78.0"
-
 # Avoid to overcommit the CPU during build
 # https://github.com/vllm-project/vllm/issues/20079
 # https://docs.vllm.ai/en/v0.8.3/serving/env_vars.html
@@ -265,3 +259,11 @@ elif [ "x${BUILD_TYPE}" == "x" ] && [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
 else
     installRequirements
 fi
+
+# installRequirements generates the protobuf stubs at the end of its own run, but
+# most branches above install vllm *after* it, and vllm re-resolves the protobuf
+# runtime when it lands. Stubs generated against the pre-vllm runtime can end up
+# newer than the runtime that finally ships, which is exactly the gencode 7.35.0 /
+# runtime 6.33.6 crash in mudler/LocalAI#10718. Regenerate once the dependency set
+# is final; runProtogen clears the previous stubs first, so this is idempotent.
+runProtogen
