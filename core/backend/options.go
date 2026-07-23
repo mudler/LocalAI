@@ -294,6 +294,13 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 //
 // An option the author set explicitly always wins: pinning a companion to a
 // local checkout has to beat the managed snapshot.
+//
+// A companion that is declared but NOT resolved falls back to its source
+// repository id rather than being dropped: a dropped companion is invisible to
+// the backend, which then loads its own hardcoded default and fails far away
+// from the cause. The repo-id fallback trades the staging fast path (the weights
+// are fetched on the worker) for correctness, and logs a warning so the missing
+// controller-side resolution is diagnosable.
 func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.Spec) []string {
 	configured := make(map[string]struct{}, len(options))
 	for _, option := range options {
@@ -301,26 +308,71 @@ func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.S
 			configured[name] = struct{}{}
 		}
 	}
-
 	// Copy before appending: opts.Options would otherwise share (and could
 	// reallocate away from) the config's own slice.
-	combined := slices.Clone(options)
+	return append(slices.Clone(options), ManagedCompanionOptions(artifacts, configured)...)
+}
+
+// ManagedCompanionOptions synthesizes the "<artifact name>:<value>" option for
+// every companion artifact whose name is not already in `configured`, so callers
+// can append them to a ModelOptions.Options slice. It is exported because the
+// distributed reconciler replays a stored proto blob that never runs
+// grpcModelOpts, and it must re-derive the same companion options from the
+// current config so a scaled-up replica gets them too.
+//
+// A resolved companion is surfaced as its staged, models-relative snapshot
+// directory (the no-download fast path a remote worker resolves under its own
+// ModelPath). A companion that reached load time WITHOUT a resolved snapshot
+// falls back to its source repository id rather than being dropped: dropping it
+// is invisible to the backend, which then loads its OWN hardcoded default and
+// fails far from the cause (a distributed longcat-video worker fetched the wrong
+// base model and failed "base_model must point to a LongCat-Video checkpoint").
+func ManagedCompanionOptions(artifacts []modelartifacts.Spec, configured map[string]struct{}) []string {
+	var out []string
 	for _, artifact := range artifacts {
-		if artifact.Target != modelartifacts.TargetCompanion || artifact.Resolved == nil {
+		if artifact.Target != modelartifacts.TargetCompanion {
 			continue
 		}
-		if _, exists := configured[artifact.Name]; exists {
-			xlog.Debug("keeping the configured companion option over the managed snapshot", "artifact", artifact.Name)
+		if configured != nil {
+			if _, exists := configured[artifact.Name]; exists {
+				xlog.Debug("keeping the configured companion option over the managed snapshot", "artifact", artifact.Name)
+				continue
+			}
+		}
+
+		if artifact.Resolved != nil {
+			if snapshot, err := modelartifacts.RelativeSnapshotPath(artifact.Resolved.CacheKey); err == nil {
+				out = append(out, artifact.Name+":"+snapshot)
+				continue
+			} else {
+				xlog.Warn("companion artifact has an unusable cache key; falling back to its source repository", "artifact", artifact.Name, "error", err)
+			}
+		}
+
+		if repo := strings.TrimSpace(artifact.Source.Repo); repo != "" {
+			xlog.Warn("companion artifact is not resolved on the controller; the backend will fetch it by repository id (no staging fast path)",
+				"artifact", artifact.Name, "repo", repo)
+			out = append(out, artifact.Name+":"+repo)
 			continue
 		}
-		snapshot, err := modelartifacts.RelativeSnapshotPath(artifact.Resolved.CacheKey)
-		if err != nil {
-			xlog.Warn("skipping companion artifact with an unusable cache key", "artifact", artifact.Name, "error", err)
-			continue
-		}
-		combined = append(combined, artifact.Name+":"+snapshot)
+		xlog.Warn("companion artifact is neither resolved nor has a source repository; the backend will get no option for it", "artifact", artifact.Name)
 	}
-	return combined
+	return out
+}
+
+// CompanionArtifactOptions returns the managed companion options a model's
+// current config would contribute, skipping any companion name the config
+// already pins in Options. It is the reconciler's entry point for re-deriving
+// companion options when it replays a stored ModelOptions blob (which predates,
+// and so cannot carry, a companion resolved after that blob was captured).
+func CompanionArtifactOptions(c config.ModelConfig) []string {
+	configured := make(map[string]struct{}, len(c.Options))
+	for _, option := range c.Options {
+		if name, _, found := strings.Cut(option, ":"); found {
+			configured[name] = struct{}{}
+		}
+	}
+	return ManagedCompanionOptions(c.Artifacts, configured)
 }
 
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
