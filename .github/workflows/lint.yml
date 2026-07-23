@@ -61,7 +61,7 @@ jobs:
       # The backend matrix path filter fails silently: a miss emits an empty
       # matrix, every job goes green, and the change reaches no image (#10946).
       # Its tests need only node, so they ride along with this job.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
       - name: run CI script tests
