@@ -34,6 +34,8 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
+      - name: Download Go modules
+        run: go mod download
       - name: Proto Dependencies
         run: |
           # Install protoc
@@ -111,6 +113,8 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
+      - name: Download Go modules
+        run: go mod download
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg
