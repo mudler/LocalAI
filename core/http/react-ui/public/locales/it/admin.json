@@ -23,6 +23,7 @@
       "agents": "Job degli agenti",
       "agentpool": "Pool agenti",
       "assistant": "LocalAI Assistant",
+      "distributed": "Distribuito",
       "responses": "Risposte"
     }
   },

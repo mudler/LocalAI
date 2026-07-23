@@ -10,7 +10,15 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 )
 
-func persistArtifactBinding(fileName, modelName string, result modelartifacts.Result) error {
+// persistArtifactBinding writes the resolved artifact set back into a model's
+// config document. It replaces the whole `artifacts:` list, so the caller must
+// pass EVERY artifact the model declares — the primary and all companions — not
+// just the one that triggered the write. Persisting only the primary silently
+// dropped companions from disk, and on the next controller restart the reloaded
+// config had no companion at all: withCompanionArtifactOptions then synthesized
+// no companion option and a remote backend fell back to fetching the companion
+// repo itself, failing the load (the distributed longcat-video base_model bug).
+func persistArtifactBinding(fileName, modelName string, artifacts []modelartifacts.Spec) error {
 	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
@@ -24,7 +32,7 @@ func persistArtifactBinding(fileName, modelName string, result modelartifacts.Re
 		return err
 	}
 	artifactValue := &yaml.Node{}
-	encoded, err := yaml.Marshal([]modelartifacts.Spec{result.Spec})
+	encoded, err := yaml.Marshal(artifacts)
 	if err != nil {
 		return err
 	}

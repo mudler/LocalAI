@@ -26,6 +26,7 @@ const SECTIONS = [
   { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)' },
   { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)' },
   { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)' },
+  { id: 'distributed', icon: 'fa-server', color: 'var(--color-accent)' },
   { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)' },
 ]
 
@@ -636,6 +637,18 @@ export default function Settings() {
             <div className="card">
               <SettingRow label="Enabled" description="Allow admins to opt chat sessions into the in-process admin tool surface. Disabling refuses new requests with the localai_assistant flag; takes effect without restart.">
                 <Toggle checked={settings.localai_assistant_enabled ?? true} onChange={(v) => update('localai_assistant_enabled', v)} />
+              </SettingRow>
+            </div>
+          </div>
+
+          {/* Distributed mode */}
+          <div ref={el => sectionRefs.current.distributed = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <i className="fas fa-server" style={{ color: 'var(--color-accent)' }} /> {t('settings.sections.distributed')}
+            </h3>
+            <div className="card">
+              <SettingRow label="Disk headroom check" description="Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. Free space is measured on each worker's models filesystem and compared against the model's own size plus a small margin. Turning this off restores selection that ignores free disk; the check still runs and warns when it would have rejected every node. Takes effect without restart.">
+                <Toggle checked={settings.distributed_disk_headroom_check ?? true} onChange={(v) => update('distributed_disk_headroom_check', v)} />
               </SettingRow>
             </div>
           </div>

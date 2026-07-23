@@ -117,6 +117,13 @@ type fakeModelRouter struct {
 	loadedReplicaStatsByName map[string][]ReplicaCandidate
 	loadedReplicaStatsErr    error
 
+	// NarrowByDiskHeadroom returns. Default (zero value) passes the candidate
+	// set through untouched, matching a cluster with ample free disk.
+	narrowByDiskIDs []string
+	narrowByDiskErr error
+	// Free bytes demanded by each NarrowByDiskHeadroom call, in call order.
+	narrowByDiskRequired []uint64
+
 	// Track calls for assertions
 	decrementCalls []string // "nodeID:modelName"
 	incrementCalls []string
@@ -229,6 +236,17 @@ func (f *fakeModelRouter) FindNodesWithFreeSlot(_ context.Context, _ string, _ [
 	// Default: same answer as FindNodesBySelector. Tests that need a
 	// specific filter can override by reusing findBySelectorNodes.
 	return f.findBySelectorNodes, f.findBySelectorErr
+}
+
+func (f *fakeModelRouter) NarrowByDiskHeadroom(_ context.Context, candidateNodeIDs []string, required uint64) ([]string, error) {
+	f.narrowByDiskRequired = append(f.narrowByDiskRequired, required)
+	if f.narrowByDiskErr != nil {
+		return nil, f.narrowByDiskErr
+	}
+	if f.narrowByDiskIDs != nil {
+		return f.narrowByDiskIDs, nil
+	}
+	return candidateNodeIDs, nil
 }
 
 func (f *fakeModelRouter) ReserveVRAM(_ context.Context, _ string, _ uint64) error {

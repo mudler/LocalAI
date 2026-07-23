@@ -50,7 +50,14 @@ type ApplicationConfig struct {
 	DynamicConfigsDirPollInterval time.Duration
 	CORS                          bool
 	DisableCSRF                   bool
-	PreloadJSONModels             string
+	// DisableHTTPCompression turns off the gzip response middleware. Gzip is
+	// on by default because the React UI bundle and the admin JSON APIs are
+	// text-heavy; turn it off only when a fronting proxy already compresses.
+	DisableHTTPCompression bool
+	// HTTPCompressionMinLength is the response-size floor (bytes) below which
+	// gzip is skipped. 0 keeps middleware.DefaultCompressionMinLength.
+	HTTPCompressionMinLength int
+	PreloadJSONModels        string
 	PreloadModelsFromPath         string
 	CORSAllowOrigins              string
 	ApiKeys                       []string
@@ -379,6 +386,18 @@ func WithP2PNetworkID(s string) AppOption {
 func WithDisableCSRF(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableCSRF = b
+	}
+}
+
+func WithDisableHTTPCompression(b bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableHTTPCompression = b
+	}
+}
+
+func WithHTTPCompressionMinLength(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.HTTPCompressionMinLength = n
 	}
 }
 

@@ -435,12 +435,15 @@ func (bcl *ModelConfigLoader) PreloadWithContext(ctx context.Context, modelPath 
 			bcl.Unlock()
 			continue
 		}
-		if artifactResult != nil && bindingNeedsPersistence(current, *artifactResult) && current.modelConfigFile != "" {
+		// Persist the WHOLE resolved artifact set (primary + every companion),
+		// not just the primary result: writing back only the primary dropped
+		// companions from disk and lost them on the next restart.
+		if artifactResult != nil && bindingNeedsPersistence(current, updated.Artifacts) && current.modelConfigFile != "" {
 			modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
 				Phase:    modelartifacts.PhasePersisting,
 				Artifact: artifactResult.Spec.Name,
 			})
-			if err := persistArtifactBinding(current.modelConfigFile, current.Name, *artifactResult); err != nil {
+			if err := persistArtifactBinding(current.modelConfigFile, current.Name, updated.Artifacts); err != nil {
 				bcl.Unlock()
 				return err
 			}
@@ -549,8 +552,14 @@ func (bcl *ModelConfigLoader) preloadOne(
 	return updated, artifactResult, nil
 }
 
-func bindingNeedsPersistence(current ModelConfig, result modelartifacts.Result) bool {
-	return len(current.Artifacts) == 0 || !reflect.DeepEqual(current.Artifacts[0], result.Spec)
+// bindingNeedsPersistence reports whether the freshly resolved artifact set
+// differs from what is currently on the config, and so has to be written back.
+// It compares the WHOLE set, not just the primary: a companion that resolved
+// for the first time (or changed) must trigger a write even when the primary is
+// unchanged, or its resolved state would never reach disk and would be lost on
+// the next restart.
+func bindingNeedsPersistence(current ModelConfig, resolved []modelartifacts.Spec) bool {
+	return !reflect.DeepEqual(current.Artifacts, resolved)
 }
 
 func (bcl *ModelConfigLoader) displayPreloadedModel(config ModelConfig) {

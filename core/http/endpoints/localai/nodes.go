@@ -84,6 +84,12 @@ type RegisterNodeRequest struct {
 	AvailableVRAM uint64 `json:"available_vram,omitempty"`
 	TotalRAM      uint64 `json:"total_ram,omitempty"`
 	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	// TotalDisk / AvailableDisk describe the filesystem backing the worker's
+	// MODELS directory (where staged weights land), not the root filesystem.
+	// Omitted by workers that predate the fields; the scheduler treats
+	// total_disk == 0 as "unknown" and leaves such a node in rotation.
+	TotalDisk     uint64 `json:"total_disk,omitempty"`
+	AvailableDisk uint64 `json:"available_disk,omitempty"`
 	GPUVendor     string `json:"gpu_vendor,omitempty"`
 	// GPUComputeCapability is the worker GPU's compute capability ("major.minor",
 	// e.g. "12.1" for GB10). Used by the router for per-arch option tuning.
@@ -176,6 +182,8 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			AvailableVRAM:        req.AvailableVRAM,
 			TotalRAM:             req.TotalRAM,
 			AvailableRAM:         req.AvailableRAM,
+			TotalDisk:            req.TotalDisk,
+			AvailableDisk:        req.AvailableDisk,
 			GPUVendor:            req.GPUVendor,
 			GPUComputeCapability: req.GPUComputeCapability,
 			Capability:           req.Capability,
@@ -372,7 +380,8 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		_ = c.Bind(&update) // best-effort — empty body is fine
 
 		var updatePtr *nodes.HeartbeatUpdate
-		if update.AvailableVRAM != nil || update.TotalVRAM != nil || update.AvailableRAM != nil || update.GPUVendor != "" {
+		if update.AvailableVRAM != nil || update.TotalVRAM != nil || update.AvailableRAM != nil ||
+			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" {
 			updatePtr = &update
 		}
 
@@ -521,9 +530,7 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 			CancelFunc:         cancelFunc,
 		}
 		galleryService.StoreCancellation(jobID, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		xlog.Info("Node-scoped backend install dispatched", "node", nodeID, "backend", req.Backend, "uri", req.URI, "jobID", jobID)
 		return c.JSON(http.StatusAccepted, map[string]string{
@@ -586,9 +593,7 @@ func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opca
 			CancelFunc:         cancelFunc,
 		}
 		galleryService.StoreCancellation(jobID, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		xlog.Info("Node-scoped backend upgrade dispatched", "node", nodeID, "backend", req.Backend, "jobID", jobID)
 		return c.JSON(http.StatusAccepted, map[string]string{

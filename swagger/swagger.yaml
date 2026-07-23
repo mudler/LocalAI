@@ -3093,8 +3093,24 @@ paths:
       - monitoring
   /api/backend-traces:
     get:
-      description: Returns captured backend traces (LLM calls, embeddings, TTS, etc.)
-        in reverse chronological order
+      description: Returns a bounded, newest-first page of captured backend traces
+        (LLM calls, embeddings, TTS, etc). The heavy body and data fields are omitted
+        unless full=true; fetch them per-trace from /api/backend-traces/{id}. Paging
+        metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit
+        headers.
+      parameters:
+      - description: Maximum entries to return (default 50, max 1000, 0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of entries to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include the body and data payloads (default false)
+        in: query
+        name: full
+        type: boolean
       produces:
       - application/json
       responses:
@@ -3104,6 +3120,31 @@ paths:
             additionalProperties: true
             type: object
       summary: List backend operation traces
+      tags:
+      - monitoring
+  /api/backend-traces/{id}:
+    get:
+      description: Returns a single captured backend trace, including the body and
+        data payloads omitted from the list response
+      parameters:
+      - description: Trace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Backend operation trace
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one backend operation trace
       tags:
       - monitoring
   /api/backend-traces/clear:
@@ -3628,8 +3669,23 @@ paths:
       - router
   /api/traces:
     get:
-      description: Returns captured API exchange traces (request/response pairs) in
-        reverse chronological order
+      description: Returns a bounded, newest-first page of captured API exchange traces.
+        Request and response bodies plus headers are omitted unless full=true; fetch
+        them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count,
+        X-Trace-Offset and X-Trace-Limit headers.
+      parameters:
+      - description: Maximum entries to return (default 50, max 1000, 0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of entries to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include request/response bodies and headers (default false)
+        in: query
+        name: full
+        type: boolean
       produces:
       - application/json
       responses:
@@ -3639,6 +3695,31 @@ paths:
             additionalProperties: true
             type: object
       summary: List API request/response traces
+      tags:
+      - monitoring
+  /api/traces/{id}:
+    get:
+      description: Returns a single captured API exchange, including the request and
+        response bodies omitted from the list response
+      parameters:
+      - description: Trace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Traced API exchange
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one API trace
       tags:
       - monitoring
   /api/traces/clear:

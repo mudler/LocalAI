@@ -23,6 +23,7 @@
       "agents": "Agent Job",
       "agentpool": "Agent Pool",
       "assistant": "Asisten LocalAI",
+      "distributed": "Terdistribusi",
       "responses": "Respons"
     }
   },

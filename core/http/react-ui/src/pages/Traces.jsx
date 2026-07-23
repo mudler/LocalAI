@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { tracesApi, settingsApi } from '../utils/api'
+import { tracesApi, settingsApi, DEFAULT_TRACE_PAGE_SIZE } from '../utils/api'
 import { formatDateTime } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
@@ -9,6 +9,10 @@ import ResponsiveTable from '../components/ResponsiveTable'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
+
+// How many traces the page keeps on screen. The server buffer holds far more;
+// the counters next to the tab labels report the true total.
+const TRACE_PAGE_SIZE = DEFAULT_TRACE_PAGE_SIZE
 
 const AUDIO_DATA_KEYS = new Set([
   'audio_wav_base64', 'audio_duration_s', 'audio_snippet_s',
@@ -373,6 +377,9 @@ export default function Traces() {
   const [backendCount, setBackendCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [expandedRow, setExpandedRow] = useState(null)
+  // detail holds the full record for the currently expanded row, fetched on
+  // demand from /api/traces/:id (the list response omits the bodies).
+  const [detail, setDetail] = useState(null)
   const [sort, setSort] = useState({ key: null, dir: 'asc' })
   const [tracingEnabled, setTracingEnabled] = useState(null)
 
@@ -435,17 +442,18 @@ export default function Traces() {
     }
   }
 
+  // Only a bounded page is fetched, and the server strips the request /
+  // response bodies from list entries — the full record is pulled per row on
+  // expand. The unbounded form was a multi-megabyte transfer on every poll.
   const fetchTraces = useCallback(async () => {
     try {
-      const [apiData, backendData] = await Promise.all([
-        tracesApi.get(),
-        tracesApi.getBackend(),
+      const [apiPage, backendPage] = await Promise.all([
+        tracesApi.get({ limit: TRACE_PAGE_SIZE }),
+        tracesApi.getBackend({ limit: TRACE_PAGE_SIZE }),
       ])
-      const api = Array.isArray(apiData) ? apiData : []
-      const backend = Array.isArray(backendData) ? backendData : []
-      setApiCount(api.length)
-      setBackendCount(backend.length)
-      setTraces(activeTab === 'api' ? api : backend)
+      setApiCount(apiPage.total)
+      setBackendCount(backendPage.total)
+      setTraces(activeTab === 'api' ? apiPage.items : backendPage.items)
     } catch (err) {
       // Tracing disabled is the default state, not an error — the in-page banner covers it.
       const disabled = /disabled|not enabled|404|not found/i.test(err?.message || '')
@@ -460,8 +468,30 @@ export default function Traces() {
   useEffect(() => {
     setLoading(true)
     setExpandedRow(null)
+    setDetail(null)
     fetchTraces()
   }, [fetchTraces])
+
+  // Expanding a row pulls the full record (bodies, data fields, audio
+  // snippets) that the list response deliberately omits.
+  const toggleRow = useCallback(async (index, row) => {
+    if (expandedRow === index) {
+      setExpandedRow(null)
+      setDetail(null)
+      return
+    }
+    setExpandedRow(index)
+    setDetail(null)
+    if (!row?.id) return
+    try {
+      const full = activeTab === 'api'
+        ? await tracesApi.getOne(row.id)
+        : await tracesApi.getBackendOne(row.id)
+      setDetail(full)
+    } catch {
+      // Fall back to the summary view; the row still renders what it has.
+    }
+  }, [expandedRow, activeTab])
 
   // Auto-refresh every 5 seconds
   useEffect(() => {
@@ -475,14 +505,26 @@ export default function Traces() {
       else await tracesApi.clearBackend()
       setTraces([])
       setExpandedRow(null)
+      setDetail(null)
       addToast('Traces cleared', 'success')
     } catch (err) {
       addToast(`Failed to clear: ${err.message}`, 'error')
     }
   }
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(traces, null, 2)], { type: 'application/json' })
+  // Export asks for the full payloads explicitly — the on-screen list only
+  // holds summaries, and an export without bodies would be useless.
+  const handleExport = async () => {
+    let rows = traces
+    try {
+      const page = activeTab === 'api'
+        ? await tracesApi.get({ limit: TRACE_PAGE_SIZE, full: true })
+        : await tracesApi.getBackend({ limit: TRACE_PAGE_SIZE, full: true })
+      rows = page.items
+    } catch (err) {
+      addToast(`Exporting summaries only: ${err.message}`, 'error')
+    }
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -492,7 +534,7 @@ export default function Traces() {
   }
 
   // Reset sort + expansion when switching trace tabs (columns differ).
-  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedRow(null) }, [activeTab])
+  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedRow(null); setDetail(null) }, [activeTab])
 
   const sortedTraces = sort.key && TRACE_SORT[sort.key]
     ? [...traces].sort((a, b) => sort.dir === 'asc' ? TRACE_SORT[sort.key](a, b) : TRACE_SORT[sort.key](b, a))
@@ -643,7 +685,7 @@ export default function Traces() {
             <tbody>
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
-                  <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
+                  <tr onClick={() => toggleRow(i, trace)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
@@ -658,7 +700,7 @@ export default function Traces() {
                   {expandedRow === i && (
                     <tr>
                       <td colSpan="6" style={{ padding: 0 }}>
-                        <ApiTraceDetail trace={trace} />
+                        <ApiTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
                       </td>
                     </tr>
                   )}
@@ -682,7 +724,7 @@ export default function Traces() {
             <tbody>
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
-                  <tr onClick={() => setExpandedRow(expandedRow === i ? null : i)} style={{ cursor: 'pointer' }}>
+                  <tr onClick={() => toggleRow(i, trace)} style={{ cursor: 'pointer' }}>
                     <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
                     <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{formatDateTime(trace.timestamp)}</td>
@@ -700,7 +742,7 @@ export default function Traces() {
                   {expandedRow === i && (
                     <tr>
                       <td colSpan="7" style={{ padding: 0 }}>
-                        <BackendTraceDetail trace={trace} />
+                        <BackendTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
                       </td>
                     </tr>
                   )}

@@ -25,12 +25,13 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
-2. If no node has the model → prefer nodes with enough free VRAM
-3. Fall back to idle nodes (zero models), then least-loaded nodes
-4. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
-5. If all models are busy → wait (with timeout) for a model to become idle, then evict
-6. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
-7. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
+2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom))
+3. If no node has the model → prefer nodes with enough free VRAM
+4. Fall back to idle nodes (zero models), then least-loaded nodes
+5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
+6. If all models are busy → wait (with timeout) for a model to become idle, then evict
+7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
+8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
 
 Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
 
@@ -68,6 +69,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
+| `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
@@ -456,6 +458,39 @@ curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
 ```
 
 The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "advanced/vram-management#vram-budget-allocation-ceiling" %}}).
+
+### Disk headroom
+
+Model weights are **staged onto the worker's disk** before the backend loads them, so a node needs free space as well as free VRAM. Each worker reports the capacity of the filesystem backing its **models directory** (`--models-path`), not the root filesystem, on registration and on every heartbeat. Those figures appear as `total_disk` and `available_disk` in the nodes API and as **Models disk free** on the node detail page.
+
+Before placing a model, the SmartRouter removes any node whose models filesystem cannot hold it. The requirement is derived from the model's actual on-disk size plus a small margin (5%, at least 1 GiB), rather than a fixed percentage of the node's disk — a fixed threshold would take a small-but-usable node out of rotation for models it could comfortably store. When the model's size cannot be determined locally (a bare HuggingFace repo id that the worker fetches itself), the node only has to clear a 2 GiB floor.
+
+If **no** node has enough space, the request fails immediately with a capacity error naming the requirement and each node's free space, for example:
+
+```
+scheduling longcat-video-avatar-1.5: no node has enough free disk for the model:
+need 73.5 GB free on the models filesystem, but nvidia-thor has 0 B free of 937.0 GB
+```
+
+This is deliberately a scheduling-time verdict. Without it, a worker with a full disk still reported `status: healthy`, accepted the staging request, transferred tens of gigabytes and only then failed with `no space left on device` — minutes after a decision that could never have succeeded.
+
+Workers that predate this feature (or whose disk reading fails) report `total_disk` as `0`. Such nodes are treated as *unknown*, not *full*, and stay in rotation, so a rolling upgrade never empties the candidate pool. A full disk is distinguishable because it reports a non-zero `total_disk` with `available_disk` at `0`.
+
+Low disk does **not** mark a node `unhealthy`. Disk is compared per model rather than against a global threshold, so a node that is too small for one model remains a valid target for smaller ones. The check is also skipped entirely in [shared-models mode](#shared-models-directory), where nothing is staged to the worker at all.
+
+#### Turning the check off
+
+The check is **on by default**. To disable it, start the frontend with `--distributed-disk-headroom-check=false` / `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK=false`, or toggle **Settings → Distributed → Disk headroom check** in the WebUI (`distributed_disk_headroom_check` via `POST /api/settings`). The runtime setting takes effect on the next placement, with no restart; the env/CLI flag only sets the value LocalAI boots with, and both write the same underlying value, so the last change wins.
+
+Disabling means **warn, do not block**. Node selection goes back to ignoring free disk (the pre-check behaviour), but the check still runs, and when it would have rejected *every* node it logs a warning naming the shortfall:
+
+```
+WARN No node has room to store this model, but the disk-headroom check is DISABLED;
+     scheduling anyway — staging will most likely fail with ENOSPC
+     model=longcat-video-avatar-1.5 knob=distributed-disk-headroom-check
+```
+
+The alternative — skipping the check outright — was rejected because it reproduces the condition that made the original bug expensive: the cluster was doing something that could not work and said nothing about it. The escape hatch exists for setups where the size estimate is wrong (deduplicating or compressing filesystems, a backend that fetches its own weights rather than using the staged copy), and in exactly those cases the operator needs to see what LocalAI thought was wrong. Disabling is logged once at startup as well.
 
 The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 
