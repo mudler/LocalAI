@@ -1,4 +1,54 @@
 ---
+- name: "laguna-s-2.1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Laguna-S-2.1-GGUF
+  description: |
+    Use on OpenRouter ·
+    Use on Vercel AI Gateway ·
+    Release blog post
+
+    # Laguna S 2.1
+
+    Laguna S 2.1 is a 118B total parameter Mixture-of-Experts model with 8B activated
+    parameters per token, designed for agentic coding and long-horizon work. It sits
+    between Laguna XS 2.1 (33B-A3B) and
+    Laguna M.1 (225B-A23B) in the Laguna series and shares the family recipe: a
+    token-choice router with softplus gating over 256 routed experts plus one shared
+    expert, grouped-query attention, and interleaved full/sliding-window attention.
+
+    ## Highlights
+
+    ...
+  license: "openmdw-1.1"
+  tags:
+    - llm
+    - gguf
+  icon: https://poolside.ai/assets/laguna/laguna-s-2-1-banner.svg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Laguna-S-2.1-UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00001-of-00003.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Laguna-S-2.1-UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00001-of-00003.gguf
+      sha256: 732cc9a85e82ab5a00050614872b45c8dd4ce5ef4106e1a03c4e0c7c2fcb1369
+      uri: https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00001-of-00003.gguf
+    - filename: llama-cpp/models/Laguna-S-2.1-UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00002-of-00003.gguf
+      sha256: 94f075774ca99355f6146acf6292f689fbe92d1adfd06059f6ebabc0e6eb8a71
+      uri: https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00002-of-00003.gguf
+    - filename: llama-cpp/models/Laguna-S-2.1-UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00003-of-00003.gguf
+      sha256: 0d730b919a0591739091f135cde53c28631c89d0221482778f6fc70a3101eb49
+      uri: https://huggingface.co/unsloth/Laguna-S-2.1-GGUF/resolve/main/UD-Q4_K_M/Laguna-S-2.1-UD-Q4_K_M-00003-of-00003.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
