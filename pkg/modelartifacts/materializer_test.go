@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -149,6 +151,100 @@ var _ = Describe("controller artifact materializer", func() {
 		entries, err := filepath.Glob(filepath.Join(modelsPath, ".artifacts", "huggingface", "*"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(entries).To(BeEmpty())
+	})
+
+	It("resumes an interrupted materialization without re-downloading completed files", func() {
+		contents := map[string][]byte{
+			"a/first.bin":  []byte("first-file-bytes"),
+			"b/second.bin": []byte("second-file-bytes-longer"),
+			"third.bin":    []byte("third"),
+		}
+		// order fixes both the download sequence and the expected manifest order.
+		order := []string{"a/first.bin", "b/second.bin", "third.bin"}
+		oid := func(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
+
+		var mu sync.Mutex
+		fetched := map[string]int{}
+		// During run 1 this file 404s, interrupting the pass after the first file
+		// has already completed and been promoted into the staging snapshot.
+		failing := "b/second.bin"
+		armed := true
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			name := strings.TrimPrefix(r.URL.Path, "/file/")
+			body, ok := contents[name]
+			if !ok {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			mu.Lock()
+			arm := armed
+			mu.Unlock()
+			if arm && name == failing {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			mu.Lock()
+			fetched[name]++
+			mu.Unlock()
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			_, _ = w.Write(body)
+		}))
+		DeferCleanup(server.Close)
+
+		files := make([]hfapi.SnapshotFile, 0, len(order))
+		for _, p := range order {
+			files = append(files, hfapi.SnapshotFile{
+				Path: p, Size: int64(len(contents[p])), LFSOID: oid(contents[p]),
+				URL: server.URL + "/file/" + p,
+			})
+		}
+		resolver := &fakeSnapshotResolver{snapshot: hfapi.Snapshot{
+			Endpoint: "https://huggingface.co", Repo: "owner/repo",
+			ResolvedRevision: "0123456789abcdef0123456789abcdef01234567",
+			Files:            files,
+		}}
+		// A single manager (one writer identity) re-enters the same staging tree on
+		// the second call, exactly as a resubmit against a still-idle partial does.
+		manager := modelartifacts.NewManager(resolver)
+		modelsPath := GinkgoT().TempDir()
+		spec := modelartifacts.Spec{Source: modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"}}
+
+		_, err := manager.Ensure(context.Background(), modelsPath, spec)
+		Expect(err).To(HaveOccurred())
+		mu.Lock()
+		Expect(fetched["a/first.bin"]).To(Equal(1), "the first file should have completed in run 1")
+		armed = false
+		fetched = map[string]int{}
+		mu.Unlock()
+
+		result, err := manager.Ensure(context.Background(), modelsPath, spec)
+		Expect(err).NotTo(HaveOccurred())
+
+		mu.Lock()
+		defer mu.Unlock()
+		// The decisive assertion: the already-completed file is NOT re-downloaded.
+		Expect(fetched).NotTo(HaveKey("a/first.bin"))
+		// Only the files missing after the interruption are fetched on resume.
+		Expect(fetched).To(HaveKey("b/second.bin"))
+		Expect(fetched).To(HaveKey("third.bin"))
+
+		// The manifest lists every file, in order, with the correct size and hash.
+		paths := make([]string, 0, len(result.Manifest.Files))
+		byPath := map[string]modelartifacts.ManifestFile{}
+		for _, f := range result.Manifest.Files {
+			paths = append(paths, f.Path)
+			byPath[f.Path] = f
+		}
+		Expect(paths).To(Equal(order))
+		for _, p := range order {
+			Expect(byPath[p].Size).To(Equal(int64(len(contents[p]))))
+			Expect(byPath[p].SHA256).To(Equal(oid(contents[p])))
+		}
+		// Every file, skipped or freshly downloaded, is present on disk after commit.
+		for _, p := range order {
+			Expect(os.ReadFile(filepath.Join(modelsPath, filepath.FromSlash(result.RelativePath), filepath.FromSlash(p)))).To(Equal(contents[p]))
+		}
 	})
 
 	It("emits resolving, downloading, verifying, and committing phases", func() {

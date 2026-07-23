@@ -370,18 +370,42 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 		totalBytes += file.Size
 	}
 
-	manifest := Manifest{Version: ManifestVersion, Artifact: spec, Files: make([]ManifestFile, 0, len(snapshot.Files))}
+	// Files land in manifest.Files at their snapshot index, not in completion
+	// order, so a mix of skipped and freshly downloaded files still records the
+	// manifest in the resolved snapshot's order. committedResult and staging both
+	// read this manifest, and getting its order or contents wrong would make a
+	// corrupt tree look valid.
+	manifest := Manifest{Version: ManifestVersion, Artifact: spec, Files: make([]ManifestFile, len(snapshot.Files))}
 	completedBytes := int64(0)
+	skippedFiles := 0
+	skippedBytes := int64(0)
 	tasks := make([]downloader.FileTask, 0, len(snapshot.Files))
 	for index, file := range snapshot.Files {
 		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
+		file := file
+		taskIndex := index
+		// A file already present and verified in this staging tree survives a
+		// restart: an interrupted pass promotes each completed file into
+		// snapshot/ before it moves on, so on re-entry (a resubmit, a controller
+		// roll, an adopted orphan) we must resume past it rather than re-fetch
+		// tens of gigabytes from scratch. Verification reuses the exact happy-path
+		// check so the recorded manifest entry is byte-for-byte identical to the
+		// one a fresh download would have produced; a file that fails it falls
+		// through to a normal re-download.
+		snapshotRel := path.Join("snapshot", file.Path)
+		snapshotAbs := filepath.Join(layout.Partial, filepath.FromSlash(snapshotRel))
+		if entry, ok := reuseMaterializedFile(snapshotAbs, file); ok {
+			manifest.Files[taskIndex] = entry
+			completedBytes += file.Size
+			skippedFiles++
+			skippedBytes += file.Size
+			continue
+		}
 		nameSum := sha256.Sum256([]byte(file.Path))
 		blobRel := path.Join(".downloads", hex.EncodeToString(nameSum[:]))
 		blobAbs := filepath.Join(layout.Partial, filepath.FromSlash(blobRel))
-		file := file
-		taskIndex := index
 		task := downloader.FileTask{
 			URI:         downloader.URI(file.URL),
 			Destination: blobAbs,
@@ -421,16 +445,31 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 				if err := root.MkdirAll(path.Dir(destination), 0o750); err != nil {
 					return err
 				}
+				// A freshly downloaded file replaces whatever sits at the
+				// destination (a stale or unverifiable leftover); a file we chose
+				// to keep never reaches this path, so the removal only ever
+				// discards bytes we are about to overwrite.
 				_ = root.Remove(destination)
 				if err := root.Rename(blobRel, destination); err != nil {
 					return err
 				}
-				manifest.Files = append(manifest.Files, entry)
+				manifest.Files[taskIndex] = entry
 				completedBytes += file.Size
 				return nil
 			},
 		}
 		tasks = append(tasks, task)
+	}
+	// Surface resume at INFO: the absence of this signal is part of what made a
+	// never-converging download invisible in production, where each restart
+	// silently re-fetched every completed file.
+	if skippedFiles > 0 {
+		xlog.Info("resuming artifact materialization; keeping already-completed files",
+			"artifact", spec.Name,
+			"skipped_files", skippedFiles,
+			"skipped_bytes", skippedBytes,
+			"remaining_files", len(tasks),
+			"total_files", len(snapshot.Files))
 	}
 	if err := downloader.DownloadFilesWithContext(ctx, tasks, nil); err != nil {
 		return Result{}, err
@@ -485,6 +524,34 @@ func (m *Manager) commit(modelsPath string, spec Spec, layout Layout, manifest M
 		return Result{}, err
 	}
 	return Result{Spec: spec, RelativePath: relative, Manifest: manifest}, nil
+}
+
+// reuseMaterializedFile reports whether a file already staged in this tree's
+// snapshot/ can be kept as-is, returning the manifest entry it should
+// contribute. It is the resume counterpart to the download path: a completed
+// file is promoted into snapshot/ before the pass moves on, so on re-entry we
+// verify what is there and skip the fetch instead of restarting from the first
+// shard.
+//
+// Verification is a full re-hash via the same verifyDownloadedFile the happy
+// path uses, not a size-only check. The manifest requires a SHA-256 for every
+// file, and a non-LFS file carries no precomputed SHA-256 to borrow, so a hash
+// is unavoidable for the manifest's sake; doing it through the shared verifier
+// also guarantees the kept entry is byte-for-byte identical to a freshly
+// downloaded one and re-checks integrity for free. Reading a large file from
+// local disk is still orders of magnitude cheaper than re-downloading it. A
+// file that is missing, the wrong size, or fails verification is not reused; the
+// caller re-downloads it.
+func reuseMaterializedFile(fileName string, source hfapi.SnapshotFile) (ManifestFile, bool) {
+	info, err := os.Stat(fileName)
+	if err != nil || !info.Mode().IsRegular() || info.Size() != source.Size {
+		return ManifestFile{}, false
+	}
+	entry, err := verifyDownloadedFile(fileName, source)
+	if err != nil {
+		return ManifestFile{}, false
+	}
+	return entry, true
 }
 
 func verifyDownloadedFile(fileName string, source hfapi.SnapshotFile) (ManifestFile, error) {
