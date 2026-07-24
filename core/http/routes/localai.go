@@ -193,10 +193,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 
 	// Stores
-	router.POST("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
-	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
-	router.POST("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
-	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
+	router.POST("/stores/set", localai.StoresSetEndpoint(ml, cl, appConfig))
+	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, cl, appConfig))
+	router.POST("/stores/get", localai.StoresGetEndpoint(ml, cl, appConfig))
+	router.POST("/stores/find", localai.StoresFindEndpoint(ml, cl, appConfig))
 
 	if !appConfig.DisableMetrics {
 		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
