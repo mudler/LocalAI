@@ -34,6 +34,8 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
+      - name: Download Go modules
+        run: go mod download
       - name: Proto Dependencies
         run: |
           # Install protoc
@@ -53,13 +55,29 @@ jobs:
           node-version: '22'
       - name: Build React UI
         run: make react-ui
+      - name: Record and pack declared test resources
+        run: LOCALAI_TEST_RESOURCES_ONLINE=1 make update-offline-test-cache TEST_RESOURCE_SET=default
+      - name: Transfer local test-resource bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-resources-default-${{ github.run_id }}
+          path: |
+            .cache/test-resources/bundles/default.tar.zst
+            test-resources/manifests/lock.json
+      - name: Clear recorded resource cache
+        run: rm -rf .cache/test-resources
+      - name: Restore local test-resource bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: test-resources-default-${{ github.run_id }}
+          path: .
       # Runs the core suite with coverage and fails if total coverage dropped
       # below the committed baseline (coverage-baseline.txt). The gate is
       # strict — any decrease fails. Raise the baseline with
       # `make test-coverage-baseline` and commit it when coverage rises.
       - name: Test (with coverage gate)
         run: |
-          PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
+          LOCALAI_TEST_KERNEL_ENFORCE=1 PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
       - name: Upload coverage report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -95,6 +113,8 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
+      - name: Download Go modules
+        run: go mod download
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg
@@ -113,7 +133,7 @@ jobs:
           # Used to run the newer GNUMake version from brew that supports --output-sync
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
           PATH="$PATH:$HOME/go/bin" make protogen-go
-          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
+          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target TEST_RESOURCE_SET=default-darwin test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.23

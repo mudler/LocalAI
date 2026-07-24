@@ -14,14 +14,28 @@ import (
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
 
+type fakeClock struct {
+	now    time.Time
+	sleeps []time.Duration
+}
+
+func (c *fakeClock) Now() time.Time { return c.now }
+
+func (c *fakeClock) Sleep(d time.Duration) {
+	c.sleeps = append(c.sleeps, d)
+	c.now = c.now.Add(d)
+}
+
 var _ = Describe("HuggingFace API Client", func() {
 	var (
 		client *hfapi.Client
 		server *httptest.Server
+		clock  *fakeClock
 	)
 
 	BeforeEach(func() {
-		client = hfapi.NewClient()
+		clock = &fakeClock{now: time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)}
+		client = hfapi.NewClient(hfapi.WithClock(clock))
 	})
 
 	AfterEach(func() {
@@ -211,14 +225,35 @@ var _ = Describe("HuggingFace API Client", func() {
 				Search:    "GGUF",
 			}
 
-			start := time.Now()
 			models, err := client.SearchModels(params)
-			elapsed := time.Since(start)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(HaveLen(0))
 			Expect(attempts).To(Equal(2))
-			Expect(elapsed).To(BeNumerically(">=", 900*time.Millisecond))
+			Expect(clock.sleeps).To(Equal([]time.Duration{time.Second}))
+		})
+
+		It("should calculate HTTP-date Retry-After using the injected clock", func() {
+			attempts := 0
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				attempts++
+				if attempts == 1 {
+					w.Header().Set("Retry-After", clock.now.Add(2*time.Second).Format(http.TimeFormat))
+					w.WriteHeader(http.StatusTooManyRequests)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, err := w.Write([]byte("[]"))
+				Expect(err).ToNot(HaveOccurred())
+			}))
+			client.SetBaseURL(server.URL)
+
+			models, err := client.SearchModels(hfapi.SearchParams{Search: "GGUF"})
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(BeEmpty())
+			Expect(attempts).To(Equal(2))
+			Expect(clock.sleeps).To(Equal([]time.Duration{2 * time.Second}))
 		})
 
 		It("should fail fast on non-retryable 4xx responses", func() {
@@ -267,6 +302,9 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(errors.Is(err, hfapi.ErrRateLimited)).To(BeTrue())
 			Expect(err.Error()).To(ContainSubstring("Status code: 429"))
 			Expect(models).To(BeNil())
+			Expect(clock.sleeps).To(Equal([]time.Duration{
+				time.Second, time.Second, time.Second, time.Second,
+			}))
 		})
 	})
 
@@ -336,8 +374,12 @@ var _ = Describe("HuggingFace API Client", func() {
 
 	Context("when handling network errors", func() {
 		It("should handle connection failures gracefully", func() {
-			// Use an invalid URL to simulate connection failure
-			client.SetBaseURL("http://invalid-url-that-does-not-exist")
+			// A closed loopback listener produces a deterministic connection
+			// failure without relying on DNS or public network access.
+			closedServer := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+			closedURL := closedServer.URL
+			closedServer.Close()
+			client.SetBaseURL(closedURL)
 
 			params := hfapi.SearchParams{
 				Sort:      "lastModified",
@@ -351,11 +393,26 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to make request"))
 			Expect(models).To(BeNil())
+			Expect(clock.sleeps).To(Equal([]time.Duration{
+				time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second,
+			}))
 		})
 	})
 
-	Context("when getting file SHA on remote model", func() {
+	Context("when getting file SHA from repository metadata", func() {
 		It("should get file SHA successfully", func() {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, err := w.Write([]byte(`[{
+					"type":"file",
+					"path":"localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf",
+					"size":42,
+					"oid":"pointer-oid",
+					"lfs":{"oid":"4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4","size":42,"pointerSize":128}
+				}]`))
+				Expect(err).NotTo(HaveOccurred())
+			}))
+			client.SetBaseURL(server.URL + "/api/models")
 			sha, err := client.GetFileSHA(
 				"mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF", "localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf")
 			Expect(err).ToNot(HaveOccurred())
@@ -886,14 +943,33 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 	})
 
-	Context("integration test with real HuggingFace API", func() {
-		It("should recursively list all files including subfolders from real repository", func() {
-			// This test makes actual API calls to HuggingFace
-			// Skip if running in CI or if network is not available
-			realClient := hfapi.NewClient()
+	Context("repository API compatibility fixtures", func() {
+		It("should recursively list all files including subfolders", func() {
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				var response string
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/tree/main"):
+					response = `[
+						{"type":"file","path":"README.md","size":100,"oid":"readme-oid"},
+						{"type":"directory","path":"Q4_K_M","size":0,"oid":"directory-oid"}
+					]`
+				case strings.HasSuffix(r.URL.Path, "/tree/main/Q4_K_M"):
+					response = `[
+						{"type":"file","path":"Q4_K_M/model-00001-of-00002.gguf","size":1000,"oid":"model-oid"}
+					]`
+				default:
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				_, err := w.Write([]byte(response))
+				Expect(err).NotTo(HaveOccurred())
+			}))
+			fixtureClient := hfapi.NewClient()
+			fixtureClient.SetBaseURL(server.URL + "/api/models")
 			repoID := "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF"
 
-			files, err := realClient.ListFiles(repoID)
+			files, err := fixtureClient.ListFiles(repoID)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).ToNot(BeEmpty(), "should return at least some files")
@@ -956,12 +1032,19 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 
 		It("should populate PipelineTag and LibraryName on ModelDetails", func() {
-			// Sentence-transformers/all-MiniLM-L6-v2 is a public, stable repo:
-			// pipeline_tag: sentence-similarity, library_name: sentence-transformers.
-			// This exercises the /api/models/{repo} metadata fetch layered on top
-			// of ListFiles in GetModelDetails.
-			realClient := hfapi.NewClient()
-			details, err := realClient.GetModelDetails("sentence-transformers/all-MiniLM-L6-v2")
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if strings.Contains(r.URL.Path, "/tree/main") {
+					_, err := w.Write([]byte(`[{"type":"file","path":"config.json","size":100,"oid":"config-oid"}]`))
+					Expect(err).NotTo(HaveOccurred())
+					return
+				}
+				_, err := w.Write([]byte(`{"pipeline_tag":"sentence-similarity","library_name":"sentence-transformers"}`))
+				Expect(err).NotTo(HaveOccurred())
+			}))
+			fixtureClient := hfapi.NewClient()
+			fixtureClient.SetBaseURL(server.URL + "/api/models")
+			details, err := fixtureClient.GetModelDetails("sentence-transformers/all-MiniLM-L6-v2")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(details).ToNot(BeNil())
 			Expect(details.PipelineTag).To(Equal("sentence-similarity"))

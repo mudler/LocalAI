@@ -99,11 +99,20 @@ COVERAGE_COVERPKG?=github.com/mudler/LocalAI/core/...,github.com/mudler/LocalAI/
 ## the coverage CI job doesn't do.
 COVERAGE_E2E_ROOTS?=./tests/e2e
 COVERAGE_E2E_LABELS?=!real-models
+COVERAGE_PROCS?=0
+COVERAGE_SUITE_TIMEOUT?=5m
+COVERAGE_PROGRESS_AFTER?=30s
+COVERAGE_SLOW_SPEC_THRESHOLD?=3
+COVERAGE_SLOW_SPEC_LIMIT?=25
 ## Drop generated protobuf from the denominator (it has no tests by design).
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
+TEST_RESOURCE_SET?=default
+TEST_RESOURCE_CACHE?=$(abspath ./.cache/test-resources)
+TEST_RESOURCE_MANIFESTS?=$(abspath ./test-resources/manifests)
+OFFLINE_RUN=$(abspath ./scripts/run-test-offline.sh)
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test prepare-offline-test-cache update-offline-test-cache test-network-lint test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -195,11 +204,24 @@ prepare-test: protogen-go build-mock-backend
 ## now drives the mock-backend binary built by build-mock-backend; real-backend
 ## inference moved into tests/e2e-backends/ (per-backend, path-filtered) and
 ## tests/e2e-aio/ (nightly).
-test: prepare-test
+prepare-offline-test-cache:
+	@test -n "$(TEST_RESOURCE_SET)" || { echo 'TEST_RESOURCE_SET is required, for example: make prepare-offline-test-cache TEST_RESOURCE_SET=default'; exit 2; }
+	$(GOCMD) run ./cmd/test-resources prepare "$(TEST_RESOURCE_SET)" "$(TEST_RESOURCE_MANIFESTS)" "$(TEST_RESOURCE_CACHE)"
+
+test-network-lint:
+	scripts/test-network-lint.sh
+
+update-offline-test-cache:
+	@test -n "$(TEST_RESOURCE_SET)" || { echo 'TEST_RESOURCE_SET is required, for example: make update-offline-test-cache TEST_RESOURCE_SET=default'; exit 2; }
+	@test "$$LOCALAI_TEST_RESOURCES_ONLINE" = 1 || { echo 'Set LOCALAI_TEST_RESOURCES_ONLINE=1 to enter explicit online record mode'; exit 2; }
+	$(GOCMD) run ./cmd/test-resources update "$(TEST_RESOURCE_SET)" "$(TEST_RESOURCE_MANIFESTS)" "$(TEST_RESOURCE_CACHE)"
+
+test: TEST_RESOURCE_SET=default
+test: test-network-lint prepare-test
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+	$(OFFLINE_RUN) $(TEST_RESOURCE_SET) $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 
 ## Compiles and runs the standalone C++ unit tests for the backends (pure
 ## helpers that depend only on the stdlib + nlohmann/json, no full backend
@@ -226,15 +248,21 @@ test-ci-scripts:
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
 ## --fail-fast so a single failure doesn't truncate the coverage number, and
 ## uses covermode=atomic so the result is deterministic. Prints the total.
-test-coverage: prepare-test
-	@echo 'Running tests with coverage'
+test-coverage: TEST_RESOURCE_SET=default
+test-coverage: test-network-lint prepare-test
+	@echo 'Running tests with coverage (test failures stop before the percentage ratchet)'
 	GINKGO_TAGS="$(COVERAGE_TAGS)" \
 	COVERAGE_COVERPKG="$(COVERAGE_COVERPKG)" \
 	COVERAGE_E2E_ROOTS="$(COVERAGE_E2E_ROOTS)" \
 	COVERAGE_E2E_LABELS="$(COVERAGE_E2E_LABELS)" \
+	COVERAGE_PROCS="$(COVERAGE_PROCS)" \
+	COVERAGE_SUITE_TIMEOUT="$(COVERAGE_SUITE_TIMEOUT)" \
+	COVERAGE_PROGRESS_AFTER="$(COVERAGE_PROGRESS_AFTER)" \
+	COVERAGE_SLOW_SPEC_THRESHOLD="$(COVERAGE_SLOW_SPEC_THRESHOLD)" \
+	COVERAGE_SLOW_SPEC_LIMIT="$(COVERAGE_SLOW_SPEC_LIMIT)" \
 	COVERAGE_EXCLUDE_RE='$(COVERAGE_EXCLUDE_RE)' \
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
-	scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
+	$(OFFLINE_RUN) $(TEST_RESOURCE_SET) scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
 	@$(GOCMD) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_DIR)/coverage.html
 	@$(GOCMD) tool cover -func=$(COVERAGE_PROFILE) | tail -n1
 
@@ -250,6 +278,7 @@ test-coverage-baseline: test-coverage
 ## run-to-run jitter from the in-process tests/e2e suite folded in via
 ## --coverpkg (timing-dependent which handler lines execute).
 test-coverage-check: test-coverage
+	@echo 'Running coverage percentage ratchet'
 	@scripts/coverage-check.sh $(COVERAGE_PROFILE) $(COVERAGE_BASELINE)
 
 ########################################################
@@ -326,16 +355,18 @@ e2e-aio:
 	LOCALAI_IMAGE=local-ai \
 	$(MAKE) run-e2e-aio
 
+run-e2e-aio: TEST_RESOURCE_SET=aio
 run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
+	$(OFFLINE_RUN) $(TEST_RESOURCE_SET) $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
 # Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
 # Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
+test-e2e-distributed: TEST_RESOURCE_SET=distributed-e2e
 test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+	$(OFFLINE_RUN) $(TEST_RESOURCE_SET) $(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
@@ -377,7 +408,7 @@ test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='!Distributed' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
 	$(MAKE) clean-mock-backend
 	$(MAKE) clean-cloud-proxy-backend
 	$(MAKE) teardown-e2e

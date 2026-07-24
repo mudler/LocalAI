@@ -120,6 +120,7 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
 		opts := grpcModelOpts(cfg, "/tmp/models")
 		Expect(opts.NBatch).To(BeEquivalentTo(512))
+		Expect(opts.EnableScore).To(BeFalse())
 	})
 
 	It("sizes the batch to the context window for score models", func() {
@@ -128,6 +129,14 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &scoreUsecase}
 		opts := grpcModelOpts(cfg, "/tmp/models")
 		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+		Expect(opts.EnableScore).To(BeTrue())
+	})
+
+	It("enables score resources for a model with multiple usecases", func() {
+		usecases := config.FLAG_CHAT | config.FLAG_SCORE
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &usecases}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.EnableScore).To(BeTrue())
 	})
 
 	It("keeps an explicit batch over the score default", func() {
@@ -353,5 +362,25 @@ var _ = Describe("gRPCPredictOpts model identity", func() {
 	It("leaves the identity empty when the config names no model", func() {
 		opts := gRPCPredictOpts(withModel("some-name", ""), "/tmp/models")
 		Expect(opts.ModelIdentity).To(BeEmpty())
+	})
+})
+
+var _ = Describe("effectiveThreads", func() {
+	It("lets a per-model threads value override the app-level --threads", func() {
+		one := 1
+		cfg := config.ModelConfig{Threads: &one}
+		Expect(effectiveThreads(cfg, 10)).To(Equal(1),
+			"per-model threads is a real knob, not dead config under --threads")
+	})
+
+	It("falls back to the app-level threads when the model sets none", func() {
+		Expect(effectiveThreads(config.ModelConfig{}, 10)).To(Equal(10))
+		zero := 0
+		Expect(effectiveThreads(config.ModelConfig{Threads: &zero}, 10)).To(Equal(10),
+			"an explicit threads: 0 means unset, not zero threads")
+	})
+
+	It("never resolves to a non-positive thread count", func() {
+		Expect(effectiveThreads(config.ModelConfig{}, 0)).To(Equal(1))
 	})
 })

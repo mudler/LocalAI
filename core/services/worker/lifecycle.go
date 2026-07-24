@@ -319,7 +319,7 @@ func (s *backendSupervisor) handleModelUnload(data []byte, reply func([]byte)) {
 		// Best-effort bounded gRPC Free(). A model.unload request must not
 		// occupy the NATS reply handler forever when a backend is wedged.
 		client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)
-		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
+		freeCtx, cancel := context.WithTimeout(context.Background(), s.freeTimeout())
 		if err := client.Free(freeCtx); err != nil {
 			xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
 		}

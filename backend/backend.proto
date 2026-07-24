@@ -181,6 +181,13 @@ message ScoreRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 5;
+  // Byte length of the prompt prefix that stays identical across
+  // repeated scoring calls (e.g. a classifier's option-list system
+  // prompt — everything before the per-turn probe text). Backends that
+  // snapshot state (hybrid/recurrent models cannot rewind otherwise)
+  // use it to place a reuse point exactly at the boundary, so the next
+  // call re-processes only the tokens after it. 0 means unknown.
+  int32 stable_prefix_len = 6;
 }
 
 // CandidateScore is one row in the ScoreResponse, matching by index
@@ -493,6 +500,11 @@ message ModelOptions {
   // Proxy carries the cloud-proxy backend's per-model configuration.
   // Empty for non-proxy backends.
   ProxyOptions Proxy = 74;
+
+  // EnableScore reserves backend resources for the Score RPC. It is derived
+  // from the model's explicit `known_usecases: [score]` declaration so models
+  // that never score retain their ordinary serving footprint.
+  bool EnableScore = 75;
 }
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and

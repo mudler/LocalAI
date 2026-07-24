@@ -1,8 +1,6 @@
 package config
 
 import (
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -127,21 +125,19 @@ parameters:
 			Expect(err).To(BeNil())
 			Expect(valid).To(BeTrue())
 
-			// llama-cpp configs can't mix the score usecase with
-			// chat/completion/embeddings — Score bypasses the slot loop
-			// and would race the llama_context. (token_classify is exempt:
-			// it runs on the privacy-filter backend, not llama-cpp, so the
-			// token_classify combinations below stay valid.)
+			// Score runs through the llama-cpp slot loop, so mixing the
+			// score usecase with chat/completion/embeddings on one config
+			// is valid — the slot scheduler serializes score against
+			// generation and shares the prompt cache between them.
 			scoreFlag := FLAG_SCORE | FLAG_CHAT
-			conflicting := ModelConfig{
-				Name:          "router-but-also-chat",
+			scoringChat := ModelConfig{
+				Name:          "router-and-chat",
 				Backend:       "llama-cpp",
 				KnownUsecases: &scoreFlag,
 			}
-			valid, err = conflicting.Validate()
-			Expect(valid).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("score is incompatible"))
+			valid, err = scoringChat.Validate()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 
 			scoreOnly := FLAG_SCORE
 			dedicated := ModelConfig{
@@ -271,17 +267,7 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			// download https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml
-			httpClient := http.Client{}
-			resp, err := httpClient.Get("https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml")
-			Expect(err).To(BeNil())
-			defer resp.Body.Close()
-			tmp, err = os.CreateTemp("", "config.yaml")
-			Expect(err).To(BeNil())
-			defer os.Remove(tmp.Name())
-			_, err = io.Copy(tmp, resp.Body)
-			Expect(err).To(BeNil())
-			configs, err = readModelConfigsFromFile(tmp.Name())
+			configs, err = readModelConfigsFromFile(filepath.Join("testdata", "hermes-2-pro-mistral.yaml"))
 			config = configs[0]
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())

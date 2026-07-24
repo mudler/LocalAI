@@ -58,6 +58,14 @@ type turnSink struct {
 	commitAudioLength  float64                           // for finishTurn (flush tail)
 	commitRetranscribe bool                              // gated batch is authoritative
 	commitGated        *schema.TranscriptionResult       // retranscribe batch decode
+
+	// lastSpeechEndSec is where speech last ended this turn, in whole-buffer
+	// seconds (audioLength while the newest segment is still open). It
+	// outlives the segments scrolling out of the VAD scan clip, so the
+	// silence-outran-the-window commit still has a speech end to report.
+	// Zeroed whenever the turn leaves Speaking; rebased by the retention
+	// trim.
+	lastSpeechEndSec float64
 }
 
 func newTurnSink(session *Session, conv *Conversation, t Transport, lts *liveTurnState, vadContext context.Context, startTime time.Time) *turnSink {

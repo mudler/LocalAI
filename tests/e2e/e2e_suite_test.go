@@ -180,6 +180,11 @@ var _ = BeforeSuite(func() {
 				"model": name + ".bin",
 			},
 		}
+		if name == "mock-llm" {
+			// Realtime classifier tests exercise concurrent generation and
+			// scoring on the same model, matching the production slot setup.
+			cfg["known_usecases"] = []string{"chat", "score"}
+		}
 		data, err := yaml.Marshal(cfg)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), data, 0644)).To(Succeed())
@@ -244,6 +249,42 @@ var _ = BeforeSuite(func() {
 	pipelineData, err := yaml.Marshal(pipelineCfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
+
+	// Classifier-mode pipeline (LocalAI extension): responses are
+	// prefill-scored against the option list via the mock backend's
+	// ROUTE_HINT-driven Score instead of being generated. Threshold 0.6:
+	// a hinted option scores ≈0.99, no hint leaves a uniform distribution
+	// (0.5 for two options) and triggers the fallback reply.
+	classifierPipelineCfg := map[string]any{
+		"name": "realtime-pipeline-classifier",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+			"classifier": map[string]any{
+				"enabled":   true,
+				"threshold": 0.6,
+				"fallback":  map[string]any{"mode": "reply", "reply": "Say again?"},
+				"options": []map[string]any{
+					{
+						"id":          "up",
+						"description": "the user asks the drone to fly up",
+						"reply":       "Going up.",
+						"tool":        map[string]any{"name": "move", "arguments": map[string]any{"direction": "up"}},
+					},
+					{
+						"id":          "greeting",
+						"description": "the user greets the assistant",
+						"reply":       "Hello.",
+					},
+				},
+			},
+		},
+	}
+	classifierPipelineData, err := yaml.Marshal(classifierPipelineCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-classifier.yaml"), classifierPipelineData, 0644)).To(Succeed())
 
 	// Speaker-recognition model (mock-backend) + a voice-recognition-gated
 	// pipeline for the realtime gate e2e. The reference WAV carries a positive

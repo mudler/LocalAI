@@ -339,7 +339,7 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 					// classifier model MUST carry a chat template — refusing
 					// here beats silently falling back to a generic ChatML
 					// envelope the model may not have been trained on.
-					renderer := newTemplateRenderer(deps.Evaluator, classifierCfg)
+					renderer := NewTemplateRenderer(deps.Evaluator, classifierCfg)
 					if renderer == nil {
 						return nil, fmt.Errorf(
 							"router classifier score: classifier_model %q has no chat template "+
@@ -350,7 +350,7 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 					}
 					opts.PromptRenderer = renderer
 				}
-				if st := pickAssistantTurnEnd(classifierCfg.StopWords, classifierCfg.TemplateConfig.ChatMessage); st != "" {
+				if st := PickAssistantTurnEnd(classifierCfg.StopWords, classifierCfg.TemplateConfig.ChatMessage); st != "" {
 					opts.StopToken = st
 				}
 				// Token-exact conversation trim — score classifier drops the
@@ -464,7 +464,7 @@ func validateRouterPolicies(classifierName string, rc config.RouterConfig) ([]ro
 	return policies, nil
 }
 
-// newTemplateRenderer adapts the templates.Evaluator + the classifier
+// NewTemplateRenderer adapts the templates.Evaluator + the classifier
 // model's config into the router.PromptRenderer callback. The
 // resulting renderer pushes the routing system + user prompt through
 // the classifier model's full chat-template pipeline — per-role
@@ -484,7 +484,7 @@ func validateRouterPolicies(classifierName string, rc config.RouterConfig) ([]ro
 // Returns nil (forcing the score classifier's chatMLRenderer
 // fallback) when either template piece is missing — partial
 // templating would still drop content.
-func newTemplateRenderer(eval *templates.Evaluator, classifierCfg *config.ModelConfig) router.PromptRenderer {
+func NewTemplateRenderer(eval *templates.Evaluator, classifierCfg *config.ModelConfig) router.PromptRenderer {
 	if classifierCfg.TemplateConfig.Chat == "" || classifierCfg.TemplateConfig.ChatMessage == "" {
 		return nil
 	}
@@ -502,7 +502,7 @@ func newTemplateRenderer(eval *templates.Evaluator, classifierCfg *config.ModelC
 	}
 }
 
-// pickAssistantTurnEnd returns the classifier model's assistant
+// PickAssistantTurnEnd returns the classifier model's assistant
 // turn-end token — the one to suffix candidates with so the model's
 // "I'm done" signal folds into the per-candidate joint log-prob.
 //
@@ -520,7 +520,7 @@ func newTemplateRenderer(eval *templates.Evaluator, classifierCfg *config.ModelC
 //
 // When no stopwords are configured at all, return "" — caller falls
 // back to defaultStopToken (<|im_end|>) inside the score classifier.
-func pickAssistantTurnEnd(words []string, chatMessageTemplate string) string {
+func PickAssistantTurnEnd(words []string, chatMessageTemplate string) string {
 	if chatMessageTemplate != "" {
 		for _, w := range words {
 			if w != "" && strings.Contains(chatMessageTemplate, w) {

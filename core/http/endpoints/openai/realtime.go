@@ -30,6 +30,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/turncoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -137,6 +138,12 @@ type Session struct {
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
 
+	// Classifier holds the LocalAI classifier-mode config (prefill-scored
+	// option selection instead of generation), seeded from
+	// pipeline.classifier and replaced wholesale by session.update's
+	// localai_classifier field. nil means off.
+	Classifier *types.ClassifierConfig
+
 	// Compaction settings resolved from pipeline.compaction (see resolveCompaction).
 	CompactionEnabled bool
 	CompactionTrigger int
@@ -197,14 +204,15 @@ func (s *Session) ToServer() types.SessionUnion {
 	} else {
 		return types.SessionUnion{
 			Realtime: &types.RealtimeSession{
-				ID:               s.ID,
-				Object:           "realtime.session",
-				Model:            s.Model,
-				Instructions:     s.Instructions,
-				Tools:            s.Tools,
-				ToolChoice:       s.ToolChoice,
-				MaxOutputTokens:  s.MaxOutputTokens,
-				OutputModalities: s.OutputModalities,
+				ID:                s.ID,
+				Object:            "realtime.session",
+				Model:             s.Model,
+				Instructions:      s.Instructions,
+				Tools:             s.Tools,
+				ToolChoice:        s.ToolChoice,
+				MaxOutputTokens:   s.MaxOutputTokens,
+				OutputModalities:  s.OutputModalities,
+				LocalAIClassifier: s.Classifier,
 				Audio: &types.RealtimeSessionAudio{
 					Input: &types.SessionAudioInput{
 						TurnDetection: s.TurnDetection,
@@ -266,6 +274,24 @@ type Model interface {
 	// event. Backends without live support fail with an error satisfying
 	// grpcerrors.IsLiveTranscriptionUnsupported.
 	TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error)
+	// ClassifyTurn prefill-scores each classifier option as a candidate
+	// continuation of the conversation (LocalAI classifier-mode extension)
+	// and returns the softmax distribution in option order. Runs on the
+	// pipeline's scoring model (classifier.model, defaulting to the LLM) —
+	// no autoregressive decode happens.
+	ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error)
+	// PrewarmClassifier primes the scoring backend's prompt cache for a
+	// newly registered option list (fired async on registration) so the
+	// first turns after a session.update don't pay the option-list
+	// prefill. Best-effort and idempotent per option set.
+	PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string)
+	// FillToolArguments completes the chosen option's argument slots with a
+	// short grammar-constrained completion that continues the exact scoring
+	// prompt (so the backend's prompt cache stays warm) and returns the
+	// spliced tool-arguments JSON plus the raw slot values (for reply
+	// templating) — the hybrid between prefill-only classification and full
+	// generation.
+	FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error)
 	PredictConfig() *config.ModelConfig
 	// Warmup eagerly loads the pipeline's sub-model backends into memory so the
 	// first realtime turn doesn't pay each backend's cold-start load cost. Loads
@@ -540,6 +566,12 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
 	session.CompactionEnabled, session.CompactionTrigger, session.MaxSummaryTokens, session.SummaryModel = resolveCompaction(cfg, session.MaxHistoryItems)
+	classifier, err := classifierConfigFromPipeline(cfg.Pipeline.Classifier)
+	if err != nil {
+		sendError(t, "invalid_pipeline", "pipeline classifier: "+err.Error(), "", "")
+		return
+	}
+	session.Classifier = classifier
 
 	// Single-writer response coordinator (machine M3). All response starts and
 	// cancels go through this, so the read-loop and VAD goroutine can never race
@@ -589,6 +621,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	session.ModelInterface = m
+	// A pipeline-seeded option list gets its scoring prompt prewarmed
+	// alongside the model warm-up below, so the session's first turn
+	// doesn't pay the option-list prefill.
+	prewarmClassifier(session)
 
 	// The voice gate is built before the warm-up below so its
 	// speaker-recognition model can warm alongside the pipeline stages.
@@ -751,7 +787,9 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ApplicationConfig(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
-					sendError(t, "session_update_error", "Failed to update session", "", "")
+					// The cause is validation feedback on the client's own
+					// payload — echo it so UIs can show something actionable.
+					sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
 					continue
 				}
 
@@ -777,7 +815,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					buildRealtimeRoutingContext(application, session.ID),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
-					sendError(t, "session_update_error", "Failed to update session", "", "")
+					sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
 					continue
 				}
 
@@ -953,6 +991,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 		case types.ResponseCreateEvent:
 			xlog.Debug("recv", "message", string(msg))
+			if err := validateClassifierActivation(session.ModelInterface, e.Response.LocalAIClassifier); err != nil {
+				sendError(t, "invalid_request_error", "Invalid response classifier: "+err.Error(), "", e.EventID)
+				continue
+			}
 
 			// Handle optional items to add to context
 			if len(e.Response.Input) > 0 {
@@ -1228,6 +1270,17 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.ToolChoice = rt.ToolChoice
 	}
 
+	if rt.LocalAIClassifier != nil {
+		// Replace-not-merge, like tools: the client owns the whole option
+		// list. Invalid configs reject the update without touching the
+		// session's current classifier.
+		if err := validateClassifierActivation(session.ModelInterface, rt.LocalAIClassifier); err != nil {
+			return err
+		}
+		session.Classifier = rt.LocalAIClassifier
+		prewarmClassifier(session)
+	}
+
 	if rt.MaxOutputTokens != 0 {
 		session.MaxOutputTokens = rt.MaxOutputTokens
 	}
@@ -1301,6 +1354,23 @@ func decodeOpusLoop(session *Session, opusBackend grpc.Backend, done chan struct
 // it cuts the start of the utterance the next tick will detect.
 const noSpeechHoldbackSec = 0.5
 
+// vadWarmupMarginSec pads the VAD scan window beyond the largest silence the
+// commit test can need to measure. It covers silero's cold-start (the LSTM
+// state converges within a few hundred ms — the model has no longer-range
+// memory, which is why clipping is sound at all) plus sherpa's segment
+// hysteresis (min_speech 0.25s / min_silence 0.5s), which must fit inside
+// the clip for segments to open and close at all.
+const vadWarmupMarginSec = 1.0
+
+// maxTurnBufferSec bounds the raw input buffer. Without it a turn that never
+// pauses (continuous noise or speech: silero segments every tick, so the
+// no-speech clear never runs and nothing commits) grows the buffer toward the
+// 100MB append cap, and with it the per-tick copy+resample and the
+// commit-time WAV/batch decode. 90s keeps all of those trivial; only an
+// unbroken >90s turn loses head audio from a server_vad batch transcription
+// (semantic mode already consumed it incrementally via the live stream).
+const maxTurnBufferSec = 90.0
+
 // dropInspectedPrefix removes the head of the audio buffer that a VAD tick
 // inspected (the first inspected bytes), keeping the newest holdbackBytes of
 // that window plus everything appended while the tick ran — audio the VAD
@@ -1362,183 +1432,290 @@ func handleVAD(session *Session, conv *Conversation, t Transport, done chan stru
 		case <-done:
 			return
 		case <-ticker.C:
-			// Semantic mode is re-read each tick: session.update can switch
-			// turn-detection modes (and the retranscribe gate) mid-session.
-			sessionLock.Lock()
-			var sv *types.RealtimeSessionSemanticVad
-			if session.TurnDetection != nil {
-				sv = session.TurnDetection.SemanticVad
-			}
-			retranscribe := sv != nil && session.ModelConfig != nil &&
-				session.ModelConfig.Pipeline.TurnDetectionRetranscribe()
-			sessionLock.Unlock()
-
-			// The turn coordinator's data-heavy effects (OpenTurn/CommitTurn)
-			// need this tick's mode; set it before any Apply below.
-			sink.sv = sv
-
-			// session.update switched semantic -> server mid-turn: drop the
-			// orphaned live stream. This is NOT a turn abort — the turn continues
-			// under server_vad (a config change must not cut off a mid-utterance
-			// speaker), so the coordinator stays Speaking; only the orphaned live
-			// stream is closed.
-			if sv == nil && lts.open() {
-				lts.discardTurn()
-			}
-
-			session.AudioBufferLock.Lock()
-			allAudio := make([]byte, len(session.InputAudioBuffer))
-			copy(allAudio, session.InputAudioBuffer)
-			session.AudioBufferLock.Unlock()
-
-			aints := sound.BytesToInt16sLE(allAudio)
-			if len(aints) == 0 || len(aints) < int(silenceThreshold*float64(session.InputSampleRate)) {
-				continue
-			}
-
-			// Resample from InputSampleRate to 16kHz
-			aints = sound.ResampleInt16(aints, session.InputSampleRate, localSampleRate)
-
-			audioLength := float64(len(aints)) / localSampleRate
-
-			if sv != nil && lts.open() {
-				lts.feedNewAudio(aints)
-				lts.drainEvents(audioLength)
-			}
-
-			segments, err := runVAD(vadContext, session, aints)
-			if err != nil {
-				if err.Error() == "unexpected speech end" {
-					xlog.Debug("VAD cancelled")
-					continue
-				}
-				xlog.Error("failed to process audio", "error", err)
-				sendError(t, "processing_error", "Failed to process audio: "+err.Error(), "", "")
-				continue
-			}
-
-			// NOTE: the no-speech clear and the min-buffer gate above stay on
-			// the short silenceThreshold even in semantic mode — the eagerness
-			// fallback applies only to the end-of-speech commit decision, or a
-			// low eagerness would delay speech_started/barge-in by seconds.
-			if len(segments) == 0 && audioLength > silenceThreshold {
-				// "No segments" is not "no speech": silero (threshold 0.5)
-				// crosses up to a few hundred ms into a soft word onset, so
-				// the newest audio in the inspected window may be the start
-				// of a word the next tick will recognize — and more audio
-				// arrived while this tick ran. Keep both; drop only the
-				// older, confirmed-silent head, or utterance onsets get cut.
-				holdback := int(noSpeechHoldbackSec*float64(session.InputSampleRate)) * 2
-				session.AudioBufferLock.Lock()
-				session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), holdback)
-				session.AudioBufferLock.Unlock()
-
-				// No-speech clear: end any open turn (Speaking -> Idle, discarding
-				// the partial). Returning to Idle is the fix for failure mode 4 —
-				// the legacy discardTurn left speechStarted true, suppressing the
-				// next onset. Idle while not speaking is a no-op.
-				if err := sink.coord.Apply(turncoord.Abort{Reason: turncoord.AbortNoSpeech}); err != nil {
-					xlog.Error("turncoord: abort(no_speech) failed", "error", err)
-				}
-				continue
-			} else if len(segments) == 0 {
-				continue
-			}
-
-			// Speech detected this tick: open the turn (Idle -> Speaking) through
-			// the coordinator. On that transition it opens the turn's live ASR
-			// stream + feeds the buffered prefix (OpenTurn), cancels any in-flight
-			// response (BargeIn, non-blocking — the VAD tick is never stalled), and
-			// emits speech_started. While already Speaking it is a no-op, so "turn
-			// open" and "speech started" can never disagree. The turn id is minted
-			// here and carried by the coordinator through to the committed event.
-			sink.onsetAudio = aints
-			if err := sink.coord.Apply(turncoord.Onset{Turn: turncoord.TurnID(generateItemID())}); err != nil {
-				xlog.Error("turncoord: onset failed", "error", err)
-			}
-
-			if sv != nil {
-				// Drain again: events produced by THIS tick's feed have
-				// usually arrived by the time runVAD returns, and leaving
-				// them for the next tick adds 300ms to every EOU-triggered
-				// commit.
-				lts.drainEvents(audioLength)
-			}
-
-			// Segment still in progress when audio ended
-			segEndTime := segments[len(segments)-1].End
-			if segEndTime == 0 {
-				continue
-			}
-
-			threshold := silenceThreshold
-			eouPending := false
-			if sv != nil {
-				eouPending = lts.eouPending(segments)
-				threshold = lts.thresholdSec(eouPending, sv)
-			}
-
-			if float32(audioLength)-segEndTime > float32(threshold) {
-				if sv != nil {
-					trigger, eouLag := lts.commitTrigger(eouPending, float64(segEndTime))
-					xlog.Info("semantic_vad: committing turn",
-						"trigger", trigger,
-						"speech_end_s", segEndTime,
-						"eou_lag_s", eouLag,
-						"silence_s", audioLength-float64(segEndTime),
-						"audio_s", audioLength)
-				}
-				// Retranscribe gate (semantic mode, EOU-triggered commits
-				// only): cross-check the streamed EOU with an offline decode
-				// of the buffered turn before committing. Runs synchronously
-				// on the tick — the engine would serialize a concurrent feed
-				// against it anyway. Timeout-triggered commits skip the gate.
-				var gated *schema.TranscriptionResult
-				if retranscribe && eouPending {
-					batch, gerr := transcribeUtterance(vadContext, sound.Int16toBytesLE(aints), session)
-					switch {
-					case gerr != nil:
-						xlog.Warn("semantic_vad: retranscribe gate failed; committing via the file path", "error", gerr)
-					case !batch.Eou:
-						xlog.Info("semantic_vad: batch decode did not confirm the streamed EOU; continuing to listen",
-							"streamed", lts.previewText(), "batch", batch.Text)
-						// The batch decode rejected the streamed EOU as a false
-						// positive: consume the recorded EOU so the next tick
-						// falls back to the eagerness window instead of
-						// re-triggering on the same token.
-						lts.eouAtSec = 0
-						continue
-					default:
-						xlog.Info("semantic_vad: batch decode confirmed the streamed EOU",
-							"streamed", lts.previewText(), "batch", batch.Text)
-						gated = batch
-					}
-				}
-
-				xlog.Debug("Detected end of speech segment")
-				session.AudioBufferLock.Lock()
-				// Keep audio appended while this tick ran — it belongs to
-				// the next turn (in any mode: nil-ing it dropped the onset
-				// of an utterance started right after a commit).
-				session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), 0)
-				session.AudioBufferLock.Unlock()
-
-				// Commit the turn through the coordinator: it emits speech_stopped
-				// (EmitSpeechStopped) then the committed event, finalizes the live
-				// stream, and issues the response (CommitTurn). The committed item
-				// id is the coordinator's turn id (== the id the live captions
-				// streamed under), so the client replaces the partial text.
-				sink.commitAudio = sound.Int16toBytesLE(aints)
-				sink.commitAudioLength = audioLength
-				sink.commitRetranscribe = retranscribe
-				sink.commitGated = gated
-				// TODO: Remove prefix silence that is over TurnDetectionParams.PrefixPaddingMs
-				if err := sink.coord.Apply(turncoord.Silence{}); err != nil {
-					xlog.Error("turncoord: commit failed", "error", err)
-				}
-			}
+			vadTick(sink, silenceThreshold)
 		}
 	}
+}
+
+// vadTick runs one turn-detection inspection of the session's input buffer:
+// snapshot, resample, silero scan, live-ASR drain, and the coordinator
+// transitions that follow. Extracted from handleVAD so specs can drive turn
+// detection synchronously without the ticker (same shape as
+// classifySoundWindow).
+func vadTick(sink *turnSink, silenceThreshold float64) {
+	session := sink.session
+	t := sink.transport
+	lts := sink.lts
+	vadContext := sink.vadContext
+
+	// Semantic mode is re-read each tick: session.update can switch
+	// turn-detection modes (and the retranscribe gate) mid-session.
+	sessionLock.Lock()
+	var sv *types.RealtimeSessionSemanticVad
+	if session.TurnDetection != nil {
+		sv = session.TurnDetection.SemanticVad
+	}
+	retranscribe := sv != nil && session.ModelConfig != nil &&
+		session.ModelConfig.Pipeline.TurnDetectionRetranscribe()
+	sessionLock.Unlock()
+
+	// The turn coordinator's data-heavy effects (OpenTurn/CommitTurn)
+	// need this tick's mode; set it before any Apply below.
+	sink.sv = sv
+
+	// session.update switched semantic -> server mid-turn: drop the
+	// orphaned live stream. This is NOT a turn abort — the turn continues
+	// under server_vad (a config change must not cut off a mid-utterance
+	// speaker), so the coordinator stays Speaking; only the orphaned live
+	// stream is closed.
+	if sv == nil && lts.open() {
+		lts.discardTurn()
+	}
+
+	session.AudioBufferLock.Lock()
+	// Retention bound: drop the buffer head beyond maxTurnBufferSec so that a
+	// turn that never pauses can't grow memory, the per-tick copy+resample,
+	// or the commit-time decode without limit (this also bounds the
+	// runVAD-error path below, which can't trim). A mid-turn trim shifts
+	// every buffer-relative cursor, so the live-feed and EOU positions are
+	// rebased by the trimmed amount. Whole input-seconds only: second-aligned
+	// cuts keep the resampled tail sample-identical to the suffix of the
+	// previous whole-buffer resample, so the live feed stays gapless.
+	bytesPerSec := session.InputSampleRate * 2
+	if maxBytes := int(maxTurnBufferSec) * bytesPerSec; len(session.InputAudioBuffer) > maxBytes {
+		trimSecs := (len(session.InputAudioBuffer) - maxBytes + bytesPerSec - 1) / bytesPerSec
+		session.InputAudioBuffer = append([]byte(nil), session.InputAudioBuffer[trimSecs*bytesPerSec:]...)
+		lts.rebase(float64(trimSecs))
+		sink.lastSpeechEndSec = max(0, sink.lastSpeechEndSec-float64(trimSecs))
+	}
+	allAudio := make([]byte, len(session.InputAudioBuffer))
+	copy(allAudio, session.InputAudioBuffer)
+	session.AudioBufferLock.Unlock()
+
+	aints := sound.BytesToInt16sLE(allAudio)
+	if len(aints) == 0 || len(aints) < int(silenceThreshold*float64(session.InputSampleRate)) {
+		return
+	}
+
+	// Resample from InputSampleRate to 16kHz
+	aints = sound.ResampleInt16(aints, session.InputSampleRate, localSampleRate)
+
+	audioLength := float64(len(aints)) / localSampleRate
+
+	if sv != nil && lts.open() {
+		lts.feedNewAudio(aints)
+		lts.drainEvents(audioLength)
+	}
+
+	// Scan window: silero's recurrent state carries only a few hundred ms of
+	// context, so audio older than the largest silence the commit test can
+	// need to measure (plus warm-up margin) contributes nothing to the
+	// tail's classification — clip it instead of rescanning the whole turn
+	// every tick (~3.3ms of silero per buffered second, quadratic over a
+	// turn). Segment times are rebased back to whole-buffer coordinates so
+	// every downstream consumer (trailing-silence math, eouPending, the
+	// live-feed cursor) is untouched.
+	scan := aints
+	clipOffsetSec := 0.0
+	if maxScan := int(vadScanWindowSec(sv, silenceThreshold, session.ModelConfig) * localSampleRate); len(aints) > maxScan {
+		scan = aints[len(aints)-maxScan:]
+		clipOffsetSec = float64(len(aints)-maxScan) / localSampleRate
+	}
+
+	segments, err := runVAD(vadContext, session, scan)
+	if err != nil {
+		if err.Error() == "unexpected speech end" {
+			xlog.Debug("VAD cancelled")
+			return
+		}
+		xlog.Error("failed to process audio", "error", err)
+		sendError(t, "processing_error", "Failed to process audio: "+err.Error(), "", "")
+		return
+	}
+	for i := range segments {
+		segments[i].Start += float32(clipOffsetSec)
+		// End == 0 is the "segment still open" sentinel — leave it alone.
+		if segments[i].End != 0 {
+			segments[i].End += float32(clipOffsetSec)
+		}
+	}
+
+	// NOTE: the no-speech clear and the min-buffer gate above stay on
+	// the short silenceThreshold even in semantic mode — the eagerness
+	// fallback applies only to the end-of-speech commit decision, or a
+	// low eagerness would delay speech_started/barge-in by seconds.
+	if len(segments) == 0 {
+		// An open turn whose scan window is all silence: the turn's speech
+		// is entirely older than the clip, so the trailing silence is at
+		// least the window — which the window sizing guarantees exceeds
+		// every commit threshold. Commit with the last speech end this
+		// turn observed instead of discarding real speech as no-speech.
+		// With no clip in effect (clipOffsetSec == 0) silero really saw
+		// the whole turn, and zero segments keeps its historical meaning:
+		// the earlier onset was reclassified as noise — clear it below.
+		if _, speaking := sink.coord.State().(turncoord.Speaking); speaking &&
+			clipOffsetSec > 0 && sink.lastSpeechEndSec > 0 {
+			vadCommit(sink, retranscribe, aints, len(allAudio), audioLength, sink.lastSpeechEndSec, false)
+			return
+		}
+		if audioLength > silenceThreshold {
+			// "No segments" is not "no speech": silero (threshold 0.5)
+			// crosses up to a few hundred ms into a soft word onset, so
+			// the newest audio in the inspected window may be the start
+			// of a word the next tick will recognize — and more audio
+			// arrived while this tick ran. Keep both; drop only the
+			// older, confirmed-silent head, or utterance onsets get cut.
+			holdback := int(noSpeechHoldbackSec*float64(session.InputSampleRate)) * 2
+			session.AudioBufferLock.Lock()
+			session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, len(allAudio), holdback)
+			session.AudioBufferLock.Unlock()
+
+			// No-speech clear: end any open turn (Speaking -> Idle, discarding
+			// the partial). Returning to Idle is the fix for failure mode 4 —
+			// the legacy discardTurn left speechStarted true, suppressing the
+			// next onset. Idle while not speaking is a no-op.
+			sink.lastSpeechEndSec = 0
+			if err := sink.coord.Apply(turncoord.Abort{Reason: turncoord.AbortNoSpeech}); err != nil {
+				xlog.Error("turncoord: abort(no_speech) failed", "error", err)
+			}
+		}
+		return
+	}
+
+	// Speech detected this tick: open the turn (Idle -> Speaking) through
+	// the coordinator. On that transition it opens the turn's live ASR
+	// stream + feeds the buffered prefix (OpenTurn), cancels any in-flight
+	// response (BargeIn, non-blocking — the VAD tick is never stalled), and
+	// emits speech_started. While already Speaking it is a no-op, so "turn
+	// open" and "speech started" can never disagree. The turn id is minted
+	// here and carried by the coordinator through to the committed event.
+	sink.onsetAudio = aints
+	if err := sink.coord.Apply(turncoord.Onset{Turn: turncoord.TurnID(generateItemID())}); err != nil {
+		xlog.Error("turncoord: onset failed", "error", err)
+	}
+
+	// Track where speech last ended, in whole-buffer seconds: once these
+	// segments scroll out of the scan clip, the silence-outran-the-window
+	// commit above still needs a speech end to report. An open segment
+	// (End == 0) means speech reaches the end of the inspected audio.
+	if end := segments[len(segments)-1].End; end != 0 {
+		sink.lastSpeechEndSec = float64(end)
+	} else {
+		sink.lastSpeechEndSec = audioLength
+	}
+
+	if sv != nil {
+		// Drain again: events produced by THIS tick's feed have
+		// usually arrived by the time runVAD returns, and leaving
+		// them for the next tick adds 300ms to every EOU-triggered
+		// commit.
+		lts.drainEvents(audioLength)
+	}
+
+	// Segment still in progress when audio ended
+	segEndTime := segments[len(segments)-1].End
+	if segEndTime == 0 {
+		return
+	}
+
+	threshold := silenceThreshold
+	eouPending := false
+	if sv != nil {
+		eouPending = lts.eouPending(segments)
+		threshold = lts.thresholdSec(eouPending, sv)
+	}
+
+	if float32(audioLength)-segEndTime > float32(threshold) {
+		vadCommit(sink, retranscribe, aints, len(allAudio), audioLength, float64(segEndTime), eouPending)
+	}
+}
+
+// vadCommit runs the commit tail of a VAD tick: the semantic commit log, the
+// retranscribe gate, the buffer trim, and the coordinator's Silence event
+// (speech_stopped + committed + finalize live stream + issue the response).
+// Shared by the normal trailing-silence commit and the
+// silence-outran-the-scan-window commit.
+func vadCommit(sink *turnSink, retranscribe bool, aints []int16, inspectedBytes int, audioLength, segEndTime float64, eouPending bool) {
+	session := sink.session
+	lts := sink.lts
+
+	if sink.sv != nil {
+		trigger, eouLag := lts.commitTrigger(eouPending, segEndTime)
+		xlog.Info("semantic_vad: committing turn",
+			"trigger", trigger,
+			"speech_end_s", segEndTime,
+			"eou_lag_s", eouLag,
+			"silence_s", audioLength-segEndTime,
+			"audio_s", audioLength)
+	}
+	// Retranscribe gate (semantic mode, EOU-triggered commits
+	// only): cross-check the streamed EOU with an offline decode
+	// of the buffered turn before committing. Runs synchronously
+	// on the tick — the engine would serialize a concurrent feed
+	// against it anyway. Timeout-triggered commits skip the gate.
+	var gated *schema.TranscriptionResult
+	if retranscribe && eouPending {
+		batch, gerr := transcribeUtterance(sink.vadContext, sound.Int16toBytesLE(aints), session)
+		switch {
+		case gerr != nil:
+			xlog.Warn("semantic_vad: retranscribe gate failed; committing via the file path", "error", gerr)
+		case !batch.Eou:
+			xlog.Info("semantic_vad: batch decode did not confirm the streamed EOU; continuing to listen",
+				"streamed", lts.previewText(), "batch", batch.Text)
+			// The batch decode rejected the streamed EOU as a false
+			// positive: consume the recorded EOU so the next tick
+			// falls back to the eagerness window instead of
+			// re-triggering on the same token.
+			lts.eouAtSec = 0
+			return
+		default:
+			xlog.Info("semantic_vad: batch decode confirmed the streamed EOU",
+				"streamed", lts.previewText(), "batch", batch.Text)
+			gated = batch
+		}
+	}
+
+	xlog.Debug("Detected end of speech segment")
+	session.AudioBufferLock.Lock()
+	// Keep audio appended while this tick ran — it belongs to
+	// the next turn (in any mode: nil-ing it dropped the onset
+	// of an utterance started right after a commit).
+	session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, inspectedBytes, 0)
+	session.AudioBufferLock.Unlock()
+
+	// Commit the turn through the coordinator: it emits speech_stopped
+	// (EmitSpeechStopped) then the committed event, finalizes the live
+	// stream, and issues the response (CommitTurn). The committed item
+	// id is the coordinator's turn id (== the id the live captions
+	// streamed under), so the client replaces the partial text.
+	sink.commitAudio = sound.Int16toBytesLE(aints)
+	sink.commitAudioLength = audioLength
+	sink.commitRetranscribe = retranscribe
+	sink.commitGated = gated
+	sink.lastSpeechEndSec = 0
+	// TODO: Remove prefix silence that is over TurnDetectionParams.PrefixPaddingMs
+	if err := sink.coord.Apply(turncoord.Silence{}); err != nil {
+		xlog.Error("turncoord: commit failed", "error", err)
+	}
+}
+
+// vadScanWindowSec sizes the tail of the buffer silero inspects each tick.
+// The window must contain the largest trailing silence the commit test can
+// need to measure — server_vad's silence window, or the semantic eagerness
+// fallback (the post-EOU window is shorter) — plus vadWarmupMarginSec.
+// pipeline.turn_detection.vad_window_sec can widen it; values below the floor
+// are ignored, since a narrower window would make long silences unmeasurable
+// and turns uncommittable.
+func vadScanWindowSec(sv *types.RealtimeSessionSemanticVad, silenceThreshold float64, cfg *config.ModelConfig) float64 {
+	needed := silenceThreshold
+	if sv != nil {
+		needed = eagernessMaxSilenceSec(sv.Eagerness)
+	}
+	window := needed + vadWarmupMarginSec
+	if cfg != nil && cfg.Pipeline.TurnDetection.VadWindowSec > window {
+		window = cfg.Pipeline.TurnDetection.VadWindowSec
+	}
+	return window
 }
 
 func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport) {
@@ -1883,6 +2060,11 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]schema.VADS
 	if err != nil {
 		return nil, err
 	}
+	// A backend answering with an empty message means "no speech", not a
+	// reason to panic the VAD goroutine.
+	if resp == nil {
+		return nil, nil
+	}
 
 	// If resp.Segments is empty => no speech
 	return resp.Segments, nil
@@ -2203,9 +2385,18 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		images = append(images, m.StringImages...)
 	}
 
-	// response.created/done are emitted once per response.create by triggerResponse;
-	// every turn (including agentic recursion) shares this id.
-	responseID := r.id
+	// Classifier mode replaces autoregressive generation for the first turn
+	// of a response: prefill-only scoring picks a registered option and its
+	// canned reply/tool is emitted through the standard response protocol.
+	// Agentic follow-ups (toolTurn > 0) always generate — the option list
+	// describes user intents, not tool outputs. This branch must precede the
+	// streamed-LLM path below or streaming pipelines would bypass it.
+	if cc := resolveClassifier(session.Classifier, overrides); toolTurn == 0 && cc.Active() {
+		if classifierRespond(ctx, session, conv, t, r, cc, conversationHistory, overrides, toolTurn) {
+			return
+		}
+		// fallback.mode "generate": fall through to normal generation.
+	}
 
 	// Streamed LLM path: when the pipeline opts into LLM streaming, stream the
 	// transcript to the client as it is generated and synthesize the buffered
@@ -2358,6 +2549,30 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 	}
 
 	if finalSpeech != "" {
+		if !emitAssistantMessage(ctx, session, conv, t, r, finalSpeech, overrides) {
+			return
+		}
+	}
+
+	// Emit the parsed tool calls and (for server-side assistant tools) the
+	// follow-up turn. Shared with the streamed path so both finalize tool calls
+	// identically. The single terminal is emitted by triggerResponse.
+	emitToolCallItems(ctx, session, conv, t, r, finalToolCalls, finalSpeech != "", toolTurn)
+}
+
+// emitAssistantMessage appends an assistant item carrying finalSpeech to the
+// conversation and emits the standard response events for it —
+// output_item.added, content_part.added, audio-transcript or output-text
+// deltas, TTS audio via emitSpeech (unless the resolved modalities are
+// text-only), content_part.done and output_item.done. Shared by the buffered
+// generation path and classifier mode. Returns false when the response was
+// cancelled (barge-in) or failed — r.outcome is already recorded and the
+// caller must emit no further items.
+func emitAssistantMessage(ctx context.Context, session *Session, conv *Conversation, t Transport, r *liveResponse, finalSpeech string, overrides *types.ResponseCreateParams) bool {
+	// response.created/done are emitted once per response.create by
+	// triggerResponse; every turn (including agentic recursion) shares this id.
+	responseID := r.id
+	{
 		// Create the assistant item now that we have content
 		item := types.MessageItemUnion{
 			Assistant: &types.MessageItemAssistant{
@@ -2425,7 +2640,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 			if ctx.Err() != nil {
 				xlog.Debug("Response cancelled before TTS (barge-in)")
 				sendCancelledResponse()
-				return
+				return false
 			}
 
 			// Transcript of the spoken reply (the audio's text).
@@ -2455,12 +2670,12 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 				if ctx.Err() != nil {
 					xlog.Debug("TTS cancelled (barge-in)")
 					sendCancelledResponse()
-					return
+					return false
 				}
 				xlog.Error("TTS failed", "error", err)
 				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
 				r.outcome = outcomeFailed
-				return
+				return false
 			}
 			if !isWebRTC {
 				audioString = base64.StdEncoding.EncodeToString(pcmAudio)
@@ -2519,11 +2734,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		})
 		r.addItem(item)
 	}
-
-	// Emit the parsed tool calls and (for server-side assistant tools) the
-	// follow-up turn. Shared with the streamed path so both finalize tool calls
-	// identically. The single terminal is emitted by triggerResponse.
-	emitToolCallItems(ctx, session, conv, t, r, finalToolCalls, finalSpeech != "", toolTurn)
+	return true
 }
 
 // emitToolCallItems emits the realtime function_call items for the parsed tool

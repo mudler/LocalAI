@@ -1,6 +1,7 @@
 package importers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,8 @@ import (
 // carries the detected modality + candidate backends, and whose Is() matches
 // this sentinel so legacy callers keep working.
 var ErrAmbiguousImport = errors.New("importer: ambiguous — specify preferences.backend")
+
+var newHuggingFaceMetadata = func() HuggingFaceMetadata { return hfapi.NewClient() }
 
 // AmbiguousImportError is the concrete error DiscoverModelConfig returns when
 // it can't pick an importer automatically. It carries the importer-modality
@@ -246,15 +249,48 @@ func hasYAMLExtension(uri string) bool {
 }
 
 func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.ModelConfig, error) {
+	return DiscoverModelConfigWithOptions(context.Background(), uri, preferences, DiscoverOptions{})
+}
+
+// HuggingFaceMetadata provides only the repository metadata needed during
+// importer discovery. Tests can supply fixtures without constructing a live
+// Hugging Face client.
+type HuggingFaceMetadata interface {
+	GetModelDetails(string) (*hfapi.ModelDetails, error)
+}
+
+// DiscoverOptions contains optional dependencies for model discovery.
+type DiscoverOptions struct {
+	HuggingFace HuggingFaceMetadata
+}
+
+// SetHuggingFaceMetadataFactoryForTest replaces the production metadata
+// client factory and returns a restore function. It must only be called by a
+// serial test-suite setup before discovery begins.
+func SetHuggingFaceMetadataFactoryForTest(factory func() HuggingFaceMetadata) func() {
+	previous := newHuggingFaceMetadata
+	newHuggingFaceMetadata = factory
+	return func() { newHuggingFaceMetadata = previous }
+}
+
+// DiscoverModelConfigWithOptions discovers a model using explicitly supplied
+// dependencies. A nil metadata client retains the production behavior.
+func DiscoverModelConfigWithOptions(ctx context.Context, uri string, preferences json.RawMessage, opts DiscoverOptions) (gallery.ModelConfig, error) {
 	var err error
 	var modelConfig gallery.ModelConfig
 
-	hf := hfapi.NewClient()
+	hf := opts.HuggingFace
+	if hf == nil {
+		hf = newHuggingFaceMetadata()
+	}
 
 	hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
 	hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
 	hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
 
+	if err := ctx.Err(); err != nil {
+		return gallery.ModelConfig{}, err
+	}
 	hfDetails, err := hf.GetModelDetails(hfrepoID)
 	if err != nil {
 		// maybe not a HF repository
