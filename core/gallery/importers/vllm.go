@@ -19,6 +19,16 @@ func (i *VLLMImporter) Name() string      { return "vllm" }
 func (i *VLLMImporter) Modality() string  { return "text" }
 func (i *VLLMImporter) AutoDetects() bool { return true }
 
+// AdditionalBackends advertises vllm-cpp (the LocalAI-team C++ port of vLLM)
+// as a preference-only drop-in: it consumes the same safetensors model dirs
+// this importer detects, so selecting it swaps the emitted backend field while
+// reusing the vllm Match/Import pipeline.
+func (i *VLLMImporter) AdditionalBackends() []KnownBackendEntry {
+	return []KnownBackendEntry{
+		{Name: "vllm-cpp", Modality: "text", Description: "C++ port of vLLM by the LocalAI team (safetensors + GGUF, no Python at inference)"},
+	}
+}
+
 func (i *VLLMImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
@@ -31,7 +41,7 @@ func (i *VLLMImporter) Match(details Details) bool {
 	}
 
 	b, ok := preferencesMap["backend"].(string)
-	if ok && b == "vllm" {
+	if ok && (b == "vllm" || b == "vllm-cpp") {
 		return true
 	}
 
@@ -92,15 +102,23 @@ func (i *VLLMImporter) Import(details Details) (gallery.ModelConfig, error) {
 	// Apply per-model-family inference parameter defaults
 	config.ApplyInferenceDefaults(&modelConfig, details.URI)
 
-	// Auto-detect tool_parser and reasoning_parser for known model families.
-	// Surfacing them in the generated YAML lets users see and edit the choices.
-	parsers := config.MatchParserDefaults(details.URI)
-	if parsers != nil {
-		if tp, ok := parsers["tool_parser"]; ok {
-			modelConfig.Options = append(modelConfig.Options, "tool_parser:"+tp)
-		}
-		if rp, ok := parsers["reasoning_parser"]; ok {
-			modelConfig.Options = append(modelConfig.Options, "reasoning_parser:"+rp)
+	if backend == "vllm-cpp" {
+		// vllm-cpp consumes the FINAL prompt through its C ABI: templating
+		// stays on the LocalAI side (no backend-side tokenizer template), and
+		// tool/reasoning parsing goes through LocalAI's own pipeline, so the
+		// vllm-python parser options don't apply.
+		modelConfig.TemplateConfig = config.TemplateConfig{}
+	} else {
+		// Auto-detect tool_parser and reasoning_parser for known model families.
+		// Surfacing them in the generated YAML lets users see and edit the choices.
+		parsers := config.MatchParserDefaults(details.URI)
+		if parsers != nil {
+			if tp, ok := parsers["tool_parser"]; ok {
+				modelConfig.Options = append(modelConfig.Options, "tool_parser:"+tp)
+			}
+			if rp, ok := parsers["reasoning_parser"]; ok {
+				modelConfig.Options = append(modelConfig.Options, "reasoning_parser:"+rp)
+			}
 		}
 	}
 
