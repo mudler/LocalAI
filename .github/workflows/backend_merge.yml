@@ -47,12 +47,14 @@ jobs:
       COSIGN_EXPERIMENTAL: '1'
     steps:
       # Sparse checkout: the merge job needs `.github/scripts/` (for the
-      # keepalive cleanup script) but none of the source tree.
-      - name: Checkout (.github/scripts only)
+      # keepalive cleanup script) and `scripts/` (for the mutable-tag ordering
+      # guard) but none of the source tree.
+      - name: Checkout (scripts only)
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
+            scripts
           sparse-checkout-cone-mode: false
 
       # `--` separator anchors the glob so we don't over-match sibling
@@ -129,30 +131,44 @@ jobs:
       # manifest list with the user-facing tags. The resulting manifest
       # list is fully self-contained in local-ai-backends — child digests
       # only, no embedded references to ci-cache.
+      #
+      # Mutable tags (master-*, latest-*, v*-*) must never move backwards.
+      # Backend CI queues run hours deep and master pushes get a concurrency
+      # group keyed by github.sha, so a straggler build of an older commit can
+      # finish after a newer one and silently un-ship a merged fix (measured on
+      # 19 Jul 2026, see scripts/lib/tag-guard.mjs). The guard drops any mutable
+      # tag whose published image was built from a commit this one does not
+      # descend from; immutable sha-* tags always survive it.
       - name: Create manifest list and push (quay)
         if: github.event_name != 'pull_request'
         working-directory: /tmp/digests
+        env:
+          REGISTRY_PREFIX: 'quay.io/'
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tags=$(jq -cr '
-            .tags
-            | map(select(startswith("quay.io/")))
-            | map("-t " + .)
-            | join(" ")
-          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
-          if [ -z "$tags" ]; then
-            echo "No quay.io tags from docker/metadata-action; skipping quay merge"
+          # Via a file, not `mapfile < <(...)`: process substitution hides the
+          # exit status, so a crashing guard would look like "no tags" and
+          # skip the merge silently.
+          node "$GITHUB_WORKSPACE/scripts/tag-guard.mjs" > "${RUNNER_TEMP}/allowed-quay-tags.txt"
+          mapfile -t allowed < "${RUNNER_TEMP}/allowed-quay-tags.txt"
+          if [ "${#allowed[@]}" -eq 0 ] || [ -z "${allowed[0]}" ]; then
+            echo "No publishable quay.io tags; skipping quay merge"
             exit 0
           fi
-          # shellcheck disable=SC2086
-          docker buildx imagetools create $tags \
+          tags=()
+          for t in "${allowed[@]}"; do
+            tags+=(-t "$t")
+          done
+          # shellcheck disable=SC2046
+          docker buildx imagetools create "${tags[@]}" \
             $(printf 'quay.io/go-skynet/ci-cache@sha256:%s ' *)
           # Resolve the manifest-list digest (any tag points at it) so
           # cosign can sign by digest. Signing by tag would leave the
-          # signature orphaned the next time the tag moves.
-          first_tag=$(jq -cr '
-            .tags | map(select(startswith("quay.io/"))) | .[0]
-          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          # signature orphaned the next time the tag moves. The guard emits
+          # immutable sha-* tags first, so this is the per-commit tag whenever
+          # one exists.
+          first_tag="${allowed[0]}"
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
           # --recursive walks the list and signs every per-arch entry
           # too — clients that resolve a tag to a platform-specific
@@ -165,24 +181,25 @@ jobs:
       - name: Create manifest list and push (dockerhub)
         if: github.event_name != 'pull_request'
         working-directory: /tmp/digests
+        env:
+          REGISTRY_PREFIX: 'localai/'
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tags=$(jq -cr '
-            .tags
-            | map(select(startswith("localai/")))
-            | map("-t " + .)
-            | join(" ")
-          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
-          if [ -z "$tags" ]; then
-            echo "No dockerhub tags from docker/metadata-action; skipping dockerhub merge"
+          node "$GITHUB_WORKSPACE/scripts/tag-guard.mjs" > "${RUNNER_TEMP}/allowed-hub-tags.txt"
+          mapfile -t allowed < "${RUNNER_TEMP}/allowed-hub-tags.txt"
+          if [ "${#allowed[@]}" -eq 0 ] || [ -z "${allowed[0]}" ]; then
+            echo "No publishable dockerhub tags; skipping dockerhub merge"
             exit 0
           fi
-          # shellcheck disable=SC2086
-          docker buildx imagetools create $tags \
+          tags=()
+          for t in "${allowed[@]}"; do
+            tags+=(-t "$t")
+          done
+          # shellcheck disable=SC2046
+          docker buildx imagetools create "${tags[@]}" \
             $(printf 'localai/localai-backends@sha256:%s ' *)
-          first_tag=$(jq -cr '
-            .tags | map(select(startswith("localai/"))) | .[0]
-          ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          first_tag="${allowed[0]}"
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
           cosign sign --yes --recursive \
             --registry-referrers-mode=oci-1-1 \
