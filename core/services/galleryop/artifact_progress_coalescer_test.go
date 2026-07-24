@@ -1,12 +1,17 @@
 package galleryop
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 )
 
@@ -38,6 +43,68 @@ func (r *artifactProgressRecorder) Events() []modelartifacts.ProgressEvent {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]modelartifacts.ProgressEvent(nil), r.events...)
+}
+
+type modelOperationProgressManager struct {
+	err error
+}
+
+func (m *modelOperationProgressManager) InstallModel(ctx context.Context, _ *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], _ ProgressCallback) error {
+	modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
+		Phase: modelartifacts.PhaseDownloading, File: "model.bin", CurrentBytes: 32, TotalBytes: 64,
+	})
+	modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
+		Phase: modelartifacts.PhaseDownloading, File: "model.bin", CurrentBytes: 64, TotalBytes: 64,
+	})
+	return m.err
+}
+
+func (m *modelOperationProgressManager) DeleteModel(string) error { return nil }
+
+type recordingProgressClient struct {
+	mu      sync.Mutex
+	updates []*OpStatus
+}
+
+func (c *recordingProgressClient) Publish(_ string, data any) error {
+	event, ok := data.(GalleryProgressEvent)
+	if !ok || event.Status == nil || event.Status.Phase != string(modelartifacts.PhaseDownloading) {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.updates = append(c.updates, event.Status)
+	return nil
+}
+
+func (c *recordingProgressClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
+	return nil, nil
+}
+
+func (c *recordingProgressClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
+	return nil, nil
+}
+
+func (c *recordingProgressClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return nil, nil
+}
+
+func (c *recordingProgressClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return nil, nil
+}
+
+func (c *recordingProgressClient) Request(string, []byte, time.Duration) ([]byte, error) {
+	return nil, nil
+}
+
+func (c *recordingProgressClient) IsConnected() bool { return true }
+
+func (c *recordingProgressClient) Close() {}
+
+func (c *recordingProgressClient) Updates() []*OpStatus {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*OpStatus(nil), c.updates...)
 }
 
 var _ = Describe("artifact progress coalescer", func() {
@@ -94,5 +161,30 @@ var _ = Describe("artifact progress coalescer", func() {
 		coalescer.Sink(modelartifacts.ProgressEvent{Phase: modelartifacts.PhaseCommitting})
 		ticker.channel <- time.Now()
 		Consistently(recorder.Events).Should(Equal([]modelartifacts.ProgressEvent{download}))
+	})
+
+	It("coalesces model operation progress through the existing bridge", func() {
+		installErr := errors.New("stop after progress")
+		progressClient := &recordingProgressClient{}
+		service := NewGalleryService(&config.ApplicationConfig{}, nil)
+		service.modelManager = &modelOperationProgressManager{err: installErr}
+		service.natsClient = progressClient
+		op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 "model-operation",
+			GalleryElementName: "model",
+			Context:            context.Background(),
+		}
+
+		Expect(service.modelHandler(op, nil, nil)).To(MatchError(installErr))
+		Expect(progressClient.Updates()).To(ConsistOf(&OpStatus{
+			Phase:              string(modelartifacts.PhaseDownloading),
+			Message:            "Downloading model file: model.bin",
+			FileName:           "model.bin",
+			Progress:           90,
+			CurrentBytes:       64,
+			TotalBytes:         64,
+			GalleryElementName: "model",
+			Cancellable:        true,
+		}))
 	})
 })

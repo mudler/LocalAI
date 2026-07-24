@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -58,11 +59,13 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		status.GalleryElementName = op.GalleryElementName
 		g.UpdateStatus(op.ID, status)
 	})
+	coalescer := newArtifactProgressCoalescer(250*time.Millisecond, bridge.Sink)
+	defer coalescer.Close()
 	operationCtx := op.Context
 	if operationCtx == nil {
 		operationCtx = context.Background()
 	}
-	operationCtx = modelartifacts.WithProgressSink(operationCtx, bridge.Sink)
+	operationCtx = modelartifacts.WithProgressSink(operationCtx, coalescer.Sink)
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
