@@ -1,4 +1,62 @@
 ---
+- name: "ornith-1.0-35b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Ornith-1.0-35B-GGUF
+  description: |
+    [](https://deep-reinforce.com/ornith.html)
+
+    # Ornith-1.0-35B
+
+    Aloha! 🌺 Today, we are releasing Ornith-1.0, a self-improving family of open-source models for agentic coding.
+
+    Highlights:
+
+      - **State-of-the-Art Coding Agents**: Available in 9B-Dense, 31B-Dense, 35B-MoE, and 397B-MoE (post-trained on top of Gemma 4 and Qwen 3.5), achieving state-of-the-art performance among open-source models of comparable size on coding benchmarks such as Terminal-Bench 2.1, SWE-Bench, NL2Repo and OpenClaw.
+      - **Self-Improving Training Framework**:  Ornith-1.0 employs RL to learn to generate not only solution rollouts, but also the scallfold that drive those rollouts. By jointly optimizing the scaffold and the resulting solution, the model  discovers better search trajectories and generates higher-quality solutions.
+      - **Licence**: MIT licensed, globally accessible, and free from regional limitations.
+
+    ## Ornith 1.0 35B
+
+    This model card documents **Ornith-1.0-35B**, the lightweight member of the Ornith family, designed for efficient single-GPU deployment.
+
+    ### Benchmarks
+
+    Ornith-1.0-35B
+    Qwen3.5-35B
+    Qwen3.6-35B
+    Gemma4-31B
+    Qwen3.5-397B
+
+    Agentic Coding
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Ornith-1.0-35B-UD-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Ornith-1.0-35B-UD-Q4_K_M/Ornith-1.0-35B-UD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ornith-1.0-35B-UD-Q4_K_M/Ornith-1.0-35B-UD-Q4_K_M.gguf
+      sha256: 4c93716d7c9650285ab7af11e45044aeebd7d3828e513efcd582b0fa988af5ad
+      uri: https://huggingface.co/unsloth/Ornith-1.0-35B-GGUF/resolve/main/Ornith-1.0-35B-UD-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Ornith-1.0-35B-UD-Q4_K_M/mmproj-F32.gguf
+      sha256: 19ced1b3a4c0626112ed94f8c5da301a25f669fa2a568eb9360b9958dc1c494f
+      uri: https://huggingface.co/unsloth/Ornith-1.0-35B-GGUF/resolve/main/mmproj-F32.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
