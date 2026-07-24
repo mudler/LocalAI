@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=df8909b4b6983a8028dcdf53a0033a8c914c990d
+VLLM_CPP_VERSION?=61f3e85dcd5d889840f76c090054b95ad0d4c767
 
 # The backend consumes only the stable C ABI (libvllm + include/vllm.h), so the
 # server, examples and tests of the engine are never built here.
@@ -27,7 +27,12 @@ ifeq ($(BUILD_TYPE),cublas)
 	# Spark) is GB10 only. Triton-AOT GDN cubins are vendored per-arch, no
 	# Python needed to consume them.
 	ifeq ($(UNAME_M),x86_64)
-		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=120a;121a" -DVLLM_CPP_TRITON=ON
+		# NO -DVLLM_CPP_TRITON here: the vendored Triton-AOT cubin trees are
+		# per-arch and the loader refuses a multi-arch (fat) CUDA build unless
+		# pinned to one tree, which would be unsound for the other arch. The
+		# engine's non-AOT GDN path serves the fat binary; single-arch builds
+		# (arm64 below) keep the fast cubins.
+		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=120a;121a"
 	else
 		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON -DVLLM_CPP_CUDA_ARCHITECTURES=121a -DVLLM_CPP_TRITON=ON
 	endif
