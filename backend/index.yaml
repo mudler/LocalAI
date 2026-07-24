@@ -156,6 +156,35 @@
     nvidia-cuda-12: "cuda12-whisper"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-whisper"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-whisper"
+- &vllm-cpp
+  name: "vllm-cpp"
+  alias: "vllm-cpp"
+  license: apache-2.0
+  description: |
+    vllm.cpp is a from-scratch C++20 port of vLLM created and maintained by the LocalAI team.
+    It mirrors vLLM's V1 architecture (paged KV cache, continuous batching, prefix caching,
+    scheduler, sampler) on a portable tensor runtime with no Python, PyTorch or ggml at
+    inference time. It loads Hugging Face safetensors and GGUF checkpoints, supports
+    structured output (JSON schema / regex / choice / GBNF grammar) enforced in-engine,
+    and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple Metal and Vulkan.
+  urls:
+    - https://github.com/mudler/vllm.cpp
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - metal
+  capabilities:
+    default: "cpu-vllm-cpp"
+    nvidia: "cuda12-vllm-cpp"
+    metal: "metal-vllm-cpp"
+    vulkan: "vulkan-vllm-cpp"
+    nvidia-cuda-13: "cuda13-vllm-cpp"
+    nvidia-cuda-12: "cuda12-vllm-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-vllm-cpp"
+    nvidia-l4t-cuda-13: "nvidia-l4t-arm64-vllm-cpp"
 - &crispasr
   name: "crispasr"
   alias: "crispasr"
@@ -6430,3 +6459,63 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-supertonic"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-supertonic
+- !!merge <<: *vllm-cpp
+  name: "cpu-vllm-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "cpu-vllm-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "cuda12-vllm-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "cuda12-vllm-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "cuda13-vllm-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "cuda13-vllm-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "nvidia-l4t-arm64-vllm-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "nvidia-l4t-arm64-vllm-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "vulkan-vllm-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "vulkan-vllm-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "metal-vllm-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-vllm-cpp
+- !!merge <<: *vllm-cpp
+  name: "metal-vllm-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-vllm-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-vllm-cpp

@@ -37,6 +37,7 @@ func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
 	return []KnownBackendEntry{
 		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
 		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
+		{Name: "vllm-cpp", Modality: "text", Description: "vLLM-style continuous-batching engine (vllm.cpp) consuming GGUF, by the LocalAI team"},
 	}
 }
 
@@ -135,7 +136,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	backend := "llama-cpp"
 	if b, ok := preferencesMap["backend"].(string); ok {
 		switch b {
-		case "ik-llama-cpp", "turboquant":
+		case "ik-llama-cpp", "turboquant", "vllm-cpp":
 			backend = b
 		}
 	}
@@ -155,6 +156,15 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			},
 			AutomaticToolParsingFallback: true,
 		},
+	}
+
+	// vllm-cpp consumes the FINAL prompt through its C ABI: templating stays on
+	// the LocalAI side (no backend-side jinja), and tool calling goes through
+	// LocalAI's grammar-constrained path (the ABI honors GBNF grammars).
+	if backend == "vllm-cpp" {
+		modelConfig.Options = nil
+		modelConfig.TemplateConfig = config.TemplateConfig{}
+		modelConfig.FunctionsConfig = functions.FunctionsConfig{}
 	}
 
 	if embeddings != "" && strings.ToLower(embeddings) == "true" || strings.ToLower(embeddings) == "yes" {
