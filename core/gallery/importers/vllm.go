@@ -103,11 +103,10 @@ func (i *VLLMImporter) Import(details Details) (gallery.ModelConfig, error) {
 	config.ApplyInferenceDefaults(&modelConfig, details.URI)
 
 	if backend == "vllm-cpp" {
-		// vllm-cpp consumes the FINAL prompt through its C ABI: templating
-		// stays on the LocalAI side (no backend-side tokenizer template), and
-		// tool/reasoning parsing goes through LocalAI's own pipeline, so the
-		// vllm-python parser options don't apply.
-		modelConfig.TemplateConfig = config.TemplateConfig{}
+		// vllm-cpp applies the model's chat template ENGINE-side (like the
+		// vllm python backend, so use_tokenizer_template carries over), but
+		// tool/reasoning parsing is the engine's own autoparser pipeline -
+		// the vllm-python tool_parser/reasoning_parser options don't apply.
 	} else {
 		// Auto-detect tool_parser and reasoning_parser for known model families.
 		// Surfacing them in the generated YAML lets users see and edit the choices.

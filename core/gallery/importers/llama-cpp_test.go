@@ -181,7 +181,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
 		})
 
-		It("swaps the emitted backend to vllm-cpp when preferred, without tokenizer templating", func() {
+		It("swaps the emitted backend to vllm-cpp when preferred, keeping engine-side templating", func() {
 			preferences := json.RawMessage(`{"backend": "vllm-cpp"}`)
 			details := Details{
 				URI:         "https://example.com/my-model.gguf",
@@ -193,11 +193,11 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: vllm-cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("backend: llama-cpp\n"), fmt.Sprintf("Model config: %+v", modelConfig))
-			// vllm-cpp takes the FINAL prompt through its C ABI: no backend-side
-			// jinja templating, and tool calling uses LocalAI's grammar path
-			// rather than the llama-cpp no-grammar autoparser.
+			// vllm-cpp rides the autoparser-style flow: the ENGINE templates and
+			// parses tools, so use_tokenizer_template carries over; only the
+			// llama-cpp-specific use_jinja option is dropped.
 			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("use_jinja"), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("use_tokenizer_template: true"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("use_tokenizer_template: true"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(len(modelConfig.Files)).To(Equal(1))
 			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))

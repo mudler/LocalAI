@@ -133,7 +133,7 @@ var _ = Describe("VLLMImporter", func() {
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: vllm"))
 		})
 
-		It("swaps the emitted backend to vllm-cpp when preferred, without tokenizer templating", func() {
+		It("swaps the emitted backend to vllm-cpp when preferred, keeping engine-side templating", func() {
 			preferences := json.RawMessage(`{"backend": "vllm-cpp"}`)
 			details := Details{
 				URI:         "https://huggingface.co/test/my-model",
@@ -144,9 +144,9 @@ var _ = Describe("VLLMImporter", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: vllm-cpp"))
-			// vllm-cpp takes the FINAL prompt through its C ABI: templating is
-			// LocalAI-side, and the vllm-python parser options don't apply.
-			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("use_tokenizer_template: true"))
+			// vllm-cpp templates ENGINE-side (use_tokenizer_template carries
+			// over); the vllm-python parser options don't apply.
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("use_tokenizer_template: true"))
 			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("tool_parser"))
 			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("reasoning_parser"))
 		})

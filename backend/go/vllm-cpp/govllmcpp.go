@@ -18,7 +18,7 @@ import (
 )
 
 // abiVersion is the VLLM_ABI_VERSION this file mirrors (vllm.h).
-const abiVersion = 2
+const abiVersion = 3
 
 // vllm_status (vllm.h).
 const (
@@ -97,6 +97,8 @@ var (
 	vllmEngineFree     func(engine uintptr)
 	vllmComplete       func(engine uintptr, prompt string, params, out unsafe.Pointer) int32
 	vllmCompleteStream func(engine uintptr, prompt string, params unsafe.Pointer, cb uintptr, userData uintptr) int32
+	vllmChat           func(engine uintptr, requestJSON string, out unsafe.Pointer) int32
+	vllmChatStream     func(engine uintptr, requestJSON string, cb uintptr, userData uintptr) int32
 	vllmStringFree     func(s uintptr)
 	vllmCompletionFree func(out unsafe.Pointer)
 	vllmLastError      func() string
@@ -122,6 +124,8 @@ func registerLib(libName string) error {
 		{&vllmEngineFree, "vllm_engine_free"},
 		{&vllmComplete, "vllm_complete"},
 		{&vllmCompleteStream, "vllm_complete_stream"},
+		{&vllmChat, "vllm_chat"},
+		{&vllmChatStream, "vllm_chat_stream"},
 		{&vllmStringFree, "vllm_string_free"},
 		{&vllmCompletionFree, "vllm_completion_free"},
 		{&vllmLastError, "vllm_last_error"},

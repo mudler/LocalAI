@@ -158,13 +158,14 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		},
 	}
 
-	// vllm-cpp consumes the FINAL prompt through its C ABI: templating stays on
-	// the LocalAI side (no backend-side jinja), and tool calling goes through
-	// LocalAI's grammar-constrained path (the ABI honors GBNF grammars).
+	// vllm-cpp rides the same autoparser-style flow as llama-cpp: the ENGINE
+	// applies the model's chat template (GGUF tokenizer.chat_template) and
+	// decides when a tool call engages (lazy structural-tag constraint +
+	// engine-side parsing), so the tokenizer-template config carries over
+	// verbatim. Only `use_jinja` is dropped - that option is a llama-cpp
+	// backend knob with no meaning for vllm-cpp.
 	if backend == "vllm-cpp" {
 		modelConfig.Options = nil
-		modelConfig.TemplateConfig = config.TemplateConfig{}
-		modelConfig.FunctionsConfig = functions.FunctionsConfig{}
 	}
 
 	if embeddings != "" && strings.ToLower(embeddings) == "true" || strings.ToLower(embeddings) == "yes" {

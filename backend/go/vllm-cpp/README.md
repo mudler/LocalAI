@@ -15,10 +15,19 @@ ABI v2) through purego:
 - `Predict` -> `vllm_complete` (blocking).
 - `PredictStream` -> `vllm_complete_stream`; concurrent gRPC requests batch
   continuously in the engine's shared AsyncLLM scheduler.
-- `PredictOptions.Grammar` -> the ABI's `structured_grammar` (GBNF), which is
-  how LocalAI's grammar-constrained tool calling works on this backend, at
-  parity with llama-cpp. JSON-schema / regex / choice constraints are also
-  exposed by the ABI.
+- Chat / tool calling rides the SAME code path as the llama.cpp autoparser:
+  with `use_tokenizer_template: true` the backend implements
+  `PredictRich`/`PredictStreamRich` over the ABI v3 chat entry points
+  (`vllm_chat` / `vllm_chat_stream`). The ENGINE applies the model's chat
+  template (GGUF `tokenizer.chat_template` or `tokenizer_config.json`),
+  decides when a tool call engages (`tool_choice: auto` lowers to a LAZY
+  structural-tag decode constraint; `required`/named force one), parses tool
+  calls with its streaming Hermes-style parser, and the backend maps each
+  `chat.completion.chunk` onto `ChatDelta`/`ToolCallDelta` protos.
+- Without structured messages the plain path applies:
+  `PredictOptions.Grammar` -> the ABI's `structured_grammar` (GBNF) for
+  LocalAI's Go-side grammar-constrained tool calling; JSON-schema / regex /
+  choice constraints are also exposed by the ABI.
 
 Model config example:
 
