@@ -2728,6 +2728,61 @@
     - model: lfm2.5-8b-a1b-q8-0
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
+    - https://huggingface.co/unsloth/LFM2.5-8B-A1B-GGUF
+  description: |
+    Try LFM •
+    Docs •
+    LEAP •
+    Discord
+
+    # LFM2.5-8B-A1B
+
+    LFM2.5 is a new family of hybrid models designed for on-device deployment. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.
+
+      - **On-device personal assistant**: Designed to power real-life applications, chaining tool calls, and following complex instructions on all devices.
+      - **Compressed performance**: Competitive with much larger dense and MoE models on instruction following and agentic tasks.
+      - **Unmatched throughput**: Fastest in its size class on both CPU and GPU inference, with day-one support for llama.cpp, MLX, vLLM, and SGLang.
+
+    Find more information about LFM2.5-8B-A1B in our blog post.
+
+    **AA-Omniscience Index (higher is better) rewards correct answers and penalizes hallucinations. Scores range from -100 to 100. See more results on Artificial Analysis.*
+
+    ## 🗒️ Model Details
+
+    LFM2.5-8B-A1B is a general-purpose text-only model with the following features:
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/qUZVGkns1bg3sZUShBbhv.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-UD-Q4_K_M.gguf
+      sha256: e2c8350d5e6e7c633b2ba4e20805a2c86bc46884cd285e8f3fe36ad917b772c7
+      uri: https://huggingface.co/unsloth/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-UD-Q4_K_M.gguf
+- name: "lfm2.5-8b-a1b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
     - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
   description: "Try LFM •\nDocs •\nLEAP •\nDiscord\n\n# LFM2.5-8B-A1B\n\nLFM2.5 is a new family of hybrid models designed for on-device deployment. It builds on the LFM2 architecture with extended pre-training and reinforcement learning.\n\n  - **On-device personal assistant**: Designed to power real-life applications, chaining tool calls, and following complex instructions on all devices.\n  - **Compressed performance**: Competitive with much larger dense and MoE models on instruction following and agentic tasks.\n  - **Unmatched throughput**: Fastest in its size class on both CPU and GPU inference, with day-one support for llama.cpp, MLX, vLLM, and SGLang.\n\nFind more information about LFM2.5-8B-A1B in our blog post.\n\n**AA-Omniscience Index (higher is better) rewards correct answers and penalizes hallucinations. Scores range from -100 to 100. See more results on Artificial Analysis.*\n\n## \U0001F5D2️ Model Details\n\nLFM2.5-8B-A1B is a general-purpose text-only model with the following features:\n\n...\n"
   license: "other"
