@@ -6699,6 +6699,60 @@
     - filename: moss-tts-cpp-v1_5-f16/moss-tokenizer-v1_5.gguf
       sha256: d0f4f371f80ff32ba222b1b39c192df8285c7b88986a55f954454db69618479e
       uri: huggingface://mudler/MOSS-TTS-Local-Transformer-v1.5-GGUF/moss-tokenizer-v1_5.gguf
+- &magpiettscpp_gallery
+  name: magpie-tts-cpp-357m-q8_0
+  variants:
+    - model: magpie-tts-cpp-357m-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/magpie-tts.cpp-gguf
+    - https://github.com/mudler/magpie-tts.cpp
+    - https://huggingface.co/nvidia/magpie_tts_multilingual_357m
+  description: |
+    Magpie TTS Multilingual 357M (C++/ggml, magpie-tts.cpp), Q8_0 (~624 MB), near-lossless
+    and the fastest decode. Native C++ text-to-speech for NVIDIA's Magpie TTS Multilingual
+    (encoder + autoregressive decoder over NanoCodec tokens) from one self-contained GGUF
+    (model, codec, tokenizer, G2P dictionaries). 22.05kHz mono, 5 baked voices (set `voice`
+    to Aria, Jason, John, Leo, Sofia or 0-4), 9+ languages (en, es, de, fr, it, pt-BR, hi,
+    vi, ko, plus Arabic variants). Parity-gated per component against the NeMo reference.
+  license: other
+  tags:
+    - magpie-tts
+    - magpie-tts-cpp
+    - tts
+    - text-to-speech
+    - multilingual
+    - gguf
+    - ggml
+  last_checked: "2026-07-24"
+  overrides:
+    backend: magpie-tts-cpp
+    known_usecases:
+      - tts
+    name: magpie-tts-cpp-357m-q8_0
+    parameters:
+      model: magpie-tts-cpp-357m-q8_0/magpie-tts-multilingual-357m-q8_0.gguf
+  files:
+    - filename: magpie-tts-cpp-357m-q8_0/magpie-tts-multilingual-357m-q8_0.gguf
+      sha256: 0f26f552c82b45a176bd7b7de261581821d5e81acc99cedb4450fd20a10ad259
+      uri: huggingface://mudler/magpie-tts.cpp-gguf/magpie-tts-multilingual-357m-q8_0.gguf
+- !!merge <<: *magpiettscpp_gallery
+  name: magpie-tts-cpp-357m-f16
+  variants: []
+  description: |
+    Magpie TTS Multilingual 357M (C++/ggml, magpie-tts.cpp), F16 (~784 MB). 22.05kHz mono
+    text-to-speech with 5 baked voices and 9+ languages.
+  overrides:
+    backend: magpie-tts-cpp
+    known_usecases:
+      - tts
+    name: magpie-tts-cpp-357m-f16
+    parameters:
+      model: magpie-tts-cpp-357m-f16/magpie-tts-multilingual-357m-f16.gguf
+  files:
+    - filename: magpie-tts-cpp-357m-f16/magpie-tts-multilingual-357m-f16.gguf
+      sha256: cf1782f26703cac58b97ed453e42320e974a13be7b592f83be14e58f955b97ec
+      uri: huggingface://mudler/magpie-tts.cpp-gguf/magpie-tts-multilingual-357m-f16.gguf
 - name: omnivoice-cpp
   variants:
     - model: omnivoice-cpp-hq
