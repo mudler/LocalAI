@@ -185,6 +185,17 @@
     nvidia-cuda-12: "cuda12-vllm-cpp"
     nvidia-l4t: "nvidia-l4t-arm64-vllm-cpp"
     nvidia-l4t-cuda-13: "nvidia-l4t-arm64-vllm-cpp"
+- !!merge <<: *vllm-cpp
+  name: "vllm-cpp-development"
+  capabilities:
+    default: "cpu-vllm-cpp-development"
+    nvidia: "cuda12-vllm-cpp-development"
+    metal: "metal-vllm-cpp-development"
+    vulkan: "vulkan-vllm-cpp-development"
+    nvidia-cuda-13: "cuda13-vllm-cpp-development"
+    nvidia-cuda-12: "cuda12-vllm-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-vllm-cpp-development"
+    nvidia-l4t-cuda-13: "nvidia-l4t-arm64-vllm-cpp-development"
 - &crispasr
   name: "crispasr"
   alias: "crispasr"
