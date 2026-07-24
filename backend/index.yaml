@@ -1171,6 +1171,48 @@
     nvidia-l4t: "nvidia-l4t-arm64-moss-tts-cpp-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-moss-tts-cpp-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-moss-tts-cpp-development"
+- &magpiettscpp
+  name: "magpie-tts-cpp"
+  description: |
+    Magpie TTS C++ backend using GGML (magpie-tts.cpp). Native C++
+    text-to-speech for NVIDIA's Magpie TTS Multilingual 357M model (encoder +
+    autoregressive decoder over NanoCodec tokens), running from a single
+    self-contained GGUF (model, codec, tokenizer, G2P dictionaries) with no
+    Python at inference time. 22.05kHz mono output, 5 baked voices (Aria,
+    Jason, John, Leo, Sofia), 9+ languages.
+  urls:
+    - https://github.com/mudler/magpie-tts.cpp
+    - https://huggingface.co/mudler/magpie-tts.cpp-gguf
+  tags:
+    - text-to-speech
+    - tts
+  alias: "magpie-tts-cpp"
+  capabilities:
+    default: "cpu-magpie-tts-cpp"
+    nvidia: "cuda12-magpie-tts-cpp"
+    nvidia-cuda-13: "cuda13-magpie-tts-cpp"
+    nvidia-cuda-12: "cuda12-magpie-tts-cpp"
+    intel: "intel-sycl-f16-magpie-tts-cpp"
+    metal: "metal-magpie-tts-cpp"
+    amd: "rocm-magpie-tts-cpp"
+    vulkan: "vulkan-magpie-tts-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-magpie-tts-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-magpie-tts-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-magpie-tts-cpp"
+- !!merge <<: *magpiettscpp
+  name: "magpie-tts-cpp-development"
+  capabilities:
+    default: "cpu-magpie-tts-cpp-development"
+    nvidia: "cuda12-magpie-tts-cpp-development"
+    nvidia-cuda-13: "cuda13-magpie-tts-cpp-development"
+    nvidia-cuda-12: "cuda12-magpie-tts-cpp-development"
+    intel: "intel-sycl-f16-magpie-tts-cpp-development"
+    metal: "metal-magpie-tts-cpp-development"
+    amd: "rocm-magpie-tts-cpp-development"
+    vulkan: "vulkan-magpie-tts-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-magpie-tts-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-magpie-tts-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-magpie-tts-cpp-development"
 - &omnivoicecpp
   name: "omnivoice-cpp"
   description: |
@@ -4754,6 +4796,107 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-moss-tts-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-moss-tts-cpp
+## magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "nvidia-l4t-arm64-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "nvidia-l4t-arm64-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cuda13-nvidia-l4t-arm64-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cuda13-nvidia-l4t-arm64-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cpu-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "metal-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "metal-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cpu-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cuda12-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "rocm-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "intel-sycl-f32-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f32-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "intel-sycl-f16-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-sycl-f16-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "vulkan-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "vulkan-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cuda12-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "rocm-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "intel-sycl-f32-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f32-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "intel-sycl-f16-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-sycl-f16-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cuda13-magpie-tts-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-magpie-tts-cpp
+- !!merge <<: *magpiettscpp
+  name: "cuda13-magpie-tts-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-magpie-tts-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-magpie-tts-cpp
 ## omnivoice-cpp
 - !!merge <<: *omnivoicecpp
   name: "omnivoice-cpp-development"

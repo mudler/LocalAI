@@ -42,6 +42,14 @@ export function inferBackendPath(item) {
   if (item.backend === "moss-tts-cpp") {
     return `backend/go/moss-tts-cpp/`;
   }
+  // magpie-tts-cpp is a Go backend (Dockerfile.golang) wrapping the
+  // magpie-tts.cpp ggml port via purego, living in backend/go/magpie-tts-cpp/.
+  // Same explicit-branch rationale as its siblings above: the generic golang
+  // fallthrough would also resolve it, but this documents the mapping and
+  // guards a future dockerfile-suffix change.
+  if (item.backend === "magpie-tts-cpp") {
+    return `backend/go/magpie-tts-cpp/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }

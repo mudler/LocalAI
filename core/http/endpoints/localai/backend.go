@@ -41,6 +41,7 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "kokoros", Modality: "tts", AutoDetect: false, Description: "Kokoros TTS (preference-only)"},
 	{Name: "qwen-tts", Modality: "tts", AutoDetect: false, Description: "Qwen TTS (preference-only)"},
 	{Name: "qwen3-tts-cpp", Modality: "tts", AutoDetect: false, Description: "Qwen3 TTS C++ (preference-only)"},
+	{Name: "magpie-tts-cpp", Modality: "tts", AutoDetect: false, Description: "Magpie TTS Multilingual C++ (preference-only)"},
 	{Name: "omnivoice-cpp", Modality: "tts", AutoDetect: false, Description: "OmniVoice C++ TTS with voice cloning and voice design (preference-only)"},
 	{Name: "faster-qwen3-tts", Modality: "tts", AutoDetect: false, Description: "Faster Qwen3 TTS (preference-only)"},
 	{Name: "supertonic", Modality: "tts", AutoDetect: false, Description: "Supertonic multilingual ONNX TTS (preference-only)"},
