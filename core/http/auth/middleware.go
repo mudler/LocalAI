@@ -48,6 +48,16 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				return next(c)
 			}
 
+			// CORS preflight (OPTIONS) requests cannot carry credentials by
+			// HTTP spec, so they must not be gated on API-key auth. Without
+			// this bypass the auth middleware answers 401 before the CORS
+			// middleware (registered after auth in app.go) can answer the
+			// preflight, and browsers block the actual cross-origin call.
+			// See #4576.
+			if c.Request().Method == http.MethodOptions {
+				return next(c)
+			}
+
 			path := c.Request().URL.Path
 			authenticated := false
 
