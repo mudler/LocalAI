@@ -103,7 +103,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -269,8 +269,7 @@ LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
 
 ## Set LINT_NEW_FROM to a git ref to override .golangci.yml's
 ## new-from-merge-base (origin/master). Useful from a fork clone where
-## origin/master is stale relative to the canonical repo — the pre-commit
-## hook passes the resolved upstream ref here so local lint matches CI.
+## origin/master is stale relative to the canonical repo.
 LINT_NEW_FROM?=
 lint:
 	@command -v golangci-lint >/dev/null 2>&1 || { \
@@ -288,17 +287,6 @@ lint-all:
 		exit 1; \
 	}
 	golangci-lint run --new=false --new-from-merge-base= --new-from-rev= $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
-
-########################################################
-## Git hooks
-########################################################
-## Points git at the versioned .githooks/ directory so the pre-commit hook
-## (lint + coverage gate) runs locally. Run once per clone. Undo with:
-## `git config --unset core.hooksPath`. Skip a single commit with
-## `git commit --no-verify`.
-install-hooks:
-	git config core.hooksPath .githooks
-	@echo 'Installed git hooks: core.hooksPath -> .githooks (pre-commit runs lint + test-coverage-check on Go changes)'
 
 ########################################################
 ## E2E AIO tests (uses standard image with pre-configured models)
@@ -1450,7 +1438,7 @@ test-ui-e2e: build-ui-test-server
 UI_TEST_WORKERS ?=
 PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
 
-## Fast Playwright e2e run used by the pre-commit hook on React UI changes.
+## Fast Playwright e2e run for local React UI validation.
 ## Force-rebuilds the (non-instrumented) dist so the suite tests the working
 ## tree — not a stale dist the `react-ui` skip-guard would leave — re-embeds
 ## it into ui-test-server, and runs the specs. Uses the nix-provided browser
