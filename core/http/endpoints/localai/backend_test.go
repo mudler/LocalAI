@@ -87,7 +87,7 @@ var _ = Describe("Backend Endpoints", func() {
 				names = append(names, b.Name)
 			}
 			Expect(names).To(ContainElements(
-				"llama-cpp", "mlx", "vllm", "transformers", "diffusers",
+				"funasr", "llama-cpp", "mlx", "vllm", "transformers", "diffusers",
 				"privacy-filter",
 			))
 
@@ -176,7 +176,7 @@ var _ = Describe("Backend Endpoints", func() {
 			}
 
 			// Importer registry entries that auto-detect.
-			for _, n := range []string{"llama-cpp", "mlx", "vllm", "transformers", "diffusers"} {
+			for _, n := range []string{"funasr", "llama-cpp", "mlx", "vllm", "transformers", "diffusers"} {
 				entry, ok := byName[n]
 				Expect(ok).To(BeTrue(), "%s must be present", n)
 				Expect(entry.AutoDetect).To(BeTrue(), "%s must have AutoDetect=true", n)

@@ -1585,6 +1585,32 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-faster-qwen3-tts"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-faster-qwen3-tts"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+- &funasr
+  urls:
+    - https://github.com/modelscope/FunASR
+  description: |
+    FunASR is an industrial-grade speech recognition toolkit supporting 50+ languages.
+    Includes SenseVoice (170x realtime, emotion detection), Paraformer (highest Chinese
+    accuracy), and built-in VAD, punctuation restoration, and speaker diarization.
+  tags:
+    - speech-recognition
+    - ASR
+    - multilingual
+  license: mit
+  name: "funasr"
+  alias: "funasr"
+  capabilities:
+    nvidia: "cuda12-funasr"
+    intel: "intel-funasr"
+    amd: "rocm-funasr"
+    metal: "metal-funasr"
+    default: "cpu-funasr"
+    nvidia-cuda-13: "cuda13-funasr"
+    nvidia-cuda-12: "cuda12-funasr"
+    nvidia-l4t: "nvidia-l4t-funasr"
+    nvidia-l4t-cuda-12: "nvidia-l4t-funasr"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-funasr"
+  icon: https://avatars.githubusercontent.com/u/109454077
 - &qwen-asr
   urls:
     - https://github.com/QwenLM/Qwen3-ASR
@@ -6430,3 +6456,97 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-supertonic"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-supertonic
+## funasr
+- !!merge <<: *funasr
+  name: "funasr-development"
+  capabilities:
+    nvidia: "cuda12-funasr-development"
+    intel: "intel-funasr-development"
+    amd: "rocm-funasr-development"
+    nvidia-l4t: "nvidia-l4t-funasr-development"
+    metal: "metal-funasr-development"
+    default: "cpu-funasr-development"
+    nvidia-cuda-13: "cuda13-funasr-development"
+    nvidia-cuda-12: "cuda12-funasr-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-funasr-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-funasr-development"
+- !!merge <<: *funasr
+  name: "cpu-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-funasr"
+  mirrors:
+    - localai/localai-backends:latest-cpu-funasr
+- !!merge <<: *funasr
+  name: "cpu-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-funasr"
+  mirrors:
+    - localai/localai-backends:master-cpu-funasr
+- !!merge <<: *funasr
+  name: "cuda12-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-funasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-funasr
+- !!merge <<: *funasr
+  name: "cuda12-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-funasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-funasr
+- !!merge <<: *funasr
+  name: "cuda13-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-funasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-funasr
+- !!merge <<: *funasr
+  name: "cuda13-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-funasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-funasr
+- !!merge <<: *funasr
+  name: "intel-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-funasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-funasr
+- !!merge <<: *funasr
+  name: "intel-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-funasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-funasr
+- !!merge <<: *funasr
+  name: "rocm-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-funasr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-funasr
+- !!merge <<: *funasr
+  name: "rocm-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-funasr"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-funasr
+- !!merge <<: *funasr
+  name: "nvidia-l4t-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-funasr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-funasr
+- !!merge <<: *funasr
+  name: "nvidia-l4t-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-funasr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-funasr
+- !!merge <<: *funasr
+  name: "cuda13-nvidia-l4t-arm64-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-funasr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-funasr
+- !!merge <<: *funasr
+  name: "cuda13-nvidia-l4t-arm64-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-funasr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-funasr
+- !!merge <<: *funasr
+  name: "metal-funasr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-funasr"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-funasr
+- !!merge <<: *funasr
+  name: "metal-funasr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-funasr"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-funasr

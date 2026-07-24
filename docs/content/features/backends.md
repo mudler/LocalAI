@@ -125,7 +125,7 @@ For getting started, see the available backends in LocalAI here: https://github.
 LocalAI supports various types of backends:
 
 - **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, SGLang, transformers, MLX)
-- **Speech-to-Text Backends**: For transcription and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, faster-whisper, NeMo)
+- **Speech-to-Text Backends**: For transcription and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, faster-whisper, FunASR/SenseVoice, NeMo)
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
