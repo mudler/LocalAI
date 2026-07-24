@@ -209,6 +209,42 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 	return result, nil
 }
 
+func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	reqID := requestID()
+
+	// Stage the conditioning image or existing GLB used by 3D post-processing.
+	if in.Src != "" && isFilePath(in.Src) {
+		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Src, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging 3D input asset: %w", err)
+		}
+		in.Src = backendPath
+	}
+
+	// Handle output destination
+	frontendDst := in.Dst
+	if frontendDst != "" {
+		tmpPath, err := f.stager.AllocRemoteTemp(ctx, f.nodeID)
+		if err != nil {
+			return nil, fmt.Errorf("allocating temp for 3D output: %w", err)
+		}
+		in.Dst = tmpPath
+	}
+
+	result, err := f.Backend.Generate3D(ctx, in, opts...)
+	if err != nil {
+		return result, err
+	}
+
+	if frontendDst != "" && in.Dst != frontendDst {
+		if err := f.retrieveOutputFile(ctx, in.Dst, frontendDst); err != nil {
+			return result, fmt.Errorf("retrieving generated 3D asset: %w", err)
+		}
+	}
+
+	return result, nil
+}
+
 func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	reqID := requestID()
 

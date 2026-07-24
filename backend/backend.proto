@@ -16,6 +16,7 @@ service Backend {
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
+  rpc Generate3D(Generate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
@@ -638,6 +639,20 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+}
+
+message Generate3DRequest {
+  string src = 1;          // Path to the staged conditioning image (3D generation is image-conditioned)
+  string dst = 2;          // Output path for the generated binary glTF (.glb) asset
+  int32 seed = 3;          // <=0 lets the backend pick a random seed
+  int32 step = 4;          // Flow sampling steps; <=0 uses the backend default
+  float cfg_scale = 5;     // Classifier-free guidance scale; <=0 uses the backend default
+  int32 texture_steps = 6; // Texture flow sampling steps; <=0 uses the backend default
+  string quality = 7;      // Mesh pipeline: ""|"auto"|"coarse"|"512"|"1024"
+  string background = 8;   // Conditioning-image background handling: ""|"auto"|"keep"|"black"|"white"
+  // Backend-specific per-request generation parameters. Values are strings
+  // and are validated/coerced by the selected backend.
+  map<string, string> params = 9;
 }
 
 message TTSRequest {

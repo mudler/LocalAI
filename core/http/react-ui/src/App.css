@@ -5095,6 +5095,45 @@ button.collapsible-header:focus-visible {
   border-radius: var(--radius-md);
 }
 
+.threed-remesh-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.threed-remesh-heading,
+.threed-remesh-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.threed-remesh-heading {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.threed-remesh-heading output,
+.threed-remesh-scale,
+.threed-remesh-ready {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.threed-remesh-controls input[type="range"] {
+  width: 100%;
+}
+
+.threed-remesh-ready {
+  margin: var(--spacing-xs) 0 0;
+  color: var(--color-success);
+}
+
 .media-result-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

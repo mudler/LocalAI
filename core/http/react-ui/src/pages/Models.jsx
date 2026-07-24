@@ -56,6 +56,7 @@ const FILTERS = [
   { key: 'chat', labelKey: 'filters.llm', icon: 'fa-brain' },
   { key: 'image', labelKey: 'filters.image', icon: 'fa-image' },
   { key: 'video', labelKey: 'filters.video', icon: 'fa-video' },
+  { key: '3d', labelKey: 'filters.threed', icon: 'fa-cube' },
   { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'fa-shapes' },
   { key: 'vision', labelKey: 'filters.vision', icon: 'fa-eye' },
   { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },

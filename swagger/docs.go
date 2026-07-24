@@ -22,6 +22,77 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/3d/generations": {
+            "post": {
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Creates a 3D asset (binary glTF / GLB) from a conditioning image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Model3DRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/3d/remesh": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "model/gltf-binary"
+                ],
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Applies watertight print remeshing to an existing 3D asset.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "3D model name",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Source GLB",
+                        "name": "mesh",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Detail size as percent of the source bounding-box diagonal (0.35–2.5; default 0.5)",
+                        "name": "detail",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Remeshed GLB",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [
@@ -5659,6 +5730,54 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ToolCall"
                     }
+                }
+            }
+        },
+        "schema.Model3DRequest": {
+            "description": "3D asset generation request body. Generation is image-conditioned",
+            "type": "object",
+            "properties": {
+                "background": {
+                    "description": "background handling: auto|keep|black|white",
+                    "type": "string"
+                },
+                "cfg_scale": {
+                    "description": "classifier-free guidance scale (backend default 7.5)",
+                    "type": "number"
+                },
+                "image": {
+                    "description": "conditioning image: URL, base64, or data URI (required)",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "params": {
+                    "description": "backend-specific generation parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "quality": {
+                    "description": "mesh pipeline: auto|coarse|512|1024",
+                    "type": "string"
+                },
+                "response_format": {
+                    "description": "output format (url or b64_json)",
+                    "type": "string"
+                },
+                "seed": {
+                    "description": "random seed; \u003c=0 picks a random seed",
+                    "type": "integer"
+                },
+                "step": {
+                    "description": "flow sampling steps (backend default 12)",
+                    "type": "integer"
+                },
+                "texture_steps": {
+                    "description": "texture flow sampling steps (backend default 12)",
+                    "type": "integer"
                 }
             }
         },

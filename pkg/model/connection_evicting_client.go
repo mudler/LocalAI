@@ -72,6 +72,12 @@ func (c *ConnectionEvictingClient) GenerateVideo(ctx context.Context, in *pb.Gen
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	result, err := c.Backend.Generate3D(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	result, err := c.Backend.TTS(ctx, in, opts...)
 	c.checkErr(err)

@@ -38,6 +38,7 @@ const Models = page('models', () => import('./pages/Models'))
 const Manage = page('manage', () => import('./pages/Manage'))
 const ImageGen = page('image', () => import('./pages/ImageGen'))
 const VideoGen = page('video', () => import('./pages/VideoGen'))
+const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
 const TTS = page('tts', () => import('./pages/TTS'))
 const Sound = page('sound', () => import('./pages/Sound'))
 const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
@@ -105,6 +106,8 @@ const appChildren = [
   { path: 'image/:model', element: <ImageGen /> },
   { path: 'video', element: <VideoGen /> },
   { path: 'video/:model', element: <VideoGen /> },
+  { path: '3d', element: <Feature feature="3d"><ThreeDGen /></Feature> },
+  { path: '3d/:model', element: <Feature feature="3d"><ThreeDGen /></Feature> },
   { path: 'tts', element: <TTS /> },
   { path: 'tts/:model', element: <TTS /> },
   { path: 'sound', element: <Sound /> },

@@ -1599,6 +1599,11 @@ const (
 	// labels via the SoundDetection RPC, e.g. ced).
 	FLAG_SOUND_CLASSIFICATION ModelConfigUsecase = 0b10000000000000000000000
 
+	// Marks a model as wired for the Generate3D gRPC primitive
+	// (image-conditioned 3D asset generation — a binary glTF mesh with
+	// optional PBR material, e.g. trellis2cpp).
+	FLAG_3D ModelConfigUsecase = 0b100000000000000000000000
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -1612,7 +1617,7 @@ var ModalityGroups = []ModelConfigUsecase{
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO,                                           // visual generation
+	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D,                                 // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -1659,6 +1664,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_SCORE":                FLAG_SCORE,
 		"FLAG_DEPTH":                FLAG_DEPTH,
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
+		"FLAG_3D":                   FLAG_3D,
 	}
 }
 
@@ -1806,6 +1812,13 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_DEPTH) == FLAG_DEPTH {
 		depthBackends := []string{"depth-anything"}
 		if !slices.Contains(depthBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_3D) == FLAG_3D {
+		threeDBackends := []string{"trellis2cpp"}
+		if !slices.Contains(threeDBackends, c.Backend) {
 			return false
 		}
 	}

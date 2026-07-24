@@ -16,6 +16,7 @@ const (
 	UsecaseTokenize            = "tokenize"
 	UsecaseImage               = "image"
 	UsecaseVideo               = "video"
+	Usecase3D                  = "3d"
 	UsecaseTranscript          = "transcript"
 	UsecaseTTS                 = "tts"
 	UsecaseSoundGeneration     = "sound_generation"
@@ -41,6 +42,7 @@ const (
 	MethodEmbedding          GRPCMethod = "Embedding"
 	MethodGenerateImage      GRPCMethod = "GenerateImage"
 	MethodGenerateVideo      GRPCMethod = "GenerateVideo"
+	MethodGenerate3D         GRPCMethod = "Generate3D"
 	MethodAudioTranscription GRPCMethod = "AudioTranscription"
 	MethodTTS                GRPCMethod = "TTS"
 	MethodTTSStream          GRPCMethod = "TTSStream"
@@ -121,6 +123,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_VIDEO,
 		GRPCMethod:  MethodGenerateVideo,
 		Description: "Video generation via the GenerateVideo RPC, with optional image or audio conditioning when supported by the backend.",
+	},
+	Usecase3D: {
+		Flag:        FLAG_3D,
+		GRPCMethod:  MethodGenerate3D,
+		Description: "Image-conditioned 3D asset generation via the Generate3D RPC — a binary glTF (GLB) mesh with optional PBR material (TRELLIS.2).",
 	},
 	UsecaseTranscript: {
 		Flag:        FLAG_TRANSCRIPT,
@@ -342,6 +349,14 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseImage},
 		DefaultUsecases:  []string{UsecaseImage},
 		Description:      "Stable Diffusion via GGML quantized models",
+	},
+
+	// --- 3D generation backends ---
+	"trellis2cpp": {
+		GRPCMethods:      []GRPCMethod{MethodGenerate3D},
+		PossibleUsecases: []string{Usecase3D},
+		DefaultUsecases:  []string{Usecase3D},
+		Description:      "trellis2.cpp — C++/GGML port of Microsoft TRELLIS.2: single-image to textured 3D mesh (GLB)",
 	},
 
 	// --- Speech-to-text backends ---

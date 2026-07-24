@@ -107,6 +107,8 @@ export const API_CONFIG = {
     // LocalAI-specific
     tts: '/tts',
     video: '/video',
+    threeDGenerations: '/3d/generations',
+    threeDRemesh: '/3d/remesh',
     backendMonitor: '/backend/monitor',
     backendShutdown: '/backend/shutdown',
     backendLoad: '/backend/load',
