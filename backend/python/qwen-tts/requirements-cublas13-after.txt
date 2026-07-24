@@ -1,0 +1,7 @@
+# flash-attn has no official prebuilt wheel for cp310 + CUDA 13 (Dao-AILab
+# only ships cu13 wheels for cp312/torch2.9), and the backend image builds
+# FROM ubuntu:24.04 with no nvcc, so a source build is impossible. Use the
+# community prebuilt wheel matching this venv exactly (Python 3.10,
+# torch 2.13.x, cu130); torch is pinned to 2.13.* in requirements-cublas13.txt
+# because flash-attn wheels are ABI-tied to the torch minor version.
+https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.47/flash_attn-2.8.3+cu130torch2.13-cp310-cp310-linux_x86_64.whl
