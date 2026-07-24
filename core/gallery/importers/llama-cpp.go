@@ -37,6 +37,7 @@ func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
 	return []KnownBackendEntry{
 		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
 		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
+		{Name: "vllm-cpp", Modality: "text", Description: "vLLM-style continuous-batching engine (vllm.cpp) consuming GGUF, by the LocalAI team"},
 	}
 }
 
@@ -135,7 +136,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	backend := "llama-cpp"
 	if b, ok := preferencesMap["backend"].(string); ok {
 		switch b {
-		case "ik-llama-cpp", "turboquant":
+		case "ik-llama-cpp", "turboquant", "vllm-cpp":
 			backend = b
 		}
 	}
@@ -155,6 +156,16 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			},
 			AutomaticToolParsingFallback: true,
 		},
+	}
+
+	// vllm-cpp rides the same autoparser-style flow as llama-cpp: the ENGINE
+	// applies the model's chat template (GGUF tokenizer.chat_template) and
+	// decides when a tool call engages (lazy structural-tag constraint +
+	// engine-side parsing), so the tokenizer-template config carries over
+	// verbatim. Only `use_jinja` is dropped - that option is a llama-cpp
+	// backend knob with no meaning for vllm-cpp.
+	if backend == "vllm-cpp" {
+		modelConfig.Options = nil
 	}
 
 	if embeddings != "" && strings.ToLower(embeddings) == "true" || strings.ToLower(embeddings) == "yes" {
