@@ -28,7 +28,9 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.NumBlocks)).To(Equal(uintptr(20)))
 		Expect(unsafe.Offsetof(p.MaxModelLen)).To(Equal(uintptr(24)))
 		Expect(unsafe.Offsetof(p.MaxNumSeqs)).To(Equal(uintptr(28)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(32)))
+		Expect(unsafe.Offsetof(p.ToolParser)).To(Equal(uintptr(32)))
+		Expect(unsafe.Offsetof(p.ReasoningParser)).To(Equal(uintptr(40)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(48)))
 	})
 
 	It("cSamplingParams matches vllm_sampling_params (ABI v2)", func() {

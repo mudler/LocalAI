@@ -18,7 +18,7 @@ import (
 )
 
 // abiVersion is the VLLM_ABI_VERSION this file mirrors (vllm.h).
-const abiVersion = 3
+const abiVersion = 5
 
 // vllm_status (vllm.h).
 const (
@@ -33,6 +33,8 @@ type cModelParams struct {
 	NumBlocks           int32
 	MaxModelLen         int32
 	MaxNumSeqs          int32
+	ToolParser          uintptr // const char*; NULL = auto-detect (ABI v4)
+	ReasoningParser     uintptr // const char*; NULL = auto-detect (ABI v5)
 }
 
 // cSamplingParams mirrors vllm_sampling_params (ABI v2, structured fields
