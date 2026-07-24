@@ -169,15 +169,18 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     ; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        # ROCm 7.x ("TheRock" packaging): the legacy hipblas-dev / hipblaslt-dev /
+        # rocblas-dev metapackages were removed (consolidated into amdrocm-blas,
+        # arch-split). The rocm/dev-ubuntu-*:*-full base ships the BLAS runtime
+        # libraries, but NOT the CMake package-config files (hipblasConfig.cmake,
+        # hipblas-config.cmake, ...) that from-source CMake/cgo backends resolve via
+        # find_package(hipblas) — so install TheRock's development component, or the
+        # hipblas Go/C++ backends (e.g. qwen3-tts) fail at configure time.
         apt-get update && \
-        apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            hipblaslt-dev \
-            rocblas-dev && \
-        apt-get clean && \
+        apt-get install -y --no-install-recommends amdrocm-blas-dev && \
         rm -rf /var/lib/apt/lists/* && \
-        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
-        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
+        # Register TheRock's library paths so cgo backends resolve the ROCm libs.
+        printf '/opt/rocm/lib\n/opt/rocm/lib/rocm_sysdeps/lib\n/opt/rocm/llvm/lib\n' > /etc/ld.so.conf.d/rocm.conf && \
         ldconfig \
     ; fi
 
