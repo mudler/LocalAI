@@ -1,4 +1,47 @@
 ---
+- name: "laguna-s-2.1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/poolside/Laguna-S-2.1-GGUF
+  description: |
+    Use on OpenRouter ·
+    Use on Vercel AI Gateway ·
+    Release blog post
+
+    # Laguna S 2.1
+
+    Laguna S 2.1 is a 118B total parameter Mixture-of-Experts model with 8B activated
+    parameters per token, designed for agentic coding and long-horizon work. It sits
+    between Laguna XS 2.1 (33B-A3B) and
+    Laguna M.1 (225B-A23B) in the Laguna series and shares the family recipe: a
+    token-choice router with softplus gating over 256 routed experts plus one shared
+    expert, grouped-query attention, and interleaved full/sliding-window attention.
+
+    ## Highlights
+
+    ...
+  tags:
+    - llm
+    - gguf
+  icon: https://poolside.ai/assets/laguna/laguna-s-2-1-banner.svg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/laguna-s-2.1-Q4_K_M/laguna-s-2.1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/laguna-s-2.1-Q4_K_M/laguna-s-2.1-Q4_K_M.gguf
+      sha256: 7da520c5f44bc3c79d4eeebfd1151ba7114c5d7568e72a995638417093c5753f
+      uri: https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-Q4_K_M.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
