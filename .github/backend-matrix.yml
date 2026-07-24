@@ -876,19 +876,6 @@ include:
     cuda-minor-version: "8"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
-    tag-suffix: '-gpu-nvidia-cuda-12-vllm-cpp'
-    runs-on: 'ubuntu-latest'
-    base-image: "ubuntu:24.04"
-    skip-drivers: 'false'
-    backend: "vllm-cpp"
-    dockerfile: "./backend/Dockerfile.golang"
-    context: "./"
-    ubuntu-version: '2404'
-  - build-type: 'cublas'
-    cuda-major-version: "12"
-    cuda-minor-version: "8"
-    platforms: 'linux/amd64'
-    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-omnivoice-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"

@@ -32,14 +32,13 @@ ifeq ($(BUILD_TYPE),cublas)
 		# pinned to one tree (unsound for the other arch). The non-AOT GDN
 		# path serves the fat binary; single-arch builds keep the cubins.
 		#
-		# CUDA 12 (12.8) nvcc does NOT know compute_121a (GB10 support landed
-		# with CUDA 13), so the cuda-12 image targets consumer Blackwell only;
-		# cuda-13 gets the 120a;121a fat binary.
+		# CUDA builds REQUIRE the CUDA 13 toolchain: 12.x nvcc lacks
+		# compute_121a (GB10) and its ptxas rejects the sm_120a NVFP4 MMA
+		# kernels ("Vector type too large"), so no cuda-12 variant is shipped.
 		ifeq ($(CUDA_MAJOR_VERSION),12)
-			CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON -DVLLM_CPP_CUDA_ARCHITECTURES=120a
-		else
-			CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=120a;121a"
+      $(error vllm.cpp needs the CUDA 13 toolchain: CUDA 12.x cannot compile the Blackwell fp4 kernels)
 		endif
+		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=120a;121a"
 	else
 		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON -DVLLM_CPP_CUDA_ARCHITECTURES=121a -DVLLM_CPP_TRITON=ON
 	endif
