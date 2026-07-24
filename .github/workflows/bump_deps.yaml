@@ -146,6 +146,39 @@ jobs:
           body: ${{ steps.bump.outputs.message }}
           signoff: true
 
+  bump-ctranslate2-rocm-wheel:
+    # CTranslate2's ROCm wheels are published as release assets, so the
+    # faster-whisper hipblas install path pins the release tag used in the URL.
+    if: github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Bump CTranslate2 ROCm wheel pin 🔧
+        id: bump
+        run: |
+          bash .github/bump_ctranslate2_rocm_wheel.sh OpenNMT/CTranslate2 backend/python/faster-whisper/install.sh CTRANSLATE2_VERSION
+          {
+            echo 'message<<EOF'
+            cat "CTRANSLATE2_VERSION_message.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit<<EOF'
+            cat "CTRANSLATE2_VERSION_commit.txt"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          rm -rfv CTRANSLATE2_VERSION_message.txt CTRANSLATE2_VERSION_commit.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':arrow_up: Update OpenNMT/CTranslate2 ROCm wheel'
+          title: 'chore: :arrow_up: Update OpenNMT/CTranslate2 ROCm wheel to `${{ steps.bump.outputs.commit }}`'
+          branch: "update/CTRANSLATE2_VERSION"
+          body: ${{ steps.bump.outputs.message }}
+          signoff: true
+
   bump-vllm-wheel:
     # vLLM's cu130 wheel comes from a per-tag index URL (no /latest/ alias),
     # so the cublas13 requirements file pins both a URL segment and a version
