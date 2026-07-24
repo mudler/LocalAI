@@ -37,3 +37,24 @@ var _ = Describe("resolveOutputModalities", func() {
 		Expect(modalitiesContainAudio([]types.Modality{types.ModalityText, types.ModalityAudio})).To(BeTrue())
 	})
 })
+
+var _ = Describe("modalitiesWithAlias", func() {
+	It("uses output_modalities when set", func() {
+		got := modalitiesWithAlias([]types.Modality{types.ModalityText}, nil)
+		Expect(got).To(ConsistOf(types.ModalityText))
+	})
+
+	It("falls back to the legacy modalities alias when output is empty", func() {
+		got := modalitiesWithAlias(nil, []types.Modality{types.ModalityText})
+		Expect(got).To(ConsistOf(types.ModalityText))
+	})
+
+	It("prefers output_modalities over the alias when both are present", func() {
+		got := modalitiesWithAlias([]types.Modality{types.ModalityText}, []types.Modality{types.ModalityAudio})
+		Expect(got).To(ConsistOf(types.ModalityText))
+	})
+
+	It("returns empty when neither is set", func() {
+		Expect(modalitiesWithAlias(nil, nil)).To(BeEmpty())
+	})
+})
