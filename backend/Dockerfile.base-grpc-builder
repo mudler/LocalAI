@@ -26,7 +26,7 @@
 #   base-grpc-cuda-13-amd64         ubuntu:22.04 + CUDA 13.0
 #   base-grpc-cuda-13-arm64         ubuntu:24.04 + CUDA 13.0 (sbsa)
 #   base-grpc-l4t-cuda-12-arm64     ubuntu:22.04 + CUDA 12.x (legacy JetPack)
-#   base-grpc-rocm-amd64            rocm/dev-ubuntu-24.04:7.2.1 + hipblas
+#   base-grpc-rocm-amd64            rocm/dev-ubuntu-24.04:7.14.0-full + hipblas
 #   base-grpc-vulkan-amd64          ubuntu:24.04 + Vulkan SDK 1.4.335
 #   base-grpc-vulkan-arm64          ubuntu:24.04 + Vulkan SDK ARM 1.4.335
 #   base-grpc-intel-amd64           intel/oneapi-basekit:2025.3.2 (sycl)
