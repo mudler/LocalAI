@@ -113,3 +113,46 @@ var _ = Describe("chatChunk.toReply", func() {
 		Expect(chunk.toReply().ChatDeltas).To(BeEmpty())
 	})
 })
+
+var _ = Describe("chatRequestJSON multi-turn tool round trip", func() {
+	It("forwards tool_call_id, name, reasoning and assistant tool_calls", func() {
+		out, err := chatRequestJSON(&pb.PredictOptions{
+			UseTokenizerTemplate: true,
+			Messages: []*pb.Message{
+				{Role: "user", Content: "What is the weather in Rome?"},
+				{
+					Role:             "assistant",
+					ReasoningContent: "need the weather tool",
+					ToolCalls:        `[{"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Rome\"}"}}]`,
+				},
+				{Role: "tool", ToolCallId: "call_1", Name: "get_weather", Content: `{"temp": 21}`},
+			},
+		}, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		var req struct {
+			Messages []map[string]any `json:"messages"`
+		}
+		Expect(json.Unmarshal([]byte(out), &req)).To(Succeed())
+		Expect(req.Messages).To(HaveLen(3))
+
+		assistant := req.Messages[1]
+		Expect(assistant["reasoning"]).To(Equal("need the weather tool"))
+		calls, ok := assistant["tool_calls"].([]any)
+		Expect(ok).To(BeTrue())
+		Expect(calls).To(HaveLen(1))
+		call := calls[0].(map[string]any)
+		Expect(call["id"]).To(Equal("call_1"))
+
+		tool := req.Messages[2]
+		Expect(tool["role"]).To(Equal("tool"))
+		Expect(tool["tool_call_id"]).To(Equal("call_1"))
+		Expect(tool["name"]).To(Equal("get_weather"))
+		Expect(tool["content"]).To(Equal(`{"temp": 21}`))
+
+		user := req.Messages[0]
+		Expect(user).NotTo(HaveKey("tool_call_id"))
+		Expect(user).NotTo(HaveKey("name"))
+		Expect(user).NotTo(HaveKey("reasoning"))
+	})
+})

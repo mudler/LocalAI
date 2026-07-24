@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=61f3e85dcd5d889840f76c090054b95ad0d4c767
+VLLM_CPP_VERSION?=6a0bd3e77ccee8d75dd95f6bc2894b2bf7a045e8
 
 # The backend consumes only the stable C ABI (libvllm + include/vllm.h), so the
 # server, examples and tests of the engine are never built here.
