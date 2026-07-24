@@ -15,6 +15,11 @@ type loadOptions struct {
 	blockSize  int32 // KV block size (tokens/block); engine default 32.
 	numBlocks  int32 // KV blocks to allocate; engine default 256.
 	maxNumSeqs int32 // max concurrent sequences; engine default 8.
+	// Engine-side parser selection (ABI v4/v5). Empty = the engine
+	// auto-detects from the chat template; "none" disables the reasoning
+	// split; unknown names fail the first chat call.
+	toolParser      string
+	reasoningParser string
 }
 
 func parseOptions(opts *pb.ModelOptions) loadOptions {
@@ -31,6 +36,10 @@ func parseOptions(opts *pb.ModelOptions) loadOptions {
 			lo.numBlocks = parseInt32(v, lo.numBlocks)
 		case "max_num_seqs":
 			lo.maxNumSeqs = parseInt32(v, lo.maxNumSeqs)
+		case "tool_parser":
+			lo.toolParser = strings.TrimSpace(v)
+		case "reasoning_parser":
+			lo.reasoningParser = strings.TrimSpace(v)
 		}
 	}
 	return lo

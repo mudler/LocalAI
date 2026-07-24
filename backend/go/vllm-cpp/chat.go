@@ -114,7 +114,7 @@ type chatChunk struct {
 
 type chatDelta struct {
 	Content          string `json:"content"`
-	ReasoningContent string `json:"reasoning_content"`
+	ReasoningContent string `json:"reasoning"`
 	ToolCalls        []struct {
 		Index    int32  `json:"index"`
 		ID       string `json:"id"`

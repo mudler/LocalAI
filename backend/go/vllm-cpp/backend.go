@@ -125,6 +125,15 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 
 	modelC := cString(model)
 	mp.ModelPath = uintptr(unsafe.Pointer(&modelC[0])) // #nosec G103 -- borrowed by C for the load call only
+	var toolParserC, reasoningParserC []byte
+	if v.opts.toolParser != "" {
+		toolParserC = cString(v.opts.toolParser)
+		mp.ToolParser = uintptr(unsafe.Pointer(&toolParserC[0])) // #nosec G103 -- borrowed by C for the load call only
+	}
+	if v.opts.reasoningParser != "" {
+		reasoningParserC = cString(v.opts.reasoningParser)
+		mp.ReasoningParser = uintptr(unsafe.Pointer(&reasoningParserC[0])) // #nosec G103 -- borrowed by C for the load call only
+	}
 
 	xlog.Info("[vllm-cpp] Load", "model", model, "engine", vllmVersion(),
 		"blockSize", mp.BlockSize, "numBlocks", mp.NumBlocks,
@@ -133,6 +142,8 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	var engine uintptr
 	rc := vllmEngineLoad(unsafe.Pointer(&mp), unsafe.Pointer(&engine)) // #nosec G103 -- POD out-params
 	runtime.KeepAlive(modelC)
+	runtime.KeepAlive(toolParserC)
+	runtime.KeepAlive(reasoningParserC)
 	if rc != vllmOK {
 		return fmt.Errorf("vllm-cpp: engine load failed: %s", vllmLastError())
 	}

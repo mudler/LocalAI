@@ -188,6 +188,21 @@ var _ = Describe("vllm-cpp chat e2e", Label("e2e"), Ordered, func() {
 		Expect(string(reply.Message)).To(ContainSubstring("Paris"))
 	})
 
+	It("splits reasoning from content engine-side (auto-detected from the template)", func() {
+		// The Qwen3.5 chat template carries <think>, so the engine auto-selects
+		// the think_auto reasoning parser: a markerless answer stays pure
+		// content; if the model DOES think, the block arrives as
+		// ReasoningContent and never leaks into Message.
+		reply, err := backend.PredictRich(chatOpts())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(reply.Message)).NotTo(ContainSubstring("<think>"))
+		Expect(string(reply.Message)).To(ContainSubstring("Paris"))
+		for _, d := range reply.ChatDeltas {
+			Expect(d.ReasoningContent).NotTo(ContainSubstring("Paris"),
+				"the user-visible answer must not be swallowed into reasoning")
+		}
+	})
+
 	It("streams chat deltas that concatenate to the blocking answer", func() {
 		blocking, err := backend.PredictRich(chatOpts())
 		Expect(err).NotTo(HaveOccurred())
