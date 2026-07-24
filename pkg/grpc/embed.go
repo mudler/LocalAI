@@ -49,6 +49,10 @@ func (e *embedBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRe
 	return e.s.GenerateImage(ctx, in)
 }
 
+func (e *embedBackend) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.UpscaleImage(ctx, in)
+}
+
 func (e *embedBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	return e.s.GenerateVideo(ctx, in)
 }

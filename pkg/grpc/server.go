@@ -150,6 +150,18 @@ func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest)
 	return &pb.Result{Message: "Image generated", Success: true}, nil
 }
 
+func (s *server) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.UpscaleImage(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error upscaling image: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Image upscaled", Success: true}, nil
+}
+
 func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
 	if err := s.checkModelIdentity(in); err != nil {
 		return nil, err
