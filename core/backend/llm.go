@@ -133,7 +133,12 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	}
 	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), chainSource)
 
-	opts := ModelOptions(*c, o, model.WithContext(ctx))
+	// context.WithoutCancel decouples the model load from the request's
+	// cancellation while preserving its routing values, so a slow load still
+	// completes and caches if the client disconnects instead of aborting the
+	// LoadModel RPC mid-load (issue #10636). Inference below keeps the
+	// cancellable ctx, so a disconnect still stops generation.
+	opts := ModelOptions(*c, o, model.WithContext(context.WithoutCancel(ctx)))
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
