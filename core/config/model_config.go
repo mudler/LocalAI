@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -349,7 +352,17 @@ type RouterConfig struct {
 	// embeddings to past decisions, so semantically-similar prompts
 	// reuse a classification instead of re-running the classifier
 	// model. Omit the block to disable. See router/embedding_cache.go.
+	// Ignored (with a warning) for the knn classifier — that IS a
+	// KNN lookup already; wrapping it in another would embed twice
+	// for no additional information.
 	EmbeddingCache *EmbeddingCacheConfig `yaml:"embedding_cache,omitempty" json:"embedding_cache,omitempty"`
+
+	// KNN configures the "knn" classifier: nearest-neighbour voting
+	// over a curated corpus of labelled example prompts. Required when
+	// classifier is "knn", ignored otherwise. The corpus is seeded and
+	// curated through the router corpus API (never through the UI);
+	// see router/knn.go for the decision semantics.
+	KNN *RouterKNNConfig `yaml:"knn,omitempty" json:"knn,omitempty"`
 }
 
 // EmbeddingCacheConfig configures the L2 embedding-similarity decision
@@ -381,6 +394,71 @@ type EmbeddingCacheConfig struct {
 	// where <router> is the parent model name. Useful when two
 	// router models should share a cache (rare).
 	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
+}
+
+// RouterKNNConfig configures the knn classifier. It shares the
+// embedding + local-store plumbing with EmbeddingCacheConfig but the
+// two are deliberately separate blocks: the cache stores another
+// classifier's decisions opportunistically, while the KNN corpus is
+// explicit labelled ground truth — different lifecycle, different
+// store namespace, different failure story.
+type RouterKNNConfig struct {
+	// EmbeddingModel names the loaded LocalAI model used to embed
+	// both corpus entries and incoming probes. Required. Changing it
+	// invalidates the stored vectors — the corpus loader re-embeds
+	// entries recorded under a different embedder fingerprint.
+	EmbeddingModel string `yaml:"embedding_model" json:"embedding_model"`
+
+	// EmbeddingRevision is an operator-controlled identity suffix for
+	// embedding backends whose underlying weights can change without a
+	// stable local checksum or config change. Bump it when replacing such
+	// a model in place so persisted corpus vectors are re-embedded.
+	EmbeddingRevision string `yaml:"embedding_revision,omitempty" json:"embedding_revision,omitempty"`
+
+	// K is how many nearest corpus entries vote on a probe. 0 picks
+	// the package default (3). K=1 reproduces exact nearest-entry
+	// routing; larger K tolerates mislabelled exemplars at the cost
+	// of needing denser corpus coverage per label region.
+	K int `yaml:"k,omitempty" json:"k,omitempty"`
+
+	// SimilarityThreshold is the epistemic gate: corpus entries less
+	// similar than this to the probe cannot vote, and when none clear
+	// it the router uses the fallback model — a probe unlike all
+	// labelled experience is undecidable, not a guess. 0 picks the
+	// package default (0.80).
+	SimilarityThreshold float64 `yaml:"similarity_threshold,omitempty" json:"similarity_threshold,omitempty"`
+
+	// VoteThreshold is the similarity-weighted vote share a label
+	// needs to activate. 0 picks the package default (0.5, a weighted
+	// majority). Lower values let minority-label neighbours activate
+	// additional labels (multi-label routing); higher values demand
+	// near-unanimous neighbourhoods.
+	VoteThreshold float64 `yaml:"vote_threshold,omitempty" json:"vote_threshold,omitempty"`
+
+	// StoreName overrides the local-store collection holding the
+	// corpus vectors. Empty defaults to "router-corpus-<router>".
+	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
+}
+
+// ResolvedStoreName is the local-store collection this router's corpus
+// actually lives in. The single source of the "router-corpus-<router>"
+// default — the classifier build, the corpus API, the status page, and
+// the assistant MCP tools all resolve through here so they cannot
+// desync on which store they touch.
+func (k *RouterKNNConfig) ResolvedStoreName(routerName string) string {
+	if k.StoreName != "" {
+		return k.StoreName
+	}
+	return "router-corpus-" + routerName
+}
+
+// ResolvedEmbeddingFingerprint binds the resolved embedding-model
+// fingerprint to the optional operator revision. Keeping this combination
+// in config makes the classifier build path and corpus management surfaces
+// derive exactly the same persisted identity.
+func (k *RouterKNNConfig) ResolvedEmbeddingFingerprint(modelFingerprint string) string {
+	sum := sha256.Sum256([]byte(modelFingerprint + "\x00" + k.EmbeddingRevision))
+	return hex.EncodeToString(sum[:])
 }
 
 // RouterPolicy is one entry in the label vocabulary. The label string
@@ -1317,6 +1395,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 	runBackendHooks(cfg, lo.modelPath)
 
+	// Go-side pooling schemes need the backend to hand back raw per-token
+	// vectors: unless the operator already pinned a pooling backend option
+	// explicitly, add "pooling:none" so llama.cpp skips server-side pooling.
+	if IsGoSidePooling(cfg.Pooling) && !hasBackendOption(cfg.Options, "pooling") {
+		cfg.Options = append(cfg.Options, "pooling:none")
+		xlog.Debug("Go-side pooling requested: auto-appending backend option",
+			"model", cfg.Name, "pooling", cfg.Pooling, "option", "pooling:none")
+	}
+
 	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell)
 	// LAST, after the context size is fully resolved (explicit config, LoadOptions,
 	// then the GGUF guess inside runBackendHooks): the Blackwell batch guard sizes
@@ -1493,6 +1580,24 @@ func (c *ModelConfig) Validate() (bool, error) {
 		}
 	}
 
+	// Go-side embedding pooling: reject unknown schemes and half-life
+	// misconfigurations at load time, and refuse contradictory setups where
+	// a Go-side scheme (which needs raw per-token vectors) is combined with
+	// a backend pooling option other than "none" — the backend would return
+	// a single pooled vector and the Go pooling would silently degenerate.
+	if err := ValidatePooling(c.Pooling, c.PoolingHalfLifeTokens); err != nil {
+		return false, fmt.Errorf("parameters: %w", err)
+	}
+	if IsGoSidePooling(c.Pooling) {
+		for _, o := range c.Options {
+			if name, val, ok := strings.Cut(o, ":"); ok && name == "pooling" && val != "none" {
+				return false, fmt.Errorf(
+					"parameters.pooling %q needs raw per-token vectors but backend option %q pools server-side: drop the option or set \"pooling:none\"",
+					c.Pooling, o)
+			}
+		}
+	}
+
 	return true, nil
 }
 
@@ -1504,6 +1609,66 @@ const (
 	ScoreNormalizationRaw  = "raw"
 	ScoreNormalizationMean = "mean"
 )
+
+// Embedding pooling schemes (parameters.pooling). Defined here so
+// ModelConfig.Validate can reject unknown values without depending on
+// core/backend (which already depends on config); core/backend/pooling.go
+// aliases these for the pooling implementation.
+const (
+	// PoolingBackend (or the empty string) leaves pooling to the inference
+	// backend — the pre-existing behavior of the embeddings path.
+	PoolingBackend = "backend"
+	// PoolingMean averages the backend's raw per-token vectors Go-side.
+	PoolingMean = "mean"
+	// PoolingLast selects the last token's vector Go-side.
+	PoolingLast = "last"
+	// PoolingDecayedMean is a Go-side mean weighted toward the most recent
+	// tokens: w_i = 2^(-(T-1-i)/H) with half-life H tokens
+	// (parameters.pooling_half_life_tokens, default 256).
+	PoolingDecayedMean = "decayed_mean"
+)
+
+// IsGoSidePooling reports whether scheme pools in LocalAI's Go layer,
+// which requires raw per-token vectors from the backend (the "pooling:none"
+// backend option) rather than a backend-pooled single vector.
+func IsGoSidePooling(scheme string) bool {
+	switch scheme {
+	case PoolingMean, PoolingLast, PoolingDecayedMean:
+		return true
+	}
+	return false
+}
+
+// ValidatePooling checks a pooling scheme + half-life pair. Shared by
+// ModelConfig.Validate (model YAML) and the embeddings endpoint
+// (per-request override) so both paths reject exactly the same shapes.
+func ValidatePooling(scheme string, halfLifeTokens int) error {
+	switch scheme {
+	case "", PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean:
+	default:
+		return fmt.Errorf("unknown pooling %q (expected %q, %q, %q or %q)",
+			scheme, PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean)
+	}
+	if halfLifeTokens < 0 {
+		return fmt.Errorf("pooling_half_life_tokens must be non-negative, got %d", halfLifeTokens)
+	}
+	if halfLifeTokens > 0 && scheme != PoolingDecayedMean {
+		return fmt.Errorf("pooling_half_life_tokens only applies to pooling %q, not %q",
+			PoolingDecayedMean, scheme)
+	}
+	return nil
+}
+
+// hasBackendOption reports whether options carries a "name:value" entry
+// for the given option name.
+func hasBackendOption(options []string, name string) bool {
+	for _, o := range options {
+		if n, _, ok := strings.Cut(o, ":"); ok && n == name {
+			return true
+		}
+	}
+	return false
+}
 
 func (c *ModelConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != "" || c.TemplateConfig.UseTokenizerTemplate

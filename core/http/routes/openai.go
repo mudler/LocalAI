@@ -71,16 +71,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 			application.FallbackUser(),
 			middleware.OpenAIProbe,
 			router.SourceChat,
-			middleware.ClassifierDeps{
-				Scorer:       application.Scorer,
-				TokenCounter: application.TokenCounter,
-				Embedder:     application.Embedder,
-				VectorStore:  application.VectorStore,
-				Reranker:     application.Reranker,
-				ModelLookup:  application.ModelConfigLookup(),
-				Registry:     application.RouterClassifierRegistry(),
-				Evaluator:    application.TemplatesEvaluator(),
-			},
+			middleware.NewClassifierDeps(application),
 		),
 		// Admission control runs after RouteModel so the SERVED
 		// model's limits apply — a router fanout that lands on a
@@ -142,7 +133,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/engines/:model/completions", completionHandler, completionMiddleware...)
 
 	// embeddings
-	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,

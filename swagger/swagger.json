@@ -1421,6 +1421,181 @@
                 }
             }
         },
+        "/api/router/{name}/corpus": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Seed the KNN routing corpus with labelled example prompts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "labelled exemplars",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusAddResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Clear a router's KNN corpus",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusClearResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/router/{name}/corpus/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Inspect a router's KNN corpus (label counts only, never texts)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces": {
             "get": {
                 "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
@@ -6736,6 +6911,116 @@
                 }
             }
         },
+        "schema.RouterCorpusAddRequest": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterCorpusEntry"
+                    }
+                }
+            }
+        },
+        "schema.RouterCorpusAddResponse": {
+            "type": "object",
+            "properties": {
+                "added": {
+                    "description": "Added is how many entries were embedded, persisted, and indexed.",
+                    "type": "integer"
+                },
+                "label_counts": {
+                    "description": "LabelCounts is the per-label exemplar count after the call.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "router": {
+                    "type": "string"
+                },
+                "skipped": {
+                    "description": "Skipped counts entries whose text was already in the corpus —\nduplicates are rejected rather than double-weighted.",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total is the corpus size after the call.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterCorpusClearResponse": {
+            "type": "object",
+            "properties": {
+                "cleared": {
+                    "type": "integer"
+                },
+                "router": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterCorpusEntry": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterCorpusStatsResponse": {
+            "type": "object",
+            "properties": {
+                "embedding_model": {
+                    "type": "string"
+                },
+                "embedding_models": {
+                    "description": "EmbeddingModels lists the embedder fingerprints present in the\npersisted corpus; more than one means part of the corpus is\npending re-embedding on the next load.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "label_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "router": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterDecideNeighbor": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "similarity": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.RouterDecideRequest": {
             "type": "object",
             "properties": {
@@ -6782,6 +7067,17 @@
                 "latency_ms": {
                     "description": "LatencyMs is the classifier's wall-clock cost.",
                     "type": "integer"
+                },
+                "nearest_similarity": {
+                    "description": "NearestSimilarity is the cosine similarity of the closest KNN\ncorpus entry — populated by the knn classifier even when the\ndecision fell back because the probe was out of corpus range.\n0 for other classifiers.",
+                    "type": "number"
+                },
+                "neighbors": {
+                    "description": "Neighbors lists the corpus entries the knn classifier retrieved,\nby descending similarity, including ones below the similarity\ngate. Empty for other classifiers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterDecideNeighbor"
+                    }
                 },
                 "router": {
                     "description": "Router echoes the requested router model.",

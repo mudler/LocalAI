@@ -114,4 +114,16 @@ type LocalAIClient interface {
 	// /app/middleware Routing tab and for agent-driven introspection.
 	// Admin-required when auth is on.
 	GetRouterDecisions(ctx context.Context, q RouterDecisionsQuery) ([]RouterDecision, error)
+
+	// GetRouterCorpusStats reports a knn router's corpus size and
+	// per-label counts — counts only, texts are never exposed.
+	GetRouterCorpusStats(ctx context.Context, routerModel string) (*RouterCorpusStats, error)
+
+	// SeedRouterCorpus adds labelled exemplars to a knn router's
+	// corpus (embedded server-side, persisted, indexed immediately).
+	SeedRouterCorpus(ctx context.Context, req RouterCorpusSeedRequest) (*RouterCorpusSeedResult, error)
+
+	// ClearRouterCorpus wipes a knn router's corpus — file and live
+	// index.
+	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
 }

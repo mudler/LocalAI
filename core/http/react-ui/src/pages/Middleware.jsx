@@ -512,7 +512,9 @@ function DecisionDetail({ d }) {
       <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>
         {d.cached
           ? 'Cached decision — per-label scores not recorded (the cache stores only the resulting label set).'
-          : 'No per-label scores recorded for this decision (likely a fallback row).'}
+          : d.nearest_similarity
+            ? `Out-of-corpus fallback — the nearest labelled corpus entry was at similarity ${d.nearest_similarity.toFixed(2)}, below the router's gate. Seed exemplars near this kind of prompt to route it.`
+            : 'No per-label scores recorded for this decision (likely a fallback row).'}
       </div>
     )
   }
@@ -611,7 +613,7 @@ function RoutingTab({ status, decisions }) {
                 <th style={{ width: 160 }}>Model</th>
                 <th style={{ width: 110 }}>Classifier</th>
                 <th>Candidates</th>
-                <th style={{ width: 200 }}>Embedding cache</th>
+                <th style={{ width: 200 }}>Cache / corpus</th>
                 <th style={{ width: 140 }}>Fallback</th>
               </tr>
             </thead>
@@ -632,7 +634,7 @@ function RoutingTab({ status, decisions }) {
                     ))}
                   </td>
                   <td style={{ fontSize: '0.75rem' }}>
-                    <RouterCacheCell cache={m.embedding_cache} />
+                    {m.knn ? <RouterKNNCell knn={m.knn} /> : <RouterCacheCell cache={m.embedding_cache} />}
                   </td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                     {m.fallback || '—'}
@@ -1104,6 +1106,47 @@ function EventsTab({ events }) {
 // for configured caches, shows hit/miss/near-miss counters plus a
 // similarity histogram with a marker at the configured threshold so
 // admins can tell at a glance whether the threshold is well-placed.
+// RouterKNNCell summarises a knn router's corpus for the Active
+// routers table: embedding model, corpus size, per-label exemplar
+// counts, and the epistemic-gate threshold. Counts only — corpus
+// texts never reach the UI (the status endpoint doesn't send them,
+// by design; seeding/curation is API-only).
+function RouterKNNCell({ knn }) {
+  if (!knn) {
+    return <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+  }
+  const corpus = knn.corpus || {}
+  const total = corpus.total || 0
+  const counts = corpus.label_counts || {}
+  const k = knn.k || 3
+  const sim = knn.similarity_threshold || 0.80
+  return (
+    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', lineHeight: 1.3 }}>
+      <div style={{ fontWeight: 600 }}>{knn.embedding_model}</div>
+      <div style={{ color: 'var(--color-text-muted)' }}>
+        {total === 0 ? (
+          <span title="Seed labelled example prompts via POST /api/router/{name}/corpus — every request falls back until the corpus has entries near it">
+            empty corpus — seed via API
+          </span>
+        ) : (
+          <span title={`${total} labelled exemplars; ${k} nearest vote; entries below similarity ${sim} cannot vote (out-of-corpus prompts use the fallback)`}>
+            {total} exemplars · k={k} · sim ≥ {sim}
+          </span>
+        )}
+      </div>
+      {total > 0 && (
+        <div style={{ color: 'var(--color-text-muted)', display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+          {Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label, n]) => (
+            <span key={label}>
+              <span style={{ color: 'var(--color-primary)' }}>{label}</span>: {n}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RouterCacheCell({ cache }) {
   if (!cache) {
     return <span style={{ color: 'var(--color-text-muted)' }}>—</span>

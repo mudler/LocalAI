@@ -517,6 +517,15 @@ message Result {
 
 message EmbeddingResult {
   repeated float embeddings = 1;
+  // Shape of the payload above: dim is the embedding width, tokens is the
+  // number of vectors packed into `embeddings` (1 when the backend pooled
+  // server-side, N with pooling:none; total across prompts if a request
+  // carried several). tokens=0/dim=0 means the backend predates shape
+  // reporting. prompt_tokens is the number of prompt tokens evaluated, for
+  // usage accounting.
+  int32 tokens = 2;
+  int32 dim = 3;
+  int32 prompt_tokens = 4;
 }
 
 message TranscriptRequest {

@@ -57,9 +57,31 @@ const MOCK_STATUS = {
           },
         },
       },
+      {
+        name: 'knn-router',
+        classifier: 'knn',
+        fallback: 'qwen-7b',
+        policies: [
+          { label: 'casual-chat', description: 'small talk' },
+          { label: 'code-generation', description: 'writing or debugging code' },
+        ],
+        candidates: [
+          { model: 'qwen-3b', labels: ['casual-chat'] },
+          { model: 'qwen-coder', labels: ['code-generation', 'casual-chat'] },
+        ],
+        knn: {
+          embedding_model: 'nomic-embed-text-v1.5',
+          k: 3,
+          similarity_threshold: 0.80,
+          vote_threshold: 0.5,
+          store_name: 'router-corpus-knn-router',
+          // Counts only — the status endpoint never sends corpus texts.
+          corpus: { total: 12, label_counts: { 'code-generation': 7, 'casual-chat': 5 } },
+        },
+      },
     ],
     recent_decision_count: 1,
-    available_classifiers: ['score'],
+    available_classifiers: ['score', 'colbert', 'knn'],
   },
 }
 
@@ -71,6 +93,13 @@ const MOCK_DECISIONS = {
       classifier: 'score', label: 'casual-chat', score: 0.91, latency_ms: 15,
       cached: true, cache_similarity: 0.92,
       created_at: '2026-05-06T11:00:00Z',
+    },
+    {
+      id: 'rd_a2', correlation_id: 'corr-2', user_id: 'local',
+      router_model: 'knn-router', requested_model: 'knn-router', served_model: 'qwen-7b',
+      classifier: 'knn', label: 'fallback', score: 0, latency_ms: 9,
+      cached: false, nearest_similarity: 0.42,
+      created_at: '2026-05-06T11:01:00Z',
     },
   ],
 }
@@ -227,6 +256,26 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     await expect(page.getByText('qwen-3b').first()).toBeVisible()
     // Decision row visible — label and served model.
     await expect(page.getByText('casual-chat').first()).toBeVisible()
+  })
+
+  test('Routing tab renders knn corpus stats and out-of-corpus fallback detail', async ({ page }) => {
+    await page.goto('/app/middleware')
+    await page.getByRole('button', { name: /Routing/i }).click()
+
+    // KNN router row: corpus size, K, and gate threshold in the
+    // Cache / corpus column.
+    await expect(page.getByText('knn-router').first()).toBeVisible()
+    await expect(page.getByText(/12 exemplars · k=3 · sim ≥ 0\.8/).first()).toBeVisible()
+
+    // Per-label exemplar counts — counts only, never corpus texts.
+    await expect(page.getByText(/code-generation: 7/).first()).toBeVisible()
+    await expect(page.getByText(/casual-chat: 5/).first()).toBeVisible()
+
+    // Expanding the knn fallback decision explains the epistemic gate
+    // and surfaces how far away the nearest labelled experience was.
+    await page.getByText('fallback', { exact: true }).first().click()
+    await expect(page.getByText(/Out-of-corpus fallback/i).first()).toBeVisible()
+    await expect(page.getByText(/similarity 0\.42/).first()).toBeVisible()
   })
 
   test('Routing tab renders embedding-cache stats and similarity histogram', async ({ page }) => {

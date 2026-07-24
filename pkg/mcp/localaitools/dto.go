@@ -312,6 +312,50 @@ type RouterDecision struct {
 	CreatedAt      string  `json:"created_at"`
 }
 
+// RouterCorpusEntry is one labelled exemplar for seed_router_corpus.
+type RouterCorpusEntry struct {
+	Text   string   `json:"text"   jsonschema:"Example prompt text. Embedded server-side and persisted; NEVER returned by any tool or endpoint."`
+	Labels []string `json:"labels" jsonschema:"Policy labels this exemplar activates. Every label must be declared in the router's policies."`
+}
+
+// RouterCorpusSeedRequest is the input for seed_router_corpus.
+type RouterCorpusSeedRequest struct {
+	Router  string              `json:"router"  jsonschema:"Router model name — the ModelConfig with classifier: knn and a router.knn block."`
+	Entries []RouterCorpusEntry `json:"entries" jsonschema:"Labelled exemplars to add. Duplicate texts are skipped, not double-weighted."`
+}
+
+// RouterCorpusSeedResult reports the outcome of seed_router_corpus.
+type RouterCorpusSeedResult struct {
+	Router      string         `json:"router"`
+	Added       int            `json:"added"`
+	Skipped     int            `json:"skipped"`
+	Total       int            `json:"total"`
+	LabelCounts map[string]int `json:"label_counts"`
+}
+
+// RouterCorpusQuery names the router whose corpus to inspect or clear.
+type RouterCorpusQuery struct {
+	Router string `json:"router" jsonschema:"Router model name."`
+}
+
+// RouterCorpusStats is the count-only inspection surface for a
+// router's KNN corpus. Entry texts are never exposed.
+type RouterCorpusStats struct {
+	Router          string         `json:"router"`
+	StoreName       string         `json:"store_name"`
+	EmbeddingModel  string         `json:"embedding_model"`
+	Total           int            `json:"total"`
+	LabelCounts     map[string]int `json:"label_counts"`
+	EmbeddingModels []string       `json:"embedding_models,omitempty"`
+}
+
+// RouterCorpusClearResult reports how many entries clear_router_corpus
+// removed.
+type RouterCorpusClearResult struct {
+	Router  string `json:"router"`
+	Cleared int    `json:"cleared"`
+}
+
 // VRAMEstimateRequest is the input for vram_estimate. The output type is
 // pkg/vram.EstimateResult — used directly via the LocalAIClient interface
 // so the LLM sees the same shape (size_bytes/size_display/vram_bytes/

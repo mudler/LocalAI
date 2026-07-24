@@ -232,3 +232,30 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 
 	return predInput
 }
+
+// RenderConversationForEmbedding renders a chat conversation to the single
+// string embedded for /v1/embeddings messages[] requests. When the model
+// config carries full chat templates (both chat and chat_message), the
+// conversation renders exactly like a chat prompt via TemplateMessages, so
+// the embedding space matches what a chat model would actually see.
+//
+// Otherwise it falls back to a FROZEN role-prefixed rendering: one line per
+// message, "<role>: <text content>", joined by "\n", skipping messages with
+// empty text content (non-text parts — images/audio/video — are not
+// embedded). This fallback DEFINES the embedding space for models without
+// chat templates: any change to it — even whitespace — silently invalidates
+// every vector clients have already stored, so it must never change. It is
+// pinned by a golden test in evaluator_embedding_test.go.
+func (e *Evaluator) RenderConversationForEmbedding(input schema.OpenAIRequest, messages []schema.Message, cfg *config.ModelConfig) string {
+	if cfg.TemplateConfig.Chat != "" && cfg.TemplateConfig.ChatMessage != "" {
+		return e.TemplateMessages(input, messages, cfg, nil, false)
+	}
+	lines := make([]string, 0, len(messages))
+	for _, m := range messages {
+		if m.StringContent == "" {
+			continue
+		}
+		lines = append(lines, m.Role+": "+m.StringContent)
+	}
+	return strings.Join(lines, "\n")
+}

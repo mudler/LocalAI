@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -67,6 +68,17 @@ type Client struct {
 	// the tool return an empty list — same shape the REST endpoint
 	// returns when stats are disabled.
 	RouterDecisions router.DecisionStore
+
+	// RouterCorpus + the two factories back the corpus tools
+	// (seed_router_corpus / get_router_corpus_stats /
+	// clear_router_corpus). nil RouterCorpus makes them return an
+	// "unavailable" error. The factories mirror the middleware's
+	// ClassifierDeps so the tools and the request path resolve models
+	// and store namespaces identically.
+	RouterCorpus              *corpus.Manager
+	RouterEmbedder            func(modelName string) backend.Embedder
+	RouterEmbedderFingerprint func(modelName string) (string, error)
+	RouterVectorStore         func(storeName string) backend.VectorStore
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -884,4 +896,71 @@ func capabilityFlagsOf(m *config.ModelConfig) []string {
 		}
 	}
 	return out
+}
+
+func (c *Client) GetRouterCorpusStats(_ context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
+	if c.RouterCorpus == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, routerModel)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := c.RouterCorpus.Stats(storeName)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusStats{
+		Router:          cfg.Name,
+		StoreName:       storeName,
+		EmbeddingModel:  cfg.Router.KNN.EmbeddingModel,
+		Total:           stats.Total,
+		LabelCounts:     stats.LabelCounts,
+		EmbeddingModels: stats.EmbeddingModels,
+	}, nil
+}
+
+func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
+	if c.RouterCorpus == nil || c.RouterEmbedder == nil || c.RouterEmbedderFingerprint == nil || c.RouterVectorStore == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, req.Router)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]corpus.Entry, 0, len(req.Entries))
+	for _, e := range req.Entries {
+		entries = append(entries, corpus.Entry{Text: e.Text, Labels: e.Labels})
+	}
+	added, skipped, stats, err := corpus.Seed(ctx, c.RouterCorpus, cfg, storeName,
+		c.RouterEmbedder, c.RouterEmbedderFingerprint, c.RouterVectorStore, entries)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusSeedResult{
+		Router:      cfg.Name,
+		Added:       added,
+		Skipped:     skipped,
+		Total:       stats.Total,
+		LabelCounts: stats.LabelCounts,
+	}, nil
+}
+
+func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
+	if c.RouterCorpus == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, routerModel)
+	if err != nil {
+		return nil, err
+	}
+	var store backend.VectorStore
+	if c.RouterVectorStore != nil {
+		store = c.RouterVectorStore(storeName)
+	}
+	cleared, err := c.RouterCorpus.Clear(ctx, storeName, store)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
 }

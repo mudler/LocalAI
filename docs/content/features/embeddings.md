@@ -96,6 +96,65 @@ curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json
 }' | jq "."
 ```
 
+## Embedding chat conversations and Go-side pooling
+
+`/v1/embeddings` also accepts a chat conversation via `messages` (a LocalAI
+extension), plus a per-request `pooling` scheme that LocalAI applies itself to
+the backend's raw per-token vectors:
+
+```bash
+curl http://localhost:8080/v1/embeddings -X POST -H "Content-Type: application/json" -d '{
+  "model": "my-awesome-model",
+  "messages": [
+    {"role": "system", "content": "You are a support agent."},
+    {"role": "user", "content": "My invoice is wrong."}
+  ],
+  "pooling": "decayed_mean",
+  "pooling_half_life_tokens": 256
+}'
+```
+
+- One conversation per request; the response is the standard OpenAI embeddings
+  shape with a single `data[0].embedding` item.
+- `input` and `messages` are mutually exclusive (400 otherwise); an unknown
+  `pooling` value is also a 400.
+- If the model config carries both `template.chat` and `template.chat_message`,
+  the conversation renders exactly like a chat prompt, so the embedding matches
+  what a chat model would actually see. Otherwise a frozen role-prefixed
+  fallback is used (`<role>: <content>` lines joined by newlines, empty-content
+  messages skipped). Non-text content parts (images, audio, video) are ignored.
+
+`pooling` selects how the per-token vectors are reduced to one embedding:
+
+| Value | Meaning |
+|-------|---------|
+| _(empty)_ / `backend` | The backend pools by itself — the default, today's exact behavior. |
+| `mean` | Average of all token vectors. |
+| `last` | The last token's vector. |
+| `decayed_mean` | Recency-weighted mean: token *i* of *T* weighs `2^(-(T-1-i)/H)` with half-life `H` = `pooling_half_life_tokens` (default 256) — recent turns dominate without erasing earlier context. |
+
+Go-side schemes need raw per-token vectors from the backend, so LocalAI
+automatically adds the `pooling:none` backend option when `parameters.pooling`
+is set in the model YAML. After pooling, the vector is normalized with
+llama.cpp's `embd_normalize` rule (default L2; configurable through
+`options: ["embd_normalize:<n>"]`).
+
+Model-level defaults live under `parameters:`:
+
+```yaml
+name: conversation-embedder
+backend: llama-cpp
+embeddings: true
+parameters:
+  model: ggml-file.bin
+  pooling: decayed_mean
+  pooling_half_life_tokens: 256
+```
+
+Go-side pooling requires an up-to-date llama-cpp backend: older builds don't
+report the embedding shape, and the request fails closed with an error asking
+you to rebuild the backend and set `options: ["pooling:none"]`.
+
 ## 💡 Examples
 
 - Example that uses LLamaIndex and LocalAI as embedding: [here](https://github.com/mudler/LocalAI-examples/tree/main/query_data).
