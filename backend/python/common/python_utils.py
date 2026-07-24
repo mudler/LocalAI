@@ -5,6 +5,31 @@ imported by any backend that needs to parse LocalAI gRPC options or build a
 chat-template-compatible message list from proto Message objects.
 """
 import json
+from urllib.parse import unquote
+
+
+def resolve_model_path(model, model_file=""):
+    """Resolve a LocalAI model reference to something an HF/MLX loader accepts.
+
+    LocalAI hands backends either a plain HuggingFace repo id
+    (``namespace/name``), an already-local filesystem path, or a
+    ``file://`` URI (its ``LocalPrefix``) for models imported from disk.
+    Loaders such as ``mlx_lm.load`` reject the ``file://`` form because the
+    scheme is neither a valid repo id nor an existing path, so we normalize
+    it here before loading.
+
+    Resolution order:
+      1. Prefer ``model_file`` when set and non-empty - that is the resolved
+         local path LocalAI computed for the model.
+      2. Strip a ``file://`` scheme and percent-decode it to a plain path.
+      3. Leave plain repo ids and already-local paths unchanged.
+    """
+    candidate = model_file if model_file else model
+    if candidate is None:
+        return candidate
+    if candidate.startswith("file://"):
+        return unquote(candidate[len("file://"):])
+    return candidate
 
 
 def parse_options(options_list):
