@@ -232,6 +232,26 @@ most reliable fix for WebRTC connections that establish and then drop.
 
 The API follows the OpenAI Realtime API protocol for handling sessions, audio buffers, and conversation items.
 
+### Response modalities (text-only sessions)
+
+By default a realtime session responds with audio plus a transcript. To make the model respond with **text only**, set the output modalities on either the session or an individual response:
+
+```json
+{"type": "session.update", "session": {"output_modalities": ["text"]}}
+```
+
+```json
+{"type": "response.create", "response": {"output_modalities": ["text"]}}
+```
+
+`output_modalities` is the GA field name. For compatibility, LocalAI also accepts the legacy Realtime *beta* field name `modalities` as an alias (a lot of community sample code still sends `modalities: ["text"]`):
+
+```json
+{"type": "session.update", "session": {"modalities": ["text"]}}
+```
+
+The GA `output_modalities` wins when both are present. A response-level value overrides the session-level one, and when neither is set the session falls back to `["audio"]`.
+
 ## Gating a realtime pipeline with voice recognition
 
 A pipeline realtime model can require speaker verification before it responds. Add a `voice_recognition` block under `pipeline`. When present, each committed utterance is verified against authorized speakers; unauthorized utterances are dropped before the LLM runs (no LLM call, no tool execution, no TTS). The session stays open.
