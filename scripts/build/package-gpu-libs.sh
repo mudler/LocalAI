@@ -675,21 +675,43 @@ package_rocm_libs() {
 package_intel_libs() {
     echo "Packaging Intel oneAPI/SYCL libraries for BUILD_TYPE=${BUILD_TYPE}..."
 
-    local intel_lib_paths=(
-        "/opt/intel/oneapi/compiler/latest/lib"
-        "/opt/intel/oneapi/mkl/latest/lib/intel64"
-        "/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8"
-    )
+    # oneAPI lib search roots. Default to the standard install layout, but allow
+    # an override (space-separated) so the packaging is unit-testable without a
+    # real oneAPI install (mirrors ROCM_BASE_DIRS). Both the current MKL layout
+    # (mkl/latest/lib) and the older one (mkl/latest/lib/intel64) are listed; the
+    # -d guard below skips whichever is absent. dnnl has its own component dir.
+    local intel_lib_paths
+    if [ -n "${INTEL_ONEAPI_LIB_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # intentional word-split of the override
+        intel_lib_paths=(${INTEL_ONEAPI_LIB_DIRS})
+    else
+        intel_lib_paths=(
+            "/opt/intel/oneapi/compiler/latest/lib"
+            "/opt/intel/oneapi/mkl/latest/lib"
+            "/opt/intel/oneapi/mkl/latest/lib/intel64"
+            "/opt/intel/oneapi/dnnl/latest/lib"
+            "/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8"
+        )
+    fi
 
-    # Core Intel oneAPI runtime libraries
+    # Core Intel oneAPI runtime libraries. The MKL entries cover both the LP64
+    # and ILP64 interfaces and the TBB threading layer (the SYCL llama.cpp build
+    # links ILP64 + libmkl_sycl_blas + libmkl_tbb_thread, which the old list
+    # missed), plus oneDNN. The libur_adapter_* entries are essential: the SYCL
+    # Unified Runtime dlopens them to reach Level Zero / OpenCL, so no ldd sweep
+    # can pull them in and they must be listed explicitly.
     local intel_libs=(
         "libsycl.so*"
         "libOpenCL.so*"
         "libmkl_core.so*"
         "libmkl_intel_lp64.so*"
+        "libmkl_intel_ilp64.so*"
         "libmkl_intel_thread.so*"
+        "libmkl_tbb_thread.so*"
         "libmkl_sequential.so*"
         "libmkl_sycl.so*"
+        "libmkl_sycl_blas.so*"
+        "libdnnl.so*"
         "libiomp5.so*"
         "libsvml.so*"
         "libirng.so*"
@@ -697,6 +719,10 @@ package_intel_libs() {
         "libintlc.so*"
         "libtbb.so*"
         "libtbbmalloc.so*"
+        "libur_loader.so*"
+        "libur_adapter_level_zero.so*"
+        "libur_adapter_level_zero_v2.so*"
+        "libur_adapter_opencl.so*"
         "libpi_level_zero.so*"
         "libpi_opencl.so*"
         "libze_loader.so*"
@@ -710,7 +736,76 @@ package_intel_libs() {
         fi
     done
 
-    # Pull in transitive deps the allowlist misses so the backend is
+    # Sweep the backend binaries' OWN direct deps, not just the deps of libs
+    # already bundled. The SYCL binaries link several oneAPI libs directly
+    # (libsycl, libmkl_intel_ilp64, libmkl_sycl_blas, libdnnl, ...) that no other
+    # bundled lib pulls in, so relying on the allowlist alone shipped an
+    # incomplete runtime that only worked inside the build container (where
+    # oneAPI is on LD_LIBRARY_PATH). This also bundles libze_loader, dropping the
+    # host level-zero-loader requirement. The binaries sit in package/, the
+    # parent of TARGET_LIB_DIR (=package/lib); see backend/cpp/llama-cpp/package.sh.
+    local bin
+    for bin in "$TARGET_LIB_DIR"/../llama-cpp-*; do
+        [ -f "$bin" ] && copy_elf_deps "$bin"
+    done
+
+    # Bundle the Intel GPU userspace DRIVER (compute-runtime / NEO), like the
+    # Vulkan packager bundles the Mesa ICD. The Level Zero and OpenCL loaders
+    # dlopen the driver at runtime, so it is invisible to the ELF/transitive
+    # sweeps and must be copied explicitly. Bundling it makes the backend run on
+    # hosts with no Intel compute-runtime installed, OR — the case that actually
+    # bites — hosts whose driver is built against a newer glibc than the
+    # backend's bundled loader (rolling-release distros): loading the host driver
+    # then crashes, while the bundled, glibc-coherent driver works. This is safe
+    # across kernels because the driver talks to the host i915/xe via the stable
+    # DRM UAPI (unlike NVIDIA's kernel-locked libcuda, which we deliberately do
+    # NOT bundle). run.sh points the loaders (ZE_ENABLE_ALT_DRIVERS /
+    # OCL_ICD_VENDORS) at these bundled copies.
+    local intel_driver_lib_dirs
+    if [ -n "${INTEL_DRIVER_LIB_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # intentional word-split of the override
+        intel_driver_lib_dirs=(${INTEL_DRIVER_LIB_DIRS})
+    else
+        intel_driver_lib_dirs=(
+            "/usr/lib/x86_64-linux-gnu"
+            "/usr/lib/x86_64-linux-gnu/intel-opencl"
+            "/usr/lib"
+        )
+    fi
+    local driver_libs=(
+        "libze_intel_gpu.so*"   # Level Zero GPU driver
+        "libigdrcl.so*"         # OpenCL GPU driver
+        "libigc.so*"            # Intel Graphics Compiler (SYCL/OpenCL JIT)
+        "libigdgmm.so*"         # Graphics Memory Management
+        "libigdfcl.so*"         # IGC front-end
+        "libopencl-clang.so*"
+    )
+    local drv_dir pat
+    for drv_dir in "${intel_driver_lib_dirs[@]}"; do
+        [ -d "$drv_dir" ] || continue
+        for pat in "${driver_libs[@]}"; do
+            copy_libs_glob "${drv_dir}/${pat}"
+        done
+    done
+
+    # Bundle the OpenCL ICD manifest, rewritten to a bare soname so the bundled
+    # libigdrcl resolves via LD_LIBRARY_PATH (same trick as the Vulkan ICDs). The
+    # vendors dir is overridable for tests.
+    local ocl_vendors="${INTEL_OPENCL_VENDORS_DIR:-/etc/OpenCL/vendors}"
+    if [ -d "$ocl_vendors" ]; then
+        local icd_dest="$TARGET_LIB_DIR/../etc/OpenCL/vendors"
+        mkdir -p "$icd_dest"
+        local icd
+        for icd in "$ocl_vendors"/*.icd; do
+            [ -e "$icd" ] || continue
+            cp -arfL "$icd" "$icd_dest/" 2>/dev/null || true
+            # Strip the directory from library_path, leaving the bare soname.
+            sed -i -E 's#^.*/##' "$icd_dest/$(basename "$icd")"
+        done
+    fi
+
+    # Pull in transitive deps the allowlist, binary sweep and driver copy miss
+    # (the driver pulls libigc/libigdgmm/... via ldd) so the backend is
     # self-contained (same class of failure as #10537).
     sweep_transitive_deps "$TARGET_LIB_DIR"
 
