@@ -38,6 +38,20 @@ func chatRequestJSON(opts *pb.PredictOptions, stream bool) (string, error) {
 				msg["tool_calls"] = toolCalls
 			}
 		}
+		// Multi-turn tool identity + prior reasoning: a role="tool" reply
+		// carries the id (and optionally the name) of the assistant call it
+		// answers, and assistant history may carry its reasoning span. The
+		// engine's template context needs all three or a second turn after
+		// tool execution is malformed.
+		if m.ToolCallId != "" {
+			msg["tool_call_id"] = m.ToolCallId
+		}
+		if m.Name != "" {
+			msg["name"] = m.Name
+		}
+		if m.ReasoningContent != "" {
+			msg["reasoning"] = m.ReasoningContent
+		}
 		messages = append(messages, msg)
 	}
 	req := map[string]any{"messages": messages}
