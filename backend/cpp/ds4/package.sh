@@ -17,13 +17,7 @@ if [ "$UNAME_S" = "Darwin" ]; then
     exit 0
 fi
 
-if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
-    cp -arfLv /lib64/ld-linux-x86-64.so.2 "$PACKAGE_DIR/lib/ld.so"
-elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
-    cp -arfLv /lib/ld-linux-aarch64.so.1 "$PACKAGE_DIR/lib/ld.so"
-else
-    echo "package.sh: unknown architecture" >&2; exit 1
-fi
+source "$CURDIR/../../../scripts/build/package-system-libs.sh" "$CURDIR/package/lib" ""
 
 # Bundle the complete dependency closure for both executables. In particular,
 # grpc-server links the distro gRPC/protobuf/absl stack; copying only the core
