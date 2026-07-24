@@ -140,6 +140,22 @@ proxy:
   upstream_model: meta-llama/Llama-3-70b-chat-hf
 ```
 
+[DaoXE](https://daoxe.com) is an OpenAI-compatible multi-model API gateway
+(`https://daoxe.com/v1`). Model IDs are account-scoped: copy the exact id from
+your DaoXE dashboard for `upstream_model`:
+
+```yaml
+name: daoxe-chat
+backend: cloud-proxy
+
+proxy:
+  mode: passthrough
+  provider: openai
+  upstream_url: https://daoxe.com/v1/chat/completions
+  api_key_env: DAOXE_API_KEY
+  upstream_model: your-account-model-id
+```
+
 ### Translate mode
 
 In translate mode the cloud-proxy backend converts LocalAI's internal proto
