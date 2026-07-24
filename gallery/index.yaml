@@ -4189,6 +4189,34 @@
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-4B-f16.gguf
       sha256: 659b59dd44b73b1cd34af6cc424669484b06dc80f4340adf8ea84ad776eef813
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-4B-f16.gguf
+- name: cajal-4b-p2pclaw
+  url: github:mudler/LocalAI/gallery/cajal.yaml@master
+  urls:
+    - https://huggingface.co/Agnuxo/CAJAL-4B
+    - https://huggingface.co/Agnuxo/CAJAL-4B-P2PCLAW
+    - https://github.com/Agnuxo1/CAJAL
+  description: |
+    CAJAL-4B is a Qwen3.5-based 4B GGUF model specialized for scientific paper generation. It is tuned for academic structure, citation formats, LaTeX, and domain-specific technical writing within the P2PCLAW ecosystem, while remaining suitable for local llama-cpp inference.
+  license: apache-2.0
+  icon: https://huggingface.co/Agnuxo/CAJAL-4B-P2PCLAW/resolve/main/logo_cajal_blue.png
+  tags:
+    - cajal
+    - qwen3.5
+    - 4b
+    - gguf
+    - cpu
+    - gpu
+    - scientific-research
+    - academic-writing
+    - llama-cpp
+  last_checked: "2026-05-18"
+  overrides:
+    parameters:
+      model: llama-cpp/models/CAJAL-4B-q4_k_m.gguf
+  files:
+    - filename: llama-cpp/models/CAJAL-4B-q4_k_m.gguf
+      sha256: 4bce5383dc1dc4777b3812a2d944661e72d4572924af41df8d671e5da4772274
+      uri: https://huggingface.co/Agnuxo/CAJAL-4B/resolve/main/CAJAL-4B-q4_k_m.gguf
 - name: qwen3.5-27b-claude-4.6-opus-reasoning-distilled-i1
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
