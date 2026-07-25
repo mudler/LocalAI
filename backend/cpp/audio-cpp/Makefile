@@ -1,7 +1,11 @@
 # audio.cpp backend Makefile.
 #
-# Upstream pin lives below as AUDIO_CPP_VERSION?=<sha> so .github/bump_deps.sh
-# can find and update it, matching the llama-cpp / ds4 convention. The clone
+# Upstream pin lives below in the AUDIO_CPP_VERSION variable, so
+# .github/bump_deps.sh can find and update it, matching the llama-cpp / ds4
+# convention. That script seds every line matching the variable name followed by
+# an assignment, so this comment deliberately spells the name on its own: a
+# comment repeating the full assignment token gets rewritten and mangled by the
+# first auto-bump (backend/cpp/ds4/Makefile shows the damage). The clone
 # recipe is a make target (not a prepare.sh) so 'make purge && make' is a clean
 # rebuild and so the bump bot can see the pin.
 
@@ -69,7 +73,7 @@ test:
 test-engine: audio.cpp
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) -DAUDIO_CPP_GRPC_BUILD_TESTS=ON $(CURRENT_MAKEFILE_DIR) && \
-	cmake --build . --config Release -j $(JOBS) && ctest --output-on-failure
+	cmake --build . --config Release -j $(JOBS) && ctest --output-on-failure --no-tests=error
 
 clean:
 	rm -rf $(BUILD_DIR) grpc-server package

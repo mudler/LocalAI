@@ -33,7 +33,9 @@ if(NOT Protobuf_FOUND)
 endif()
 find_package(gRPC CONFIG QUIET)
 if(NOT gRPC_FOUND)
-    # Ubuntu's apt-installed grpc++ ships no CMake config. Fall back.
+    # Reached only on distros whose grpc++ packaging ships no CMake config.
+    # Ubuntu's libgrpc-dev does ship one, so this is dead code on LocalAI's own
+    # build distro. Kept for the distros that do not.
     find_library(GRPCPP_LIB grpc++ REQUIRED)
     find_library(GRPCPP_REFLECTION_LIB grpc++_reflection REQUIRED)
     add_library(gRPC::grpc++ INTERFACE IMPORTED)
@@ -75,6 +77,11 @@ target_link_libraries(hw_grpc_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 
 # Upstream's global add_compile_options(-Wall -Wextra -Wpedantic -pedantic-errors)
 # is a directory property of the subdirectory and does not reach our targets.
+#
+# EXCLUDE_FROM_ALL is load-bearing, do not drop it: upstream's default target set
+# includes its CLI, server, converter and test binaries, none of which we ship.
+# Without it every build would compile all of them. The targets we do name in
+# target_link_libraries below are still built on demand, so nothing is lost.
 add_subdirectory("${AUDIO_CPP_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/audio-cpp" EXCLUDE_FROM_ALL)
 
 add_executable(${TARGET}
@@ -96,9 +103,16 @@ target_link_libraries(${TARGET} PRIVATE
 
 # ENGINE_ENABLE_CPU_ALL_VARIANTS builds ggml backends as shared objects that sit
 # next to the binary in the package, so the binary must search its own directory.
+# BUILD_WITH_INSTALL_RPATH keeps the build-tree binary at exactly "$ORIGIN".
+# Upstream sets CMAKE_BUILD_WITH_INSTALL_RPATH in its own directory scope, which
+# does not reach ours, so without this CMake also appends its build-tree library
+# directory. That absolute build-host path would survive into the copied binary
+# and let a package.sh that forgot to bundle libggml*.so still pass on the build
+# machine while failing everywhere else.
 set_target_properties(${TARGET} PROPERTIES
     BUILD_RPATH "$ORIGIN"
-    INSTALL_RPATH "$ORIGIN")
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
     enable_testing()
