@@ -4292,7 +4292,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "state": {
-                    "description": "loading, loaded, unloading, idle",
+                    "description": "staging, loading, loaded, unloading, idle",
                     "type": "string"
                 },
                 "updated_at": {
