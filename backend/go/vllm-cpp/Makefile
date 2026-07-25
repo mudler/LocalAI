@@ -4,7 +4,10 @@ NATIVE?=false
 
 GOCMD?=go
 GO_TAGS?=
-JOBS?=$(shell nproc --ignore=1)
+# nproc doesn't exist on the macOS runners: an empty JOBS turns `-j$(JOBS)`
+# into bare `-j` (unlimited clang jobs), which swap-thrashes the 3-core Mac
+# until the 6h GHA timeout. Fall back to sysctl there, then to a constant.
+JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
