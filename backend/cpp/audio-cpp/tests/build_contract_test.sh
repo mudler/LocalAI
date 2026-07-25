@@ -139,7 +139,7 @@ audio_cpp_version="$(
 }
 
 fetch_plan="${tmp_dir}/fetch-plan"
-make -C "${backend_dir}" -n audio.cpp >"${fetch_plan}"
+make -C "${backend_dir}" -Bn audio.cpp >"${fetch_plan}"
 grep -q 'github.com/0xShug0/audio.cpp' "${fetch_plan}"
 grep -q "${audio_cpp_version}" "${fetch_plan}"
 

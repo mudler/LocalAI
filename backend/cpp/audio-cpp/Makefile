@@ -24,7 +24,7 @@ else ifeq ($(UNAME_S),Darwin)
 	CMAKE_ARGS += -DENGINE_ENABLE_METAL=ON
 endif
 
-.PHONY: all grpc-server test clean purge
+.PHONY: all grpc-server test test-unit clean purge
 
 all: grpc-server
 
@@ -51,8 +51,17 @@ grpc-server: audio.cpp
 test:
 	bash tests/build_contract_test.sh
 
+test-unit: audio.cpp
+	mkdir -p $(BUILD_DIR)-unit
+	cd $(BUILD_DIR)-unit && cmake $(CMAKE_ARGS) \
+		-DAUDIO_CPP_BUILD_TESTS=ON -DAUDIO_CPP_BUILD_GRPC=OFF \
+		$(CURRENT_MAKEFILE_DIR)
+	cmake --build $(BUILD_DIR)-unit --config Release \
+		--target audio-cpp-runtime-test -j $(JOBS)
+	ctest --test-dir $(BUILD_DIR)-unit --output-on-failure
+
 clean:
-	rm -rf $(BUILD_DIR) grpc-server
+	rm -rf $(BUILD_DIR) $(BUILD_DIR)-unit grpc-server
 
 purge: clean
 	rm -rf audio.cpp
