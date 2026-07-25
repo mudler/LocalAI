@@ -88,6 +88,7 @@ add_executable(${TARGET}
     grpc-server.cpp
     model_options.cpp
     capability_routing.cpp
+    audio_units.cpp
 )
 
 target_include_directories(${TARGET} PRIVATE
