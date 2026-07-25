@@ -75,8 +75,9 @@ struct Route {
 
 Route resolve_route(Rpc rpc, const RequestShape &shape, const Capabilities &caps);
 
-// Canonical audio.cpp CLI short names: gen, tts, clon, vc, svc, s2s, asr,
-// align, vad, diar, sep, vdes, spkrec.
+// Canonical audio.cpp short names: gen, tts, clon, vc, svc, s2s, asr, align,
+// vad, diar, sep, vdes, spk. parse_task_name additionally accepts "spkrec" as
+// a legacy alias; task_name only ever emits "spk".
 const char *task_name(Task task);
 const char *mode_name(Mode mode);
 const char *rpc_name(Rpc rpc);

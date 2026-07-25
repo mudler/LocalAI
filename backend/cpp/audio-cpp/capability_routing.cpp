@@ -10,8 +10,11 @@ struct NamedTask {
     const char *name;
 };
 
-// Short names match audiocpp_cli's --task values (docs/usage.md). Two kinds
-// have no CLI name upstream; they get stable names here so pinning still works.
+// Short names are exactly the strings audio.cpp prints and parses in
+// framework/runtime/session.cpp, so a name pinned here survives conversion at
+// the engine boundary and a name copied out of audio.cpp is accepted here. All
+// thirteen have an upstream name; only "spk" is absent from the --task table in
+// docs/usage.md.
 const NamedTask kTaskNames[] = {
     {Task::Vad, "vad"},
     {Task::Asr, "asr"},
@@ -24,10 +27,20 @@ const NamedTask kTaskNames[] = {
     {Task::SpeechToSpeech, "s2s"},
     {Task::Alignment, "align"},
     {Task::VoiceDesign, "vdes"},
-    {Task::SpeakerRecognition, "spkrec"},
+    {Task::SpeakerRecognition, "spk"},
     {Task::Svc, "svc"},
 };
 
+// Accepted on input but never emitted. "spkrec" was this backend's own earlier
+// name for the kind; upstream only ever knew "spk".
+const NamedTask kTaskAliases[] = {
+    {Task::SpeakerRecognition, "spkrec"},
+};
+
+// First match wins, which is safe because a Capabilities value holds at most one
+// entry per task: it mirrors upstream runtime::TaskCapability (model.h), which
+// pairs one kind with a modes vector, and no loader's supported_tasks list
+// repeats a kind.
 bool family_supports(const Capabilities &caps, Task task, Mode mode) {
     for (const auto &capability : caps.tasks) {
         if (capability.task != task) {
@@ -85,6 +98,11 @@ std::vector<Task> task_candidates(Rpc rpc, const RequestShape &shape) {
     case Rpc::SoundGeneration:
         return {Task::AudioGeneration};
     case Rpc::AudioTransform:
+        // Svc is listed for completeness but is unreachable by auto-routing, by
+        // design: the only families advertising it (seed_vc, vevo2) also
+        // advertise VoiceConversion, which always wins, and no request signal
+        // means "this input is singing". Singing voice conversion therefore
+        // requires an explicit task:svc pin.
         return {Task::SourceSeparation, Task::VoiceConversion, Task::Svc,
                 Task::SpeechToSpeech};
     }
@@ -153,6 +171,12 @@ bool parse_task_name(const std::string &value, Task &out) {
             return true;
         }
     }
+    for (const auto &entry : kTaskAliases) {
+        if (value == entry.name) {
+            out = entry.task;
+            return true;
+        }
+    }
     return false;
 }
 
@@ -184,7 +208,7 @@ Route resolve_route(Rpc rpc, const RequestShape &shape,
         if (!parse_task_name(shape.pinned_task, pinned)) {
             route.error = "audio-cpp: unknown task option '" + shape.pinned_task +
                           "'. Known tasks: gen, tts, clon, vc, svc, s2s, asr, "
-                          "align, vad, diar, sep, vdes, spkrec";
+                          "align, vad, diar, sep, vdes, spk";
             return route;
         }
         // A pinned task is honoured exactly. Silently rerouting would make the

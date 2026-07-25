@@ -119,6 +119,10 @@ static void test_tts_stream_requires_streaming() {
           "error names the family");
     check(bad.error.find("tts/offline") != std::string::npos,
           "error lists what the family does support");
+    check(bad.error.find("TTSStream") != std::string::npos,
+          "error names the RPC that was refused");
+    check(bad.error.find("tts/streaming") != std::string::npos,
+          "error lists the (task, mode) pairs that were tried");
 }
 
 static void test_transcription_stream_falls_back_to_offline() {
@@ -178,13 +182,32 @@ static void test_prompt_does_not_hijack_asr() {
     shape.has_prompt_text = true;
     const auto r = resolve_route(Rpc::AudioTranscription, shape, nemotron());
     check(r.ok, "ASR with a prompt routes");
-    check(r.task == Task::Asr, "Asr is preferred over Alignment");
+
+    // nemotron advertises Asr alone, so the assertion has to be made against a
+    // family that advertises both: otherwise "Asr is preferred" only restates
+    // that Asr is the only option, and reversing the preference order passes.
+    Capabilities both{"asr_with_aligner",
+                      {{Task::Asr, {Mode::Offline}},
+                       {Task::Alignment, {Mode::Offline}}}};
+    const auto pref = resolve_route(Rpc::AudioTranscription, shape, both);
+    check(pref.ok, "a family offering both routes");
+    check(pref.task == Task::Asr, "Asr is preferred over Alignment");
 }
 
 static void test_audio_transform_prefers_separation() {
     const auto sep =
         resolve_route(Rpc::AudioTransform, RequestShape{}, htdemucs());
     check(sep.ok && sep.task == Task::SourceSeparation, "separation routes");
+
+    // htdemucs advertises separation alone, so the check above cannot fail on
+    // ordering. This family advertises both, which is what pins the preference.
+    Capabilities sep_and_vc{"sep_and_vc",
+                            {{Task::SourceSeparation, {Mode::Offline}},
+                             {Task::VoiceConversion, {Mode::Offline}}}};
+    const auto pref =
+        resolve_route(Rpc::AudioTransform, RequestShape{}, sep_and_vc);
+    check(pref.ok && pref.task == Task::SourceSeparation,
+          "separation is preferred over voice conversion");
 
     Capabilities miocodec{"miocodec",
                           {{Task::VoiceConversion, {Mode::Offline}},
@@ -250,6 +273,23 @@ static void test_names_round_trip() {
     }
     check(std::string(mode_name(Mode::Offline)) == "offline", "offline name");
     check(std::string(mode_name(Mode::Streaming)) == "streaming", "streaming name");
+
+    // The emitted name must be the one audio.cpp itself prints and parses
+    // (framework/runtime/session.cpp), because `task:` is user-facing: a name
+    // copied out of audio.cpp has to be accepted here, and a name pinned here
+    // has to survive conversion at the engine boundary.
+    check(std::string(task_name(Task::SpeakerRecognition)) == "spk",
+          "speaker recognition emits upstream's name 'spk'");
+
+    Task pinned = Task::Vad;
+    check(parse_task_name("spk", pinned) && pinned == Task::SpeakerRecognition,
+          "'spk' parses to SpeakerRecognition");
+
+    // Accepted as a legacy alias so configs written against the earlier name
+    // keep working, but never emitted.
+    Task alias = Task::Vad;
+    check(parse_task_name("spkrec", alias) && alias == Task::SpeakerRecognition,
+          "'spkrec' is still accepted as an alias");
 }
 
 static void test_describe_capabilities() {
