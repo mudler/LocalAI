@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # magpie-tts.cpp version
 MAGPIETTS_REPO?=https://github.com/mudler/magpie-tts.cpp
-MAGPIETTS_CPP_VERSION?=6f7696cffbfa1e85c17bc42eca24f5cbdb82c949
+MAGPIETTS_CPP_VERSION?=3008ff73fc2d2da9e4d743b09350aa7023e8980c
 SO_TARGET?=libgomagpiettscpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
