@@ -128,7 +128,7 @@ type NodeModel struct {
 	ModelName     string    `gorm:"index;size:255" json:"model_name"`
 	ReplicaIndex  int       `gorm:"column:replica_index;default:0;index" json:"replica_index"`
 	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
-	State         string    `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
+	State         string    `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
 	InFlight      int       `json:"in_flight"`                         // number of active requests on this replica
 	LastUsed      time.Time `json:"last_used"`
 	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`    // frontend ID that triggered loading
