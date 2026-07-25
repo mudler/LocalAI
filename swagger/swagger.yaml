@@ -503,7 +503,7 @@ definitions:
       replica_index:
         type: integer
       state:
-        description: loading, loaded, unloading, idle
+        description: staging, loading, loaded, unloading, idle
         type: string
       updated_at:
         type: string
