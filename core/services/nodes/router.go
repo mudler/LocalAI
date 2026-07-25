@@ -319,6 +319,26 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// that built modelOpts may have no GPU at all in distributed mode.
 	applyNodeHardwareDefaults(modelOpts, node, backendType)
 
+	// Publish the load lifecycle from the moment the node is chosen: staging a
+	// large model takes minutes, and without a registry row the whole phase is
+	// invisible to /api/nodes and the UI — a cold load looks exactly like
+	// nothing happening. The row also reserves the replica slot against
+	// concurrent schedulers. Removed on any failure below so a dead load does
+	// not leave a phantom replica.
+	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "staging", backendAddr, 0); err != nil {
+		xlog.Warn("Failed to record staging state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+	}
+	lifecycleSettled := false
+	defer func() {
+		if lifecycleSettled {
+			return
+		}
+		cleanupCtx := context.WithoutCancel(ctx)
+		if err := r.registry.RemoveNodeModel(cleanupCtx, node.ID, trackingKey, replicaIndex); err != nil {
+			xlog.Warn("Failed to clear lifecycle row after failed load", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+		}
+	}()
+
 	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
 	// path fields to their remote equivalents on a clone, and only the local
 	// paths can be stat'ed here.
@@ -341,6 +361,11 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if loadOpts != nil {
 		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr,
 			"payloadBytes", payloadBytes, "loadBudget", loadTimeout)
+
+		// Staging is done; the checkpoint load on the worker begins.
+		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loading", backendAddr, 0); err != nil {
+			xlog.Warn("Failed to record loading state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+		}
 
 		// The cold-load hold above this call extends on STAGING progress, and
 		// the remote LoadModel reports none — so once the last byte lands the
@@ -380,7 +405,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
-	// Record the model as loaded on this node (specific replica slot).
+	// Record the model as loaded on this node (specific replica slot). From
+	// here the row is authoritative; the failure-cleanup defer must not touch it.
+	lifecycleSettled = true
 	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight); err != nil {
 		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 	}

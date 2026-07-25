@@ -487,9 +487,14 @@ var _ = Describe("SmartRouter", func() {
 				Expect(result).ToNot(BeNil())
 				Expect(result.Node.ID).To(Equal("n2"))
 
-				// SetNodeModel should record the model as loaded on the node
-				Expect(reg2.setCalls).To(HaveLen(1))
-				Expect(reg2.setCalls[0]).To(ContainSubstring("n2:some-model:loaded"))
+				// The load lifecycle is published: a staging row appears as soon
+				// as the node is chosen (what makes a multi-minute cold load
+				// visible in /api/nodes and the UI), then the final loaded row.
+				// This path passes nil model options, so the checkpoint-load
+				// phase (and its "loading" state) is skipped.
+				Expect(reg2.setCalls).To(HaveLen(2))
+				Expect(reg2.setCalls[0]).To(ContainSubstring("n2:some-model:staging"))
+				Expect(reg2.setCalls[1]).To(ContainSubstring("n2:some-model:loaded"))
 			})
 		})
 
