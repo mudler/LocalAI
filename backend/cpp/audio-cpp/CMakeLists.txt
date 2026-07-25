@@ -87,6 +87,7 @@ add_subdirectory("${AUDIO_CPP_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/audio-cpp" EXCL
 add_executable(${TARGET}
     grpc-server.cpp
     model_options.cpp
+    capability_routing.cpp
 )
 
 target_include_directories(${TARGET} PRIVATE
