@@ -1,6 +1,8 @@
 #include "model_options.h"
 
 #include <cctype>
+#include <cerrno>
+#include <climits>
 #include <cstdlib>
 
 namespace audiocpp_backend {
@@ -21,7 +23,13 @@ std::string trim(const std::string &value) {
 }
 
 // Parses a non-negative integer. Returns false on anything else, including
-// empty strings, signs, and trailing garbage.
+// empty strings, signs, trailing garbage, and values too large for int.
+//
+// strtol rather than atoi: atoi is undefined behaviour once the digits exceed
+// long, and in practice it hands back a wrapped value. That would let
+// "device:2147483648" through as -2147483648 and send a negative index to the
+// ggml backend selector, from a function whose error text promises the caller a
+// non-negative integer.
 bool parse_non_negative_int(const std::string &value, int &out) {
     if (value.empty()) {
         return false;
@@ -31,7 +39,18 @@ bool parse_non_negative_int(const std::string &value, int &out) {
             return false;
         }
     }
-    out = std::atoi(value.c_str());
+
+    errno = 0;
+    char *end = nullptr;
+    const long parsed = std::strtol(value.c_str(), &end, 10);
+    if (errno == ERANGE || end == nullptr || *end != '\0') {
+        return false;
+    }
+    if (parsed < 0 || parsed > INT_MAX) {
+        return false;
+    }
+
+    out = static_cast<int>(parsed);
     return true;
 }
 
@@ -110,7 +129,9 @@ ParsedOptions parse_model_options(const std::vector<std::string> &entries) {
                 return parsed;
             }
         } else {
-            parsed.error = "audio-cpp: unknown option key '" + key +
+            // Quotes the whole entry, not just the key: an entry like ":value"
+            // has an empty key and would otherwise leave nothing to grep for.
+            parsed.error = "audio-cpp: unknown option key '" + entry +
                            "'. Known keys: family, task, backend, device, "
                            "threads, model_spec_override, busy_timeout_ms, "
                            "load.<key>, session.<key>";

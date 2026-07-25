@@ -10,6 +10,7 @@
 #include "model_options.cpp"
 
 #include <cstdio>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,15 @@ static void check(bool ok, const std::string &name) {
     } else {
         fprintf(stderr, "ok:   %s\n", name.c_str());
     }
+}
+
+// Returns the mapped value, or an empty string when the key is absent. map::at
+// would throw on a miss and abort the whole binary, so one prefix off-by-one
+// would hide every check that follows it instead of failing a single one.
+static std::string lookup(const std::map<std::string, std::string> &values,
+                          const std::string &key) {
+    const auto found = values.find(key);
+    return found == values.end() ? std::string() : found->second;
 }
 
 using audiocpp_backend::parse_model_options;
@@ -73,11 +83,11 @@ static void test_namespaced_options() {
     });
     check(r.error.empty(), "namespaced options parse without error");
     check(r.options.load_options.size() == 1, "one load option");
-    check(r.options.load_options.at("weight_type") == "q8_0", "load prefix stripped");
+    check(lookup(r.options.load_options, "weight_type") == "q8_0", "load prefix stripped");
     check(r.options.session_options.size() == 2, "two session options");
-    check(r.options.session_options.at("miocodec.weight_type") == "f16",
+    check(lookup(r.options.session_options, "miocodec.weight_type") == "f16",
           "session prefix stripped, inner dots kept");
-    check(r.options.session_options.at("graph_capacity") == "tiered",
+    check(lookup(r.options.session_options, "graph_capacity") == "tiered",
           "second session option parsed");
 }
 
@@ -94,11 +104,29 @@ static void test_errors() {
           "empty load key is rejected");
     check(!parse_model_options({"session.:x"}).error.empty(),
           "empty session key is rejected");
+    check(!parse_model_options({"busy_timeout_ms:abc"}).error.empty(),
+          "non-numeric busy_timeout_ms is rejected");
+    check(!parse_model_options({"device:-1"}).error.empty(),
+          "negative device is rejected");
+    check(!parse_model_options({"threads:x"}).error.empty(),
+          "non-numeric threads is rejected");
+
+    // Values too large for int must be rejected, not silently wrapped into a
+    // negative device index that then reaches the ggml backend selector.
+    check(!parse_model_options({"device:2147483648"}).error.empty(),
+          "device above INT_MAX is rejected");
+    check(!parse_model_options({"threads:99999999999999"}).error.empty(),
+          "threads above INT_MAX is rejected");
 
     // The error text must name the offending entry so a user can fix their YAML.
     const auto r = parse_model_options({"nonsense:1"});
     check(r.error.find("nonsense") != std::string::npos,
           "error names the offending key");
+
+    // An empty key still has to give the user something to grep for.
+    const auto empty_key = parse_model_options({":value"});
+    check(empty_key.error.find(":value") != std::string::npos,
+          "unknown-key error names the entry even when the key is empty");
 }
 
 static void test_blank_entries_ignored() {
