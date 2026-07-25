@@ -78,6 +78,10 @@ type TTSRequest struct {
 	Format   string `json:"response_format,omitempty" yaml:"response_format,omitempty"` // (optional) output format
 	Stream     bool   `json:"stream,omitempty" yaml:"stream,omitempty"`                   // (optional) enable streaming TTS
 	SampleRate int    `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // (optional) desired output sample rate
+	// Speed is the OpenAI `speed` field (0.25-4.0). It is normalised into
+	// Params["speed"] so it reaches the backend over the same channel as the
+	// other per-request generation parameters.
+	Speed float32 `json:"speed,omitempty" yaml:"speed,omitempty"`
 	// Instructions is a free-form, per-request style/voice description. It maps to
 	// the OpenAI `instructions` field and is forwarded to the backend so expressive
 	// TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
