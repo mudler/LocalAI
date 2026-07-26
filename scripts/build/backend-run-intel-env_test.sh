@@ -1,17 +1,17 @@
 #!/bin/bash
 # Checks how the run.sh of each C++ backend sets up the Intel graphics driver.
 #
-# A backend built for Intel GPUs can carry its own copy of the Intel graphics
-# driver. When it does, run.sh has to tell the two libraries that look for a
-# driver (Level Zero and OpenCL) to use the bundled copy. Three things must
-# hold, and all three have broken in the past:
+# A backend built for Intel GPUs carries its own copy of the Intel graphics
+# driver. run.sh has to tell Level Zero, which is how llama.cpp reaches the
+# card, to use that copy. Three things must hold, and all three have broken in
+# the past:
 #
 #   1. If the user already chose a driver, keep the user's choice. Otherwise a
-#      machine with a graphics card too new for the bundled driver stops
+#      machine with a graphics card too new for the carried driver stops
 #      working, with no way to get back to the driver that did work.
-#   2. Only point OpenCL at the bundled driver list if the bundled OpenCL
-#      driver is really there. Pointing at a list of missing files leaves the
-#      backend with no OpenCL at all, which is worse than using the host's.
+#   2. Say nothing about OpenCL. No OpenCL driver is carried, so pointing
+#      OpenCL at the backend's own directory would leave it with no driver at
+#      all, where saying nothing leaves it the machine's own.
 #   3. Ask the driver for the amount of free memory. Without this, llama.cpp
 #      reads zero free memory on an integrated graphics chip, because such a
 #      chip has no memory of its own and shares the system's.
@@ -94,9 +94,11 @@ for entry in "${RUN_SCRIPTS[@]}"; do
         fail "$script: expected Level Zero to use the bundled driver, got '$got'"
     fi
 
+    # Even with an OpenCL driver and a driver list sitting in the backend, which
+    # is what an older packaging left behind, OpenCL must be left alone.
     got=$(read_variable "$bundled" opencl_driver_list)
-    if [ "$got" != "$bundled/etc/OpenCL/vendors" ]; then
-        fail "$script: expected OpenCL to use the bundled driver list, got '$got'"
+    if [ -n "$got" ]; then
+        fail "$script: OpenCL was pointed at the backend's own directory ('$got')"
     fi
 
     got=$(read_variable "$bundled" report_free_memory)
@@ -114,18 +116,6 @@ for entry in "${RUN_SCRIPTS[@]}"; do
     got=$(ZES_ENABLE_SYSMAN=0 read_variable "$bundled" report_free_memory)
     if [ "$got" != "0" ]; then
         fail "$script: the user's free memory setting was overwritten with '$got'"
-    fi
-
-    # An Intel build whose OpenCL driver was not bundled, but which still
-    # carries a driver list. Using that list would leave OpenCL with nothing.
-    no_opencl="$WORK/$prefix-no-opencl"
-    make_backend "$no_opencl" "$prefix" libze_loader.so.1 libze_intel_gpu.so.1
-    mkdir -p "$no_opencl/etc/OpenCL/vendors"
-    echo "libigdrcl.so" > "$no_opencl/etc/OpenCL/vendors/intel.icd"
-
-    got=$(read_variable "$no_opencl" opencl_driver_list)
-    if [ -n "$got" ]; then
-        fail "$script: OpenCL was pointed at a list with no bundled driver ('$got')"
     fi
 
     # A build for some other kind of graphics card. None of the Intel

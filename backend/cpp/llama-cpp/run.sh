@@ -43,22 +43,18 @@ else
 		export HIPBLASLT_TENSILE_LIBPATH="$CURDIR"/lib/hipblaslt/library
 	fi
 	# Backends built for Intel GPUs carry a copy of the Intel graphics driver,
-	# and libze_loader is only there in those builds. Level Zero and OpenCL each
-	# look for a driver on their own, so point them at the copy that came with
-	# this backend: it was built against the same C library, while the machine's
-	# own driver may not have been, and loading that one can crash on start.
+	# and libze_loader is only there in those builds. Level Zero looks for a
+	# driver on its own, so point it at the copy that came with this backend: it
+	# was built against the same C library, while the machine's own driver may
+	# not have been, and loading that one can crash on start.
 	#
 	# Anything the user set is left alone, so a machine with a graphics card
 	# newer than the driver carried here can still be told to use its own.
+	# Nothing is said about OpenCL: no OpenCL driver is carried, so anything we
+	# set there would leave OpenCL worse off than the machine's own setup.
 	if [ -e "$CURDIR/lib/libze_loader.so.1" ]; then
 		if [ -e "$CURDIR/lib/libze_intel_gpu.so.1" ] && [ -z "${ZE_ENABLE_ALT_DRIVERS:-}" ]; then
 			export ZE_ENABLE_ALT_DRIVERS="$CURDIR"/lib/libze_intel_gpu.so.1
-		fi
-		# OpenCL reads the drivers it may use from this directory. Only use ours
-		# if the driver named in there was really copied, otherwise OpenCL is
-		# left with no driver at all instead of the machine's own.
-		if [ -e "$CURDIR/lib/libigdrcl.so" ] && [ -d "$CURDIR/etc/OpenCL/vendors" ] && [ -z "${OCL_ICD_VENDORS:-}" ]; then
-			export OCL_ICD_VENDORS="$CURDIR"/etc/OpenCL/vendors
 		fi
 		# Ask the driver how much graphics memory is free. Without this,
 		# llama.cpp reads zero on an integrated graphics chip, because such a

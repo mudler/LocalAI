@@ -755,9 +755,8 @@ package_intel_libs() {
     done
 
     # Copy the Intel graphics driver itself, the way the Vulkan packaging copies
-    # the Mesa driver. Level Zero and OpenCL open the driver by name while the
-    # program runs, so no dependency scan can find it and it has to be named
-    # here.
+    # the Mesa driver. Level Zero opens the driver by name while the program
+    # runs, so no dependency scan can find it and it has to be named here.
     #
     # This is what lets the backend run on a machine with no Intel graphics
     # packages installed, and also on a machine whose own driver was built
@@ -768,9 +767,16 @@ package_intel_libs() {
     # that one is never copied.
     #
     # Only the builds that start through run.sh get a driver: run.sh is what
-    # tells Level Zero and OpenCL to use it. The Python backends built for Intel
-    # GPUs start differently and keep using the host's driver, so copying one for
-    # them would add several hundred megabytes that nothing would ever load.
+    # tells Level Zero to use it. The Python backends built for Intel GPUs start
+    # differently and keep using the host's driver, so copying one for them would
+    # add several hundred megabytes that nothing would ever load.
+    #
+    # Only the Level Zero side is copied. llama.cpp reaches an Intel GPU through
+    # Level Zero, which hands the driver ready-compiled programs and so needs
+    # only the compiler's back end. The OpenCL driver can be handed source code
+    # instead, so it also needs the compiler's front end, and that pulls in a
+    # copy of clang: around 139 MB for a path nothing here takes. A user who
+    # wants OpenCL has their machine's own.
     case "${BUILD_TYPE:-}" in
         sycl*)
             local intel_driver_lib_dirs
@@ -780,17 +786,13 @@ package_intel_libs() {
             else
                 intel_driver_lib_dirs=(
                     "/usr/lib/x86_64-linux-gnu"
-                    "/usr/lib/x86_64-linux-gnu/intel-opencl"
                     "/usr/lib"
                 )
             fi
             local driver_libs=(
                 "libze_intel_gpu.so*"   # the driver Level Zero talks to
-                "libigdrcl.so*"         # the driver OpenCL talks to
-                "libigc.so*"            # turns compute code into instructions for the card
-                "libigdfcl.so*"         # front end of the same compiler
+                "libigc.so*"            # turns compute programs into instructions for the card
                 "libigdgmm.so*"         # manages graphics memory
-                "libopencl-clang.so*"
             )
             local drv_dir pat
             for drv_dir in "${intel_driver_lib_dirs[@]}"; do
@@ -799,30 +801,6 @@ package_intel_libs() {
                     copy_libs_glob "${drv_dir}/${pat}"
                 done
             done
-
-            # OpenCL finds a driver by reading small text files, each holding the
-            # name of one driver library. Copy the file for the driver we just
-            # copied, holding a plain file name so the loader finds our copy
-            # through the library path. Files naming anything else are left out:
-            # the oneAPI images also list a processor-only OpenCL library, and
-            # keeping that entry would send OpenCL after a file that is not
-            # there.
-            local ocl_vendors="${INTEL_OPENCL_VENDORS_DIR:-/etc/OpenCL/vendors}"
-            if [ -d "$ocl_vendors" ]; then
-                local icd icd_name driver_name
-                for icd in "$ocl_vendors"/*.icd; do
-                    [ -e "$icd" ] || continue
-                    # One line, holding either a full path or a plain file name.
-                    driver_name=$(basename "$(head -n1 "$icd")")
-                    if [ ! -e "$TARGET_LIB_DIR/$driver_name" ]; then
-                        echo "OpenCL: skipping $(basename "$icd"), $driver_name was not copied" >&2
-                        continue
-                    fi
-                    icd_name=$(basename "$icd")
-                    mkdir -p "$TARGET_LIB_DIR/../etc/OpenCL/vendors"
-                    echo "$driver_name" > "$TARGET_LIB_DIR/../etc/OpenCL/vendors/$icd_name"
-                done
-            fi
             ;;
     esac
 

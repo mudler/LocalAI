@@ -296,7 +296,9 @@ docker run --rm -ti --device /dev/dri -p 8080:8080 \
   -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
 ```
 
-Set the path to wherever your distribution keeps that file. The same holds for `OCL_ICD_VENDORS`, which points OpenCL at a directory of driver descriptions. Whatever you set is used as is, and the copied driver is left alone.
+Set the path to wherever your distribution keeps that file. Whatever you set is used as is, and the carried driver is left alone.
+
+The backends carry only the driver Level Zero uses, which is how llama.cpp reaches an Intel GPU. They do not carry an OpenCL driver, so OpenCL inside a container continues to use whatever the image itself provides.
 
 ### Container images
 

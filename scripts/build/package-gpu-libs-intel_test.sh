@@ -12,11 +12,11 @@
 #      are invisible to any tool that reads the list of libraries a file is
 #      linked against, so they have to be named one by one.
 #   3. Copy the Intel graphics driver, which is also opened by name at run
-#      time, together with the small text file that tells OpenCL where the
-#      driver is. Rewrite that file to hold a plain file name, because the
-#      original path only exists on the machine that did the build.
-#   4. Leave out the text file for any driver that was not copied. Keeping it
-#      would send OpenCL looking for a file that is not there.
+#      time.
+#   4. Copy only the driver Level Zero talks to, and leave the OpenCL one out.
+#      llama.cpp reaches an Intel GPU through Level Zero; the OpenCL driver
+#      brings a second copy of the graphics compiler with it, which is about
+#      139 MB for a path nothing here uses.
 #
 # The test builds a stand-in for an oneAPI installation, a stand-in for a
 # driver installation and two fake backend programs, runs the real packager and
@@ -68,8 +68,9 @@ gcc -o "$PKG/bonsai-grpc" "$WORK/main2.c" \
 printf '#!/bin/bash\necho started\n' > "$PKG/run.sh"
 chmod +x "$PKG/run.sh"
 
-# Stand-in for the Intel graphics driver installation. Both files are opened by
-# name at run time rather than linked, so the packager has to name them.
+# Stand-in for the Intel graphics driver installation. These files are opened by
+# name at run time rather than linked, so the packager has to name the ones it
+# wants.
 DRV="$WORK/driver"
 mkdir -p "$DRV/intel-opencl"
 echo 'int ze_drv(void){return 4;}' > "$WORK/zedrv.c"
@@ -77,13 +78,14 @@ gcc -shared -fPIC -o "$DRV/libze_intel_gpu.so.1" "$WORK/zedrv.c"
 echo 'int cl_drv(void){return 5;}' > "$WORK/cldrv.c"
 gcc -shared -fPIC -o "$DRV/intel-opencl/libigdrcl.so" "$WORK/cldrv.c"
 
-# Stand-in for /etc/OpenCL/vendors. One file names the graphics driver by its
-# path on the build machine. The other names a library that is not part of the
-# driver, the way the oneAPI images list their processor-only OpenCL support.
-VENDORS="$WORK/OpenCL/vendors"
-mkdir -p "$VENDORS"
-echo "$DRV/intel-opencl/libigdrcl.so" > "$VENDORS/intel_gpu.icd"
-echo "libintelocl.so" > "$VENDORS/intel_cpu.icd"
+# The compiler front end the OpenCL driver needs, and the large library it is
+# linked against. The link is what makes the big one arrive on its own if the
+# front end is ever copied again, so the fake mirrors it.
+echo 'int clang_fn(void){return 6;}' > "$WORK/clang.c"
+gcc -shared -fPIC -o "$DRV/libopencl-clang.so.15" "$WORK/clang.c"
+echo 'int clang_fn(void); int fcl_fn(void){return clang_fn();}' > "$WORK/fcl.c"
+gcc -shared -fPIC -o "$DRV/libigdfcl.so.2" "$WORK/fcl.c" \
+    -L"$DRV" -l:libopencl-clang.so.15 -Wl,-rpath,"$DRV"
 
 # Let the fake oneAPI libraries be found the way the real ones are on the build
 # machine.
@@ -95,7 +97,6 @@ source "$SCRIPT" "$TARGET"
 export BUILD_TYPE=sycl_f16
 export INTEL_ONEAPI_LIB_DIRS="$ONEAPI"
 export INTEL_DRIVER_LIB_DIRS="$DRV $DRV/intel-opencl"
-export INTEL_OPENCL_VENDORS_DIR="$VENDORS"
 package_intel_libs
 
 fail=false
@@ -112,26 +113,21 @@ if [ ! -e "$TARGET/libur_adapter_level_zero.so.0" ]; then
     fail=true
 fi
 
-for lib in libze_intel_gpu.so.1 libigdrcl.so; do
-    if [ ! -e "$TARGET/$lib" ]; then
-        echo "FAIL: the graphics driver file $lib was not copied"
-        fail=true
-    fi
-done
-
-# The file for the copied driver must be there and must hold a plain file name.
-GPU_ICD="$TARGET/../etc/OpenCL/vendors/intel_gpu.icd"
-if [ ! -e "$GPU_ICD" ]; then
-    echo "FAIL: the OpenCL file naming the graphics driver was not copied"
-    fail=true
-elif grep -q '/' "$GPU_ICD"; then
-    echo "FAIL: the OpenCL file still holds a path: $(cat "$GPU_ICD")"
+if [ ! -e "$TARGET/libze_intel_gpu.so.1" ]; then
+    echo "FAIL: the Level Zero graphics driver was not copied"
     fail=true
 fi
 
-# The file for the library that was not copied must be left out.
-if [ -e "$TARGET/../etc/OpenCL/vendors/intel_cpu.icd" ]; then
-    echo "FAIL: an OpenCL file was kept for a library that was not copied"
+# The OpenCL driver and the compiler front end that hangs off it are left out,
+# and so is the driver list that would name them.
+for lib in libigdrcl.so libigdfcl.so.2 libopencl-clang.so.15; do
+    if [ -e "$TARGET/$lib" ]; then
+        echo "FAIL: $lib was copied, but nothing here uses the OpenCL path"
+        fail=true
+    fi
+done
+if [ -e "$TARGET/../etc/OpenCL" ]; then
+    echo "FAIL: an OpenCL driver list was created for a path nothing uses"
     fail=true
 fi
 
@@ -144,7 +140,6 @@ mkdir -p "$PYTHON_STYLE"
     BUILD_TYPE=intel \
     INTEL_ONEAPI_LIB_DIRS="$ONEAPI" \
     INTEL_DRIVER_LIB_DIRS="$DRV $DRV/intel-opencl" \
-    INTEL_OPENCL_VENDORS_DIR="$VENDORS" \
     bash -c 'source "$0" "$1"; package_intel_libs' "$SCRIPT" "$PYTHON_STYLE"
 ) >/dev/null 2>&1
 if [ -e "$PYTHON_STYLE/libze_intel_gpu.so.1" ]; then
@@ -159,7 +154,6 @@ warning=$(
     BUILD_TYPE=sycl_f16 \
     INTEL_ONEAPI_LIB_DIRS="$ONEAPI" \
     INTEL_DRIVER_LIB_DIRS="$WORK/empty" \
-    INTEL_OPENCL_VENDORS_DIR="$WORK/empty" \
     bash -c 'source "$0" "$1"; package_intel_libs' \
         "$SCRIPT" "$WORK/nodriver/lib" 2>&1 >/dev/null || true
 )
@@ -173,5 +167,5 @@ if [ "$fail" = true ]; then
     exit 1
 fi
 
-echo "PASS: the oneAPI libraries, the adapter, the graphics driver and its OpenCL file were all handled"
+echo "PASS: the oneAPI libraries, the adapter and the Level Zero graphics driver were all handled"
 exit 0
