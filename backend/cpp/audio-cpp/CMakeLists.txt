@@ -88,10 +88,25 @@ add_executable(${TARGET}
     grpc-server.cpp
     model_options.cpp
     capability_routing.cpp
+    family_gate.cpp
+    loaded_model.cpp
     audio_units.cpp
     transcript_assembly.cpp
     inference_lane.cpp
 )
+
+# loaded_model.cpp mirrors engine::runtime::VoiceTaskKind onto its own Task enum.
+# Its static_asserts catch an insertion or a reorder, but an enumerator APPENDED
+# after the last one shifts no value, so no assertion can see it. What does see
+# it is from_engine_task's switch over the engine enum, which carries no
+# `default:` label. -Wswitch is only a warning by default, and a warning in a
+# 600-file build log is a warning nobody reads, so promote it here: this is the
+# difference between a build failure and a backend that silently runs the wrong
+# task.
+if(NOT MSVC)
+    set_source_files_properties(loaded_model.cpp PROPERTIES
+        COMPILE_OPTIONS "-Werror=switch")
+endif()
 
 target_include_directories(${TARGET} PRIVATE
     "${AUDIO_CPP_DIR}/include"
