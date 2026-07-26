@@ -81,6 +81,67 @@ static void test_words_only() {
     check(first.id == 0, "ids are zero based");
 }
 
+// Shape A-whole: the whole-word convention, stated explicitly rather than left
+// implicit in the shape A tests. qwen3_forced_aligner emits one entry per WORD
+// (processor.cpp parses per-word timestamp tokens), so its pieces carry no
+// leading space and must be joined with one.
+static void test_whole_words_are_space_joined() {
+    const std::vector<WordSpan> words = {
+        {{0, 8000}, "Some"},
+        {{8000, 16000}, "call"},
+        {{16000, 24000}, "me"},
+    };
+    const auto out = assemble_transcript("Some call me", {}, {}, words, kRate);
+
+    check(segment_at(out, 0, "whole words").text == "Some call me",
+          "whole words are joined with a single space");
+}
+
+// Shape A-subword: the SentencePiece convention, where the word boundary is a
+// LEADING SPACE on the piece. These are the first eleven word_timestamps
+// nemotron_asr actually returned for audio.cpp/assets/resources/sample_16k.wav
+// with the q8_0 GGUF, copied verbatim rather than invented, including the lone
+// " " piece at index 3.
+//
+// Space-joining these produced "So me  call   me  na ture ,  other s  call",
+// which is not a cosmetic problem: response_format text, srt, vtt and lrc build
+// their entire body from the segment text and never read the top-level text, so
+// that string WAS the transcription response for those formats.
+static void test_subword_pieces_are_concatenated() {
+    const std::vector<WordSpan> words = {
+        {{15360, 16640}, "So"},   {{15360, 16640}, "me"},
+        {{23040, 24320}, " call"}, {{28160, 29440}, " "},
+        {{28160, 29440}, "me"},   {{30720, 32000}, " na"},
+        {{33280, 34560}, "ture"}, {{35840, 37120}, ","},
+        {{38400, 39680}, " other"}, {{40960, 42240}, "s"},
+        {{43520, 44800}, " call"},
+    };
+    const auto out = assemble_transcript(
+        "Some call me nature, others call me mother nature.", {}, {}, words, kRate);
+
+    check(out.text == "Some call me nature, others call me mother nature.",
+          "the top-level text is still text_output verbatim");
+    check(segment_at(out, 0, "subword pieces").text ==
+              "Some call me nature, others call",
+          "subword pieces are concatenated, reproducing text_output");
+}
+
+// One leading space anywhere decides for the whole segment. A subword producer
+// emits a boundary space at every word start, so its first piece, which is
+// sentence-initial, does not have one; keying off the first piece alone would
+// therefore pick the wrong convention on every segment.
+static void test_a_single_leading_space_selects_concatenation() {
+    const std::vector<WordSpan> words = {
+        {{0, 8000}, "al"},
+        {{8000, 16000}, "pha"},
+        {{16000, 24000}, " beta"},
+    };
+    const auto out = assemble_transcript("alpha beta", {}, {}, words, kRate);
+
+    check(segment_at(out, 0, "mixed").text == "alpha beta",
+          "a leading space on a later piece selects concatenation");
+}
+
 // Shape A': the same producer, but text_output is punctuated and cased while
 // the word timestamps are not. qwen3_asr rebuilds text_output from its word
 // list only when timestamps are requested, so the two genuinely differ; this
@@ -439,6 +500,9 @@ static void test_zero_sample_rate_is_safe() {
 
 int main() {
     test_words_only();
+    test_whole_words_are_space_joined();
+    test_subword_pieces_are_concatenated();
+    test_a_single_leading_space_selects_concatenation();
     test_words_only_with_punctuated_text_output();
     test_covering_span_spans_every_word();
     test_empty_word_contributes_no_separator();

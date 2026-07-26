@@ -150,6 +150,14 @@ target_include_directories(${TARGET} PRIVATE
     "${AUDIO_CPP_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# The shipping binary is held to the same bar as the tests below. Upstream's own
+# add_compile_options is a property of its directory and never reached this
+# target, so until now "the build was clean" meant only that nothing was being
+# checked.
+if(NOT MSVC)
+    target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 target_link_libraries(${TARGET} PRIVATE
     hw_grpc_proto
     engine_runtime
@@ -181,11 +189,6 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
     # They are named *_ctest.cpp so the script's glob does not pick them up and
     # fail every backend's suite; everything that can be stdlib-only still is,
     # and still lives in a *_test.cpp beside its unit.
-    #
-    # -Wall -Wextra -Wpedantic here and not on ${TARGET}: upstream's own
-    # add_compile_options is a property of its subdirectory and does not reach
-    # ours, so without naming them the tests would build as quietly as
-    # everything else.
     add_executable(result_map_ctest
         result_map_ctest.cpp
         result_map.cpp

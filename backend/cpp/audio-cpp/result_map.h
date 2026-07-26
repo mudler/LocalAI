@@ -28,7 +28,8 @@ namespace audiocpp_backend {
 // which is why the handler passes the buffer's rate rather than the file's.
 //
 // Segments are replaced, not appended to, so a message filled twice does not
-// accumulate.
+// accumulate. `out` must be non-null and is not checked; see the note at the
+// top of the implementation for why that is not an oversight.
 void fill_transcript_result(const engine::runtime::TaskResult &result,
                             int sample_rate, float duration_seconds,
                             backend::TranscriptResult *out);

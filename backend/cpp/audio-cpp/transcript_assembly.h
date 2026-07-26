@@ -62,8 +62,15 @@ struct AssembledTranscript {
 //
 // Words attach to the segment whose range contains their midpoint; a word
 // outside every segment attaches to the nearest one by midpoint distance so it
-// is never silently dropped. A segment's text is its words joined by a single
-// space, except that a lone segment with no words carries the full text.
+// is never silently dropped. A lone segment with no words carries the full text.
+//
+// A segment's text is its words joined, and the separator depends on the
+// producer's convention: whole words ("Some", "call") are joined with a space,
+// while SentencePiece-style subword pieces, which carry the word boundary as a
+// LEADING SPACE (" call"), are concatenated. One leading space anywhere in the
+// segment selects concatenation. This matters beyond tidiness: response_format
+// text, srt, vtt and lrc build their entire body out of the segment text and
+// never read the top-level text.
 //
 // A segment's speaker is the speaker turn with the greatest overlap, except
 // when the segments came from the speaker turns themselves (source 2), where

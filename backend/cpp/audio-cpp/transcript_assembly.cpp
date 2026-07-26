@@ -23,13 +23,48 @@ std::int64_t overlap(const Span &a, const Span &b) {
     return end > begin ? end - begin : 0;
 }
 
+// Joins a segment's words into that segment's text.
+//
+// THE SEPARATOR IS NOT ALWAYS A SPACE, and getting it wrong is visible to every
+// caller rather than cosmetic: core/http/endpoints/openai/transcription.go
+// routes response_format text, srt, vtt and lrc through
+// schema.TranscriptionResponse, which builds the entire body out of
+// Segments[].Text and never reads the top-level text. For those four formats
+// the segment text IS the response.
+//
+// Two producer conventions have to be told apart:
+//
+//   whole words    "Some", "call", "me"   -> join with a space
+//   subword pieces "So", "me", " call"    -> concatenate
+//
+// The second is SentencePiece, where a word boundary is carried as a LEADING
+// SPACE on the piece; nemotron_asr emits one entry per token in exactly that
+// form. Space-joining those produced "So me  call   me  na ture ,", which is
+// what response_format=text returned while the correct sentence sat unread in
+// the top-level field. Concatenating them reproduces text_output exactly.
+//
+// The convention is read off the words themselves, because nothing else in the
+// result declares it. One leading space anywhere is enough to decide: a
+// whole-word producer has no reason to emit one, and a subword producer emits
+// one at every word boundary, so the two populations do not overlap. A producer
+// that mixed both conventions inside one segment could not be served correctly
+// by any single separator; this picks concatenation for it.
+//
+// This does NOT touch the top-level text, which stays text_output verbatim. The
+// rule that forbids deriving the transcript from the segments is about the
+// direction segments -> text. Segment text has no source other than its words
+// and is necessarily derived.
 std::string join_words(const std::vector<OutWord> &words) {
+    const bool subword_pieces =
+        std::any_of(words.begin(), words.end(), [](const OutWord &word) {
+            return !word.text.empty() && word.text.front() == ' ';
+        });
     std::string out;
     for (const auto &word : words) {
         if (word.text.empty()) {
             continue;
         }
-        if (!out.empty()) {
+        if (!subword_pieces && !out.empty()) {
             out += " ";
         }
         out += word.text;

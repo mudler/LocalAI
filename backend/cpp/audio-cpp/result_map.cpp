@@ -10,10 +10,12 @@ namespace audiocpp_backend {
 void fill_transcript_result(const engine::runtime::TaskResult &result,
                             int sample_rate, float duration_seconds,
                             backend::TranscriptResult *out) {
-    if (out == nullptr) {
-        return;
-    }
-
+    // No null guard on `out`, deliberately. gRPC always hands a handler a
+    // response message, so a null here would be a programming error in a
+    // caller, and a guard that returned quietly would answer the client with an
+    // untouched, empty transcript and an OK status. That is the same
+    // indistinguishable-from-silence failure the rest of this unit exists to
+    // prevent; crashing on the developer's machine is the cheaper outcome.
     std::vector<Span> speech_segments;
     speech_segments.reserve(result.speech_segments.size());
     for (const auto &segment : result.speech_segments) {

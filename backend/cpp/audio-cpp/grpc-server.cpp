@@ -113,11 +113,14 @@ constexpr int kVadSampleRate = 16000;
 //      one, which is the only reason the nanoseconds are right.
 //
 // The cost, stated plainly: vibevoice_asr resamples internally to 24 kHz, so a
-// 48 kHz upload now travels 48 -> 16 -> 24 rather than 48 -> 24, losing the
-// 8-12 kHz band it could have kept. That is accepted because a silently wrong
-// timestamp is worse than a band-limited one, and because every other LocalAI
-// ASR path already feeds 16 kHz. If the framework ever publishes a per-model
-// preferred input rate, this constant is what should become that lookup.
+// 48 kHz upload now travels 48 -> 16 -> 24 rather than 48 -> 24. That is not
+// merely band limiting. resample_mono_linear is linear interpolation with no
+// anti-alias filter (framework/audio/conversion.cpp), so the content above
+// 8 kHz is ALIASED down on the way in, and the 16 -> 24 step aliases whatever
+// the first step left. It is accepted because a silently wrong timestamp is
+// worse than an aliased band, and because every other LocalAI ASR path already
+// feeds 16 kHz. If the framework ever publishes a per-model preferred input
+// rate, this constant is what should become that lookup.
 constexpr int kSpeechSampleRate = 16000;
 
 // Parses ModelOptions.MainGPU into a device index.
@@ -260,21 +263,47 @@ build_transcription_request(const backend::TranscriptRequest &request,
         task_request.options["temperature"] = std::to_string(request.temperature());
     }
     for (const auto &granularity : request.timestamp_granularities()) {
-        // Upstream families read this as a request for word-level timing.
         if (granularity == "word") {
+            // return_timestamps is the key upstream actually reads, and it is
+            // the one that does something: qwen3_asr defaults it to false
+            // (include/engine/models/qwen3_asr/types.h) and, when set, both
+            // runs its forced aligner and shortens its chunk window from 30 s
+            // to 15 s (src/models/qwen3_asr/session.cpp). Without it, asking
+            // for word granularity silently came back with no word timing.
+            //
+            // word_timestamps rides along as a forward-tolerant alias. NO
+            // family in the pinned upstream reads that key, a grep over src/
+            // and include/ returns nothing, so it is sent only so that a family
+            // adopting the name later works with no change here.
+            task_request.options["return_timestamps"] = "true";
             task_request.options["word_timestamps"] = "true";
         }
     }
-    // Every option above is advisory. audio.cpp families look their request
-    // options up by name (runtime::find_option) and ignore the rest; the
+    // What lands and what does not. Families look their request options up by
+    // name (runtime::find_option) and ignore every key they do not know; the
     // unknown-key refusals upstream does have are on SESSION options, which
-    // arrive at load time, not here. So an option a family does not read costs
-    // nothing, and none of these can turn a valid request into an error.
+    // arrive at load time rather than here. So an unread key cannot turn a
+    // valid request into an error, but it is also not a feature, and the
+    // honest accounting against the pinned upstream is:
     //
-    // TranscriptRequest.threads is deliberately NOT forwarded: thread count is
-    // a SessionOptions field fixed when the session was created, so a
-    // per-request value has nowhere to go and pretending otherwise would be a
-    // knob that silently does nothing.
+    //   language           read, by nemotron_asr and vibevoice_asr among others.
+    //   return_timestamps  read, by qwen3_asr.
+    //   prompt             read by NO ASR family. Forwarded because it is the
+    //                      whisper meaning of the field and a family adopting
+    //                      it then works unchanged, not because it does
+    //                      anything today.
+    //   translate          read by nobody anywhere in upstream.
+    //   temperature        read only by TTS and voice conversion families, none
+    //                      of which this RPC can route to.
+    //
+    // Two request fields are deliberately not forwarded at all:
+    //
+    //   threads   thread count is a SessionOptions field fixed when the session
+    //             was built, so a per-request value has nowhere to go.
+    //   diarize   this RPC routes to Asr or Alignment. A family that diarizes
+    //             is reached through Diarize, which has its own handler and its
+    //             own response shape, so forwarding this would imply that
+    //             setting it turns speaker labels on here, and nothing would.
     return task_request;
 }
 
