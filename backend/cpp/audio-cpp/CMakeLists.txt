@@ -75,6 +75,42 @@ target_include_directories(hw_grpc_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 # reach this target and google/protobuf/runtime_version.h is not found.
 target_link_libraries(hw_grpc_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 
+# TWO PROTOBUF RUNTIMES IN ONE BINARY, AND THE ONE THAT WON WAS THE WRONG ONE.
+#
+# engine_runtime links sentencepiece, whose default SPM_PROTOBUF_PROVIDER
+# ("internal") builds the protobuf-lite 3.14.0 sources vendored under
+# external/sentencepiece/third_party/protobuf-lite. Our generated backend.pb.cc
+# is compiled against the toolchain's protobuf 3.21.12 headers and links
+# libprotobuf.so 3.21.12. Both used to end up in the executable: 476
+# google::protobuf:: symbols from that archive, 278 of them also defined by
+# libprotobuf.so.
+#
+# The binding is decided at STATIC LINK time. Once ld pulls a sentencepiece
+# member in for sentencepiece's own code, that member's protobuf definitions are
+# in the executable and references from libhw_grpc_proto.a bind to them. Do NOT
+# reach for -Wl,--exclude-libs: it flips those symbols to LOCAL in .dynsym and
+# the breakage is unchanged, because no visibility flag revisits a static
+# binding already made.
+#
+# What broke, measured rather than assumed:
+# google::protobuf::internal::ParseContext::ParseMessage(MessageLite*, const char*)
+# is what every generated _InternalParse calls for a SUBMESSAGE field and for
+# nothing else. Bound to the 3.14 definition it fails, so a flat message parsed
+# and every nested one did not: a TranscriptResult carrying segments serialized
+# to correct bytes that the same process could not read back, and
+# TranscriptLiveRequest, a oneof of submessages, could not have been parsed at
+# all. 3.21 generated code was also running 3.14 arena, ArenaStringPtr and
+# ExtensionSet code, which is an ABI mismatch rather than a missing feature, so
+# "not observed to bite yet" was never a reason to leave it.
+#
+# "package" makes sentencepiece use the protobuf found above, which is the one
+# the generated code was built against. It must be set before add_subdirectory,
+# since that is when sentencepiece's own cache entry is created. After it, zero
+# google::protobuf:: definitions remain in the executable, and citrinet_asr,
+# which parses a SentencePiece ModelProto at load, still tokenizes correctly.
+set(SPM_PROTOBUF_PROVIDER "package" CACHE STRING
+    "Make sentencepiece use the found protobuf, not its vendored 3.14 copy" FORCE)
+
 # Upstream's global add_compile_options(-Wall -Wextra -Wpedantic -pedantic-errors)
 # is a directory property of the subdirectory and does not reach our targets.
 #
