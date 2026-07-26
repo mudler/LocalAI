@@ -22,14 +22,17 @@ const (
 // speed=0.8 returns HTTP 200 with an unchanged playback rate instead of either
 // honouring or rejecting it (#11097).
 //
-// An explicit params["speed"] wins so the LocalAI-native extension keeps
+// An explicit `"speed": 0` is invalid (below the documented minimum) and is
+// rejected with 400 rather than treated as unset, which is why Speed is a
+// pointer. An explicit params["speed"] wins so the LocalAI-native extension keeps
 // precedence over the OpenAI-compatible field. Backends whose model exposes no
 // rate control ignore the param, exactly like they ignore `instructions`.
 func applyTTSSpeed(input *schema.TTSRequest) error {
-	if input.Speed == 0 {
+	if input.Speed == nil {
 		return nil
 	}
-	if input.Speed < ttsSpeedMin || input.Speed > ttsSpeedMax {
+	speed := *input.Speed
+	if speed < ttsSpeedMin || speed > ttsSpeedMax {
 		return echo.NewHTTPError(http.StatusBadRequest,
 			fmt.Sprintf("speed must be between %g and %g", ttsSpeedMin, ttsSpeedMax))
 	}
@@ -37,7 +40,7 @@ func applyTTSSpeed(input *schema.TTSRequest) error {
 		input.Params = make(map[string]string)
 	}
 	if _, ok := input.Params["speed"]; !ok {
-		input.Params["speed"] = strconv.FormatFloat(float64(input.Speed), 'g', -1, 32)
+		input.Params["speed"] = strconv.FormatFloat(float64(speed), 'g', -1, 32)
 	}
 	return nil
 }
