@@ -113,24 +113,50 @@ if [ "${BUILD_TYPE:-}" = "vulkan" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; t
     rm -rf /var/lib/apt/lists/*
 fi
 
-# --- 2b. Intel GPU compute-runtime driver (BUILD_TYPE=intel|sycl*) ---
-# The intel/oneapi-basekit base image ships the compilers and oneAPI runtime but
-# NOT the GPU userspace driver (the NEO compute-runtime: libze_intel_gpu +
-# libigdrcl + IGC + gmm). package-gpu-libs.sh bundles that driver into the
-# backend so the SYCL backend is self-contained on a runtime host without it (or
-# with a glibc-incompatible one) — the same reason the Vulkan branch above
-# installs mesa-vulkan-drivers. Install it here so it's present to be bundled.
-if { [ "${BUILD_TYPE:-}" = "intel" ] || case "${BUILD_TYPE:-}" in sycl*) true;; *) false;; esac; } \
+# --- 2b. Intel graphics driver (BUILD_TYPE=sycl*) ---
+# The Intel oneAPI base image brings the compilers and the oneAPI libraries, but
+# not the driver that talks to the graphics card. The packaging step copies that
+# driver into the backend, so that the backend works on a machine which has no
+# Intel graphics packages of its own, for the same reason the Vulkan section
+# above installs the Mesa drivers. Install it here so there is something to copy.
+#
+# Only the sycl builds are covered, because those are the ones whose packaging
+# copies the driver. See package_intel_libs in scripts/build/package-gpu-libs.sh.
+#
+# The driver comes from Intel's own package repository, not from the Ubuntu
+# archive. The archive has 23.43 from late 2023, which does not know any card
+# released since, so a machine with a recent Intel GPU would end up carrying a
+# driver that cannot drive it. Intel's repository has 25.18 for the same Ubuntu
+# release.
+#
+# Anything that goes wrong here fails the build, on purpose. An unreachable
+# repository is a passing problem that a retry fixes, whereas carrying a
+# different driver than intended, or none, is a difference nobody would notice
+# until a user reports an idle GPU.
+if case "${BUILD_TYPE:-}" in sycl*) true;; *) false;; esac \
     && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
+    # Ubuntu release name, which is what the repository is indexed by.
+    ubuntu_codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-}")
+    if [ -z "$ubuntu_codename" ]; then
+        echo "ERROR: cannot tell which Ubuntu release this image is, so cannot pick the Intel driver repository" >&2
+        exit 1
+    fi
+
+    # The key is armored text, which apt reads directly from a .asc file, so
+    # there is no need for gnupg here. "unified" is the component Intel ships
+    # its current driver in.
+    mkdir -p /usr/share/keyrings
+    curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key \
+        -o /usr/share/keyrings/intel-graphics.asc
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.asc] https://repositories.intel.com/gpu/ubuntu ${ubuntu_codename} unified" \
+        > /etc/apt/sources.list.d/intel-graphics.list
     apt-get update
-    # intel-opencl-icd pulls the OpenCL driver (libigdrcl) plus the IGC
-    # (intel-igc-*) and GMM (libigdgmm) it depends on; intel-level-zero-gpu
-    # provides the Level Zero GPU driver (libze_intel_gpu). Both are in the
-    # Ubuntu 24.04 archive that the oneapi-basekit base is built on.
+    # The first package holds the driver OpenCL talks to, the second the driver
+    # Level Zero talks to. Between them they pull in the compiler and the memory
+    # manager that both need.
     apt-get install -y --no-install-recommends \
         intel-opencl-icd \
-        intel-level-zero-gpu || \
-        echo "WARNING: Intel GPU driver packages not found; the SYCL backend will not bundle a driver and will rely on a host-provided one"
+        libze-intel-gpu1
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 fi

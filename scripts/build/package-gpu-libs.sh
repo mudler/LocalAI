@@ -675,11 +675,11 @@ package_rocm_libs() {
 package_intel_libs() {
     echo "Packaging Intel oneAPI/SYCL libraries for BUILD_TYPE=${BUILD_TYPE}..."
 
-    # oneAPI lib search roots. Default to the standard install layout, but allow
-    # an override (space-separated) so the packaging is unit-testable without a
-    # real oneAPI install (mirrors ROCM_BASE_DIRS). Both the current MKL layout
-    # (mkl/latest/lib) and the older one (mkl/latest/lib/intel64) are listed; the
-    # -d guard below skips whichever is absent. dnnl has its own component dir.
+    # Where to look for the oneAPI libraries. The default is the standard install
+    # layout. The list can be overridden with a space-separated one, which lets
+    # the tests run without a real oneAPI install, the same way ROCM_BASE_DIRS
+    # works. Both the current and the older math library layouts are listed, and
+    # the check below skips whichever of them is absent.
     local intel_lib_paths
     if [ -n "${INTEL_ONEAPI_LIB_DIRS:-}" ]; then
         # shellcheck disable=SC2206  # intentional word-split of the override
@@ -694,12 +694,12 @@ package_intel_libs() {
         )
     fi
 
-    # Core Intel oneAPI runtime libraries. The MKL entries cover both the LP64
-    # and ILP64 interfaces and the TBB threading layer (the SYCL llama.cpp build
-    # links ILP64 + libmkl_sycl_blas + libmkl_tbb_thread, which the old list
-    # missed), plus oneDNN. The libur_adapter_* entries are essential: the SYCL
-    # Unified Runtime dlopens them to reach Level Zero / OpenCL, so no ldd sweep
-    # can pull them in and they must be listed explicitly.
+    # The oneAPI libraries a backend needs at run time. The math library entries
+    # cover both of its number formats and both of its threading layers, because
+    # the llama.cpp build for Intel GPUs uses a different combination than the
+    # rest. The libur_adapter_* entries have to be named here even though nothing
+    # is linked against them: oneAPI opens them by name while the program runs,
+    # so the dependency scan later in this function cannot see them.
     local intel_libs=(
         "libsycl.so*"
         "libOpenCL.so*"
@@ -736,78 +736,113 @@ package_intel_libs() {
         fi
     done
 
-    # Sweep the backend binaries' OWN direct deps, not just the deps of libs
-    # already bundled. The SYCL binaries link several oneAPI libs directly
-    # (libsycl, libmkl_intel_ilp64, libmkl_sycl_blas, libdnnl, ...) that no other
-    # bundled lib pulls in, so relying on the allowlist alone shipped an
-    # incomplete runtime that only worked inside the build container (where
-    # oneAPI is on LD_LIBRARY_PATH). This also bundles libze_loader, dropping the
-    # host level-zero-loader requirement. The binaries sit in package/, the
-    # parent of TARGET_LIB_DIR (=package/lib); see backend/cpp/llama-cpp/package.sh.
+    # Copy the libraries the backend programs themselves are linked against. The
+    # list above is not enough on its own: the programs are linked directly
+    # against several oneAPI libraries that no copied library refers to, so
+    # without this step the backend only ran inside the build image, where oneAPI
+    # happens to be on the library path.
+    #
+    # The programs sit one level above the target directory, in package/, next to
+    # the run.sh that starts them. Every backend that builds for Intel GPUs is
+    # covered by looking at all of them, rather than at one set of names, because
+    # llama.cpp, turboquant and bonsai all come through here.
+    local pkg_dir="$TARGET_LIB_DIR/.."
     local bin
-    for bin in "$TARGET_LIB_DIR"/../llama-cpp-*; do
-        [ -f "$bin" ] && copy_elf_deps "$bin"
+    for bin in "$pkg_dir"/*; do
+        if [ -f "$bin" ] && [ -x "$bin" ]; then
+            copy_elf_deps "$bin"
+        fi
     done
 
-    # Bundle the Intel GPU userspace DRIVER (compute-runtime / NEO), like the
-    # Vulkan packager bundles the Mesa ICD. The Level Zero and OpenCL loaders
-    # dlopen the driver at runtime, so it is invisible to the ELF/transitive
-    # sweeps and must be copied explicitly. Bundling it makes the backend run on
-    # hosts with no Intel compute-runtime installed, OR — the case that actually
-    # bites — hosts whose driver is built against a newer glibc than the
-    # backend's bundled loader (rolling-release distros): loading the host driver
-    # then crashes, while the bundled, glibc-coherent driver works. This is safe
-    # across kernels because the driver talks to the host i915/xe via the stable
-    # DRM UAPI (unlike NVIDIA's kernel-locked libcuda, which we deliberately do
-    # NOT bundle). run.sh points the loaders (ZE_ENABLE_ALT_DRIVERS /
-    # OCL_ICD_VENDORS) at these bundled copies.
-    local intel_driver_lib_dirs
-    if [ -n "${INTEL_DRIVER_LIB_DIRS:-}" ]; then
-        # shellcheck disable=SC2206  # intentional word-split of the override
-        intel_driver_lib_dirs=(${INTEL_DRIVER_LIB_DIRS})
-    else
-        intel_driver_lib_dirs=(
-            "/usr/lib/x86_64-linux-gnu"
-            "/usr/lib/x86_64-linux-gnu/intel-opencl"
-            "/usr/lib"
-        )
-    fi
-    local driver_libs=(
-        "libze_intel_gpu.so*"   # Level Zero GPU driver
-        "libigdrcl.so*"         # OpenCL GPU driver
-        "libigc.so*"            # Intel Graphics Compiler (SYCL/OpenCL JIT)
-        "libigdgmm.so*"         # Graphics Memory Management
-        "libigdfcl.so*"         # IGC front-end
-        "libopencl-clang.so*"
-    )
-    local drv_dir pat
-    for drv_dir in "${intel_driver_lib_dirs[@]}"; do
-        [ -d "$drv_dir" ] || continue
-        for pat in "${driver_libs[@]}"; do
-            copy_libs_glob "${drv_dir}/${pat}"
-        done
-    done
+    # Copy the Intel graphics driver itself, the way the Vulkan packaging copies
+    # the Mesa driver. Level Zero and OpenCL open the driver by name while the
+    # program runs, so no dependency scan can find it and it has to be named
+    # here.
+    #
+    # This is what lets the backend run on a machine with no Intel graphics
+    # packages installed, and also on a machine whose own driver was built
+    # against a newer C library than the one this backend carries, where loading
+    # the host's driver crashes. Carrying the driver is safe across kernel
+    # versions because it reaches the graphics hardware through an interface the
+    # kernel keeps stable. The NVIDIA driver has no such interface, which is why
+    # that one is never copied.
+    #
+    # Only the builds that start through run.sh get a driver: run.sh is what
+    # tells Level Zero and OpenCL to use it. The Python backends built for Intel
+    # GPUs start differently and keep using the host's driver, so copying one for
+    # them would add several hundred megabytes that nothing would ever load.
+    case "${BUILD_TYPE:-}" in
+        sycl*)
+            local intel_driver_lib_dirs
+            if [ -n "${INTEL_DRIVER_LIB_DIRS:-}" ]; then
+                # shellcheck disable=SC2206  # split the override into words on purpose
+                intel_driver_lib_dirs=(${INTEL_DRIVER_LIB_DIRS})
+            else
+                intel_driver_lib_dirs=(
+                    "/usr/lib/x86_64-linux-gnu"
+                    "/usr/lib/x86_64-linux-gnu/intel-opencl"
+                    "/usr/lib"
+                )
+            fi
+            local driver_libs=(
+                "libze_intel_gpu.so*"   # the driver Level Zero talks to
+                "libigdrcl.so*"         # the driver OpenCL talks to
+                "libigc.so*"            # turns compute code into instructions for the card
+                "libigdfcl.so*"         # front end of the same compiler
+                "libigdgmm.so*"         # manages graphics memory
+                "libopencl-clang.so*"
+            )
+            local drv_dir pat
+            for drv_dir in "${intel_driver_lib_dirs[@]}"; do
+                [ -d "$drv_dir" ] || continue
+                for pat in "${driver_libs[@]}"; do
+                    copy_libs_glob "${drv_dir}/${pat}"
+                done
+            done
 
-    # Bundle the OpenCL ICD manifest, rewritten to a bare soname so the bundled
-    # libigdrcl resolves via LD_LIBRARY_PATH (same trick as the Vulkan ICDs). The
-    # vendors dir is overridable for tests.
-    local ocl_vendors="${INTEL_OPENCL_VENDORS_DIR:-/etc/OpenCL/vendors}"
-    if [ -d "$ocl_vendors" ]; then
-        local icd_dest="$TARGET_LIB_DIR/../etc/OpenCL/vendors"
-        mkdir -p "$icd_dest"
-        local icd
-        for icd in "$ocl_vendors"/*.icd; do
-            [ -e "$icd" ] || continue
-            cp -arfL "$icd" "$icd_dest/" 2>/dev/null || true
-            # Strip the directory from library_path, leaving the bare soname.
-            sed -i -E 's#^.*/##' "$icd_dest/$(basename "$icd")"
-        done
-    fi
+            # OpenCL finds a driver by reading small text files, each holding the
+            # name of one driver library. Copy the file for the driver we just
+            # copied, holding a plain file name so the loader finds our copy
+            # through the library path. Files naming anything else are left out:
+            # the oneAPI images also list a processor-only OpenCL library, and
+            # keeping that entry would send OpenCL after a file that is not
+            # there.
+            local ocl_vendors="${INTEL_OPENCL_VENDORS_DIR:-/etc/OpenCL/vendors}"
+            if [ -d "$ocl_vendors" ]; then
+                local icd icd_name driver_name
+                for icd in "$ocl_vendors"/*.icd; do
+                    [ -e "$icd" ] || continue
+                    # One line, holding either a full path or a plain file name.
+                    driver_name=$(basename "$(head -n1 "$icd")")
+                    if [ ! -e "$TARGET_LIB_DIR/$driver_name" ]; then
+                        echo "OpenCL: skipping $(basename "$icd"), $driver_name was not copied" >&2
+                        continue
+                    fi
+                    icd_name=$(basename "$icd")
+                    mkdir -p "$TARGET_LIB_DIR/../etc/OpenCL/vendors"
+                    echo "$driver_name" > "$TARGET_LIB_DIR/../etc/OpenCL/vendors/$icd_name"
+                done
+            fi
+            ;;
+    esac
 
-    # Pull in transitive deps the allowlist, binary sweep and driver copy miss
-    # (the driver pulls libigc/libigdgmm/... via ldd) so the backend is
-    # self-contained (same class of failure as #10537).
+    # Copy whatever the steps above still missed. Each library copied so far can
+    # need further libraries of its own, and a missing one stops the backend from
+    # starting at all (issue #10537).
     sweep_transitive_deps "$TARGET_LIB_DIR"
+
+    # Say so when a build meant for Intel GPUs ends up without a driver. It still
+    # works on a machine that has its own, so nothing fails here, and the only
+    # other way to notice is a user reporting that their GPU is not used. The
+    # usual cause is a build image that predates the driver being installed in
+    # .docker/install-base-deps.sh.
+    case "${BUILD_TYPE:-}" in
+        sycl*)
+            if [ ! -e "$TARGET_LIB_DIR/libze_intel_gpu.so.1" ]; then
+                echo "WARNING: no Intel graphics driver was found to copy. This backend will only use a GPU on a machine that has its own Intel driver installed." >&2
+            fi
+            ;;
+    esac
 
     echo "Intel oneAPI libraries packaged successfully"
 }
