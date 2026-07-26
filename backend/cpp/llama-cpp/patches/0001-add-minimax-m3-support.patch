@@ -1,0 +1,814 @@
+# Vendored from upstream llama.cpp PR #24523 (Preliminary MiniMax-M3 support).
+# Rebased against LLAMA_VERSION 00fa7cb284cbf133fc426733bd64238a3588a33e (also applies cleanly
+# to the later pin 505b1ed15ca80e2a19f12ff4ac365e40fb374053). LLAMA_VERSION is auto-bumped
+# nightly; if a bump rejects this patch, re-vendor from #24523 — or, once #24523 merges
+# upstream, delete this file and bump LLAMA_VERSION normally.
+# See https://github.com/mudler/LocalAI/issues/10820 and PR #10837.
+diff --git a/common/chat.cpp b/common/chat.cpp
+index 22d2ee4..440be9a 100644
+--- a/common/chat.cpp
++++ b/common/chat.cpp
+@@ -2035,6 +2035,191 @@ static common_chat_params common_chat_params_init_deepseek_v3_2(const common_cha
+     return data;
+ }
+ 
++static common_chat_params common_chat_params_init_minimax_m3(const common_chat_template &    tmpl,
++                                                             const autoparser::generation_params & inputs) {
++    common_chat_params data;
++
++    data.prompt             = common_chat_template_direct_apply_impl(tmpl, inputs);
++    data.generation_prompt  = common_chat_template_generation_prompt_impl(tmpl, inputs);
++    data.format             = COMMON_CHAT_FORMAT_PEG_NATIVE;
++    data.supports_thinking  = true;
++    data.thinking_start_tag = "<mm:think>";
++    data.thinking_end_tag   = "</mm:think>";
++
++    // M3 prefixes every tool tag with the namespace token "]<]minimax[>[";
++    // params use the parameter name as the tag (<file_path>...</file_path>).
++    const std::string NS           = "]<]minimax[>[";
++    const std::string THINK_START  = "<mm:think>";
++    const std::string THINK_END    = "</mm:think>";
++    const std::string FC_START     = NS + "<tool_call>";
++    const std::string FC_END       = NS + "</tool_call>";
++    const std::string INVOKE_END   = NS + "</invoke>";
++
++    data.preserved_tokens   = {
++        NS,
++        "<tool_call>",
++        "</tool_call>",
++        THINK_START,
++        THINK_END,
++    };
++
++    auto has_tools           = inputs.tools.is_array() && !inputs.tools.empty();
++    auto has_response_format = !inputs.json_schema.is_null() && inputs.json_schema.is_object();
++    auto extract_reasoning   = inputs.reasoning_format != COMMON_REASONING_FORMAT_NONE;
++    auto include_grammar     = has_response_format || (has_tools && inputs.tool_choice != COMMON_CHAT_TOOL_CHOICE_NONE);
++
++    const std::string GEN_PROMPT = data.generation_prompt;
++
++    if (inputs.has_continuation()) {
++        const auto & msg = inputs.continue_msg;
++
++        data.generation_prompt = GEN_PROMPT + THINK_START + msg.reasoning_content;
++        if (inputs.continue_final_message == COMMON_CHAT_CONTINUATION_CONTENT) {
++            data.generation_prompt += THINK_END + msg.render_content();
++        }
++
++        data.prompt += data.generation_prompt;
++    }
++
++    auto parser = build_chat_peg_parser([&](common_chat_peg_builder & p) {
++        auto generation_prompt = p.literal(GEN_PROMPT);
++        auto end = p.end();
++
++        auto reasoning = p.eps();
++        // M3 can emit a bare </mm:think> (no opener) after tool results; keep the opener optional.
++        if (extract_reasoning && inputs.enable_thinking) {
++            reasoning = p.optional(p.optional(p.literal(THINK_START)) + p.reasoning(p.until(THINK_END)) + THINK_END);
++        } else if (extract_reasoning) {
++            reasoning = p.optional(p.optional(p.literal(THINK_START)) + p.until(THINK_END) + p.literal(THINK_END));
++        }
++
++        if (has_response_format) {
++            auto response_format = p.rule("response-format",
++                p.literal("```json") + p.space() +
++                p.content(p.schema(p.json(), "response-format-schema", inputs.json_schema)) +
++                p.space() + p.literal("```"));
++            return generation_prompt + reasoning + response_format + end;
++        }
++
++        if (!has_tools || inputs.tool_choice == COMMON_CHAT_TOOL_CHOICE_NONE) {
++            return generation_prompt + reasoning + p.content(p.rest()) + end;
++        }
++
++        auto tool_choice = p.choice();
++        foreach_function(inputs.tools, [&](const json & tool) {
++            const auto & function = tool.at("function");
++            std::string  name     = function.at("name");
++            auto params   = function.contains("parameters") ? function.at("parameters") : json::object();
++            const auto & props    = params.contains("properties") ? params.at("properties") : json::object();
++
++            std::set<std::string> required;
++            if (params.contains("required")) {
++                params.at("required").get_to(required);
++            }
++
++            auto schema_info = common_schema_info();
++            schema_info.resolve_refs(params);
++
++            std::vector<common_peg_parser> required_parsers;
++            std::vector<common_peg_parser> optional_parsers;
++            for (const auto & [param_name, param_schema] : props.items()) {
++                bool is_required = required.find(param_name) != required.end();
++                bool is_string   = schema_info.resolves_to_string(param_schema);
++
++                const std::string p_close = NS + "</" + param_name + ">";
++
++                auto arg = p.tool_arg(
++                    p.tool_arg_open(
++                        p.literal(NS + "<") +
++                        p.tool_arg_name(p.literal(param_name)) +
++                        p.literal(">")) +
++                    (is_string
++                         ? p.ac(p.tool_arg_string_value(p.until(p_close)) +
++                                p.tool_arg_close(p.literal(p_close)), p_close)
++                         : p.tool_arg_json_value(p.schema(p.json(),
++                                                          "tool-" + name + "-arg-" + param_name + "-schema",
++                                                          param_schema, false)) +
++                           p.tool_arg_close(p.literal(p_close))));
++
++                auto named_arg = p.rule("tool-" + name + "-arg-" + param_name, arg);
++                if (is_required) {
++                    required_parsers.push_back(named_arg);
++                } else {
++                    optional_parsers.push_back(named_arg);
++                }
++            }
++
++            common_peg_parser args_seq = p.eps();
++            for (size_t i = 0; i < required_parsers.size(); i++) {
++                if (i > 0) {
++                    args_seq = args_seq + p.space();
++                }
++                args_seq = args_seq + required_parsers[i];
++            }
++
++            if (!optional_parsers.empty()) {
++                common_peg_parser any_opt = p.choice();
++                for (const auto & opt : optional_parsers) {
++                    any_opt |= opt;
++                }
++                args_seq = args_seq + p.repeat(p.space() + any_opt, 0, -1);
++            }
++
++            common_peg_parser invoke_body = args_seq;
++            auto func_parser = p.tool(
++                p.tool_open(p.literal(NS + "<invoke name=\"") +
++                            p.tool_name(p.literal(name)) + p.literal("\">")) +
++                p.space() + invoke_body + p.space() +
++                p.tool_close(p.literal(INVOKE_END)));
++
++            tool_choice |= p.rule("tool-" + name, func_parser);
++        });
++
++        auto require_tools = inputs.tool_choice == COMMON_CHAT_TOOL_CHOICE_REQUIRED;
++
++        common_peg_parser tool_calls = p.eps();
++        if (inputs.parallel_tool_calls) {
++            tool_calls = p.trigger_rule("tool-call",
++                p.literal(FC_START) + p.space() + tool_choice +
++                p.zero_or_more(p.space() + tool_choice) + p.space() + p.literal(FC_END));
++        } else {
++            tool_calls = p.trigger_rule("tool-call",
++                p.literal(FC_START) + p.space() + tool_choice + p.space() + p.literal(FC_END));
++        }
++
++        if (!require_tools) {
++            tool_calls = p.optional(tool_calls);
++        }
++
++        auto content_before_tools = p.content(p.until(FC_START));
++        return generation_prompt + reasoning + content_before_tools + tool_calls + end;
++    });
++
++    data.parser = parser.save();
++
++    if (include_grammar) {
++        data.grammar_lazy = !(has_response_format || (has_tools && inputs.tool_choice == COMMON_CHAT_TOOL_CHOICE_REQUIRED));
++        data.grammar      = build_grammar([&](const common_grammar_builder & builder) {
++            foreach_function(inputs.tools, [&](const json & tool) {
++                const auto & function = tool.at("function");
++                auto         schema   = function.contains("parameters") ? function.at("parameters") : json::object();
++                builder.resolve_refs(schema);
++            });
++            if (has_response_format) {
++                auto schema = inputs.json_schema;
++                builder.resolve_refs(schema);
++            }
++            parser.build_grammar(builder, data.grammar_lazy);
++        });
++
++        data.grammar_triggers = {
++            { COMMON_GRAMMAR_TRIGGER_TYPE_WORD, FC_START },
++        };
++    }
++
++    return data;
++}
++
+ // Cohere2 MoE (a.k.a. "North Code") parser.
+ //
+ // The assistant turn is fully marker-wrapped:
+@@ -2612,6 +2797,15 @@ std::optional<common_chat_params> common_chat_try_specialized_template(
+         return common_chat_params_init_gigachat_v3(tmpl, params);
+     }
+ 
++    // MiniMax-M3: the namespace token "]<]minimax[>[" collides with the autoparser's
++    // markup delimiters, so detect the template and use a dedicated parser.
++    if (src.find("]<]minimax[>[") != std::string::npos &&
++        src.find("<tool_call>") != std::string::npos &&
++        src.find("<invoke name=") != std::string::npos) {
++        LOG_DBG("Using specialized template: MiniMax-M3\n");
++        return common_chat_params_init_minimax_m3(tmpl, params);
++    }
++
+     // DeepSeek V3.2 format detection: template defines dsml_token and uses it for tool calls.
+     // The template source contains the token as a variable assignment, not as a literal in markup.
+     if (src.find("dsml_token") != std::string::npos &&
+diff --git a/conversion/__init__.py b/conversion/__init__.py
+index 02ea638..71de528 100644
+--- a/conversion/__init__.py
++++ b/conversion/__init__.py
+@@ -155,6 +155,8 @@ TEXT_MODEL_MAP: dict[str, str] = {
+     "MiniCPMForCausalLM": "minicpm",
+     "MiniCPMV4_6ForConditionalGeneration": "minicpm",
+     "MiniMaxM2ForCausalLM": "minimax",
++    "MiniMaxM3SparseForCausalLM": "minimax",
++    "MiniMaxM3SparseForConditionalGeneration": "minimax",
+     "Ministral3ForCausalLM": "mistral3",
+     "Mistral3ForConditionalGeneration": "mistral3",
+     "MistralForCausalLM": "llama",
+diff --git a/conversion/base.py b/conversion/base.py
+index 0421aa4..224481a 100644
+--- a/conversion/base.py
++++ b/conversion/base.py
+@@ -1154,7 +1154,8 @@ class TextModel(ModelBase):
+                 or "projector." in name or "pre_mm_projector_norm" in name \
+                 or "image_newline" in name or "view_seperator" in name \
+                 or "patch_embed" in name or "patch_embedding" in name \
+-                or "patch_merger." in name or "model.connector." in name:
++                or "patch_merger." in name or "patch_merge_mlp" in name \
++                or "model.connector." in name:
+             return None
+ 
+         return super().filter_tensors(item)
+@@ -1201,7 +1202,7 @@ class TextModel(ModelBase):
+             self.gguf_writer.add_embedding_length(n_embd)
+             logger.info(f"gguf: embedding length = {n_embd}")
+ 
+-        if (n_ff := self.find_hparam(["prefix_dense_intermediate_size", "intermediate_size", "n_inner", "hidden_dim"], optional=True)) is not None:
++        if (n_ff := self.find_hparam(["prefix_dense_intermediate_size", "dense_intermediate_size", "intermediate_size", "n_inner", "hidden_dim"], optional=True)) is not None:
+             self.gguf_writer.add_feed_forward_length(n_ff)
+             logger.info(f"gguf: feed forward length = {n_ff}")
+ 
+diff --git a/conversion/minimax.py b/conversion/minimax.py
+index 4857775..4f637f5 100644
+--- a/conversion/minimax.py
++++ b/conversion/minimax.py
+@@ -52,3 +52,67 @@ class MiniMaxM2Model(TextModel):
+             return
+ 
+         yield from super().modify_tensors(data_torch, name, bid)
++
++
++@ModelBase.register("MiniMaxM3SparseForCausalLM", "MiniMaxM3SparseForConditionalGeneration")
++class MiniMaxM3Model(TextModel):
++    # Text-only MiniMax-M3: MiniMax-M2 GQA + DeepSeek-V3 shared/leading-dense experts (swigluoai).
++    model_arch = gguf.MODEL_ARCH.MINIMAXM3
++    _experts_cache: dict[int, dict[str, Tensor]] = {}
++
++    def set_gguf_parameters(self):
++        # feed_forward_length comes from dense_intermediate_size (base); experts use intermediate_size.
++        super().set_gguf_parameters()
++
++        self.gguf_writer.add_expert_feed_forward_length(self.find_hparam(["intermediate_size"]))
++        self.gguf_writer.add_rope_dimension_count(self.find_hparam(["rotary_dim"]))
++        self.gguf_writer.add_expert_shared_count(self.find_hparam(["n_shared_experts"]))
++        self.gguf_writer.add_expert_weights_scale(self.find_hparam(["routed_scaling_factor"]))
++        self.gguf_writer.add_expert_weights_norm(True)
++
++        # leading dense layers: moe_layer_freq (ints) or mlp_layer_types (Transformers 5.12, strings)
++        moe_layer_freq = self.find_hparam(["moe_layer_freq", "mlp_layer_types"])
++        n_dense = 0
++        for v in moe_layer_freq:
++            if v == 0 or v == "dense":
++                n_dense += 1
++            else:
++                break
++        self.gguf_writer.add_leading_dense_block_count(n_dense)
++
++    def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None):
++        # index_* (sparse-attn indexer) tensors are preserved but unused; the loader skips them
++        if name.startswith("language_model."):
++            name = name[len("language_model."):]
++
++        # Gemma-style (1+w) RMSNorm: bake +1 in so llama.cpp can use plain RMSNorm
++        if name.endswith("norm.weight"):
++            data_torch = data_torch + 1.0
++
++        # merge routed experts (w1/w2/w3); shared_experts.* passes through to *_shexp
++        if "block_sparse_moe.experts." in name:
++            n_experts = self.find_hparam(["num_local_experts", "num_experts"])
++            assert bid is not None
++
++            expert_cache = self._experts_cache.setdefault(bid, {})
++            expert_cache[name] = data_torch
++            expert_weights = ["w1", "w2", "w3"]
++
++            if len(expert_cache) < n_experts * len(expert_weights):
++                return
++
++            for w_name in expert_weights:
++                datas: list[Tensor] = []
++                for xid in range(n_experts):
++                    ename = f"model.layers.{bid}.block_sparse_moe.experts.{xid}.{w_name}.weight"
++                    datas.append(expert_cache[ename])
++                    del expert_cache[ename]
++
++                data_torch = torch.stack(datas, dim=0)
++                merged_name = f"model.layers.{bid}.block_sparse_moe.experts.{w_name}.weight"
++                yield from super().modify_tensors(data_torch, merged_name, bid)
++
++            del self._experts_cache[bid]
++            return
++
++        yield from super().modify_tensors(data_torch, name, bid)
+diff --git a/gguf-py/gguf/constants.py b/gguf-py/gguf/constants.py
+index 869e436..760e3dd 100644
+--- a/gguf-py/gguf/constants.py
++++ b/gguf-py/gguf/constants.py
+@@ -525,6 +525,7 @@ class MODEL_ARCH(IntEnum):
+     APERTUS          = auto()
+     COGVLM           = auto()
+     MINIMAXM2        = auto()
++    MINIMAXM3        = auto()
+     RND1             = auto()
+     PANGU_EMBED      = auto()
+     MISTRAL3         = auto()
+@@ -613,6 +614,10 @@ class MODEL_TENSOR(IntEnum):
+     MOE_LATENT_UP        = auto() # nemotron 3 super
+     ATTN_Q_NORM          = auto()
+     ATTN_K_NORM          = auto()
++    ATTN_INDEX_Q         = auto() # minimax-m3 sparse-attn indexer (unused)
++    ATTN_INDEX_K         = auto()
++    ATTN_INDEX_Q_NORM    = auto()
++    ATTN_INDEX_K_NORM    = auto()
+     LAYER_OUT_NORM       = auto()
+     LAYER_OUT_SCALE      = auto()
+     PER_LAYER_TOKEN_EMBD = auto() # gemma3n
+@@ -1105,6 +1110,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
+     MODEL_ARCH.GROVEMOE:         "grovemoe",
+     MODEL_ARCH.APERTUS:          "apertus",
+     MODEL_ARCH.MINIMAXM2:        "minimax-m2",
++    MODEL_ARCH.MINIMAXM3:        "minimax-m3",
+     MODEL_ARCH.COGVLM:           "cogvlm",
+     MODEL_ARCH.RND1:             "rnd1",
+     MODEL_ARCH.PANGU_EMBED:      "pangu-embedded",
+@@ -1163,6 +1169,10 @@ TENSOR_NAMES: dict[MODEL_TENSOR, str] = {
+     MODEL_TENSOR.ATTN_GATE:                 "blk.{bid}.attn_gate",
+     MODEL_TENSOR.ATTN_Q_NORM:               "blk.{bid}.attn_q_norm",
+     MODEL_TENSOR.ATTN_K_NORM:               "blk.{bid}.attn_k_norm",
++    MODEL_TENSOR.ATTN_INDEX_Q:              "blk.{bid}.attn_index_q",
++    MODEL_TENSOR.ATTN_INDEX_K:              "blk.{bid}.attn_index_k",
++    MODEL_TENSOR.ATTN_INDEX_Q_NORM:         "blk.{bid}.attn_index_q_norm",
++    MODEL_TENSOR.ATTN_INDEX_K_NORM:         "blk.{bid}.attn_index_k_norm",
+     MODEL_TENSOR.ATTN_OUT_NORM:             "blk.{bid}.attn_output_norm",
+     MODEL_TENSOR.ATTN_POST_NORM:            "blk.{bid}.post_attention_norm",
+     MODEL_TENSOR.FFN_GATE_INP:              "blk.{bid}.ffn_gate_inp",
+@@ -4102,6 +4112,30 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
+         MODEL_TENSOR.FFN_UP_EXP,
+         MODEL_TENSOR.FFN_EXP_PROBS_B,
+     ],
++    MODEL_ARCH.MINIMAXM3: [
++        MODEL_TENSOR.TOKEN_EMBD,
++        MODEL_TENSOR.OUTPUT_NORM,
++        MODEL_TENSOR.OUTPUT,
++        MODEL_TENSOR.ATTN_NORM,
++        MODEL_TENSOR.ATTN_Q,
++        MODEL_TENSOR.ATTN_Q_NORM,
++        MODEL_TENSOR.ATTN_K,
++        MODEL_TENSOR.ATTN_K_NORM,
++        MODEL_TENSOR.ATTN_V,
++        MODEL_TENSOR.ATTN_OUT,
++        MODEL_TENSOR.FFN_NORM,
++        MODEL_TENSOR.FFN_GATE_INP,
++        MODEL_TENSOR.FFN_EXP_PROBS_B,
++        MODEL_TENSOR.FFN_GATE_EXP,
++        MODEL_TENSOR.FFN_DOWN_EXP,
++        MODEL_TENSOR.FFN_UP_EXP,
++        MODEL_TENSOR.FFN_GATE_SHEXP,
++        MODEL_TENSOR.FFN_DOWN_SHEXP,
++        MODEL_TENSOR.FFN_UP_SHEXP,
++        MODEL_TENSOR.FFN_GATE,
++        MODEL_TENSOR.FFN_DOWN,
++        MODEL_TENSOR.FFN_UP,
++    ],
+     MODEL_ARCH.COGVLM: [
+         MODEL_TENSOR.TOKEN_EMBD,
+         MODEL_TENSOR.OUTPUT_NORM,
+@@ -4128,6 +4162,10 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
+         MODEL_TENSOR.ATTN_Q_NORM,
+         MODEL_TENSOR.ATTN_K,
+         MODEL_TENSOR.ATTN_K_NORM,
++        MODEL_TENSOR.ATTN_INDEX_Q,
++        MODEL_TENSOR.ATTN_INDEX_K,
++        MODEL_TENSOR.ATTN_INDEX_Q_NORM,
++        MODEL_TENSOR.ATTN_INDEX_K_NORM,
+         MODEL_TENSOR.ATTN_V,
+         MODEL_TENSOR.ATTN_OUT,
+         MODEL_TENSOR.FFN_NORM,
+diff --git a/gguf-py/gguf/tensor_mapping.py b/gguf-py/gguf/tensor_mapping.py
+index 9efb36f..a62040b 100644
+--- a/gguf-py/gguf/tensor_mapping.py
++++ b/gguf-py/gguf/tensor_mapping.py
+@@ -717,6 +717,22 @@ class TensorNameMap:
+             "model.layers.{bid}.attention.key_layernorm",                     # apertus
+         ),
+ 
++        MODEL_TENSOR.ATTN_INDEX_Q: (
++            "model.layers.{bid}.self_attn.index_q_proj",                      # minimax-m3 (sparse-attn indexer)
++        ),
++
++        MODEL_TENSOR.ATTN_INDEX_K: (
++            "model.layers.{bid}.self_attn.index_k_proj",                      # minimax-m3
++        ),
++
++        MODEL_TENSOR.ATTN_INDEX_Q_NORM: (
++            "model.layers.{bid}.self_attn.index_q_norm",                      # minimax-m3
++        ),
++
++        MODEL_TENSOR.ATTN_INDEX_K_NORM: (
++            "model.layers.{bid}.self_attn.index_k_norm",                      # minimax-m3
++        ),
++
+         MODEL_TENSOR.ROPE_FREQS: (
+             "encoder.layers.{bid}.self_attention.rotary_emb.inv_freq",  # persimmon
+         ),
+diff --git a/src/llama-arch.cpp b/src/llama-arch.cpp
+index b890e66..cb8bfc8 100644
+--- a/src/llama-arch.cpp
++++ b/src/llama-arch.cpp
+@@ -125,6 +125,7 @@ static const std::map<llm_arch, const char *> LLM_ARCH_NAMES = {
+     { LLM_ARCH_GROVEMOE,         "grovemoe"         },
+     { LLM_ARCH_APERTUS,          "apertus"          },
+     { LLM_ARCH_MINIMAX_M2,       "minimax-m2"       },
++    { LLM_ARCH_MINIMAX_M3,       "minimax-m3"       },
+     { LLM_ARCH_COGVLM,           "cogvlm"           },
+     { LLM_ARCH_RND1,             "rnd1"             },
+     { LLM_ARCH_PANGU_EMBED,      "pangu-embedded"   },
+@@ -395,6 +396,10 @@ static const std::map<llm_tensor, const char *> LLM_TENSOR_NAMES = {
+     { LLM_TENSOR_ATTN_POST_NORM,                         "blk.%d.post_attention_norm" },
+     { LLM_TENSOR_ATTN_Q_NORM,                            "blk.%d.attn_q_norm" },
+     { LLM_TENSOR_ATTN_K_NORM,                            "blk.%d.attn_k_norm" },
++    { LLM_TENSOR_ATTN_INDEX_Q,                           "blk.%d.attn_index_q" },
++    { LLM_TENSOR_ATTN_INDEX_K,                           "blk.%d.attn_index_k" },
++    { LLM_TENSOR_ATTN_INDEX_Q_NORM,                      "blk.%d.attn_index_q_norm" },
++    { LLM_TENSOR_ATTN_INDEX_K_NORM,                      "blk.%d.attn_index_k_norm" },
+     { LLM_TENSOR_ATTN_GATE,                              "blk.%d.attn_gate" },
+     { LLM_TENSOR_FFN_POST_NORM,                          "blk.%d.post_ffw_norm" },
+     { LLM_TENSOR_FFN_POST_NORM_1,                        "blk.%d.post_ffw_norm_1" },
+@@ -761,6 +766,11 @@ static const std::map<llm_tensor, llm_tensor_info> LLM_TENSOR_INFOS = {
+     {LLM_TENSOR_FFN_NORM_EXPS,              {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_ATTN_Q_NORM,                {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_ATTN_K_NORM,                {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
++    // minimax-m3 sparse-attn indexer: unused (GGML_OP_NONE) so the loader skips it
++    {LLM_TENSOR_ATTN_INDEX_Q,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_NONE}},
++    {LLM_TENSOR_ATTN_INDEX_K,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_NONE}},
++    {LLM_TENSOR_ATTN_INDEX_Q_NORM,          {LLM_TENSOR_LAYER_REPEATING, GGML_OP_NONE}},
++    {LLM_TENSOR_ATTN_INDEX_K_NORM,          {LLM_TENSOR_LAYER_REPEATING, GGML_OP_NONE}},
+     {LLM_TENSOR_LAYER_OUT_NORM,             {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_LAYER_OUT_SCALE,            {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_ATTN_Q_A_NORM,              {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+@@ -998,6 +1008,7 @@ bool llm_arch_supports_sm_tensor(const llm_arch & arch) {
+         case LLM_ARCH_LFM2:
+         case LLM_ARCH_LFM2MOE:
+         case LLM_ARCH_MINIMAX_M2:
++        case LLM_ARCH_MINIMAX_M3:
+         case LLM_ARCH_MISTRAL4:
+         case LLM_ARCH_KIMI_LINEAR:
+             return false;
+diff --git a/src/llama-arch.h b/src/llama-arch.h
+index a4f5091..2d50ead 100644
+--- a/src/llama-arch.h
++++ b/src/llama-arch.h
+@@ -144,6 +144,7 @@ enum llm_arch {
+     LLM_ARCH_TALKIE,
+     LLM_ARCH_MELLUM,
+     LLM_ARCH_EAGLE3,
++    LLM_ARCH_MINIMAX_M3,
+     LLM_ARCH_DFLASH,
+     LLM_ARCH_UNKNOWN,
+ };
+@@ -429,6 +430,10 @@ enum llm_tensor {
+     LLM_TENSOR_FFN_LATENT_UP,
+     LLM_TENSOR_ATTN_Q_NORM,
+     LLM_TENSOR_ATTN_K_NORM,
++    LLM_TENSOR_ATTN_INDEX_Q,      // minimax-m3 sparse-attn indexer (unused)
++    LLM_TENSOR_ATTN_INDEX_K,
++    LLM_TENSOR_ATTN_INDEX_Q_NORM,
++    LLM_TENSOR_ATTN_INDEX_K_NORM,
+     LLM_TENSOR_LAYER_OUT_NORM,
+     LLM_TENSOR_LAYER_OUT_SCALE,
+     LLM_TENSOR_POST_ATTN_NORM,
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index c8ecb0a..4c2c286 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -1719,6 +1719,16 @@ ggml_tensor * llm_graph_context::build_ffn(
+                 cur = ggml_reglu(ctx0, cur);
+                 cb(cur, "ffn_reglu", il);
+             } break;
++        case LLM_FFN_SWIGLU_OAI:
++            {
++                // clamped SwiGLU: parallel gate path (cur=gate, tmp=up)
++                GGML_ASSERT(gate && type_gate == LLM_FFN_PAR);
++                constexpr float alpha = 1.702f;
++                constexpr float limit = 7.0f;
++                cur = ggml_swiglu_oai(ctx0, cur, tmp, alpha, limit);
++                cb(cur, "ffn_swiglu_oai", il);
++                type_gate = LLM_FFN_SEQ; // gate*up already fused; skip the par multiply
++            } break;
+         default:
+             GGML_ABORT("fatal error");
+     }
+diff --git a/src/llama-graph.h b/src/llama-graph.h
+index c84cb6a..806ce7b 100644
+--- a/src/llama-graph.h
++++ b/src/llama-graph.h
+@@ -54,6 +54,7 @@ enum llm_ffn_op_type : int {
+     LLM_FFN_SWIGLU,
+     LLM_FFN_GEGLU,
+     LLM_FFN_REGLU,
++    LLM_FFN_SWIGLU_OAI,
+     LLM_FFN_SWIGLU_OAI_MOE,
+ };
+ 
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index d874813..7bb71c0 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -280,6 +280,8 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
+             return new llama_model_apertus(params);
+         case LLM_ARCH_MINIMAX_M2:
+             return new llama_model_minimax_m2(params);
++        case LLM_ARCH_MINIMAX_M3:
++            return new llama_model_minimax_m3(params);
+         case LLM_ARCH_COGVLM:
+             return new llama_model_cogvlm(params);
+         case LLM_ARCH_PANGU_EMBED:
+@@ -807,6 +809,7 @@ const char * llm_type_name(llm_type type) {
+         case LLM_TYPE_310B_A15B:     return "310B.A15B";
+         case LLM_TYPE_355B_A32B:     return "355B.A32B";
+         case LLM_TYPE_397B_A17B:     return "397B.A17B";
++        case LLM_TYPE_428B_A23B:     return "428B.A23B";
+         case LLM_TYPE_685B_A37B:     return "685B.A37B";
+         case LLM_TYPE_744B_A40B:     return "744B.A40B";
+         case LLM_TYPE_E2B:           return "E2B";
+@@ -2532,6 +2535,7 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
+         case LLM_ARCH_GROVEMOE:
+         case LLM_ARCH_APERTUS:
+         case LLM_ARCH_MINIMAX_M2:
++        case LLM_ARCH_MINIMAX_M3:
+         case LLM_ARCH_COGVLM:
+         case LLM_ARCH_PANGU_EMBED:
+         case LLM_ARCH_AFMOE:
+diff --git a/src/llama-model.h b/src/llama-model.h
+index 45b054c..540e0d2 100644
+--- a/src/llama-model.h
++++ b/src/llama-model.h
+@@ -139,6 +139,7 @@ enum llm_type {
+     LLM_TYPE_310B_A15B, // /MiMo-V2-Flash
+     LLM_TYPE_355B_A32B, // GLM-4.5
+     LLM_TYPE_397B_A17B, // Qwen3.5
++    LLM_TYPE_428B_A23B, // MiniMax M3
+     LLM_TYPE_685B_A37B, // DeepSeek V3.2
+     LLM_TYPE_744B_A40B, // GLM-5
+     LLM_TYPE_E2B,
+diff --git a/src/models/minimax-m3.cpp b/src/models/minimax-m3.cpp
+new file mode 100644
+index 0000000..137852a
+--- /dev/null
++++ b/src/models/minimax-m3.cpp
+@@ -0,0 +1,197 @@
++#include "models.h"
++
++// MiniMax-M3, text-only: MiniMax-M2 GQA (per-head QK-norm, partial rotary) + DeepSeek-V3
++// leading-dense/routed/shared experts (swigluoai). Sparse attn -> dense; vision + MTP dropped.
++
++void llama_model_minimax_m3::load_arch_hparams(llama_model_loader & ml) {
++    ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
++    ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead, false);
++    ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
++    ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
++    ml.get_key(LLM_KV_EXPERT_WEIGHTS_SCALE,        hparams.expert_weights_scale, false);
++    ml.get_key(LLM_KV_EXPERT_WEIGHTS_NORM,         hparams.expert_weights_norm, false);
++    ml.get_key(LLM_KV_EXPERT_GATING_FUNC,          hparams.expert_gating_func);
++
++    switch (hparams.n_layer()) {
++        case 60: type = LLM_TYPE_428B_A23B; break;
++        default: type = LLM_TYPE_UNKNOWN;
++    }
++}
++
++void llama_model_minimax_m3::load_arch_tensors(llama_model_loader &) {
++    LLAMA_LOAD_LOCALS;
++    const int64_t n_expert_shared = hparams.n_expert_shared;
++    const int64_t n_ff_exp        = hparams.n_ff_exp;
++
++    tok_embd = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab}, 0);
++
++    output_norm = create_tensor(tn(LLM_TENSOR_OUTPUT_NORM, "weight"), {n_embd}, 0);
++    output      = create_tensor(tn(LLM_TENSOR_OUTPUT,      "weight"), {n_embd, n_vocab}, 0);
++
++    for (int i = 0; i < n_layer; ++i) {
++        auto & layer = layers[i];
++
++        create_tensor_qkv(layer, i, n_embd, n_embd_head_k * n_head, n_embd_gqa, n_embd_gqa, 0);
++        layer.wo = create_tensor(tn(LLM_TENSOR_ATTN_OUT, "weight", i), { n_embd_head_k * n_head, n_embd }, 0);
++
++        layer.attn_norm = create_tensor(tn(LLM_TENSOR_ATTN_NORM, "weight", i), {n_embd}, 0);
++        // per-head QK-norm (one head_dim vector)
++        layer.attn_q_norm = create_tensor(tn(LLM_TENSOR_ATTN_Q_NORM, "weight", i), {n_embd_head_k}, 0);
++        layer.attn_k_norm = create_tensor(tn(LLM_TENSOR_ATTN_K_NORM, "weight", i), {n_embd_head_k}, 0);
++
++        // sparse-attn indexer (unused): GGML_OP_NONE -> loader skips; NOT_REQUIRED -> older GGUFs still load;
++        // SKIP_IF_VIRTUAL -> no-file loader (test-llama-archs) skips them too
++        const int64_t n_index_head = 4;    // sparse_num_index_heads
++        const int64_t d_index      = 128;  // sparse_index_dim
++        const int idx_flags = TENSOR_NOT_REQUIRED | TENSOR_SKIP_IF_VIRTUAL;
++        create_tensor(tn(LLM_TENSOR_ATTN_INDEX_Q,      "weight", i), {n_embd, n_index_head * d_index}, idx_flags);
++        create_tensor(tn(LLM_TENSOR_ATTN_INDEX_K,      "weight", i), {n_embd, d_index},                idx_flags);
++        create_tensor(tn(LLM_TENSOR_ATTN_INDEX_Q_NORM, "weight", i), {d_index},                        idx_flags);
++        create_tensor(tn(LLM_TENSOR_ATTN_INDEX_K_NORM, "weight", i), {d_index},                        idx_flags);
++
++        layer.ffn_norm = create_tensor(tn(LLM_TENSOR_FFN_NORM, "weight", i), {n_embd}, 0);
++
++        if (i < (int) hparams.n_layer_dense_lead) {
++            layer.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", i), {n_embd,   n_ff}, 0);
++            layer.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", i), {  n_ff, n_embd}, 0);
++            layer.ffn_up   = create_tensor(tn(LLM_TENSOR_FFN_UP,   "weight", i), {n_embd,   n_ff}, 0);
++        } else {
++            layer.ffn_gate_inp    = create_tensor(tn(LLM_TENSOR_FFN_GATE_INP,    "weight", i), {n_embd, n_expert}, 0);
++            layer.ffn_exp_probs_b = create_tensor(tn(LLM_TENSOR_FFN_EXP_PROBS_B, "bias",   i), {n_expert}, 0);
++            layer.ffn_gate_exps   = create_tensor(tn(LLM_TENSOR_FFN_GATE_EXPS,   "weight", i), {n_embd, n_ff_exp, n_expert}, 0);
++            layer.ffn_down_exps   = create_tensor(tn(LLM_TENSOR_FFN_DOWN_EXPS,   "weight", i), {n_ff_exp, n_embd, n_expert}, 0);
++            layer.ffn_up_exps     = create_tensor(tn(LLM_TENSOR_FFN_UP_EXPS,     "weight", i), {n_embd, n_ff_exp, n_expert}, 0);
++
++            layer.ffn_gate_shexp = create_tensor(tn(LLM_TENSOR_FFN_GATE_SHEXP, "weight", i), {n_embd, n_ff_exp * n_expert_shared}, 0);
++            layer.ffn_down_shexp = create_tensor(tn(LLM_TENSOR_FFN_DOWN_SHEXP, "weight", i), {        n_ff_exp * n_expert_shared, n_embd}, 0);
++            layer.ffn_up_shexp   = create_tensor(tn(LLM_TENSOR_FFN_UP_SHEXP,   "weight", i), {n_embd, n_ff_exp * n_expert_shared}, 0);
++        }
++    }
++}
++
++std::unique_ptr<llm_graph_context> llama_model_minimax_m3::build_arch_graph(const llm_graph_params & params) const {
++    return std::make_unique<graph>(*this, params);
++}
++
++llama_model_minimax_m3::graph::graph(const llama_model & model, const llm_graph_params & params) : llm_graph_context(params) {
++    const int64_t n_embd_head = hparams.n_embd_head_v();
++
++    GGML_ASSERT(n_embd_head == hparams.n_embd_head_k());
++    // partial rotary: head_dim != n_rot, so don't assert n_embd_head == n_rot
++
++    ggml_tensor * cur;
++    ggml_tensor * inpL;
++
++    inpL = build_inp_embd(model.tok_embd);
++
++    ggml_tensor * inp_pos = build_inp_pos();
++    auto inp_attn = build_attn_inp_kv();
++    ggml_tensor * inp_out_ids = build_inp_out_ids();
++
++    for (int il = 0; il < n_layer; ++il) {
++        ggml_tensor * inpSA = inpL;
++
++        // self-attention
++        {
++            cur = build_norm(inpL, model.layers[il].attn_norm, NULL, LLM_NORM_RMS, il);
++            cb(cur, "attn_norm", il);
++
++            auto [Qcur, Kcur, Vcur] = build_qkv(model.layers[il], cur,
++                    n_embd_head, n_head, n_head_kv, il);
++
++            // per-head QK RMSNorm (weights include Gemma +1)
++            Qcur = build_norm(Qcur, model.layers[il].attn_q_norm, NULL, LLM_NORM_RMS, il);
++            cb(Qcur, "Qcur_normed", il);
++            Kcur = build_norm(Kcur, model.layers[il].attn_k_norm, NULL, LLM_NORM_RMS, il);
++            cb(Kcur, "Kcur_normed", il);
++
++            Qcur = ggml_rope_ext(
++                ctx0, Qcur, inp_pos, nullptr,
++                n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
++                ext_factor, attn_factor, beta_fast, beta_slow
++                );
++            Kcur = ggml_rope_ext(
++                ctx0, Kcur, inp_pos, nullptr,
++                n_rot, rope_type, n_ctx_orig, freq_base, freq_scale,
++                ext_factor, attn_factor, beta_fast, beta_slow
++                );
++
++            cb(Qcur, "Qcur", il);
++            cb(Kcur, "Kcur", il);
++            cb(Vcur, "Vcur", il);
++
++            cur = build_attn(inp_attn,
++                    model.layers[il].wo, NULL, model.layers[il].wo_s,
++                    Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, 1.0f/sqrtf(float(n_embd_head)), il);
++        }
++
++        if (il == n_layer - 1 && inp_out_ids) {
++            cur   = ggml_get_rows(ctx0,   cur, inp_out_ids);
++            inpSA = ggml_get_rows(ctx0, inpSA, inp_out_ids);
++        }
++
++        ggml_tensor * ffn_inp = ggml_add(ctx0, cur, inpSA);
++        cb(ffn_inp, "ffn_inp", il);
++
++        cur = build_norm(ffn_inp, model.layers[il].ffn_norm, NULL, LLM_NORM_RMS, il);
++        cb(cur, "ffn_norm", il);
++
++        if ((uint32_t) il < hparams.n_layer_dense_lead) {
++            // leading dense
++            cur = build_ffn(cur,
++                    model.layers[il].ffn_up,   NULL, NULL,
++                    model.layers[il].ffn_gate, NULL, NULL,
++                    model.layers[il].ffn_down, NULL, NULL,
++                    NULL,
++                    LLM_FFN_SWIGLU_OAI, LLM_FFN_PAR, il);
++            cb(cur, "ffn_out", il);
++        } else {
++            // routed experts
++            ggml_tensor * moe_out = build_moe_ffn(cur,
++                    model.layers[il].ffn_gate_inp,
++                    model.layers[il].ffn_up_exps,
++                    model.layers[il].ffn_gate_exps,
++                    model.layers[il].ffn_down_exps,
++                    model.layers[il].ffn_exp_probs_b,
++                    n_expert, n_expert_used,
++                    LLM_FFN_SWIGLU_OAI_MOE, hparams.expert_weights_norm,
++                    hparams.expert_weights_scale,
++                    (llama_expert_gating_func_type) hparams.expert_gating_func,
++                    il);
++            cb(moe_out, "ffn_moe_out", il);
++
++            // shared expert
++            ggml_tensor * ffn_shexp = build_ffn(cur,
++                    model.layers[il].ffn_up_shexp,   NULL, NULL,
++                    model.layers[il].ffn_gate_shexp, NULL, NULL,
++                    model.layers[il].ffn_down_shexp, NULL, NULL,
++                    NULL,
++                    LLM_FFN_SWIGLU_OAI, LLM_FFN_PAR, il);
++            cb(ffn_shexp, "ffn_shexp", il);
++
++            cur = ggml_add(ctx0, moe_out, ffn_shexp);
++            cb(cur, "ffn_out", il);
++        }
++
++        cur = ggml_add(ctx0, cur, ffn_inp);
++
++        cur = build_cvec(cur, il);
++        cb(cur, "l_out", il);
++
++        // input for next layer
++        inpL = cur;
++    }
++
++    cur = inpL;
++
++    cur = build_norm(cur, model.output_norm, NULL, LLM_NORM_RMS, -1);
++    cb(cur, "result_norm", -1);
++    res->t_embd = cur;
++
++    // lm_head
++    cur = build_lora_mm(model.output, cur, model.output_s);
++    cb(cur, "result_output", -1);
++    res->t_logits = cur;
++
++    ggml_build_forward_expand(gf, cur);
++}
+diff --git a/src/models/models.h b/src/models/models.h
+index 7a52e7b..5e2a826 100644
+--- a/src/models/models.h
++++ b/src/models/models.h
+@@ -1870,6 +1870,17 @@ struct llama_model_minimax_m2 : public llama_model_base {
+     std::unique_ptr<llm_graph_context> build_arch_graph(const llm_graph_params & params) const override;
+ };
+ 
++struct llama_model_minimax_m3 : public llama_model_base {
++    llama_model_minimax_m3(const struct llama_model_params & params) : llama_model_base(params) {}
++    void load_arch_hparams(llama_model_loader & ml) override;
++    void load_arch_tensors(llama_model_loader & ml) override;
++
++    struct graph : public llm_graph_context {
++        graph(const llama_model & model, const llm_graph_params & params);
++    };
++
++    std::unique_ptr<llm_graph_context> build_arch_graph(const llm_graph_params & params) const override;
++};
+ 
+ struct llama_model_cogvlm : public llama_model_base {
+     llama_model_cogvlm(const struct llama_model_params & params) : llama_model_base(params) {}
+diff --git a/tests/test-llama-archs.cpp b/tests/test-llama-archs.cpp
+index f39abe7..2085f43 100644
+--- a/tests/test-llama-archs.cpp
++++ b/tests/test-llama-archs.cpp
+@@ -352,6 +352,7 @@ static bool moe_mandatory(const llm_arch arch) {
+         case LLM_ARCH_LLADA_MOE:
+         case LLM_ARCH_GROVEMOE:
+         case LLM_ARCH_MINIMAX_M2:
++        case LLM_ARCH_MINIMAX_M3:
+         case LLM_ARCH_RND1:
+         case LLM_ARCH_PADDLEOCR:
+         case LLM_ARCH_MIMO2:
