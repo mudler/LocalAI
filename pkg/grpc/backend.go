@@ -105,6 +105,7 @@ type ControlBackend interface {
 	HealthCheck(ctx context.Context) (bool, error)
 	LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.Result, error)
 	TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error)
+	Detokenize(ctx context.Context, in *pb.DetokenizeRequest, opts ...grpc.CallOption) (*pb.DetokenizeResponse, error)
 	Status(ctx context.Context) (*pb.StatusResponse, error)
 
 	StoresSet(ctx context.Context, in *pb.StoresSetOptions, opts ...grpc.CallOption) (*pb.Result, error)

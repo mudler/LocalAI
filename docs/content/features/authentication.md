@@ -178,7 +178,7 @@ When authentication is enabled, the following endpoints require admin role:
 **User-Accessible Endpoints (all authenticated users):**
 - `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/completions`
 - `POST /v1/images/generations`, `POST /v1/audio/*`, `POST /tts`, `POST /vad`, `POST /video`
-- `GET /v1/models`, `POST /v1/tokenize`, `POST /v1/detection`
+- `GET /v1/models`, `POST /v1/tokenize`, `POST /v1/detokenize`, `POST /v1/detection`
 - `POST /v1/mcp/chat/completions`, `POST /v1/messages`, `POST /v1/responses`
 - `POST /stores/*`, `GET /api/cors-proxy`
 - `GET /version`, `GET /api/features`, `GET /swagger/*`, `GET /metrics`
