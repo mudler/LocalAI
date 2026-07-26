@@ -108,9 +108,26 @@ public:
     // session cache is an unsynchronised std::map and the sessions themselves
     // are not reentrant, so this must only be called with the lane held; the
     // lane admits one caller at a time, which is exactly the constraint the
-    // sessions impose. Pass the LaneEntry from acquire(). It is deliberately
-    // not a reference to `this`'s own lane member, because a caller can only
-    // produce a LaneEntry by having taken one.
+    // sessions impose. Pass the LaneEntry from acquire().
+    //
+    // NON-CONST reference on purpose, and do not "tidy" it to const. A const
+    // reference binds to a temporary, which makes this compile:
+    //
+    //     auto session = model->session_for(rpc, shape, model->acquire(0));
+    //     auto result  = run_offline(session, task, model->acquire(0));
+    //
+    // and each temporary dies at the end of its own full-expression, so the
+    // lane is released between the two calls. That is precisely the split this
+    // parameter exists to prevent, and it is the form a future caller is most
+    // likely to reach for because it reads as tidy. Requiring an lvalue forces
+    // a named entry whose scope spans both calls.
+    //
+    // What it proves is bounded, so do not over-trust it: it proves A lane was
+    // taken, not THIS model's lane. A caller determined to defeat it can
+    // construct an entry on an unrelated InferenceLane and pass that. It
+    // therefore catches the two mistakes that actually happen, forgetting the
+    // lane entirely and taking it after routing, and does not catch lane
+    // identity.
     //
     // STATE CONTRACT, and it is the CALLER'S to honour. Sessions are cached per
     // (task, mode), so a streaming session is normally the same warm object the
@@ -131,8 +148,7 @@ public:
     //
     // Offline sessions need no such care: their interface has no reset and
     // run() takes a whole request.
-    Session session_for(Rpc rpc, const RequestShape &shape,
-                        const LaneEntry &lane);
+    Session session_for(Rpc rpc, const RequestShape &shape, LaneEntry &lane);
 
     // Takes the inference lane, or throws LaneUnavailable. Serializes runs
     // against this model. `requested_timeout_ms` is a per-request wait hint
@@ -200,7 +216,10 @@ private:
 // `lane` is a PROOF OF HOLDING, unused at runtime, for the same reason
 // session_for takes one: the session is not reentrant and prepare() mutates it,
 // so running without the lane is a data race. Making it a parameter turns that
-// into a compile error instead of a comment.
+// into a compile error instead of a comment. Non-const for the same reason as
+// session_for's: a const reference would bind to `model.acquire(0)` written
+// inline, and that temporary dies at the end of this call, releasing the lane
+// before the caller's next one.
 //
 // Throws CapabilityError when the session is not an offline one. That should be
 // unreachable through session_for, which already refuses a non-offline session
@@ -208,6 +227,6 @@ private:
 // dereference.
 engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
                                         const engine::runtime::TaskRequest &request,
-                                        const LaneEntry &lane);
+                                        LaneEntry &lane);
 
 } // namespace audiocpp_backend

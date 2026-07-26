@@ -338,9 +338,11 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
 }
 
 LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape,
-                                              const LaneEntry &lane) {
+                                              LaneEntry &lane) {
     // Proof of holding only. Nothing here reads it, and nothing should: its
-    // whole job is to make a caller that has not taken the lane fail to compile.
+    // whole job is to make a caller that has not taken the lane fail to
+    // compile. Non-const so it cannot bind to an inline acquire(), whose
+    // temporary would be released at the end of this call.
     (void)lane;
     const Route route = resolve_route(rpc, shape, capabilities_);
     if (!route.ok) {
@@ -439,7 +441,7 @@ std::unique_ptr<LaneEntry> LoadedModel::acquire_owned(int requested_timeout_ms) 
 
 engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
                                         const engine::runtime::TaskRequest &request,
-                                        const LaneEntry &lane) {
+                                        LaneEntry &lane) {
     // Proof of holding only, as in session_for.
     (void)lane;
     if (session.offline == nullptr) {

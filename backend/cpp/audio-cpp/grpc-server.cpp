@@ -62,16 +62,23 @@ std::atomic<bool> g_shutdown_requested{false};
 // g_model_mu for its duration, so it has to work from a reference taken under
 // the lock and used after releasing it. Under a unique_ptr, a Free or a reload
 // arriving mid-request destroys the model out from under that reference. Every
-// handler instead takes a counted reference through snapshot(), so Free drops
-// the global's reference and whichever request finishes last destroys the model.
+// handler instead takes a counted reference through snapshot_for(), so Free
+// drops the global's reference and whichever request finishes last destroys the
+// model.
 std::mutex g_model_mu;
 std::shared_ptr<audiocpp_backend::LoadedModel> g_model;
 
-// The only correct way for a handler to reach the model. Returns by value, so
-// the caller owns a reference for as long as its local lives, and null when no
-// model is loaded. Never return LoadedModel& from here: that is the shape that
-// reintroduces the use-after-free.
-std::shared_ptr<audiocpp_backend::LoadedModel> snapshot() {
+// The raw reference-taking primitive. Returns by value, so the caller owns a
+// reference for as long as its local lives, and null when no model is loaded.
+// Never return LoadedModel& from here: that is the shape that reintroduces the
+// use-after-free.
+//
+// _unchecked because it performs NO request-level validation. Status is its
+// only legitimate caller, because Status takes a HealthMessage, which carries
+// no ModelIdentity to check. Every RPC that acts on a model must call
+// snapshot_for instead; the name is deliberately unpleasant so that reaching
+// for it is a visible decision rather than an omission.
+std::shared_ptr<audiocpp_backend::LoadedModel> snapshot_unchecked() {
     std::lock_guard<std::mutex> lock(g_model_mu);
     return g_model;
 }
@@ -130,7 +137,7 @@ int parse_device_index(const std::string &value) {
 //
 // The loaded identity is read off the LoadedModel rather than a separate
 // global, which is where this differs from llama-cpp. A handler holding the
-// model through snapshot() is then necessarily judging against the identity
+// model through snapshot_for() is then necessarily judging against the identity
 // THAT model was loaded with, and a concurrent reload cannot swap one without
 // the other.
 template <typename Request>
@@ -151,6 +158,39 @@ GStatus check_model_identity(const audiocpp_backend::LoadedModel &model,
     return GStatus(grpc::StatusCode::NOT_FOUND,
                    "audio-cpp: model identity mismatch: loaded \"" + loaded +
                        "\", requested \"" + request->modelidentity() + "\"");
+}
+
+// The ONE way an RPC handler should reach the model. Takes the counted
+// reference, refuses when nothing is loaded, and runs the identity check, in
+// that order. Returns null with `out` set to the status to return; on success
+// returns the model and leaves `out` OK.
+//
+// This exists as a structural guarantee rather than a convenience. The identity
+// check used to be two lines every handler had to remember, and nothing failed
+// if a new handler forgot them: there is no C++ equivalent of
+// pkg/grpc/model_identity_modalities_test.go, so the convention could only rot.
+// Every handler already has to call something to obtain the model, so making
+// the guarded call the shortest path means the default is correct and skipping
+// it requires deliberately typing snapshot_unchecked.
+//
+// The order is forced: the identity being compared against belongs to the model
+// this call is about to use, so it cannot precede taking the reference. And it
+// must precede routing, or a mismatched request to a model that cannot serve
+// the RPC leaks UNIMPLEMENTED instead of the NOT_FOUND the router matches on.
+template <typename Request>
+std::shared_ptr<audiocpp_backend::LoadedModel>
+snapshot_for(const Request *request, GStatus &out) {
+    auto model = snapshot_unchecked();
+    if (model == nullptr) {
+        out = GStatus(grpc::StatusCode::FAILED_PRECONDITION,
+                      "audio-cpp: no model is loaded; call LoadModel first");
+        return nullptr;
+    }
+    out = check_model_identity(*model, request);
+    if (!out.ok()) {
+        return nullptr;
+    }
+    return model;
 }
 
 // Maps a thrown exception onto the gRPC status the client should see.
@@ -180,8 +220,11 @@ public:
 
     GStatus Status(ServerContext *, const backend::HealthMessage *,
                    backend::StatusResponse *response) override {
-        response->set_state(snapshot() ? backend::StatusResponse::READY
-                                       : backend::StatusResponse::UNINITIALIZED);
+        // snapshot_unchecked is right here, and is the only place it is:
+        // HealthMessage carries no ModelIdentity, so there is nothing to check.
+        response->set_state(snapshot_unchecked()
+                                ? backend::StatusResponse::READY
+                                : backend::StatusResponse::UNINITIALIZED);
         return GStatus::OK;
     }
 
@@ -257,7 +300,7 @@ public:
     GStatus Free(ServerContext *, const backend::HealthMessage *,
                  backend::Result *result) override {
         // Drops the global's reference. Any handler still running holds its own
-        // from snapshot(), so the model is destroyed by whichever of them
+        // from snapshot_for(), so the model is destroyed by whichever of them
         // finishes last rather than underneath one of them. Destroying
         // LoadedModel releases its sessions first, then the model.
         std::shared_ptr<audiocpp_backend::LoadedModel> released;
@@ -285,20 +328,15 @@ public:
     GStatus VAD(ServerContext *, const backend::VADRequest *request,
                 backend::VADResponse *response) override {
         try {
-            // snapshot(), and the result is held for the whole call. Free may
+            // snapshot_for, and the result is held for the whole call. Free may
             // arrive mid-request; it drops the global's reference only, so this
-            // one keeps the model alive until the handler returns.
-            const auto model = snapshot();
+            // one keeps the model alive until the handler returns. It also
+            // performs the not-loaded and identity checks, so a stale route is
+            // refused before any work happens.
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
             if (model == nullptr) {
-                return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
-                               "audio-cpp: no model is loaded; call LoadModel first");
-            }
-            // Before any work: a stale route must be refused, not served.
-            // Cannot precede snapshot(), because the identity being compared
-            // against belongs to the model this call is about to use.
-            const GStatus identity = check_model_identity(*model, request);
-            if (!identity.ok()) {
-                return identity;
+                return refusal;
             }
 
             audiocpp_backend::RequestShape shape;
@@ -339,14 +377,10 @@ public:
     GStatus Diarize(ServerContext *, const backend::DiarizeRequest *request,
                     backend::DiarizeResponse *response) override {
         try {
-            const auto model = snapshot();
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
             if (model == nullptr) {
-                return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
-                               "audio-cpp: no model is loaded; call LoadModel first");
-            }
-            const GStatus identity = check_model_identity(*model, request);
-            if (!identity.ok()) {
-                return identity;
+                return refusal;
             }
 
             audiocpp_backend::RequestShape shape;
