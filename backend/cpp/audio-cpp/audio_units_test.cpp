@@ -3,6 +3,7 @@
 
 #include "audio_units.cpp"
 
+#include <cfenv>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -138,14 +139,35 @@ static void test_s16le_decode_range() {
 
 static void test_s16le_nan_input() {
     // A NaN sample must not reach std::lround, whose result is unspecified for
-    // NaN. See the argument-order comment in f32_to_s16le.
-    const std::vector<float> decoded =
-        s16le_to_f32(f32_to_s16le({std::numeric_limits<float>::quiet_NaN()}));
+    // NaN. Asserting a range is not enough to pin this: the three outcomes the
+    // plausible clamp spellings produce (full scale, negative full scale, zero)
+    // are all finite and all inside [-1, 1], so a range check passes for every
+    // one of them. Only an exact value distinguishes them.
+    // NaN maps to silence, not to full scale: a NaN sample rendered as a
+    // full-scale click is worse audio than a dropped one, and this unit
+    // converts audio that may have originated off the wire.
+    //
+    // volatile so the NaN cannot be constant-folded, which would let the
+    // compiler evaluate the conversion at compile time and raise no
+    // floating-point exception at run time for the check below to observe.
+    volatile float nan_source = std::numeric_limits<float>::quiet_NaN();
+    const std::vector<float> input = {nan_source};
+
+    std::feclearexcept(FE_ALL_EXCEPT);
+    const std::string encoded = f32_to_s16le(input);
+    const bool raised_invalid = std::fetestexcept(FE_INVALID) != 0;
+    const std::vector<float> decoded = s16le_to_f32(encoded);
+
     check(decoded.size() == 1, "a NaN sample still encodes to one sample");
-    check(decoded.size() == 1 && std::isfinite(decoded[0]),
-          "a NaN sample encodes to a finite value");
-    check(decoded.size() == 1 && decoded[0] >= -1.0f && decoded[0] <= 1.0f,
-          "a NaN sample encodes within full scale");
+    check(decoded.size() == 1 && decoded[0] == 0.0f,
+          "a NaN sample encodes to exactly zero, not to a full-scale click");
+    // Independent of the value: a quiet NaN raises invalid-operation as soon as
+    // it reaches any ordered comparison, which is what std::min and std::max
+    // use, so this fails unless the NaN is diverted before the clamp runs at
+    // all. That is what stops the explicit guard from being dropped in favour
+    // of a clamp spelling that happens to yield zero.
+    check(!raised_invalid,
+          "encoding a NaN sample raises no invalid-operation exception");
 }
 
 static void test_s16le_odd_length() {

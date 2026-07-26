@@ -49,8 +49,16 @@ std::int64_t seconds_to_samples(double seconds, int sample_rate) {
     }
     // Round rather than truncate: these functions exist to cross the float
     // seconds boundary the VAD and diarize messages use, so a value that came
-    // from samples_to_seconds must convert back to the sample it started as.
-    // Truncation loses one sample about half the time, starting at n=1.
+    // from samples_to_seconds converts back to the sample it started as.
+    // Truncation lost one sample about half the time, starting at n=1.
+    //
+    // That round trip is exact only below roughly 2^23 samples. Past that the
+    // float samples_to_seconds returns can no longer resolve adjacent indices
+    // and the trip fails whatever the rounding: measured first failures run
+    // from 11289602 samples (4.3 min at 44.1 kHz, 2.1 min at 96 kHz) to
+    // 16384001 (17 min at 16 kHz). That is a property of the float seconds API
+    // itself, not of the rounding here, and it is why nothing should use these
+    // to carry a sample-accurate position in a long recording.
     return static_cast<std::int64_t>(std::llround(scaled));
 }
 
@@ -79,11 +87,27 @@ std::string f32_to_s16le(const std::vector<float> &samples) {
     std::string bytes;
     bytes.reserve(samples.size() * 2);
     for (const float sample : samples) {
-        // Argument order is load-bearing: std::min(1.0f, sample) returns 1.0f
-        // for a NaN sample, because NaN < 1.0f is false and min returns its
-        // first argument in that case. Written the equally natural
-        // std::min(sample, 1.0f), a NaN would pass straight through to
-        // std::lround, whose result is unspecified for NaN. Do not reorder.
+        // NaN maps to silence. A NaN sample rendered as a full-scale click is
+        // worse audio than a dropped one, and this unit converts audio that may
+        // have originated off the wire.
+        //
+        // This guard also removes what used to be a spelling hazard in the
+        // clamp below. std::min and std::max return their first argument when
+        // the comparison is false, and every comparison against NaN is false,
+        // so before this branch existed the choice of spelling silently decided
+        // whether a NaN reached std::lround, whose result is unspecified for
+        // NaN. These three leaked it, the last being the idiomatic C++17 way to
+        // write a clamp and so the likeliest future edit:
+        //   std::min(std::max(sample, -1.0f), 1.0f)
+        //   std::max(std::min(sample, 1.0f), -1.0f)
+        //   std::clamp(sample, -1.0f, 1.0f)
+        // The order is no longer load-bearing now that the guard runs first,
+        // but the history is why the guard is here, so do not drop it.
+        if (std::isnan(sample)) {
+            bytes.push_back(0);
+            bytes.push_back(0);
+            continue;
+        }
         const float clamped = std::max(-1.0f, std::min(1.0f, sample));
         // 32767 rather than 32768 so +1.0 saturates at INT16_MAX instead of
         // overflowing to INT16_MIN. See s16le_to_f32 for why decode differs.
