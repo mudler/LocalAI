@@ -337,11 +337,15 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
     capabilities_ = to_capabilities(family, engine_caps);
 }
 
-void LoadedModel::check_can_serve(Rpc rpc, const RequestShape &shape) const {
+Route LoadedModel::check_can_serve(Rpc rpc, const RequestShape &shape) const {
     const Route route = resolve_route(rpc, shape, capabilities_);
     if (!route.ok) {
         throw CapabilityError(route.error);
     }
+    // Returned so a handler can act on the task before running it. It is the
+    // same route session_for will resolve, since both read the immutable
+    // capabilities_ from the same shape.
+    return route;
 }
 
 LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape,

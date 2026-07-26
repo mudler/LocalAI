@@ -132,8 +132,14 @@ constexpr int kSpeechSampleRate = 16000;
 //
 // Separation forces it. htdemucs and mel_band_roformer refuse anything but
 // their own rate outright, from prepare(): "HTDemucs prepare() sample rate
-// mismatch: expected 44100" (src/models/demucs/session.cpp) and the same shape
-// in src/models/roformer/session.cpp. Passing kSpeechSampleRate here would
+// mismatch: expected N" (src/models/demucs/session.cpp) and the same shape in
+// src/models/roformer/session.cpp. That N is the CHECKPOINT'S declared rate,
+// read from the packaged config ("samplerate" in demucs/assets.cpp,
+// "sample_rate" in roformer/assets.cpp), not a constant: it is 44100 for every
+// published checkpoint of both, which is why the messages below say 44100, but
+// a checkpoint declaring something else would demand that instead, and only
+// passing the file through unchanged can satisfy either. Passing
+// kSpeechSampleRate here would
 // therefore turn every separation request into an INTERNAL, which is a loud
 // failure. The downmix half is the quiet one: both models declare two channels
 // and ACCEPT mono, by duplicating it across both, so a mono read would be taken
@@ -147,27 +153,29 @@ constexpr int kSpeechSampleRate = 16000;
 //
 //   seed_vc      (vc, svc) seed_vc_prepare_audio_for_sample_rate takes the
 //                buffer's rate and channel count and resamples to its own mel
-//                rate with resample_mono_torchaudio_sinc_hann.
+//                rate: soxr when it is available, falling back to
+//                resample_mono_torchaudio_sinc_hann (seed_vc/audio_features.cpp).
 //   vevo2        (vc, s2s, svc) normalize_audio_to_24k_mono converts whatever
-//                it is given to 24 kHz mono before anything else runs.
+//                it is given to 24 kHz mono before anything else runs, linearly.
 //   miocodec     (vc, s2s) prepare_miocodec_mono_audio mixes down, then
-//                resamples to the model's rate, again with sinc-hann.
+//                resamples to the model's rate with sinc-hann.
 //   chatterbox   (vc) ChatterboxVcComponent::convert normalizes the source to
-//                16 kHz and the reference to 24 kHz itself.
+//                16 kHz and the reference to 24 kHz itself, linearly.
 //
 // So every one of them resamples internally, and passing the file through
-// unchanged is not merely tolerated but strictly better: their outputs run at
-// 22.05 to 44.1 kHz, and pre-folding the input to 16 kHz mono with
-// read_audio_file's LINEAR resampler would band-limit at 8 kHz and alias, then
-// hand the family a signal it would upsample again. Two of the four use a
-// windowed-sinc resampler, which is exactly the quality this constant would
-// throw away before they ever saw the samples.
+// unchanged is better than folding it first. The reason is the DOUBLE
+// conversion, not resampler quality: two of the four resample linearly, exactly
+// as read_audio_file would. Their outputs run at 22.05 to 44.1 kHz, so
+// pre-folding to 16 kHz mono with read_audio_file's LINEAR, unfiltered
+// resampler would band-limit at 8 kHz and alias, and then the family would
+// resample that damaged signal a second time on its way up. One conversion is
+// the floor; this constant is what keeps it at one.
 //
 // The cost, stated plainly: a family that cannot handle the file's rate reports
 // it from inside the engine as a plain runtime_error, which to_status maps to
 // INTERNAL rather than INVALID_ARGUMENT. That is the accepted trade, since the
-// only families that refuse are the separators and their requirement is
-// 44.1 kHz stereo, i.e. an ordinary music file.
+// only families that refuse are the separators and what they want is an
+// ordinary music file at its own rate.
 constexpr int kTransformSampleRate = 0;
 
 // Parses ModelOptions.MainGPU into a device index.
@@ -801,7 +809,8 @@ public:
             // behind somebody else's thirty second run, and it must not blame
             // the caller's paths for a decision that had nothing to do with
             // them. Same ordering as Diarize and AudioTranscription.
-            model->check_can_serve(audiocpp_backend::Rpc::AudioTransform, shape);
+            const audiocpp_backend::Route route =
+                model->check_can_serve(audiocpp_backend::Rpc::AudioTransform, shape);
 
             if (request->audio_path().empty() || request->dst().empty()) {
                 throw audiocpp_backend::ConfigError(
@@ -821,6 +830,23 @@ public:
                     continue;
                 }
                 task.options[param.first] = param.second;
+            }
+
+            // Refused from the ROUTE, before the file reads and before the run.
+            // Only source separation produces named stems, and the route says
+            // whether this is separation without running anything: the identical
+            // refusal below, taken from the empty named_audio_outputs list,
+            // cannot fire until a full conversion has been paid for (measured at
+            // 1.6 s on miocodec, far worse on seed_vc or vevo2). The one below
+            // stays as the backstop for a separation-routed family that returns
+            // no stems anyway.
+            if (!requested_stem.empty() &&
+                route.task != audiocpp_backend::Task::SourceSeparation) {
+                throw audiocpp_backend::ConfigError(
+                    "audio-cpp: family '" + model->family() + "' routes this " +
+                    "request to " + audiocpp_backend::task_name(route.task) +
+                    ", which produces a single output with no named stems, so "
+                    "params[stem]='" + requested_stem + "' cannot be honoured");
             }
 
             // Native rate, native channels, for both files. See
@@ -856,6 +882,13 @@ public:
                 // unknown stem name is a refused request, and a refused request
                 // must not leave four files in the caller's output directory
                 // that it then reports nothing about.
+                //
+                // The guarantee is exactly that and no more: a request REFUSED
+                // ON ITS ARGUMENTS writes nothing. A write that FAILS partway
+                // through the loop below, on a full disk say, still leaves the
+                // siblings written before it, with no dst. Nothing is rolled
+                // back, because deleting files after a disk error is its own
+                // way to lose data, and the caller sees the failure.
                 const auto choice =
                     audiocpp_backend::select_named_output(names, requested_stem);
                 if (!choice.error.empty()) {

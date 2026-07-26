@@ -152,6 +152,53 @@ static void test_unreadable_file_is_a_config_error() {
     check(threw_config_error, "a non-WAV input is INVALID_ARGUMENT, not INTERNAL");
 }
 
+// The write side of the same distinction. The destination is LocalAI's own
+// generated-content directory, not a caller-supplied path, so a failure to
+// write it is a server fault: INTERNAL, which a client may retry, and not
+// INVALID_ARGUMENT, which tells it the request itself was wrong.
+static void test_write_failure_is_not_a_config_error() {
+    // A regular file where a directory has to be. ENOTDIR defeats root as well
+    // as an ordinary user, unlike a chmod, which CI running as root would walk
+    // straight through.
+    const auto blocker = scratch_dir() / "blocking-file";
+    {
+        FILE *file = fopen(blocker.string().c_str(), "wb");
+        if (file != nullptr) {
+            fputs("not a directory", file);
+            fclose(file);
+        }
+    }
+    const auto path = blocker / "nested" / "out.wav";
+
+    bool threw_config_error = false;
+    bool threw_something = false;
+    try {
+        write_audio_file(path.string(), tone(16000, 1, 0.05f));
+    } catch (const ConfigError &) {
+        threw_config_error = true;
+        threw_something = true;
+    } catch (const std::exception &) {
+        threw_something = true;
+    }
+    check(threw_something, "an unwritable destination is reported at all");
+    check(!threw_config_error,
+          "a failed write is INTERNAL, not INVALID_ARGUMENT: the caller did not "
+          "choose the destination and cannot fix it");
+    check(!std::filesystem::exists(path), "and nothing was written");
+}
+
+static void test_empty_output_path_is_a_config_error() {
+    // The one write failure that IS the caller's: no path at all.
+    bool threw_config_error = false;
+    try {
+        write_audio_file("", tone(16000, 1, 0.05f));
+    } catch (const ConfigError &) {
+        threw_config_error = true;
+    } catch (const std::exception &) {
+    }
+    check(threw_config_error, "an empty output path stays INVALID_ARGUMENT");
+}
+
 int main() {
     test_441k_stereo_is_read_as_16k_mono();
     test_48k_is_read_as_16k();
@@ -159,6 +206,8 @@ int main() {
     test_zero_target_keeps_the_native_format();
     test_missing_file_is_a_config_error();
     test_unreadable_file_is_a_config_error();
+    test_write_failure_is_not_a_config_error();
+    test_empty_output_path_is_a_config_error();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

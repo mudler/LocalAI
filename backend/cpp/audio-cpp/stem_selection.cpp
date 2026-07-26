@@ -34,6 +34,22 @@ bool name_is_writable(const std::string &name) {
     if (name.empty() || name == "." || name == "..") {
         return false;
     }
+    // Control bytes, NUL above all. GGUF strings are length prefixed and demucs
+    // reads its source names out of JSON, which can encode one, so a
+    // std::string holding an embedded NUL survives all the way here. Two such
+    // names differing only AFTER the NUL are distinct std::strings, so the
+    // duplicate check below waves them through, and then path::c_str()
+    // truncates both at the NUL and they open the same file: precisely the
+    // silent overwrite the duplicate check exists to prevent, with the ".wav"
+    // stripped off as well. The rest of the range goes with it, since a newline
+    // or an escape sequence in a file name is a terminal and log injection
+    // nuisance with no legitimate use.
+    for (const char byte : name) {
+        const auto value = static_cast<unsigned char>(byte);
+        if (value < 0x20 || value == 0x7f) {
+            return false;
+        }
+    }
     // Both separators, not just the host's. A GGUF is a downloaded file and its
     // strings are not this host's to trust, so a name written on Windows must
     // not become a directory traversal wherever the check happens to run.

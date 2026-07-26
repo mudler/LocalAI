@@ -44,8 +44,14 @@ namespace audiocpp_backend {
 engine::runtime::AudioBuffer read_audio_file(const std::string &path,
                                              int target_sample_rate);
 
-// Writes 16-bit PCM WAV, creating parent directories. Throws ConfigError when
-// the destination cannot be written.
+// Writes 16-bit PCM WAV, creating parent directories.
+//
+// Throws ConfigError, i.e. INVALID_ARGUMENT, ONLY for an empty path, which is a
+// malformed request. Every other failure throws a plain runtime_error, i.e.
+// INTERNAL: the destination is LocalAI's own generated-content directory and
+// not anything the caller named, so a full disk or a permission fault there is
+// a server fault and is worth retrying, which is the opposite of what
+// INVALID_ARGUMENT tells a client.
 void write_audio_file(const std::string &path,
                       const engine::runtime::AudioBuffer &audio);
 

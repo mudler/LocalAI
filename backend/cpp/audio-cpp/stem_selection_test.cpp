@@ -127,6 +127,43 @@ static void test_unwritable_names_are_refused() {
     check(late.index == -1 && !late.error.empty(),
           "an unwritable name after the selected one still refuses the whole request");
 
+    // Control bytes, and the NUL case is why the whole range is refused. These
+    // two names are DIFFERENT std::strings, so the duplicate check does not
+    // fire, yet both truncate to "vocals" at path::c_str() and would open one
+    // file: the silent overwrite the duplicate check exists to prevent, with
+    // the ".wav" stripped off into the bargain.
+    const std::string nul_a("vocals\0drums", 12);
+    const std::string nul_b("vocals\0bass", 11);
+    check(nul_a != nul_b, "the two NUL names really are distinct std::strings");
+    check(std::string(nul_a.c_str()) == "vocals" &&
+              std::string(nul_b.c_str()) == "vocals",
+          "and both truncate to the same C string, which is the hazard");
+    const auto nul_pair = select_named_output({nul_a, nul_b}, "");
+    check(nul_pair.index == -1 && !nul_pair.error.empty(),
+          "two stem names differing only after an embedded NUL are refused");
+    check(!select_named_output({"drums", std::string("vo\0cals", 7)}, "").error.empty(),
+          "a single embedded NUL is refused on its own");
+    check(!select_named_output({"drums", "voc\nals"}, "").error.empty(),
+          "a newline in a stem name is refused");
+    check(!select_named_output({"drums", "voc\tals"}, "").error.empty(),
+          "a tab in a stem name is refused");
+    check(!select_named_output({"drums", "voc\033[31mals"}, "").error.empty(),
+          "an escape sequence in a stem name is refused");
+    check(!select_named_output({"drums", "voc\177als"}, "").error.empty(),
+          "DEL in a stem name is refused");
+
+    // The boundary below the refused range is the space, which is an ordinary
+    // file name character and must stay usable, or this check would be
+    // refusing real stem names.
+    const auto spaced = select_named_output({"lead vocals", "drums"}, "lead vocals");
+    check(spaced.index == 0 && spaced.error.empty(),
+          "a space is not a control character and stays usable");
+    // And every byte above DEL: a UTF-8 stem name is ordinary, and signed char
+    // would make those bytes compare as negative.
+    const auto utf8 = select_named_output({"vocals", "b\xc3\xa4sse"}, "b\xc3\xa4sse");
+    check(utf8.index == 1 && utf8.error.empty(),
+          "a UTF-8 stem name is not mistaken for a control character");
+
     // A leading dot is not a traversal and must stay usable.
     const auto dotted = select_named_output({".vocals", "drums"}, ".vocals");
     check(dotted.index == 0 && dotted.error.empty(),

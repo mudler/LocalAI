@@ -97,7 +97,18 @@ void write_audio_file(const std::string &path,
                                        audio.channels > 0 ? audio.channels : 1,
                                        audio.samples);
     } catch (const std::exception &err) {
-        throw ConfigError("audio-cpp: cannot write " + path + ": " + err.what());
+        // NOT a ConfigError, and the distinction is not cosmetic. The
+        // destination is chosen by LocalAI rather than by the caller: it is a
+        // unique name inside GeneratedContentDir. A failure to write it is a
+        // full disk, a permission fault on the server's own directory, or a bad
+        // mount, none of which the caller can fix or is to blame for. As a
+        // ConfigError this surfaced as INVALID_ARGUMENT, which tells a client
+        // its request was wrong and not to retry; a plain runtime_error maps to
+        // INTERNAL, which is both true and retryable. The empty path above
+        // stays INVALID_ARGUMENT, because that one really is a malformed
+        // request.
+        throw std::runtime_error("audio-cpp: cannot write " + path + ": " +
+                                 err.what());
     }
 }
 

@@ -99,7 +99,15 @@ public:
     const std::string &pinned_task() const noexcept { return pinned_task_; }
 
     // Throws the same CapabilityError session_for would throw when this family
-    // cannot serve the RPC, and does nothing otherwise.
+    // cannot serve the RPC, and RETURNS THE RESOLVED ROUTE otherwise.
+    //
+    // The route is returned rather than computed and dropped because a handler
+    // often has to know which task it is about to run BEFORE running it.
+    // AudioTransform refuses params[stem] on any route but source separation,
+    // and reading that off the route costs microseconds where reading it off
+    // the result costs a whole inference first. A caller with no such need
+    // ignores the value, which is what the three transcription-shaped handlers
+    // do.
     //
     // It exists so a refusal does not have to buy a place in the queue first.
     // resolve_route is a pure function of capabilities_, which is fixed at
@@ -115,7 +123,7 @@ public:
     //
     // Const and lane-free on purpose. If a future edit makes routing depend on
     // mutable state, this must grow the lane parameter its siblings carry.
-    void check_can_serve(Rpc rpc, const RequestShape &shape) const;
+    Route check_can_serve(Rpc rpc, const RequestShape &shape) const;
 
     // Routes the RPC and returns the cached session, creating it on first use.
     // Throws CapabilityError when this family cannot serve the RPC, and a plain
