@@ -177,7 +177,38 @@ static void test_s16le_odd_length() {
     check(s16le_to_f32(std::string()).empty(), "empty input yields no samples");
 }
 
+static void test_interleaved_frame_count() {
+    // Mono is a pass-through, which is the only case the VAD path exercises.
+    check(interleaved_frame_count(16000, 1) == 16000, "mono frames equal samples");
+    // The case that matters: a stereo buffer holds two floats per position, so a
+    // one second 16 kHz stereo clip is 32000 floats and still one second. Handing
+    // the raw float count to samples_to_seconds reports two seconds instead.
+    check(interleaved_frame_count(32000, 2) == 16000,
+          "stereo frames are half the samples");
+    check(samples_to_seconds(interleaved_frame_count(32000, 2), 16000) == 1.0f,
+          "a one second stereo clip measures one second, not two");
+    check(interleaved_frame_count(48000, 3) == 16000,
+          "three channels divide by three");
+    // engine::runtime::AudioBuffer defaults channels to 1, but a reader is free
+    // to report 0, and dividing by that is undefined rather than merely wrong.
+    check(interleaved_frame_count(1000, 0) == 1000,
+          "zero channels is treated as mono");
+    check(interleaved_frame_count(1000, -2) == 1000,
+          "a negative channel count is treated as mono");
+    // A dangling partial frame is not a position every channel reached.
+    check(interleaved_frame_count(3, 2) == 1,
+          "a trailing partial frame is not counted");
+    check(interleaved_frame_count(0, 2) == 0, "an empty buffer has no frames");
+    // Past 2^32 floats, so a size_t narrowed to 32 bits on the way in, or a
+    // signed 32-bit intermediate, shows up here rather than in a multi-hour
+    // recording nobody tests with.
+    check(interleaved_frame_count(static_cast<std::size_t>(9000000000ULL), 2) ==
+              4500000000LL,
+          "a buffer beyond 2^32 floats counts frames without truncating");
+}
+
 int main() {
+    test_interleaved_frame_count();
     test_nanoseconds();
     test_seconds();
     test_s16le_round_trip();

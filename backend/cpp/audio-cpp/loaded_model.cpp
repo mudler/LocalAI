@@ -423,6 +423,15 @@ LaneEntry LoadedModel::acquire(int requested_timeout_ms) {
                                             requested_timeout_ms));
 }
 
+engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
+                                       const engine::runtime::TaskRequest &request) {
+    if (session.offline == nullptr) {
+        throw CapabilityError("audio-cpp: no offline session for this request");
+    }
+    session.offline->prepare(engine::runtime::build_preparation_request(request));
+    return session.offline->run(request);
+}
+
 std::unique_ptr<LaneEntry> LoadedModel::acquire_owned(int requested_timeout_ms) {
     return std::make_unique<LaneEntry>(
         lane_,

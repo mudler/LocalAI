@@ -172,4 +172,20 @@ private:
     int wait_budget_ceiling_ms_ = 0;
 };
 
+// Prepares and runs an offline session. prepare() is called for every run
+// rather than once per session, because SessionPreparationRequest is derived
+// from the request itself (audio contract, text, voice condition) and not from
+// the model: a second request with a different sample rate or length would
+// otherwise run against the first request's contract.
+//
+// Call it only while holding the model's lane, for the same reason session_for
+// requires it: the session is not reentrant, and prepare() mutates it.
+//
+// Throws CapabilityError when the session is not an offline one. That should be
+// unreachable through session_for, which already refuses a non-offline session
+// for an offline route, and is checked anyway because the alternative is a null
+// dereference.
+engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
+                                       const engine::runtime::TaskRequest &request);
+
 } // namespace audiocpp_backend

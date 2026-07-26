@@ -90,6 +90,7 @@ add_executable(${TARGET}
     capability_routing.cpp
     family_gate.cpp
     loaded_model.cpp
+    audio_io.cpp
     audio_units.cpp
     transcript_assembly.cpp
     inference_lane.cpp

@@ -6,6 +6,14 @@
 
 namespace audiocpp_backend {
 
+std::int64_t interleaved_frame_count(std::size_t sample_count, int channels) {
+    const std::size_t lanes = channels > 0 ? static_cast<std::size_t>(channels)
+                                           : static_cast<std::size_t>(1);
+    // Truncating division is deliberate: a trailing partial frame is not a
+    // position every channel reached, so counting it would overstate the length.
+    return static_cast<std::int64_t>(sample_count / lanes);
+}
+
 std::int64_t samples_to_nanoseconds(std::int64_t samples, int sample_rate) {
     if (sample_rate <= 0) {
         return 0;

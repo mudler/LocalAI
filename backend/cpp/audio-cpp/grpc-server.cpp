@@ -5,12 +5,14 @@
 // src/ or tests/ is used: those are application internals, they are where
 // upstream expects churn, and upstream is Apache-2.0 while LocalAI is MIT.
 //
-// This commit adds LoadModel/Free/Status over one audio.cpp model. The audio
-// RPCs themselves land in later commits.
+// This commit adds LoadModel/Free/Status plus the VAD and Diarize RPCs. The
+// remaining audio RPCs land in later commits.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
 
+#include "audio_io.h"
+#include "audio_units.h"
 #include "capability_routing.h"
 #include "inference_lane.h"
 #include "loaded_model.h"
@@ -24,12 +26,14 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <utility>
@@ -71,6 +75,14 @@ std::shared_ptr<audiocpp_backend::LoadedModel> snapshot() {
     std::lock_guard<std::mutex> lock(g_model_mu);
     return g_model;
 }
+
+// LocalAI's VADRequest carries raw floats and no sample rate at all. Every
+// LocalAI VAD backend treats them as 16 kHz mono (backend/go/silero-vad/vad.go
+// and backend/go/sherpa-onnx/backend.go both hardcode 16000) and core/backend
+// feeds them from a 16 kHz pipeline, so the same assumption is made here rather
+// than left implicit. If the proto ever grows a sample rate field, this is the
+// constant to delete.
+constexpr int kVadSampleRate = 16000;
 
 // Parses ModelOptions.MainGPU into a device index.
 //
@@ -209,6 +221,157 @@ public:
         released.reset();
         result->set_success(true);
         return GStatus::OK;
+    }
+
+    GStatus VAD(ServerContext *, const backend::VADRequest *request,
+                backend::VADResponse *response) override {
+        try {
+            // snapshot(), and the result is held for the whole call. Free may
+            // arrive mid-request; it drops the global's reference only, so this
+            // one keeps the model alive until the handler returns.
+            const auto model = snapshot();
+            if (model == nullptr) {
+                return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
+                               "audio-cpp: no model is loaded; call LoadModel first");
+            }
+
+            audiocpp_backend::RequestShape shape;
+            // Without this the `task:` model option is dead: routing is
+            // otherwise derived from the RPC alone.
+            shape.pinned_task = model->pinned_task();
+
+            engine::runtime::TaskRequest task;
+            task.audio_input = audiocpp_backend::buffer_from_mono(
+                std::vector<float>(request->audio().begin(), request->audio().end()),
+                kVadSampleRate);
+
+            // The lane is taken BEFORE session_for, not after. session_for
+            // reads and writes an unsynchronised session cache and prepare()
+            // mutates the session itself, so both belong inside the lane; see
+            // the note on session_for in loaded_model.h. Bound to a named local
+            // because LaneEntry is immovable and C++17 elides the return.
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session =
+                model->session_for(audiocpp_backend::Rpc::Vad, shape);
+            const auto result = audiocpp_backend::run_offline(session, task);
+
+            // VADSegment.start/end are float SECONDS, not sample indices.
+            for (const auto &segment : result.speech_segments) {
+                auto *out = response->add_segments();
+                out->set_start(audiocpp_backend::samples_to_seconds(
+                    segment.span.start_sample, kVadSampleRate));
+                out->set_end(audiocpp_backend::samples_to_seconds(
+                    segment.span.end_sample, kVadSampleRate));
+            }
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            return to_status(err);
+        }
+    }
+
+    GStatus Diarize(ServerContext *, const backend::DiarizeRequest *request,
+                    backend::DiarizeResponse *response) override {
+        try {
+            const auto model = snapshot();
+            if (model == nullptr) {
+                return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
+                               "audio-cpp: no model is loaded; call LoadModel first");
+            }
+
+            audiocpp_backend::RequestShape shape;
+            shape.pinned_task = model->pinned_task();
+
+            // Lane then route then read, in that order, and the read is last on
+            // purpose. A family that cannot diarize at all should say so, not
+            // complain about the input file first: on a VAD-only model, reading
+            // the audio would surface "cannot read /tmp/x.wav" and send the
+            // operator hunting a file problem instead of a model choice. The
+            // read costs a lane wait in exchange, which is the same wait every
+            // capability refusal already pays because session_for needs the lane.
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session =
+                model->session_for(audiocpp_backend::Rpc::Diarize, shape);
+
+            // DiarizeRequest.dst is the INPUT path, despite the field name: the
+            // HTTP layer materialises the upload to a temp file and passes the
+            // path here. Nothing is written back.
+            auto audio = audiocpp_backend::read_audio_file(request->dst());
+            const int sample_rate = audio.sample_rate;
+            // Read off the buffer before it is moved into the request below.
+            // Frames, not floats: a stereo input holds two floats per position
+            // and would otherwise report twice its real duration.
+            const std::int64_t frames = audiocpp_backend::interleaved_frame_count(
+                audio.samples.size(), audio.channels);
+
+            engine::runtime::TaskRequest task;
+            // Moved, not copied: a long recording runs to tens of megabytes and
+            // this is its only owner.
+            task.audio_input = std::move(audio);
+            // Forwarded verbatim, and deliberately not validated against what
+            // the family can do. audio.cpp's sortformer diarizer takes its
+            // speaker count from the model package (the bundled variant is
+            // 4-speaker) and reads none of these keys, so today they have no
+            // effect. That is the documented LocalAI contract, not a silent
+            // failure: core/backend/diarization.go says outright that backends
+            // ignore the hints they do not act on. Forwarding them still means a
+            // family that does read them gets them, with no change here. The
+            // knobs that DO reach sortformer (speaker_threshold,
+            // speaker_min_frames, speaker_pad_frames, session_len_sec) are
+            // session options and arrive through the model YAML's
+            // `session.<key>:` entries at load time, not per request.
+            if (request->num_speakers() > 0) {
+                task.options["num_speakers"] =
+                    std::to_string(request->num_speakers());
+            }
+            if (request->min_speakers() > 0) {
+                task.options["min_speakers"] =
+                    std::to_string(request->min_speakers());
+            }
+            if (request->max_speakers() > 0) {
+                task.options["max_speakers"] =
+                    std::to_string(request->max_speakers());
+            }
+
+            const auto result = audiocpp_backend::run_offline(session, task);
+
+            // Emitted verbatim, in the order the model produced them. NOT
+            // sorted, merged or de-overlapped: sortformer binarizes each speaker
+            // independently, so a turn nested inside another speaker's turn is
+            // correct output for overlapped speech. LocalAI is overlap-tolerant
+            // downstream (core/backend/diarization.go passes segments through
+            // and the RTTM renderer handles overlap), so smoothing here would
+            // destroy real information.
+            std::set<std::string> speakers;
+            int id = 0;
+            for (const auto &turn : result.speaker_turns) {
+                auto *out = response->add_segments();
+                out->set_id(id++);
+                // Seconds, like VADSegment. Only TranscriptSegment/Word are ns.
+                out->set_start(audiocpp_backend::samples_to_seconds(
+                    turn.span.start_sample, sample_rate));
+                out->set_end(audiocpp_backend::samples_to_seconds(
+                    turn.span.end_sample, sample_rate));
+                out->set_speaker(turn.speaker_id);
+                // text stays EMPTY, including when include_text is set.
+                // audio.cpp's SpeakerTurn carries a span and a speaker label
+                // only, and TaskResult has no per-segment text anywhere, so
+                // there is nothing truthful to put here.
+                speakers.insert(turn.speaker_id);
+            }
+            response->set_num_speakers(static_cast<int>(speakers.size()));
+            response->set_duration(
+                audiocpp_backend::samples_to_seconds(frames, sample_rate));
+
+            // Only set when the family bundles transcription, which no
+            // diarization-only family does; kept because a combined family
+            // would fill it in and the field is documented as optional.
+            if (result.text_output.has_value()) {
+                response->set_language(result.text_output->language);
+            }
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            return to_status(err);
+        }
     }
 };
 
