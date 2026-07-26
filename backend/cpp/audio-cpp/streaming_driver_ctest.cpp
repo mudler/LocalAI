@@ -440,6 +440,39 @@ static void test_chunking_honours_the_policy_sample_count() {
     }
 }
 
+// A buffer whose float count is not a whole number of frames is REFUSED rather
+// than truncated. The integer division would otherwise drop the tail floats
+// from the fed audio, and therefore from the transcript, with no diagnostic.
+static void test_a_partial_trailing_frame_is_refused() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 100;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    // 501 floats across 2 channels: 250 whole frames and one stray float.
+    rt::TaskRequest request;
+    rt::AudioBuffer audio;
+    audio.sample_rate = 48000;
+    audio.channels = 2;
+    audio.samples.assign(501, 0.5F);
+    request.audio_input = std::move(audio);
+
+    bool threw_config = false;
+    try {
+        audiocpp_backend::run_streaming_audio(session, request, *request.audio_input,
+                                              [](const rt::StreamEvent &) {}, entry);
+    } catch (const audiocpp_backend::ConfigError &) {
+        threw_config = true;
+    } catch (const std::exception &) {
+    }
+    check(threw_config,
+          "a buffer that is not a whole number of frames is refused with ConfigError");
+    check(fake.calls.empty(),
+          "the refusal precedes every call into the session, so no half-started "
+          "stream is left on the cached one");
+}
+
 // higgs_audio_stt states its window in seconds and leaves the sample count at
 // zero, so this branch is a real family's path rather than a defensive one.
 static void test_chunking_falls_back_to_the_policy_seconds() {
@@ -613,6 +646,7 @@ int main() {
     test_run_streaming_audio_installs_and_clears_the_sink();
     test_the_sink_is_cleared_when_the_stream_throws();
     test_chunking_honours_the_policy_sample_count();
+    test_a_partial_trailing_frame_is_refused();
     test_chunking_falls_back_to_the_policy_seconds();
     test_chunking_falls_back_to_the_interface_default();
     test_a_seconds_policy_with_no_rate_falls_through();

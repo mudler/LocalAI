@@ -164,6 +164,107 @@ std::string require_family(const std::string &resolved_path,
     return decision.family;
 }
 
+// Families that CRASH THE PROCESS on a weight dtype they cannot handle, and the
+// dtypes they can.
+//
+// A guard rather than a note, because the failure is not an exception: loading a
+// supertonic package whose weights are stored as f16 or q8_0 reaches
+// ggml_concat with one f16 operand and one f32 one, and ggml_abort takes the
+// whole backend process down with SIGABRT on the FIRST synthesis. Nothing
+// upstream of here can catch that, so an operator sees a backend that dies on
+// every request with no status and no message, and the model that killed it
+// loaded successfully.
+//
+// Attributed rather than assumed: the abort is identical through the unary TTS
+// RPC and through TTSStream, and upstream's own docs/gguf.md:90 records
+// supertonic's 16-bit GGUF column as "---", i.e. NOT TESTED, and its q8_0 as
+// "No (unsupported weight dtype)". Only the `orig` package, whose 698 weight
+// tensors are f32, is marked Pass, and that is the one every verification of
+// this backend has used.
+//
+// i64 is allowed alongside f32 because the orig package itself carries 72 i64
+// tensors (shape and index constants), so refusing them would refuse the
+// artifact that works.
+//
+// TO REMOVE THIS: bump AUDIO_CPP_VERSION past a fix, load a supertonic f16
+// package, and synthesise. If it produces audio, delete the entry. Do not widen
+// it without running that, because the failure it prevents is a process death
+// rather than a wrong answer.
+struct DtypeAllowList {
+    const char *family;
+    const char *allowed[3];
+};
+
+constexpr DtypeAllowList kDtypeAllowLists[] = {
+    {"supertonic", {"f32", "i64", nullptr}},
+};
+
+// Refuses a GGUF whose weights are stored in a dtype the family cannot survive.
+//
+// Only GGUF paths are inspected. A directory of safetensors carries its dtypes
+// per file and has not been tested against this failure, so it is passed
+// through rather than guessed at.
+void require_supported_weight_dtypes(const std::string &family,
+                                     const std::string &resolved_path) {
+    const DtypeAllowList *list = nullptr;
+    for (const auto &entry : kDtypeAllowLists) {
+        if (family == entry.family) {
+            list = &entry;
+            break;
+        }
+    }
+    if (list == nullptr || !path_looks_like_gguf(resolved_path)) {
+        return;
+    }
+
+    std::string offending_dtype;
+    std::string offending_tensor;
+    try {
+        const auto source =
+            engine::assets::open_tensor_source(std::filesystem::path(resolved_path));
+        if (source == nullptr) {
+            return;
+        }
+        for (const auto &tensor : source->tensors()) {
+            bool allowed = false;
+            for (const char *const *name = list->allowed; *name != nullptr; ++name) {
+                if (tensor.dtype == *name) {
+                    allowed = true;
+                    break;
+                }
+            }
+            if (!allowed) {
+                offending_dtype = tensor.dtype;
+                offending_tensor = tensor.name;
+                break;
+            }
+        }
+    } catch (const std::exception &) {
+        // Unreadable as a tensor source. Not this guard's problem to report:
+        // the registry load below produces a message naming the real fault, and
+        // refusing here would turn every unusual packaging into this error.
+        return;
+    }
+
+    if (offending_dtype.empty()) {
+        return;
+    }
+    std::string allowed_names;
+    for (const char *const *name = list->allowed; *name != nullptr; ++name) {
+        if (!allowed_names.empty()) {
+            allowed_names += ", ";
+        }
+        allowed_names += *name;
+    }
+    throw ConfigError(
+        "audio-cpp: family '" + family + "' cannot run weights stored as '" +
+        offending_dtype + "' (tensor '" + offending_tensor + "' in " +
+        resolved_path +
+        "); it aborts the backend process on the first request rather than "
+        "failing the request. Use the 'orig' GGUF package, whose weights are " +
+        allowed_names + ".");
+}
+
 } // namespace
 
 engine::runtime::VoiceTaskKind to_engine_task(Task task) {
@@ -292,6 +393,12 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
     if (!registry_.supports_family(family)) {
         throw ConfigError("audio-cpp: unknown audio.cpp family '" + family + "'");
     }
+
+    // Before the load, for the same reason parse_backend_type runs before it:
+    // a refusal a metadata read can produce should not cost a full model load.
+    // More importantly it must precede the FIRST REQUEST, since that is where
+    // an unsupported dtype aborts the process rather than failing.
+    require_supported_weight_dtypes(family, resolved_path);
 
     // Session options are built BEFORE the load, because parse_backend_type
     // rejects an unknown backend name. Validating after the load would make
@@ -562,6 +669,30 @@ engine::runtime::TaskResult run_streaming_audio(
     LaneEntry &lane) {
     auto &streaming = require_streaming(session);
 
+    const int channels = audio.channels > 0 ? audio.channels : 1;
+    // REFUSED, not rounded away, and checked before anything is touched so a
+    // refusal leaves no half-started stream on a cached session.
+    //
+    // An interleaved buffer whose float count is not a whole number of frames
+    // is a truncated input, and the integer division below would silently drop
+    // the tail floats: they would never be fed, never reach the transcript, and
+    // nothing would say so. Upstream refuses it from the other side of this
+    // same call rather than tolerating it: vibevoice_asr's process_audio_chunk
+    // throws "VibeVoice-ASR streamed audio samples must be divisible by channel
+    // count" (session.cpp:74-77).
+    //
+    // ConfigError, i.e. INVALID_ARGUMENT, because the buffer came from the
+    // caller's file. read_audio_file's positive-rate path always answers mono
+    // and so cannot reach this, but its native-rate path passes the reader's
+    // sample count through unchanged, and a driver does not get to assume which
+    // path its caller took.
+    if (audio.samples.size() % static_cast<std::size_t>(channels) != 0) {
+        throw ConfigError(
+            "audio-cpp: streaming input is not a whole number of frames: " +
+            std::to_string(audio.samples.size()) + " samples across " +
+            std::to_string(channels) + " channels");
+    }
+
     // Installed BEFORE the stream begins, so a family that reports during
     // start_stream is not silently dropped, and destroyed after finish_stream,
     // because nemotron_asr emits every one of its partials from inside
@@ -575,7 +706,6 @@ engine::runtime::TaskResult run_streaming_audio(
 
     begin_stream(session, request, lane);
 
-    const int channels = audio.channels > 0 ? audio.channels : 1;
     const auto total_frames =
         static_cast<std::int64_t>(audio.samples.size() / static_cast<size_t>(channels));
     const std::int64_t chunk_frames =

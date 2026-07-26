@@ -166,6 +166,187 @@ static void test_prefix_extension_is_read_as_cumulative() {
     check_eq(tracker.assembled(), "I'm", "cumulative reading assembles once");
 }
 
+// --------------------------------------------------------------------------
+// UTF-8 boundaries
+//
+// TranscriptStreamResponse.delta is a proto3 `string`, and the wire format
+// REQUIRES a string field to be valid UTF-8. The C++ runtime serializes an
+// invalid one with at most a warning; the Go runtime refuses to unmarshal it,
+// so the client loses every delta AND the final_result still to come.
+//
+// Not hypothetical. voxtral_realtime reports the whole hypothesis as
+// tokenizer_.decode(streaming_token_ids_), and that decode is a pure
+// concatenation of raw token BYTES (tokenizer_text.cpp:171-183), so a
+// multi-byte character is split across token boundaries and the cumulative
+// difference between two consecutive reports is a lone continuation byte.
+// --------------------------------------------------------------------------
+
+// True when `text` is well-formed UTF-8. Written out here rather than reused
+// from the implementation on purpose: a test that shares the implementation's
+// idea of a boundary cannot catch the implementation's idea being wrong.
+static bool is_valid_utf8(const std::string &text) {
+    size_t i = 0;
+    while (i < text.size()) {
+        const auto lead = static_cast<unsigned char>(text[i]);
+        size_t length = 0;
+        if ((lead & 0x80) == 0x00) {
+            length = 1;
+        } else if ((lead & 0xE0) == 0xC0) {
+            length = 2;
+        } else if ((lead & 0xF0) == 0xE0) {
+            length = 3;
+        } else if ((lead & 0xF8) == 0xF0) {
+            length = 4;
+        } else {
+            return false;
+        }
+        if (i + length > text.size()) {
+            return false;
+        }
+        for (size_t k = 1; k < length; ++k) {
+            if ((static_cast<unsigned char>(text[i + k]) & 0xC0) != 0x80) {
+                return false;
+            }
+        }
+        i += length;
+    }
+    return true;
+}
+
+// Written as byte escapes so the test does not depend on the encoding of this
+// source file.
+static const std::string kEAcute = "\xC3\xA9";        // 2 bytes
+static const std::string kEuro = "\xE2\x82\xAC";      // 3 bytes
+static const std::string kEmoji = "\xF0\x9F\x8E\xA7"; // 4 bytes
+
+// A cumulative family advancing its hypothesis one BYTE at a time, which is
+// what voxtral_realtime does across a multi-byte character.
+static void test_cumulative_split_multibyte_character() {
+    TranscriptDeltaTracker tracker;
+    std::vector<std::string> emitted;
+    const std::string full = "5" + kEuro;
+    std::vector<std::string> partials;
+    for (size_t n = 1; n <= full.size(); ++n) {
+        partials.push_back(full.substr(0, n));
+    }
+    const std::string view = client_view(tracker, partials, &emitted);
+
+    check_eq(view, full, "a byte-at-a-time cumulative report still assembles");
+    for (size_t i = 0; i < emitted.size(); ++i) {
+        check(is_valid_utf8(emitted[i]),
+              "cumulative fragment " + std::to_string(i) + " is valid UTF-8");
+    }
+    check_eq(tracker.reconcile(full), "", "the final text adds nothing");
+}
+
+// An incremental family splitting a character across two fragments.
+static void test_incremental_split_multibyte_character() {
+    TranscriptDeltaTracker tracker;
+    std::vector<std::string> emitted;
+    const std::string view = client_view(
+        tracker, {"caf" + kEAcute.substr(0, 1), kEAcute.substr(1), " au lait"},
+        &emitted);
+
+    check_eq(view, "caf" + kEAcute + " au lait",
+             "an incremental split character still assembles");
+    for (size_t i = 0; i < emitted.size(); ++i) {
+        check(is_valid_utf8(emitted[i]),
+              "incremental fragment " + std::to_string(i) + " is valid UTF-8");
+    }
+    check(emitted.size() == 3, "one fragment out per partial, none swallowed");
+    if (emitted.size() == 3) {
+        check_eq(emitted[0], "caf", "the lead byte of the character is held back");
+        check_eq(emitted[1], kEAcute,
+                 "the held byte is merged into the next fragment, not sent alone");
+        check_eq(emitted[2], " au lait", "the rest follows unchanged");
+    }
+}
+
+// A 4 byte character split three ways, so the held-back buffer has to survive
+// more than one round.
+static void test_four_byte_character_split_three_ways() {
+    TranscriptDeltaTracker tracker;
+    std::vector<std::string> emitted;
+    const std::string view =
+        client_view(tracker,
+                    {"listen " + kEmoji.substr(0, 1), kEmoji.substr(1, 2),
+                     kEmoji.substr(3), " now"},
+                    &emitted);
+    check_eq(view, "listen " + kEmoji + " now",
+             "a 4 byte character survives three splits");
+    for (size_t i = 0; i < emitted.size(); ++i) {
+        check(is_valid_utf8(emitted[i]),
+              "4 byte fragment " + std::to_string(i) + " is valid UTF-8");
+    }
+}
+
+// The held-back bytes must reach the client. reconcile can always flush them,
+// because the final text is complete by construction.
+static void test_reconcile_flushes_a_held_back_sequence() {
+    TranscriptDeltaTracker tracker;
+    const std::string first = tracker.observe("done" + kEuro.substr(0, 2));
+    check_eq(first, "done", "the incomplete trailing sequence is held back");
+    check(is_valid_utf8(first), "what was emitted is valid UTF-8");
+    const std::string tail = tracker.reconcile("done" + kEuro);
+    check_eq(tail, kEuro, "reconcile flushes the completed character");
+    check(is_valid_utf8(tail), "the flushed tail is valid UTF-8");
+    check_eq(tracker.assembled(), "done" + kEuro, "the client holds the whole text");
+}
+
+// Held-back bytes are not lost track of: the next cumulative report emits the
+// whole character rather than only the bytes that just arrived.
+static void test_held_bytes_join_the_next_fragment() {
+    TranscriptDeltaTracker tracker;
+    check_eq(tracker.observe("a" + kEuro.substr(0, 1)), "a",
+             "only the complete prefix goes out");
+    check_eq(tracker.observe("a" + kEuro), kEuro,
+             "the next cumulative report emits the whole character at once");
+    check_eq(tracker.assembled(), "a" + kEuro, "assembly is correct");
+}
+
+// A whole multi-byte character arriving at once must NOT be held back: holding
+// a complete sequence would stall every stream by one character.
+static void test_a_complete_character_is_not_held() {
+    TranscriptDeltaTracker tracker;
+    check_eq(tracker.observe("x" + kEuro), "x" + kEuro,
+             "a fragment ending on a boundary is emitted immediately");
+    check_eq(tracker.observe("x" + kEuro + kEmoji), kEmoji,
+             "and so is the next one");
+}
+
+// Bytes that can never complete must not be held forever: a stray continuation
+// byte or an invalid lead is passed through rather than stalling the stream.
+// Repairing a family's malformed output is not something a delta tracker can do
+// without altering the transcript.
+static void test_undecodable_bytes_are_not_held_forever() {
+    TranscriptDeltaTracker tracker;
+    check_eq(tracker.observe(std::string("ok\x80")), std::string("ok\x80"),
+             "a stray continuation byte is passed through, not held");
+    check_eq(tracker.observe(std::string("ok\x80") + "next"), "next",
+             "the stream continues");
+
+    // A lead byte the encoding does not define (0xF8 and above). Nothing can
+    // ever complete it, so holding it would stall the stream for good.
+    TranscriptDeltaTracker invalid_lead;
+    check_eq(invalid_lead.observe(std::string("ok\xFE")), std::string("ok\xFE"),
+             "an undefined lead byte is passed through, not held");
+    check_eq(invalid_lead.observe(std::string("ok\xFE") + "more"), "more",
+             "the stream continues past an undefined lead byte");
+
+    // The same byte followed by continuation bytes, which is the shape that
+    // looks most like a real sequence waiting to be completed.
+    TranscriptDeltaTracker invalid_run;
+    check_eq(invalid_run.observe(std::string("\xFE\x80\x80")), std::string("\xFE\x80\x80"),
+             "an undefined lead with continuations is passed through");
+
+    // Five continuation bytes with no lead in sight: the scan gives up rather
+    // than walking back through the whole buffer.
+    TranscriptDeltaTracker orphans;
+    check_eq(orphans.observe(std::string("\x80\x80\x80\x80\x80")),
+             std::string("\x80\x80\x80\x80\x80"),
+             "a run of orphan continuation bytes is passed through");
+}
+
 int main() {
     test_incremental_family();
     test_cumulative_family_with_duplicate_delivery();
@@ -177,6 +358,13 @@ int main() {
     test_empty_final_text();
     test_whitespace_fragments_survive();
     test_prefix_extension_is_read_as_cumulative();
+    test_cumulative_split_multibyte_character();
+    test_incremental_split_multibyte_character();
+    test_four_byte_character_split_three_ways();
+    test_reconcile_flushes_a_held_back_sequence();
+    test_held_bytes_join_the_next_fragment();
+    test_a_complete_character_is_not_held();
+    test_undecodable_bytes_are_not_held_forever();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

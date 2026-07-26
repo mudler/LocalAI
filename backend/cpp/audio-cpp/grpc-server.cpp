@@ -1365,6 +1365,15 @@ public:
             // postprocessor runs over the merged buffer at the end. Audio
             // already on the wire cannot be post-processed, so any streaming
             // implementation has to accept this.
+            //
+            // This guard also depends on the pull loop having DRAINED the
+            // session. It does today: no family sets is_final on a pulled
+            // event, so the loop runs to nullopt. If one ever does, the loop
+            // breaks early, and omnivoice's finish_stream drains and merges the
+            // chunks that were never emitted (session.cpp:576) into the result
+            // this branch then discards, silently truncating the audio. Whoever
+            // teaches a family to end a pull stream early has to revisit the
+            // pair together.
             if (!header_sent) {
                 if (result.audio_output.has_value()) {
                     write_audio(*result.audio_output);
@@ -1402,8 +1411,10 @@ public:
     // that concatenates every delta must end up with the final text and must
     // never see a prefix repeated. The families do not agree on what they report
     // (nemotron_asr and vibevoice_asr send fragments, voxtral_realtime sends the
-    // whole hypothesis every time, and sends it twice), so the reconciliation
-    // lives in TranscriptDeltaTracker rather than here. See stream_delta.h.
+    // whole hypothesis and repeats the last event of each batch), and a delta
+    // must additionally be valid UTF-8 or the Go client cannot unmarshal it at
+    // all, so the reconciliation lives in TranscriptDeltaTracker rather than
+    // here. See stream_delta.h.
     //
     // THE OFFLINE FALLBACK. mode_candidates lets this RPC fall back to an
     // offline route, so a family with no streaming ASR still answers rather than

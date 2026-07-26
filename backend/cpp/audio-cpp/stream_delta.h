@@ -19,9 +19,11 @@
 //   higgs_audio_stt   INCREMENTAL. Same shape as vibevoice_asr.
 //   voxtral_realtime  CUMULATIVE. partial_text is
 //                     tokenizer_.decode(streaming_token_ids_), the whole
-//                     hypothesis so far, and process_available_stream_chunks
-//                     hands the SAME event to the sink AND returns it, so every
-//                     partial arrives TWICE.
+//                     hypothesis so far. process_available_stream_chunks hands
+//                     every event it produces to the sink from INSIDE its loop
+//                     (session.cpp:385-386) and RETURNS only the last of the
+//                     batch, so the last event of each batch arrives twice and
+//                     the others arrive once.
 //
 // Applying either convention to the other family corrupts the transcript: read
 // a cumulative report as a delta and the client sees the transcript repeated on
@@ -29,6 +31,22 @@
 // arithmetic eats the front of it. So the tracker decides per fragment, from
 // what it has already delivered, and the one rule it enforces is that TEXT THE
 // CLIENT HAS ALREADY BEEN SENT IS NEVER SENT AGAIN.
+//
+// The cumulative reading is provably safe for voxtral, which is the family it
+// matters for: its decode is a pure concatenation of per-token byte strings
+// (tokenizer_text.cpp:171-183), so decode(ids[0..n]) is an unconditional BYTE
+// PREFIX of decode(ids[0..n+1]) and one of its reports can never be mistaken
+// for an incremental fragment.
+//
+// UTF-8 IS THE OTHER HALF OF THAT SAME FACT. Because that decode concatenates
+// raw token BYTES, a multi-byte character is split across token boundaries, and
+// the difference between two consecutive cumulative reports is then a lone
+// continuation byte. TranscriptStreamResponse.delta is a proto3 `string`, whose
+// wire format REQUIRES valid UTF-8: the C++ runtime serializes an invalid one
+// with at most a warning, but the Go runtime refuses to unmarshal it, and the
+// client loses every remaining delta AND the final_result. So no fragment this
+// class returns ever ends inside a character; an incomplete trailing sequence is
+// held back and merged into the next fragment.
 
 #include <string>
 
@@ -39,13 +57,14 @@ public:
     // Takes one StreamEvent::partial_text and returns the fragment to put on
     // the wire, empty when there is nothing new.
     //
-    // The rules, in order:
+    // The rules, in order, all of them against everything KNOWN (delivered
+    // plus held back), never against the delivered text alone:
     //   1. An empty partial says nothing.
-    //   2. A partial the assembly ALREADY STARTS WITH has been delivered:
-    //      nothing is emitted. This is what absorbs voxtral's double delivery
-    //      of every event, and a cumulative hypothesis that shrinks.
-    //   3. A partial that EXTENDS the assembly is a cumulative report: only its
-    //      new suffix is emitted.
+    //   2. A partial the known text ALREADY STARTS WITH has been accounted for:
+    //      nothing is emitted. This is what absorbs voxtral's repeat of the
+    //      last event in each batch, and a cumulative hypothesis that shrinks.
+    //   3. A partial that EXTENDS the known text is a cumulative report: only
+    //      its new suffix is emitted.
     //   4. Anything else is an incremental fragment: it is emitted whole and
     //      appended.
     //
@@ -55,6 +74,11 @@ public:
     // that shape on EVERY event, while an incremental family produces it only
     // when one fragment repeats everything before it, which no tokenizer output
     // does in practice.
+    //
+    // What comes back is the fragment MINUS any incomplete trailing UTF-8
+    // sequence, which is carried into the next call. So an empty return can
+    // also mean "the only new bytes were half a character", and the caller
+    // needs no knowledge of that: writing nothing is exactly right.
     std::string observe(const std::string &partial_text);
 
     // Reconciles against TaskResult::text_output, which is authoritative, and
@@ -64,17 +88,30 @@ public:
     // branch: with no partials observed, the assembly is empty and the whole
     // final text comes back as one delta.
     //
+    // It is also what FLUSHES a held-back UTF-8 sequence, and it can always do
+    // so: the final text is complete, so the fragment from the last delivered
+    // byte to its end ends on a character boundary.
+    //
     // A final text that CONTRADICTS what was already sent returns empty. A
     // fragment on the wire cannot be retracted, so the alternative would be to
     // send the transcript a second time and let the client hold it twice.
     // final_result carries the authoritative text either way.
     std::string reconcile(const std::string &final_text);
 
-    // Everything the client has been sent, concatenated.
+    // Everything the client has been sent, concatenated. Held-back bytes are
+    // deliberately NOT included: this is what the client holds, not what the
+    // tracker knows.
     const std::string &assembled() const noexcept { return assembled_; }
 
 private:
+    // Appends the emittable prefix of `fragment` to assembled_ and returns it,
+    // keeping any incomplete trailing UTF-8 sequence in pending_.
+    std::string release(const std::string &fragment);
+
     std::string assembled_;
+    // An incomplete trailing UTF-8 sequence, computed but not sent. Always a
+    // proper prefix of one character, so at most three bytes.
+    std::string pending_;
 };
 
 } // namespace audiocpp_backend
