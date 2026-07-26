@@ -240,10 +240,14 @@ export const SHARED_BUILD_INPUTS = [
     darwin: always,
   },
   {
-    // Stages the CUDA/ROCm runtime libraries into every Python image's lib/.
-    // COPY'd and run by Dockerfile.python only. This is the #10946 case.
+    // Decides which GPU libraries end up inside an image. Every Linux image
+    // runs it: Dockerfile.python calls it directly, and the Go and C++ backends
+    // call it from their own package.sh. Naming only the Python images here is
+    // how a packaging fix for the Intel llama.cpp backend could merge and reach
+    // no image, which is the #10946 case all over again. The Darwin builds have
+    // their own packaging scripts and never call this one.
     matches: file => file === "scripts/build/package-gpu-libs.sh",
-    linux: isLinuxPython,
+    linux: always,
     darwin: never,
   },
   {

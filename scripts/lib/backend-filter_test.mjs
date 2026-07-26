@@ -66,20 +66,25 @@ const run = (changedFiles, previousMatrix) =>
 
 const names = entries => entries.map(e => e.backend).sort();
 
-test("a change to only package-gpu-libs.sh rebuilds every Python image", () => {
-  // The PR #10946 regression: this script is COPY'd and run by
-  // Dockerfile.python for every Python backend, but lives under scripts/, so
-  // the per-backend prefix match produced an empty matrix and the cuDNN
-  // packaging fix shipped to nothing.
+test("a change to only package-gpu-libs.sh rebuilds every Linux image", () => {
+  // The PR #10946 regression: this script decides which GPU libraries end up
+  // inside an image, but lives under scripts/, so the per-backend prefix match
+  // produced an empty matrix and the packaging fix shipped to nothing.
+  //
+  // Every Linux image runs it, not only the Python ones: Dockerfile.python
+  // calls it directly, and the Go and C++ backends call it from their own
+  // package.sh (see backend/cpp/llama-cpp/package.sh and backend/go/*/
+  // package.sh). Leaving those out is how a fix aimed at the Intel llama.cpp
+  // backend could merge and reach no image.
   const { filtered, filteredDarwin, changedBackends } = run([
     "scripts/build/package-gpu-libs.sh",
   ]);
 
-  assert.notEqual(filtered.length, 0, "expected a non-empty Linux matrix");
-  assert.deepEqual(names(filtered), ["diffusers", "vllm"]);
+  assert.equal(filtered.length, includes.length);
   assert.ok(changedBackends.has("vllm"));
+  assert.ok(changedBackends.has("llama-cpp"));
 
-  // Darwin Python builds never invoke it (see scripts/build/python-darwin.sh).
+  // The Darwin builds have their own packaging scripts and never call this one.
   assert.deepEqual(filteredDarwin, []);
 });
 

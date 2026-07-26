@@ -125,7 +125,7 @@ The per-backend prefix match only sees files under a backend's own directory, so
 | `backend/backend.proto` | everything (all languages compile or copy it) |
 | `backend/Dockerfile.<x>` | the Linux entries whose `dockerfile:` names it |
 | `backend/python/common/` | Python, Linux + Darwin |
-| `scripts/build/package-gpu-libs.sh` | Python, Linux only |
+| `scripts/build/package-gpu-libs.sh` | every Linux entry (Python, Go and C++ all run it) |
 | `scripts/build/<lang>-darwin.sh` | the Darwin entries that build target routes to |
 | `.github/workflows/backend_build[_darwin].yml` | everything on that OS |
 | anything else under `scripts/build/` (except `*_test.sh`) | everything — conservative default for unclassified packaging inputs |
