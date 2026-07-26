@@ -1027,12 +1027,13 @@ public:
                 return refusal;
             }
 
-            const bool voice_is_file =
-                audiocpp_backend::voice_is_reference_file(request->voice());
-            audiocpp_backend::RequestShape shape;
-            shape.has_voice_reference = voice_is_file;
-            shape.has_instructions =
-                request->has_instructions() && !request->instructions().empty();
+            // One description of the request, shared with TTSStream, so the two
+            // handlers cannot describe the same request differently.
+            // pinned_task stays here on purpose: it comes off the model rather
+            // than the request, and it is the field a new handler forgets.
+            audiocpp_backend::RequestShape shape =
+                audiocpp_backend::build_tts_shape(*request);
+            const bool voice_is_file = shape.has_voice_reference;
             shape.pinned_task = model->pinned_task();
 
             // FIRST, before the lane and before any file read. A family that
@@ -1041,7 +1042,40 @@ public:
             // must not blame the caller's reference clip for a decision that had
             // nothing to do with it. Same ordering as Diarize and
             // AudioTransform.
-            model->check_can_serve(audiocpp_backend::Rpc::Tts, shape);
+            const audiocpp_backend::Route route =
+                model->check_can_serve(audiocpp_backend::Rpc::Tts, shape);
+
+            // Refused FROM THE ROUTE, the same trick AudioTransform uses for
+            // params[stem]. Voice cloning without a clip is a request the family
+            // cannot answer, and every cloning family says so only from inside
+            // its own prepare(): chatterbox throws "Chatterbox prepare requires
+            // speaker reference audio", which to_status maps to INTERNAL and
+            // which names neither the RPC nor the field the caller has to set.
+            // chatterbox advertises clon and no tts at all, so before this every
+            // preset-only or voice-less request to it got that engine-internal
+            // message.
+            //
+            // It cannot misfire on the legitimate case: has_voice_reference is
+            // what made routing choose VoiceCloning in the first place, so
+            // reaching here with a clip present is impossible unless the model
+            // pinned task:clon, and a clon pin with no clip is exactly the
+            // misconfiguration worth naming.
+            //
+            // Deliberately NOT generalised to "every task whose family declares
+            // supports_speaker_reference". That flag lives on the engine's
+            // CapabilitySet, is not carried through this backend's Capabilities
+            // mirror, and would need its own answer to whether it is advisory or
+            // binding before routing could act on it. Tracked as a follow-up.
+            if (route.task == audiocpp_backend::Task::VoiceCloning &&
+                !voice_is_file) {
+                throw audiocpp_backend::ConfigError(
+                    "audio-cpp: family '" + model->family() +
+                    "' routes this request to " +
+                    audiocpp_backend::task_name(route.task) +
+                    ", which needs a speaker reference clip; set TTSRequest.voice"
+                    " to the path of a WAV file (a voice that is not a file on "
+                    "disk is treated as a named preset)");
+            }
 
             if (request->dst().empty()) {
                 throw audiocpp_backend::ConfigError(
@@ -1089,10 +1123,13 @@ public:
             result->set_message(request->dst());
             return GStatus::OK;
         } catch (const std::exception &err) {
-            // Both channels, unlike the transcription-shaped handlers: Result
-            // has a success flag that the Go side checks in addition to the
-            // status, so leaving it default-false with no message would report a
-            // failure with no reason attached.
+            // DEFENSIVE, not load-bearing, and worth saying so plainly. gRPC
+            // discards the response message entirely when the status is not OK,
+            // so a client that checks the status, which core/backend/tts.go
+            // does before it ever looks at res.Success, receives a nil Result
+            // and never sees these two fields. They are set for a client that
+            // ignores the status, and because a half-filled Result is a worse
+            // thing to leave behind than a filled one.
             result->set_success(false);
             result->set_message(err.what());
             return to_status(err);
@@ -1124,11 +1161,35 @@ public:
                     "audio-cpp: SoundGeneration needs a dst output path");
             }
 
+            // DO NOT WIRE src INTO THE HTTP LAYER UNTIL THE PIN IS BUMPED PAST
+            // THE FIX. Setting src on a stable_audio model CORRUPTS THE HEAP AND
+            // ABORTS THE PROCESS in the pinned upstream: "free(): invalid size"
+            // / "munmap_chunk(): invalid pointer", SIGABRT, backend gone. It is
+            // upstream's, not this handler's, and it was attributed rather than
+            // assumed: upstream's own audiocpp_cli, built from this same
+            // checkout, aborts identically with --audio at exit 134, at both
+            // 44.1 kHz stereo and 24 kHz mono, and completes cleanly with no
+            // --audio at all. It is therefore neither caused nor worsened by
+            // reading the clip at its native rate below.
+            //
+            // The only thing keeping that off the network today is an OMISSION:
+            // core/http/endpoints/elevenlabs/soundgeneration.go passes nil for
+            // sourceFile, and schema.ElevenLabsSoundGenerationRequest has no
+            // field for it, so the sole caller that can set src is
+            // core/cli/soundgeneration.go. Adding the field to that schema turns
+            // a local CLI crash into a remotely reachable heap corruption with
+            // fully attacker-influenced input. Nobody reading that Go schema
+            // would know why the field is missing, which is why this is written
+            // here as well as in the task report.
+            //
+            // No family blocklist is applied: ace_step's editing routes
+            // legitimately need src, and a family-specific guard here would rot.
             std::optional<engine::runtime::AudioBuffer> source;
             if (request->has_src() && !request->src().empty()) {
-                // Native rate and channels. ace_step and stable_audio both
-                // resample per channel, so a downmix here would delete the
-                // stereo image of the very clip they are editing.
+                // Native rate and channels. ace_step resamples left and right
+                // separately and stable_audio resamples per channel, so a
+                // downmix here would delete the stereo image of the very clip
+                // they are editing.
                 source = audiocpp_backend::read_audio_file(
                     request->src(), kVoiceReferenceSampleRate);
             }

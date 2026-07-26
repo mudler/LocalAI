@@ -20,6 +20,18 @@ bool voice_is_reference_file(const std::string &voice) {
     return std::filesystem::is_regular_file(std::filesystem::path(voice), ec);
 }
 
+RequestShape build_tts_shape(const backend::TTSRequest &request) {
+    RequestShape shape;
+    shape.has_voice_reference = voice_is_reference_file(request.voice());
+    // !empty() as well as has_instructions(), and it must match the guard in
+    // build_tts_request: a request whose instructions are an empty string
+    // carries no style condition, so telling routing to prefer VoiceDesign for
+    // it would route to a task with nothing to design from.
+    shape.has_instructions =
+        request.has_instructions() && !request.instructions().empty();
+    return shape;
+}
+
 engine::runtime::TaskRequest
 build_tts_request(const backend::TTSRequest &request,
                   std::optional<engine::runtime::AudioBuffer> reference_audio) {
@@ -90,7 +102,18 @@ build_tts_request(const backend::TTSRequest &request,
         // Spelling it "instructions" here would have made the whole
         // StyleCondition dead weight.
         style.tags["instruct"] = request.instructions();
-        if (request.has_language()) {
+        // !empty(), matching the option emission below, and load-bearing rather
+        // than tidiness. core/backend/tts.go's newTTSRequest sets
+        // `Language: &language` UNCONDITIONALLY, so has_language() is true on
+        // every request LocalAI sends and carries "" whenever the caller named
+        // no language. An engaged-but-empty style language is WORSE than an
+        // absent one: supertonic reads text_input->language behind its own
+        // !empty() guard and then OVERRIDES it from style->language with no
+        // guard at all (supertonic/session.cpp), so "" would replace its "en"
+        // default and tokenizer_text.cpp would throw
+        // "invalid Supertonic language: " on every request that set
+        // instructions and no language.
+        if (request.has_language() && !request.language().empty()) {
             style.language = request.language();
         }
         condition.style = std::move(style);

@@ -89,6 +89,83 @@ static void test_voice_is_reference_file() {
     std::filesystem::remove_all(dir);
 }
 
+// build_tts_shape is what TTS and TTSStream both hand to routing, so a wrong
+// answer here silently changes which task a request runs as, with a 200 and no
+// diagnostic. Every field is asserted in both directions.
+static void test_tts_shape() {
+    const auto dir = std::filesystem::temp_directory_path() /
+                     "audiocpp-generation-request-ctest-shape";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    const auto file = dir / "reference.wav";
+    {
+        std::ofstream out(file, std::ios::binary);
+        out << "a regular file";
+    }
+
+    {
+        backend::TTSRequest request;
+        request.set_text("hello");
+        const auto shape = build_tts_shape(request);
+        check(!shape.has_voice_reference && !shape.has_instructions,
+              "shape: bare request has neither signal");
+        // Never filled here: it comes off the LoadedModel, and leaving it empty
+        // is what makes the caller's assignment visible at the call site.
+        check(shape.pinned_task.empty(), "shape: pinned_task is left to the caller");
+    }
+    {
+        backend::TTSRequest request;
+        request.set_voice(file.string());
+        const auto shape = build_tts_shape(request);
+        check(shape.has_voice_reference,
+              "shape: an existing file is a voice reference");
+        check(!shape.has_instructions, "shape: a clip is not an instruction");
+    }
+    {
+        backend::TTSRequest request;
+        request.set_voice("alloy");
+        const auto shape = build_tts_shape(request);
+        check(!shape.has_voice_reference,
+              "shape: a preset name is not a voice reference");
+    }
+    {
+        backend::TTSRequest request;
+        request.set_voice(dir.string());
+        const auto shape = build_tts_shape(request);
+        check(!shape.has_voice_reference,
+              "shape: a directory is not a voice reference");
+    }
+    {
+        backend::TTSRequest request;
+        request.set_instructions("a calm older man");
+        const auto shape = build_tts_shape(request);
+        check(shape.has_instructions, "shape: instructions are seen");
+        check(!shape.has_voice_reference,
+              "shape: instructions do not imply a reference");
+    }
+    {
+        // The guard that has to match build_tts_request's. An empty
+        // instructions string builds no style condition, so telling routing to
+        // prefer VoiceDesign for it would route to a task with nothing to
+        // design from.
+        backend::TTSRequest request;
+        request.set_instructions("");
+        const auto shape = build_tts_shape(request);
+        check(!shape.has_instructions,
+              "shape: an empty instructions string is not an instruction");
+    }
+    {
+        backend::TTSRequest request;
+        request.set_voice(file.string());
+        request.set_instructions("a calm older man");
+        const auto shape = build_tts_shape(request);
+        check(shape.has_voice_reference && shape.has_instructions,
+              "shape: both signals are reported when both are set");
+    }
+
+    std::filesystem::remove_all(dir);
+}
+
 static void test_tts_plain() {
     backend::TTSRequest request;
     request.set_text("hello there");
@@ -200,6 +277,71 @@ static void test_tts_empty_instructions_are_not_instructions() {
           "tts: an empty instructions string sets no voice condition");
 }
 
+// THE EXACT SHAPE LocalAI PUTS ON THE WIRE. core/backend/tts.go's newTTSRequest
+// sets Language: &language UNCONDITIONALLY, so has_language() is true on every
+// request that ever reaches this backend, carrying an empty string whenever the
+// caller named no language.
+//
+// An empty StyleCondition::language is not a harmless default. supertonic reads
+// text_input->language behind a !empty() guard and then OVERRIDES it from
+// style->language whenever that optional is engaged, with no guard at all
+// (supertonic/session.cpp generation_options_from_request), so an empty style
+// language replaces its "en" default (session.h) with "" and
+// tokenizer_text.cpp's preprocess throws "invalid Supertonic language: ".
+// Every /v1/audio/speech request carrying instructions and no language would be
+// an INTERNAL. A plain request never sees it, because the style condition only
+// exists when instructions are non-empty.
+static void test_tts_empty_language_is_not_a_language() {
+    backend::TTSRequest request;
+    request.set_text("hello");
+    request.set_instructions("a calm older man");
+    request.set_language("");
+
+    const auto task = build_tts_request(request, std::nullopt);
+
+    check(task.voice.has_value() && task.voice->style.has_value(),
+          "tts empty language: the style condition still exists");
+    check(!task.voice->style->language.has_value(),
+          "tts empty language: style language is left unset, not set to empty");
+    // The option emission has always guarded on !empty(); this pins the two to
+    // the same rule so they cannot drift apart again.
+    check(!has_key(task.options, "language"),
+          "tts empty language: no language option");
+    check(task.text_input.has_value() && task.text_input->language.empty(),
+          "tts empty language: transcript language stays empty");
+}
+
+// The one shape routing treats specially: a clip outranks instructions, and the
+// VoiceCondition then has to carry BOTH, because the family that wins is chosen
+// on the clip but may still read the style tag.
+static void test_tts_clip_and_instructions() {
+    backend::TTSRequest request;
+    request.set_text("hello");
+    request.set_voice("/tmp/reference.wav");
+    request.set_instructions("bright and fast");
+    request.set_language("en");
+
+    const auto task = build_tts_request(request, clip(22050, 1));
+
+    check(task.voice.has_value(), "tts clip+instructions: voice condition present");
+    check(task.voice->speaker.has_value() &&
+              task.voice->speaker->audio.has_value() &&
+              task.voice->speaker->audio->sample_rate == 22050,
+          "tts clip+instructions: speaker carries the clip");
+    check(!task.voice->speaker->cached_voice_id.has_value(),
+          "tts clip+instructions: the clip path is not also a preset id");
+    check(task.voice->style.has_value() &&
+              option_or(task.voice->style->tags, "instruct", "") == "bright and fast",
+          "tts clip+instructions: style carries the instruct tag");
+    check(task.voice->style->language.has_value() &&
+              *task.voice->style->language == "en",
+          "tts clip+instructions: a real language does reach the style condition");
+    check(option_or(task.options, "instruct", "") == "bright and fast",
+          "tts clip+instructions: instruct option still emitted");
+    check(!has_key(task.options, "voice"),
+          "tts clip+instructions: still no voice option for a clip");
+}
+
 static void test_tts_language_and_params() {
     backend::TTSRequest request;
     request.set_text("ciao");
@@ -304,11 +446,14 @@ static void test_sound_generation_full() {
 
 int main() {
     test_voice_is_reference_file();
+    test_tts_shape();
     test_tts_plain();
     test_tts_named_preset();
     test_tts_reference_clip();
     test_tts_instructions();
     test_tts_empty_instructions_are_not_instructions();
+    test_tts_empty_language_is_not_a_language();
+    test_tts_clip_and_instructions();
     test_tts_language_and_params();
     test_sound_generation_minimal();
     test_sound_generation_full();

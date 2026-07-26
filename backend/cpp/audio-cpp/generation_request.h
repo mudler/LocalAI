@@ -16,6 +16,7 @@
 // result_map does.
 
 #include "backend.pb.h"
+#include "capability_routing.h"
 
 #include "engine/framework/runtime/session.h"
 
@@ -44,6 +45,17 @@ namespace audiocpp_backend {
 // refuses a request it cannot serve, which is a better message than a
 // filesystem exception thrown while classifying a string.
 bool voice_is_reference_file(const std::string &voice);
+
+// Everything routing needs to know about a TTSRequest, in one place, so that TTS
+// and TTSStream cannot describe the same request differently.
+//
+// `pinned_task` is deliberately NOT filled here: it comes off the LoadedModel,
+// not off the request, and this unit links no engine. The caller must still
+// write `shape.pinned_task = model->pinned_task();` or the model's `task:`
+// option is dead. That is the one field a new handler can forget, so it is the
+// one field left visible at the call site rather than hidden behind this
+// helper.
+RequestShape build_tts_shape(const backend::TTSRequest &request);
 
 // `reference_audio` is the already-read speaker clip, present exactly when
 // voice_is_reference_file(request.voice()) was true. Passing it in rather than a
