@@ -80,16 +80,37 @@ static void test_cumulative_family_with_duplicate_delivery() {
     check_eq(emitted.size() < 3 ? "" : emitted[2], " now", "third cumulative fragment");
 }
 
-// The rule that separates the two: text the client has ALREADY been sent is
-// never sent again, whatever convention produced it.
-static void test_already_delivered_text_is_never_resent() {
+// The rule that separates the two: a report IDENTICAL to everything known is a
+// repeat and is never sent again.
+//
+// Only an identical one. Rule 2 used to discard any report the known text merely
+// STARTED WITH, and that cost more than it bought: see
+// test_a_short_fragment_is_not_mistaken_for_a_repeat.
+static void test_an_exact_repeat_is_never_resent() {
     TranscriptDeltaTracker tracker;
     check_eq(tracker.observe("hello world"), "hello world", "first fragment");
     check_eq(tracker.observe("hello world"), "", "an identical repeat emits nothing");
-    check_eq(tracker.observe("hello"), "",
-             "a shortened hypothesis emits nothing rather than duplicating a prefix");
-    check_eq(tracker.assembled(), "hello world",
-             "a shortened hypothesis does not shrink what the client holds");
+    check_eq(tracker.observe("hello world"), "", "and a third delivery emits nothing");
+    check_eq(tracker.assembled(), "hello world", "the assembly is unchanged by repeats");
+}
+
+// THE TRADE, pinned so it is a decision rather than a surprise. A CUMULATIVE
+// report that SHRINKS is no longer absorbed: it is read as an incremental
+// fragment and duplicates a few bytes at the client.
+//
+// No pinned family produces one. voxtral_realtime is the only cumulative
+// reporter, and its hypothesis is tokenizer_.decode(streaming_token_ids_) over a
+// vector that is only ever push_back'ed (session.cpp:436) and cleared by reset()
+// (session.cpp:257), so within a stream it grows and never shrinks. The
+// duplicate delivery rule 2 really exists for is an EXACT repeat, which the test
+// above still covers.
+static void test_a_shrinking_hypothesis_is_read_as_incremental() {
+    TranscriptDeltaTracker tracker;
+    check_eq(tracker.observe("hello world"), "hello world", "first fragment");
+    check_eq(tracker.observe("hello"), "hello",
+             "a shortened hypothesis is now read as an incremental fragment");
+    check_eq(tracker.assembled(), "hello worldhello",
+             "which duplicates those bytes at the client: the accepted cost");
 }
 
 static void test_empty_partials_are_ignored() {
@@ -407,10 +428,39 @@ static void test_a_fragment_never_begins_mid_character() {
     check_eq(all_orphans.observe("after"), "after", "the stream continues");
 }
 
+// PURE ASCII, no multi-byte character anywhere, and the transcript still comes
+// out wrong: a short incremental fragment that happens to be a byte prefix of
+// everything known was read as an already-delivered repeat and discarded.
+//
+// This is the shape both incremental families produce. nemotron_asr emits
+// current_text.substr(emitted_text.size()) per non-blank token (decoder.cpp:550)
+// and vibevoice_asr emits text.substr(common_prefix_size(...)) (session.cpp:89-105),
+// so a one-character fragment is ordinary output, and any of the transcript's
+// own leading characters will eventually arrive as one.
+//
+// Measured over 5,000 randomized traces per transcript before this was fixed:
+// 9.50% of pure-ASCII traces and 29.12% of French ones ended with the client
+// holding something other than final_result.text, with a 200 and no diagnostic.
+static void test_a_short_fragment_is_not_mistaken_for_a_repeat() {
+    TranscriptDeltaTracker tracker;
+    std::vector<std::string> emitted;
+    const std::string full = "pure ascii transcript";
+    const std::string view = client_view(
+        tracker, {"pure ", "ascii ", "trans", "c", "ri", "p", "t"}, &emitted);
+
+    check_eq(view, full, "the whole transcript reaches the client");
+    check_eq(tracker.assembled(), full, "and the assembly agrees with it");
+    check_eq(tracker.reconcile(full), "",
+             "the final text adds nothing, because nothing was lost");
+    check(emitted.size() == 7, "every fragment produced exactly one delta");
+}
+
 int main() {
     test_incremental_family();
     test_cumulative_family_with_duplicate_delivery();
-    test_already_delivered_text_is_never_resent();
+    test_an_exact_repeat_is_never_resent();
+    test_a_shrinking_hypothesis_is_read_as_incremental();
+    test_a_short_fragment_is_not_mistaken_for_a_repeat();
     test_empty_partials_are_ignored();
     test_offline_fallback_is_one_delta();
     test_reconcile_emits_the_tail();

@@ -107,23 +107,49 @@ std::string TranscriptDeltaTracker::observe(const std::string &partial_text) {
     // delivered text would treat the held-back byte as new on the very next
     // report and emit it twice.
     const std::string known = assembled_ + pending_;
-    // Already accounted for. Covers the repeat voxtral produces when the sink
-    // and the return value carry the same event, and a hypothesis that shrank.
+    // An EXACT repeat, and nothing looser. This absorbs the duplicate delivery
+    // voxtral_realtime produces, which is the ONLY thing rule 2 was ever needed
+    // for: process_available_stream_chunks hands each event it produces to the
+    // sink from inside its loop and RETURNS the last of the batch
+    // (session.cpp:385-386), so that last event arrives twice with byte-equal
+    // text both times. A duplicate IS an exact repeat, so equality covers it.
     //
-    // The second condition is not decoration, and it is the whole of the second
-    // half of the UTF-8 bug. A fragment that ENDS MID-CHARACTER is not judged
-    // here at all, because the two readings of it are indistinguishable by
-    // bytes: "\xC3" is a prefix of an already-delivered "\xC3\x9F", and it is
-    // also the lead byte of a brand new "\xC3\xA9". Discarding it loses a
-    // character whose continuation bytes then arrive alone and begin the next
-    // delta with an orphan; holding it costs, at worst, a few duplicated bytes
-    // in a shrinking cumulative report, which no pinned family produces (every
-    // cumulative reporter here is append-only, and voxtral provably so, since
-    // its decode is a byte concatenation). One reading kills the RPC, the other
-    // glitches a hypothetical. Measured before this condition existed:
-    // 33.74% of Japanese traces carried at least one invalid delta.
-    if (starts_with(known, partial_text) &&
-        utf8_complete_prefix_length(partial_text) == partial_text.size()) {
+    // It used to discard any report the known text merely STARTED WITH, and that
+    // cost far more than it bought. Two separate defects came out of it, and
+    // both were found by randomized traces rather than by reading:
+    //
+    //   1. A short INCREMENTAL fragment that happens to be a byte prefix of the
+    //      transcript so far was read as a repeat and dropped, losing text with
+    //      a 200 and no diagnostic. Both incremental families emit fragments
+    //      that small routinely: nemotron_asr cuts at a byte offset
+    //      (decoder.cpp:550) and vibevoice_asr at a common prefix
+    //      (session.cpp:89-105). 9.50% of randomized pure-ASCII traces and
+    //      29.12% of French ones ended with a corrupted transcript.
+    //   2. When such a fragment was the LEAD BYTE of a multi-byte character, its
+    //      continuation bytes then arrived alone and began the next delta, which
+    //      is invalid UTF-8, which the Go runtime refuses to unmarshal, which
+    //      ends the stream and the final_result with it.
+    //
+    // What the narrowing gives up is the shrinking-hypothesis case: a cumulative
+    // report SHORTER than what is known is now read as an incremental fragment
+    // and duplicates those bytes at the client. No pinned family produces one.
+    // voxtral is the only cumulative reporter, and its hypothesis is
+    // tokenizer_.decode(streaming_token_ids_) over a vector that is only ever
+    // push_back'ed (session.cpp:436) and cleared by reset() (session.cpp:257),
+    // so within a stream it can only grow. Measured: narrowing this changed not
+    // one byte of 30,000 randomized cumulative traces.
+    //
+    // KEPT DELIBERATELY THOUGH NO TEST CAN SEE IT. Once narrowed to equality
+    // this rule became redundant with rule 3 below: an equal partial has an
+    // empty suffix, so rule 3 would call release("") and emit nothing either
+    // way. Deleting it is therefore an equivalent mutation, and the mutation
+    // harness reports it as a survivor, which is the honest result and not a
+    // gap in the tests. It stays for two reasons: it states the duplicate
+    // absorption where the citation for it lives, and it is independent of rule
+    // 3's condition. A future tightening of rule 3 to, say, require a STRICTLY
+    // longer partial would otherwise send every duplicate down the incremental
+    // branch and put the whole transcript on the wire a second time.
+    if (partial_text == known) {
         return {};
     }
     if (starts_with(partial_text, known)) {

@@ -69,13 +69,15 @@ public:
     // The rules, in order, all of them against everything KNOWN (delivered
     // plus held back), never against the delivered text alone:
     //   1. An empty partial says nothing.
-    //   2. A partial the known text ALREADY STARTS WITH, AND WHICH IS ITSELF A
-    //      WHOLE NUMBER OF CHARACTERS, has been accounted for: nothing is
-    //      emitted. This is what absorbs voxtral's repeat of the last event in
-    //      each batch, and a cumulative hypothesis that shrinks. The second
-    //      condition is what keeps a new character's lead byte from being
-    //      mistaken for a repeat of an old character that starts with the same
-    //      byte; see the note at the rule in the implementation.
+    //   2. A partial IDENTICAL to the known text is a repeat: nothing is
+    //      emitted. Identical, not merely a prefix of it. That absorbs voxtral's
+    //      repeat of the last event in each batch, which is the only duplicate
+    //      any pinned family produces and which carries byte-equal text both
+    //      times. Discarding a mere PREFIX used to swallow an incremental
+    //      fragment that coincided with the start of the transcript, corrupting
+    //      the text silently and, when that fragment was a character's lead
+    //      byte, killing the stream outright; see the note at the rule in the
+    //      implementation.
     //   3. A partial that EXTENDS the known text is a cumulative report: only
     //      its new suffix is emitted.
     //   4. Anything else is an incremental fragment: it is emitted whole and
