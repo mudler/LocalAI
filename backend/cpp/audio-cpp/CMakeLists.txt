@@ -93,6 +93,7 @@ add_executable(${TARGET}
     audio_io.cpp
     audio_units.cpp
     transcript_assembly.cpp
+    result_map.cpp
     inference_lane.cpp
 )
 
@@ -137,4 +138,53 @@ set_target_properties(${TARGET} PROPERTIES
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
     enable_testing()
+
+    # These are the units whose tests CANNOT run under
+    # backend/cpp/run-unit-tests.sh, because that script compiles each
+    # *_test.cpp standalone with no protobuf and no audio.cpp include path.
+    # They are named *_ctest.cpp so the script's glob does not pick them up and
+    # fail every backend's suite; everything that can be stdlib-only still is,
+    # and still lives in a *_test.cpp beside its unit.
+    #
+    # -Wall -Wextra -Wpedantic here and not on ${TARGET}: upstream's own
+    # add_compile_options is a property of its subdirectory and does not reach
+    # ours, so without naming them the tests would build as quietly as
+    # everything else.
+    add_executable(result_map_ctest
+        result_map_ctest.cpp
+        result_map.cpp
+        transcript_assembly.cpp
+        audio_units.cpp)
+    target_include_directories(result_map_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        # session.h reaches ggml.h through core/backend.h. Every other target
+        # here inherits that directory from the ggml target it links; this one
+        # links no ggml, so it has to name it.
+        "${AUDIO_CPP_DIR}/external/ggml/include")
+    # No engine_runtime: result_map touches only the plain structs in
+    # engine/framework/runtime/session.h, so the header is all it needs.
+    target_link_libraries(result_map_ctest PRIVATE
+        hw_grpc_proto
+        protobuf::libprotobuf
+        Threads::Threads)
+    target_compile_options(result_map_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME result_map COMMAND result_map_ctest)
+
+    add_executable(audio_io_ctest
+        audio_io_ctest.cpp
+        audio_io.cpp)
+    target_include_directories(audio_io_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(audio_io_ctest PRIVATE
+        engine_runtime
+        ggml
+        Threads::Threads)
+    target_compile_options(audio_io_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    set_target_properties(audio_io_ctest PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+        BUILD_WITH_INSTALL_RPATH TRUE)
+    add_test(NAME audio_io COMMAND audio_io_ctest)
 endif()

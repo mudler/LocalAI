@@ -5,8 +5,8 @@
 // src/ or tests/ is used: those are application internals, they are where
 // upstream expects churn, and upstream is Apache-2.0 while LocalAI is MIT.
 //
-// This commit adds LoadModel/Free/Status plus the VAD and Diarize RPCs. The
-// remaining audio RPCs land in later commits.
+// This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD and
+// Diarize RPCs. The remaining audio RPCs land in later commits.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
@@ -17,6 +17,7 @@
 #include "inference_lane.h"
 #include "loaded_model.h"
 #include "model_options.h"
+#include "result_map.h"
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/server.h>
@@ -90,6 +91,34 @@ std::shared_ptr<audiocpp_backend::LoadedModel> snapshot_unchecked() {
 // than left implicit. If the proto ever grows a sample rate field, this is the
 // constant to delete.
 constexpr int kVadSampleRate = 16000;
+
+// The rate every file-fed speech route reads its input at, and the rate the
+// spans that come back are therefore interpreted in. Passed to read_audio_file,
+// which resamples only when the file differs.
+//
+// Two independent reasons, and the second is the one that is easy to miss:
+//
+//   1. Some families refuse anything else outright. silero_vad throws
+//      "Silero VAD 16k model only supports sample_rate=16000" and
+//      sortformer_diar throws "Sortformer diar currently requires 16 kHz input
+//      audio". That is what made a 44.1 kHz upload return INTERNAL with an
+//      engine-internal message instead of an answer.
+//   2. The families that do NOT refuse still do not all express their result
+//      spans in the input's domain. nemotron_asr builds every word timestamp as
+//      token_frame * hop_length * subsampling_factor, which is its own 16 kHz
+//      feature domain whatever the input was; the handler then converts those
+//      spans with the buffer's rate. Feed it 44.1 kHz and every emitted
+//      timestamp is 2.76x too small, with a 200 and no diagnostic. Resampling
+//      the input to 16 kHz makes the buffer domain and the span domain the same
+//      one, which is the only reason the nanoseconds are right.
+//
+// The cost, stated plainly: vibevoice_asr resamples internally to 24 kHz, so a
+// 48 kHz upload now travels 48 -> 16 -> 24 rather than 48 -> 24, losing the
+// 8-12 kHz band it could have kept. That is accepted because a silently wrong
+// timestamp is worse than a band-limited one, and because every other LocalAI
+// ASR path already feeds 16 kHz. If the framework ever publishes a per-model
+// preferred input rate, this constant is what should become that lookup.
+constexpr int kSpeechSampleRate = 16000;
 
 // Parses ModelOptions.MainGPU into a device index.
 //
@@ -191,6 +220,71 @@ snapshot_for(const Request *request, GStatus &out) {
         return nullptr;
     }
     return model;
+}
+
+// Builds the TaskRequest for a transcription-shaped RPC. `task` is the ROUTED
+// audio.cpp task, not a guess from the request: it decides how
+// TranscriptRequest.prompt is used, and routing has already decided it.
+//
+// The audio is taken by value and moved in. A long recording runs to tens of
+// megabytes and the caller has no use for it afterwards; the previous shape,
+// a const reference, copied it.
+engine::runtime::TaskRequest
+build_transcription_request(const backend::TranscriptRequest &request,
+                            audiocpp_backend::Task task,
+                            engine::runtime::AudioBuffer audio) {
+    engine::runtime::TaskRequest task_request;
+    task_request.audio_input = std::move(audio);
+
+    if (task == audiocpp_backend::Task::Alignment) {
+        // For forced alignment the prompt IS the transcript to align, so it
+        // becomes the text input rather than a decoding hint. Set even when
+        // empty: an aligner given no text should say so itself rather than be
+        // handed an audio-only request it cannot describe.
+        engine::runtime::Transcript transcript;
+        transcript.text = request.prompt();
+        transcript.language = request.language();
+        task_request.text_input = transcript;
+    } else if (!request.prompt().empty()) {
+        // For ASR the prompt is decoding context, the whisper meaning.
+        task_request.options["prompt"] = request.prompt();
+    }
+
+    if (!request.language().empty()) {
+        task_request.options["language"] = request.language();
+    }
+    if (request.translate()) {
+        task_request.options["translate"] = "true";
+    }
+    if (request.temperature() > 0.0f) {
+        task_request.options["temperature"] = std::to_string(request.temperature());
+    }
+    for (const auto &granularity : request.timestamp_granularities()) {
+        // Upstream families read this as a request for word-level timing.
+        if (granularity == "word") {
+            task_request.options["word_timestamps"] = "true";
+        }
+    }
+    // Every option above is advisory. audio.cpp families look their request
+    // options up by name (runtime::find_option) and ignore the rest; the
+    // unknown-key refusals upstream does have are on SESSION options, which
+    // arrive at load time, not here. So an option a family does not read costs
+    // nothing, and none of these can turn a valid request into an error.
+    //
+    // TranscriptRequest.threads is deliberately NOT forwarded: thread count is
+    // a SessionOptions field fixed when the session was created, so a
+    // per-request value has nowhere to go and pretending otherwise would be a
+    // knob that silently does nothing.
+    return task_request;
+}
+
+// Duration of a possibly multi-channel buffer, in seconds. Frames, not floats:
+// a stereo buffer holds two floats per position and would otherwise report
+// twice its real length.
+float audio_duration_seconds(const engine::runtime::AudioBuffer &audio) {
+    const std::int64_t frames = audiocpp_backend::interleaved_frame_count(
+        audio.samples.size(), audio.channels);
+    return audiocpp_backend::samples_to_seconds(frames, audio.sample_rate);
 }
 
 // Maps a thrown exception onto the gRPC status the client should see.
@@ -316,6 +410,63 @@ public:
         return GStatus::OK;
     }
 
+    GStatus AudioTranscription(ServerContext *,
+                               const backend::TranscriptRequest *request,
+                               backend::TranscriptResult *response) override {
+        try {
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
+            if (model == nullptr) {
+                return refusal;
+            }
+
+            audiocpp_backend::RequestShape shape;
+            // has_prompt_text is what lets a family that can only align be
+            // reached through this RPC at all, so it is not decoration.
+            shape.has_prompt_text = !request->prompt().empty();
+            shape.pinned_task = model->pinned_task();
+
+            // Capability refusal before the lane and before the file read, for
+            // the reasons spelled out in Diarize.
+            model->check_can_serve(audiocpp_backend::Rpc::AudioTranscription, shape);
+
+            // TranscriptRequest.dst is the INPUT audio path, despite the field
+            // name. The HTTP layer materialises the upload to a temp file and
+            // passes the path; nothing is written back.
+            auto audio = audiocpp_backend::read_audio_file(request->dst(),
+                                                           kSpeechSampleRate);
+            // Both read before the buffer is moved into the request below. The
+            // rate is the BUFFER's, which after read_audio_file is
+            // kSpeechSampleRate and not necessarily the file's, and it is the
+            // domain the result spans come back in.
+            const int sample_rate = audio.sample_rate;
+            const float duration = audio_duration_seconds(audio);
+
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session = model->session_for(
+                audiocpp_backend::Rpc::AudioTranscription, shape, lane);
+
+            // session.task, not the request: for Asr the prompt is decoding
+            // context, for Alignment it is the transcript to align, and routing
+            // has already decided which of those this is.
+            const auto task_request =
+                build_transcription_request(*request, session.task, std::move(audio));
+            const auto result =
+                audiocpp_backend::run_offline(session, task_request, lane);
+
+            // text comes from result.text_output verbatim, never from the
+            // segments. See THE RULE in result_map.h.
+            audiocpp_backend::fill_transcript_result(result, sample_rate, duration,
+                                                     response);
+            // eou stays false. It marks a decode that ended on the model's
+            // end-of-utterance token, which is a cache-aware STREAMING concept;
+            // an offline run over a whole file has no turn to yield.
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            return to_status(err);
+        }
+    }
+
     // Verifying this by hand: silero_vad is a SPEECH detector, so a synthetic
     // stimulus does not exercise it. A 220 Hz sine, broadband noise and a
     // harmonic buzz all return zero segments, correctly. Use real speech, which
@@ -343,6 +494,12 @@ public:
             // Without this the `task:` model option is dead: routing is
             // otherwise derived from the RPC alone.
             shape.pinned_task = model->pinned_task();
+
+            // Before the lane. A model that cannot do VAD at all answers
+            // immediately instead of queueing behind somebody else's run only
+            // to be refused; routing is pure and needs no lane. session_for
+            // routes again below and reaches the same answer.
+            model->check_can_serve(audiocpp_backend::Rpc::Vad, shape);
 
             engine::runtime::TaskRequest task;
             task.audio_input = audiocpp_backend::buffer_from_mono(
@@ -386,27 +543,40 @@ public:
             audiocpp_backend::RequestShape shape;
             shape.pinned_task = model->pinned_task();
 
-            // Lane then route then read, in that order, and the read is last on
-            // purpose. A family that cannot diarize at all should say so, not
-            // complain about the input file first: on a VAD-only model, reading
-            // the audio would surface "cannot read /tmp/x.wav" and send the
-            // operator hunting a file problem instead of a model choice. The
-            // read costs a lane wait in exchange, which is the same wait every
-            // capability refusal already pays because session_for needs the lane.
-            audiocpp_backend::LaneEntry lane = model->acquire(0);
-            const auto session =
-                model->session_for(audiocpp_backend::Rpc::Diarize, shape, lane);
+            // Route, then read, then lane, in that order, and every step of it
+            // is deliberate.
+            //
+            // The capability refusal comes first because a family that cannot
+            // diarize at all should say so, not complain about the input file:
+            // on a VAD-only model, reading the audio first would surface
+            // "cannot read /tmp/x.wav" and send the operator hunting a file
+            // problem instead of a model choice.
+            //
+            // It also comes before the lane, which is the part that used to be
+            // impossible. Routing needs no lane, so the refusal no longer waits
+            // out somebody else's thirty second run to be told no, and neither
+            // does the file read.
+            model->check_can_serve(audiocpp_backend::Rpc::Diarize, shape);
 
             // DiarizeRequest.dst is the INPUT path, despite the field name: the
             // HTTP layer materialises the upload to a temp file and passes the
             // path here. Nothing is written back.
-            auto audio = audiocpp_backend::read_audio_file(request->dst());
+            //
+            // Read at 16 kHz mono: sortformer refuses any other rate, and the
+            // HTTP layer copies the upload byte for byte, so whatever the user
+            // posted is what arrives. See kSpeechSampleRate.
+            auto audio = audiocpp_backend::read_audio_file(request->dst(),
+                                                           kSpeechSampleRate);
             const int sample_rate = audio.sample_rate;
             // Read off the buffer before it is moved into the request below.
             // Frames, not floats: a stereo input holds two floats per position
             // and would otherwise report twice its real duration.
             const std::int64_t frames = audiocpp_backend::interleaved_frame_count(
                 audio.samples.size(), audio.channels);
+
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session =
+                model->session_for(audiocpp_backend::Rpc::Diarize, shape, lane);
 
             engine::runtime::TaskRequest task;
             // Moved, not copied: a long recording runs to tens of megabytes and
@@ -481,13 +651,13 @@ public:
                 // Seconds, like VADSegment. Only TranscriptSegment/Word are ns.
                 //
                 // Converted against the INPUT rate, which is correct and has
-                // been checked against upstream rather than assumed: sortformer
-                // refuses any input whose rate differs from its feature config
-                // (frontend.cpp throws), and every TimeSpan it emits is built
-                // as llround(seconds * 16000.0) (postprocess.cpp). So the span
-                // domain and the input domain are the same 16 kHz, and this is
-                // not a place where a resampling family could silently scale
-                // every timestamp by a constant.
+                // been checked against upstream rather than assumed: every
+                // TimeSpan sortformer emits is built as
+                // llround(seconds * 16000.0) (postprocess.cpp). The read above
+                // guarantees the buffer is 16 kHz, so the span domain and the
+                // input domain are the same one, and this is not a place where
+                // a resampling family could silently scale every timestamp by a
+                // constant.
                 out->set_start(audiocpp_backend::samples_to_seconds(
                     turn.span.start_sample, sample_rate));
                 out->set_end(audiocpp_backend::samples_to_seconds(

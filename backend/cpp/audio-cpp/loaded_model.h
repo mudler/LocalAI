@@ -98,6 +98,25 @@ public:
     // from the load to the request that honours it.
     const std::string &pinned_task() const noexcept { return pinned_task_; }
 
+    // Throws the same CapabilityError session_for would throw when this family
+    // cannot serve the RPC, and does nothing otherwise.
+    //
+    // It exists so a refusal does not have to buy a place in the queue first.
+    // resolve_route is a pure function of capabilities_, which is fixed at
+    // construction and never written again, so unlike the session cache it
+    // needs no lane and no lock: a model that cannot transcribe can say so
+    // while another request is halfway through a thirty second run. Without
+    // this the refusal waits for that run to finish only to be told no.
+    //
+    // It does NOT replace the routing inside session_for, and must not be made
+    // to: session_for still needs the route to key the session cache. The two
+    // calls agree because both read the same immutable capabilities. What this
+    // one adds is only the ordering, so call it before acquire().
+    //
+    // Const and lane-free on purpose. If a future edit makes routing depend on
+    // mutable state, this must grow the lane parameter its siblings carry.
+    void check_can_serve(Rpc rpc, const RequestShape &shape) const;
+
     // Routes the RPC and returns the cached session, creating it on first use.
     // Throws CapabilityError when this family cannot serve the RPC, and a plain
     // runtime_error when it can but the session could not be built, which is an

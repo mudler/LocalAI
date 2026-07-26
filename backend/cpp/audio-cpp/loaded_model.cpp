@@ -337,6 +337,13 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
     capabilities_ = to_capabilities(family, engine_caps);
 }
 
+void LoadedModel::check_can_serve(Rpc rpc, const RequestShape &shape) const {
+    const Route route = resolve_route(rpc, shape, capabilities_);
+    if (!route.ok) {
+        throw CapabilityError(route.error);
+    }
+}
+
 LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape,
                                               LaneEntry &lane) {
     // Proof of holding only. Nothing here reads it, and nothing should: its

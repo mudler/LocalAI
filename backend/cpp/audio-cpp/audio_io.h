@@ -13,16 +13,36 @@
 
 namespace audiocpp_backend {
 
-// Reads a WAV file at its native sample rate and channel count. Throws
-// ConfigError when the file is missing, is not readable as WAV, or declares a
-// non-positive sample rate: all three are user-fixable input problems rather
-// than backend faults.
+// Reads a WAV file. Throws ConfigError when the file is missing, is not
+// readable as WAV, or declares a non-positive sample rate: all three are
+// user-fixable input problems rather than backend faults.
 //
 // A declared sample rate of zero is refused rather than passed on, because
 // every downstream conversion in audio_units answers 0 for a non-positive rate.
 // Accepting it would turn a corrupt header into a response full of zero
 // timestamps, which reads as a real answer.
-engine::runtime::AudioBuffer read_audio_file(const std::string &path);
+//
+// `target_sample_rate` is the rate the CALLER needs, in Hz:
+//
+//   0 (or negative)  keep the file's own rate and channel count.
+//   positive         downmix to mono and resample to that rate. Resampling is
+//                    skipped when the file already declares it, so passing the
+//                    rate a route needs costs nothing on the common input.
+//
+// It is a parameter, and not a constant inside this function, because the
+// routes that read audio do not agree on an answer. Speech routes want 16 kHz
+// mono; source separation does not, and folding a 44.1 kHz stereo input to
+// 16 kHz mono for demucs or roformer would destroy the very thing they separate
+// (both refuse a rate other than their own outright). Making the caller name
+// the rate keeps that decision where the route is known.
+//
+// Downmixing along with the resample is not an extra liberty: every family a
+// positive rate is used for (silero_vad, sortformer_diar and every ASR family)
+// begins by calling the same mixdown_interleaved_to_mono_average on whatever it
+// is given. Doing it once here produces the identical samples and halves the
+// buffer that is then moved through the request.
+engine::runtime::AudioBuffer read_audio_file(const std::string &path,
+                                             int target_sample_rate);
 
 // Writes 16-bit PCM WAV, creating parent directories. Throws ConfigError when
 // the destination cannot be written.
