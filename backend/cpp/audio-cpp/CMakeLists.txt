@@ -90,6 +90,7 @@ add_executable(${TARGET}
     capability_routing.cpp
     audio_units.cpp
     transcript_assembly.cpp
+    run_guard.cpp
 )
 
 target_include_directories(${TARGET} PRIVATE
