@@ -466,22 +466,6 @@ curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -
    }' | aplay
 ```
 
-The OpenAI [`speed`](https://platform.openai.com/docs/api-reference/audio/createSpeech)
-field (0.25-4.0) is accepted as well and is forwarded to the backend as `params.speed`,
-so it can be used without the LocalAI-specific extension:
-
-```
-curl http://localhost:8080/v1/audio/speech -H "Content-Type: application/json" -d '{
-     "model": "qwen-tts",
-     "input": "Hello world, this is a test.",
-     "speed": 0.8
-   }' | aplay
-```
-
-A value outside that range is rejected with `400 Bad Request`. An explicit
-`params.speed` takes precedence over the `speed` field, and backends whose model has
-no rate control simply ignore it.
-
 #### Voice Clone Mode
 
 Voice Clone allows you to clone a voice from reference audio. Configure the model with an `AudioPath` and optional `ref_text`:
