@@ -41,5 +41,38 @@ options:
 - max_num_seqs:16
 ```
 
+## Apple Silicon: the MLX GEMM provider
+
+`BUILD_TYPE=metal` builds the Metal backend with vllm.cpp's optional MLX
+provider for the dense GEMM (`VLLM_CPP_MLX=on`, the default here). Upstream keeps
+it off because it costs a ~19 MB `libmlx.dylib` plus a ~105 MB `mlx.metallib`;
+this backend accepts that because the provider was measured to pay for it on an
+Apple M4, against the native MSL GEMM in the SAME binary (arms toggled with
+`VT_OP_PROVIDER_DISABLE=mlx`), Qwen3-1.7B-bf16 at p=512 g=128:
+
+| Concurrency | MLX agg tok/s | native agg tok/s | speedup |
+|--:|--:|--:|--:|
+| 1 | 5.79 | 3.08 | 1.88x |
+| 8 | 25.70 | 13.69 | 1.88x |
+| 16 | 38.65 | 17.69 | 2.19x |
+
+TTFT improves 2x to 3x, peak memory is unchanged, and the GEMM output is
+bit-identical to the native kernel on every parity shape. MLX serves the dense
+GEMM only: paged attention stays vllm.cpp's own kernel, because MLX has no
+paged-KV primitive. Full disposition in vllm.cpp `docs/BENCHMARKS.md`,
+"MLX GEMM provider A/B on Apple M4".
+
+Build knobs:
+
+- `VLLM_CPP_MLX=off` builds Metal without the provider: ~124 MB smaller, slower.
+- `MLX_VERSION` pins the wheel (default `0.29.3`). MLX is consumed as the
+  prebuilt pip wheel because building it from source needs `xcrun metal`, i.e. a
+  full Xcode the macOS runners do not have.
+
+Packaging vendors `libmlx.dylib`, `mlx.metallib` and MLX's MIT license into
+`package/lib/`, and rewrites `libvllm.dylib`'s rpath to `@loader_path/lib`
+(re-signing it, since `install_name_tool` invalidates the signature). The
+metallib must stay beside `libmlx.dylib`: MLX looks for it there.
+
 Testing: `make test` runs the unit specs; export `VLLM_CPP_MODEL=<model>` (and
 optionally `VLLM_CPP_LIBRARY=<libvllm path>`) to enable the e2e specs.
