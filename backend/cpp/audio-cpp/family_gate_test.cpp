@@ -22,6 +22,11 @@ static void check(bool ok, const std::string &name) {
     }
 }
 
+static void check_eq(const std::string &got, const std::string &want,
+                     const std::string &name) {
+    check(got == want, name + " (got \"" + got + "\" want \"" + want + "\")");
+}
+
 using namespace audiocpp_backend;
 
 static void test_gguf_suffix_detection() {
@@ -102,6 +107,49 @@ static void test_directory_ignores_embedded_family() {
           "a directory refusal does not blame GGUF metadata it could not have");
 }
 
+// Pins the weight-dtype allow list. Not a style preference: an entry here is a
+// family that ABORTS THE PROCESS on the first request when handed the wrong
+// dtype, so the model loads and then every request kills the backend with no
+// status and no message.
+//
+// What this test can and cannot do, stated so the next reader does not expect
+// more of it: it pins WHAT THE TABLE SAYS, so widening an entry is a deliberate
+// act rather than a typo, and it pins that an unlisted family is unrestricted.
+// It CANNOT pin the removal criterion, which is "upstream fixed it": knowing
+// that needs the package downloaded and a synthesis run, so it stays a manual
+// step documented at the table in family_gate.cpp.
+static void test_weight_dtype_allow_list() {
+    // The entry that exists, and the exact reason it exists.
+    check(!weight_dtype_is_supported("supertonic", "f16"),
+          "supertonic refuses f16, the package that aborts the process");
+    check(!weight_dtype_is_supported("supertonic", "q8_0"),
+          "supertonic refuses q8_0, which upstream records as unsupported");
+    check(!weight_dtype_is_supported("supertonic", "bf16"),
+          "supertonic refuses bf16, which is untested rather than known good");
+    check(weight_dtype_is_supported("supertonic", "f32"),
+          "supertonic accepts f32, which is what the orig package stores");
+    check(weight_dtype_is_supported("supertonic", "i64"),
+          "supertonic accepts i64: the orig package carries 72 such tensors and "
+          "refusing them would refuse the artifact that works");
+
+    // Every other family is unrestricted, and must stay that way: this guard is
+    // for process death, not for quality.
+    check(weight_dtype_is_supported("nemotron_asr", "q8_0"),
+          "an unlisted family is not restricted");
+    check(weight_dtype_is_supported("citrinet_asr", "f16"),
+          "an unlisted family is not restricted by another family's entry");
+    check(weight_dtype_is_supported("", "anything"),
+          "an empty family name is not restricted");
+
+    // The message the operator reads has to name the remedy, so the refusal is
+    // actionable rather than only correct.
+    check_eq(supported_weight_dtypes("supertonic"), "f32, i64",
+             "the refusal can name what to look for");
+    check_eq(supported_weight_dtypes("nemotron_asr"), "",
+             "an unlisted family reports no restriction, which is what makes "
+             "the caller skip the whole check");
+}
+
 int main() {
     test_gguf_suffix_detection();
     test_explicit_family_always_wins();
@@ -109,6 +157,7 @@ int main() {
     test_foreign_gguf_is_refused();
     test_directory_without_family_is_refused();
     test_directory_ignores_embedded_family();
+    test_weight_dtype_allow_list();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

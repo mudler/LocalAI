@@ -339,12 +339,72 @@ static void test_undecodable_bytes_are_not_held_forever() {
     check_eq(invalid_run.observe(std::string("\xFE\x80\x80")), std::string("\xFE\x80\x80"),
              "an undefined lead with continuations is passed through");
 
-    // Five continuation bytes with no lead in sight: the scan gives up rather
-    // than walking back through the whole buffer.
+    // Five continuation bytes with no lead in sight. They are DROPPED, not
+    // held: nothing can ever precede them, so holding would stall the stream
+    // for good, and emitting them would put invalid UTF-8 on the wire. See
+    // test_a_fragment_never_begins_mid_character.
     TranscriptDeltaTracker orphans;
-    check_eq(orphans.observe(std::string("\x80\x80\x80\x80\x80")),
-             std::string("\x80\x80\x80\x80\x80"),
-             "a run of orphan continuation bytes is passed through");
+    check_eq(orphans.observe(std::string("\x80\x80\x80\x80\x80")), "",
+             "a run of orphan continuation bytes is dropped, not emitted");
+    check_eq(orphans.observe("after"), "after",
+             "and the stream continues past them");
+}
+
+// THE SECOND HALF OF THE SAME BUG, and the one that survived fix round 1.
+//
+// Rule 2 discards a fragment the known text already starts with. When that
+// fragment is the LEAD BYTE of a NEW character it looks exactly like a repeat of
+// an earlier character beginning with the same byte, so it was discarded and
+// never held. Its continuation bytes then arrived on their own and began the
+// next delta, which is invalid UTF-8 at the FRONT, and utf8_complete_prefix_length
+// only ever inspected the TRAILING sequence.
+//
+// Reachable from shipping families, not synthetic: nemotron_asr's
+// decoder.cpp:550 cuts at a BYTE offset (current_text.substr(emitted_text.size()))
+// and vibevoice_asr's common_prefix_size (session.cpp:80-86) compares BYTES, so
+// both split characters mid-sequence. The trace below is exactly how they split
+// "ssee" spelled with the German sharp s, an e-acute, a euro sign and an o-grave,
+// three of which begin with the same 0xC3 lead byte.
+static void test_a_repeated_lead_byte_is_not_swallowed() {
+    TranscriptDeltaTracker tracker;
+    std::vector<std::string> emitted;
+    const std::string sharp_s = "\xC3\x9F";  // U+00DF
+    const std::string e_acute = "\xC3\xA9";  // U+00E9
+    const std::string euro = "\xE2\x82\xAC"; // U+20AC
+    const std::string o_grave = "\xC3\xB2";  // U+00F2
+    const std::string full = sharp_s + e_acute + euro + o_grave;
+
+    const std::string view = client_view(tracker,
+                                         {sharp_s.substr(0, 1), sharp_s.substr(1),
+                                          e_acute.substr(0, 1),
+                                          e_acute.substr(1) + euro,
+                                          o_grave.substr(0, 1), o_grave.substr(1)},
+                                         &emitted);
+
+    for (size_t i = 0; i < emitted.size(); ++i) {
+        check(is_valid_utf8(emitted[i]),
+              "repeated-lead fragment " + std::to_string(i) + " is valid UTF-8");
+    }
+    check_eq(view, full, "no character is lost to a repeated lead byte");
+    check_eq(tracker.reconcile(full), "", "the final text adds nothing");
+}
+
+// The same shape one layer down, as a backstop: a fragment that BEGINS with
+// orphan continuation bytes must never go on the wire, whatever produced it.
+// Dropping bytes keeps the stream alive; emitting them ends it, and takes the
+// final_result that was still to come with it.
+static void test_a_fragment_never_begins_mid_character() {
+    TranscriptDeltaTracker tracker;
+    const std::string first = tracker.observe(std::string("\xA9") + "rest");
+    check(is_valid_utf8(first), "a leading orphan continuation byte is not emitted");
+    check_eq(first, "rest", "the rest of the fragment still goes out");
+
+    TranscriptDeltaTracker all_orphans;
+    check_eq(all_orphans.observe(std::string("\x82\xAC")), "",
+             "a fragment that is nothing but orphans emits nothing");
+    check_eq(all_orphans.assembled(), "",
+             "and nothing is recorded as delivered");
+    check_eq(all_orphans.observe("after"), "after", "the stream continues");
 }
 
 int main() {
@@ -365,6 +425,8 @@ int main() {
     test_held_bytes_join_the_next_fragment();
     test_a_complete_character_is_not_held();
     test_undecodable_bytes_are_not_held_forever();
+    test_a_repeated_lead_byte_is_not_swallowed();
+    test_a_fragment_never_begins_mid_character();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

@@ -63,4 +63,71 @@ FamilyDecision decide_family(bool path_is_gguf, const std::string &embedded_fami
     return decision;
 }
 
+namespace {
+
+// Families that ABORT THE PROCESS on a weight dtype they cannot handle, and the
+// dtypes they can. See the header for why this is a list of crashes rather than
+// a list of preferences.
+//
+// supertonic: upstream's docs/gguf.md:90 records its 16-bit GGUF column as
+// "---", i.e. NOT TESTED, and its q8_0 as "No (unsupported weight dtype)". Only
+// the `orig` package is marked Pass, and its 698 weight tensors are f32 while
+// its 72 index and shape constants are i64. Attributed rather than assumed: the
+// abort is identical through the unary TTS RPC and through TTSStream, so it is
+// the packaging and not the streaming path.
+//
+// TO REMOVE AN ENTRY: bump AUDIO_CPP_VERSION past a fix, load a package in the
+// refused dtype, and synthesise. If audio comes out, delete the entry. No test
+// can do that for you, which is exactly why it is written here: the test beside
+// this file pins WHAT the table says, not whether upstream has moved on. Do not
+// widen an entry without running that, because what it prevents is a process
+// death rather than a wrong answer.
+struct DtypeAllowList {
+    const char *family;
+    const char *allowed[3];
+};
+
+constexpr DtypeAllowList kDtypeAllowLists[] = {
+    {"supertonic", {"f32", "i64", nullptr}},
+};
+
+const DtypeAllowList *find_allow_list(const std::string &family) {
+    for (const auto &entry : kDtypeAllowLists) {
+        if (family == entry.family) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
+bool weight_dtype_is_supported(const std::string &family, const std::string &dtype) {
+    const DtypeAllowList *list = find_allow_list(family);
+    if (list == nullptr) {
+        return true;
+    }
+    for (const char *const *name = list->allowed; *name != nullptr; ++name) {
+        if (dtype == *name) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string supported_weight_dtypes(const std::string &family) {
+    const DtypeAllowList *list = find_allow_list(family);
+    if (list == nullptr) {
+        return {};
+    }
+    std::string out;
+    for (const char *const *name = list->allowed; *name != nullptr; ++name) {
+        if (!out.empty()) {
+            out += ", ";
+        }
+        out += *name;
+    }
+    return out;
+}
+
 } // namespace audiocpp_backend

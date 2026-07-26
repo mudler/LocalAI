@@ -45,8 +45,17 @@
 // wire format REQUIRES valid UTF-8: the C++ runtime serializes an invalid one
 // with at most a warning, but the Go runtime refuses to unmarshal it, and the
 // client loses every remaining delta AND the final_result. So no fragment this
-// class returns ever ends inside a character; an incomplete trailing sequence is
-// held back and merged into the next fragment.
+// class returns ever BEGINS OR ENDS inside a character: an incomplete trailing
+// sequence is held back and merged into the next fragment, and a leading orphan
+// continuation byte, which nothing can ever complete, is dropped.
+//
+// It is NOT a voxtral-only concern, which is what the first attempt at this
+// assumed. The incremental families split characters by the same arithmetic:
+// nemotron_asr's decoder cuts at a BYTE offset (decoder.cpp:550) and
+// vibevoice_asr's common_prefix_size compares BYTES (session.cpp:80-86). Nor is
+// European text the worst case: a Japanese transcript, whose every character is
+// three bytes, carried at least one invalid delta in 33.74% of traces until
+// rule 2 below learned to leave an incomplete fragment alone.
 
 #include <string>
 
@@ -60,9 +69,13 @@ public:
     // The rules, in order, all of them against everything KNOWN (delivered
     // plus held back), never against the delivered text alone:
     //   1. An empty partial says nothing.
-    //   2. A partial the known text ALREADY STARTS WITH has been accounted for:
-    //      nothing is emitted. This is what absorbs voxtral's repeat of the
-    //      last event in each batch, and a cumulative hypothesis that shrinks.
+    //   2. A partial the known text ALREADY STARTS WITH, AND WHICH IS ITSELF A
+    //      WHOLE NUMBER OF CHARACTERS, has been accounted for: nothing is
+    //      emitted. This is what absorbs voxtral's repeat of the last event in
+    //      each batch, and a cumulative hypothesis that shrinks. The second
+    //      condition is what keeps a new character's lead byte from being
+    //      mistaken for a repeat of an old character that starts with the same
+    //      byte; see the note at the rule in the implementation.
     //   3. A partial that EXTENDS the known text is a cumulative report: only
     //      its new suffix is emitted.
     //   4. Anything else is an incremental fragment: it is emitted whole and
@@ -76,9 +89,10 @@ public:
     // does in practice.
     //
     // What comes back is the fragment MINUS any incomplete trailing UTF-8
-    // sequence, which is carried into the next call. So an empty return can
-    // also mean "the only new bytes were half a character", and the caller
-    // needs no knowledge of that: writing nothing is exactly right.
+    // sequence, which is carried into the next call, and minus any leading
+    // orphan continuation byte, which is dropped. So an empty return can also
+    // mean "the only new bytes were half a character", and the caller needs no
+    // knowledge of that: writing nothing is exactly right.
     std::string observe(const std::string &partial_text);
 
     // Reconciles against TaskResult::text_output, which is authoritative, and

@@ -11,21 +11,40 @@ bool starts_with(const std::string &text, const std::string &prefix) {
            text.compare(0, prefix.size(), prefix) == 0;
 }
 
+// Number of leading bytes of `text` that cannot BEGIN a character, i.e. orphan
+// continuation bytes with no lead byte in front of them.
+//
+// They are unrecoverable rather than early: the byte that would have led them
+// has already gone past, and nothing can be prepended to a fragment after the
+// fact. Holding them would stall the stream for good, and emitting them puts
+// invalid UTF-8 on the wire, so the caller DROPS them. Losing a byte keeps the
+// stream alive; emitting one ends it, and takes the final_result still to come
+// with it.
+std::size_t utf8_orphan_prefix_length(const std::string &text) {
+    std::size_t index = 0;
+    while (index < text.size() &&
+           (static_cast<unsigned char>(text[index]) & 0xC0) == 0x80) {
+        ++index;
+    }
+    return index;
+}
+
 // Length of the longest prefix of `text` that does NOT end inside a multi-byte
 // UTF-8 sequence, i.e. the most that can go on the wire without splitting a
 // character in half.
 //
-// Only the TRAILING sequence is examined. Bytes further back are none of this
-// function's business: a family that emitted a malformed sequence in the middle
-// of its own transcript cannot be repaired here without deleting part of that
-// transcript.
+// Only the TRAILING sequence is examined; the leading side is
+// utf8_orphan_prefix_length's job. Bytes in the MIDDLE are neither one's
+// business: a family that emitted a malformed sequence inside its own text
+// cannot be repaired here without deleting part of that transcript, and the
+// stream is lost anyway, because final_result.text carries the same bytes
+// through the same proto3 string field.
 //
 // Anything that can never complete is reported as complete, so it goes out
-// rather than being held forever: a lone continuation byte with no lead, a lead
-// byte the encoding does not define, and a run of five or more continuation
-// bytes are all passed through. A tracker that stalled on undecodable input
-// would turn one bad byte into a permanently silent stream, which is worse than
-// the bad byte.
+// rather than being held forever: a lead byte the encoding does not define, and
+// a run of five or more continuation bytes, are both passed through. A tracker
+// that stalled on undecodable input would turn one bad byte into a permanently
+// silent stream, which is worse than the bad byte.
 std::size_t utf8_complete_prefix_length(const std::string &text) {
     std::size_t index = text.size();
     std::size_t continuations = 0;
@@ -65,7 +84,13 @@ std::size_t utf8_complete_prefix_length(const std::string &text) {
 std::string TranscriptDeltaTracker::release(const std::string &fragment) {
     // Held-back bytes go in FRONT of whatever arrived next, or the character
     // they begin is reassembled in the wrong order.
-    const std::string candidate = pending_ + fragment;
+    std::string candidate = pending_ + fragment;
+    // A fragment must not BEGIN mid-character either. pending_ always starts on
+    // a lead byte, so this only bites when nothing was held and the caller's
+    // rules dropped the lead byte somewhere upstream; it is the backstop that
+    // makes "no delta this class returns is ever invalid UTF-8" true of the
+    // FRONT as well as the back, independently of those rules being right.
+    candidate.erase(0, utf8_orphan_prefix_length(candidate));
     const std::size_t cut = utf8_complete_prefix_length(candidate);
     pending_ = candidate.substr(cut);
     std::string emitted = candidate.substr(0, cut);
@@ -84,7 +109,21 @@ std::string TranscriptDeltaTracker::observe(const std::string &partial_text) {
     const std::string known = assembled_ + pending_;
     // Already accounted for. Covers the repeat voxtral produces when the sink
     // and the return value carry the same event, and a hypothesis that shrank.
-    if (starts_with(known, partial_text)) {
+    //
+    // The second condition is not decoration, and it is the whole of the second
+    // half of the UTF-8 bug. A fragment that ENDS MID-CHARACTER is not judged
+    // here at all, because the two readings of it are indistinguishable by
+    // bytes: "\xC3" is a prefix of an already-delivered "\xC3\x9F", and it is
+    // also the lead byte of a brand new "\xC3\xA9". Discarding it loses a
+    // character whose continuation bytes then arrive alone and begin the next
+    // delta with an orphan; holding it costs, at worst, a few duplicated bytes
+    // in a shrinking cumulative report, which no pinned family produces (every
+    // cumulative reporter here is append-only, and voxtral provably so, since
+    // its decode is a byte concatenation). One reading kills the RPC, the other
+    // glitches a hypothetical. Measured before this condition existed:
+    // 33.74% of Japanese traces carried at least one invalid delta.
+    if (starts_with(known, partial_text) &&
+        utf8_complete_prefix_length(partial_text) == partial_text.size()) {
         return {};
     }
     if (starts_with(partial_text, known)) {
@@ -95,7 +134,7 @@ std::string TranscriptDeltaTracker::observe(const std::string &partial_text) {
     //
     // A family that REWRITES its hypothesis lands here too, and the client's
     // view is then wrong in a way nothing downstream can fix. nemotron's
-    // decoder has such a branch (decoder.cpp:551-554): when the new text is not
+    // decoder has such a branch (decoder.cpp:552-554): when the new text is not
     // an extension of what it already emitted, it emits the whole new text. So
     // "the cat sat" followed by "the cat sap" leaves the client holding
     // "the cat satthe cat sap", and reconcile then correctly refuses to append
