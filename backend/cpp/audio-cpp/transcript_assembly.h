@@ -64,7 +64,13 @@ struct AssembledTranscript {
 // outside every segment attaches to the nearest one by midpoint distance so it
 // is never silently dropped. A segment's text is its words joined by a single
 // space, except that a lone segment with no words carries the full text.
-// A segment's speaker is the speaker turn with the greatest overlap.
+//
+// A segment's speaker is the speaker turn with the greatest overlap, except
+// when the segments came from the speaker turns themselves (source 2), where
+// each segment keeps its own turn's label. Re-deriving it there loses a turn
+// nested inside another speaker's turn: the nested turn overlaps its own span
+// completely, so it can only tie with the containing turn, which is listed
+// first and wins the tie.
 AssembledTranscript assemble_transcript(const std::string &text_output,
                                         const std::vector<Span> &speech_segments,
                                         const std::vector<SpeakerSpan> &speaker_turns,

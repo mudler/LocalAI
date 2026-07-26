@@ -51,21 +51,39 @@ std::string speaker_for(const Span &segment,
     return best;
 }
 
+// The chosen segmentation. labels is empty unless the spans were sourced from
+// the speaker turns themselves, in which case it is parallel to spans and holds
+// the label each span arrived with.
+struct SegmentSource {
+    std::vector<Span> spans;
+    std::vector<std::string> labels;
+};
+
 // Chooses the segment spans, per the documented precedence.
-std::vector<Span> choose_segment_spans(const std::string &text_output,
-                                       const std::vector<Span> &speech_segments,
-                                       const std::vector<SpeakerSpan> &speaker_turns,
-                                       const std::vector<WordSpan> &words) {
+SegmentSource choose_segment_spans(const std::string &text_output,
+                                   const std::vector<Span> &speech_segments,
+                                   const std::vector<SpeakerSpan> &speaker_turns,
+                                   const std::vector<WordSpan> &words) {
     if (!speech_segments.empty()) {
-        return speech_segments;
+        return {speech_segments, {}};
     }
     if (!speaker_turns.empty()) {
-        std::vector<Span> spans;
-        spans.reserve(speaker_turns.size());
+        // The labels are carried out rather than re-derived by overlap later. A
+        // turn wholly contained in another speaker's turn overlaps its own span
+        // completely, which is the largest overlap possible, so it can only tie
+        // with the containing turn and would then lose that tie on order.
+        // sortformer_diar binarizes each speaker's track independently and
+        // sorts the result by start sample, so the container always comes
+        // first, and the interjecting speaker would be silently relabelled to
+        // the speaker it interrupted.
+        SegmentSource source;
+        source.spans.reserve(speaker_turns.size());
+        source.labels.reserve(speaker_turns.size());
         for (const auto &turn : speaker_turns) {
-            spans.push_back(turn.span);
+            source.spans.push_back(turn.span);
+            source.labels.push_back(turn.speaker);
         }
-        return spans;
+        return source;
     }
     if (!words.empty()) {
         Span covering = words.front().span;
@@ -74,12 +92,12 @@ std::vector<Span> choose_segment_spans(const std::string &text_output,
                 std::min(covering.start_sample, word.span.start_sample);
             covering.end_sample = std::max(covering.end_sample, word.span.end_sample);
         }
-        return {covering};
+        return {{covering}, {}};
     }
     if (!text_output.empty()) {
         // A zero span rather than a fabricated duration: the model reported no
         // timing, and inventing one would be a lie the caller cannot detect.
-        return {Span{0, 0}};
+        return {{Span{0, 0}}, {}};
     }
     return {};
 }
@@ -116,8 +134,9 @@ AssembledTranscript assemble_transcript(const std::string &text_output,
     // THE RULE. Never derived from spans.
     assembled.text = text_output;
 
-    const std::vector<Span> spans =
+    const SegmentSource source =
         choose_segment_spans(text_output, speech_segments, speaker_turns, words);
+    const std::vector<Span> &spans = source.spans;
     if (spans.empty()) {
         return assembled;
     }
@@ -128,7 +147,11 @@ AssembledTranscript assemble_transcript(const std::string &text_output,
         segment.id = static_cast<int>(i);
         segment.start_ns = samples_to_nanoseconds(spans[i].start_sample, sample_rate);
         segment.end_ns = samples_to_nanoseconds(spans[i].end_sample, sample_rate);
-        segment.speaker = speaker_for(spans[i], speaker_turns);
+        // A segment that came from a speaker turn already knows its speaker.
+        // Only the other three sources have to look one up by overlap.
+        segment.speaker = source.labels.empty()
+                              ? speaker_for(spans[i], speaker_turns)
+                              : source.labels[i];
     }
 
     for (const auto &word : words) {

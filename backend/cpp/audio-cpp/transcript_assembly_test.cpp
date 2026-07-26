@@ -2,9 +2,12 @@
 // compiles this as a single translation unit, so both implementations are
 // included directly rather than linked.
 //
-// Every fixture below mirrors a producer shape actually observed from
-// audio.cpp families. Do not replace them with invented shapes: an invented
-// shape is what let the earlier attempt ship an empty transcript.
+// Every fixture below either mirrors a producer shape actually observed from
+// audio.cpp families, and names the families it was checked against, or says in
+// its own comment that it is defensive. Do not replace an observed shape with an
+// invented one and do not quietly promote a defensive fixture to an observed
+// one: an invented shape is what let the earlier attempt ship an empty
+// transcript.
 
 #include "audio_units.cpp"
 #include "transcript_assembly.cpp"
@@ -117,6 +120,26 @@ static void test_covering_span_spans_every_word() {
           "the covering span reaches the latest word end, not the last word's");
 }
 
+// Defensive, not observed: no pinned family emits a word with no text.
+// nemotron_asr's build_token_timestamps (models/nemotron_asr/decoder.cpp:97)
+// skips a token that decodes to an empty chunk before it ever becomes a
+// WordTimestamp. join_words guards against one anyway, and an unexercised guard
+// is a guard the next reader deletes as dead weight.
+static void test_empty_word_contributes_no_separator() {
+    const std::vector<WordSpan> words = {
+        {{0, 4000}, "alpha"},
+        {{4000, 8000}, ""},
+        {{8000, 12000}, "beta"},
+    };
+    const auto out = assemble_transcript("alpha beta", {}, {}, words, kRate);
+
+    check(out.segments.size() == 1, "one segment");
+    check(segment_at(out, 0, "sole segment").text == "alpha beta",
+          "an empty word adds no separator to the segment text");
+    check(segment_at(out, 0, "sole segment").words.size() == 3,
+          "the empty word still reports its span");
+}
+
 // Shape B: speech segments, no words. Emitted by ASR families that report
 // utterance boundaries without word-level timing.
 static void test_segments_without_words() {
@@ -153,10 +176,14 @@ static void test_segments_with_speaker_turns_no_words() {
           "second speaker assigned");
 }
 
-// Shape C': the same producer, but the utterance boundaries and the speaker
-// boundaries disagree. VibeVoice chunk merging shifts both lists independently,
-// so they need not line up. speech_segments is the segment source and speaker
-// turns only label it, which the matching-span fixture above cannot show.
+// Defensive, not observed: speech segments and speaker turns that disagree.
+// vibevoice_asr builds each SpeakerTurn with turn.span = speech_segment.span in
+// one loop (models/vibevoice_asr/session.cpp:965) and shifts and clips both
+// lists identically when merging chunks, so in practice the two lists are 1:1
+// with identical spans. That is exactly why the shape C fixture above cannot
+// show which list is the segment source: swapping the precedence there produces
+// byte-identical output. This fixture pins the precedence, and it is the shape
+// any future family that segments and diarizes separately would produce.
 static void test_speech_segments_outrank_speaker_turns() {
     const std::vector<Span> segments = {{0, 32000}};
     const std::vector<SpeakerSpan> turns = {
@@ -171,8 +198,9 @@ static void test_speech_segments_outrank_speaker_turns() {
           "the utterance keeps its own span");
 }
 
-// Speaker turns outrank word timestamps as a segment source: a diarized result
-// is segmented by who spoke, and words only fill the turns in.
+// Defensive, not observed: no pinned family emits speaker turns and word
+// timestamps together. It pins rule 2 against rule 3, which nothing else does:
+// a diarized result is segmented by who spoke, and words only fill the turns in.
 static void test_speaker_turns_outrank_words() {
     const std::vector<SpeakerSpan> turns = {
         {{0, 16000}, "SPEAKER_00"},
@@ -217,6 +245,28 @@ static void test_speaker_turns_only() {
           "speaker label preserved verbatim");
     check(segment_at(out, 1, "turn 1").start_ns == 1500000000LL,
           "second turn starts at 1.5s");
+}
+
+// Shape E', the same producer with one speaker talking over another.
+// decode_sortformer_speaker_turns (models/sortformer_diar/postprocess.cpp)
+// binarizes each speaker's probability track independently, which is the whole
+// point of sortformer, then sorts the turns by start sample. So a turn can be
+// wholly contained in another speaker's turn, and the containing turn always
+// comes first. A segment sourced from a speaker turn must keep that turn's own
+// label: re-deriving it by overlap can only ever tie with the containing turn,
+// which then wins on order and silently erases the interjecting speaker.
+static void test_nested_speaker_turn_keeps_its_own_label() {
+    const std::vector<SpeakerSpan> turns = {
+        {{0, 100000}, "speaker_0"},
+        {{10000, 20000}, "speaker_1"},
+    };
+    const auto out = assemble_transcript("", {}, turns, {}, kRate);
+
+    check(out.segments.size() == 2, "both turns become segments");
+    check(segment_at(out, 0, "containing turn").speaker == "speaker_0",
+          "the containing turn keeps its label");
+    check(segment_at(out, 1, "nested turn").speaker == "speaker_1",
+          "a turn nested inside another is not relabelled to the container");
 }
 
 // Shape F: nothing at all. A model that ran but produced no output must not
@@ -326,6 +376,31 @@ static void test_stray_word_goes_to_the_nearest_segment() {
           "the stray word attaches to the nearest segment");
 }
 
+// "Nearest" is measured from the segment's midpoint, and it is neither "the
+// first segment" nor "the last". A leading stray word is the case a
+// trailing-only fixture cannot reach: forced-aligner words scored against VAD
+// segments produce one, and with only trailing coverage it would land at the
+// end of the transcript with the suite green. Here the leading word's nearest
+// midpoint is the first segment while its nearest start is the second, and the
+// trailing word's nearest midpoint is the third while its nearest end is the
+// second, so no endpoint rule reproduces this assignment either.
+static void test_stray_word_distance_is_measured_from_the_midpoint() {
+    const std::vector<Span> segments = {{0, 2000}, {8000, 200000}, {300000, 302000}};
+    const std::vector<WordSpan> words = {
+        {{4000, 6000}, "lead"},
+        {{249000, 251000}, "trail"},
+    };
+    const auto out = assemble_transcript("lead trail", segments, {}, words, kRate);
+
+    check(out.segments.size() == 3, "three segments");
+    check(segment_at(out, 0, "first segment").text == "lead",
+          "the leading stray word goes to the nearest segment by midpoint");
+    check(segment_at(out, 2, "third segment").text == "trail",
+          "the trailing stray word goes to the nearest segment by midpoint");
+    check(segment_at(out, 1, "middle segment").words.empty(),
+          "the long middle segment claims neither stray word");
+}
+
 // Speaker assignment uses greatest overlap, not first match, so a turn that
 // barely touches a segment does not win over one that covers it.
 static void test_speaker_assigned_by_greatest_overlap() {
@@ -366,18 +441,21 @@ int main() {
     test_words_only();
     test_words_only_with_punctuated_text_output();
     test_covering_span_spans_every_word();
+    test_empty_word_contributes_no_separator();
     test_segments_without_words();
     test_segments_with_speaker_turns_no_words();
     test_speech_segments_outrank_speaker_turns();
     test_speaker_turns_outrank_words();
     test_text_only();
     test_speaker_turns_only();
+    test_nested_speaker_turn_keeps_its_own_label();
     test_empty();
     test_vad_segments_without_text();
     test_words_distributed_into_segments();
     test_words_assigned_by_midpoint_not_endpoint();
     test_word_outside_all_segments();
     test_stray_word_goes_to_the_nearest_segment();
+    test_stray_word_distance_is_measured_from_the_midpoint();
     test_speaker_assigned_by_greatest_overlap();
     test_segment_without_any_overlapping_turn_has_no_speaker();
     test_zero_sample_rate_is_safe();
