@@ -276,12 +276,16 @@ std::string resolve_model_path(const std::string &model_path_dir,
 }
 
 LoadedModel::LoadedModel(const std::string &resolved_path,
-                         const ModelOptions &options)
-    : LoadedModel(resolved_path, options, require_family(resolved_path, options)) {}
+                         const ModelOptions &options,
+                         std::string model_identity)
+    : LoadedModel(resolved_path, options, require_family(resolved_path, options),
+                  std::move(model_identity)) {}
 
 LoadedModel::LoadedModel(const std::string &resolved_path,
-                         const ModelOptions &options, std::string family)
-    : lane_(family), registry_(engine::runtime::make_default_registry()) {
+                         const ModelOptions &options, std::string family,
+                         std::string model_identity)
+    : lane_(family), registry_(engine::runtime::make_default_registry()),
+      identity_(std::move(model_identity)) {
     if (!registry_.supports_family(family)) {
         throw ConfigError("audio-cpp: unknown audio.cpp family '" + family + "'");
     }
@@ -333,7 +337,11 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
     capabilities_ = to_capabilities(family, engine_caps);
 }
 
-LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape) {
+LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape,
+                                              const LaneEntry &lane) {
+    // Proof of holding only. Nothing here reads it, and nothing should: its
+    // whole job is to make a caller that has not taken the lane fail to compile.
+    (void)lane;
     const Route route = resolve_route(rpc, shape, capabilities_);
     if (!route.ok) {
         throw CapabilityError(route.error);
@@ -423,19 +431,22 @@ LaneEntry LoadedModel::acquire(int requested_timeout_ms) {
                                             requested_timeout_ms));
 }
 
+std::unique_ptr<LaneEntry> LoadedModel::acquire_owned(int requested_timeout_ms) {
+    return std::make_unique<LaneEntry>(
+        lane_,
+        resolve_wait_budget_ms(wait_budget_ceiling_ms_, requested_timeout_ms));
+}
+
 engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
-                                       const engine::runtime::TaskRequest &request) {
+                                        const engine::runtime::TaskRequest &request,
+                                        const LaneEntry &lane) {
+    // Proof of holding only, as in session_for.
+    (void)lane;
     if (session.offline == nullptr) {
         throw CapabilityError("audio-cpp: no offline session for this request");
     }
     session.offline->prepare(engine::runtime::build_preparation_request(request));
     return session.offline->run(request);
-}
-
-std::unique_ptr<LaneEntry> LoadedModel::acquire_owned(int requested_timeout_ms) {
-    return std::make_unique<LaneEntry>(
-        lane_,
-        resolve_wait_budget_ms(wait_budget_ceiling_ms_, requested_timeout_ms));
 }
 
 } // namespace audiocpp_backend

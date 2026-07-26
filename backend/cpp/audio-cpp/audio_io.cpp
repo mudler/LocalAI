@@ -15,7 +15,17 @@ engine::runtime::AudioBuffer read_audio_file(const std::string &path) {
         throw ConfigError("audio-cpp: no input audio path was supplied");
     }
     std::error_code ec;
-    if (!std::filesystem::exists(std::filesystem::path(path), ec)) {
+    const bool present = std::filesystem::exists(std::filesystem::path(path), ec);
+    if (ec) {
+        // exists() returning false with ec set does NOT mean the file is
+        // absent, it means the question could not be answered: most often a
+        // parent directory is not searchable. Reporting that as "does not
+        // exist" sends the operator after the file when the fault is the
+        // permissions on the directory above it.
+        throw ConfigError("audio-cpp: cannot stat input audio " + path + ": " +
+                          ec.message());
+    }
+    if (!present) {
         throw ConfigError("audio-cpp: input audio does not exist: " + path);
     }
     engine::runtime::AudioBuffer buffer;

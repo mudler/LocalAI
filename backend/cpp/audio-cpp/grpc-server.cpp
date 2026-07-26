@@ -107,6 +107,52 @@ int parse_device_index(const std::string &value) {
     return static_cast<int>(parsed);
 }
 
+// Mirrors pkg/grpc/server.go's checkModelIdentity, backend/cpp/llama-cpp,
+// backend/cpp/ds4, backend/cpp/privacy-filter and
+// backend/python/common/model_identity.py.
+//
+// Why every backend has to carry this: in distributed mode a worker can recycle
+// a stopped backend's gRPC port for a different model's backend, and the
+// controller's liveness-only health probe cannot tell a stale cached route from
+// a live one. Only the backend knows which model it actually loaded, so only
+// the backend can catch it (#10952). Without this, an audio-cpp process reached
+// through a stale route answers with a DIFFERENT model's VAD or diarization
+// result and a 200, which is a wrong answer nobody can see.
+//
+// Either side empty means "skip". The request side is empty for a controller
+// that predates the field; the loaded side is empty when such a controller
+// performed the load. Neither can judge the other, and a false rejection is
+// worse than the miss it prevents.
+//
+// Templated over the request type because every guarded message exposes
+// modelidentity(), and one body keeps the rule identical across RPCs rather
+// than letting it drift per handler.
+//
+// The loaded identity is read off the LoadedModel rather than a separate
+// global, which is where this differs from llama-cpp. A handler holding the
+// model through snapshot() is then necessarily judging against the identity
+// THAT model was loaded with, and a concurrent reload cannot swap one without
+// the other.
+template <typename Request>
+GStatus check_model_identity(const audiocpp_backend::LoadedModel &model,
+                             const Request *request) {
+    if (request == nullptr || request->modelidentity().empty()) {
+        return GStatus::OK;
+    }
+    const std::string &loaded = model.identity();
+    if (loaded.empty() || loaded == request->modelidentity()) {
+        return GStatus::OK;
+    }
+    // NOT_FOUND plus this exact sentinel is the cross-language wire contract
+    // the router matches on (grpcerrors.ModelMismatchSentinel). The code alone
+    // is not enough, since NOT_FOUND is returned for unrelated reasons
+    // elsewhere, so the substring "model identity mismatch" must survive
+    // verbatim through any edit to this message.
+    return GStatus(grpc::StatusCode::NOT_FOUND,
+                   "audio-cpp: model identity mismatch: loaded \"" + loaded +
+                       "\", requested \"" + request->modelidentity() + "\"");
+}
+
 // Maps a thrown exception onto the gRPC status the client should see.
 GStatus to_status(const std::exception &err) {
     if (dynamic_cast<const audiocpp_backend::ConfigError *>(&err) != nullptr) {
@@ -164,8 +210,12 @@ public:
             const std::string path = audiocpp_backend::resolve_model_path(
                 request->modelpath(), request->modelfile(), request->model());
 
+            // ModelOptions.Model is the UNTRANSLATED controller-side name, and
+            // is what every ModelIdentity field on a request is compared
+            // against. Passed at construction so the model and the identity it
+            // was loaded with are published together.
             auto loaded = std::make_shared<audiocpp_backend::LoadedModel>(
-                path, parsed.options);
+                path, parsed.options, request->model());
 
             // Read everything the reply and the log line need while this scope
             // still owns the model. After the move, `loaded` is null and the
@@ -223,6 +273,15 @@ public:
         return GStatus::OK;
     }
 
+    // Verifying this by hand: silero_vad is a SPEECH detector, so a synthetic
+    // stimulus does not exercise it. A 220 Hz sine, broadband noise and a
+    // harmonic buzz all return zero segments, correctly. Use real speech, which
+    // upstream bundles and which therefore needs no download:
+    //   audio.cpp/assets/resources/sample_16k.wav  (16 kHz mono, 14.07 s)
+    // Taking 1 s from offset 8000 samples (0.5 s in), padded with 1 s of
+    // silence either side, yields exactly one segment at start=0.9940
+    // end=2.0460. A different excerpt of the same file shifts the start,
+    // because it changes where speech actually begins inside the window.
     GStatus VAD(ServerContext *, const backend::VADRequest *request,
                 backend::VADResponse *response) override {
         try {
@@ -233,6 +292,13 @@ public:
             if (model == nullptr) {
                 return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
                                "audio-cpp: no model is loaded; call LoadModel first");
+            }
+            // Before any work: a stale route must be refused, not served.
+            // Cannot precede snapshot(), because the identity being compared
+            // against belongs to the model this call is about to use.
+            const GStatus identity = check_model_identity(*model, request);
+            if (!identity.ok()) {
+                return identity;
             }
 
             audiocpp_backend::RequestShape shape;
@@ -252,8 +318,9 @@ public:
             // because LaneEntry is immovable and C++17 elides the return.
             audiocpp_backend::LaneEntry lane = model->acquire(0);
             const auto session =
-                model->session_for(audiocpp_backend::Rpc::Vad, shape);
-            const auto result = audiocpp_backend::run_offline(session, task);
+                model->session_for(audiocpp_backend::Rpc::Vad, shape, lane);
+            const auto result =
+                audiocpp_backend::run_offline(session, task, lane);
 
             // VADSegment.start/end are float SECONDS, not sample indices.
             for (const auto &segment : result.speech_segments) {
@@ -277,6 +344,10 @@ public:
                 return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
                                "audio-cpp: no model is loaded; call LoadModel first");
             }
+            const GStatus identity = check_model_identity(*model, request);
+            if (!identity.ok()) {
+                return identity;
+            }
 
             audiocpp_backend::RequestShape shape;
             shape.pinned_task = model->pinned_task();
@@ -290,7 +361,7 @@ public:
             // capability refusal already pays because session_for needs the lane.
             audiocpp_backend::LaneEntry lane = model->acquire(0);
             const auto session =
-                model->session_for(audiocpp_backend::Rpc::Diarize, shape);
+                model->session_for(audiocpp_backend::Rpc::Diarize, shape, lane);
 
             // DiarizeRequest.dst is the INPUT path, despite the field name: the
             // HTTP layer materialises the upload to a temp file and passes the
@@ -307,15 +378,41 @@ public:
             // Moved, not copied: a long recording runs to tens of megabytes and
             // this is its only owner.
             task.audio_input = std::move(audio);
-            // Forwarded verbatim, and deliberately not validated against what
-            // the family can do. audio.cpp's sortformer diarizer takes its
-            // speaker count from the model package (the bundled variant is
-            // 4-speaker) and reads none of these keys, so today they have no
-            // effect. That is the documented LocalAI contract, not a silent
-            // failure: core/backend/diarization.go says outright that backends
-            // ignore the hints they do not act on. Forwarding them still means a
-            // family that does read them gets them, with no change here. The
-            // knobs that DO reach sortformer (speaker_threshold,
+            // READ THIS BEFORE WIRING THE FIRST DIARIZATION FAMILY. This
+            // forwarding is currently DEAD for sortformer, the only diarizer
+            // audio.cpp ships, and from the caller's side that is a silent
+            // wrong answer, not a soft hint:
+            //
+            //   - backend.proto documents num_speakers as "exact speaker count
+            //     if known (>0 forces)". A caller who asks for 2 and gets the
+            //     model's 4 labels back with a 200 and no diagnostic has been
+            //     given a wrong answer, so core/backend/diarization.go's
+            //     "backends ignore what they don't act on" does not cover it.
+            //   - sortformer takes its speaker count from the model package
+            //     (assets.model_config.modules.num_speakers; the bundled
+            //     variant is 4-speaker), and its postprocess config is parsed
+            //     from runtime::SessionOptions, i.e. load time, not from
+            //     TaskRequest.options at all.
+            //   - worse, its unknown-option check only inspects keys prefixed
+            //     "sortformer_diar.", so a bare "num_speakers" here is not even
+            //     a recognised key: it is dropped without a trace.
+            //
+            // The keys are still forwarded, because a family that does read
+            // them then works with no change here. But the family that lands
+            // MUST either honour num_speakers or refuse it with
+            // INVALID_ARGUMENT. No refusal path is added now because there is
+            // no diarization family wired yet to test one against, and an
+            // untested refusal is its own hazard.
+            //
+            // Also dropped today, and worth revisiting at the same time:
+            // clustering_threshold, min_duration_on and min_duration_off.
+            // The two min_duration_* fields are NOT family-specific: they are
+            // generic post-filters over the returned turns (drop a turn shorter
+            // than min_duration_on, merge two turns of the same speaker
+            // separated by less than min_duration_off), so the handler could
+            // honour them in about six lines whatever the family does.
+            //
+            // The knobs that DO reach sortformer (speaker_threshold,
             // speaker_min_frames, speaker_pad_frames, session_len_sec) are
             // session options and arrive through the model YAML's
             // `session.<key>:` entries at load time, not per request.
@@ -332,7 +429,8 @@ public:
                     std::to_string(request->max_speakers());
             }
 
-            const auto result = audiocpp_backend::run_offline(session, task);
+            const auto result =
+                audiocpp_backend::run_offline(session, task, lane);
 
             // Emitted verbatim, in the order the model produced them. NOT
             // sorted, merged or de-overlapped: sortformer binarizes each speaker
@@ -347,6 +445,15 @@ public:
                 auto *out = response->add_segments();
                 out->set_id(id++);
                 // Seconds, like VADSegment. Only TranscriptSegment/Word are ns.
+                //
+                // Converted against the INPUT rate, which is correct and has
+                // been checked against upstream rather than assumed: sortformer
+                // refuses any input whose rate differs from its feature config
+                // (frontend.cpp throws), and every TimeSpan it emits is built
+                // as llround(seconds * 16000.0) (postprocess.cpp). So the span
+                // domain and the input domain are the same 16 kHz, and this is
+                // not a place where a resampling family could silently scale
+                // every timestamp by a constant.
                 out->set_start(audiocpp_backend::samples_to_seconds(
                     turn.span.start_sample, sample_rate));
                 out->set_end(audiocpp_backend::samples_to_seconds(

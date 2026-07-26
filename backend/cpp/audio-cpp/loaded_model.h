@@ -66,12 +66,23 @@ public:
 
     // Throws ConfigError when the path does not exist, the family cannot be
     // determined, or the registry rejects the family.
-    LoadedModel(const std::string &resolved_path, const ModelOptions &options);
+    //
+    // `model_identity` is ModelOptions.Model verbatim: the UNTRANSLATED
+    // controller-side name. It is a constructor argument rather than a setter
+    // so identity and model are inseparable. llama-cpp keeps its equivalent in
+    // a separate global from the model, which leaves a window where a handler
+    // can read one without the other; here a handler that holds the model
+    // through snapshot() necessarily holds the identity it was loaded with.
+    LoadedModel(const std::string &resolved_path, const ModelOptions &options,
+                std::string model_identity);
 
     LoadedModel(const LoadedModel &) = delete;
     LoadedModel &operator=(const LoadedModel &) = delete;
 
     const std::string &family() const noexcept { return capabilities_.family; }
+    // Empty when the controller predates ModelOptions.ModelIdentity, which the
+    // identity check reads as "skip". See check_model_identity in grpc-server.
+    const std::string &identity() const noexcept { return identity_; }
     const std::string &variant() const noexcept { return variant_; }
     const std::string &description() const noexcept { return description_; }
     const std::vector<std::string> &languages() const noexcept { return languages_; }
@@ -92,10 +103,14 @@ public:
     // runtime_error when it can but the session could not be built, which is an
     // environment fault rather than a capability answer.
     //
-    // Call it only while holding this model's lane. The session cache is not
-    // itself synchronised, and it does not need to be: the lane admits one
-    // caller at a time, which is the same constraint the sessions themselves
-    // impose.
+    // The `lane` parameter is a PROOF OF HOLDING and is otherwise unused: it
+    // exists so the rule below is a compile error rather than prose. The
+    // session cache is an unsynchronised std::map and the sessions themselves
+    // are not reentrant, so this must only be called with the lane held; the
+    // lane admits one caller at a time, which is exactly the constraint the
+    // sessions impose. Pass the LaneEntry from acquire(). It is deliberately
+    // not a reference to `this`'s own lane member, because a caller can only
+    // produce a LaneEntry by having taken one.
     //
     // STATE CONTRACT, and it is the CALLER'S to honour. Sessions are cached per
     // (task, mode), so a streaming session is normally the same warm object the
@@ -116,7 +131,8 @@ public:
     //
     // Offline sessions need no such care: their interface has no reset and
     // run() takes a whole request.
-    Session session_for(Rpc rpc, const RequestShape &shape);
+    Session session_for(Rpc rpc, const RequestShape &shape,
+                        const LaneEntry &lane);
 
     // Takes the inference lane, or throws LaneUnavailable. Serializes runs
     // against this model. `requested_timeout_ms` is a per-request wait hint
@@ -144,8 +160,10 @@ private:
     // The public constructor runs the load gate, then delegates here. The
     // detour exists because lane_ has to be built from the family in the member
     // initializer list, and the family is only known after the gate has run.
+    // Four parameters rather than three so it cannot be confused with the
+    // public constructor, whose third argument is also a std::string.
     LoadedModel(const std::string &resolved_path, const ModelOptions &options,
-                std::string family);
+                std::string family, std::string model_identity);
 
     // MEMBER ORDER IS LOAD-BEARING BELOW THIS LINE. Members are destroyed in
     // reverse declaration order.
@@ -168,6 +186,7 @@ private:
     std::string description_;
     std::vector<std::string> languages_;
     std::string pinned_task_;
+    std::string identity_;
     bool supports_timestamps_ = false;
     int wait_budget_ceiling_ms_ = 0;
 };
@@ -178,14 +197,17 @@ private:
 // the model: a second request with a different sample rate or length would
 // otherwise run against the first request's contract.
 //
-// Call it only while holding the model's lane, for the same reason session_for
-// requires it: the session is not reentrant, and prepare() mutates it.
+// `lane` is a PROOF OF HOLDING, unused at runtime, for the same reason
+// session_for takes one: the session is not reentrant and prepare() mutates it,
+// so running without the lane is a data race. Making it a parameter turns that
+// into a compile error instead of a comment.
 //
 // Throws CapabilityError when the session is not an offline one. That should be
 // unreachable through session_for, which already refuses a non-offline session
 // for an offline route, and is checked anyway because the alternative is a null
 // dereference.
 engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
-                                       const engine::runtime::TaskRequest &request);
+                                        const engine::runtime::TaskRequest &request,
+                                        const LaneEntry &lane);
 
 } // namespace audiocpp_backend
