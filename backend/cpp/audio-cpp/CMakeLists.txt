@@ -130,6 +130,7 @@ add_executable(${TARGET}
     audio_units.cpp
     transcript_assembly.cpp
     result_map.cpp
+    stem_selection.cpp
     inference_lane.cpp
 )
 

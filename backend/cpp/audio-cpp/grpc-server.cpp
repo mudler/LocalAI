@@ -5,8 +5,9 @@
 // src/ or tests/ is used: those are application internals, they are where
 // upstream expects churn, and upstream is Apache-2.0 while LocalAI is MIT.
 //
-// This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD and
-// Diarize RPCs. The remaining audio RPCs land in later commits.
+// This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD,
+// Diarize and AudioTransform RPCs. The remaining audio RPCs land in later
+// commits.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
@@ -18,6 +19,7 @@
 #include "loaded_model.h"
 #include "model_options.h"
 #include "result_map.h"
+#include "stem_selection.h"
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/server.h>
@@ -122,6 +124,51 @@ constexpr int kVadSampleRate = 16000;
 // feeds 16 kHz. If the framework ever publishes a per-model preferred input
 // rate, this constant is what should become that lookup.
 constexpr int kSpeechSampleRate = 16000;
+
+// The rate AudioTransform reads BOTH its input and its reference clip at. Zero
+// means "the file's own rate and its own channel count", i.e. this handler does
+// no resampling and no downmix at all, and it is the only value that is correct
+// for all four tasks this RPC can route to.
+//
+// Separation forces it. htdemucs and mel_band_roformer refuse anything but
+// their own rate outright, from prepare(): "HTDemucs prepare() sample rate
+// mismatch: expected 44100" (src/models/demucs/session.cpp) and the same shape
+// in src/models/roformer/session.cpp. Passing kSpeechSampleRate here would
+// therefore turn every separation request into an INTERNAL, which is a loud
+// failure. The downmix half is the quiet one: both models declare two channels
+// and ACCEPT mono, by duplicating it across both, so a mono read would be taken
+// and would merely delete the stereo image, which is the cue that separates a
+// centred vocal from a wide mix. Verified rather than reasoned: a mono input
+// comes back as mono stems, a stereo input as stereo ones.
+//
+// The three conversion tasks do not force it, and were checked one family at a
+// time rather than assumed, because "it happens to work" and "it is documented
+// to work" are different claims:
+//
+//   seed_vc      (vc, svc) seed_vc_prepare_audio_for_sample_rate takes the
+//                buffer's rate and channel count and resamples to its own mel
+//                rate with resample_mono_torchaudio_sinc_hann.
+//   vevo2        (vc, s2s, svc) normalize_audio_to_24k_mono converts whatever
+//                it is given to 24 kHz mono before anything else runs.
+//   miocodec     (vc, s2s) prepare_miocodec_mono_audio mixes down, then
+//                resamples to the model's rate, again with sinc-hann.
+//   chatterbox   (vc) ChatterboxVcComponent::convert normalizes the source to
+//                16 kHz and the reference to 24 kHz itself.
+//
+// So every one of them resamples internally, and passing the file through
+// unchanged is not merely tolerated but strictly better: their outputs run at
+// 22.05 to 44.1 kHz, and pre-folding the input to 16 kHz mono with
+// read_audio_file's LINEAR resampler would band-limit at 8 kHz and alias, then
+// hand the family a signal it would upsample again. Two of the four use a
+// windowed-sinc resampler, which is exactly the quality this constant would
+// throw away before they ever saw the samples.
+//
+// The cost, stated plainly: a family that cannot handle the file's rate reports
+// it from inside the engine as a plain runtime_error, which to_status maps to
+// INTERNAL rather than INVALID_ARGUMENT. That is the accepted trade, since the
+// only families that refuse are the separators and their requirement is
+// 44.1 kHz stereo, i.e. an ordinary music file.
+constexpr int kTransformSampleRate = 0;
 
 // Parses ModelOptions.MainGPU into a device index.
 //
@@ -708,6 +755,157 @@ public:
             if (result.text_output.has_value()) {
                 response->set_language(result.text_output->language);
             }
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            return to_status(err);
+        }
+    }
+
+    // Serves the four tasks LocalAI's AudioTransform can represent: voice
+    // conversion, singing voice conversion, speech to speech and source
+    // separation. Which one a request becomes is routing's decision, not this
+    // handler's; see task_candidates for Rpc::AudioTransform, and note that svc
+    // is reachable only through an explicit task: pin because no request signal
+    // means "this input is singing".
+    //
+    // THE STEM COMPROMISE. AudioTransformResult carries a single dst, while
+    // htdemucs and mel_band_roformer produce four and two named stems from one
+    // run. Running inference once per stem would cost four full separations of
+    // the same file, so this runs ONCE, writes every stem to a sibling file
+    // <dst-stem>.<name>.<ext>, and puts the selected one in dst. Those siblings
+    // are real files in the caller's output directory that LocalAI's caller
+    // does not know about and will not clean up: a documented trade, not an
+    // oversight, and the reason params["stem"] exists to say which one dst gets.
+    GStatus AudioTransform(ServerContext *,
+                           const backend::AudioTransformRequest *request,
+                           backend::AudioTransformResult *response) override {
+        try {
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
+            if (model == nullptr) {
+                return refusal;
+            }
+
+            const bool has_reference = !request->reference_path().empty();
+            audiocpp_backend::RequestShape shape;
+            // Unused by AudioTransform's own routing today, since none of its
+            // four candidate tasks is chosen by the presence of a reference
+            // clip. Set anyway, because leaving a shape field stale is how a
+            // later routing rule silently reads the wrong thing.
+            shape.has_voice_reference = has_reference;
+            shape.pinned_task = model->pinned_task();
+
+            // First, before the lane, before the file reads, and before the
+            // argument check below. A family that cannot transform at all is
+            // answering a question about ITSELF, so it must not first queue
+            // behind somebody else's thirty second run, and it must not blame
+            // the caller's paths for a decision that had nothing to do with
+            // them. Same ordering as Diarize and AudioTranscription.
+            model->check_can_serve(audiocpp_backend::Rpc::AudioTransform, shape);
+
+            if (request->audio_path().empty() || request->dst().empty()) {
+                throw audiocpp_backend::ConfigError(
+                    "audio-cpp: AudioTransform needs both audio_path and dst");
+            }
+
+            engine::runtime::TaskRequest task;
+            std::string requested_stem;
+            for (const auto &param : request->params()) {
+                if (param.first == "stem") {
+                    // CONSUMED here and deliberately NOT forwarded into
+                    // task.options: it selects which output the caller
+                    // receives, it does not tune the model. Forwarding it would
+                    // put a key no family reads into every request and imply
+                    // the model had been asked to produce only that stem.
+                    requested_stem = param.second;
+                    continue;
+                }
+                task.options[param.first] = param.second;
+            }
+
+            // Native rate, native channels, for both files. See
+            // kTransformSampleRate: separation is destroyed by a downmix and
+            // every conversion family resamples internally anyway.
+            task.audio_input = audiocpp_backend::read_audio_file(
+                request->audio_path(), kTransformSampleRate);
+            if (has_reference) {
+                engine::runtime::VoiceReference reference;
+                reference.audio = audiocpp_backend::read_audio_file(
+                    request->reference_path(), kTransformSampleRate);
+                engine::runtime::VoiceCondition condition;
+                condition.speaker = std::move(reference);
+                task.voice = std::move(condition);
+            }
+
+            // Named local: LaneEntry is immovable and must span both
+            // session_for and run_offline, which is the constraint the proof of
+            // holding parameter exists to enforce.
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session =
+                model->session_for(audiocpp_backend::Rpc::AudioTransform, shape, lane);
+            const auto result = audiocpp_backend::run_offline(session, task, lane);
+
+            const engine::runtime::AudioBuffer *chosen = nullptr;
+            if (!result.named_audio_outputs.empty()) {
+                std::vector<std::string> names;
+                names.reserve(result.named_audio_outputs.size());
+                for (const auto &named : result.named_audio_outputs) {
+                    names.push_back(named.id);
+                }
+                // Selected BEFORE the first write, not after the loop. An
+                // unknown stem name is a refused request, and a refused request
+                // must not leave four files in the caller's output directory
+                // that it then reports nothing about.
+                const auto choice =
+                    audiocpp_backend::select_named_output(names, requested_stem);
+                if (!choice.error.empty()) {
+                    throw audiocpp_backend::ConfigError(choice.error);
+                }
+
+                for (size_t i = 0; i < result.named_audio_outputs.size(); ++i) {
+                    audiocpp_backend::write_audio_file(
+                        audiocpp_backend::sibling_stem_path(request->dst(), names[i]),
+                        result.named_audio_outputs[i].audio);
+                }
+                chosen = &result.named_audio_outputs[static_cast<size_t>(choice.index)]
+                              .audio;
+                // dst last, so it is the file that exists only once every stem
+                // beside it does. Its content duplicates the selected sibling
+                // on purpose: the caller reads dst, an operator reads the
+                // siblings, and neither should have to know about the other.
+                audiocpp_backend::write_audio_file(request->dst(), *chosen);
+            } else if (result.audio_output.has_value()) {
+                if (!requested_stem.empty()) {
+                    // A conversion family produces one unnamed output, so there
+                    // is no stem to choose. Refused rather than ignored: a
+                    // caller who asked for "vocals" and received the whole
+                    // converted signal has been answered with something else.
+                    throw audiocpp_backend::ConfigError(
+                        "audio-cpp: family '" + model->family() +
+                        "' produces a single output with no named stems, so "
+                        "params[stem]='" + requested_stem + "' cannot be honoured");
+                }
+                chosen = &*result.audio_output;
+                audiocpp_backend::write_audio_file(request->dst(), *chosen);
+            } else {
+                // Reached only if a family routed successfully and then
+                // returned no audio at all, which is a broken family rather
+                // than a wrong request. CapabilityError so it reads as "this
+                // model does not do that" instead of as an internal fault.
+                throw audiocpp_backend::CapabilityError(
+                    "audio-cpp: family '" + model->family() +
+                    "' produced no audio for the AudioTransform RPC");
+            }
+
+            response->set_dst(request->dst());
+            response->set_sample_rate(chosen->sample_rate);
+            // FRAMES, not floats. Separation output is stereo, so reporting
+            // samples.size() would tell the caller a 3 second stem is 6 seconds
+            // long.
+            response->set_samples(static_cast<int>(
+                audiocpp_backend::interleaved_frame_count(chosen->samples.size(),
+                                                          chosen->channels)));
+            response->set_reference_provided(has_reference);
             return GStatus::OK;
         } catch (const std::exception &err) {
             return to_status(err);
