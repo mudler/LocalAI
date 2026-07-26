@@ -292,6 +292,15 @@ static void test_bounded_wait_times_out() {
 
     // The waiter arrives immediately, so the holder's elapsed time is far below
     // the budget and the fail-fast path must not trigger here.
+    //
+    // Load-sensitive margin, and the tightest one in this file: what makes this
+    // the timeout path rather than the fail-fast path is the holder's age
+    // staying under 120 ms at the arrival check. All that sits between the
+    // holder's stamp and this call is one signal handover, microseconds against
+    // a 120 ms allowance, but unlike the other margins here load pushes this one
+    // toward failing rather than away from it. If it ever does flip, the symptom
+    // is the wording assertions below going red, not a hang, and the fix is a
+    // larger budget rather than a weaker assertion.
     const EntryOutcome outcome = try_entry(lane, kBudgetMs);
     release.raise();
     holder.join();
@@ -543,12 +552,23 @@ static void test_failure_messages_are_diagnosable() {
     });
     check(held.await(5000), "B10 holder took the lane");
 
+    // The two budgets have to straddle the run's age, or both callers take the
+    // same path and the comparisons below are between two fail-fast messages
+    // that differ only in the budget they print.
+    //
+    // Margin: 30 ms is far under the ~120 ms age, and load only ages the run
+    // further, so `fast` fails fast. 400 ms is far over it, with the same
+    // slack and the same safe direction as the B3 test, so `slow` queues and
+    // then times out.
     nap(120);
     const EntryOutcome fast = try_entry(lane, 30);
-    const EntryOutcome slow = try_entry(lane, 60);
+    const EntryOutcome slow = try_entry(lane, 400);
     release.raise();
     holder.join();
 
+    check(mentions(fast.message, kStillRunningPhrase) &&
+              mentions(slow.message, kTimedOutPhrase),
+          "B10 one caller took the fail-fast path and the other timed out");
     check(fast.message != slow.message,
           "B10 the two failure modes do not share one message");
     check(!fast.message.empty() && !slow.message.empty(),
