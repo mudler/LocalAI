@@ -33,6 +33,22 @@ type AudioTransformOutputs struct {
 	Dst           string
 	AudioPath     string
 	ReferencePath string
+	// Stems are the other named outputs the same run produced, in the model's
+	// own order and including the one whose content Dst carries. Empty for a
+	// single-output transform.
+	//
+	// A separation backend writes every stem beside Dst from ONE inference.
+	// Dropping them here would mean a caller who wants drums as well as vocals
+	// has to run the whole separation again per stem, which is precisely what
+	// the single run exists to avoid.
+	Stems []AudioTransformStem
+}
+
+// AudioTransformStem is one named output of a multi-output transform, e.g. the
+// "vocals" track of a source separation.
+type AudioTransformStem struct {
+	Name string
+	Dst  string
 }
 
 // ModelAudioTransform runs the unary AudioTransform RPC and returns the
@@ -128,7 +144,38 @@ func ModelAudioTransform(
 		Dst:           dst,
 		AudioPath:     persistedAudio,
 		ReferencePath: persistedRef,
+		Stems:         collectStems(res, audioDir),
 	}, res, nil
+}
+
+// collectStems turns the backend's reported stems into the caller-facing list.
+//
+// Every path is checked to be a direct child of audioDir, the generated-content
+// directory this request handed the backend. A backend is a separate process
+// and its response is not this process's data: a stem path pointing at /etc or
+// at another user's file would otherwise be served straight back through the
+// HTTP layer, which resolves these into URLs. A stem that fails the check is
+// dropped rather than fatal, so a well-behaved majority still reaches the
+// caller.
+func collectStems(res *proto.AudioTransformResult, audioDir string) []AudioTransformStem {
+	if res == nil || len(res.GetStems()) == 0 {
+		return nil
+	}
+	stems := make([]AudioTransformStem, 0, len(res.GetStems()))
+	for _, stem := range res.GetStems() {
+		name, path := stem.GetName(), stem.GetDst()
+		if name == "" || path == "" {
+			continue
+		}
+		if filepath.Dir(filepath.Clean(path)) != filepath.Clean(audioDir) {
+			continue
+		}
+		stems = append(stems, AudioTransformStem{Name: name, Dst: path})
+	}
+	if len(stems) == 0 {
+		return nil
+	}
+	return stems
 }
 
 // ModelAudioTransformStream opens the bidirectional AudioTransformStream RPC

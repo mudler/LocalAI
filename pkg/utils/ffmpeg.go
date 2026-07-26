@@ -34,6 +34,27 @@ func AudioToWav(src, dst string) error {
 	return convertWithFFmpeg(src, dst)
 }
 
+// AudioToWavPreservingShape converts audio to 16-bit PCM WAV while KEEPING the
+// source sample rate and channel count. A WAV that is already 16-bit PCM is
+// passed through byte for byte, whatever its rate or channel count.
+//
+// It is the counterpart to AudioToWav, which folds everything to 16 kHz mono.
+// That fold is right for speech backends and destructive for the rest: source
+// separation models refuse any rate but their checkpoint's own, and separate a
+// centred vocal from a wide mix using the stereo image, so a 16 kHz mono
+// downmix removes both the format they accept and the cue they work from.
+// Callers pick between the two from the BACKEND'S declared need
+// (config.AudioTransformRequiresMono16kInput), never from the file.
+//
+// Non-WAV uploads are still transcoded, since backends read WAV. Only the rate
+// and the channel layout survive that.
+func AudioToWavPreservingShape(src, dst string) error {
+	if strings.HasSuffix(src, ".wav") && isPCM16Wav(src) {
+		return passthroughWAV(src, dst)
+	}
+	return convertWithFFmpegPreservingShape(src, dst)
+}
+
 func passthroughWAV(src, dst string) error {
 	if err := os.Link(src, dst); err == nil {
 		return nil
@@ -75,6 +96,35 @@ func isTargetWav(src string) bool {
 
 func convertWithFFmpeg(src, dst string) error {
 	commandArgs := []string{"-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
+	out, err := ffmpegCommand(commandArgs)
+	if err != nil {
+		return fmt.Errorf("error: %w out: %s", err, out)
+	}
+	return nil
+}
+
+// isPCM16Wav returns true when src is a valid 16-bit PCM WAV at ANY sample rate
+// and ANY channel count. Deliberately weaker than isTargetWav: it is the "no
+// conversion needed" test for callers that want the file's own shape kept.
+func isPCM16Wav(src string) bool {
+	f, err := os.Open(src)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+
+	dec := wav.NewDecoder(f)
+	if !dec.IsValidFile() {
+		return false
+	}
+	return dec.BitDepth == 16
+}
+
+// convertWithFFmpegPreservingShape transcodes to 16-bit PCM WAV with no -ar and
+// no -ac, so ffmpeg keeps the source rate and channel count. Dropping those two
+// flags is the whole difference from convertWithFFmpeg.
+func convertWithFFmpegPreservingShape(src, dst string) error {
+	commandArgs := []string{"-y", "-i", src, "-acodec", "pcm_s16le", dst}
 	out, err := ffmpegCommand(commandArgs)
 	if err != nil {
 		return fmt.Errorf("error: %w out: %s", err, out)

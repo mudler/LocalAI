@@ -72,6 +72,33 @@ var _ = Describe("GetBackendCapability", func() {
 	})
 })
 
+// The fold to 16 kHz mono in /audio/transform is opt-IN. It used to be
+// unconditional, which made source separation unreachable through the HTTP
+// API: htdemucs and mel_band_roformer refuse any rate but their checkpoint's
+// own and separate using the stereo image, so every such request died with an
+// INTERNAL raised inside the engine while the same call over gRPC worked.
+var _ = Describe("AudioTransformRequiresMono16kInput", func() {
+	It("folds for localvqe, whose AEC is trained on 16 kHz mono", func() {
+		Expect(AudioTransformRequiresMono16kInput("localvqe")).To(BeTrue())
+	})
+
+	It("does not fold for an unregistered backend", func() {
+		Expect(AudioTransformRequiresMono16kInput("audio-cpp")).To(BeFalse())
+		Expect(AudioTransformRequiresMono16kInput("nonexistent")).To(BeFalse())
+		Expect(AudioTransformRequiresMono16kInput("")).To(BeFalse())
+	})
+
+	It("is claimed by no other registered backend", func() {
+		for name, capability := range BackendCapabilities {
+			if name == "localvqe" {
+				continue
+			}
+			Expect(capability.AudioTransformInputMono16k).To(BeFalse(),
+				"backend %q asks for the 16 kHz mono fold; that has to be a deliberate, documented need", name)
+		}
+	})
+})
+
 var _ = Describe("VoiceCloningForModel", func() {
 	voiceCloningSetting := func(enabled bool) *bool { return &enabled }
 

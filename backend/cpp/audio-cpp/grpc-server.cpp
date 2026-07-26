@@ -896,9 +896,18 @@ public:
                 }
 
                 for (size_t i = 0; i < result.named_audio_outputs.size(); ++i) {
+                    const std::string sibling =
+                        audiocpp_backend::sibling_stem_path(request->dst(), names[i]);
                     audiocpp_backend::write_audio_file(
-                        audiocpp_backend::sibling_stem_path(request->dst(), names[i]),
-                        result.named_audio_outputs[i].audio);
+                        sibling, result.named_audio_outputs[i].audio);
+                    // Named in the response, in the model's own order. Without
+                    // this the siblings are files nobody can find, and a caller
+                    // that wants the drums as well as the vocals has to run the
+                    // whole separation again per stem, which is the cost the
+                    // single run exists to avoid.
+                    auto *stem = response->add_stems();
+                    stem->set_name(names[i]);
+                    stem->set_dst(sibling);
                 }
                 chosen = &result.named_audio_outputs[static_cast<size_t>(choice.index)]
                               .audio;

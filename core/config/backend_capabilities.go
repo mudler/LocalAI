@@ -223,6 +223,20 @@ type BackendCapability struct {
 	AcceptsVideos bool
 	// AcceptsAudios indicates multimodal audio input in Predict.
 	AcceptsAudios bool
+	// AudioTransformInputMono16k declares that this backend's AudioTransform
+	// input must be folded to 16 kHz mono 16-bit WAV before it is handed over.
+	//
+	// Opt-IN, and the default of false means "hand the backend the upload as
+	// it is". The /audio/transform endpoint used to fold EVERY upload to
+	// 16 kHz mono, which is what LocalVQE wants for acoustic echo cancellation
+	// and what no source separation model can survive: htdemucs and
+	// mel_band_roformer refuse any rate but their checkpoint's own (44.1 kHz
+	// for every published one) and work in stereo, so every separation request
+	// made through the HTTP API failed with an INTERNAL raised inside the
+	// engine, while a direct gRPC call worked. Declaring the need rather than
+	// defaulting to it means a backend that wants the fold says so and a
+	// backend that does not needs no entry here at all.
+	AudioTransformInputMono16k bool
 	// VoiceCloning describes the backend's per-request reference-audio
 	// contract. Model variants that share a backend may narrow this further;
 	// use VoiceCloningForModel for UI/API decisions.
@@ -578,7 +592,11 @@ var BackendCapabilities = map[string]BackendCapability{
 		GRPCMethods:      []GRPCMethod{MethodAudioTransform},
 		PossibleUsecases: []string{UsecaseAudioTransform},
 		DefaultUsecases:  []string{UsecaseAudioTransform},
-		Description:      "LocalVQE — joint AEC, noise suppression, and dereverberation for 16 kHz mono speech",
+		// The model is trained on 16 kHz mono speech and its AEC needs the
+		// input and the loopback reference in the same shape, so the endpoint
+		// keeps folding uploads for this backend.
+		AudioTransformInputMono16k: true,
+		Description:                "LocalVQE — joint AEC, noise suppression, and dereverberation for 16 kHz mono speech",
 	},
 
 	// --- Utility backends ---
@@ -738,6 +756,18 @@ func GetBackendCapability(backend string) *BackendCapability {
 		return &cap
 	}
 	return nil
+}
+
+// AudioTransformRequiresMono16kInput reports whether /audio/transform must fold
+// uploads to 16 kHz mono before handing them to this backend.
+//
+// False for an unknown backend, which is the safe answer: an unregistered
+// backend gets its upload unchanged, so a model that needs the file intact
+// (source separation, voice conversion at 44.1 kHz) works without an entry
+// here, and one that needs the fold cannot get it by accident.
+func AudioTransformRequiresMono16kInput(backend string) bool {
+	capability := GetBackendCapability(backend)
+	return capability != nil && capability.AudioTransformInputMono16k
 }
 
 // VoiceCloningForModel returns the reference-audio contract only when the
