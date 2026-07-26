@@ -4,6 +4,9 @@
 
 #include "engine/framework/assets/tensor_source.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <utility>
 
@@ -460,6 +463,143 @@ engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
     }
     session.offline->prepare(engine::runtime::build_preparation_request(request));
     return session.offline->run(request);
+}
+
+namespace {
+
+engine::runtime::IStreamingVoiceTaskSession &
+require_streaming(const LoadedModel::Session &session) {
+    if (session.streaming == nullptr) {
+        throw CapabilityError("audio-cpp: no streaming session for this request");
+    }
+    return *session.streaming;
+}
+
+// Clears the stream event sink on every exit from the driver, including the
+// exception path. The session is CACHED and outlives the call that installed
+// the sink, so a std::function left behind holding references into that call's
+// frame is called with dangling captures by whoever streams next.
+class ScopedStreamSink {
+public:
+    ScopedStreamSink(engine::runtime::IStreamingVoiceTaskSession &session,
+                     engine::runtime::StreamEventCallback sink)
+        : session_(session) {
+        session_.set_stream_event_sink(std::move(sink));
+    }
+    ~ScopedStreamSink() { session_.set_stream_event_sink(nullptr); }
+
+    ScopedStreamSink(const ScopedStreamSink &) = delete;
+    ScopedStreamSink &operator=(const ScopedStreamSink &) = delete;
+
+private:
+    engine::runtime::IStreamingVoiceTaskSession &session_;
+};
+
+// Frames per chunk to feed a streaming session, from its own policy.
+//
+// FRAMES, not floats. preferred_audio_chunk_samples is a per-channel count
+// everywhere upstream sets it (nemotron_asr uses its frontend sample rate,
+// i.e. one second), and vibevoice_asr refuses a chunk whose float count is not
+// divisible by its channel count, so slicing on floats would both mis-size the
+// window and hand a family a half frame.
+std::int64_t chunk_frames_for(const engine::runtime::StreamingPolicy &policy,
+                              int sample_rate) {
+    if (policy.preferred_audio_chunk_samples > 0) {
+        return policy.preferred_audio_chunk_samples;
+    }
+    // higgs_audio_stt states its window in seconds (4.0) and leaves the sample
+    // count at zero, so this branch is real rather than defensive.
+    if (policy.preferred_audio_chunk_seconds > 0.0 && sample_rate > 0) {
+        const auto frames = static_cast<std::int64_t>(
+            policy.preferred_audio_chunk_seconds * static_cast<double>(sample_rate));
+        if (frames > 0) {
+            return frames;
+        }
+    }
+    // The interface's own default, from IStreamingVoiceTaskSession::streaming_policy.
+    return 512;
+}
+
+} // namespace
+
+void begin_stream(const LoadedModel::Session &session,
+                  const engine::runtime::TaskRequest &request, LaneEntry &lane) {
+    // Proof of holding only, as in session_for.
+    (void)lane;
+    auto &streaming = require_streaming(session);
+    // Order is load-bearing: start_stream's reset() is illegal before prepare().
+    streaming.prepare(engine::runtime::build_preparation_request(request));
+    streaming.start_stream(request);
+}
+
+engine::runtime::TaskResult run_streaming_pull(
+    const LoadedModel::Session &session,
+    const engine::runtime::TaskRequest &request,
+    const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
+    LaneEntry &lane) {
+    auto &streaming = require_streaming(session);
+    begin_stream(session, request, lane);
+    while (const auto event = streaming.next_stream_event()) {
+        if (on_event) {
+            on_event(*event);
+        }
+        // No pinned family sets is_final on a pulled event, so this is not what
+        // ends the loop today; the nullopt above is. Honoured anyway, because a
+        // family that does set it is saying the stream is over and pulling once
+        // more would be asking a finished session for another chunk.
+        if (event->is_final) {
+            break;
+        }
+    }
+    return streaming.finish_stream();
+}
+
+engine::runtime::TaskResult run_streaming_audio(
+    const LoadedModel::Session &session,
+    const engine::runtime::TaskRequest &request,
+    const engine::runtime::AudioBuffer &audio,
+    const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
+    LaneEntry &lane) {
+    auto &streaming = require_streaming(session);
+
+    // Installed BEFORE the stream begins, so a family that reports during
+    // start_stream is not silently dropped, and destroyed after finish_stream,
+    // because nemotron_asr emits every one of its partials from inside
+    // finalize().
+    ScopedStreamSink sink(streaming,
+                          [&on_event](const engine::runtime::StreamEvent &event) {
+                              if (on_event) {
+                                  on_event(event);
+                              }
+                          });
+
+    begin_stream(session, request, lane);
+
+    const int channels = audio.channels > 0 ? audio.channels : 1;
+    const auto total_frames =
+        static_cast<std::int64_t>(audio.samples.size() / static_cast<size_t>(channels));
+    const std::int64_t chunk_frames =
+        chunk_frames_for(streaming.streaming_policy(), audio.sample_rate);
+
+    for (std::int64_t offset = 0; offset < total_frames; offset += chunk_frames) {
+        const std::int64_t end = std::min(offset + chunk_frames, total_frames);
+        engine::runtime::AudioChunk chunk;
+        chunk.sample_rate = audio.sample_rate;
+        chunk.channels = channels;
+        // A FRAME index, which is what every span in a returned event is
+        // expressed in. vibevoice_asr adds the chunk's own frame count to it to
+        // offset the spans it reports, so a float index here would place every
+        // span of a stereo stream at twice its real time.
+        chunk.start_sample = offset;
+        chunk.samples.assign(
+            audio.samples.begin() + static_cast<std::ptrdiff_t>(offset * channels),
+            audio.samples.begin() + static_cast<std::ptrdiff_t>(end * channels));
+        const auto event = streaming.process_audio_chunk(chunk);
+        if (on_event) {
+            on_event(event);
+        }
+    }
+    return streaming.finish_stream();
 }
 
 } // namespace audiocpp_backend

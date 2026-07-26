@@ -132,6 +132,8 @@ add_executable(${TARGET}
     result_map.cpp
     stem_selection.cpp
     generation_request.cpp
+    stream_delta.cpp
+    wav_header.cpp
     inference_lane.cpp
 )
 
@@ -247,4 +249,32 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
         INSTALL_RPATH "$ORIGIN"
         BUILD_WITH_INSTALL_RPATH TRUE)
     add_test(NAME audio_io COMMAND audio_io_ctest)
+
+    # The streaming drivers live in loaded_model.cpp, which links the engine, so
+    # this cannot be a standalone *_test.cpp. It builds no model and reads no
+    # file: LoadedModel::Session is a plain struct holding a pointer to an
+    # engine interface, so the drivers are exercised against fake sessions.
+    add_executable(streaming_driver_ctest
+        streaming_driver_ctest.cpp
+        loaded_model.cpp
+        capability_routing.cpp
+        family_gate.cpp
+        model_options.cpp
+        inference_lane.cpp)
+    target_include_directories(streaming_driver_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(streaming_driver_ctest PRIVATE
+        engine_runtime
+        ggml
+        Threads::Threads)
+    target_compile_options(streaming_driver_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    # No "$ORIGIN" rpath override here, unlike the shipping target and unlike
+    # audio_io_ctest. loaded_model.cpp reaches make_default_registry, so this
+    # binary genuinely links libggml, and CMake's own build-tree rpath is what
+    # finds it: the ggml shared objects land in ${CMAKE_CURRENT_BINARY_DIR}/bin
+    # while the test binary sits one directory up. A build-host absolute path in
+    # a test binary is harmless, since package.sh ships only grpc-server, and
+    # forcing "$ORIGIN" here means ctest cannot start the binary at all.
+    add_test(NAME streaming_driver COMMAND streaming_driver_ctest)
 endif()

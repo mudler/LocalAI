@@ -13,6 +13,7 @@
 #include "engine/framework/runtime/registry.h"
 #include "engine/framework/runtime/session.h"
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -161,17 +162,15 @@ public:
     // previous stream used, carrying that stream's state. session_for hands it
     // back as it is.
     //
-    // Every streaming caller must therefore begin a stream with
-    //
-    //     session.streaming->prepare(build_preparation_request(...));
-    //     session.streaming->start_stream(request);
-    //
-    // in that order. start_stream's base implementation is a call to reset(),
-    // which is what clears the previous stream, and reset() is only legal after
-    // prepare(): silero_vad throws "session prepare() must be called before
-    // Silero VAD reset()" otherwise. That ordering constraint is also why
-    // session_for cannot do this for you. Skipping it does not raise an error,
-    // it silently continues the previous stream.
+    // Every streaming caller must therefore begin a stream through
+    // begin_stream() below, which is prepare() then start_stream() in that
+    // order and is the ONLY implementation of that sequence. start_stream's
+    // base implementation is a call to reset(), which is what clears the
+    // previous stream, and reset() is only legal after prepare(): silero_vad
+    // throws "session prepare() must be called before Silero VAD reset()"
+    // otherwise. That ordering constraint is also why session_for cannot do
+    // this for you. Skipping it does not raise an error, it silently continues
+    // the previous stream.
     //
     // Offline sessions need no such care: their interface has no reset and
     // run() takes a whole request.
@@ -255,5 +254,79 @@ private:
 engine::runtime::TaskResult run_offline(const LoadedModel::Session &session,
                                         const engine::runtime::TaskRequest &request,
                                         LaneEntry &lane);
+
+// THE ONE IMPLEMENTATION of the streaming state obligation described in
+// session_for's STATE CONTRACT: prepare(), then start_stream(), in that order.
+//
+// It is a function rather than a comment because the obligation is invisible
+// when it is broken. Streaming sessions are CACHED per (task, mode), so the
+// object a second stream gets is the warm one the first stream left behind,
+// still holding its audio, its tokens and its started flag. What clears it is
+// start_stream, whose base implementation IS a reset() and whose seven family
+// overrides (nemotron_asr, vibevoice_asr, higgs_audio_stt, voxtral_realtime,
+// supertonic, omnivoice, voxcpm2) every one call reset() as their first
+// statement, verified in the pinned checkout. Nothing in the type system pins
+// that. A future override that dropped the reset would break every call site
+// at once with no compile error and no exception, only a second transcript
+// that begins with the first one's audio, so the fewer call sites there are to
+// break, the better: this is the only one.
+//
+// prepare() must come first and cannot be folded into session_for, because
+// reset() is illegal before prepare() (silero_vad throws "session prepare()
+// must be called before Silero VAD reset()"), and because the preparation
+// request is derived from the REQUEST, not the model: build_preparation_request
+// reads the audio contract, the text and the voice condition off it, so a
+// second stream with a different sample rate or length would otherwise run
+// against the first stream's contract.
+//
+// `lane` is a PROOF OF HOLDING, unused at runtime, exactly as in run_offline.
+//
+// Throws CapabilityError when the session is not a streaming one.
+void begin_stream(const LoadedModel::Session &session,
+                  const engine::runtime::TaskRequest &request, LaneEntry &lane);
+
+// Drives a streaming session that takes NO incremental input, which is the TTS
+// shape (StreamingInputKind::None, StreamingOutputKind::PullEvents): begin the
+// stream, pull events until the session says there are no more, then finish.
+//
+// NO STREAM EVENT SINK IS INSTALLED HERE, and that is deliberate rather than an
+// omission. voxcpm2's start_stream runs the whole synthesis and pushes every
+// chunk to the sink, then its next_stream_event replays those same chunks out
+// of the stored result, so a sink on this path would put every chunk of audio
+// on the wire twice. supertonic and omnivoice ignore set_stream_event_sink
+// outright. The pull loop is therefore the single delivery channel.
+//
+// The returned TaskResult is the session's own merged whole for all three
+// families, NOT a tail the pull loop missed. A caller that already emitted the
+// pulled events must not also emit its audio; see the TTSStream handler.
+engine::runtime::TaskResult run_streaming_pull(
+    const LoadedModel::Session &session,
+    const engine::runtime::TaskRequest &request,
+    const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
+    LaneEntry &lane);
+
+// Drives a streaming session that CONSUMES audio chunks, which is the ASR shape
+// (StreamingInputKind::AudioChunks): begin the stream, feed the buffer in
+// policy-sized chunks, then finalize.
+//
+// A STREAM EVENT SINK IS INSTALLED HERE, and it is not optional: nemotron_asr
+// reports its partial text ONLY through the sink, and only from inside
+// finalize(), because its decode does not start until the audio is complete.
+// Without the sink that family streams a transcript with no partials at all.
+// The sink is cleared again before returning, including on the exception path:
+// the session is cached and outlives this call, so a sink left holding a
+// reference to the caller's frame is a use after free waiting for the next
+// stream.
+//
+// Both delivery channels are consumed, the sink and the value process_audio_chunk
+// returns, because the families do not agree on which they use, and
+// voxtral_realtime uses BOTH for the same event. The duplicate that produces is
+// absorbed by TranscriptDeltaTracker in stream_delta.h rather than here.
+engine::runtime::TaskResult run_streaming_audio(
+    const LoadedModel::Session &session,
+    const engine::runtime::TaskRequest &request,
+    const engine::runtime::AudioBuffer &audio,
+    const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
+    LaneEntry &lane);
 
 } // namespace audiocpp_backend

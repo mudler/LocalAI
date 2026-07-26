@@ -6,8 +6,9 @@
 // upstream expects churn, and upstream is Apache-2.0 while LocalAI is MIT.
 //
 // This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD,
-// Diarize, AudioTransform, TTS and SoundGeneration RPCs. The remaining audio
-// RPCs land in later commits.
+// Diarize, AudioTransform, TTS, SoundGeneration, TTSStream and
+// AudioTranscriptionStream RPCs. The remaining audio RPCs land in later
+// commits.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
@@ -21,10 +22,13 @@
 #include "model_options.h"
 #include "result_map.h"
 #include "stem_selection.h"
+#include "stream_delta.h"
+#include "wav_header.h"
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
+#include <grpcpp/support/sync_stream.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 
 #include <atomic>
@@ -413,6 +417,42 @@ float audio_duration_seconds(const engine::runtime::AudioBuffer &audio) {
     const std::int64_t frames = audiocpp_backend::interleaved_frame_count(
         audio.samples.size(), audio.channels);
     return audiocpp_backend::samples_to_seconds(frames, audio.sample_rate);
+}
+
+// Refuses a request that routing sent to voice cloning with no speaker
+// reference clip. Shared by TTS and TTSStream so the two RPCs cannot drift into
+// refusing the same request differently.
+//
+// Refused FROM THE ROUTE, the same trick AudioTransform uses for params[stem].
+// Voice cloning without a clip is a request the family cannot answer, and every
+// cloning family says so only from inside its own prepare(): chatterbox throws
+// "Chatterbox prepare requires speaker reference audio", which to_status maps to
+// INTERNAL and which names neither the RPC nor the field the caller has to set.
+// chatterbox advertises clon and no tts at all, so before this every preset-only
+// or voice-less request to it got that engine-internal message.
+//
+// It cannot misfire on the legitimate case: has_voice_reference is what made
+// routing choose VoiceCloning in the first place, so reaching here with a clip
+// present is impossible unless the model pinned task:clon, and a clon pin with
+// no clip is exactly the misconfiguration worth naming.
+//
+// Deliberately NOT generalised to "every task whose family declares
+// supports_speaker_reference". That flag lives on the engine's CapabilitySet, is
+// not carried through this backend's Capabilities mirror, and would need its own
+// answer to whether it is advisory or binding before routing could act on it.
+// Tracked as a follow-up.
+void refuse_cloning_without_a_clip(const audiocpp_backend::LoadedModel &model,
+                                   const audiocpp_backend::Route &route,
+                                   bool voice_is_file) {
+    if (route.task != audiocpp_backend::Task::VoiceCloning || voice_is_file) {
+        return;
+    }
+    throw audiocpp_backend::ConfigError(
+        "audio-cpp: family '" + model.family() + "' routes this request to " +
+        audiocpp_backend::task_name(route.task) +
+        ", which needs a speaker reference clip; set TTSRequest.voice to the "
+        "path of a WAV file (a voice that is not a file on disk is treated as a "
+        "named preset)");
 }
 
 // Maps a thrown exception onto the gRPC status the client should see.
@@ -1045,37 +1085,7 @@ public:
             const audiocpp_backend::Route route =
                 model->check_can_serve(audiocpp_backend::Rpc::Tts, shape);
 
-            // Refused FROM THE ROUTE, the same trick AudioTransform uses for
-            // params[stem]. Voice cloning without a clip is a request the family
-            // cannot answer, and every cloning family says so only from inside
-            // its own prepare(): chatterbox throws "Chatterbox prepare requires
-            // speaker reference audio", which to_status maps to INTERNAL and
-            // which names neither the RPC nor the field the caller has to set.
-            // chatterbox advertises clon and no tts at all, so before this every
-            // preset-only or voice-less request to it got that engine-internal
-            // message.
-            //
-            // It cannot misfire on the legitimate case: has_voice_reference is
-            // what made routing choose VoiceCloning in the first place, so
-            // reaching here with a clip present is impossible unless the model
-            // pinned task:clon, and a clon pin with no clip is exactly the
-            // misconfiguration worth naming.
-            //
-            // Deliberately NOT generalised to "every task whose family declares
-            // supports_speaker_reference". That flag lives on the engine's
-            // CapabilitySet, is not carried through this backend's Capabilities
-            // mirror, and would need its own answer to whether it is advisory or
-            // binding before routing could act on it. Tracked as a follow-up.
-            if (route.task == audiocpp_backend::Task::VoiceCloning &&
-                !voice_is_file) {
-                throw audiocpp_backend::ConfigError(
-                    "audio-cpp: family '" + model->family() +
-                    "' routes this request to " +
-                    audiocpp_backend::task_name(route.task) +
-                    ", which needs a speaker reference clip; set TTSRequest.voice"
-                    " to the path of a WAV file (a voice that is not a file on "
-                    "disk is treated as a named preset)");
-            }
+            refuse_cloning_without_a_clip(*model, route, voice_is_file);
 
             if (request->dst().empty()) {
                 throw audiocpp_backend::ConfigError(
@@ -1215,6 +1225,286 @@ public:
         } catch (const std::exception &err) {
             result->set_success(false);
             result->set_message(err.what());
+            return to_status(err);
+        }
+    }
+
+    // The streaming counterpart of TTS, and the first RPC here that writes to
+    // the wire while the model is still generating.
+    //
+    // THE WIRE CONTRACT, which is the thing most likely to go wrong.
+    // pkg/grpc/server.go's TTSStream wrapper puts every chunk in Reply.audio,
+    // and core/backend/tts.go's ModelTTSStream forwards those bytes to the HTTP
+    // response verbatim. There is no framing and no format negotiation, so THE
+    // FIRST CHUNK MUST BE A WAV HEADER or the client receives raw PCM it has no
+    // way to interpret; browsers simply refuse the stream. Because the total
+    // length is unknown while generating, both size fields carry 0xFFFFFFFF,
+    // which is the convention backend/go/vibevoice-cpp established.
+    //
+    // ModelTTSStream will synthesise a header of its own, but ONLY when the
+    // first Reply carries a non-empty `message` holding JSON with a sample_rate.
+    // Nothing here ever sets Reply.message, so that branch never fires and there
+    // is exactly one header on the wire. Setting `message` on this RPC without
+    // deleting the header below would put a second header 44 bytes into the PCM.
+    //
+    // There is no dst: streaming TTS writes to the response, not to a file, and
+    // core/backend/tts.go sends an empty dst on purpose. That is the one place
+    // this RPC deliberately diverges from TTS.
+    GStatus TTSStream(ServerContext *, const backend::TTSRequest *request,
+                      grpc::ServerWriter<backend::Reply> *writer) override {
+        try {
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
+            if (model == nullptr) {
+                return refusal;
+            }
+
+            // The SAME shape builder TTS uses, so the two RPCs cannot describe
+            // one request differently. pinned_task stays at the call site: it
+            // comes off the model rather than the request.
+            audiocpp_backend::RequestShape shape =
+                audiocpp_backend::build_tts_shape(*request);
+            const bool voice_is_file = shape.has_voice_reference;
+            shape.pinned_task = model->pinned_task();
+
+            // FIRST, before the lane and before any file read, exactly as in
+            // TTS. Note that this RPC's mode candidates are streaming ONLY: a
+            // family that can synthesise but cannot stream is refused here
+            // rather than quietly served a whole buffer at the end, because a
+            // caller that asked to stream is asking for time to first audio.
+            const audiocpp_backend::Route route =
+                model->check_can_serve(audiocpp_backend::Rpc::TtsStream, shape);
+            refuse_cloning_without_a_clip(*model, route, voice_is_file);
+
+            std::optional<engine::runtime::AudioBuffer> reference;
+            if (voice_is_file) {
+                // Native rate, native channels: see kVoiceReferenceSampleRate.
+                reference = audiocpp_backend::read_audio_file(
+                    request->voice(), kVoiceReferenceSampleRate);
+            }
+            const auto task =
+                audiocpp_backend::build_tts_request(*request, std::move(reference));
+
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session =
+                model->session_for(audiocpp_backend::Rpc::TtsStream, shape, lane);
+
+            bool header_sent = false;
+            bool client_gone = false;
+            int stream_rate = 0;
+            int stream_channels = 0;
+            const auto write_audio =
+                [&](const engine::runtime::AudioBuffer &audio) {
+                    if (client_gone || audio.samples.empty()) {
+                        return;
+                    }
+                    const int channels = audio.channels > 0 ? audio.channels : 1;
+                    if (!header_sent) {
+                        backend::Reply head;
+                        head.set_audio(audiocpp_backend::streaming_wav_header(
+                            audio.sample_rate, channels));
+                        if (!writer->Write(head)) {
+                            client_gone = true;
+                            return;
+                        }
+                        header_sent = true;
+                        stream_rate = audio.sample_rate;
+                        stream_channels = channels;
+                    } else if (audio.sample_rate != stream_rate ||
+                               channels != stream_channels) {
+                        // The header already went out declaring the first
+                        // chunk's format, and it cannot be taken back. Every
+                        // later byte would be decoded at the wrong rate or the
+                        // wrong interleaving, which plays as a speed or channel
+                        // fault nobody can see in a 200. Fail loudly instead.
+                        throw std::runtime_error(
+                            "audio-cpp: family '" + model->family() +
+                            "' changed its output format mid-stream (" +
+                            std::to_string(stream_rate) + " Hz x" +
+                            std::to_string(stream_channels) + " to " +
+                            std::to_string(audio.sample_rate) + " Hz x" +
+                            std::to_string(channels) + ")");
+                    }
+                    backend::Reply reply;
+                    reply.set_audio(audiocpp_backend::f32_to_s16le(audio.samples));
+                    if (!writer->Write(reply)) {
+                        client_gone = true;
+                    }
+                };
+
+            // BOTH fields, and named_audio_outputs is the one that carries the
+            // audio in practice. All three streaming TTS families put their
+            // chunks there ("chunk_0", "chunk_1", ...) and leave audio_output
+            // empty until the very end: supertonic and omnivoice build the event
+            // in next_stream_event, voxcpm2 replays the ones its start_stream
+            // produced. Reading only audio_output, which is the obvious field,
+            // yields a stream with no audio in it at all.
+            const auto emit = [&](const engine::runtime::StreamEvent &event) {
+                if (event.audio_output.has_value()) {
+                    write_audio(*event.audio_output);
+                }
+                for (const auto &named : event.named_audio_outputs) {
+                    write_audio(named.audio);
+                }
+            };
+
+            const auto result =
+                audiocpp_backend::run_streaming_pull(session, task, emit, lane);
+
+            // The finish_stream result is the session's own MERGED WHOLE, not a
+            // tail the pull loop missed: supertonic returns its accumulated
+            // buffer, omnivoice post-processes the merge, voxcpm2 hands back the
+            // stored result. Emitting it after the chunks would send the entire
+            // utterance twice. It is therefore used only when the family
+            // streamed nothing, which is what a family that held everything back
+            // to finalize looks like.
+            //
+            // The cost of that choice, stated plainly: what a client hears is
+            // the concatenation of the chunks, and for omnivoice that is not
+            // byte-identical to what the unary TTS RPC returns, because its
+            // postprocessor runs over the merged buffer at the end. Audio
+            // already on the wire cannot be post-processed, so any streaming
+            // implementation has to accept this.
+            if (!header_sent) {
+                if (result.audio_output.has_value()) {
+                    write_audio(*result.audio_output);
+                } else {
+                    for (const auto &named : result.named_audio_outputs) {
+                        write_audio(named.audio);
+                    }
+                }
+            }
+
+            if (!header_sent && !client_gone) {
+                // Routed successfully and produced nothing. Same judgement as
+                // TTS: from the caller's side the actionable fact is that this
+                // model does not do this.
+                throw audiocpp_backend::CapabilityError(
+                    "audio-cpp: family '" + model->family() +
+                    "' produced no audio for the TTSStream RPC");
+            }
+            // client_gone is NOT an error: the client hung up, gRPC already
+            // knows, and there is nobody left to tell.
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            // No Result message to fill in on this RPC. A status mid-stream is
+            // what the client sees, and gRPC delivers it after whatever chunks
+            // already went out.
+            return to_status(err);
+        }
+    }
+
+    // Server-streaming transcription: zero or more TranscriptStreamResponse
+    // messages carrying `delta`, then exactly one carrying `final_result`.
+    //
+    // THE DELTA CONTRACT. core/backend/transcript.go documents Delta as "an
+    // incremental text fragment" and the HTTP layer appends them, so a client
+    // that concatenates every delta must end up with the final text and must
+    // never see a prefix repeated. The families do not agree on what they report
+    // (nemotron_asr and vibevoice_asr send fragments, voxtral_realtime sends the
+    // whole hypothesis every time, and sends it twice), so the reconciliation
+    // lives in TranscriptDeltaTracker rather than here. See stream_delta.h.
+    //
+    // THE OFFLINE FALLBACK. mode_candidates lets this RPC fall back to an
+    // offline route, so a family with no streaming ASR still answers rather than
+    // returning UNIMPLEMENTED. It then runs once and the reconciliation below
+    // emits the whole transcript as a single delta: the same message sequence a
+    // streaming family produces, with one delta instead of many. That is a
+    // truthful degradation, and it needs no branch of its own, because a tracker
+    // that observed nothing reconciles to exactly one fragment.
+    GStatus AudioTranscriptionStream(
+        ServerContext *, const backend::TranscriptRequest *request,
+        grpc::ServerWriter<backend::TranscriptStreamResponse> *writer) override {
+        try {
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
+            if (model == nullptr) {
+                return refusal;
+            }
+
+            audiocpp_backend::RequestShape shape;
+            shape.has_prompt_text = !request->prompt().empty();
+            shape.pinned_task = model->pinned_task();
+
+            // Before the lane and before the file read, for the reasons spelled
+            // out in Diarize.
+            model->check_can_serve(audiocpp_backend::Rpc::AudioTranscriptionStream,
+                                   shape);
+
+            // TranscriptRequest.dst is the INPUT audio path, despite the field
+            // name; nothing is written back. Read at 16 kHz mono for the reasons
+            // in kSpeechSampleRate, which apply identically here: the streaming
+            // sessions build their spans in the same feature domain their
+            // offline halves do.
+            auto audio = audiocpp_backend::read_audio_file(request->dst(),
+                                                           kSpeechSampleRate);
+            const int sample_rate = audio.sample_rate;
+            const float duration = audio_duration_seconds(audio);
+
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session = model->session_for(
+                audiocpp_backend::Rpc::AudioTranscriptionStream, shape, lane);
+
+            // session.task, not the request: for Asr the prompt is decoding
+            // context, for Alignment it is the transcript to align.
+            const auto task = build_transcription_request(*request, session.task,
+                                                          std::move(audio));
+            if (!task.audio_input.has_value()) {
+                // Unreachable through build_transcription_request, which always
+                // sets it. Checked because the alternative is dereferencing an
+                // empty optional below.
+                throw std::runtime_error(
+                    "audio-cpp: transcription request carries no audio");
+            }
+
+            audiocpp_backend::TranscriptDeltaTracker tracker;
+            bool client_gone = false;
+            const auto write_delta = [&](const std::string &fragment) {
+                if (fragment.empty() || client_gone) {
+                    return;
+                }
+                backend::TranscriptStreamResponse response;
+                response.set_delta(fragment);
+                if (!writer->Write(response)) {
+                    client_gone = true;
+                }
+            };
+            const auto emit = [&](const engine::runtime::StreamEvent &event) {
+                if (!event.partial_text.has_value()) {
+                    return;
+                }
+                write_delta(tracker.observe(event.partial_text->text));
+            };
+
+            engine::runtime::TaskResult result;
+            if (session.mode == audiocpp_backend::Mode::Streaming) {
+                // The buffer inside the request is the chunk source, so the
+                // audio is held once rather than copied for the feed.
+                result = audiocpp_backend::run_streaming_audio(
+                    session, task, *task.audio_input, emit, lane);
+            } else {
+                result = audiocpp_backend::run_offline(session, task, lane);
+            }
+
+            // The reconciliation, and the only place the offline fallback needs
+            // to be thought about: with no partials observed this IS the single
+            // delta carrying the whole transcript.
+            if (result.text_output.has_value()) {
+                write_delta(tracker.reconcile(result.text_output->text));
+            }
+
+            backend::TranscriptStreamResponse final_response;
+            // sample_rate is the BUFFER's, which after read_audio_file is
+            // kSpeechSampleRate and not necessarily the file's; it is the domain
+            // the result spans come back in.
+            audiocpp_backend::fill_transcript_result(
+                result, sample_rate, duration,
+                final_response.mutable_final_result());
+            if (!client_gone) {
+                writer->Write(final_response);
+            }
+            return GStatus::OK;
+        } catch (const std::exception &err) {
             return to_status(err);
         }
     }
