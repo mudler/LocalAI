@@ -6,11 +6,19 @@ package schema
 // conversion, etc.) is optional. Backend-specific tuning lives in the
 // `params[<key>]=<value>` form fields, collected into a generic map so
 // the schema doesn't bake in any one transform's vocabulary.
+//
+// The `form` tags on the two snake_case fields are load bearing. This request
+// arrives as multipart/form-data, and echo's binder falls back to the FIELD
+// NAME when a form tag is missing, matching it only case-insensitively:
+// "Format" never matches "response_format" and "SampleRate" never matches
+// "sample_rate", so both documented form fields were silently ignored until
+// these tags were added. `model` worked all along because its field name and
+// its form key differ only in case.
 type AudioTransformRequest struct {
 	BasicModelRequest
-	Format     string            `json:"response_format,omitempty" yaml:"response_format,omitempty"` // wav | mp3 | ogg | flac
-	SampleRate int               `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty"`         // desired output sample rate; 0 = backend default
-	Params     map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                   // backend-specific tuning
+	Format     string            `json:"response_format,omitempty" yaml:"response_format,omitempty" form:"response_format"` // wav | mp3 | ogg | flac
+	SampleRate int               `json:"sample_rate,omitempty" yaml:"sample_rate,omitempty" form:"sample_rate"`             // desired output sample rate; 0 = backend default
+	Params     map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                                         // backend-specific tuning
 }
 
 // AudioTransformStreamControl is the JSON envelope used on the

@@ -103,9 +103,18 @@ func convertWithFFmpeg(src, dst string) error {
 	return nil
 }
 
-// isPCM16Wav returns true when src is a valid 16-bit PCM WAV at ANY sample rate
-// and ANY channel count. Deliberately weaker than isTargetWav: it is the "no
-// conversion needed" test for callers that want the file's own shape kept.
+// isPCM16Wav returns true when src is a valid WAV carrying PLAIN 16-bit PCM, at
+// ANY sample rate and ANY channel count. Weaker than isTargetWav on rate and
+// channels; exactly as strict on the encoding, and deliberately so.
+//
+// The format tag is checked and that is not a formality. go-audio's
+// IsValidFile() never inspects it, so a BitDepth == 16 test on its own also
+// accepts WAVE_FORMAT_EXTENSIBLE (0xFFFE), which is what many DAWs and Windows
+// tools write. Consumers are not as relaxed: audio.cpp's WAV reader accepts
+// 16-bit only when the tag is 1 and otherwise refuses with "unsupported WAV
+// encoding". Passing such a file through unchanged would trade a transcode for
+// a failed request, and music files, which are the input this passthrough
+// exists for, are exactly where extensible turns up.
 func isPCM16Wav(src string) bool {
 	f, err := os.Open(src)
 	if err != nil {
@@ -117,7 +126,7 @@ func isPCM16Wav(src string) bool {
 	if !dec.IsValidFile() {
 		return false
 	}
-	return dec.BitDepth == 16
+	return dec.BitDepth == 16 && dec.WavAudioFormat == 1
 }
 
 // convertWithFFmpegPreservingShape transcodes to 16-bit PCM WAV with no -ar and

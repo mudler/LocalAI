@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"os"
 	"path/filepath"
@@ -54,6 +55,54 @@ func readShape(path string) (uint32, uint16, uint16) {
 	var hdr laudio.WAVHeader
 	Expect(binary.Read(f, binary.LittleEndian, &hdr)).To(Succeed())
 	return hdr.SampleRate, hdr.NumChannels, hdr.BitsPerSample
+}
+
+// readFormatTag reports wFormatTag, which sits at the fixed offset 20 of a
+// RIFF/WAVE header. 1 is plain PCM; 0xFFFE is WAVE_FORMAT_EXTENSIBLE.
+func readFormatTag(path string) uint16 {
+	raw, err := os.ReadFile(path)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(len(raw)).To(BeNumerically(">=", 22))
+	return binary.LittleEndian.Uint16(raw[20:22])
+}
+
+// writeExtensibleWAV writes a real WAVE_FORMAT_EXTENSIBLE file: a 40-byte fmt
+// chunk with tag 0xFFFE, cbSize 22 and the KSDATAFORMAT_SUBTYPE_PCM GUID. Many
+// DAWs and Windows tools emit exactly this, and the samples inside are ordinary
+// 16-bit PCM, which is why a bit-depth-only check waves it through.
+func writeExtensibleWAV(path string, sampleRate uint32, channels uint16, frames int) {
+	const bitsPerSample = uint16(16)
+	blockAlign := channels * (bitsPerSample / 8)
+	dataSize := uint32(frames) * uint32(channels) * uint32(bitsPerSample/8)
+
+	buf := &bytes.Buffer{}
+	write := func(values ...any) {
+		for _, value := range values {
+			Expect(binary.Write(buf, binary.LittleEndian, value)).To(Succeed())
+		}
+	}
+	buf.WriteString("RIFF")
+	write(uint32(4 + 8 + 40 + 8 + dataSize))
+	buf.WriteString("WAVE")
+	buf.WriteString("fmt ")
+	write(uint32(40))                      // fmt chunk size for extensible
+	write(uint16(0xFFFE))                  // wFormatTag = WAVE_FORMAT_EXTENSIBLE
+	write(channels, sampleRate)            // nChannels, nSamplesPerSec
+	write(sampleRate * uint32(blockAlign)) // nAvgBytesPerSec
+	write(blockAlign, bitsPerSample)       // nBlockAlign, wBitsPerSample
+	write(uint16(22), bitsPerSample)       // cbSize, wValidBitsPerSample
+	write(uint32(0x3))                     // dwChannelMask: front left + right
+	// KSDATAFORMAT_SUBTYPE_PCM {00000001-0000-0010-8000-00AA00389B71}
+	buf.Write([]byte{
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00,
+		0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71,
+	})
+	buf.WriteString("data")
+	write(dataSize)
+	for i := 0; i < frames*int(channels); i++ {
+		write(int16(200 * (i % 100)))
+	}
+	Expect(os.WriteFile(path, buf.Bytes(), 0o600)).To(Succeed())
 }
 
 // The distinction these specs defend: /audio/transform used to fold EVERY
@@ -119,6 +168,32 @@ var _ = Describe("utils/ffmpeg shape-preserving conversion", func() {
 		rate, channels, _ := readShape(dst)
 		Expect(rate).To(Equal(uint32(16000)))
 		Expect(channels).To(Equal(uint16(1)))
+	})
+
+	// The passthrough is about the SHAPE, never about the encoding. An
+	// extensible WAV carries plain 16-bit samples behind a 0xFFFE tag, and
+	// audio.cpp's reader accepts 16-bit only when the tag is 1, so passing one
+	// through unchanged would turn a transcode into "unsupported WAV encoding".
+	It("transcodes a WAVE_FORMAT_EXTENSIBLE upload instead of passing it through", func() {
+		src := filepath.Join(dir, "extensible.wav")
+		dst := filepath.Join(dir, "extensible-out.wav")
+		writeExtensibleWAV(src, 44100, 2, 4410)
+		Expect(readFormatTag(src)).To(Equal(uint16(0xFFFE)), "the fixture really is extensible")
+
+		Expect(AudioToWavPreservingShape(src, dst)).To(Succeed())
+
+		Expect(readFormatTag(dst)).To(Equal(uint16(1)),
+			"the output must be plain PCM, which is all a backend's WAV reader accepts")
+		rate, channels, depth := readShape(dst)
+		Expect(rate).To(Equal(uint32(44100)), "and the transcode still keeps the rate")
+		Expect(channels).To(Equal(uint16(2)), "and the channels")
+		Expect(depth).To(Equal(uint16(16)))
+
+		before, err := os.ReadFile(src)
+		Expect(err).ToNot(HaveOccurred())
+		after, err := os.ReadFile(dst)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(after).ToNot(Equal(before), "it was converted, not hardlinked")
 	})
 
 	It("leaves the source file in place", func() {

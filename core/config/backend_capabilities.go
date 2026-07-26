@@ -765,6 +765,12 @@ func GetBackendCapability(backend string) *BackendCapability {
 // backend gets its upload unchanged, so a model that needs the file intact
 // (source separation, voice conversion at 44.1 kHz) works without an entry
 // here, and one that needs the fold cannot get it by accident.
+//
+// Known limitation: the lookup is on the bare backend name, so a pinned variant
+// (vulkan-localvqe, metal-localvqe) does not get the fold. Pinned variants are
+// already second-class in the same way in the audio-transform gate in
+// model_config.go, and the failure is loud rather than silent; IsLlamaCppBackend
+// below is the suffix-tolerant precedent (#10945) if that ever has to change.
 func AudioTransformRequiresMono16kInput(backend string) bool {
 	capability := GetBackendCapability(backend)
 	return capability != nil && capability.AudioTransformInputMono16k

@@ -49,6 +49,7 @@ form-data, returns audio bytes.
 | `response_format` | string | no | `wav` (default), `mp3`, `ogg`, `flac` |
 | `sample_rate` | int | no | Desired output sample rate |
 | `params[<key>]` | string | no | Repeated; forwarded to backend |
+| `params[stem]` | string | no | Multi-output transforms only; picks which named output the body carries (see [stems](#multi-output-transforms-source-separation-stems)) |
 
 First install an audio-transform model from the gallery (the examples below use `localvqe-v1.3-4.8m`):
 
@@ -70,6 +71,71 @@ curl -X POST http://localhost:8080/audio/transformations \
 
 When `reference` is omitted, LocalVQE zero-fills the reference channel and
 the operation reduces to noise suppression + dereverberation.
+
+### What LocalAI does to your upload before the backend sees it
+
+By default, **nothing**: the file reaches the backend at its own sample rate and
+its own channel count. A WAV already carrying plain 16-bit PCM is passed through
+byte for byte; any other container or encoding is transcoded to 16-bit PCM WAV
+with the rate and the channel layout kept.
+
+The exception is a backend that declares it needs a fixed input shape.
+**LocalVQE** does: its echo cancellation is trained on 16 kHz mono and needs the
+primary input and the reference in the same shape, so uploads for it are folded
+to 16 kHz mono s16 with ffmpeg. The declaration is
+`BackendCapability.AudioTransformInputMono16k` in `core/config`, and `localvqe`
+is currently the only backend that sets it.
+
+This matters for anything that is not speech enhancement. Source separation
+models refuse any sample rate but their checkpoint's own (44.1 kHz for every
+published htdemucs and mel_band_roformer checkpoint) and rely on the stereo
+image to tell a centred vocal from a wide mix, so a 16 kHz mono downmix would
+remove both the format they accept and the cue they work from.
+
+### Multi-output transforms (source separation stems)
+
+Some transforms produce **several** named outputs from one run: htdemucs yields
+`drums`, `bass`, `other` and `vocals` in a single pass. The response body can
+carry only one file, so:
+
+- The backend runs **once** and writes every stem beside the main output.
+- `params[stem]=<name>` chooses which one the body carries. Without it the
+  default is `vocals` when the model has one, and the model's first output
+  otherwise. An unknown stem name is refused with an error listing the real
+  ones, never silently substituted.
+- Every stem, including the one in the body, is named in the **`X-Audio-Stems`**
+  response header, a compact JSON array:
+
+```
+X-Audio-Stems: [{"name":"drums","url":"/generated-audio/transform.drums.wav"},
+                {"name":"bass","url":"/generated-audio/transform.bass.wav"},
+                {"name":"other","url":"/generated-audio/transform.other.wav"},
+                {"name":"vocals","url":"/generated-audio/transform.vocals.wav"}]
+```
+
+Fetch any of those URLs to get the other stems without paying for a second
+separation. `sample_rate` and `response_format` are applied to the stems as well
+as to the body, so the whole set stays in the shape you asked for. The header is
+listed in `Access-Control-Expose-Headers`, so browser clients can read it.
+
+Single-output transforms (echo cancellation, voice conversion) do not set the
+header at all, and `params[stem]` against such a model is refused rather than
+ignored.
+
+```bash
+# isolate the vocals (the default), then see where the other stems went
+curl -sS -D headers.txt -X POST http://localhost:8080/audio/transformations \
+  -F model=htdemucs -F audio=@song.wav -o vocals.wav
+grep -i '^x-audio-stems' headers.txt
+
+# or ask for a specific stem in the body
+curl -sS -X POST http://localhost:8080/audio/transformations \
+  -F model=htdemucs -F audio=@song.wav -F 'params[stem]=drums' -o drums.wav
+```
+
+The stems live in the generated-content directory beside the main output and are
+served from `/generated-audio/`. Like every other generated artifact, they are
+not swept automatically.
 
 ## Streaming endpoint
 

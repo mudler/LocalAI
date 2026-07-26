@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -177,7 +178,13 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 		// stems it did not ask for without paying for another separation.
 		// Header rather than body for the same reason the input URLs are
 		// headers: the body is the audio itself.
-		if header := stemsHeader(out.Stems); header != "" {
+		//
+		// Converted on the same terms as dst, because dst IS one of these stems
+		// and the caller is entitled to expect the set to match. Skipping this
+		// left a caller who asked for 48 kHz mp3 with an mp3 body and four
+		// 44.1 kHz WAV siblings, one of which was supposed to be the same
+		// recording as the body.
+		if header := stemsHeader(convertStems(out.Stems, input.SampleRate, input.Format)); header != "" {
 			c.Response().Header().Set(echo.HeaderAccessControlExposeHeaders, exposedAudioTransformHeaders)
 			c.Response().Header().Set("X-Audio-Stems", header)
 		}
@@ -341,6 +348,44 @@ func buildConfigRequest(fmt_ proto.AudioTransformStreamConfig_SampleFormat, ctrl
 // this endpoint sets. A browser cannot read any of them without it.
 const exposedAudioTransformHeaders = "X-Audio-Input-Url, X-Audio-Reference-Url, X-Audio-Stems"
 
+// convertStems applies the request's sample_rate and response_format to every
+// stem, so the whole set stays in the shape the caller asked for and dst keeps
+// duplicating the stem it was selected from. Both conversions are no-ops when
+// unset, so an ordinary request pays nothing.
+//
+// A stem whose conversion fails is DROPPED from the list rather than reported
+// at its original rate or format: advertising a URL whose file is not in the
+// shape the caller asked for is the silent wrong answer this whole design is
+// trying to avoid, and the caller still receives the audio it actually asked
+// for in the body. The failure is logged, since the file is on disk either way.
+func convertStems(stems []backend.AudioTransformStem, sampleRate int, format string) []backend.AudioTransformStem {
+	if len(stems) == 0 {
+		return nil
+	}
+	converted := make([]backend.AudioTransformStem, 0, len(stems))
+	for _, stem := range stems {
+		path := stem.Dst
+		var err error
+		if sampleRate > 0 {
+			path, err = utils.AudioResample(path, sampleRate)
+			if err != nil {
+				xlog.Warn("audio_transform: cannot resample stem", "stem", stem.Name, "error", err)
+				continue
+			}
+		}
+		path, err = utils.AudioConvert(path, format)
+		if err != nil {
+			xlog.Warn("audio_transform: cannot convert stem", "stem", stem.Name, "error", err)
+			continue
+		}
+		converted = append(converted, backend.AudioTransformStem{Name: stem.Name, Dst: path})
+	}
+	if len(converted) == 0 {
+		return nil
+	}
+	return converted
+}
+
 // stemsHeader renders the extra named outputs as a compact JSON array for the
 // X-Audio-Stems response header:
 //
@@ -365,7 +410,15 @@ func stemsHeader(stems []backend.AudioTransformStem) string {
 		if name == "" || name == "." || name == string(filepath.Separator) {
 			continue
 		}
-		entries = append(entries, stemEntry{Name: stem.Name, URL: "/generated-audio/" + name})
+		// PathEscape, because the file name carries the MODEL'S stem name and a
+		// stem name legally contains a space (there is a spec for "lead
+		// vocals"), and '#', '?' and '%' are legal too. An unescaped '#' would
+		// truncate the URL in the client before it ever reached the server.
+		// The `name` field keeps the raw stem name; only the URL is escaped.
+		entries = append(entries, stemEntry{
+			Name: stem.Name,
+			URL:  "/generated-audio/" + url.PathEscape(name),
+		})
 	}
 	if len(entries) == 0 {
 		return ""
