@@ -131,6 +131,7 @@ add_executable(${TARGET}
     transcript_assembly.cpp
     result_map.cpp
     stem_selection.cpp
+    generation_request.cpp
     inference_lane.cpp
 )
 
@@ -210,6 +211,25 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
         Threads::Threads)
     target_compile_options(result_map_ctest PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME result_map COMMAND result_map_ctest)
+
+    # Same shape as result_map_ctest: generation_request touches only the plain
+    # structs in engine/framework/runtime/session.h plus the generated protobuf
+    # messages, so the headers are all it needs and no engine_runtime is linked.
+    add_executable(generation_request_ctest
+        generation_request_ctest.cpp
+        generation_request.cpp)
+    target_include_directories(generation_request_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        # session.h reaches ggml.h through core/backend.h, and this target links
+        # no ggml, so it has to name the include directory itself.
+        "${AUDIO_CPP_DIR}/external/ggml/include")
+    target_link_libraries(generation_request_ctest PRIVATE
+        hw_grpc_proto
+        protobuf::libprotobuf
+        Threads::Threads)
+    target_compile_options(generation_request_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME generation_request COMMAND generation_request_ctest)
 
     add_executable(audio_io_ctest
         audio_io_ctest.cpp

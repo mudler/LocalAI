@@ -6,8 +6,8 @@
 // upstream expects churn, and upstream is Apache-2.0 while LocalAI is MIT.
 //
 // This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD,
-// Diarize and AudioTransform RPCs. The remaining audio RPCs land in later
-// commits.
+// Diarize, AudioTransform, TTS and SoundGeneration RPCs. The remaining audio
+// RPCs land in later commits.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
@@ -15,6 +15,7 @@
 #include "audio_io.h"
 #include "audio_units.h"
 #include "capability_routing.h"
+#include "generation_request.h"
 #include "inference_lane.h"
 #include "loaded_model.h"
 #include "model_options.h"
@@ -36,6 +37,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -177,6 +179,48 @@ constexpr int kSpeechSampleRate = 16000;
 // only families that refuse are the separators and what they want is an
 // ordinary music file at its own rate.
 constexpr int kTransformSampleRate = 0;
+
+// The rate TTS reads its speaker reference clip at, and the rate
+// SoundGeneration reads its `src` editing clip at. Zero, i.e. the file's own
+// rate and its own channel count, no resample and no downmix.
+//
+// Settled from upstream rather than reasoned about, and upstream settles it
+// twice over:
+//
+//   1. Upstream does exactly this itself. Both its CLI and its HTTP server load
+//      a voice reference with minitts::cli::read_audio_buffer (app/cli/request.cpp),
+//      which is read_wav_f32 and then {wav.sample_rate, wav.channels,
+//      wav.samples} verbatim. app/server/runtime.cpp's build_speech_request
+//      puts that buffer straight into voice.speaker->audio, and its
+//      audio_input path (line 518) does the same for the editing clip. Every
+//      family that consumes a reference has therefore only ever been tested
+//      against native-rate, native-channel input.
+//   2. Every consuming family converts it itself, and most of them with a
+//      BETTER resampler than read_audio_file's. Checked one at a time:
+//        chatterbox      to_mono_audio, then 24 kHz, then 16 kHz derived from
+//                        the 24 kHz path (conditionals.cpp), matching Python's
+//                        prepare_conditionals ordering.
+//        index_tts2      mixdown_interleaved_to_mono_average, then a soxr or
+//                        torchaudio sinc-hann resample to its mel rate and to
+//                        16 kHz (audio_features.cpp, waveform_22k).
+//        higgs_audio_tts mixdown, then sinc-hann to 24 kHz and 16 kHz.
+//        irodori_tts     mixdown, then sinc-hann (codec.cpp).
+//        voxcpm2         mixdown, then soxr-or-linear (audiovae.cpp).
+//        omnivoice       mixdown, then sinc-hann (audio_tokenizer.cpp).
+//        qwen3_tts       convert_interleaved_audio_to_mono_linear_resampled.
+//      For the SoundGeneration side, ace_step resamples the LEFT and RIGHT
+//      channels SEPARATELY (pre_dit.cpp), and stable_audio resamples per
+//      channel too, so a mono downmix here would destroy input those two are
+//      built to consume as stereo.
+//
+// So folding to 16 kHz mono first would band-limit at 8 kHz through
+// read_audio_file's LINEAR, unfiltered resampler, alias what is above it, and
+// then hand that damaged signal to a good resampler for a second conversion.
+// One conversion is the floor, and passing the file through unchanged is what
+// keeps it at one. Same argument as kTransformSampleRate, same value, kept as a
+// separate constant because the routes are different and a future per-model
+// preferred-rate lookup would have to answer them separately.
+constexpr int kVoiceReferenceSampleRate = 0;
 
 // Parses ModelOptions.MainGPU into a device index.
 //
@@ -950,6 +994,166 @@ public:
             response->set_reference_provided(has_reference);
             return GStatus::OK;
         } catch (const std::exception &err) {
+            return to_status(err);
+        }
+    }
+
+    // The first RPC that GENERATES audio from text, together with
+    // SoundGeneration below. AudioTransform already wrote files, but it
+    // transformed audio it was given; these two have no required input audio at
+    // all, which is why both carry a Result with a success flag rather than a
+    // response message describing what was found.
+    //
+    // TTSRequest.voice is overloaded across LocalAI backends, some reading it as
+    // a named preset and some as a path to a clip. The rule here is decided from
+    // the filesystem: an existing regular file is a speaker reference and
+    // routing prefers VoiceCloning, anything else is a preset. Instructions with
+    // no clip prefer VoiceDesign, and a clip outranks instructions when both are
+    // set. None of that is re-derived here; it is capability_routing's
+    // task_candidates, and this handler's job is only to describe the request
+    // truthfully in the RequestShape.
+    GStatus TTS(ServerContext *, const backend::TTSRequest *request,
+                backend::Result *result) override {
+        try {
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
+            if (model == nullptr) {
+                // Answered with the STATUS ALONE, leaving Result at its default.
+                // core/backend/tts.go checks the transport error before it looks
+                // at res.Success and returns on it, so the Result is never read
+                // on this path; and the router matches a stale route on the
+                // NOT_FOUND code plus the sentinel in the status message, which
+                // is where check_model_identity already put it.
+                return refusal;
+            }
+
+            const bool voice_is_file =
+                audiocpp_backend::voice_is_reference_file(request->voice());
+            audiocpp_backend::RequestShape shape;
+            shape.has_voice_reference = voice_is_file;
+            shape.has_instructions =
+                request->has_instructions() && !request->instructions().empty();
+            shape.pinned_task = model->pinned_task();
+
+            // FIRST, before the lane and before any file read. A family that
+            // cannot synthesise at all is answering a question about itself, so
+            // it must not queue behind somebody else's run to be told no, and it
+            // must not blame the caller's reference clip for a decision that had
+            // nothing to do with it. Same ordering as Diarize and
+            // AudioTransform.
+            model->check_can_serve(audiocpp_backend::Rpc::Tts, shape);
+
+            if (request->dst().empty()) {
+                throw audiocpp_backend::ConfigError(
+                    "audio-cpp: TTS needs a dst output path");
+            }
+
+            std::optional<engine::runtime::AudioBuffer> reference;
+            if (voice_is_file) {
+                // Native rate, native channels: see kVoiceReferenceSampleRate.
+                reference = audiocpp_backend::read_audio_file(
+                    request->voice(), kVoiceReferenceSampleRate);
+            }
+            // Read before the lane, like every other file-fed handler here, so
+            // a slow or large clip is not decoded while holding it.
+            const auto task =
+                audiocpp_backend::build_tts_request(*request, std::move(reference));
+
+            // Named local: LaneEntry is immovable and has to span both
+            // session_for and run_offline.
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session =
+                model->session_for(audiocpp_backend::Rpc::Tts, shape, lane);
+            const auto task_result =
+                audiocpp_backend::run_offline(session, task, lane);
+
+            if (!task_result.audio_output.has_value()) {
+                // A family that routed successfully and then produced no audio
+                // is a broken family rather than a wrong request, but from the
+                // caller's side the actionable fact is that this model does not
+                // do this, so CapabilityError. Same judgement as AudioTransform.
+                throw audiocpp_backend::CapabilityError(
+                    "audio-cpp: family '" + model->family() +
+                    "' produced no audio for the TTS RPC");
+            }
+            // Throws a plain runtime_error, i.e. INTERNAL, on a write failure:
+            // dst is LocalAI's own generated-content path and not anything the
+            // caller named, so a full disk there is a server fault and is worth
+            // retrying. Only an empty dst is INVALID_ARGUMENT, and that is
+            // already refused above with a message naming the RPC.
+            audiocpp_backend::write_audio_file(request->dst(),
+                                               *task_result.audio_output);
+            result->set_success(true);
+            // The path, because that is what core/backend/tts.go's caller reads
+            // back and what every other LocalAI TTS backend puts here.
+            result->set_message(request->dst());
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            // Both channels, unlike the transcription-shaped handlers: Result
+            // has a success flag that the Go side checks in addition to the
+            // status, so leaving it default-false with no message would report a
+            // failure with no reason attached.
+            result->set_success(false);
+            result->set_message(err.what());
+            return to_status(err);
+        }
+    }
+
+    GStatus SoundGeneration(ServerContext *,
+                            const backend::SoundGenerationRequest *request,
+                            backend::Result *result) override {
+        try {
+            GStatus refusal = GStatus::OK;
+            const auto model = snapshot_for(request, refusal);
+            if (model == nullptr) {
+                return refusal;
+            }
+
+            audiocpp_backend::RequestShape shape;
+            // No request signal chooses between generation tasks: this RPC has
+            // exactly one candidate, AudioGeneration. pinned_task is still
+            // copied, because without it the model's `task:` option is dead
+            // here, which is how a gen family pinned to something else would
+            // silently be routed to generation anyway.
+            shape.pinned_task = model->pinned_task();
+
+            model->check_can_serve(audiocpp_backend::Rpc::SoundGeneration, shape);
+
+            if (request->dst().empty()) {
+                throw audiocpp_backend::ConfigError(
+                    "audio-cpp: SoundGeneration needs a dst output path");
+            }
+
+            std::optional<engine::runtime::AudioBuffer> source;
+            if (request->has_src() && !request->src().empty()) {
+                // Native rate and channels. ace_step and stable_audio both
+                // resample per channel, so a downmix here would delete the
+                // stereo image of the very clip they are editing.
+                source = audiocpp_backend::read_audio_file(
+                    request->src(), kVoiceReferenceSampleRate);
+            }
+            const auto task = audiocpp_backend::build_sound_generation_request(
+                *request, std::move(source));
+
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session = model->session_for(
+                audiocpp_backend::Rpc::SoundGeneration, shape, lane);
+            const auto task_result =
+                audiocpp_backend::run_offline(session, task, lane);
+
+            if (!task_result.audio_output.has_value()) {
+                throw audiocpp_backend::CapabilityError(
+                    "audio-cpp: family '" + model->family() +
+                    "' produced no audio for the SoundGeneration RPC");
+            }
+            audiocpp_backend::write_audio_file(request->dst(),
+                                               *task_result.audio_output);
+            result->set_success(true);
+            result->set_message(request->dst());
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            result->set_success(false);
+            result->set_message(err.what());
             return to_status(err);
         }
     }
