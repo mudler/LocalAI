@@ -286,6 +286,22 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
         throw ConfigError("audio-cpp: unknown audio.cpp family '" + family + "'");
     }
 
+    // Session options are built BEFORE the load, because parse_backend_type
+    // rejects an unknown backend name. Validating after the load would make
+    // `backend:cudaa` cost a full model load, on a fault a string comparison
+    // could have caught.
+    session_options_.backend.type = parse_backend_type(options.backend);
+    session_options_.backend.device = options.device;
+    if (options.threads > 0) {
+        session_options_.backend.threads = options.threads;
+    }
+    for (const auto &entry : options.session_options) {
+        session_options_.options[entry.first] = entry.second;
+    }
+
+    pinned_task_ = options.task;
+    wait_budget_ceiling_ms_ = options.busy_timeout_ms;
+
     engine::runtime::ModelLoadRequest request;
     request.model_path = std::filesystem::path(resolved_path);
     request.family_hint = family;
@@ -315,17 +331,6 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
     languages_ = engine_caps.languages;
     supports_timestamps_ = engine_caps.supports_timestamps;
     capabilities_ = to_capabilities(family, engine_caps);
-
-    session_options_.backend.type = parse_backend_type(options.backend);
-    session_options_.backend.device = options.device;
-    if (options.threads > 0) {
-        session_options_.backend.threads = options.threads;
-    }
-    for (const auto &entry : options.session_options) {
-        session_options_.options[entry.first] = entry.second;
-    }
-
-    wait_budget_ceiling_ms_ = options.busy_timeout_ms;
 }
 
 LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape) {
@@ -336,7 +341,8 @@ LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape
 
     const SessionKey key{static_cast<int>(route.task), static_cast<int>(route.mode)};
     auto found = sessions_.find(key);
-    if (found == sessions_.end()) {
+    const bool cache_hit = found != sessions_.end();
+    if (!cache_hit) {
         engine::runtime::TaskSpec spec;
         spec.task = to_engine_task(route.task);
         spec.mode = to_engine_mode(route.mode);
@@ -344,13 +350,23 @@ LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape
         try {
             created = model_->create_task_session(spec, session_options_);
         } catch (const std::exception &err) {
-            throw CapabilityError(
+            // NOT a CapabilityError. The family said it supports this pair, and
+            // a throw from here is overwhelmingly an environment fault: a ggml
+            // backend .so that package.sh did not ship, an out of memory, a CUDA
+            // device that is not there. UNIMPLEMENTED would tell LocalAI and
+            // every client "this model cannot do this, never retry", and send an
+            // operator hunting a capability bug instead of a packaging one. A
+            // plain runtime_error maps to INTERNAL, which is what a fixable
+            // deployment fault should look like.
+            throw std::runtime_error(
                 std::string("audio-cpp: family '") + capabilities_.family +
                 "' advertises " + task_name(route.task) + "/" +
                 mode_name(route.mode) + " but refused to create the session: " +
                 err.what());
         }
         if (created == nullptr) {
+            // A null return with no throw is the family declining, which is a
+            // genuine capability answer and stays UNIMPLEMENTED.
             throw CapabilityError(std::string("audio-cpp: family '") +
                                   capabilities_.family +
                                   "' returned no session for " +
@@ -373,6 +389,18 @@ LoadedModel::Session LoadedModel::session_for(Rpc rpc, const RequestShape &shape
                                   "' advertises " + task_name(route.task) +
                                   "/streaming but its session is not streaming");
         }
+        // Deliberately NOT reset here, though a cached streaming session does
+        // carry state across chunks. reset() is not callable at this point:
+        // silero_vad's implementation throws "session prepare() must be called
+        // before Silero VAD reset()", so resetting on a cache hit would turn an
+        // ordinary second fetch into a hard error, which is worse than the leak
+        // it would prevent.
+        //
+        // The state is instead cleared by the sequence every streaming caller
+        // owes anyway. IStreamingVoiceTaskSession::start_stream's base
+        // implementation IS a call to reset(), so a caller that runs
+        // prepare(...) then start_stream(...) at the top of each stream gets a
+        // clean session for free. See the STATE CONTRACT in loaded_model.h.
     } else {
         session.offline =
             dynamic_cast<engine::runtime::IOfflineVoiceTaskSession *>(raw);

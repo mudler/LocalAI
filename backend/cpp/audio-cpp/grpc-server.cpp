@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -52,8 +53,47 @@ std::atomic<bool> g_shutdown_requested{false};
 // the pointer itself, not the model: swapping or dropping it races with the
 // handlers that read it, whereas the model's own concurrency is the inference
 // lane's job.
+//
+// shared_ptr, not unique_ptr. An audio RPC runs for seconds and cannot hold
+// g_model_mu for its duration, so it has to work from a reference taken under
+// the lock and used after releasing it. Under a unique_ptr, a Free or a reload
+// arriving mid-request destroys the model out from under that reference. Every
+// handler instead takes a counted reference through snapshot(), so Free drops
+// the global's reference and whichever request finishes last destroys the model.
 std::mutex g_model_mu;
-std::unique_ptr<audiocpp_backend::LoadedModel> g_model;
+std::shared_ptr<audiocpp_backend::LoadedModel> g_model;
+
+// The only correct way for a handler to reach the model. Returns by value, so
+// the caller owns a reference for as long as its local lives, and null when no
+// model is loaded. Never return LoadedModel& from here: that is the shape that
+// reintroduces the use-after-free.
+std::shared_ptr<audiocpp_backend::LoadedModel> snapshot() {
+    std::lock_guard<std::mutex> lock(g_model_mu);
+    return g_model;
+}
+
+// Parses ModelOptions.MainGPU into a device index.
+//
+// Not std::atoi: it returns 0 for anything unparseable, so "gpu1" or a device
+// UUID would silently become device 0 and the model would load on the wrong
+// device with no diagnostic anywhere. A refusal the operator can read beats a
+// wrong answer they cannot see.
+int parse_device_index(const std::string &value) {
+    size_t consumed = 0;
+    long parsed = 0;
+    try {
+        parsed = std::stol(value, &consumed);
+    } catch (const std::exception &) {
+        consumed = 0;
+    }
+    if (consumed != value.size() || parsed < 0 ||
+        parsed > std::numeric_limits<int>::max()) {
+        throw audiocpp_backend::ConfigError(
+            "audio-cpp: main_gpu must be a non-negative device index, got '" +
+            value + "'");
+    }
+    return static_cast<int>(parsed);
+}
 
 // Maps a thrown exception onto the gRPC status the client should see.
 GStatus to_status(const std::exception &err) {
@@ -82,9 +122,8 @@ public:
 
     GStatus Status(ServerContext *, const backend::HealthMessage *,
                    backend::StatusResponse *response) override {
-        std::lock_guard<std::mutex> lock(g_model_mu);
-        response->set_state(g_model ? backend::StatusResponse::READY
-                                    : backend::StatusResponse::UNINITIALIZED);
+        response->set_state(snapshot() ? backend::StatusResponse::READY
+                                       : backend::StatusResponse::UNINITIALIZED);
         return GStatus::OK;
     }
 
@@ -102,15 +141,18 @@ public:
             if (parsed.options.threads == 0 && request->threads() > 0) {
                 parsed.options.threads = static_cast<int>(request->threads());
             }
-            // MainGPU carries the device index for GPU backends.
-            if (parsed.options.device == 0 && !request->maingpu().empty()) {
-                parsed.options.device = std::atoi(request->maingpu().c_str());
+            // MainGPU carries the device index for GPU backends, and is the
+            // fallback: an explicit device: option wins, matching threads above.
+            // device_set rather than `device == 0`, because 0 is a real device
+            // index and the value alone cannot say whether anyone chose it.
+            if (!parsed.options.device_set && !request->maingpu().empty()) {
+                parsed.options.device = parse_device_index(request->maingpu());
             }
 
             const std::string path = audiocpp_backend::resolve_model_path(
                 request->modelpath(), request->modelfile(), request->model());
 
-            auto loaded = std::make_unique<audiocpp_backend::LoadedModel>(
+            auto loaded = std::make_shared<audiocpp_backend::LoadedModel>(
                 path, parsed.options);
 
             // Read everything the reply and the log line need while this scope
@@ -120,10 +162,15 @@ public:
             const std::string variant = loaded->variant();
             const std::string capabilities =
                 audiocpp_backend::describe_capabilities(loaded->capabilities());
+            std::shared_ptr<audiocpp_backend::LoadedModel> replaced;
             {
                 std::lock_guard<std::mutex> lock(g_model_mu);
+                replaced = std::move(g_model);
                 g_model = std::move(loaded);
             }
+            // The previous model, if any, is dropped outside the lock, for the
+            // same reason Free does it: teardown must not hold up Status.
+            replaced.reset();
 
             // Logged once at load time so an operator can see what the model
             // can do without making a request. ModelMetadata is deliberately
@@ -147,9 +194,19 @@ public:
 
     GStatus Free(ServerContext *, const backend::HealthMessage *,
                  backend::Result *result) override {
-        std::lock_guard<std::mutex> lock(g_model_mu);
-        // Destroying LoadedModel releases its sessions first, then the model.
-        g_model.reset();
+        // Drops the global's reference. Any handler still running holds its own
+        // from snapshot(), so the model is destroyed by whichever of them
+        // finishes last rather than underneath one of them. Destroying
+        // LoadedModel releases its sessions first, then the model.
+        std::shared_ptr<audiocpp_backend::LoadedModel> released;
+        {
+            std::lock_guard<std::mutex> lock(g_model_mu);
+            released = std::move(g_model);
+        }
+        // Released outside the lock: if this is the last reference, the model
+        // and its sessions are torn down here, and that must not block Status
+        // or a fresh LoadModel behind g_model_mu.
+        released.reset();
         result->set_success(true);
         return GStatus::OK;
     }

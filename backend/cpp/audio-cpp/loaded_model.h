@@ -81,13 +81,41 @@ public:
         return session_options_;
     }
 
+    // The model's `task:` option, empty when unset. Every handler must copy it
+    // into RequestShape::pinned_task before calling session_for: routing is
+    // otherwise derived from the RPC alone, and this is the option's only route
+    // from the load to the request that honours it.
+    const std::string &pinned_task() const noexcept { return pinned_task_; }
+
     // Routes the RPC and returns the cached session, creating it on first use.
-    // Throws CapabilityError when this family cannot serve the RPC.
+    // Throws CapabilityError when this family cannot serve the RPC, and a plain
+    // runtime_error when it can but the session could not be built, which is an
+    // environment fault rather than a capability answer.
     //
     // Call it only while holding this model's lane. The session cache is not
     // itself synchronised, and it does not need to be: the lane admits one
     // caller at a time, which is the same constraint the sessions themselves
     // impose.
+    //
+    // STATE CONTRACT, and it is the CALLER'S to honour. Sessions are cached per
+    // (task, mode), so a streaming session is normally the same warm object the
+    // previous stream used, carrying that stream's state. session_for hands it
+    // back as it is.
+    //
+    // Every streaming caller must therefore begin a stream with
+    //
+    //     session.streaming->prepare(build_preparation_request(...));
+    //     session.streaming->start_stream(request);
+    //
+    // in that order. start_stream's base implementation is a call to reset(),
+    // which is what clears the previous stream, and reset() is only legal after
+    // prepare(): silero_vad throws "session prepare() must be called before
+    // Silero VAD reset()" otherwise. That ordering constraint is also why
+    // session_for cannot do this for you. Skipping it does not raise an error,
+    // it silently continues the previous stream.
+    //
+    // Offline sessions need no such care: their interface has no reset and
+    // run() takes a whole request.
     Session session_for(Rpc rpc, const RequestShape &shape);
 
     // Takes the inference lane, or throws LaneUnavailable. Serializes runs
@@ -139,6 +167,7 @@ private:
     std::string variant_;
     std::string description_;
     std::vector<std::string> languages_;
+    std::string pinned_task_;
     bool supports_timestamps_ = false;
     int wait_budget_ceiling_ms_ = 0;
 };

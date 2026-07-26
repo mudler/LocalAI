@@ -116,6 +116,7 @@ ParsedOptions parse_model_options(const std::vector<std::string> &entries) {
                                "integer, got '" + value + "'";
                 return parsed;
             }
+            parsed.options.device_set = true;
         } else if (key == "threads") {
             if (!parse_non_negative_int(value, parsed.options.threads)) {
                 parsed.error = "audio-cpp: option 'threads' needs a non-negative "

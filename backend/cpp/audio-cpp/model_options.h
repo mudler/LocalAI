@@ -20,6 +20,11 @@ struct ModelOptions {
     // ggml backend: cpu, cuda, vulkan, metal, best.
     std::string backend = "cpu";
     int device = 0;
+    // True once a `device:` entry has been seen. 0 is both the default and a
+    // legitimate device index, so the value alone cannot tell an explicit
+    // `device:0` from an unset option, and a caller merging in its own fallback
+    // would silently override the explicit choice.
+    bool device_set = false;
     // 0 means "let the runtime decide".
     int threads = 0;
     std::string model_spec_override;

@@ -5,6 +5,12 @@
 namespace audiocpp_backend {
 namespace {
 
+// PRECONDITION: `suffix` must already be lowercase. Both sides are folded, so
+// this reads as symmetric, but only `value` can carry case in practice and a
+// caller passing ".GGUF" would still work today for that reason alone. Do not
+// rely on it: the fold on the suffix side is the only thing standing between
+// this and a helper that answers false for every input, and it is not covered
+// by any test, because with a lowercase suffix no input can distinguish it.
 bool ends_with_ci(const std::string &value, const std::string &suffix) {
     if (value.size() <= suffix.size()) {
         return false; // a bare ".gguf" is an extension, not a model file
