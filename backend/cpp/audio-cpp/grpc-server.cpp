@@ -30,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -42,7 +43,10 @@ using GStatus = ::grpc::Status;
 
 namespace {
 
-std::atomic<Server *> g_server{nullptr};
+// Set by the signal handler, read by the thread that owns the server. The whole
+// point of the indirection is that the handler itself does nothing else: see
+// signal_handler below.
+std::atomic<bool> g_shutdown_requested{false};
 
 // One model per process, matching every other LocalAI backend. The mutex guards
 // the pointer itself, not the model: swapping or dropping it races with the
@@ -169,15 +173,36 @@ void RunServer(const std::string &addr) {
         std::cerr << "audio-cpp grpc-server: failed to bind " << addr << "\n";
         std::exit(1);
     }
-    g_server = server.get();
     std::cerr << "audio-cpp grpc-server listening on " << addr << "\n";
-    server->Wait();
+
+    // Wait() runs off the main thread so the main thread stays free to notice
+    // the shutdown flag and call Shutdown itself, outside any signal context.
+    std::thread serving([&server] { server->Wait(); });
+
+    // Polled rather than waited on: notifying a condition variable from a
+    // signal handler is not async-signal-safe either, so a condition variable
+    // would move the same defect rather than fix it. Ten wakeups a second on an
+    // otherwise idle process is not worth a more elaborate scheme.
+    while (!g_shutdown_requested.load(std::memory_order_relaxed)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    // In-flight RPCs get three seconds to drain before the server stops hard.
+    server->Shutdown(std::chrono::system_clock::now() + std::chrono::seconds(3));
+    serving.join();
 }
 
 void signal_handler(int) {
-    if (auto *srv = g_server.load()) {
-        srv->Shutdown(std::chrono::system_clock::now() + std::chrono::seconds(3));
-    }
+    // Sets a lock-free atomic and returns. Nothing else belongs here.
+    //
+    // Calling grpc::Server::Shutdown directly from a signal handler, which is
+    // what this used to do, takes an absl::Mutex. That is not async-signal-safe:
+    // the handler can interrupt a thread that already holds the same mutex, and
+    // abseil's deadlock detector sees the reentrant acquisition and aborts the
+    // process. The observed result was exit 134 and a "dying due to potential
+    // deadlock" stack on every SIGTERM, which is exactly the crash signature a
+    // real teardown bug would have to compete with.
+    g_shutdown_requested.store(true, std::memory_order_relaxed);
 }
 
 } // namespace
