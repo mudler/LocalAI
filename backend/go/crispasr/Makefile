@@ -58,7 +58,7 @@ sources/CrispASR:
 	cd sources/CrispASR && \
 	git init && \
 	git remote add origin $(CRISPASR_REPO) && \
-	git fetch origin && \
+	git fetch origin $(CRISPASR_VERSION) && \
 	git checkout $(CRISPASR_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch -- \
 		ggml third_party/c2pa-audio
