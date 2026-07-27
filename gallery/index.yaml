@@ -47082,3 +47082,90 @@
       - family:marblenet_vad
     parameters:
       model: bundled:marblenet_vad
+- name: audio-cpp-irodori-voicedesign
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://huggingface.co/Aratako/Irodori-TTS-600M-v3-VoiceDesign
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Irodori TTS 600M v3 VoiceDesign (audio.cpp, Q8_0) - describe the voice you
+    want in words instead of supplying a reference clip, served by the
+    audio-cpp backend.
+
+    Drive it through /v1/audio/speech with the `instructions` field: the
+    backend routes a request carrying instructions to audio.cpp's vdes task, so
+    "a calm elderly woman speaking slowly with a warm, gentle tone" shapes the
+    delivery of whatever you put in `input`. Without instructions this build
+    still answers as ordinary TTS, and with a reference WAV in `voice` it
+    clones instead; the request decides which of the three it gets.
+
+    The model is Japanese-first and handles English, so an English ASR round
+    trip recovers the words with accent drift rather than cleanly.
+  license: mit
+  tags:
+    - audio-cpp
+    - irodori
+    - tts
+    - text-to-speech
+    - voice-design
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+    name: audio-cpp-irodori-voicedesign
+    parameters:
+      model: audio-cpp/irodori-tts-600m-v3-voicedesign-q8_0.gguf
+  files:
+    - filename: audio-cpp/irodori-tts-600m-v3-voicedesign-q8_0.gguf
+      sha256: eda37824d020f90a5f7bf831cee8145714b35b93876651765fc516637f425b33
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Irodori-TTS-600M-v3-VoiceDesign-GGUF/irodori-tts-600m-v3-voicedesign-q8_0.gguf
+- name: audio-cpp-seedvc-singing
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://huggingface.co/mlx-community/SeedVC-MLX
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Seed-VC (audio.cpp, Q8_0) - singing voice conversion, served by the
+    audio-cpp backend through /audio/transform. Post the performance to convert
+    as `audio` and the target singer's clip as `reference`.
+
+    This entry pins task:svc, and the pin is what makes it a singing model
+    rather than a speech one. Seed-VC advertises both svc and ordinary voice
+    conversion, and nothing in a request says "this input is singing", so
+    auto-routing always picks voice conversion; the pin is the only way to
+    reach the singing path. Drop the option from the model config to get plain
+    voice conversion from the same weights.
+
+    Q8_0 because the 16-bit and Q8_0 builds carry the same tested status
+    upstream (drift) and this one is half the size. Note the GPL-3.0 licence,
+    which is stricter than most of the gallery.
+  license: gpl-3.0
+  tags:
+    - audio-cpp
+    - seed-vc
+    - singing-voice-conversion
+    - voice-conversion
+    - audio-transform
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - audio_transform
+    name: audio-cpp-seedvc-singing
+    options:
+      - task:svc
+    parameters:
+      model: audio-cpp/seed-vc-mlx-q8_0.gguf
+  files:
+    - filename: audio-cpp/seed-vc-mlx-q8_0.gguf
+      sha256: f3e2469eb29762af96f9663ce62eab6e8c40f3798c6dc0835e7613f22b4b75f7
+      uri: huggingface://audio-cpp/audio.cpp-gguf/SeedVC-MLX-GGUF/seed-vc-mlx-q8_0.gguf
