@@ -47,9 +47,24 @@ for asset in silero_vad marblenet_vad; do
     fi
 done
 
+# Everything below this point is Linux-only: a bundled ELF loader, an ldd walk
+# and an ld.so --list validation. The macOS equivalents (otool -L, install_name
+# rewriting, a codesign pass) belong to a scripts/build/audio-cpp-darwin.sh that
+# DOES NOT EXIST YET; writing it is Task 16's job.
+#
+# WARNING FOR WHOEVER WRITES IT. The obvious move is to copy
+# scripts/build/privacy-filter-darwin.sh, and that script assembles its own
+# package under build/darwin and never calls package.sh at all. Adapted as-is it
+# will silently omit assets/, and the bundled: model path form then resolves to
+# nothing, which takes the only zero-download verification path in this backend
+# with it. The Darwin package needs the same root-level layout as the Linux one:
+# grpc-server, run.sh, the ggml dylibs and assets/ in ONE directory, with
+# lib/ for the rest. run.sh's Darwin branch execs grpc-server directly, so
+# _NSGetExecutablePath already names the package root; nothing else is needed
+# beyond putting the files there.
 UNAME_S=$(uname -s)
 if [ "$UNAME_S" = "Darwin" ]; then
-    echo "package.sh: Darwin dylib bundling is handled by the darwin build script"
+    echo "package.sh: Darwin dylib bundling is deferred to scripts/build/audio-cpp-darwin.sh"
     ls -lah "$PACKAGE_DIR/" "$PACKAGE_DIR/assets/"
     exit 0
 fi
@@ -67,15 +82,58 @@ else
     exit 1
 fi
 
+# THE LAYOUT ASSERTION. Everything else in this script checks that the package
+# can LINK. This checks that it can RESOLVE, which is a different property and
+# the one with no other guard on it.
+#
+# The loader, assets/ and the dlopened ggml objects only agree while they share
+# one directory, because run.sh execs the loader and all three are reached
+# through dirname(/proc/self/exe). A tidy-up that moves the loader into lib/,
+# following the llama-cpp layout, produces a package that builds, ships, and
+# then fails at run time with "model path does not exist: <pkg>/lib/assets/..."
+# or "Failed to initialize CPU backend". Fail the build instead.
+#
+# This sits immediately after the loader copy rather than at the end of the
+# script on purpose: everything below dereferences $PACKAGE_DIR/ld.so, so a
+# misplaced loader would otherwise surface as "No such file or directory" from
+# the validation gate and never reach an assertion that could explain it.
+if [ ! -f "$PACKAGE_DIR/ld.so" ]; then
+    echo "package.sh: the bundled loader must be at the package root, not in lib/." >&2
+    echo "package.sh: run.sh execs it, so its directory is dirname(/proc/self/exe)," >&2
+    echo "package.sh: which is where resolve_model_path looks for assets/ and where" >&2
+    echo "package.sh: ggml looks for the CPU variants." >&2
+    exit 1
+fi
+if [ ! -d "$PACKAGE_DIR/assets" ]; then
+    echo "package.sh: assets/ must sit beside the loader at the package root." >&2
+    exit 1
+fi
+# Only assert the ggml half when this build produced CPU variants at all: a
+# cublas or vulkan build links ggml statically and ships none.
+if compgen -G "$BUILD_DIR/bin/libggml-cpu-*.so" > /dev/null && \
+   ! compgen -G "$PACKAGE_DIR/libggml-cpu-*.so" > /dev/null; then
+    echo "package.sh: the build produced libggml-cpu-*.so but none reached the" >&2
+    echo "package.sh: package root, so ggml's scan of dirname(/proc/self/exe)" >&2
+    echo "package.sh: will find no CPU backend." >&2
+    exit 1
+fi
+
 # Libraries the host GPU driver stack owns. package_gpu_libs deliberately ships
 # the CUDA/Vulkan runtime but not the driver, because the driver has to match
 # the kernel module on whatever host runs the image. Copying the build host's
 # copy in would pin it to the build host instead.
+#
+# One regex, used by both the copy loop and the validation gate below. They have
+# to agree: exempting a library from the copy but not from the gate makes the
+# gate reject the very absence the copy loop just created.
+DRIVER_LIB_RE='^(libcuda\.so|libnvidia-)'
+# awk applies string-escape processing to a -v assignment before compiling the
+# regex, so a lone backslash is eaten and awk warns about it. Double them here
+# rather than keeping a second hand-written copy of the pattern, which is the
+# drift this single-source-of-truth exists to prevent.
+DRIVER_LIB_RE_AWK=${DRIVER_LIB_RE//\\/\\\\}
 is_driver_lib() {
-    case "$(basename "$1")" in
-        libcuda.so*|libnvidia-*) return 0 ;;
-        *) return 1 ;;
-    esac
+    [[ "$(basename "$1")" =~ $DRIVER_LIB_RE ]]
 }
 
 # Bundle the full dependency closure. grpc-server links the distro gRPC,
@@ -116,16 +174,40 @@ fi
 # loader can still fall back to the host's default directories: a dependency it
 # could not resolve at all, and one it resolved to a file OUTSIDE the package,
 # which would validate here and be absent in the image.
+#
+# The driver libraries are exempt from BOTH rejections, and that exemption is
+# load-bearing on GPU builds rather than tidiness. With BUILD_TYPE=cublas ggml
+# is static (no CPU_ALL_VARIANTS), and ggml/CMakeLists.txt defaults
+# GGML_CUDA_NO_VMM=OFF, so ggml-cuda links CUDA::cuda_driver and grpc-server
+# itself carries DT_NEEDED libcuda.so.1. The copy loop above deliberately leaves
+# that to the host, so inside the CUDA builder it resolves either to a host path
+# or to nothing. Without this exemption every cublas build would fail here and
+# CI would produce no image at all.
+#
+# LD_TRACE_LOADED_OBJECTS + LD_LIBRARY_PATH, NOT `ld.so --library-path --list`,
+# and the difference is not cosmetic. Measured on a stub object built to
+# DT_NEEDED an absent libcuda.so.1: `--list` refuses to trace at all, printing
+# "libdrivertest.so: error while loading shared libraries: libcuda.so.1: cannot
+# open shared object file" and exiting 127, so no per-library line is ever
+# produced and no exemption below could apply. The env form prints
+# "libcuda.so.1 => not found" and exits 0, which is what makes both the
+# unresolved rule and its driver exemption reachable. It is also closer to what
+# run.sh actually does, since run.sh exports LD_LIBRARY_PATH rather than passing
+# --library-path.
 validation_failed=0
 validate_object() {
     local object="$1"
-    "$PACKAGE_DIR/ld.so" --library-path "$PACKAGE_DIR/lib:$PACKAGE_DIR" \
-        --list "$object" | awk -v pkg="$PACKAGE_DIR/" -v obj="$object" '
+    LD_TRACE_LOADED_OBJECTS=1 LD_LIBRARY_PATH="$PACKAGE_DIR/lib:$PACKAGE_DIR" \
+        "$PACKAGE_DIR/ld.so" "$object" | awk -v pkg="$PACKAGE_DIR/" -v obj="$object" \
+                                             -v driver_re="$DRIVER_LIB_RE_AWK" '
+        function base(p,   n, parts) { n = split(p, parts, "/"); return parts[n] }
         $2 == "=>" && $3 == "not" {
+            if ($1 ~ driver_re) next
             print "package.sh: unresolved dependency of " obj ": " $1 > "/dev/stderr"
             bad = 1
         }
         $2 == "=>" && $3 ~ /^\// && index($3, pkg) != 1 {
+            if (base($3) ~ driver_re) next
             print "package.sh: dependency of " obj " resolved outside the package: " $0 > "/dev/stderr"
             bad = 1
         }
