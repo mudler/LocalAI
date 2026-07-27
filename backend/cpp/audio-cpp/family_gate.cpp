@@ -73,9 +73,12 @@ namespace {
 // supertonic: upstream's docs/gguf.md:90 records its 16-bit GGUF column as
 // "---", i.e. NOT TESTED, and its q8_0 as "No (unsupported weight dtype)". Only
 // the `orig` package is marked Pass, and its 698 weight tensors are f32 while
-// its 72 index and shape constants are i64. Attributed rather than assumed: the
-// abort is identical through the unary TTS RPC and through TTSStream, so it is
-// the packaging and not the streaming path.
+// its 72 index and shape constants are i64. The f16 abort is a LOCAL
+// OBSERVATION rather than an upstream claim, and it is attributed rather than
+// assumed: it is identical through the unary TTS RPC and through TTSStream, so
+// it is the packaging and not the streaming path. q8_0 was never run here and is
+// refused on upstream's "unsupported weight dtype" alone, which is the weaker of
+// the two claims. See the header for why keeping them apart matters.
 //
 // TO REMOVE AN ENTRY: bump AUDIO_CPP_VERSION past a fix, load a package in the
 // refused dtype, and synthesise. If audio comes out, delete the entry. No test

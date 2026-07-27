@@ -750,7 +750,7 @@ curl -L http://localhost:8080/tts \
 [audio.cpp](https://github.com/0xShug0/audio.cpp) is a multi-family GGML audio engine, so
 one installed backend covers TTS (`supertonic`, `vibevoice`, `voxcpm2`, `fish_audio`,
 `pocket_tts`, `omnivoice`, `higgs_audio_tts`), voice cloning (`chatterbox`, `index_tts2`,
-`irodori_tts`, `moss`) and voice design (`qwen3_tts`, `irodori_tts`), alongside ASR, VAD,
+`irodori_tts`, `moss_tts_local`, `moss_tts_nano`) and voice design (`qwen3_tts`, `irodori_tts`), alongside ASR, VAD,
 diarization and separation.
 
 ```yaml

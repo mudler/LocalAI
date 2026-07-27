@@ -160,7 +160,8 @@ Then call it like any other VAD model, as described in
 
 ## Source separation stems
 
-Separation families such as `demucs` and `roformer` produce several named outputs from one
+Separation families such as `htdemucs` and `mel_band_roformer` produce several named
+outputs from one
 run. Running inference once per stem would cost a full separation each time, so the backend
 runs **once**, writes every stem to a sibling file next to the main output, and puts the
 selected one in the response body. `params[stem]` picks which one:
@@ -181,9 +182,13 @@ ignored.
 
 ## Family notes
 
-- **Supertonic**: use the `orig` GGUF package. Its f16 and q8_0 packages mix weight dtypes
-  in a way that reaches `ggml_abort` and takes the backend process down rather than
-  returning an error, so the backend refuses those dtypes at load time with a clear message.
+- **Supertonic**: use the `orig` GGUF package, whose weights are f32. The f16 package was
+  observed to reach `ggml_concat` with mismatched operand types and take the backend
+  process down with `SIGABRT` on the first request, rather than returning an error.
+  Upstream's `docs/gguf.md` leaves supertonic's 16-bit column untested and records its
+  q8_0 as "No (unsupported weight dtype)", which says the format is unusable rather than
+  that it crashes. The backend refuses both at load time with a message naming the
+  offending tensor, so neither reaches that abort.
 - **Live transcription latency**: `AudioTranscriptionLive` needs a family advertising `asr`
   in streaming mode. At the pinned upstream revision that is `nemotron_asr`,
   `higgs_audio_stt` and `voxtral_realtime`. `higgs_audio_stt` and `voxtral_realtime` decode

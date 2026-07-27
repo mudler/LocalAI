@@ -19,9 +19,10 @@ a 1.3 M-parameter GGML-based model that performs joint AEC + noise suppression
 is a derivative of the Microsoft DeepVQE paper.
 
 Source separation and voice conversion are served by the
-[audio.cpp backend]({{%relref "features/audio-cpp" %}}): its `demucs` and
-`roformer` families produce the named stems described below, and `seed_vc`,
-`vevo2` and `miocodec` do voice conversion against a reference speaker.
+[audio.cpp backend]({{%relref "features/audio-cpp" %}}): its `htdemucs` and
+`mel_band_roformer` families produce the named stems described below, and
+`seed_vc`, `vevo2` and `miocodec` do voice conversion against a reference
+speaker.
 
 ## The mental model
 

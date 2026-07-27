@@ -36,12 +36,27 @@ FamilyDecision decide_family(bool path_is_gguf, const std::string &embedded_fami
 // string a TensorMetadata carries ("f32", "f16", "q8_0", "i64", ...).
 //
 // This is a LIST OF FAMILIES THAT CRASH THE PROCESS, not a list of families that
-// perform badly. It exists because the failure is not an exception: loading a
-// supertonic package whose weights are f16 or q8_0 reaches ggml_concat with one
-// f16 operand and one f32 one, and ggml_abort takes the backend down with
-// SIGABRT on the FIRST request. Nothing upstream of the load can catch that, so
-// an operator sees a model that loaded successfully and a backend that dies on
-// every request with no status and no message.
+// perform badly. It exists because the failure is not an exception: loading the
+// supertonic f16 GGUF package reaches ggml_concat with one f16 operand and one
+// f32 one, GGML_ASSERT(a->type == b->type) fails (external/ggml/src/ggml.c:2595)
+// and ggml_abort takes the backend down with SIGABRT on the FIRST request.
+// Nothing upstream of the load can catch that, so an operator sees a model that
+// loaded successfully and a backend that dies on every request with no status
+// and no message.
+//
+// EVIDENCE, per dtype, because the two are not equally attested:
+//   - f16 was OBSERVED to abort here, identically through the unary TTS RPC and
+//     through TTSStream, so it is the packaging and not the streaming path.
+//     Upstream's docs/gguf.md:90 has supertonic's 16-bit column as "---", which
+//     its own legend (:53) defines as not tested, so upstream neither confirms
+//     nor contradicts it.
+//   - q8_0 was NOT run here. Upstream records it as "No (unsupported weight
+//     dtype)" in the same row, which is a weaker claim than the f16 abort: it
+//     says the format is unusable, not that it takes the process down.
+// Both are refused, because the allow list is what the family CAN run (f32 for
+// weights, i64 for the shape and index constants) rather than a list of the
+// dtypes that fail, and a format upstream calls unusable has no business being
+// loaded either way.
 //
 // A family with no entry is unrestricted, which is every family but one.
 //

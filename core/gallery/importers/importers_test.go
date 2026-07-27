@@ -466,6 +466,14 @@ var _ = Describe("audio-cpp importer registration", func() {
 	// GGUF repo hosts 30-odd families in one place, so repo-level matching
 	// would be a coin flip. An importer that matched .gguf would additionally
 	// capture every llama.cpp repo it saw first.
+	//
+	// THIS IS A TRIPWIRE, NOT COVERAGE. It exercises no audio-cpp behaviour and
+	// cannot go red for anything but the one act it is aimed at: someone adding
+	// an AudioCpp*Importer to the registry, which would silently turn the
+	// backend into an auto-detect candidate for every GGUF repo. Do not read a
+	// green here as the registration being tested; that assertion lives in
+	// core/http/endpoints/localai/backend_test.go, against the /backends/known
+	// payload that actually reaches the import form.
 	It("registers no importer that would auto-match GGUF repositories", func() {
 		for _, importer := range importers.Registry() {
 			Expect(fmt.Sprintf("%T", importer)).ToNot(ContainSubstring("AudioCpp"),

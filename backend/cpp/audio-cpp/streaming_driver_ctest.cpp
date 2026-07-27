@@ -1,5 +1,6 @@
 // Tests for the streaming drivers in loaded_model: begin_stream,
-// run_streaming_pull, run_streaming_audio and run_streaming_live.
+// run_streaming_pull, run_streaming_audio and run_streaming_live, plus
+// resolve_model_path, which lives in the same engine-linked unit.
 //
 // Engine-linked, so this runs through ctest rather than
 // backend/cpp/run-unit-tests.sh. It builds no model and loads no file: a
@@ -865,7 +866,83 @@ static void test_live_refuses_a_non_streaming_session() {
           "run_streaming_live refuses a session with no streaming half");
 }
 
+// --------------------------------------------------------------------------
+// resolve_model_path
+// --------------------------------------------------------------------------
+//
+// It lives in loaded_model.cpp and is a pure (dir, file, name) -> string, so it
+// is tested here rather than in a standalone unit: that file cannot compile
+// without the engine headers.
+//
+// It is tested at all because it shipped a bug no test could have caught. THE
+// SHAPES BELOW ARE THE PRODUCTION SHAPES, not convenient ones, and that
+// distinction is the entire point. Task 15 verified the bundled: form with a
+// hand-written LoadModel that left ModelFile empty, which is the one shape the
+// server never produces: pkg/model/loader.go's LoadModelWithFile always fills
+// ModelFile with filepath.Join(ModelPath, model), and core/backend/options.go
+// only overrides it for a managed artifact. The first case below is therefore
+// the regression test; the other three are what it must not have broken.
+
+// std::string::ends_with is C++20 and this target is C++17.
+static bool ends_with(const std::string &value, const std::string &suffix) {
+    return value.size() >= suffix.size() &&
+           value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+// THE REGRESSION CASE. What a model YAML saying `model: bundled:silero_vad`
+// actually arrives as: Model intact, ModelFile joined onto the models directory.
+static void test_bundled_in_model_survives_a_joined_model_file() {
+    const std::string resolved = audiocpp_backend::resolve_model_path(
+        "/models", "/models/bundled:silero_vad", "bundled:silero_vad");
+
+    check(ends_with(resolved, "/assets/silero_vad"),
+          "bundled: in Model resolves under the package assets dir (got \"" +
+              resolved + "\")");
+    // Checked separately from the suffix because this is the failure that
+    // shipped: the joined ModelFile came back verbatim and the load died on
+    // "model path does not exist: /models/bundled:silero_vad".
+    check(resolved.find("/models/") == std::string::npos,
+          "bundled: in Model is not resolved against the models directory (got \"" +
+              resolved + "\")");
+}
+
+// Task 15's shape: the form in ModelFile with Model empty. It worked before the
+// fix and must keep working.
+static void test_bundled_in_model_file_still_resolves() {
+    const std::string resolved =
+        audiocpp_backend::resolve_model_path("", "bundled:marblenet_vad", "");
+
+    check(ends_with(resolved, "/assets/marblenet_vad"),
+          "bundled: in ModelFile still resolves under the package assets dir (got \"" +
+              resolved + "\")");
+}
+
+// The ordinary case, and the one the bundled: lookup must not capture: a real
+// artifact path in ModelFile with a plain name in Model.
+static void test_a_plain_name_resolves_to_the_model_file() {
+    const std::string resolved = audiocpp_backend::resolve_model_path(
+        "/models", "/models/chatterbox-q8_0.gguf", "chatterbox-q8_0.gguf");
+
+    check_eq(resolved, "/models/chatterbox-q8_0.gguf",
+             "a plain name resolves to the absolute ModelFile");
+}
+
+// A relative ModelFile is still joined onto ModelPath. The fix does not touch
+// this branch, which is why it is pinned: the bundled: lookup now runs before it
+// and has to fall through for every non-bundled input.
+static void test_a_relative_model_file_joins_the_model_path() {
+    const std::string resolved = audiocpp_backend::resolve_model_path(
+        "/models", "sub/nemotron-asr-q8_0.gguf", "nemotron-asr");
+
+    check_eq(resolved, "/models/sub/nemotron-asr-q8_0.gguf",
+             "a relative ModelFile joins the models directory");
+}
+
 int main() {
+    test_bundled_in_model_survives_a_joined_model_file();
+    test_bundled_in_model_file_still_resolves();
+    test_a_plain_name_resolves_to_the_model_file();
+    test_a_relative_model_file_joins_the_model_path();
     test_begin_stream_prepares_then_starts();
     test_base_start_stream_resets();
     test_begin_stream_refuses_a_non_streaming_session();
