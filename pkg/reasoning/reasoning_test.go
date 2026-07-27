@@ -410,6 +410,29 @@ var _ = Describe("DetectThinkingStartToken", func() {
 			token := DetectThinkingStartToken(prompt, nil)
 			Expect(token).To(Equal("<think>"))
 		})
+
+		It("should ignore a Gemma thinking token that is already closed in the prompt", func() {
+			prompt := "<|turn>model\n<|channel>thought\n<channel|>\n"
+			token := DetectThinkingStartToken(prompt, nil)
+			Expect(token).To(BeEmpty())
+
+			extractor := NewReasoningExtractor(token, Config{})
+			reasoningDelta, contentDelta := extractor.ProcessToken("READY.")
+			Expect(reasoningDelta).To(BeEmpty())
+			Expect(contentDelta).To(Equal("READY."))
+		})
+
+		It("should preserve prefill detection for unrendered conditional templates", func() {
+			template := "{% if enable_thinking %}<think>{% else %}<think></think>{% endif %}"
+			token := DetectThinkingStartTokenInTemplate(template, nil)
+			Expect(token).To(Equal("<think>"))
+		})
+
+		It("should ignore user Jinja text before a preclosed Gemma prompt suffix", func() {
+			prompt := "Explain {{ variable }}\n<|turn>model\n<|channel>thought\n<channel|>\n"
+			token := DetectThinkingStartToken(prompt, nil)
+			Expect(token).To(BeEmpty())
+		})
 	})
 
 	Context("when prompt does not contain thinking tokens", func() {
