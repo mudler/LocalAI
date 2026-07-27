@@ -1,0 +1,92 @@
+ARG BASE_IMAGE=ubuntu:24.04
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+# audio-cpp: 0xShug0/audio.cpp, a ggml audio inference framework covering TTS,
+# ASR, VAD, diarization, source separation and music generation, wrapped as a
+# LocalAI gRPC backend.
+#
+# BASE_IMAGE is ubuntu:24.04 for cpu and vulkan builds, or
+# nvidia/cuda:<ver>-devel-ubuntu24.04 for cublas builds; both ship apt and
+# Ubuntu Noble packages, and the CUDA base additionally provides
+# /usr/local/cuda. BUILD_TYPE selects the engine backend in the Makefile:
+# "" = portable CPU with all ggml CPU variants, "cublas" ->
+# -DENGINE_ENABLE_CUDA=ON, "vulkan" -> -DENGINE_ENABLE_VULKAN=ON. Darwin
+# (Metal) builds bypass this Dockerfile entirely.
+#
+# Upstream needs GCC 13 or newer, which ubuntu:24.04 and the CUDA 12/13
+# devel-ubuntu24.04 images all provide.
+#
+# THIS BACKEND CANNOT USE .docker/install-base-deps.sh OR THE PREBUILT
+# quay.io/go-skynet/ci-cache:base-grpc-* IMAGES, AND THAT IS NOT A STYLE CHOICE.
+#
+# Both supply gRPC v1.65 built from source at /opt/grpc, which downstream
+# Dockerfiles copy to /usr/local. That gRPC vendors protobuf v26, and protobuf
+# has depended on abseil since v22: google/protobuf/message_lite.h includes
+# absl/strings/cord.h. audio.cpp links sentencepiece, and our CMakeLists sets
+# SPM_PROTOBUF_PROVIDER=package so sentencepiece uses the same protobuf the
+# generated backend.pb.cc was built against (the alternative broke every
+# nested-message parse; the full account is in backend/cpp/audio-cpp/CMakeLists.txt).
+# That makes sentencepiece's init.h include the external message_lite.h while it
+# still includes its own vendored mini-abseil from third_party/absl. The vendored
+# copy declares `namespace absl { namespace internal { ... } }` and real abseil
+# declares `namespace absl { inline namespace lts_20240116 { namespace internal
+# { ... } } }`, so every `absl::internal::` reference becomes ambiguous and the
+# compile dies in absl/base/casts.h. Verified, not theorised: building this image
+# against the base-grpc-amd64 prebuilt fails at
+# sentencepiece-static/error.cc.o with "reference to 'internal' is ambiguous".
+#
+# Ubuntu Noble's apt protobuf is 3.21.12, which predates the abseil dependency,
+# so message_lite.h pulls in no abseil and the vendored copy is the only one in
+# scope. That is also the exact protobuf/gRPC pair every unit and end-to-end run
+# of this backend has been verified against. Keep it: a from-source gRPC here
+# does not buy a faster build, it buys a broken one.
+#
+# The install-base-deps path is additionally unsafe because it drops protoc 27.1
+# into /usr/local/bin, which shadows apt's protoc on PATH and would generate
+# protobuf-27 sources to be compiled against 3.21 headers.
+FROM ${BASE_IMAGE} AS builder
+ARG BUILD_TYPE
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    DEBIAN_FRONTEND=noninteractive \
+    PATH=/usr/local/cuda/bin:${PATH}
+
+WORKDIR /build
+
+# gRPC/protobuf from apt, deliberately; see the block above. libgrpc++-dev ships
+# a CMake config so find_package(gRPC CONFIG) resolves, and libprotobuf-dev
+# lands in the layout CMake's FindProtobuf module expects, which matters because
+# sentencepiece runs a bare find_package(Protobuf REQUIRED) with no CONFIG
+# fallback of its own.
+#
+# BUILD_TYPE=vulkan additionally needs the loader headers and glslc; both are in
+# Noble. The CUDA toolkit for BUILD_TYPE=cublas comes from BASE_IMAGE.
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git cmake build-essential pkg-config ca-certificates \
+        libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc && \
+    if [ "${BUILD_TYPE}" = "vulkan" ]; then \
+        apt-get install -y --no-install-recommends libvulkan-dev glslc; \
+    fi && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY . /LocalAI
+
+RUN --mount=type=cache,target=/root/.ccache,id=audio-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    make -C /LocalAI/backend/cpp/audio-cpp BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+
+# The package directory is the whole image: run.sh, grpc-server, the dlopened
+# ggml CPU variants, the bundled loader and its library closure, and the
+# bundled silero_vad / marblenet_vad assets. Nothing else exists at run time.
+FROM scratch
+COPY --from=builder /LocalAI/backend/cpp/audio-cpp/package/. ./
