@@ -306,6 +306,175 @@ static void test_empty_capabilities() {
     check(r.error.find("mystery") != std::string::npos, "error names the family");
 }
 
+// The table is indexed by UnsupportedRpc's underlying value, so a reordering of
+// either list silently pairs an RPC with another's reason. Nothing else would
+// catch that: both sides still compile and every message still reads plausibly.
+static void test_unsupported_surface_table_matches_the_enum() {
+    check(unsupported_surfaces().size() == 5,
+          "all five unsupported surfaces are tabulated");
+    check(std::string(unsupported_surface(UnsupportedRpc::AudioEncode).rpc) ==
+              "AudioEncode",
+          "UnsupportedRpc::AudioEncode indexes AudioEncode");
+    check(std::string(unsupported_surface(UnsupportedRpc::AudioDecode).rpc) ==
+              "AudioDecode",
+          "UnsupportedRpc::AudioDecode indexes AudioDecode");
+    check(std::string(
+              unsupported_surface(UnsupportedRpc::AudioTransformStream).rpc) ==
+              "AudioTransformStream",
+          "UnsupportedRpc::AudioTransformStream indexes AudioTransformStream");
+    check(std::string(
+              unsupported_surface(UnsupportedRpc::AudioToAudioStream).rpc) ==
+              "AudioToAudioStream",
+          "UnsupportedRpc::AudioToAudioStream indexes AudioToAudioStream");
+    check(std::string(unsupported_surface(UnsupportedRpc::VoiceEmbed).rpc) ==
+              "VoiceEmbed",
+          "UnsupportedRpc::VoiceEmbed indexes VoiceEmbed");
+
+    // Two entries may share a reason (the codec pair does), but two entries
+    // naming the same RPC would mean one of the five is unreachable.
+    for (size_t i = 0; i < unsupported_surfaces().size(); ++i) {
+        for (size_t j = i + 1; j < unsupported_surfaces().size(); ++j) {
+            check(std::string(unsupported_surfaces()[i].rpc) !=
+                      unsupported_surfaces()[j].rpc,
+                  std::string("no duplicate RPC name at ") + std::to_string(i) +
+                      "/" + std::to_string(j));
+        }
+    }
+}
+
+// An enumerator with no table row must not read past the end. Casting an
+// out-of-range value into a scoped enum whose underlying type is int is
+// well-defined, so this test itself is legal; what it exercises is the guard,
+// which is the only thing standing between a future sixth enumerator and
+// undefined behaviour on the one path whose job is to be diagnosable.
+static void test_unsupported_surface_out_of_range_is_diagnosable() {
+    const auto beyond =
+        static_cast<UnsupportedRpc>(unsupported_surfaces().size());
+    const auto &surface = unsupported_surface(beyond);
+    check(std::string(surface.rpc) == "unknown",
+          "an enumerator with no table row does not read past the end");
+    check(std::string(surface.reason).find("bug in capability_routing.cpp") !=
+              std::string::npos,
+          "the missing-row reason blames this backend, not audio.cpp");
+    // And it still formats, rather than dereferencing something that is not
+    // there.
+    const std::string message =
+        unsupported_surface_message(nemotron(), surface.rpc, surface.reason);
+    check(message.find("nemotron_asr") != std::string::npos,
+          "the missing-row surface still produces a whole message");
+}
+
+// Every entry, not just the one somebody remembered to cover. A refusal that
+// drops the family, the RPC or the reason is a refusal the caller cannot act
+// on, which is the entire point of this surface existing.
+static void test_every_unsupported_surface_message_is_diagnosable() {
+    for (const auto &surface : unsupported_surfaces()) {
+        const std::string label = std::string(" [") + surface.rpc + "]";
+        const std::string loaded =
+            unsupported_surface_message(nemotron(), surface.rpc, surface.reason);
+
+        check(loaded.find(surface.rpc) != std::string::npos,
+              "message names the RPC" + label);
+        check(std::string(surface.reason).size() > 20 &&
+                  loaded.find(surface.reason) != std::string::npos,
+              "message gives a substantive upstream reason" + label);
+        check(loaded.find("nemotron_asr") != std::string::npos,
+              "message names the loaded family" + label);
+        check(loaded.find("asr/offline") != std::string::npos &&
+                  loaded.find("asr/streaming") != std::string::npos,
+              "message lists what the family does support" + label);
+
+        // The no-model form keeps the two facts that do not depend on a model
+        // and drops only the one that does, so the caller still learns why.
+        const std::string unloaded =
+            unsupported_surface_message(surface.rpc, surface.reason);
+        check(unloaded.find(surface.rpc) != std::string::npos,
+              "no-model message names the RPC" + label);
+        check(unloaded.find(surface.reason) != std::string::npos,
+              "no-model message gives the upstream reason" + label);
+        check(unloaded.find("nemotron_asr") == std::string::npos,
+              "no-model message names no family" + label);
+        // Without this the caller's obvious next move is to load a model and
+        // retry, which cannot work: the refusal is a property of the engine.
+        check(unloaded.find("would not change this answer") != std::string::npos,
+              "no-model message says loading a model would not help" + label);
+    }
+}
+
+// The reasons are the load-bearing half of this feature and each was checked
+// against the pinned upstream checkout. Pinning the distinguishing phrase here
+// means a later edit that guts one into a generic "not supported" fails rather
+// than passes quietly.
+static void test_unsupported_reasons_name_the_upstream_limitation() {
+    const auto &encode = unsupported_surface(UnsupportedRpc::AudioEncode);
+    const auto &decode = unsupported_surface(UnsupportedRpc::AudioDecode);
+    check(std::string(encode.reason).find("VoiceTaskKind") != std::string::npos &&
+              std::string(encode.reason).find("codec") != std::string::npos,
+          "the AudioEncode reason names the missing VoiceTaskKind entry");
+    // miocodec is the family a reader will reach for first, because upstream's
+    // README tags it Codec. Naming it and its actual advertised tasks is what
+    // stops the next person re-deriving the same dead end.
+    check(std::string(encode.reason).find("miocodec") != std::string::npos,
+          "the AudioEncode reason disposes of miocodec's README Codec tag");
+    check(std::string(encode.reason) == decode.reason,
+          "AudioEncode and AudioDecode refuse for the same reason");
+
+    const auto &transform =
+        unsupported_surface(UnsupportedRpc::AudioTransformStream);
+    // The reason must be scoped to the tasks AudioTransform routes to. The
+    // broader claim, "upstream streams tts and asr only", is FALSE: silero_vad
+    // advertises vad with RunMode::Streaming. A refusal resting on a false
+    // premise is worse than a bare UNIMPLEMENTED, because it will be believed.
+    check(std::string(transform.reason).find("sep, vc, svc, s2s") !=
+              std::string::npos,
+          "the AudioTransformStream reason is scoped to the routed tasks");
+    check(std::string(transform.reason).find("tts, asr and vad") !=
+              std::string::npos,
+          "the AudioTransformStream reason counts vad among the streaming tasks");
+    check(std::string(transform.reason).find("tts and asr only") ==
+              std::string::npos,
+          "the AudioTransformStream reason does not repeat the refuted claim");
+
+    const auto &s2s = unsupported_surface(UnsupportedRpc::AudioToAudioStream);
+    check(std::string(s2s.reason).find("Realtime") != std::string::npos &&
+              std::string(s2s.reason).find("voice conversion") != std::string::npos,
+          "the AudioToAudioStream reason contrasts the two contracts");
+    // Naming both s2s families makes the claim checkable: a reader can open
+    // those two loaders and see offline voice conversion rather than a
+    // conversation.
+    check(std::string(s2s.reason).find("miocodec and vevo2") != std::string::npos,
+          "the AudioToAudioStream reason names the only two s2s families");
+
+    const auto &embed = unsupported_surface(UnsupportedRpc::VoiceEmbed);
+    check(std::string(embed.reason).find("spk") != std::string::npos,
+          "the VoiceEmbed reason names the task no family advertises");
+    // spk IS a VoiceTaskKind upstream; what is missing is any family that
+    // advertises it. Saying the kind does not exist would be false, and would
+    // send a reader looking in the wrong place.
+    check(std::string(embed.reason).find("no audio.cpp family") !=
+              std::string::npos,
+          "the VoiceEmbed reason blames the families, not the enum");
+    // The speaker encoders DO exist upstream, as conditioning modules inside
+    // TTS and VC families. Not saying so invites "but audio.cpp ships TitaNet".
+    check(std::string(embed.reason).find("TitaNet") != std::string::npos,
+          "the VoiceEmbed reason disposes of the internal speaker encoders");
+    Task parsed = Task::Vad;
+    check(parse_task_name("spk", parsed) && parsed == Task::SpeakerRecognition,
+          "spk is a real task kind, so the reason must not claim otherwise");
+}
+
+// A family advertising nothing still gets a message that reads, rather than one
+// trailing off after "supports: ".
+static void test_unsupported_surface_message_with_empty_capabilities() {
+    const auto &embed = unsupported_surface(UnsupportedRpc::VoiceEmbed);
+    const std::string message = unsupported_surface_message(
+        Capabilities{"mystery", {}}, embed.rpc, embed.reason);
+    check(message.find("mystery") != std::string::npos,
+          "empty-capability message still names the family");
+    check(message.find("supports: nothing") != std::string::npos,
+          "empty-capability message says the family supports nothing");
+}
+
 int main() {
     test_plain_tts();
     test_tts_with_voice_reference_prefers_cloning();
@@ -325,6 +494,11 @@ int main() {
     test_names_round_trip();
     test_describe_capabilities();
     test_empty_capabilities();
+    test_unsupported_surface_table_matches_the_enum();
+    test_unsupported_surface_out_of_range_is_diagnosable();
+    test_every_unsupported_surface_message_is_diagnosable();
+    test_unsupported_reasons_name_the_upstream_limitation();
+    test_unsupported_surface_message_with_empty_capabilities();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

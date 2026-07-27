@@ -7,7 +7,10 @@
 //
 // This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD,
 // Diarize, AudioTransform, TTS, SoundGeneration, TTSStream,
-// AudioTranscriptionStream and AudioTranscriptionLive RPCs.
+// AudioTranscriptionStream and AudioTranscriptionLive RPCs, and explicit
+// refusals for the five audio RPCs audio.cpp has no counterpart for:
+// AudioEncode, AudioDecode, AudioTransformStream, AudioToAudioStream and
+// VoiceEmbed.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
@@ -83,19 +86,33 @@ std::shared_ptr<audiocpp_backend::LoadedModel> g_model;
 // use-after-free.
 //
 // _unchecked because it performs NO request-level validation. There are exactly
-// two legitimate classes of caller, and both are "there is no identity to
-// check" rather than "the check was skipped":
+// three legitimate classes of caller, and none of them is "the check was
+// skipped":
 //
 //   1. Status, which takes a HealthMessage. It carries no ModelIdentity field.
-//   2. An RPC whose request message has no ModelIdentity field either, which
-//      today is AudioTranscriptionLive: TranscriptLiveRequest is a oneof of
-//      TranscriptLiveConfig and TranscriptLiveAudio and neither carries one, so
-//      snapshot_for does not even instantiate for it. The stale-route hazard
-//      #10952 describes is therefore unguarded on that RPC, and the fix has to
-//      be in backend.proto rather than here: nothing this process can read off
-//      the request says which model the caller thought it was reaching. When
-//      that field lands, these handlers move to snapshot_for and this clause
-//      goes away.
+//   2. An RPC whose request message has no ModelIdentity field either, so
+//      snapshot_for does not even instantiate for it. AudioTranscriptionLive is
+//      the routed one: TranscriptLiveRequest is a oneof of TranscriptLiveConfig
+//      and TranscriptLiveAudio and neither carries an identity. The four
+//      unroutable surfaces refuse_surface answers are the rest of the class:
+//      AudioEncodeRequest, AudioDecodeRequest, AudioTransformFrameRequest and
+//      AudioToAudioRequest carry no identity either. The stale-route hazard
+//      #10952 describes is therefore unguarded on these RPCs, and the fix has
+//      to be in backend.proto rather than here: nothing this process can read
+//      off the request says which model the caller thought it was reaching.
+//      When that field lands, the routed handlers move to snapshot_for and this
+//      clause shrinks to the refusals. It costs nothing on the four refusals,
+//      which answer the same UNIMPLEMENTED whatever model is loaded.
+//   3. VoiceEmbed, which is the one refusal whose request DOES carry a
+//      ModelIdentity. It cannot use snapshot_for, because snapshot_for's
+//      no-model branch is FAILED_PRECONDITION "call LoadModel first" and that
+//      is the wrong instruction here: no model can make this backend serve
+//      VoiceEmbed, so the caller has to be told the reason instead. It
+//      therefore takes the reference here and runs check_model_identity itself,
+//      which keeps the ordering rule snapshot_for exists to enforce: identity
+//      before UNIMPLEMENTED, or a stale route gets "audio.cpp cannot embed
+//      speakers" when the model it actually asked for lives on a backend that
+//      can.
 //
 // Every OTHER RPC must call snapshot_for; the name is deliberately unpleasant so
 // that reaching for it is a visible decision rather than an omission.
@@ -338,6 +355,42 @@ snapshot_for(const Request *request, GStatus &out) {
         return nullptr;
     }
     return model;
+}
+
+// The single body behind the five refusals in the class below.
+//
+// UNIMPLEMENTED is the code by contract, not by taste:
+// pkg/grpc/grpcerrors/errors.go degrades to an alternative path on
+// UNIMPLEMENTED and on nothing else, so a caller that has a fallback keeps it.
+//
+// The loaded family is read only to ENRICH the message. The refusal itself is a
+// property of the engine rather than of the model, which is why the no-model
+// case is the same UNIMPLEMENTED and not the FAILED_PRECONDITION every routed
+// handler returns: "call LoadModel first" would send the operator to do work
+// that cannot help. The message says so in as many words.
+//
+// It does not read the stream, and the two bidirectional surfaces must not
+// start: returning before the first Read means a client that opened the stream
+// and is writing frames gets the status on its next operation instead of
+// blocking on a response that would never come.
+GStatus refuse_surface(audiocpp_backend::UnsupportedRpc rpc,
+                       const audiocpp_backend::LoadedModel *model) {
+    const auto &surface = audiocpp_backend::unsupported_surface(rpc);
+    if (model == nullptr) {
+        return GStatus(grpc::StatusCode::UNIMPLEMENTED,
+                       audiocpp_backend::unsupported_surface_message(
+                           surface.rpc, surface.reason));
+    }
+    return GStatus(grpc::StatusCode::UNIMPLEMENTED,
+                   audiocpp_backend::unsupported_surface_message(
+                       model->capabilities(), surface.rpc, surface.reason));
+}
+
+// Overload for the four surfaces whose request carries no ModelIdentity: there
+// is nothing to check, so the reference is taken here. See case 2 at
+// snapshot_unchecked.
+GStatus refuse_surface(audiocpp_backend::UnsupportedRpc rpc) {
+    return refuse_surface(rpc, snapshot_unchecked().get());
 }
 
 // Builds the TaskRequest for a transcription-shaped RPC. `task` is the ROUTED
@@ -1871,6 +1924,75 @@ public:
         } catch (const std::exception &err) {
             return to_status(err);
         }
+    }
+
+    // The five surfaces this backend cannot serve at all.
+    //
+    // They are overridden rather than left to the generated base class on
+    // purpose. The base returns UNIMPLEMENTED with an empty message, which
+    // tells the caller nothing: it cannot distinguish "audio-cpp will never do
+    // this" from "the model you loaded cannot, try another one" from "this
+    // build is old". Each override names the loaded family, what that family
+    // does support, and the upstream limitation, so the answer to "why" is on
+    // the wire rather than in someone's head. capability_routing.cpp holds the
+    // reasons; every one of them was checked against the pinned checkout.
+    //
+    // None of these is deferred work. Each is an RPC whose LocalAI contract has
+    // no counterpart in audio.cpp's VoiceTaskKind, and each becomes an ordinary
+    // Rpc routing entry the day upstream grows one.
+
+    GStatus AudioEncode(ServerContext *, const backend::AudioEncodeRequest *,
+                        backend::AudioEncodeResult *) override {
+        return refuse_surface(audiocpp_backend::UnsupportedRpc::AudioEncode);
+    }
+
+    GStatus AudioDecode(ServerContext *, const backend::AudioDecodeRequest *,
+                        backend::AudioDecodeResult *) override {
+        return refuse_surface(audiocpp_backend::UnsupportedRpc::AudioDecode);
+    }
+
+    // Refused WITHOUT reading the stream. A bidirectional handler that returns
+    // a status closes the call, and gRPC delivers that status to the client on
+    // its next Read or Finish, so the client learns why whether or not it has
+    // already written frames. Draining first would only delay the same answer
+    // for as long as the client keeps talking.
+    GStatus AudioTransformStream(
+        ServerContext *,
+        grpc::ServerReaderWriter<backend::AudioTransformFrameResponse,
+                                 backend::AudioTransformFrameRequest> *) override {
+        return refuse_surface(
+            audiocpp_backend::UnsupportedRpc::AudioTransformStream);
+    }
+
+    // Same, and see the note above about not reading the stream.
+    GStatus AudioToAudioStream(
+        ServerContext *,
+        grpc::ServerReaderWriter<backend::AudioToAudioResponse,
+                                 backend::AudioToAudioRequest> *) override {
+        return refuse_surface(
+            audiocpp_backend::UnsupportedRpc::AudioToAudioStream);
+    }
+
+    // The one refusal whose request carries a ModelIdentity, so it is the one
+    // that has to run the #10952 check before answering. The order is the same
+    // one snapshot_for enforces everywhere else and for the same reason: a
+    // request that names a DIFFERENT model must get NOT_FOUND plus the router's
+    // sentinel, not this UNIMPLEMENTED. Otherwise a stale route pointed at this
+    // process answers "audio.cpp cannot embed speakers" about a model that is
+    // not loaded here and may well live on a backend that can, and the router
+    // retires a working capability on the strength of it. Case 3 at
+    // snapshot_unchecked explains why snapshot_for cannot be used instead.
+    GStatus VoiceEmbed(ServerContext *, const backend::VoiceEmbedRequest *request,
+                       backend::VoiceEmbedResponse *) override {
+        const auto model = snapshot_unchecked();
+        if (model != nullptr) {
+            const GStatus identity = check_model_identity(*model, request);
+            if (!identity.ok()) {
+                return identity;
+            }
+        }
+        return refuse_surface(audiocpp_backend::UnsupportedRpc::VoiceEmbed,
+                              model.get());
     }
 };
 

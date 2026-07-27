@@ -109,6 +109,46 @@ std::vector<Task> task_candidates(Rpc rpc, const RequestShape &shape) {
     return {};
 }
 
+// The reasons behind unsupported_surfaces(), spelled once because AudioEncode
+// and AudioDecode share theirs. Each is phrased in terms of what upstream does
+// and does not have, so a reader can check it against the pinned checkout
+// rather than take it on trust. Every one of them was checked against
+// audio.cpp e800d435d130dc776baf6f3e6129bb62b1495c89, and one of the four
+// claims this backend was planned against did not survive that check: see
+// kTransformStreamReason.
+//
+// A latent upstream inconsistency worth knowing about but deliberately NOT put
+// on the wire, because it would mislead: model_spec/schema.cpp's task-string
+// whitelist does accept "codec" (and "dialogue"), while
+// model_spec/metadata.cpp's parse_task_kind has no branch for either and
+// throws "unknown model spec task". So a spec declaring "codec" validates and
+// then fails to load. That is a hole in upstream's own validation, not a codec
+// task this backend could reach.
+const char *const kCodecReason =
+    "audio.cpp's VoiceTaskKind has no codec entry, so no family can be asked to "
+    "turn PCM into codec frames or back; miocodec carries a Codec tag in "
+    "upstream's README but its loader advertises only vc and s2s";
+// NOT "streaming exists for tts and asr only", which is what this backend was
+// planned to say and is false: silero_vad advertises vad with RunMode::Streaming
+// (src/models/silero_vad/session.cpp). The claim that actually holds is the
+// narrower one below, about the four tasks AudioTransform routes to.
+const char *const kTransformStreamReason =
+    "no audio.cpp family advertises streaming for any task AudioTransform routes "
+    "to (sep, vc, svc, s2s); upstream advertises RunMode::Streaming for tts, asr "
+    "and vad only, and no conversion or separation family even implements its "
+    "IStreamingVoiceTaskSession interface";
+const char *const kAudioToAudioReason =
+    "LocalAI's contract here is OpenAI-Realtime shaped, an audio conversation "
+    "emitting audio, transcript and tool-call deltas from a system prompt and a "
+    "tool list; audio.cpp's s2s is offline voice conversion, declared only by "
+    "miocodec and vevo2, which converts one clip into another speaker's voice "
+    "and is a different thing";
+const char *const kVoiceEmbedReason =
+    "no audio.cpp family advertises the spk (SpeakerRecognition) task, so "
+    "nothing in the engine can produce a speaker embedding; the task kind "
+    "itself exists upstream, and TitaNet and ECAPA-TDNN exist as internal "
+    "conditioning encoders, but neither is registered as a loadable family";
+
 std::string join_attempts(const std::vector<Task> &tasks,
                           const std::vector<Mode> &modes) {
     std::string out;
@@ -196,6 +236,54 @@ std::string describe_capabilities(const Capabilities &caps) {
         out = "nothing";
     }
     return out;
+}
+
+const std::vector<UnsupportedSurface> &unsupported_surfaces() {
+    // Ordered as UnsupportedRpc declares them, which unsupported_surface()
+    // relies on to index straight in.
+    static const std::vector<UnsupportedSurface> kSurfaces = {
+        {"AudioEncode", kCodecReason},
+        {"AudioDecode", kCodecReason},
+        {"AudioTransformStream", kTransformStreamReason},
+        {"AudioToAudioStream", kAudioToAudioReason},
+        {"VoiceEmbed", kVoiceEmbedReason},
+    };
+    return kSurfaces;
+}
+
+const UnsupportedSurface &unsupported_surface(UnsupportedRpc rpc) {
+    const std::vector<UnsupportedSurface> &surfaces = unsupported_surfaces();
+    const size_t index = static_cast<size_t>(rpc);
+    // The binding between the enum and the table is positional, so a sixth
+    // enumerator added without a row indexes past the end. operator[] would make
+    // that undefined behaviour, i.e. a crash or a garbage string on the wire, in
+    // the one code path whose entire job is to be diagnosable. This turns it
+    // into a message that says what happened. It is not reachable today, and the
+    // test that would notice it going stale is in capability_routing_test.cpp.
+    if (index >= surfaces.size()) {
+        static const UnsupportedSurface kMissingRow{
+            "unknown",
+            "this backend declared an UnsupportedRpc with no matching row in "
+            "unsupported_surfaces(), which is a bug in capability_routing.cpp "
+            "and not a statement about audio.cpp"};
+        return kMissingRow;
+    }
+    return surfaces[index];
+}
+
+std::string unsupported_surface_message(const Capabilities &caps, const char *rpc,
+                                        const char *reason) {
+    return std::string("audio-cpp: the ") + rpc +
+           " RPC is not available through this backend because " + reason +
+           ". Loaded family '" + caps.family +
+           "' supports: " + describe_capabilities(caps);
+}
+
+std::string unsupported_surface_message(const char *rpc, const char *reason) {
+    return std::string("audio-cpp: the ") + rpc +
+           " RPC is not available through this backend because " + reason +
+           ". No model is loaded, so there is no family to list; loading one "
+           "would not change this answer";
 }
 
 Route resolve_route(Rpc rpc, const RequestShape &shape,
