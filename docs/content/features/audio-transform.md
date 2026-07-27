@@ -56,6 +56,7 @@ form-data, returns audio bytes.
 | `sample_rate` | int | no | Desired output sample rate in Hz. Omit it for the backend's own rate; otherwise it must be between 8000 and 192000, and a value outside that range is refused with a 400 |
 | `params[<key>]` | string | no | Repeated; forwarded to backend |
 | `params[stem]` | string | no | Multi-output transforms only; picks which named output the body carries (see [stems](#multi-output-transforms-source-separation-stems)) |
+| `params[text]` | string | no | Text-conditioned transforms only; the line being resynthesised (see [text-conditioned transforms](#text-conditioned-transforms-speech-to-speech)) |
 
 First install an audio-transform model from the gallery (the examples below use `localvqe-v1.3-4.8m`):
 
@@ -142,6 +143,28 @@ curl -sS -X POST http://localhost:8080/audio/transformations \
 The stems live in the generated-content directory beside the main output and are
 served from `/generated-audio/`. Like every other generated artifact, they are
 not swept automatically.
+
+### Text-conditioned transforms (speech to speech)
+
+Most transforms are audio in, audio out. A few are not: a speech-to-speech
+model resynthesises a line in another voice and needs to know what the line
+says. `/audio/transform` has no text field, so the text travels as
+`params[text]`.
+
+```bash
+curl -sS -X POST http://localhost:8080/audio/transformations \
+  -F model=audio-cpp-vevo2-speech-to-speech \
+  -F audio=@source.wav \
+  -F reference=@target-speaker.wav \
+  -F 'params[text]=The quick brown fox jumps over the lazy dog.' \
+  -o converted.wav
+```
+
+For these models the text is required, not a hint: the run is refused without
+it. `params[target_text]` is accepted as the same field, and
+`params[language]` sets the language when the line is not English. A model that
+does not take text ignores all three, so an ordinary separation or
+noise-suppression request is unaffected.
 
 ## Streaming endpoint
 

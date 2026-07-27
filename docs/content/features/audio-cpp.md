@@ -180,6 +180,36 @@ the body, is listed in the `X-Audio-Stems` response header. See
 `params[stem]` against a model that produces a single unnamed output is refused rather than
 ignored.
 
+## Text-conditioned transforms
+
+`s2s` is a text-and-prosody route, not an audio-only one: `vevo2` resynthesises a line in
+another voice and reads the line itself, refusing the run without it. `AudioTransform` has
+no text field, so the text arrives as `params[text]` (or `params[target_text]`, the name
+vevo2's own option table uses) and the backend lifts it into the engine's text input.
+`params[language]` rides along when the line is not English.
+
+```bash
+curl http://localhost:8080/audio/transformations \
+  -F model=audio-cpp-vevo2-speech-to-speech \
+  -F audio=@source.wav -F reference=@target-speaker.wav \
+  -F 'params[text]=The quick brown fox jumps over the lazy dog.' -o converted.wav
+```
+
+A model that takes no text ignores the keys, so separation and plain voice conversion are
+unaffected.
+
+## Pinned tasks
+
+Two routes are unreachable by auto-routing and need `task:` in the model config, because
+nothing in a request distinguishes them from a task the same family also advertises:
+
+- `task:svc` for singing voice conversion. `seed_vc` and `vevo2` advertise both `svc` and
+  ordinary `vc`, and no request signal means "this input is singing", so `vc` always wins.
+- `task:s2s` for speech to speech, for the same reason against the same `vc`.
+
+The gallery entries that ship these routes carry the pin already. Removing it gives plain
+voice conversion from the same weights.
+
 ## Family notes
 
 - **Supertonic**: use the `orig` GGUF package, whose weights are f32. The f16 package was
