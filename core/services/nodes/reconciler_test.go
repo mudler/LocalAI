@@ -733,18 +733,19 @@ var _ = Describe("ReplicaReconciler", func() {
 	})
 })
 
-// fakeProber lets tests control whether a model's gRPC address "responds".
+// fakeProber lets tests control how a model's gRPC address "responds".
+// Addresses with no entry default to ProbeUnreachable.
 type fakeProber struct {
-	alive map[string]bool
-	calls int
+	outcomes map[string]ProbeOutcome
+	calls    int
 }
 
-func (f *fakeProber) IsAlive(_ context.Context, address string) bool {
+func (f *fakeProber) Probe(_ context.Context, address string) ProbeOutcome {
 	f.calls++
-	if f.alive == nil {
-		return false
+	if f.outcomes == nil {
+		return ProbeUnreachable
 	}
-	return f.alive[address]
+	return f.outcomes[address]
 }
 
 var _ = Describe("ReplicaReconciler — state reconciliation", func() {
@@ -787,7 +788,7 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			Expect(db.Create(stale).Error).To(Succeed())
 			Expect(db.Create(fresh).Error).To(Succeed())
 
-			prober := &fakeProber{alive: map[string]bool{"10.0.0.1:12345": false}}
+			prober := &fakeProber{outcomes: map[string]ProbeOutcome{"10.0.0.1:12345": ProbeUnreachable}}
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
 				Registry:        registry,
 				DB:              db,
@@ -823,7 +824,7 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			}
 			Expect(db.Create(stale).Error).To(Succeed())
 
-			prober := &fakeProber{alive: map[string]bool{"10.0.0.1:12345": true}}
+			prober := &fakeProber{outcomes: map[string]ProbeOutcome{"10.0.0.1:12345": ProbeAlive}}
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
 				Registry:        registry,
 				DB:              db,

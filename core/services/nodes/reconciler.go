@@ -9,30 +9,102 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
 
-// ModelProber checks whether a model's backend process is still reachable.
+// ProbeOutcome is the result of a model liveness probe. The distinction that
+// matters is between silence caused by a BUSY backend and silence caused by a
+// MISSING one: only the latter justifies deleting the registry row.
+type ProbeOutcome int
+
+const (
+	// ProbeAlive: the backend answered and reported healthy.
+	ProbeAlive ProbeOutcome = iota
+	// ProbeBusy: the backend was reachable but did not answer within the
+	// probe deadline. Single-threaded backends block here for the whole
+	// duration of a long generation, so this is evidence of life, not death.
+	ProbeBusy
+	// ProbeUnreachable: nothing is listening (connection refused), or the
+	// backend answered and affirmatively reported itself unhealthy.
+	ProbeUnreachable
+)
+
+// ModelProber checks the state of a model's backend process.
 // Defaulted to a gRPC health probe but overridable for tests so we don't
-// need to stand up a real server. Returning false without an error means the
-// process is reachable but unhealthy (same as a timeout for our purposes).
+// need to stand up a real server.
 type ModelProber interface {
-	IsAlive(ctx context.Context, address string) bool
+	Probe(ctx context.Context, address string) ProbeOutcome
 }
 
-// grpcModelProber does a 1s HealthCheck on the model's stored gRPC address.
+// NodeProcessLister asks a worker which model backend processes it currently
+// has running. Implemented by RemoteUnloaderAdapter over NATS.
+//
+// This is the sounder liveness signal: the worker owns the process table, so
+// its answer does not depend on whether a backend is busy. A health probe
+// against the backend's own serving port cannot make that distinction, which
+// is why it is only the fallback for workers that do not answer.
+type NodeProcessLister interface {
+	ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error)
+}
+
+// probeTimeout bounds a single liveness probe. Kept short because a healthy
+// idle backend answers immediately; a backend that needs longer is by
+// definition busy, which classifyProbeOutcome reports as ProbeBusy rather than
+// as death.
+const probeTimeout = 1 * time.Second
+
+// grpcModelProber does a short HealthCheck on the model's stored gRPC address.
 type grpcModelProber struct{ token string }
 
-func (g grpcModelProber) IsAlive(ctx context.Context, address string) bool {
+func (g grpcModelProber) Probe(ctx context.Context, address string) ProbeOutcome {
 	client := grpcclient.NewClientWithToken(address, false, nil, false, g.token)
-	probeCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	ok, _ := client.HealthCheck(probeCtx)
-	return ok
+	ok, err := client.HealthCheck(probeCtx)
+	return classifyProbeOutcome(ok, err)
+}
+
+// classifyProbeOutcome maps a HealthCheck result onto a ProbeOutcome.
+//
+// The gRPC client is lazy, so connection failures surface on the RPC rather
+// than at dial time, and the status code tells the two cases apart:
+//
+//   - DeadlineExceeded: the transport was fine but nothing serviced the RPC in
+//     time. That is a backend stuck inside a long synchronous request.
+//   - Unavailable: nothing is listening. The process is gone.
+//
+// A blackholed network also yields DeadlineExceeded and is therefore treated as
+// busy. That is deliberate: whole-node failures are the health monitor's job
+// (it marks the node offline and reaps its models), and mistaking a network
+// blip for a dead backend is the failure this classification exists to prevent.
+func classifyProbeOutcome(ok bool, err error) ProbeOutcome {
+	if err == nil {
+		if ok {
+			return ProbeAlive
+		}
+		// Answered, but reported unhealthy. An affirmative signal, unlike silence.
+		return ProbeUnreachable
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ProbeBusy
+	}
+	switch status.Code(err) {
+	case codes.DeadlineExceeded:
+		return ProbeBusy
+	case codes.Unavailable:
+		return ProbeUnreachable
+	default:
+		// Any other status means something on the other end produced a
+		// response, so the process exists. Not healthy, but not a ghost.
+		return ProbeBusy
+	}
 }
 
 // ReplicaReconciler periodically ensures model replica counts match their
@@ -65,11 +137,24 @@ type ReplicaReconciler struct {
 	// the other scale-up paths. nil disables this signal (a true no-op).
 	pressure          *prefixcache.Pressure
 	pressureThreshold int
+	// processLister asks workers which model processes they are running. nil
+	// disables the worker-authoritative pass, leaving only the port probe.
+	processLister NodeProcessLister
 	// probeFailures counts CONSECUTIVE failed liveness probes per node_models
 	// row id, so a single miss against a busy-but-alive backend cannot delete
 	// its registry row. Reset on any successful probe and on reap.
 	probeFailuresMu sync.Mutex
 	probeFailures   map[string]int
+	// workerMisses counts CONSECUTIVE passes in which a worker did not report
+	// a row's model as running. Kept separate from probeFailures so the two
+	// independent signals never add into one another's budget.
+	workerMissesMu sync.Mutex
+	workerMisses   map[string]int
+	// inFlightIdle counts CONSECUTIVE passes in which a row with a positive
+	// in_flight counter was observed answering health probes promptly, which is
+	// what a backend inside a request cannot do.
+	inFlightIdleMu sync.Mutex
+	inFlightIdle   map[string]int
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -92,7 +177,11 @@ type ReplicaReconcilerOptions struct {
 	// addresses. Matches the worker's token so HealthCheck auth succeeds.
 	RegistrationToken string
 	// Prober overrides the default gRPC health probe (used by tests).
-	Prober          ModelProber
+	Prober ModelProber
+	// ProcessLister overrides the default worker process query. When nil and
+	// no Adapter is set, the worker-authoritative pass is skipped entirely and
+	// only the port probe runs.
+	ProcessLister   NodeProcessLister
 	DB              *gorm.DB
 	Interval        time.Duration // default 30s
 	ScaleDownDelay  time.Duration // default 5m
@@ -127,12 +216,19 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	if pressureThreshold == 0 {
 		pressureThreshold = prefixcache.DefaultConfig().PressureScaleThreshold
 	}
+	// The adapter already speaks the models.running request, so it is the
+	// natural default; an explicit ProcessLister (tests) wins over it.
+	processLister := opts.ProcessLister
+	if processLister == nil && opts.Adapter != nil {
+		processLister = opts.Adapter
+	}
 	return &ReplicaReconciler{
 		registry:          opts.Registry,
 		scheduler:         opts.Scheduler,
 		unloader:          opts.Unloader,
 		adapter:           opts.Adapter,
 		prober:            prober,
+		processLister:     processLister,
 		db:                opts.DB,
 		interval:          interval,
 		scaleDownDelay:    scaleDownDelay,
@@ -181,14 +277,21 @@ func (rc *ReplicaReconciler) reconcileOnce(ctx context.Context) {
 }
 
 // reconcileState runs the state-reconciliation passes: drain pending backend
-// ops for freshly-healthy nodes, then probe model gRPC addresses to orphan
-// ghosts. Both passes are best-effort: a failure on one node doesn't stop
-// the rest.
+// ops for freshly-healthy nodes, reconcile registry rows against what workers
+// report they are running, then port-probe whatever is left. All passes are
+// best-effort: a failure on one node doesn't stop the rest.
+//
+// Order matters. The worker pass runs first and refreshes updated_at for every
+// model a worker vouches for, which takes those rows out of the port prober's
+// stale set. The port probe is therefore only the fallback for nodes whose
+// worker did not answer.
 func (rc *ReplicaReconciler) reconcileState(ctx context.Context) {
 	if rc.adapter != nil {
 		rc.drainPendingBackendOps(ctx)
 	}
+	rc.reconcileNodeProcesses(ctx)
 	rc.probeLoadedModels(ctx)
+	rc.sweepLeakedInFlight(ctx)
 }
 
 // drainPendingBackendOps retries queued backend ops whose next_retry_at has
@@ -334,17 +437,22 @@ const probeFailuresBeforeReap = 3
 // probeStaleAfter so we don't hammer every worker every tick for models we
 // just heard from.
 //
-// Two guards keep this from reaping healthy backends. Replicas with in-flight
-// requests are excluded in SQL: a row that is actively serving is proof of
-// life, and the request that is running is exactly what stops the backend from
-// answering the probe. Idle replicas must then miss probeFailuresBeforeReap
-// consecutive probes, so a transient blip cannot orphan a live replica.
+// Two guards keep this from reaping healthy backends. A probe that times out is
+// classified as ProbeBusy rather than as death, because a backend blocked
+// inside a long generation cannot answer while it works. And a replica must
+// then look unreachable on probeFailuresBeforeReap CONSECUTIVE passes, so a
+// transient blip cannot orphan a live replica.
+//
+// Deliberately NOT gated on in_flight. That counter has no decrement guarantee
+// (a frontend that dies mid-request leaves the increment behind), so using it
+// to shield rows from reaping would make a leaked counter produce a replica
+// that can never be cleaned up.
 func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
 	err := rc.registry.db.WithContext(ctx).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != '' AND node_models.in_flight <= 0",
+		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != ''",
 			"loaded", StatusHealthy, cutoff).
 		Find(&stale).Error
 	if err != nil {
@@ -357,16 +465,24 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		if rc.prober.IsAlive(ctx, m.Address) {
+		switch rc.prober.Probe(ctx, m.Address) {
+		case ProbeAlive:
 			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
 			_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
 				Where("id = ?", m.ID).Update("updated_at", time.Now()).Error
 			continue
+		case ProbeBusy:
+			// Reachable but mid-request. Proof of life, so clear the streak.
+			rc.clearProbeFailures(m.ID)
+			xlog.Debug("Reconciler: model busy, skipping liveness reap",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+			continue
 		}
+
 		failures := rc.recordProbeFailure(m.ID)
 		if failures < probeFailuresBeforeReap {
-			xlog.Debug("Reconciler: model did not answer liveness probe, waiting for more misses before reaping",
+			xlog.Debug("Reconciler: model unreachable, waiting for more misses before reaping",
 				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
 				"failures", failures, "threshold", probeFailuresBeforeReap)
 			continue
@@ -381,6 +497,253 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			"failures", failures)
 	}
 	rc.pruneProbeFailures(seen)
+}
+
+// inFlightLeakIdleAfter is how long a positive in_flight counter must sit
+// without its last_used moving before the sweeper will even consider it a leak.
+// Generous on purpose: it only bounds how quickly a genuine leak is corrected,
+// whereas being too eager risks overruling a real request.
+const inFlightLeakIdleAfter = 30 * time.Minute
+
+// inFlightLeakConfirmations is how many CONSECUTIVE passes must observe the
+// backend answering promptly before the counter is overruled.
+const inFlightLeakConfirmations = 2
+
+// sweepLeakedInFlight corrects in_flight counters that no longer reflect any
+// real request.
+//
+// The counter has no decrement guarantee. `track()` balances its increment with
+// a defer, but that only holds while the process lives: a frontend killed
+// mid-request (rolling restart, OOM) never runs the defer, and the load-time
+// reservation is released only when the FIRST inference completes, so a request
+// that dies before reaching the backend strands it. The result is not cosmetic —
+// FindLRUModel, FindGlobalLRUModelWithZeroInFlight and the router's eviction
+// query all require in_flight = 0, so a leaked counter pins that replica's VRAM
+// forever.
+//
+// Elapsed time alone cannot identify a leak: IncrementInFlight stamps last_used
+// at request START and nothing moves it while the request runs, so a long
+// generation is indistinguishable from a leak by age. The probe supplies the
+// missing bit — a backend that answers a health check promptly is not inside a
+// request, because that is exactly what a busy backend cannot do. Requiring the
+// row to ALSO be idle for inFlightLeakIdleAfter covers backends that serve
+// requests in parallel and can answer while working: those keep last_used fresh
+// through each new request's increment.
+func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
+	var suspects []NodeModel
+	cutoff := time.Now().Add(-inFlightLeakIdleAfter)
+	err := rc.registry.db.WithContext(ctx).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.in_flight > 0 AND node_models.last_used < ? AND node_models.address != ''",
+			"loaded", StatusHealthy, cutoff).
+		Find(&suspects).Error
+	if err != nil {
+		xlog.Warn("Reconciler: failed to list rows for in-flight leak sweep", "error", err)
+		return
+	}
+
+	seen := make(map[string]struct{}, len(suspects))
+	for _, m := range suspects {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+		seen[m.ID] = struct{}{}
+		if rc.prober.Probe(ctx, m.Address) != ProbeAlive {
+			// Busy or unreachable. Busy means the counter may well be real;
+			// unreachable is the reaper's business, not the sweeper's.
+			rc.clearInFlightIdle(m.ID)
+			continue
+		}
+		confirmations := rc.recordInFlightIdle(m.ID)
+		if confirmations < inFlightLeakConfirmations {
+			continue
+		}
+		res := rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
+			Where("id = ? AND in_flight > 0", m.ID).
+			UpdateColumn("in_flight", 0)
+		if res.Error != nil {
+			xlog.Warn("Reconciler: failed to reset leaked in-flight counter",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", res.Error)
+			continue
+		}
+		rc.clearInFlightIdle(m.ID)
+		if res.RowsAffected > 0 {
+			xlog.Warn("Reconciler: reset leaked in-flight counter on an idle replica",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex,
+				"was", m.InFlight, "idleFor", time.Since(m.LastUsed).String())
+		}
+	}
+	rc.pruneInFlightIdle(seen)
+}
+
+func (rc *ReplicaReconciler) recordInFlightIdle(rowID string) int {
+	rc.inFlightIdleMu.Lock()
+	defer rc.inFlightIdleMu.Unlock()
+	if rc.inFlightIdle == nil {
+		rc.inFlightIdle = make(map[string]int)
+	}
+	rc.inFlightIdle[rowID]++
+	return rc.inFlightIdle[rowID]
+}
+
+func (rc *ReplicaReconciler) clearInFlightIdle(rowID string) {
+	rc.inFlightIdleMu.Lock()
+	defer rc.inFlightIdleMu.Unlock()
+	delete(rc.inFlightIdle, rowID)
+}
+
+// pruneInFlightIdle bounds the streak map. Dropping a streak only ever resets
+// it, so this can never cause a premature correction.
+func (rc *ReplicaReconciler) pruneInFlightIdle(seen map[string]struct{}) {
+	rc.inFlightIdleMu.Lock()
+	defer rc.inFlightIdleMu.Unlock()
+	for id := range rc.inFlightIdle {
+		if _, ok := seen[id]; !ok {
+			delete(rc.inFlightIdle, id)
+		}
+	}
+}
+
+// workerMissesBeforeReap is how many CONSECUTIVE passes a worker must fail to
+// report a model before its row is deleted. The worker's answer is
+// authoritative, so this only needs to absorb the narrow window where a row
+// exists but the process table has not caught up; two passes is ample given
+// rows are only considered once they are probeStaleAfter old.
+const workerMissesBeforeReap = 2
+
+// reconcileNodeProcesses reconciles registry rows against what each worker says
+// it is actually running.
+//
+// This is the primary liveness pass, and it is sounder than probing the
+// backend's own serving port: the worker owns the process table and answers
+// immediately whether or not the backend is mid-request. A model confirmed here
+// also gets its updated_at bumped, which keeps it out of the port prober's
+// stale set entirely — that is what stops a backend deep in a long generation
+// from ever being mistaken for a dead one.
+//
+// A worker that cannot be reached is skipped rather than treated as empty. A
+// messaging failure says nothing about the processes, and assuming the worst
+// would delete a whole node's rows on a transient NATS blip; the port probe
+// remains as the fallback for those nodes.
+func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
+	if rc.processLister == nil {
+		return
+	}
+
+	var stale []NodeModel
+	cutoff := time.Now().Add(-rc.probeStaleAfter)
+	err := rc.registry.db.WithContext(ctx).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+		Where("node_models.state = ? AND backend_nodes.status = ? AND backend_nodes.node_type = ? AND node_models.updated_at < ?",
+			"loaded", StatusHealthy, NodeTypeBackend, cutoff).
+		Find(&stale).Error
+	if err != nil {
+		xlog.Warn("Reconciler: failed to list loaded models for worker reconciliation", "error", err)
+		return
+	}
+	if len(stale) == 0 {
+		return
+	}
+
+	byNode := make(map[string][]NodeModel)
+	for _, m := range stale {
+		byNode[m.NodeID] = append(byNode[m.NodeID], m)
+	}
+
+	seen := make(map[string]struct{}, len(stale))
+	for nodeID, rows := range byNode {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+		reply, err := rc.processLister.ListRunningModels(nodeID)
+		if err != nil {
+			xlog.Debug("Reconciler: worker did not answer models.running, leaving its replicas to the port probe",
+				"node", nodeID, "error", err)
+			continue
+		}
+		if reply == nil || reply.Error != "" {
+			xlog.Debug("Reconciler: worker reported an error for models.running, skipping node",
+				"node", nodeID, "error", replyError(reply))
+			continue
+		}
+
+		running := make(map[replicaKey]struct{}, len(reply.Models))
+		for _, m := range reply.Models {
+			running[replicaKey{model: m.ModelID, replica: m.ReplicaIndex}] = struct{}{}
+		}
+
+		for _, row := range rows {
+			seen[row.ID] = struct{}{}
+			if _, ok := running[replicaKey{model: row.ModelName, replica: row.ReplicaIndex}]; ok {
+				rc.clearWorkerMisses(row.ID)
+				// Confirmed alive by the process owner. Bump updated_at so the
+				// port prober does not also go poking at a busy backend.
+				_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
+					Where("id = ?", row.ID).Update("updated_at", time.Now()).Error
+				continue
+			}
+
+			misses := rc.recordWorkerMiss(row.ID)
+			if misses < workerMissesBeforeReap {
+				xlog.Debug("Reconciler: worker does not report model as running, waiting for confirmation",
+					"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex,
+					"misses", misses, "threshold", workerMissesBeforeReap)
+				continue
+			}
+			if err := rc.registry.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
+				xlog.Warn("Reconciler: failed to remove model the worker is not running",
+					"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex, "error", err)
+				continue
+			}
+			rc.clearWorkerMisses(row.ID)
+			xlog.Warn("Reconciler: worker is not running this model, removed from registry",
+				"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex, "misses", misses)
+		}
+	}
+	rc.pruneWorkerMisses(seen)
+}
+
+// replicaKey identifies one replica of one model on a node.
+type replicaKey struct {
+	model   string
+	replica int
+}
+
+// replyError safely extracts the error text from a possibly-nil reply.
+func replyError(reply *messaging.ModelsRunningReply) string {
+	if reply == nil {
+		return "nil reply"
+	}
+	return reply.Error
+}
+
+func (rc *ReplicaReconciler) recordWorkerMiss(rowID string) int {
+	rc.workerMissesMu.Lock()
+	defer rc.workerMissesMu.Unlock()
+	if rc.workerMisses == nil {
+		rc.workerMisses = make(map[string]int)
+	}
+	rc.workerMisses[rowID]++
+	return rc.workerMisses[rowID]
+}
+
+func (rc *ReplicaReconciler) clearWorkerMisses(rowID string) {
+	rc.workerMissesMu.Lock()
+	defer rc.workerMissesMu.Unlock()
+	delete(rc.workerMisses, rowID)
+}
+
+// pruneWorkerMisses drops streaks for rows that were not candidates this pass,
+// bounding the map. Dropping a streak only ever resets it, so this can never
+// cause a premature reap.
+func (rc *ReplicaReconciler) pruneWorkerMisses(seen map[string]struct{}) {
+	rc.workerMissesMu.Lock()
+	defer rc.workerMissesMu.Unlock()
+	for id := range rc.workerMisses {
+		if _, ok := seen[id]; !ok {
+			delete(rc.workerMisses, id)
+		}
+	}
 }
 
 // recordProbeFailure increments and returns the consecutive-failure count for a
