@@ -6,9 +6,8 @@
 // upstream expects churn, and upstream is Apache-2.0 while LocalAI is MIT.
 //
 // This commit adds LoadModel/Free/Status plus the AudioTranscription, VAD,
-// Diarize, AudioTransform, TTS, SoundGeneration, TTSStream and
-// AudioTranscriptionStream RPCs. The remaining audio RPCs land in later
-// commits.
+// Diarize, AudioTransform, TTS, SoundGeneration, TTSStream,
+// AudioTranscriptionStream and AudioTranscriptionLive RPCs.
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
@@ -82,11 +81,23 @@ std::shared_ptr<audiocpp_backend::LoadedModel> g_model;
 // Never return LoadedModel& from here: that is the shape that reintroduces the
 // use-after-free.
 //
-// _unchecked because it performs NO request-level validation. Status is its
-// only legitimate caller, because Status takes a HealthMessage, which carries
-// no ModelIdentity to check. Every RPC that acts on a model must call
-// snapshot_for instead; the name is deliberately unpleasant so that reaching
-// for it is a visible decision rather than an omission.
+// _unchecked because it performs NO request-level validation. There are exactly
+// two legitimate classes of caller, and both are "there is no identity to
+// check" rather than "the check was skipped":
+//
+//   1. Status, which takes a HealthMessage. It carries no ModelIdentity field.
+//   2. An RPC whose request message has no ModelIdentity field either, which
+//      today is AudioTranscriptionLive: TranscriptLiveRequest is a oneof of
+//      TranscriptLiveConfig and TranscriptLiveAudio and neither carries one, so
+//      snapshot_for does not even instantiate for it. The stale-route hazard
+//      #10952 describes is therefore unguarded on that RPC, and the fix has to
+//      be in backend.proto rather than here: nothing this process can read off
+//      the request says which model the caller thought it was reaching. When
+//      that field lands, these handlers move to snapshot_for and this clause
+//      goes away.
+//
+// Every OTHER RPC must call snapshot_for; the name is deliberately unpleasant so
+// that reaching for it is a visible decision rather than an omission.
 std::shared_ptr<audiocpp_backend::LoadedModel> snapshot_unchecked() {
     std::lock_guard<std::mutex> lock(g_model_mu);
     return g_model;
@@ -482,8 +493,9 @@ public:
 
     GStatus Status(ServerContext *, const backend::HealthMessage *,
                    backend::StatusResponse *response) override {
-        // snapshot_unchecked is right here, and is the only place it is:
-        // HealthMessage carries no ModelIdentity, so there is nothing to check.
+        // snapshot_unchecked is right here: HealthMessage carries no
+        // ModelIdentity, so there is nothing to check. See case 1 at the
+        // function.
         response->set_state(snapshot_unchecked()
                                 ? backend::StatusResponse::READY
                                 : backend::StatusResponse::UNINITIALIZED);
@@ -1513,6 +1525,260 @@ public:
                 final_response.mutable_final_result());
             if (!client_gone) {
                 writer->Write(final_response);
+            }
+            return GStatus::OK;
+        } catch (const std::exception &err) {
+            return to_status(err);
+        }
+    }
+
+    // The one BIDIRECTIONAL stream this backend serves: live microphone ASR.
+    // The client sends a TranscriptLiveConfig, then TranscriptLiveAudio frames;
+    // this answers with a ready ack, then deltas and words as the audio
+    // arrives, then one message carrying final_result once the read side
+    // closes.
+    //
+    // THERE IS NO OFFLINE FALLBACK, unlike AudioTranscriptionStream. Live
+    // transcription has to consume audio incrementally, so a family with no
+    // streaming ASR is refused rather than served a batch run at the end; the
+    // Streaming-only mode_candidates list for this RPC is where that is
+    // expressed, and this handler needs no branch for it.
+    //
+    // THE READY ACK IS A CONTRACT, not a courtesy. core/backend/transcript_live.go
+    // sends the config and then BLOCKS on Recv, treating an Unimplemented there
+    // as "this backend cannot do live transcription, degrade to the file path"
+    // and a first response carrying data as a broken backend. So routing must be
+    // refused before the ack, and the ack must go out before the first audio
+    // frame is read, or the client never sends one and both sides wait.
+    //
+    // eou AND eob STAY FALSE. TranscriptLiveResponse carries them for
+    // cache-aware models that emit end-of-utterance and end-of-backchannel
+    // tokens; audio.cpp's StreamEvent has no equivalent signal, and inferring
+    // one from silence would be a guess wearing a protocol flag's clothes. A
+    // client uses eou to decide the speaker yielded the turn, so a wrong one
+    // cuts people off mid-sentence. False is not a degradation here, it is the
+    // truth: this backend does not know.
+    GStatus AudioTranscriptionLive(
+        ServerContext *,
+        grpc::ServerReaderWriter<backend::TranscriptLiveResponse,
+                                 backend::TranscriptLiveRequest> *stream) override {
+        try {
+            // snapshot_unchecked, which every other model-touching handler is
+            // forbidden to call. TranscriptLiveRequest carries NO ModelIdentity
+            // field, in either arm of its oneof, so snapshot_for does not even
+            // instantiate for it: there is nothing to compare. See case 2 at
+            // snapshot_unchecked, including why the fix is a proto change.
+            const auto model = snapshot_unchecked();
+            if (model == nullptr) {
+                return GStatus(grpc::StatusCode::FAILED_PRECONDITION,
+                               "audio-cpp: no model is loaded; call LoadModel first");
+            }
+
+            backend::TranscriptLiveRequest incoming;
+            if (!stream->Read(&incoming)) {
+                // Opened and closed with nothing said. A clean exit, not an
+                // error: there is nothing to transcribe and nobody to tell.
+                return GStatus::OK;
+            }
+            if (!incoming.has_config()) {
+                return GStatus(grpc::StatusCode::INVALID_ARGUMENT,
+                               "audio-cpp: the first AudioTranscriptionLive "
+                               "message must carry a Config");
+            }
+            const backend::TranscriptLiveConfig config = incoming.config();
+
+            // 16 kHz mono or nothing, and this is a REFUSAL rather than a
+            // resample for the reason spelled out at kSpeechSampleRate: the
+            // streaming families build their spans in their own 16 kHz feature
+            // domain whatever the input rate was, so honouring an 8 kHz session
+            // would return word timestamps 2x off with a 200 and no diagnostic.
+            // The file-fed handlers resample their input to make the two
+            // domains the same one; live audio arrives a frame at a time from a
+            // client that already picked a rate, and read_audio_file's
+            // resampler cannot be applied to it incrementally, so the only
+            // honest answers are this refusal or a wrong timestamp.
+            //
+            // Costs nothing today: core/backend/transcript_live.go hardcodes
+            // liveSampleRate = 16000, and backend.proto documents 0 as 16000 and
+            // says backends may reject other rates.
+            const int sample_rate =
+                config.sample_rate() > 0 ? config.sample_rate() : kSpeechSampleRate;
+            if (sample_rate != kSpeechSampleRate) {
+                return GStatus(grpc::StatusCode::INVALID_ARGUMENT,
+                               "audio-cpp: live transcription accepts " +
+                                   std::to_string(kSpeechSampleRate) +
+                                   " Hz mono PCM only, got " +
+                                   std::to_string(sample_rate) +
+                                   " Hz; resample on the client side");
+            }
+
+            audiocpp_backend::RequestShape shape;
+            // No request signal chooses the task here: TranscriptLiveConfig has
+            // no prompt field, so has_prompt_text stays false and the only
+            // candidate is Asr. pinned_task is still copied, because without it
+            // the model's `task:` option is dead on this RPC.
+            shape.pinned_task = model->pinned_task();
+
+            // Before the lane, like every other handler: a family that cannot
+            // stream ASR is answering a question about itself and must not
+            // queue behind somebody else's run to be told no. This is also what
+            // produces the UNIMPLEMENTED the client reads as "degrade to the
+            // file path", so it has to happen before the ack below.
+            model->check_can_serve(audiocpp_backend::Rpc::AudioTranscriptionLive,
+                                   shape);
+
+            // THE LANE IS HELD FOR THE WHOLE STREAM, which is longer than any
+            // other handler holds it: as long as the user keeps talking. The
+            // streaming session is stateful and cached, so a concurrent run on
+            // the same model would interleave its audio with this one's and
+            // corrupt both transcripts. Named local because LaneEntry is
+            // immovable and has to span session_for, every chunk and finalize.
+            audiocpp_backend::LaneEntry lane = model->acquire(0);
+            const auto session = model->session_for(
+                audiocpp_backend::Rpc::AudioTranscriptionLive, shape, lane);
+
+            engine::runtime::TaskRequest task;
+            // An EMPTY buffer carrying the CONTRACT only: the rate and the
+            // channel count of the frames about to arrive, and no samples,
+            // because none exist yet. Not decoration. build_preparation_request
+            // derives the audio contract from this field, and nemotron_asr's
+            // streaming prepare() throws "Nemotron ASR streaming prepare()
+            // requires an audio contract" when it is absent, so a live stream
+            // without it fails on the first model that serves it.
+            engine::runtime::AudioBuffer contract;
+            contract.sample_rate = sample_rate;
+            // Mono, from the proto: TranscriptLiveAudio.pcm is documented as
+            // "mono PCM in [-1,1] at config.sample_rate" and there is no channel
+            // field to say otherwise.
+            contract.channels = 1;
+            task.audio_input = std::move(contract);
+
+            if (!config.language().empty()) {
+                task.options["language"] = config.language();
+            }
+            for (const auto &param : config.params()) {
+                task.options[param.first] = param.second;
+            }
+
+            bool client_gone = false;
+            backend::TranscriptLiveResponse ack;
+            ack.set_ready(true);
+            if (!stream->Write(ack)) {
+                // The client hung up between opening the stream and the ack.
+                // Nothing was consumed and nobody is listening.
+                return GStatus::OK;
+            }
+
+            audiocpp_backend::TranscriptDeltaTracker tracker;
+            const auto write_delta = [&](const std::string &fragment) {
+                if (fragment.empty() || client_gone) {
+                    return;
+                }
+                backend::TranscriptLiveResponse response;
+                response.set_delta(fragment);
+                if (!stream->Write(response)) {
+                    client_gone = true;
+                }
+            };
+
+            // The SAME reconciliation AudioTranscriptionStream uses, and for the
+            // same reason: the families disagree about whether partial_text is a
+            // fragment or the whole hypothesis, one of them delivers the same
+            // event twice, and a delta that ends inside a UTF-8 sequence makes
+            // the Go client's Unmarshal fail and costs the client every
+            // remaining message. None of that is re-derived here. See
+            // stream_delta.h.
+            const auto emit = [&](const engine::runtime::StreamEvent &event) {
+                if (event.partial_text.has_value()) {
+                    write_delta(tracker.observe(event.partial_text->text));
+                }
+                if (event.word_timestamps.empty() || client_gone) {
+                    return;
+                }
+                // FORWARD TOLERANT, and dead against the pinned upstream: no
+                // family puts word timestamps on a StreamEvent, only on the
+                // TaskResult, so today every word a live client sees arrives in
+                // final_result below. Kept because the field exists, a family
+                // that fills it then works with no change here, and the
+                // conversion is the same one final_result gets.
+                backend::TranscriptLiveResponse response;
+                for (const auto &word : event.word_timestamps) {
+                    auto *out = response.add_words();
+                    // NANOSECONDS. TranscriptWord is the only unit in this proto
+                    // that is not seconds, and core/backend reads it straight
+                    // into a time.Duration.
+                    out->set_start(audiocpp_backend::samples_to_nanoseconds(
+                        word.span.start_sample, sample_rate));
+                    out->set_end(audiocpp_backend::samples_to_nanoseconds(
+                        word.span.end_sample, sample_rate));
+                    out->set_text(word.word);
+                }
+                if (!stream->Write(response)) {
+                    client_gone = true;
+                }
+            };
+
+            std::int64_t consumed_frames = 0;
+            const auto next_frames = [&](std::vector<float> &out) {
+                while (stream->Read(&incoming)) {
+                    if (incoming.has_config()) {
+                        // backend.proto says a second Config resets the decode
+                        // session. audio.cpp cannot do that truthfully: a reset
+                        // would clear the session's audio while the deltas
+                        // already on the wire cannot be taken back, so the final
+                        // text would then describe only the audio after the
+                        // reset and would CONTRADICT the transcript the client
+                        // assembled. Refused loudly rather than ignored: a
+                        // client that believes it reset the decoder and did not
+                        // is handed a transcript that silently continues the
+                        // audio it thought it discarded.
+                        throw audiocpp_backend::ConfigError(
+                            "audio-cpp: family '" + model->family() +
+                            "' cannot reset a live session mid-stream; close "
+                            "this stream and open a new one");
+                    }
+                    if (!incoming.has_audio()) {
+                        // Neither arm of the oneof is set. Nothing to feed, and
+                        // not worth failing a live session over.
+                        continue;
+                    }
+                    const auto &pcm = incoming.audio().pcm();
+                    if (pcm.empty()) {
+                        continue;
+                    }
+                    out.assign(pcm.begin(), pcm.end());
+                    // Mono, so floats and frames are the same count. Only used
+                    // for the duration reported in final_result.
+                    consumed_frames += static_cast<std::int64_t>(pcm.size());
+                    return true;
+                }
+                return false;
+            };
+
+            // The driver owns the streaming state obligation and the stream
+            // event sink: nemotron_asr, the only family that serves this RPC
+            // today, reports EVERY partial through the sink from inside
+            // finalize(), and its process_audio_chunk returns a bare event. It
+            // also buffers the wire's frames up to the family's own preferred
+            // window, which is one second for nemotron_asr and nothing like the
+            // 512-sample frames a client's audio callback produces.
+            const auto result = audiocpp_backend::run_streaming_live(
+                session, task, next_frames, emit, lane);
+
+            // Makes concatenating every delta equal final_result's text, which
+            // is what the HTTP layer above assembles. Also what flushes a
+            // held-back partial UTF-8 sequence.
+            if (result.text_output.has_value()) {
+                write_delta(tracker.reconcile(result.text_output->text));
+            }
+
+            backend::TranscriptLiveResponse final_response;
+            audiocpp_backend::fill_transcript_result(
+                result, sample_rate,
+                audiocpp_backend::samples_to_seconds(consumed_frames, sample_rate),
+                final_response.mutable_final_result());
+            if (!client_gone) {
+                stream->Write(final_response);
             }
             return GStatus::OK;
         } catch (const std::exception &err) {

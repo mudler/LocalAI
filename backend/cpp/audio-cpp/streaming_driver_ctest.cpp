@@ -1,5 +1,5 @@
 // Tests for the streaming drivers in loaded_model: begin_stream,
-// run_streaming_pull and run_streaming_audio.
+// run_streaming_pull, run_streaming_audio and run_streaming_live.
 //
 // Engine-linked, so this runs through ctest rather than
 // backend/cpp/run-unit-tests.sh. It builds no model and loads no file: a
@@ -13,7 +13,9 @@
 
 #include "engine/framework/runtime/session.h"
 
+#include <cstddef>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -638,6 +640,231 @@ static void test_prepare_tracks_the_request_not_the_session() {
           "the second stream prepares at ITS rate, not the first one's");
 }
 
+// --------------------------------------------------------------------------
+// run_streaming_live
+// --------------------------------------------------------------------------
+
+// Hands the driver a fixed list of wire frames, the way a client's audio
+// callback would, and then closes.
+static std::function<bool(std::vector<float> &)>
+frames_from(const std::vector<std::size_t> &sizes) {
+    auto index = std::make_shared<std::size_t>(0);
+    auto list = std::make_shared<std::vector<std::size_t>>(sizes);
+    return [index, list](std::vector<float> &out) {
+        if (*index >= list->size()) {
+            return false;
+        }
+        out.assign((*list)[*index], 0.5F);
+        ++*index;
+        return true;
+    };
+}
+
+static rt::TaskRequest live_request(int sample_rate, int channels) {
+    rt::TaskRequest request;
+    rt::AudioBuffer contract;
+    contract.sample_rate = sample_rate;
+    contract.channels = channels;
+    request.audio_input = std::move(contract); // no samples: none exist yet
+    return request;
+}
+
+// The wire's frame size is a property of the client's audio callback. The
+// family's window is a statement about what it can decode. The driver feeds the
+// second, not the first.
+static void test_live_buffers_wire_frames_into_policy_windows() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 1600;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    // Ten 512-sample frames: 5120 samples, i.e. three full 1600 windows and a
+    // 320 sample tail.
+    const auto result = audiocpp_backend::run_streaming_live(
+        session, live_request(16000, 1),
+        frames_from(std::vector<std::size_t>(10, 512)),
+        [](const rt::StreamEvent &) {}, entry);
+
+    check(fake.chunks.size() == 4,
+          "5120 wire samples at a 1600 frame window is three windows and a tail");
+    if (fake.chunks.size() == 4) {
+        check(fake.chunks[0].samples.size() == 1600, "first window is full");
+        check(fake.chunks[2].samples.size() == 1600, "third window is full");
+        check(fake.chunks[3].samples.size() == 320, "the tail is what was left");
+        check(fake.chunks[0].start_sample == 0, "the first window starts at zero");
+        check(fake.chunks[1].start_sample == 1600, "start_sample counts frames");
+        check(fake.chunks[3].start_sample == 4800, "the tail is offset by all of it");
+        check(fake.chunks[0].sample_rate == 16000, "the chunk carries the session rate");
+    }
+    check(result.text_output.has_value() &&
+              result.text_output->text == "w1w2w3w4/frames=5120",
+          "every wire sample reaches the family exactly once");
+}
+
+// nemotron_asr's shape: no partials from process_audio_chunk, every one of them
+// through the sink from inside finalize.
+static void test_live_installs_and_clears_the_sink() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    SinkOnlyAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 512;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    std::vector<std::string> fragments;
+    audiocpp_backend::run_streaming_live(
+        session, live_request(16000, 1), frames_from({512}),
+        [&](const rt::StreamEvent &event) {
+            if (event.partial_text.has_value()) {
+                fragments.push_back(event.partial_text->text);
+            }
+        },
+        entry);
+
+    check_eq(join(fragments), "late |partial",
+             "a family that reports only through the sink is not silent live either");
+    check(!fake.sink_installed(),
+          "the sink is cleared before returning, so the cached session holds no "
+          "reference to this call's frame");
+    check_eq(join(fake.calls), "sink+|prepare|reset|chunk|finalize|sink-",
+             "sink installed before the stream begins, cleared after it ends");
+}
+
+// A client that opens a session and closes it without speaking. finalize is NOT
+// called: nemotron_asr throws "finalize requires streamed audio", and an empty
+// transcript is the truthful answer to transcribing nothing.
+static void test_live_with_no_audio_never_finalizes() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 512;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    const auto result = audiocpp_backend::run_streaming_live(
+        session, live_request(16000, 1), frames_from({}),
+        [](const rt::StreamEvent &) {}, entry);
+
+    check_eq(join(fake.calls), "sink+|prepare|reset|sink-",
+             "an empty live stream begins and ends without a chunk or a finalize");
+    check(!result.text_output.has_value(),
+          "an empty live stream reports no transcript rather than an error");
+}
+
+// A tail shorter than a window is still fed. Without this the last fragment of
+// speech never reaches the model, and nothing says so.
+static void test_live_feeds_a_short_tail() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 16000;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    audiocpp_backend::run_streaming_live(session, live_request(16000, 1),
+                                         frames_from({100, 200}),
+                                         [](const rt::StreamEvent &) {}, entry);
+
+    check(fake.chunks.size() == 1,
+          "300 samples against a 16000 frame window is one short chunk, not none");
+    if (!fake.chunks.empty()) {
+        check(fake.chunks[0].samples.size() == 300, "the tail carries everything fed");
+    }
+}
+
+// A live request carries no samples, so the CONTRACT is the only thing that says
+// what rate the frames are in, and prepare() needs it: nemotron_asr's streaming
+// prepare throws without one.
+static void test_live_prepares_at_the_contract_rate() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 512;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    audiocpp_backend::run_streaming_live(session, live_request(16000, 1),
+                                         frames_from({512}),
+                                         [](const rt::StreamEvent &) {}, entry);
+    check(fake.prepared_rate() == 16000,
+          "the empty contract buffer still carries the rate into prepare()");
+
+    bool threw_config = false;
+    try {
+        rt::TaskRequest bare; // no audio_input at all
+        audiocpp_backend::run_streaming_live(session, bare, frames_from({512}),
+                                             [](const rt::StreamEvent &) {}, entry);
+    } catch (const audiocpp_backend::ConfigError &) {
+        threw_config = true;
+    } catch (const std::exception &) {
+    }
+    check(threw_config, "a live request with no audio contract is refused");
+}
+
+// The pull function is the gRPC read, and a request the handler has to refuse
+// mid-stream unwinds through the driver. The sink must not survive it.
+static void test_live_clears_the_sink_when_the_puller_throws() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 512;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    bool threw = false;
+    try {
+        audiocpp_backend::run_streaming_live(
+            session, live_request(16000, 1),
+            [](std::vector<float> &) -> bool {
+                throw std::runtime_error("fake: the client vanished");
+            },
+            [](const rt::StreamEvent &) {}, entry);
+    } catch (const std::exception &) {
+        threw = true;
+    }
+    check(threw, "a failing pull propagates");
+    check(!fake.sink_installed(), "the sink is cleared on the pull's exception path");
+}
+
+// Two live streams over the SAME cached session must not run into each other.
+static void test_live_replays_identically_on_a_refetched_session() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    FakeAudioSession fake;
+    fake.policy.preferred_audio_chunk_samples = 512;
+    const auto session = streaming_session(fake, audiocpp_backend::Task::Asr);
+
+    const auto first = audiocpp_backend::run_streaming_live(
+        session, live_request(16000, 1), frames_from({512, 512}),
+        [](const rt::StreamEvent &) {}, entry);
+    const auto second = audiocpp_backend::run_streaming_live(
+        session, live_request(16000, 1), frames_from({512, 512}),
+        [](const rt::StreamEvent &) {}, entry);
+
+    check_eq(second.text_output.has_value() ? second.text_output->text : "",
+             first.text_output.has_value() ? first.text_output->text : "",
+             "a re-fetched live session replays the same transcript");
+    // Not a tautology: without the reset the second run reports w1..w4 and 2048
+    // frames.
+    check_eq(first.text_output.has_value() ? first.text_output->text : "",
+             "w1w2/frames=1024", "the first live run saw exactly what was fed");
+}
+
+static void test_live_refuses_a_non_streaming_session() {
+    audiocpp_backend::InferenceLane lane("test");
+    audiocpp_backend::LaneEntry entry(lane, 0);
+    audiocpp_backend::LoadedModel::Session session;
+    session.mode = audiocpp_backend::Mode::Offline;
+
+    bool threw_capability = false;
+    try {
+        audiocpp_backend::run_streaming_live(session, live_request(16000, 1),
+                                             frames_from({512}),
+                                             [](const rt::StreamEvent &) {}, entry);
+    } catch (const audiocpp_backend::CapabilityError &) {
+        threw_capability = true;
+    } catch (const std::exception &) {
+    }
+    check(threw_capability,
+          "run_streaming_live refuses a session with no streaming half");
+}
+
 int main() {
     test_begin_stream_prepares_then_starts();
     test_base_start_stream_resets();
@@ -655,6 +882,14 @@ int main() {
     test_pull_stops_on_a_final_event();
     test_pull_refuses_a_non_streaming_session();
     test_prepare_tracks_the_request_not_the_session();
+    test_live_buffers_wire_frames_into_policy_windows();
+    test_live_installs_and_clears_the_sink();
+    test_live_with_no_audio_never_finalizes();
+    test_live_feeds_a_short_tail();
+    test_live_prepares_at_the_contract_rate();
+    test_live_clears_the_sink_when_the_puller_throws();
+    test_live_replays_identically_on_a_refetched_session();
+    test_live_refuses_a_non_streaming_session();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

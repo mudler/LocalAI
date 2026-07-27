@@ -329,4 +329,40 @@ engine::runtime::TaskResult run_streaming_audio(
     const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
     LaneEntry &lane);
 
+// Drives the same ASR shape as run_streaming_audio when the audio DOES NOT
+// EXIST YET, which is the live-microphone case: instead of slicing a buffer it
+// pulls frames from the caller until the input side closes.
+//
+// `next_frames` fills `out` with interleaved float PCM and returns true, or
+// returns false when there is no more input. It is expected to BLOCK, since the
+// only real implementation is a gRPC stream Read, and it may throw: a request
+// the handler has to refuse mid-stream unwinds through here, and the sink is
+// cleared on that path like every other.
+//
+// The audio contract comes from `request.audio_input`, which for a live stream
+// is an EMPTY buffer carrying only the sample rate and channel count. It is not
+// optional: nemotron_asr's streaming prepare() throws "Nemotron ASR streaming
+// prepare() requires an audio contract" without one, and there is no buffer to
+// derive it from here.
+//
+// Frames are BUFFERED to the family's own preferred window rather than fed in
+// whatever sizes the wire delivered them in, because that window is a family's
+// statement about what it can decode (nemotron_asr asks for one second, higgs
+// for four), and a 512-sample gRPC frame is a property of the client's audio
+// callback rather than of the model. The tail shorter than a window is fed at
+// the end.
+//
+// A stream that carried NO AUDIO returns an empty TaskResult and never calls
+// finish_stream. Finalizing an empty stream is not universally legal:
+// nemotron_asr throws "Nemotron ASR finalize requires streamed audio", so a
+// client that opens a session and closes it without speaking would receive an
+// INTERNAL naming an engine internal instead of an empty transcript, which is
+// the truthful answer to "transcribe nothing".
+engine::runtime::TaskResult run_streaming_live(
+    const LoadedModel::Session &session,
+    const engine::runtime::TaskRequest &request,
+    const std::function<bool(std::vector<float> &)> &next_frames,
+    const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
+    LaneEntry &lane);
+
 } // namespace audiocpp_backend

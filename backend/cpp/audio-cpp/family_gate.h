@@ -54,6 +54,15 @@ FamilyDecision decide_family(bool path_is_gguf, const std::string &embedded_fami
 // synthesising, so that step stays a documented manual one at the table itself.
 bool weight_dtype_is_supported(const std::string &family, const std::string &dtype);
 
+// True when `family` has an entry in the table at all, which is the question a
+// caller deciding whether to OPEN THE FILE has to ask. Distinct from
+// "supported_weight_dtypes(family) is empty": that string is also empty for an
+// entry with an empty allow list, and such an entry means "this family can run
+// nothing", which weight_dtype_is_supported already answers by refusing every
+// dtype. Deciding from the string would skip the check on precisely the entry
+// that most needs it.
+bool family_has_weight_dtype_allow_list(const std::string &family);
+
 // The dtypes `family` is restricted to, as "f32, i64", or empty when it is not
 // restricted at all. For the refusal message, so the operator is told what to
 // look for rather than only what is wrong.

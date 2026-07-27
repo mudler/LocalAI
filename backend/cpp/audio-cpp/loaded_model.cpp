@@ -176,8 +176,14 @@ std::string require_family(const std::string &resolved_path,
 // through rather than guessed at.
 void require_supported_weight_dtypes(const std::string &family,
                                      const std::string &resolved_path) {
-    const std::string allowed_names = supported_weight_dtypes(family);
-    if (allowed_names.empty() || !path_looks_like_gguf(resolved_path)) {
+    // Asked as "is there an entry", not as "is the description non-empty": an
+    // entry with an empty allow list describes a family that can run nothing,
+    // and reading the description would skip the check on exactly that entry
+    // while weight_dtype_is_supported refused every dtype. No such entry exists
+    // today; the two questions are different ones and only one of them is this
+    // guard's.
+    if (!family_has_weight_dtype_allow_list(family) ||
+        !path_looks_like_gguf(resolved_path)) {
         return;
     }
 
@@ -212,7 +218,7 @@ void require_supported_weight_dtypes(const std::string &family,
         resolved_path +
         "); it aborts the backend process on the first request rather than "
         "failing the request. Use the 'orig' GGUF package, whose weights are " +
-        allowed_names + ".");
+        supported_weight_dtypes(family) + ".");
 }
 
 } // namespace
@@ -680,6 +686,103 @@ engine::runtime::TaskResult run_streaming_audio(
         if (on_event) {
             on_event(event);
         }
+    }
+    return streaming.finish_stream();
+}
+
+engine::runtime::TaskResult run_streaming_live(
+    const LoadedModel::Session &session,
+    const engine::runtime::TaskRequest &request,
+    const std::function<bool(std::vector<float> &)> &next_frames,
+    const std::function<void(const engine::runtime::StreamEvent &)> &on_event,
+    LaneEntry &lane) {
+    auto &streaming = require_streaming(session);
+
+    // The contract is the only thing that says what rate and layout the frames
+    // about to arrive are in, and prepare() needs it: see the header.
+    if (!request.audio_input.has_value()) {
+        throw ConfigError(
+            "audio-cpp: a live streaming request carries no audio contract");
+    }
+    const int sample_rate = request.audio_input->sample_rate;
+    const int channels =
+        request.audio_input->channels > 0 ? request.audio_input->channels : 1;
+
+    // Installed BEFORE the stream begins and cleared on every exit, including
+    // the exception path, for the reasons spelled out in run_streaming_audio.
+    ScopedStreamSink sink(streaming,
+                          [&on_event](const engine::runtime::StreamEvent &event) {
+                              if (on_event) {
+                                  on_event(event);
+                              }
+                          });
+
+    begin_stream(session, request, lane);
+
+    const std::int64_t chunk_frames =
+        chunk_frames_for(streaming.streaming_policy(), sample_rate);
+    // chunk_frames_for never returns a non-positive count, so this is never
+    // zero and the accumulation loop below always terminates.
+    const std::size_t chunk_floats = static_cast<std::size_t>(chunk_frames) *
+                                     static_cast<std::size_t>(channels);
+
+    std::int64_t fed_frames = 0;
+    const auto feed = [&](std::vector<float> samples) {
+        engine::runtime::AudioChunk chunk;
+        chunk.sample_rate = sample_rate;
+        chunk.channels = channels;
+        // A FRAME index, counted across the whole stream: vibevoice_asr offsets
+        // every span it reports by it, so restarting it per chunk would put
+        // every word at the top of the recording.
+        chunk.start_sample = fed_frames;
+        chunk.samples = std::move(samples);
+        fed_frames +=
+            static_cast<std::int64_t>(chunk.samples.size()) / channels;
+        const auto event = streaming.process_audio_chunk(chunk);
+        if (on_event) {
+            on_event(event);
+        }
+    };
+
+    std::vector<float> pending;
+    std::vector<float> incoming;
+    while (true) {
+        incoming.clear();
+        if (!next_frames(incoming)) {
+            break;
+        }
+        pending.insert(pending.end(), incoming.begin(), incoming.end());
+        while (pending.size() >= chunk_floats) {
+            std::vector<float> window(pending.begin(),
+                                      pending.begin() +
+                                          static_cast<std::ptrdiff_t>(chunk_floats));
+            pending.erase(pending.begin(),
+                          pending.begin() +
+                              static_cast<std::ptrdiff_t>(chunk_floats));
+            feed(std::move(window));
+        }
+    }
+
+    if (!pending.empty()) {
+        // The tail is whatever did not fill a window. Refused rather than
+        // truncated when it is not a whole number of frames, exactly as in
+        // run_streaming_audio: the division above would drop the stray floats
+        // from the transcript with no diagnostic. Unreachable for a mono live
+        // stream, which is every live stream today.
+        if (pending.size() % static_cast<std::size_t>(channels) != 0) {
+            throw ConfigError(
+                "audio-cpp: live stream ended mid-frame: " +
+                std::to_string(pending.size()) + " trailing samples across " +
+                std::to_string(channels) + " channels");
+        }
+        feed(std::move(pending));
+    }
+
+    if (fed_frames == 0) {
+        // Nothing was spoken. See the header: finalizing an empty stream is not
+        // legal for every family, and an empty transcript is the truthful
+        // answer rather than an engine-internal INTERNAL.
+        return engine::runtime::TaskResult{};
     }
     return streaming.finish_stream();
 }

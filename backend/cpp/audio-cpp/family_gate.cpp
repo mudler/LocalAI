@@ -1,6 +1,7 @@
 #include "family_gate.h"
 
 #include <cctype>
+#include <cstddef>
 
 namespace audiocpp_backend {
 namespace {
@@ -83,13 +84,35 @@ namespace {
 // widen an entry without running that, because what it prevents is a process
 // death rather than a wrong answer.
 struct DtypeAllowList {
+    // NULL TERMINATED, and the terminator occupies one of these slots: both
+    // loops below stop at the first nullptr and have no other bound, so an entry
+    // that named three dtypes would leave them reading past the end of the
+    // array. That is undefined behaviour rather than a wrong answer, and it is
+    // one keystroke away from any edit that widens an entry, so the terminator
+    // is asserted at compile time below rather than trusted.
+    static constexpr std::size_t kSlots = 3;
+
     const char *family;
-    const char *allowed[3];
+    const char *allowed[kSlots];
 };
 
 constexpr DtypeAllowList kDtypeAllowLists[] = {
     {"supertonic", {"f32", "i64", nullptr}},
 };
+
+constexpr bool allow_lists_are_terminated() {
+    for (const auto &entry : kDtypeAllowLists) {
+        if (entry.allowed[DtypeAllowList::kSlots - 1] != nullptr) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static_assert(allow_lists_are_terminated(),
+              "every DtypeAllowList must leave its last slot null: the lookups "
+              "below stop at the first nullptr and would otherwise read past "
+              "the end of the array");
 
 const DtypeAllowList *find_allow_list(const std::string &family) {
     for (const auto &entry : kDtypeAllowLists) {
@@ -101,6 +124,10 @@ const DtypeAllowList *find_allow_list(const std::string &family) {
 }
 
 } // namespace
+
+bool family_has_weight_dtype_allow_list(const std::string &family) {
+    return find_allow_list(family) != nullptr;
+}
 
 bool weight_dtype_is_supported(const std::string &family, const std::string &dtype) {
     const DtypeAllowList *list = find_allow_list(family);

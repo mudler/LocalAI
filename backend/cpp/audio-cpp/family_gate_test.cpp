@@ -146,8 +146,20 @@ static void test_weight_dtype_allow_list() {
     check_eq(supported_weight_dtypes("supertonic"), "f32, i64",
              "the refusal can name what to look for");
     check_eq(supported_weight_dtypes("nemotron_asr"), "",
-             "an unlisted family reports no restriction, which is what makes "
-             "the caller skip the whole check");
+             "an unlisted family reports no restriction");
+
+    // What the caller actually decides on, and it is a DIFFERENT question from
+    // "is the description empty": an entry with an empty allow list would
+    // describe itself as "" while refusing every dtype, so a caller that skipped
+    // the file read on the empty string would skip the check on the one entry
+    // that refuses everything.
+    check(family_has_weight_dtype_allow_list("supertonic"),
+          "a listed family has an allow list");
+    check(!family_has_weight_dtype_allow_list("nemotron_asr"),
+          "an unlisted family has none, which is what lets the caller skip "
+          "opening the file at all");
+    check(!family_has_weight_dtype_allow_list(""),
+          "an empty family name has no allow list");
 }
 
 int main() {
