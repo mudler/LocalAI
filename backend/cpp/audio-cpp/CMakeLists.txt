@@ -278,4 +278,25 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
     # a test binary is harmless, since package.sh ships only grpc-server, and
     # forcing "$ORIGIN" here means ctest cannot start the binary at all.
     add_test(NAME streaming_driver COMMAND streaming_driver_ctest)
+
+    # Asserts that the upstream ABSENCES capability_routing.cpp's refusal
+    # messages rest on are still absences, by querying make_default_registry()
+    # rather than by re-reading upstream. This is what makes an AUDIO_CPP_VERSION
+    # bump that adds a codec task kind, an spk family or a streaming converter
+    # fail the build instead of leaving a false statement on the wire.
+    #
+    # It links engine_runtime purely to run that query, which is why it lives
+    # here rather than with the standalone *_test.cpp files, and it needs no
+    # "$ORIGIN" rpath override for the same reason streaming_driver_ctest does
+    # not: see the note above.
+    add_executable(upstream_absence_ctest upstream_absence_ctest.cpp)
+    target_include_directories(upstream_absence_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(upstream_absence_ctest PRIVATE
+        engine_runtime
+        ggml
+        Threads::Threads)
+    target_compile_options(upstream_absence_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME upstream_absence COMMAND upstream_absence_ctest)
 endif()

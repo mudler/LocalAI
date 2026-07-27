@@ -342,27 +342,9 @@ static void test_unsupported_surface_table_matches_the_enum() {
     }
 }
 
-// An enumerator with no table row must not read past the end. Casting an
-// out-of-range value into a scoped enum whose underlying type is int is
-// well-defined, so this test itself is legal; what it exercises is the guard,
-// which is the only thing standing between a future sixth enumerator and
-// undefined behaviour on the one path whose job is to be diagnosable.
-static void test_unsupported_surface_out_of_range_is_diagnosable() {
-    const auto beyond =
-        static_cast<UnsupportedRpc>(unsupported_surfaces().size());
-    const auto &surface = unsupported_surface(beyond);
-    check(std::string(surface.rpc) == "unknown",
-          "an enumerator with no table row does not read past the end");
-    check(std::string(surface.reason).find("bug in capability_routing.cpp") !=
-              std::string::npos,
-          "the missing-row reason blames this backend, not audio.cpp");
-    // And it still formats, rather than dereferencing something that is not
-    // there.
-    const std::string message =
-        unsupported_surface_message(nemotron(), surface.rpc, surface.reason);
-    check(message.find("nemotron_asr") != std::string::npos,
-          "the missing-row surface still produces a whole message");
-}
+// There is no out-of-range test for unsupported_surface(). It switches over the
+// enumerators with no default label, so a sixth UnsupportedRpc without a case is
+// a -Wswitch diagnostic at build time and cannot reach a run-time check at all.
 
 // Every entry, not just the one somebody remembered to cover. A refusal that
 // drops the family, the RPC or the reason is a refusal the caller cannot act
@@ -434,16 +416,29 @@ static void test_unsupported_reasons_name_the_upstream_limitation() {
     check(std::string(transform.reason).find("tts and asr only") ==
               std::string::npos,
           "the AudioTransformStream reason does not repeat the refuted claim");
+    // An absence is not an impossibility. A sep family could be buffered and
+    // emitted as a stream, so the reason has to say this backend declines to
+    // rather than cannot, or it overreaches on a true premise.
+    check(std::string(transform.reason).find("buffered offline call in disguise") !=
+              std::string::npos,
+          "the AudioTransformStream reason does not overclaim impossibility");
 
     const auto &s2s = unsupported_surface(UnsupportedRpc::AudioToAudioStream);
     check(std::string(s2s.reason).find("Realtime") != std::string::npos &&
-              std::string(s2s.reason).find("voice conversion") != std::string::npos,
+              std::string(s2s.reason).find("clip-to-clip") != std::string::npos,
           "the AudioToAudioStream reason contrasts the two contracts");
-    // Naming both s2s families makes the claim checkable: a reader can open
-    // those two loaders and see offline voice conversion rather than a
-    // conversation.
-    check(std::string(s2s.reason).find("miocodec and vevo2") != std::string::npos,
-          "the AudioToAudioStream reason names the only two s2s families");
+    // Naming both s2s families, and what each of them actually does, makes the
+    // claim checkable. It must NOT say s2s is voice conversion full stop: that
+    // is true of miocodec and false of vevo2, whose s2s route is `editing` and
+    // rewrites the spoken content against a target voice.
+    check(std::string(s2s.reason).find("miocodec (voice conversion)") !=
+                  std::string::npos &&
+              std::string(s2s.reason).find("vevo2 (speech editing)") !=
+                  std::string::npos,
+          "the AudioToAudioStream reason names each s2s family's actual task");
+    check(std::string(s2s.reason).find("s2s is offline voice conversion") ==
+              std::string::npos,
+          "the AudioToAudioStream reason does not miscast vevo2 as conversion");
 
     const auto &embed = unsupported_surface(UnsupportedRpc::VoiceEmbed);
     check(std::string(embed.reason).find("spk") != std::string::npos,
@@ -495,7 +490,6 @@ int main() {
     test_describe_capabilities();
     test_empty_capabilities();
     test_unsupported_surface_table_matches_the_enum();
-    test_unsupported_surface_out_of_range_is_diagnosable();
     test_every_unsupported_surface_message_is_diagnosable();
     test_unsupported_reasons_name_the_upstream_limitation();
     test_unsupported_surface_message_with_empty_capabilities();

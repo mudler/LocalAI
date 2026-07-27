@@ -132,17 +132,34 @@ const char *const kCodecReason =
 // planned to say and is false: silero_vad advertises vad with RunMode::Streaming
 // (src/models/silero_vad/session.cpp). The claim that actually holds is the
 // narrower one below, about the four tasks AudioTransform routes to.
+// The trailing clause is not padding. The premise is an absence, and an absence
+// does not on its own make the RPC impossible: an offline sep family could be
+// buffered and emitted as a stream, which is what several LocalAI backends do.
+// Stopping at "nothing advertises streaming" would imply an impossibility the
+// evidence does not support. What is true, and what the caller needs, is that
+// this backend declines to dress an offline call up as a streaming one.
 const char *const kTransformStreamReason =
     "no audio.cpp family advertises streaming for any task AudioTransform routes "
     "to (sep, vc, svc, s2s); upstream advertises RunMode::Streaming for tts, asr "
     "and vad only, and no conversion or separation family even implements its "
-    "IStreamingVoiceTaskSession interface";
+    "IStreamingVoiceTaskSession interface, so a streaming transform here would be "
+    "a buffered offline call in disguise, which this backend does not pretend to "
+    "offer";
+// "clip-to-clip processing against a target voice", NOT "voice conversion". The
+// latter is true of miocodec and FALSE of vevo2, whose s2s route is `editing`
+// and only `editing`: src/models/vevo2/session.cpp's default_route_for_task maps
+// SpeechToSpeech to Editing and route_matches_task accepts nothing else, and
+// docs/models/vevo2.md defines that route as "Edit source speech into new target
+// text while using the target voice", requiring --target-text. It rewrites what
+// was said. vevo2's actual voice conversion is its separate vc task, which is
+// why upstream's README tags the family "TTS, Music, VC, Edit". The conclusion
+// is unaffected: neither family converses.
 const char *const kAudioToAudioReason =
     "LocalAI's contract here is OpenAI-Realtime shaped, an audio conversation "
     "emitting audio, transcript and tool-call deltas from a system prompt and a "
-    "tool list; audio.cpp's s2s is offline voice conversion, declared only by "
-    "miocodec and vevo2, which converts one clip into another speaker's voice "
-    "and is a different thing";
+    "tool list; audio.cpp's s2s is offline clip-to-clip processing against a "
+    "target voice, declared only by miocodec (voice conversion) and vevo2 "
+    "(speech editing), with no conversation, system prompt or tool loop";
 const char *const kVoiceEmbedReason =
     "no audio.cpp family advertises the spk (SpeakerRecognition) task, so "
     "nothing in the engine can produce a speaker embedding; the task kind "
@@ -239,8 +256,9 @@ std::string describe_capabilities(const Capabilities &caps) {
 }
 
 const std::vector<UnsupportedSurface> &unsupported_surfaces() {
-    // Ordered as UnsupportedRpc declares them, which unsupported_surface()
-    // relies on to index straight in.
+    // Ordered as UnsupportedRpc declares them. unsupported_surface() names each
+    // index in a switch rather than casting the enum, so the order is checked at
+    // compile time rather than trusted.
     static const std::vector<UnsupportedSurface> kSurfaces = {
         {"AudioEncode", kCodecReason},
         {"AudioDecode", kCodecReason},
@@ -251,24 +269,31 @@ const std::vector<UnsupportedSurface> &unsupported_surfaces() {
     return kSurfaces;
 }
 
+// A switch with NO default label, deliberately. -Wswitch is on under -Wall, so a
+// sixth UnsupportedRpc added without a case here is a BUILD diagnostic, which is
+// the only place this class of mistake can be caught for free: a positional
+// static_cast<size_t>(rpc) would compile fine and read past the end of the table
+// at run time, on the one code path whose entire job is to be diagnosable. The
+// table stays a table because the tests iterate it.
+//
+// The trailing return is unreachable through the enum and exists only for a
+// caller that hands over a value outside it, which is already undefined
+// behaviour by the time it arrives.
 const UnsupportedSurface &unsupported_surface(UnsupportedRpc rpc) {
     const std::vector<UnsupportedSurface> &surfaces = unsupported_surfaces();
-    const size_t index = static_cast<size_t>(rpc);
-    // The binding between the enum and the table is positional, so a sixth
-    // enumerator added without a row indexes past the end. operator[] would make
-    // that undefined behaviour, i.e. a crash or a garbage string on the wire, in
-    // the one code path whose entire job is to be diagnosable. This turns it
-    // into a message that says what happened. It is not reachable today, and the
-    // test that would notice it going stale is in capability_routing_test.cpp.
-    if (index >= surfaces.size()) {
-        static const UnsupportedSurface kMissingRow{
-            "unknown",
-            "this backend declared an UnsupportedRpc with no matching row in "
-            "unsupported_surfaces(), which is a bug in capability_routing.cpp "
-            "and not a statement about audio.cpp"};
-        return kMissingRow;
+    switch (rpc) {
+    case UnsupportedRpc::AudioEncode:
+        return surfaces[0];
+    case UnsupportedRpc::AudioDecode:
+        return surfaces[1];
+    case UnsupportedRpc::AudioTransformStream:
+        return surfaces[2];
+    case UnsupportedRpc::AudioToAudioStream:
+        return surfaces[3];
+    case UnsupportedRpc::VoiceEmbed:
+        return surfaces[4];
     }
-    return surfaces[index];
+    return surfaces[0];
 }
 
 std::string unsupported_surface_message(const Capabilities &caps, const char *rpc,
