@@ -138,17 +138,32 @@ add_executable(${TARGET}
     live_watchdog.cpp
 )
 
+# Two files carry a switch over an enum with no `default:` label, deliberately,
+# so that -Wswitch reports an enumerator nobody handled. -Wswitch is only a
+# warning by default, and a warning in a 600-file build log is a warning nobody
+# reads, so it is promoted to an error on exactly these two translation units.
+# Not project-wide: upstream's own sources are not held to this, and they are
+# where the churn is.
+#
 # loaded_model.cpp mirrors engine::runtime::VoiceTaskKind onto its own Task enum.
 # Its static_asserts catch an insertion or a reorder, but an enumerator APPENDED
 # after the last one shifts no value, so no assertion can see it. What does see
-# it is from_engine_task's switch over the engine enum, which carries no
-# `default:` label. -Wswitch is only a warning by default, and a warning in a
-# 600-file build log is a warning nobody reads, so promote it here: this is the
-# difference between a build failure and a backend that silently runs the wrong
-# task.
+# it is from_engine_task's switch over the engine enum. This is the difference
+# between a build failure and a backend that silently runs the wrong task.
+#
+# capability_routing.cpp's unsupported_surface() switches UnsupportedRpc onto the
+# row of unsupported_surfaces() that explains it. Left as a warning, a sixth
+# enumerator added without a row BUILDS AND SHIPS, and its trailing
+# `return surfaces[0];` then answers the new RPC with AudioEncode's codec reason:
+# a confident, specific and false statement about audio.cpp, on the wire, on the
+# one code path whose entire job is to be truthful about what this backend
+# cannot do. Verified rather than assumed: adding a sixth enumerator and building
+# the shipping target produced exit 0, a binary, and one warning. A compile-time
+# check is the better trade than the runtime fallback it replaced only if it is
+# fatal, so here it is fatal.
 if(NOT MSVC)
-    set_source_files_properties(loaded_model.cpp PROPERTIES
-        COMPILE_OPTIONS "-Werror=switch")
+    set_source_files_properties(loaded_model.cpp capability_routing.cpp
+        PROPERTIES COMPILE_OPTIONS "-Werror=switch")
 endif()
 
 target_include_directories(${TARGET} PRIVATE
