@@ -83,12 +83,33 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
     if [ "${BUILD_TYPE}" = "vulkan" ]; then \
         apt-get install -y --no-install-recommends libvulkan-dev glslc; \
     fi && \
+    if [ "${TARGETARCH}" = "arm64" ]; then \
+        apt-get install -y --no-install-recommends gcc-14 g++-14; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY . /LocalAI
 
+# gcc-14 on arm64, for the same reason llama-cpp does it in
+# .docker/llama-cpp-compile.sh: ggml's CPU_ALL_VARIANTS table includes armv9.2
+# variants built with -march=...+sme, and Noble's default gcc-13 rejects that
+# feature modifier outright ("invalid feature modifier 'sme'"). Every variant in
+# the table has to COMPILE even though a host only ever dlopens the one its own
+# CPU supports, so one unbuildable variant fails the whole image.
+#
+# ON EVERY arm64 BUILD_TYPE, which is where this differs from llama-cpp's script
+# and why that difference is spelled out rather than assumed. llama-cpp only
+# needs gcc-14 for its pure-CPU image because its GPU builds run
+# llama-cpp-fallback, which has no variant table at all. This backend's Makefile
+# sets ENGINE_ENABLE_CPU_ALL_VARIANTS for every non-Darwin build, GPU included,
+# so an arm64 GPU image would hit the identical compile error. Gating this on an
+# empty BUILD_TYPE would leave that trap armed for the first arm64 GPU entry
+# added to the matrix, which today has none.
 RUN --mount=type=cache,target=/root/.ccache,id=audio-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    if [ "${TARGETARCH}" = "arm64" ]; then \
+        export CC=gcc-14 CXX=g++-14; \
+    fi && \
     make -C /LocalAI/backend/cpp/audio-cpp BUILD_TYPE=${BUILD_TYPE} \
         CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} NATIVE=false grpc-server package
 
