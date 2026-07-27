@@ -48,9 +48,12 @@ Capabilities to_capabilities(const std::string &family,
 std::string read_gguf_family(const std::string &path);
 
 // Builds the absolute model path from LocalAI's (ModelPath, ModelFile, Model)
-// triple. A model file of the form "bundled:<name>" resolves to
-// <executable dir>/assets/<name>, which is where package.sh puts upstream's
-// bundled silero_vad and marblenet_vad assets.
+// triple. Either the Model or the ModelFile field may carry the form
+// "bundled:<name>", which resolves to <executable dir>/assets/<name>, where
+// package.sh puts upstream's bundled silero_vad and marblenet_vad assets. BOTH
+// are checked because LocalAI fills ModelFile by joining ModelPath onto the
+// configured model string, so a model YAML using the form has it intact only in
+// Model.
 std::string resolve_model_path(const std::string &model_path_dir,
                                const std::string &model_file,
                                const std::string &model_name);

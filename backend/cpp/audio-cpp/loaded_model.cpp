@@ -322,10 +322,21 @@ std::string resolve_model_path(const std::string &model_path_dir,
                                const std::string &model_name) {
     const std::string candidate = !model_file.empty() ? model_file : model_name;
 
+    // The bundled: form is looked for in BOTH fields, and in ModelOptions.Model
+    // FIRST, because that is the only field it survives in. LocalAI fills
+    // ModelFile by joining ModelPath onto the configured model string
+    // (pkg/model/loader.go, LoadModelWithFile), so a model YAML saying
+    // `model: bundled:silero_vad` arrives here as ModelFile
+    // "/models/bundled:silero_vad" and Model "bundled:silero_vad". Testing
+    // `candidate` alone therefore made the zero-download VAD path reachable only
+    // from a hand-written LoadModel call that left ModelFile empty, and every
+    // model YAML using it failed with "model path does not exist".
     const std::string bundled_prefix = "bundled:";
-    if (candidate.rfind(bundled_prefix, 0) == 0) {
-        const std::string name = candidate.substr(bundled_prefix.size());
-        return (executable_directory() / "assets" / name).string();
+    for (const std::string *field : {&model_name, &model_file}) {
+        if (field->rfind(bundled_prefix, 0) == 0) {
+            const std::string name = field->substr(bundled_prefix.size());
+            return (executable_directory() / "assets" / name).string();
+        }
     }
 
     std::filesystem::path path(candidate);
