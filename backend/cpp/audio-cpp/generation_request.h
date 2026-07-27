@@ -74,4 +74,35 @@ engine::runtime::TaskRequest
 build_sound_generation_request(const backend::SoundGenerationRequest &request,
                                std::optional<engine::runtime::AudioBuffer> source_audio);
 
+// Lifts a text-conditioned transform route's text out of the request params
+// into TaskRequest.text_input, and reports whether it set one.
+//
+// WHY THIS EXISTS. AudioTransform is an audio-in / audio-out RPC and its proto
+// message has no text field, but not every task it routes to is audio-only.
+// vevo2's speech-to-speech and prosody routes read their text from
+// request.text_input (src/models/vevo2/session.cpp fills refs.target_text from
+// exactly there and nowhere else) and refuse the run without one: "Vevo2
+// text/prosody route requires text_input or target_text". The params map is the
+// only channel AudioTransform has that reaches the engine, so the text travels
+// through it and is unpacked here. Without this, s2s is not merely awkward to
+// reach through this RPC, it is unreachable.
+//
+// CALL IT AFTER the params have been copied into task.options, and note that it
+// does NOT erase the keys it reads. vevo2's loader advertises "target_text" in
+// its own documented request-option table, so a family that looks there keeps
+// finding it; the copy in text_input is what the session actually reads today.
+//
+// "target_text" is canonical and "text" is its alias, the same order vevo2's
+// option table declares them in. A request setting both gets target_text, so
+// the canonical spelling wins rather than whichever the map happened to store
+// first. An empty value is not a text: it means the caller sent the key with
+// nothing in it, and a family asked to vocalise "" should say so itself rather
+// than be handed an empty Transcript that looks deliberate.
+//
+// "language" rides along when a text was found, and only then. On its own it
+// conditions nothing, and setting text_input for it alone would turn a plain
+// separation request that happened to carry a language hint into a text-routed
+// one.
+bool apply_transform_text_input(engine::runtime::TaskRequest &task);
+
 } // namespace audiocpp_backend

@@ -1001,6 +1001,14 @@ public:
                 task.options[param.first] = param.second;
             }
 
+            // AFTER the loop, so it reads exactly what the caller sent. This is
+            // what makes a text-conditioned route reachable through an RPC whose
+            // message has no text field; see apply_transform_text_input's header
+            // for why vevo2's speech-to-speech route is unreachable without it.
+            // A request carrying no text key is untouched, so separation and
+            // voice conversion pay nothing for this.
+            audiocpp_backend::apply_transform_text_input(task);
+
             // Refused from the ROUTE, before the file reads and before the run.
             // Only source separation produces named stems, and the route says
             // whether this is separation without running anything: the identical

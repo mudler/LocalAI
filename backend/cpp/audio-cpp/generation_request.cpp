@@ -247,4 +247,34 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
     return task;
 }
 
+bool apply_transform_text_input(engine::runtime::TaskRequest &task) {
+    // Canonical first, alias second, and an empty value falls through to the
+    // next candidate rather than ending the search: a caller who sent
+    // target_text="" and text="the real one" meant the second one.
+    static const char *const kTextKeys[] = {"target_text", "text"};
+
+    std::string text;
+    for (const char *key : kTextKeys) {
+        const auto found = task.options.find(key);
+        if (found != task.options.end() && !found->second.empty()) {
+            text = found->second;
+            break;
+        }
+    }
+    if (text.empty()) {
+        return false;
+    }
+
+    engine::runtime::Transcript transcript;
+    transcript.text = std::move(text);
+    // Inside the has-text branch on purpose. See the header: a language on its
+    // own conditions nothing and must not manufacture a text_input.
+    const auto language = task.options.find("language");
+    if (language != task.options.end()) {
+        transcript.language = language->second;
+    }
+    task.text_input = std::move(transcript);
+    return true;
+}
+
 } // namespace audiocpp_backend

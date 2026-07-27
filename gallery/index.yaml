@@ -47169,3 +47169,55 @@
     - filename: audio-cpp/seed-vc-mlx-q8_0.gguf
       sha256: f3e2469eb29762af96f9663ce62eab6e8c40f3798c6dc0835e7613f22b4b75f7
       uri: huggingface://audio-cpp/audio.cpp-gguf/SeedVC-MLX-GGUF/seed-vc-mlx-q8_0.gguf
+- name: audio-cpp-vevo2-speech-to-speech
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://huggingface.co/RMSnow/Vevo2
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Vevo2 (audio.cpp, Q8_0) - speech to speech, served by the audio-cpp backend
+    through /audio/transform. Post the source speech as `audio`, the target
+    speaker's clip as `reference`, and the words being spoken as
+    `params[text]`.
+
+    The text is not optional and not a hint. Vevo2's speech-to-speech route is
+    a text and prosody route: it reads the line it is resynthesising and
+    refuses the run without one. /audio/transform has no text field on the
+    wire, so the params map carries it and the backend lifts it into the
+    engine's text input; `params[target_text]` is the same thing under the name
+    Vevo2's own option table uses. Add `params[language]` when the line is not
+    English.
+
+    This entry pins task:s2s. Vevo2 also advertises plain voice conversion,
+    which needs no text and which auto-routing picks first, so without the pin
+    the text would be carried and then ignored. Drop the option to get voice
+    conversion from the same weights.
+
+    Q8_0 because it is the only build that fits alongside the rest of the
+    gallery; upstream records the original and 16-bit builds as the cleaner
+    ones, so expect drift on some routes.
+  license: other
+  tags:
+    - audio-cpp
+    - vevo2
+    - speech-to-speech
+    - voice-conversion
+    - audio-transform
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - audio_transform
+    name: audio-cpp-vevo2-speech-to-speech
+    options:
+      - task:s2s
+    parameters:
+      model: audio-cpp/vevo2-q8_0.gguf
+  files:
+    - filename: audio-cpp/vevo2-q8_0.gguf
+      sha256: f80a70facaaecfcf1aa417ef16ef091318c5e789b24c16a741233c64a72fcee8
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Vevo2-GGUF/vevo2-q8_0.gguf

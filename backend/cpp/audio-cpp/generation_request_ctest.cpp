@@ -444,6 +444,105 @@ static void test_sound_generation_full() {
           "sound: src passes through at its own rate and channel count");
 }
 
+
+// ---------------------------------------------------------------------------
+// apply_transform_text_input
+//
+// AudioTransform has no text field on the wire, so a text-conditioned route
+// (vevo2's speech-to-speech) can only be reached if the text travels as a
+// param and is unpacked into text_input. Every assertion below pins a spelling
+// or a precedence that a family actually depends on, not a shape that merely
+// looks tidy.
+
+static void test_transform_text_absent() {
+    engine::runtime::TaskRequest task;
+    task.options["stem"] = "vocals";
+    check(!apply_transform_text_input(task),
+          "transform text: reports false when no text key is present");
+    check(!task.text_input.has_value(),
+          "transform text: a request with no text keeps text_input unset");
+}
+
+static void test_transform_text_canonical_key() {
+    engine::runtime::TaskRequest task;
+    task.options["target_text"] = "sing this line";
+    check(apply_transform_text_input(task), "transform text: target_text reports true");
+    check(task.text_input.has_value() && task.text_input->text == "sing this line",
+          "transform text: target_text becomes text_input.text");
+    check(has_key(task.options, "target_text"),
+          "transform text: target_text survives in options for families that read it there");
+}
+
+static void test_transform_text_alias_key() {
+    engine::runtime::TaskRequest task;
+    task.options["text"] = "say this instead";
+    check(apply_transform_text_input(task), "transform text: text alias reports true");
+    check(task.text_input.has_value() && task.text_input->text == "say this instead",
+          "transform text: the text alias becomes text_input.text");
+}
+
+static void test_transform_text_canonical_wins() {
+    engine::runtime::TaskRequest task;
+    task.options["target_text"] = "canonical";
+    task.options["text"] = "alias";
+    check(apply_transform_text_input(task), "transform text: both keys reports true");
+    check(task.text_input.has_value() && task.text_input->text == "canonical",
+          "transform text: target_text wins over text, not whichever hashed first");
+}
+
+static void test_transform_text_empty_is_not_a_text() {
+    engine::runtime::TaskRequest task;
+    task.options["target_text"] = "";
+    check(!apply_transform_text_input(task),
+          "transform text: an empty target_text reports false");
+    check(!task.text_input.has_value(),
+          "transform text: an empty target_text leaves text_input unset");
+}
+
+static void test_transform_text_empty_canonical_falls_through_to_alias() {
+    engine::runtime::TaskRequest task;
+    task.options["target_text"] = "";
+    task.options["text"] = "the real one";
+    check(apply_transform_text_input(task),
+          "transform text: an empty canonical key does not mask a usable alias");
+    check(task.text_input.has_value() && task.text_input->text == "the real one",
+          "transform text: the alias is used when the canonical key is empty");
+}
+
+static void test_transform_text_language_rides_along() {
+    engine::runtime::TaskRequest task;
+    task.options["target_text"] = "vocalise me";
+    task.options["language"] = "ja";
+    check(apply_transform_text_input(task), "transform text: text plus language reports true");
+    check(task.text_input.has_value() && task.text_input->language == "ja",
+          "transform text: language lands on the Transcript alongside the text");
+    check(has_key(task.options, "language"),
+          "transform text: language survives in options too");
+}
+
+static void test_transform_language_alone_is_not_a_text() {
+    engine::runtime::TaskRequest task;
+    task.options["language"] = "ja";
+    check(!apply_transform_text_input(task),
+          "transform text: a language with no text reports false");
+    check(!task.text_input.has_value(),
+          "transform text: a language alone must not route a separation request through text");
+}
+
+static void test_transform_text_preserves_other_inputs() {
+    engine::runtime::TaskRequest task;
+    engine::runtime::AudioBuffer audio;
+    audio.sample_rate = 44100;
+    audio.channels = 2;
+    audio.samples = {0.1f, 0.2f, 0.3f, 0.4f};
+    task.audio_input = audio;
+    task.options["target_text"] = "keep the audio";
+    check(apply_transform_text_input(task), "transform text: with audio present reports true");
+    check(task.audio_input.has_value() && task.audio_input->samples.size() == 4 &&
+              task.audio_input->sample_rate == 44100,
+          "transform text: the source audio is untouched");
+}
+
 int main() {
     test_voice_is_reference_file();
     test_tts_shape();
@@ -457,6 +556,15 @@ int main() {
     test_tts_language_and_params();
     test_sound_generation_minimal();
     test_sound_generation_full();
+    test_transform_text_absent();
+    test_transform_text_canonical_key();
+    test_transform_text_alias_key();
+    test_transform_text_canonical_wins();
+    test_transform_text_empty_is_not_a_text();
+    test_transform_text_empty_canonical_falls_through_to_alias();
+    test_transform_text_language_rides_along();
+    test_transform_language_alone_is_not_a_text();
+    test_transform_text_preserves_other_inputs();
 
     if (failures != 0) {
         fprintf(stderr, "%d check(s) failed\n", failures);
