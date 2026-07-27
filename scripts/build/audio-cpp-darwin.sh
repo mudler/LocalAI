@@ -93,6 +93,26 @@ object_rpaths() {
     otool -l "$1" | awk '/LC_RPATH/ { f = 1 } f && $1 == "path" { print $2; f = 0 }'
 }
 
+# THE RAW otool OUTPUT, LOGGED BEFORE THE WALK AND WITHOUT ANY CONDITION.
+#
+# Both awk filters in this script (this one's LC_RPATH state machine and the
+# `NR > 1 { print $1 }` in bundle_dylib_closure) assume a column layout nobody
+# working on this can observe, since the script runs only on the CI Mac. A green
+# first Darwin run proves nothing about that assumption: an awk that silently
+# matched nothing yields an empty dependency list and an empty rpath list, which
+# reads exactly like "no non-system dependencies" and packages happily, shipping
+# an image that fails at load time on a user's machine. Both filters otherwise
+# feed process substitutions, so their input never reaches the log at all.
+# Printing the unparsed text once lets the next person check the real format
+# against the parser without a Mac.
+log_object_layout() {
+    local object="$1"
+    echo "audio-cpp-darwin.sh: otool -L ${object}:"
+    otool -L "$object" | sed 's/^/audio-cpp-darwin.sh:     /'
+    echo "audio-cpp-darwin.sh: LC_RPATH entries parsed out of ${object}:"
+    object_rpaths "$object" | sed 's/^/audio-cpp-darwin.sh:     /'
+}
+
 # Resolve an @rpath / @loader_path / @executable_path dependency to a real file,
 # printing the path and returning 0, or returning 1 if nothing matches.
 #
@@ -219,6 +239,8 @@ for file in $ADDITIONAL_LIBS; do
     bundle_dylib "$file"
 done
 
+log_object_layout build/darwin/grpc-server
+
 bundle_dylib_closure build/darwin/grpc-server
 if compgen -G "build/darwin/*.dylib" > /dev/null; then
     for object in build/darwin/*.dylib; do
@@ -232,6 +254,49 @@ ls -la build/darwin/lib
 if [ "$UNRESOLVED" -ne 0 ]; then
     echo "audio-cpp-darwin.sh: refusing to package: see the unresolved dependencies above." >&2
     exit 1
+fi
+
+# EVERY SYMLINK IN THE PACKAGE IS LISTED, AND ONE THAT CANNOT RESOLVE INSIDE
+# THE IMAGE IS A HARD FAILURE.
+#
+# A dangling symlink does not fail anything above. Every assertion in this
+# script tests with -e, which FOLLOWS links and so cannot tell a real file from
+# a broken link either way, and bundle_dylib's `cp -fL` only dereferences the
+# things IT copies. The `cp -a` of package.sh's output is archive mode on
+# purpose (see its comment: a libggml.dylib -> libggml.0.dylib chain has to keep
+# naming a file here), so whatever links package.sh left arrive intact. The
+# result of getting this wrong is not a red build, it is a dlopen failure on a
+# user's Mac naming a path that never existed on their machine.
+#
+# Links are therefore NOT banned outright, which would break the chain `cp -a`
+# exists to preserve. What is banned is a link that resolves on this build host
+# and will not resolve in the image: a broken one, or an absolute one pointing
+# outside the package, both of which look fine here and ship broken.
+SYMLINKS="$(find build/darwin -type l -print)"
+if [ -n "$SYMLINKS" ]; then
+    echo "audio-cpp-darwin.sh: symlinks in the package:"
+    BAD_LINKS=""
+    while IFS= read -r link; do
+        target=$(readlink "$link")
+        echo "audio-cpp-darwin.sh:     $link -> $target"
+        if [ ! -e "$link" ]; then
+            BAD_LINKS="${BAD_LINKS}${link} -> ${target} (dangling)"$'\n'
+            continue
+        fi
+        case "$target" in
+            /*) BAD_LINKS="${BAD_LINKS}${link} -> ${target} (absolute, outside the package)"$'\n' ;;
+        esac
+    done <<< "$SYMLINKS"
+
+    if [ -n "$BAD_LINKS" ]; then
+        echo "audio-cpp-darwin.sh: refusing to package: these links cannot resolve inside the image." >&2
+        printf '%s' "$BAD_LINKS" | sed 's/^/audio-cpp-darwin.sh:     /' >&2
+        echo "audio-cpp-darwin.sh: a link is only allowed when its target is a" >&2
+        echo "audio-cpp-darwin.sh: RELATIVE path that exists in the package too;" >&2
+        echo "audio-cpp-darwin.sh: anything else resolves on this build host and" >&2
+        echo "audio-cpp-darwin.sh: fails at dlopen on a user's Mac." >&2
+        exit 1
+    fi
 fi
 
 # Nothing above rewrites an install name or otherwise edits grpc-server, which
