@@ -795,15 +795,19 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 				ProbeStaleAfter: 2 * time.Minute,
 			})
 
-			rc.probeLoadedModels(context.Background())
+			// A replica is reaped only after probeFailuresBeforeReap consecutive
+			// misses, so a busy-but-alive backend is not mistaken for a dead one.
+			for range probeFailuresBeforeReap {
+				rc.probeLoadedModels(context.Background())
+			}
 
 			// Stale was unreachable — row removed.
 			var after []NodeModel
 			Expect(db.Find(&after).Error).To(Succeed())
 			Expect(after).To(HaveLen(1))
 			Expect(after[0].ModelName).To(Equal("fresh-model"))
-			// Prober was only called once (the fresh row was filtered out).
-			Expect(prober.calls).To(Equal(1))
+			// Only the stale row was ever probed (the fresh row was filtered out).
+			Expect(prober.calls).To(Equal(probeFailuresBeforeReap))
 		})
 
 		It("keeps reachable models and bumps their updated_at", func() {

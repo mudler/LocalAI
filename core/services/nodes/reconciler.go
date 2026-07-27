@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
@@ -64,6 +65,11 @@ type ReplicaReconciler struct {
 	// the other scale-up paths. nil disables this signal (a true no-op).
 	pressure          *prefixcache.Pressure
 	pressureThreshold int
+	// probeFailures counts CONSECUTIVE failed liveness probes per node_models
+	// row id, so a single miss against a busy-but-alive backend cannot delete
+	// its registry row. Reset on any successful probe and on reap.
+	probeFailuresMu sync.Mutex
+	probeFailures   map[string]int
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -310,39 +316,102 @@ const maxPendingBackendOpAttempts = 10
 // without this sweep they would leak forever and keep the UI op spinning.
 const stalePendingBackendOpGrace = 15 * time.Minute
 
+// probeFailuresBeforeReap is how many CONSECUTIVE failed liveness probes a
+// replica must accumulate before its row is deleted. The probe is a 1s gRPC
+// HealthCheck, and a backend that is merely busy cannot answer it: single
+// threaded Python backends (video/avatar generation, long diffusion loops)
+// block for minutes at a time inside one request. Treating the first miss as
+// death deleted rows for backends that were alive and working, which made the
+// model vanish from the nodes page while it was still generating. Three misses
+// across three ticks is ~1.5 minutes of silence at the default interval, well
+// past any GC pause or scheduling hiccup, while a genuinely dead process is
+// still reaped promptly.
+const probeFailuresBeforeReap = 3
+
 // probeLoadedModels gRPC-health-checks model addresses that the DB says are
 // loaded. If a model's backend process is gone (OOM, crash, manual restart)
 // we remove the row so ghosts don't linger. Only probes rows older than
 // probeStaleAfter so we don't hammer every worker every tick for models we
 // just heard from.
+//
+// Two guards keep this from reaping healthy backends. Replicas with in-flight
+// requests are excluded in SQL: a row that is actively serving is proof of
+// life, and the request that is running is exactly what stops the backend from
+// answering the probe. Idle replicas must then miss probeFailuresBeforeReap
+// consecutive probes, so a transient blip cannot orphan a live replica.
 func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
 	err := rc.registry.db.WithContext(ctx).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
-		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != ''",
+		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != '' AND node_models.in_flight <= 0",
 			"loaded", StatusHealthy, cutoff).
 		Find(&stale).Error
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list loaded models for probe", "error", err)
 		return
 	}
+	seen := make(map[string]struct{}, len(stale))
 	for _, m := range stale {
 		if err := ctx.Err(); err != nil {
 			return
 		}
+		seen[m.ID] = struct{}{}
 		if rc.prober.IsAlive(ctx, m.Address) {
+			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
 			_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
 				Where("id = ?", m.ID).Update("updated_at", time.Now()).Error
+			continue
+		}
+		failures := rc.recordProbeFailure(m.ID)
+		if failures < probeFailuresBeforeReap {
+			xlog.Debug("Reconciler: model did not answer liveness probe, waiting for more misses before reaping",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+				"failures", failures, "threshold", probeFailuresBeforeReap)
 			continue
 		}
 		if err := rc.registry.RemoveNodeModel(ctx, m.NodeID, m.ModelName, m.ReplicaIndex); err != nil {
 			xlog.Warn("Reconciler: failed to remove unreachable model", "node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
 			continue
 		}
+		rc.clearProbeFailures(m.ID)
 		xlog.Warn("Reconciler: model unreachable, removed from registry",
-			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+			"failures", failures)
+	}
+	rc.pruneProbeFailures(seen)
+}
+
+// recordProbeFailure increments and returns the consecutive-failure count for a
+// replica row.
+func (rc *ReplicaReconciler) recordProbeFailure(rowID string) int {
+	rc.probeFailuresMu.Lock()
+	defer rc.probeFailuresMu.Unlock()
+	if rc.probeFailures == nil {
+		rc.probeFailures = make(map[string]int)
+	}
+	rc.probeFailures[rowID]++
+	return rc.probeFailures[rowID]
+}
+
+// clearProbeFailures resets a replica's streak after it answers or is reaped.
+func (rc *ReplicaReconciler) clearProbeFailures(rowID string) {
+	rc.probeFailuresMu.Lock()
+	defer rc.probeFailuresMu.Unlock()
+	delete(rc.probeFailures, rowID)
+}
+
+// pruneProbeFailures drops streaks for rows that were not probe candidates this
+// pass, so the map cannot grow without bound as replicas come and go. Dropping
+// a streak only ever resets it, so this can never cause a premature reap.
+func (rc *ReplicaReconciler) pruneProbeFailures(seen map[string]struct{}) {
+	rc.probeFailuresMu.Lock()
+	defer rc.probeFailuresMu.Unlock()
+	for id := range rc.probeFailures {
+		if _, ok := seen[id]; !ok {
+			delete(rc.probeFailures, id)
+		}
 	}
 }
 
