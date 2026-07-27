@@ -14,6 +14,7 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events).
 - **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder - the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
+- **[audio.cpp](https://github.com/0xShug0/audio.cpp)**: Multi-family GGML audio engine. Serves transcription and forced alignment from families such as nemotron, qwen3-asr, citrinet, higgs-audio-stt and voxtral-realtime, and covers diarization, VAD, TTS and source separation from the same backend. See the [audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the model options.
 
 The endpoint input supports all the audio formats supported by `ffmpeg`.
 

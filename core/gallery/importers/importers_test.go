@@ -458,3 +458,18 @@ invalid: yaml: content: [unclosed bracket
 		})
 	})
 })
+
+var _ = Describe("audio-cpp importer registration", func() {
+	// audio-cpp stays preference-only on purpose. Its only reliable signal is
+	// the audiocpp.model_spec.family key embedded INSIDE the GGUF, which an
+	// importer cannot read from a remote HuggingFace repo, and the upstream
+	// GGUF repo hosts 30-odd families in one place, so repo-level matching
+	// would be a coin flip. An importer that matched .gguf would additionally
+	// capture every llama.cpp repo it saw first.
+	It("registers no importer that would auto-match GGUF repositories", func() {
+		for _, importer := range importers.Registry() {
+			Expect(fmt.Sprintf("%T", importer)).ToNot(ContainSubstring("AudioCpp"),
+				"audio-cpp must stay preference-only; a GGUF auto-matcher would capture llama.cpp repos")
+		}
+	})
+})

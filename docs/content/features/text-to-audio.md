@@ -745,6 +745,35 @@ curl -L http://localhost:8080/tts \
 }' | aplay
 ```
 
+### audio.cpp
+
+[audio.cpp](https://github.com/0xShug0/audio.cpp) is a multi-family GGML audio engine, so
+one installed backend covers TTS (`supertonic`, `vibevoice`, `voxcpm2`, `fish_audio`,
+`pocket_tts`, `omnivoice`, `higgs_audio_tts`), voice cloning (`chatterbox`, `index_tts2`,
+`irodori_tts`, `moss`) and voice design (`qwen3_tts`, `irodori_tts`), alongside ASR, VAD,
+diarization and separation.
+
+```yaml
+name: supertonic
+backend: audio-cpp
+parameters:
+  model: supertonic-3-orig.gguf
+known_usecases:
+  - FLAG_TTS
+options:
+  - backend:cuda
+  - device:0
+```
+
+The family is read from the GGUF's own metadata, so `family:` is only needed for a
+safetensors file or a package directory. Sending a speaker reference clip routes the
+request to the family's voice-cloning task automatically, and supplying instructions routes
+it to voice design, where the family supports them. Cloning-only families such as
+`chatterbox` advertise no plain TTS task, so every request to them must carry a reference
+clip. See the
+[audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the full option list,
+including the `load.` and `session.` namespaces and the supertonic packaging caveat.
+
 ## Response format
 
 To provide some compatibility with OpenAI API regarding `response_format`, ffmpeg must be installed (or a docker image including ffmpeg used) to leverage converting the generated wav file before the api provide its response.

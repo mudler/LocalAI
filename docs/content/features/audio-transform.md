@@ -18,6 +18,11 @@ a 1.3 M-parameter GGML-based model that performs joint AEC + noise suppression
 + dereverberation on 16 kHz mono speech, ~9.6× realtime on a desktop CPU. It
 is a derivative of the Microsoft DeepVQE paper.
 
+Source separation and voice conversion are served by the
+[audio.cpp backend]({{%relref "features/audio-cpp" %}}): its `demucs` and
+`roformer` families produce the named stems described below, and `seed_vc`,
+`vevo2` and `miocodec` do voice conversion against a reference speaker.
+
 ## The mental model
 
 Every audio-transform request carries:

@@ -45,6 +45,16 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "omnivoice-cpp", Modality: "tts", AutoDetect: false, Description: "OmniVoice C++ TTS with voice cloning and voice design (preference-only)"},
 	{Name: "faster-qwen3-tts", Modality: "tts", AutoDetect: false, Description: "Faster Qwen3 TTS (preference-only)"},
 	{Name: "supertonic", Modality: "tts", AutoDetect: false, Description: "Supertonic multilingual ONNX TTS (preference-only)"},
+	// audio-cpp spans far more than TTS: ASR, forced alignment, VAD, speaker
+	// diarization, source separation, voice conversion and music generation.
+	// KnownBackend.Modality is a single string and the import form only chips
+	// on a fixed key set (core/http/react-ui/src/components/ModalityChips.jsx),
+	// so the extra modalities live in the description rather than in an
+	// invented modality key the UI would bucket as "other".
+	// No importer: the only reliable signal, the audiocpp.model_spec.family
+	// GGUF metadata key, is not readable from a remote HuggingFace repo, and
+	// audio-cpp/audio.cpp-gguf hosts 30-odd families in one repository.
+	{Name: "audio-cpp", Modality: "tts", AutoDetect: false, Description: "audio.cpp multi-family audio engine: TTS, voice cloning, ASR, alignment, VAD, diarization, separation, music generation (preference-only)"},
 	// Detection
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
 	// Audio transform (audio-in / audio-out, optional reference signal)
