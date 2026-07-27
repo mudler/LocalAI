@@ -29,6 +29,29 @@ ABI v2) through purego:
   LocalAI's Go-side grammar-constrained tool calling; JSON-schema / regex /
   choice constraints are also exposed by the ABI.
 
+## Hardware coverage
+
+The CUDA builds require the CUDA 13 toolchain and target Blackwell only:
+`sm_120a` + `sm_121a` on x86_64, `sm_121a` (GB10 / DGX Spark) on arm64. CUDA
+12.x nvcc cannot compile the Blackwell fp4 kernels, so no CUDA 12 variant is
+shipped and `backend/index.yaml` maps the `nvidia-cuda-12` /
+`nvidia-l4t-cuda-12` capabilities at the CPU build. Practically:
+
+| Host | Installed build |
+|---|---|
+| x86_64 + CUDA 13 | `cuda13-vllm-cpp` |
+| DGX Spark / GB10 (JetPack 7, CUDA 13) | `nvidia-l4t-arm64-vllm-cpp` |
+| Jetson AGX Orin (sm_87, JetPack 6, CUDA 12) | `cpu-vllm-cpp` |
+| Apple Silicon | `metal-vllm-cpp` |
+| Anything else | `vulkan-vllm-cpp` or `cpu-vllm-cpp` |
+
+The capability a host reports comes from `/run/localai/capability` inside the
+LocalAI container, which the image bakes in at build time (see `Dockerfile`).
+A DGX Spark running the CUDA 12 `-nvidia-l4t-arm64` image therefore reports
+`nvidia-l4t-cuda-12` and gets the CPU build; use the `-nvidia-l4t-arm64-cuda-13`
+image, or set `LOCALAI_FORCE_META_BACKEND_CAPABILITY=nvidia-l4t-cuda-13`, to
+get the GPU one.
+
 Model config example:
 
 ```yaml

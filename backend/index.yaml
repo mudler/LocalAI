@@ -167,6 +167,10 @@
     inference time. It loads Hugging Face safetensors and GGUF checkpoints, supports
     structured output (JSON schema / regex / choice / GBNF grammar) enforced in-engine,
     and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple Metal and Vulkan.
+    The CUDA builds require the CUDA 13 toolchain and target Blackwell only: sm_120a
+    plus sm_121a on x86_64, and sm_121a (GB10 / DGX Spark) on arm64. Older NVIDIA
+    hardware and CUDA 12 hosts - including Jetson AGX Orin (sm_87, JetPack 6) - run
+    the CPU build instead.
   urls:
     - https://github.com/mudler/vllm.cpp
   tags:
@@ -184,6 +188,12 @@
     nvidia-cuda-13: "cuda13-vllm-cpp"
     nvidia-l4t: "nvidia-l4t-arm64-vllm-cpp"
     nvidia-l4t-cuda-13: "nvidia-l4t-arm64-vllm-cpp"
+    # No CUDA 12 variant exists: 12.x nvcc cannot compile the Blackwell fp4
+    # kernels, so those hosts run the CPU build. Mapped explicitly rather than
+    # left to the "default" catch-all so the fallback is visible here instead
+    # of looking like an oversight.
+    nvidia-cuda-12: "cpu-vllm-cpp"
+    nvidia-l4t-cuda-12: "cpu-vllm-cpp"
 - !!merge <<: *vllm-cpp
   name: "vllm-cpp-development"
   capabilities:
@@ -194,6 +204,8 @@
     nvidia-cuda-13: "cuda13-vllm-cpp-development"
     nvidia-l4t: "nvidia-l4t-arm64-vllm-cpp-development"
     nvidia-l4t-cuda-13: "nvidia-l4t-arm64-vllm-cpp-development"
+    nvidia-cuda-12: "cpu-vllm-cpp-development"
+    nvidia-l4t-cuda-12: "cpu-vllm-cpp-development"
 - &crispasr
   name: "crispasr"
   alias: "crispasr"
