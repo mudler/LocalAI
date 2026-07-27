@@ -457,7 +457,7 @@ var BackendCapabilities = map[string]BackendCapability{
 	// soon as the backend has no capability entry, BEFORE it consults the
 	// model's own tts.voice_cloning override, so without this key a
 	// `voice: "profile:<id>"` request is refused with 400 for every audio-cpp
-	// model and no model YAML can rescue it — on a backend that ships
+	// model and no model YAML can rescue it, on a backend that ships
 	// audio-cpp-chatterbox, whose family advertises cloning and not plain TTS,
 	// so a reference clip is the only way to use it at all.
 	//
@@ -476,7 +476,7 @@ var BackendCapabilities = map[string]BackendCapability{
 		},
 		DefaultUsecases: []string{UsecaseTTS},
 		VoiceCloning:    referenceVoiceCloning(),
-		Description:     "audio.cpp native engine — one server for TTS, voice cloning, ASR, forced alignment, VAD, diarization, source separation and music generation; the model's family decides which",
+		Description:     "audio.cpp native engine: one server for TTS, voice cloning, ASR, forced alignment, VAD, diarization, source separation and music generation; the model's family decides which",
 	},
 
 	// --- TTS backends ---
