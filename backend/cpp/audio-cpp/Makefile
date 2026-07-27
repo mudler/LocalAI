@@ -50,11 +50,27 @@ CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release -DAUDIOCPP_DEPLOYMENT_BUILD=ON
 # Setting it here also pins ggml's copy, since its default is guarded by
 # `if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)`. CUDA_MAJOR_VERSION is the CI
 # build-arg, forwarded by Dockerfile.audio-cpp.
+#
+# An EMPTY major maps to `native`, NOT to the CUDA 12 list. Only CI declares a
+# major; a developer running `BUILD_TYPE=cublas make` locally declares none, and
+# the CUDA 12 list contains 120a-real, which needs nvcc >= 12.8. Falling through
+# to it turned every local build on a CUDA 12.0-12.7 host into a compile error,
+# where upstream's documented behaviour ("Leave CMAKE_CUDA_ARCHITECTURES unset
+# to build for the GPUs present at build time") worked. `native` restores that.
+# It does require a GPU to enumerate, so the escape hatch for a GPU-less local
+# cross-build is to set CUDA_ARCHITECTURES on the command line, which the ?=
+# assignments below leave untouched.
 CUDA_MAJOR_VERSION ?=
 ifeq ($(CUDA_MAJOR_VERSION),13)
     CUDA_ARCHITECTURES ?= 75-virtual;80-virtual;86-real;89-real;120a-real;121a-real
-else
+else ifeq ($(CUDA_MAJOR_VERSION),12)
     CUDA_ARCHITECTURES ?= 50-virtual;61-virtual;70-virtual;75-virtual;80-virtual;86-real;89-real;120a-real
+else ifeq ($(CUDA_MAJOR_VERSION),)
+    CUDA_ARCHITECTURES ?= native
+else ifeq ($(BUILD_TYPE),cublas)
+    # Gated on cublas so that `make clean` with a stray CUDA_MAJOR_VERSION in the
+    # environment still works; the variable means nothing to any other build.
+    $(error CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) has no architecture list here (12 and 13 do). Leave it empty for a native build, or pass CUDA_ARCHITECTURES explicitly.)
 endif
 
 ifeq ($(BUILD_TYPE),cublas)
@@ -62,7 +78,32 @@ ifeq ($(BUILD_TYPE),cublas)
 else ifeq ($(BUILD_TYPE),vulkan)
     CMAKE_ARGS += -DENGINE_ENABLE_VULKAN=ON
 else ifeq ($(UNAME_S),Darwin)
+    # Metal. ggml embeds the shader library by default (GGML_METAL_EMBED_LIBRARY
+    # defaults to GGML_METAL), so the package needs no .metallib beside the
+    # binary. Darwin builds go through scripts/build/audio-cpp-darwin.sh.
     CMAKE_ARGS += -DENGINE_ENABLE_METAL=ON
+    # AppleClang ships no OpenMP runtime and Homebrew's libomp is keg-only, so
+    # neither libomp.dylib nor omp.h is symlinked into /opt/homebrew and CMake's
+    # FindOpenMP cannot find them on its own (the workflow's `brew link libomp`
+    # is a no-op for a keg-only formula, and its failure is swallowed).
+    # audio.cpp calls find_package(OpenMP REQUIRED COMPONENTS CXX) whenever
+    # ENGINE_ENABLE_OPENMP is ON, so with no hint the macOS build dies at
+    # configure time before compiling anything. OpenMP_ROOT is honoured by the
+    # find_library/find_path calls inside FindOpenMP under CMP0074, which is NEW
+    # here because audio.cpp requires CMake 3.20.
+    #
+    # If the keg is absent, turn OpenMP off rather than fail: the tree's only
+    # <omp.h> include is guarded by #ifdef _OPENMP and a #pragma omp without
+    # -fopenmp is simply ignored, so an OpenMP-less build is correct, just
+    # single-threaded in the host-side DSP loops.
+    ifeq ($(origin LIBOMP_PREFIX),undefined)
+        LIBOMP_PREFIX := $(shell brew --prefix libomp 2>/dev/null)
+    endif
+    ifneq ($(and $(wildcard $(LIBOMP_PREFIX)/lib/libomp.dylib),$(wildcard $(LIBOMP_PREFIX)/include/omp.h)),)
+        CMAKE_ARGS += -DOpenMP_ROOT=$(LIBOMP_PREFIX)
+    else
+        CMAKE_ARGS += -DENGINE_ENABLE_OPENMP=OFF
+    endif
 else
     # Portable Linux CPU. Upstream wires this to GGML_BACKEND_DL +
     # GGML_CPU_ALL_VARIANTS + $ORIGIN rpath, so one build serves every CPU

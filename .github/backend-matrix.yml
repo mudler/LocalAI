@@ -3165,8 +3165,8 @@ include:
   # builder image: this is the ds4 shape, not the llama-cpp one.
   #
   # No ROCm entry: upstream has no HIP configuration. No CUDA arm64 or L4T
-  # entry: upstream documents and validates CUDA on x86 only. Darwin/Metal
-  # lands with scripts/build/audio-cpp-darwin.sh, which does not exist yet.
+  # entry: upstream documents and validates CUDA on x86 only. Darwin/Metal is in
+  # the includeDarwin matrix below, built by scripts/build/audio-cpp-darwin.sh.
   #
   # No vulkan entry either, though Dockerfile.audio-cpp and the backend Makefile
   # both handle BUILD_TYPE=vulkan for local builds. Every other vulkan backend
@@ -6290,6 +6290,18 @@ includeDarwin:
   # so the build is Metal-enabled. lang=go drives runner/toolchain selection only.
   - backend: "privacy-filter"
     tag-suffix: "-metal-darwin-arm64-privacy-filter"
+    lang: "go"
+  # audio-cpp is the same shape: a C++/ggml backend built by a bespoke darwin
+  # script (make backends/audio-cpp-darwin), which reuses the backend's own
+  # package.sh so the Darwin package keeps the root-level layout the Linux image
+  # has (grpc-server, run.sh and assets/ in one directory, dylibs in lib/).
+  # No build-type: the backend Makefile turns ENGINE_ENABLE_METAL on from
+  # uname -s. lang=go drives runner/toolchain selection only - there is no
+  # backend/go/audio-cpp, which is why backend_build_darwin.yml and
+  # DARWIN_BESPOKE_BUILDERS in scripts/lib/backend-filter.mjs both route this
+  # backend away from the generic Go path.
+  - backend: "audio-cpp"
+    tag-suffix: "-metal-darwin-arm64-audio-cpp"
     lang: "go"
   # LocalVQE has no Metal path; on Apple Silicon it builds CPU-only (GGML_METAL
   # OFF) but is still a native arm64 image. Uses the darwin/metal build profile.

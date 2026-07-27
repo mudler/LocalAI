@@ -148,16 +148,19 @@
     - audio-transcription
     - CPU
     - CUDA
-  # No metal/metal-darwin-arm64 key (no Darwin matrix entry yet) and no vulkan
-  # key (the vulkan image would carry a Vulkan loader with no Mesa ICD; see the
-  # audio-cpp block in .github/backend-matrix.yml). Pointing a capability at a
-  # tag CI never builds hands the user a pull failure; leaving it out lets
-  # SystemState.Capability() fall through to `default` and the CPU image.
+    - Metal
+  # No vulkan key: the vulkan image would carry a Vulkan loader with no Mesa ICD
+  # (see the audio-cpp block in .github/backend-matrix.yml). Pointing a
+  # capability at a tag CI never builds hands the user a pull failure; leaving it
+  # out lets SystemState.Capability() fall through to `default` and the CPU
+  # image.
   capabilities:
     default: "cpu-audio-cpp"
     nvidia: "cuda12-audio-cpp"
     nvidia-cuda-12: "cuda12-audio-cpp"
     nvidia-cuda-13: "cuda13-audio-cpp"
+    metal: "metal-audio-cpp"
+    metal-darwin-arm64: "metal-audio-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -2037,6 +2040,8 @@
     nvidia: "cuda12-audio-cpp-development"
     nvidia-cuda-12: "cuda12-audio-cpp-development"
     nvidia-cuda-13: "cuda13-audio-cpp-development"
+    metal: "metal-audio-cpp-development"
+    metal-darwin-arm64: "metal-audio-cpp-development"
 - !!merge <<: *stablediffusionggml
   name: "stablediffusion-ggml-development"
   capabilities:
@@ -6895,3 +6900,13 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-audio-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *audiocpp
+  name: "metal-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-audio-cpp
+- !!merge <<: *audiocpp
+  name: "metal-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-audio-cpp

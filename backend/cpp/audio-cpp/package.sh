@@ -48,18 +48,18 @@ for asset in silero_vad marblenet_vad; do
 done
 
 # Everything below this point is Linux-only: a bundled ELF loader, an ldd walk
-# and an ld.so --list validation. The macOS equivalents (otool -L, install_name
-# rewriting, a codesign pass) belong to a scripts/build/audio-cpp-darwin.sh that
-# DOES NOT EXIST YET; writing it is Task 16's job.
+# and an ld.so --list validation. The macOS equivalent is the otool -L closure in
+# scripts/build/audio-cpp-darwin.sh, which picks up from the exit 0 below.
 #
-# WARNING FOR WHOEVER WRITES IT. The obvious move is to copy
+# WARNING FOR ANYONE REWORKING THAT SCRIPT. The obvious move is to copy
 # scripts/build/privacy-filter-darwin.sh, and that script assembles its own
 # package under build/darwin and never calls package.sh at all. Adapted as-is it
 # will silently omit assets/, and the bundled: model path form then resolves to
 # nothing, which takes the only zero-download verification path in this backend
-# with it. The Darwin package needs the same root-level layout as the Linux one:
-# grpc-server, run.sh, the ggml dylibs and assets/ in ONE directory, with
-# lib/ for the rest. run.sh's Darwin branch execs grpc-server directly, so
+# with it. That is why audio-cpp-darwin.sh copies THIS directory instead of
+# rebuilding one. The Darwin package needs the same root-level layout as the
+# Linux one: grpc-server, run.sh, the ggml dylibs and assets/ in ONE directory,
+# with lib/ for the rest. run.sh's Darwin branch execs grpc-server directly, so
 # _NSGetExecutablePath already names the package root; nothing else is needed
 # beyond putting the files there.
 UNAME_S=$(uname -s)

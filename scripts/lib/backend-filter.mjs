@@ -107,13 +107,10 @@ export function inferBackendPathDarwin(item) {
   if (item.backend === "privacy-filter") {
     return `backend/cpp/privacy-filter/`;
   }
-  // audio-cpp is C++ too. There is no Darwin matrix entry for it yet: the
-  // Metal build needs scripts/build/audio-cpp-darwin.sh and a
-  // `backends/audio-cpp-darwin` make target, neither of which exists, so this
-  // case (and the DARWIN_BESPOKE_BUILDERS membership below) is inert today. It
-  // is here so that adding the entry is a one-line change that cannot
-  // accidentally route a C++ backend through the generic
-  // build-darwin-go-backend path, which would look for backend/go/audio-cpp/.
+  // audio-cpp is C++ too (built via `make backends/audio-cpp-darwin`); same
+  // lang=go-for-runner convention, source under backend/cpp. Without this the
+  // generic path below would look for backend/go/audio-cpp/, which does not
+  // exist, and no change to the real sources would ever trigger a Darwin build.
   if (item.backend === "audio-cpp") {
     return `backend/cpp/audio-cpp/`;
   }
@@ -155,14 +152,10 @@ export function backendChanged(backend, pathPrefix, changedFiles) {
 // without it is a Python backend (see .github/backend-matrix.yml).
 const isDarwinPython = item => !item.lang;
 
-// backend_build_darwin.yml routes llama-cpp, ds4 and privacy-filter to their
-// own bespoke make targets; every other lang=go entry goes through
-// `make build-darwin-go-backend` -> scripts/build/golang-darwin.sh.
-//
-// audio-cpp is listed ahead of its Darwin matrix entry (see
-// inferBackendPathDarwin): it is a C++/ggml backend that will need the same
-// bespoke treatment, and listing it here now means the entry, when it lands,
-// cannot be silently claimed by the generic Go path.
+// backend_build_darwin.yml routes llama-cpp, ds4, privacy-filter and audio-cpp
+// to their own bespoke make targets; every other lang=go entry goes through
+// `make build-darwin-go-backend` -> scripts/build/golang-darwin.sh. Keep this
+// set in sync with the `if:` conditions in that workflow.
 const DARWIN_BESPOKE_BUILDERS = new Set([
   "llama-cpp",
   "ds4",
