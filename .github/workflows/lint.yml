@@ -66,3 +66,9 @@ jobs:
           node-version: '20'
       - name: run CI script tests
         run: make test-ci-scripts
+
+      # The shared python backend helpers (Options[] parsing, engine-arg
+      # mapping, model reference resolution) are stdlib-only, so their tests
+      # ride along here instead of waiting on a multi-GB backend image build.
+      - name: run shared python backend helper tests
+        run: make test-python-helpers

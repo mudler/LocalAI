@@ -21,6 +21,17 @@ options:
   - reasoning_parser:qwen3
 ```
 
+## `Options[]` doubles as CLI-style engine flags
+
+Beyond the parser names above, `Options[]` carries `--` prefixed engine flags (`--enable-prefix-caching`, `--kv-cache-dtype:fp8_e5m2`). `apply_options_to_engine_args` in `backend/python/common/vllm_utils.py` maps them onto `AsyncEngineArgs` fields, and it must run **before** `AsyncLLMEngine.from_engine_args()` - applying them afterwards is a silent no-op, which is exactly what issue #11130 was.
+
+Things to keep straight when touching this:
+
+- Precedence is typed proto fields → `options:` → `engine_args:`. `applyEngineArgDefaults` in `core/config/hooks_vllm.go` therefore skips seeding a production default whose key the user already set as an option, otherwise the later `engine_args:` pass would silently override them.
+- Only `--` prefixed entries are engine flags; `tool_parser:`/`reasoning_parser:` and friends keep their meaning. Parser lookups accept both spellings via `normalize_option_key`.
+- Unknown or uncoercible flags warn and are skipped, unlike `engine_args:` which is strict - `Options[]` is a shared bag and knows entries this mapping doesn't.
+- Field types come from the annotation's *base* (`Literal["auto","float16"]` is not a float). The helper's tests are stdlib-only: `make test-python-helpers`.
+
 Auto-defaults for known model families live in `core/config/parser_defaults.json` and are applied:
 - at gallery import time by `core/gallery/importers/vllm.go`
 - at model load time by the `vllm` / `vllm-omni` backend hook in `core/config/hooks_vllm.go`

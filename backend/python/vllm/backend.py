@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
+from vllm_utils import apply_options_to_engine_args, normalize_option_key
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -101,13 +102,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return decoded_text
 
     def _parse_options(self, options_list):
-        """Parse Options[] key:value string list into a dict."""
+        """Parse Options[] key:value string list into a dict.
+
+        Keys are normalized to their field spelling so the CLI form users copy
+        from vLLM's docs (``--reasoning-parser:qwen3``) selects the same parser
+        as LocalAI's own (``reasoning_parser:qwen3``).
+        """
         opts = {}
         for opt in options_list:
             if ":" not in opt:
                 continue
             key, value = opt.split(":", 1)
-            opts[key.strip()] = value.strip()
+            opts[normalize_option_key(key)] = value.strip()
         return opts
 
     def _apply_engine_args(self, engine_args, engine_args_json):
@@ -228,6 +234,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 "video": max(request.LimitVideoPerPrompt, 1),
                 "audio": max(request.LimitAudioPerPrompt, 1)
             }
+
+        # CLI-style flags in options: (--quantization:gptq_marlin,
+        # --enable-prefix-caching, ...) land on the engine args too - they must
+        # be applied *before* the engine is created or they do nothing.
+        # engine_args: is applied after this, so it stays the last word.
+        engine_args = apply_options_to_engine_args(engine_args, request.Options)
 
         # engine_args from YAML overrides typed fields above so operators can
         # tune anything the AsyncEngineArgs dataclass exposes without waiting
