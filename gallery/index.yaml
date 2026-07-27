@@ -46772,6 +46772,13 @@
     file on disk is treated as a named preset and the request is refused with a
     message saying so.
 
+    The voice-conversion half is reached through /audio/transform rather than
+    /v1/audio/speech: post the speech to convert as `audio` and the target
+    speaker's clip as `reference`. That is why this entry declares
+    audio_transform alongside tts. With both this and a source-separation model
+    installed, /audio/transform has two candidates, so name the model
+    explicitly rather than relying on the default pick.
+
     Q8_0 rather than 16-bit because upstream's tested-status table records the
     same result for both (Pass, ASR match with drift) and this build is half
     the size.
@@ -46782,6 +46789,7 @@
     - tts
     - text-to-speech
     - voice-cloning
+    - voice-conversion
     - gguf
     - ggml
     - quantized
@@ -46790,6 +46798,7 @@
     backend: audio-cpp
     known_usecases:
       - tts
+      - audio_transform
     name: audio-cpp-chatterbox
     parameters:
       model: audio-cpp/chatterbox-q8_0.gguf
