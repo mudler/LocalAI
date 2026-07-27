@@ -117,6 +117,12 @@ func convertWithFFmpeg(src, dst string) error {
 // a failed request, and music files, which are the input this passthrough
 // exists for, are exactly where extensible turns up.
 func isPCM16Wav(src string) bool {
+	// #nosec G304 -- src is the very path the caller is about to hand ffmpeg as
+	// its input, so opening it here reaches nothing ffmpeg would not. In the
+	// upload path it is a server-created temp file whose name is
+	// filepath.Join(server-made dir, path.Base(client name)), so no traversal
+	// survives. This only reads to classify the format, and any error returns
+	// false, which takes the transcode branch rather than the passthrough.
 	f, err := os.Open(src)
 	if err != nil {
 		return false
@@ -185,6 +191,10 @@ func AudioResample(src string, sampleRate int) (string, error) {
 // size and the parsed duration say "audio", and only the file length says the
 // truth. A plain size check does not work either, since the file is not empty.
 func wavAudioBytes(path string) int64 {
+	// #nosec G304 -- the only caller passes AudioResample's own dst, a name
+	// this package derives from src by string substitution and has just had
+	// ffmpeg write. Nothing outside chooses it, and the file being inspected is
+	// one we created moments earlier.
 	f, err := os.Open(path)
 	if err != nil {
 		return -1
