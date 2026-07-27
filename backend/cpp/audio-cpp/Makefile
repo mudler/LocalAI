@@ -68,8 +68,10 @@ else ifeq ($(CUDA_MAJOR_VERSION),12)
 else ifeq ($(CUDA_MAJOR_VERSION),)
     CUDA_ARCHITECTURES ?= native
 else ifeq ($(BUILD_TYPE),cublas)
-    # Gated on cublas so that `make clean` with a stray CUDA_MAJOR_VERSION in the
-    # environment still works; the variable means nothing to any other build.
+    # Gated on cublas because the variable means nothing to any other build, so a
+    # stray CUDA_MAJOR_VERSION in the environment must not break `make clean` or
+    # a CPU build. It does still error for `BUILD_TYPE=cublas make clean`, which
+    # is the right trade: that invocation is asking about a CUDA build tree.
     $(error CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) has no architecture list here (12 and 13 do). Leave it empty for a native build, or pass CUDA_ARCHITECTURES explicitly.)
 endif
 
@@ -94,14 +96,30 @@ else ifeq ($(UNAME_S),Darwin)
     #
     # If the keg is absent, turn OpenMP off rather than fail: the tree's only
     # <omp.h> include is guarded by #ifdef _OPENMP and a #pragma omp without
-    # -fopenmp is simply ignored, so an OpenMP-less build is correct, just
-    # single-threaded in the host-side DSP loops.
+    # -fopenmp is simply ignored, so an OpenMP-less build is CORRECT. It is not
+    # cheap, though: 108 `#pragma omp` directives across ~30 files (roformer,
+    # demucs, chatterbox, moss, supertonic, seed_vc, framework/audio/dsp) are
+    # compiled out, and clang says nothing about an ignored omp pragma unless
+    # -Wsource-uses-openmp is on. A green package that is quietly single-threaded
+    # in every host DSP loop gets blamed on Metal, not on packaging, so the
+    # fallback announces itself.
     ifeq ($(origin LIBOMP_PREFIX),undefined)
         LIBOMP_PREFIX := $(shell brew --prefix libomp 2>/dev/null)
     endif
-    ifneq ($(and $(wildcard $(LIBOMP_PREFIX)/lib/libomp.dylib),$(wildcard $(LIBOMP_PREFIX)/include/omp.h)),)
-        CMAKE_ARGS += -DOpenMP_ROOT=$(LIBOMP_PREFIX)
+    # Nested ifneq rather than $(and ...): $(and) needs GNU make 3.81, and while
+    # that is what Apple ships, an older make expands it to empty and would take
+    # the OpenMP-OFF branch with no way to tell that from a genuinely missing
+    # keg. Two plain conditionals cannot fail that way.
+    LIBOMP_USABLE :=
+    ifneq ($(wildcard $(LIBOMP_PREFIX)/lib/libomp.dylib),)
+        ifneq ($(wildcard $(LIBOMP_PREFIX)/include/omp.h),)
+            LIBOMP_USABLE := yes
+        endif
+    endif
+    ifeq ($(LIBOMP_USABLE),yes)
+        CMAKE_ARGS += "-DOpenMP_ROOT=$(LIBOMP_PREFIX)"
     else
+        $(warning audio-cpp: libomp not found at '$(LIBOMP_PREFIX)'; building without OpenMP (single-threaded host DSP). Install it with `brew install libomp`, or set LIBOMP_PREFIX.)
         CMAKE_ARGS += -DENGINE_ENABLE_OPENMP=OFF
     endif
 else

@@ -40,6 +40,11 @@ mkdir -p build/darwin backend-images
 # (libggml.dylib -> libggml.0.dylib -> ...), and the SONAME the binary asks for
 # has to keep naming a file here.
 cp -a backend/cpp/audio-cpp/package/. build/darwin/
+# lib/ arrives from package.sh, which mkdir -p's an empty one. Do not rely on
+# that: everything below copies into it, and if package.sh ever stops
+# pre-creating it the first copy fails with an opaque BSD-cp message instead of
+# any of the assertions this script otherwise leans on.
+mkdir -p build/darwin/lib
 
 # THE LAYOUT ASSERTION - the Darwin half of the one in
 # backend/cpp/audio-cpp/package.sh, and the reason that one is written at such
@@ -63,17 +68,6 @@ for required in grpc-server run.sh assets/silero_vad assets/marblenet_vad; do
     fi
 done
 
-# Apple Silicon: pick up Homebrew-installed protobuf utf8_validity if present
-# (same as ds4-darwin.sh - it is a transitive dep otool may not surface).
-if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
-    ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-$(ls /opt/homebrew/Cellar/protobuf/**/lib/libutf8_validity*.dylib 2>/dev/null || true)}
-else
-    ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-""}
-fi
-for file in $ADDITIONAL_LIBS; do
-    cp -fLv "$file" build/darwin/lib
-done
-
 # Bundle the FULL dylib closure, not just grpc-server's direct dependencies.
 #
 # ds4-darwin.sh and llama-cpp-darwin.sh walk one level. That is enough only
@@ -94,6 +88,72 @@ done
 BUNDLED_LEAVES=" "
 UNRESOLVED=0
 
+# The LC_RPATH entries recorded in an object, one per line.
+object_rpaths() {
+    otool -l "$1" | awk '/LC_RPATH/ { f = 1 } f && $1 == "path" { print $2; f = 0 }'
+}
+
+# Resolve an @rpath / @loader_path / @executable_path dependency to a real file,
+# printing the path and returning 0, or returning 1 if nothing matches.
+#
+# This is not hypothetical any more. The Metal build links ggml statically, so
+# no ggml object arrives as an @rpath dep, but the OpenMP hint in the backend
+# Makefile makes libomp.dylib a dependency, and whether it is recorded as an
+# absolute /opt/homebrew/opt/libomp path or as @rpath/libomp.dylib is a property
+# of Homebrew's fix_dynamic_linkage that cannot be observed from Linux. Skipping
+# it (what ds4-darwin.sh does with a non-existent path) would ship a package
+# missing its OpenMP runtime; failing without expanding rpaths first would turn
+# a resolvable dependency into a red build.
+resolve_at_path_dep() {
+    local object="$1" dep="$2"
+    local objdir rpath candidate
+    objdir=$(dirname "$object")
+    case "$dep" in
+        @loader_path/*)
+            candidate="$objdir/${dep#@loader_path/}"
+            if [ -e "$candidate" ]; then printf '%s\n' "$candidate"; return 0; fi
+            ;;
+        @executable_path/*)
+            # At run time the executable is grpc-server at the package root.
+            candidate="build/darwin/${dep#@executable_path/}"
+            if [ -e "$candidate" ]; then printf '%s\n' "$candidate"; return 0; fi
+            ;;
+        @rpath/*)
+            while read -r rpath; do
+                case "$rpath" in
+                    @loader_path)   rpath="$objdir" ;;
+                    @loader_path/*) rpath="$objdir/${rpath#@loader_path/}" ;;
+                    @executable_path)   rpath="build/darwin" ;;
+                    @executable_path/*) rpath="build/darwin/${rpath#@executable_path/}" ;;
+                esac
+                candidate="$rpath/${dep#@rpath/}"
+                if [ -e "$candidate" ]; then printf '%s\n' "$candidate"; return 0; fi
+            done < <(object_rpaths "$object")
+            ;;
+    esac
+    return 1
+}
+
+# Copy one dylib into lib/ and walk its own dependencies. A no-op if a file of
+# the same leaf name is already bundled, which is both the deduplication and the
+# cycle guard: mutual dependencies terminate because the second visit finds the
+# leaf already recorded.
+bundle_dylib() {
+    local path="$1"
+    local leaf
+    leaf=$(basename "$path")
+    case "$BUNDLED_LEAVES" in
+        *" $leaf "*) return 0 ;;
+    esac
+    BUNDLED_LEAVES="${BUNDLED_LEAVES}${leaf} "
+    # -L dereferences: Homebrew's unversioned names are symlinks into the
+    # Cellar, and copying the link would land a dangling relative symlink. The
+    # binary asks for whatever install name is recorded, so the file has to
+    # exist under that leaf.
+    cp -fLv "$path" build/darwin/lib/
+    bundle_dylib_closure "$path"
+}
+
 bundle_dylib_closure() {
     local object="$1"
     local dep leaf src
@@ -107,27 +167,28 @@ bundle_dylib_closure() {
             *" $leaf "*) continue ;;
         esac
 
-        src="$dep"
         case "$dep" in
             @*)
-                # @rpath / @loader_path / @executable_path are resolved against
-                # the package itself, so such a dependency is satisfiable only
-                # if the file is already inside it. Nothing produces one today
-                # (a Metal build sets neither BUILD_SHARED_LIBS nor
-                # GGML_BACKEND_DL, so ggml is static and package.sh copies no
-                # dylibs at all), but if that changes, a missing one has to be
-                # loud: dyld fails at load with nothing else to go on.
+                # Already inside the package (the ggml objects package.sh copies
+                # to the root would land here): record and walk in place.
                 if [ -e "build/darwin/$leaf" ]; then
-                    src="build/darwin/$leaf"
+                    BUNDLED_LEAVES="${BUNDLED_LEAVES}${leaf} "
+                    bundle_dylib_closure "build/darwin/$leaf"
                 elif [ -e "build/darwin/lib/$leaf" ]; then
-                    src="build/darwin/lib/$leaf"
+                    BUNDLED_LEAVES="${BUNDLED_LEAVES}${leaf} "
+                    bundle_dylib_closure "build/darwin/lib/$leaf"
+                elif src=$(resolve_at_path_dep "$object" "$dep"); then
+                    bundle_dylib "$src"
                 else
-                    echo "audio-cpp-darwin.sh: unresolved @rpath dependency of ${object}: ${dep}" >&2
+                    # Nothing on disk answers this, so dyld will not find it
+                    # either. Print the rpath list with it: this fails on a
+                    # machine nobody can attach to, and without the rpaths the
+                    # log says only that something was missing.
+                    echo "audio-cpp-darwin.sh: unresolved dependency of ${object}: ${dep}" >&2
+                    echo "audio-cpp-darwin.sh: LC_RPATH entries of ${object}:" >&2
+                    object_rpaths "$object" | sed 's/^/audio-cpp-darwin.sh:     /' >&2
                     UNRESOLVED=1
-                    continue
                 fi
-                BUNDLED_LEAVES="${BUNDLED_LEAVES}${leaf} "
-                bundle_dylib_closure "$src"
                 continue
                 ;;
         esac
@@ -137,18 +198,26 @@ bundle_dylib_closure() {
         # frameworks out of the package; there is no allow-list to maintain.
         [ -e "$dep" ] || continue
 
-        BUNDLED_LEAVES="${BUNDLED_LEAVES}${leaf} "
-        # -L dereferences: Homebrew's unversioned names are symlinks into the
-        # Cellar, and copying the link would land a dangling relative symlink.
-        # The binary asks for whatever install name is recorded, so the file has
-        # to exist under that leaf.
-        cp -fLv "$dep" build/darwin/lib/
-        bundle_dylib_closure "$dep"
+        bundle_dylib "$dep"
     done < <(otool -L "$object" | awk 'NR > 1 { print $1 }')
     # Explicit, because `set -e` would abort on whatever status the loop
     # happened to end on.
     return 0
 }
+
+# Apple Silicon: pick up Homebrew-installed protobuf utf8_validity if present
+# (same as ds4-darwin.sh - it is a transitive dep otool may not surface).
+# Unlike ds4-darwin.sh these go through bundle_dylib rather than a bare cp, so
+# they are seeded into the seen-set (no duplicate copy when the walk reaches
+# them) and their own non-system dependencies are bundled too.
+if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+    ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-$(ls /opt/homebrew/Cellar/protobuf/**/lib/libutf8_validity*.dylib 2>/dev/null || true)}
+else
+    ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-""}
+fi
+for file in $ADDITIONAL_LIBS; do
+    bundle_dylib "$file"
+done
 
 bundle_dylib_closure build/darwin/grpc-server
 if compgen -G "build/darwin/*.dylib" > /dev/null; then
