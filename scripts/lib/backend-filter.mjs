@@ -473,7 +473,7 @@ export const BACKEND_MATRIX_FILE = ".github/backend-matrix.yml";
 
 // Identity of a matrix entry across revisions. tag-suffix names the image;
 // per-arch legs of the same image are distinguished by platform-tag. Verified
-// unique across all 417 Linux and 56 Darwin entries.
+// unique across all 432 Linux and 57 Darwin entries.
 export function matrixEntryKey(item) {
   return JSON.stringify([item["tag-suffix"] || "", item["platform-tag"] || ""]);
 }

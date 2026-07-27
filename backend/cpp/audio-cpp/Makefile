@@ -26,8 +26,39 @@ UNAME_S := $(shell uname -s)
 # safetensors model tree still resolves its family spec.
 CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release -DAUDIOCPP_DEPLOYMENT_BUILD=ON
 
+# CMAKE_CUDA_ARCHITECTURES must be set explicitly for a cublas build, and this
+# is not a tuning knob: upstream's CMakeLists sets CUDA_ARCHITECTURES to
+# `native` on the engine_runtime target whenever the root-scope variable is
+# unset (audio.cpp/CMakeLists.txt, the `if (CMAKE_CUDA_ARCHITECTURES)` branch
+# next to the istft/torch_random .cu sources), and docs/build/linux.md says so
+# outright: "Leave CMAKE_CUDA_ARCHITECTURES unset to build for the GPUs present
+# at build time (native)". No CI runner has a GPU, so `native` has nothing to
+# enumerate. ggml's own default (external/ggml/src/ggml-cuda/CMakeLists.txt)
+# does not rescue this: it list(APPEND)s in the ggml subdirectory scope, which
+# never reaches the root scope where the engine_runtime property is decided.
+#
+# The values below are ggml's list for the matching toolkit, copied rather than
+# invented, so the two targets compile for exactly the same set:
+#   - CUDA 13 drops the Maxwell/Pascal/Volta virtual archs (50/61/70).
+#   - 121a-real needs CUDA >= 12.9, so the CUDA 12 list (built against 12.8)
+#     stops at 120a-real.
+#   - `a`-suffixed archs are used rather than ggml's rejected 120f-virtual: the
+#     `f` suffix needs CMake >= 3.31.8, and Ubuntu Noble ships 3.28.3. The
+#     3.28 validator (Modules/Internal/CMakeCUDAArchitecturesValidate.cmake)
+#     accepts `[0-9]+a?(-real|-virtual)?`.
+#
+# Setting it here also pins ggml's copy, since its default is guarded by
+# `if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)`. CUDA_MAJOR_VERSION is the CI
+# build-arg, forwarded by Dockerfile.audio-cpp.
+CUDA_MAJOR_VERSION ?=
+ifeq ($(CUDA_MAJOR_VERSION),13)
+    CUDA_ARCHITECTURES ?= 75-virtual;80-virtual;86-real;89-real;120a-real;121a-real
+else
+    CUDA_ARCHITECTURES ?= 50-virtual;61-virtual;70-virtual;75-virtual;80-virtual;86-real;89-real;120a-real
+endif
+
 ifeq ($(BUILD_TYPE),cublas)
-    CMAKE_ARGS += -DENGINE_ENABLE_CUDA=ON
+    CMAKE_ARGS += -DENGINE_ENABLE_CUDA=ON "-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCHITECTURES)"
 else ifeq ($(BUILD_TYPE),vulkan)
     CMAKE_ARGS += -DENGINE_ENABLE_VULKAN=ON
 else ifeq ($(UNAME_S),Darwin)

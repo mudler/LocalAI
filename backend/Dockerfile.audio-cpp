@@ -51,8 +51,14 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
+# Selects the CUDA architecture list in backend/cpp/audio-cpp/Makefile. It has
+# to be forwarded: upstream compiles engine_runtime for `native` when
+# CMAKE_CUDA_ARCHITECTURES is unset, and no CI runner has a GPU to enumerate.
+# The value is the same cuda-major-version the matrix entry declares.
+ARG CUDA_MAJOR_VERSION
 
 ENV BUILD_TYPE=${BUILD_TYPE} \
+    CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
     APT_MIRROR=${APT_MIRROR} \
     APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
     DEBIAN_FRONTEND=noninteractive \
@@ -83,7 +89,8 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
 COPY . /LocalAI
 
 RUN --mount=type=cache,target=/root/.ccache,id=audio-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
-    make -C /LocalAI/backend/cpp/audio-cpp BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+    make -C /LocalAI/backend/cpp/audio-cpp BUILD_TYPE=${BUILD_TYPE} \
+        CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} NATIVE=false grpc-server package
 
 # The package directory is the whole image: run.sh, grpc-server, the dlopened
 # ggml CPU variants, the bundled loader and its library closure, and the

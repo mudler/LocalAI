@@ -3167,6 +3167,14 @@ include:
   # No ROCm entry: upstream has no HIP configuration. No CUDA arm64 or L4T
   # entry: upstream documents and validates CUDA on x86 only. Darwin/Metal
   # lands with scripts/build/audio-cpp-darwin.sh, which does not exist yet.
+  #
+  # No vulkan entry either, though Dockerfile.audio-cpp and the backend Makefile
+  # both handle BUILD_TYPE=vulkan for local builds. Every other vulkan backend
+  # gets its Mesa ICD drivers from .docker/install-base-deps.sh, which installs
+  # mesa-vulkan-drivers so package-gpu-libs.sh can bundle them; this Dockerfile
+  # calls neither, so the image would ship a Vulkan loader that finds no GPU. No
+  # CI job runs a vulkan image against real hardware, so it would pass green and
+  # fail in users' hands. The entry comes back once the ICD question is settled.
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -3195,6 +3203,11 @@ include:
     dockerfile: "./backend/Dockerfile.audio-cpp"
     context: "./"
     ubuntu-version: '2404'
+  # cuda-major-version is forwarded into the build (Dockerfile.audio-cpp -> the
+  # backend Makefile) and picks the CMAKE_CUDA_ARCHITECTURES list, which upstream
+  # otherwise sets to `native` and no CI runner can enumerate. cuda-minor-version
+  # and the base-image tag encode the same toolkit and must move together;
+  # nothing checks that for you.
   - build-type: 'cublas'
     cuda-major-version: "12"
     cuda-minor-version: "8"
@@ -3217,22 +3230,6 @@ include:
     runs-on: 'ubuntu-latest'
     base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
     skip-drivers: 'true'
-    backend: "audio-cpp"
-    dockerfile: "./backend/Dockerfile.audio-cpp"
-    context: "./"
-    ubuntu-version: '2404'
-  # Vulkan: ubuntu:24.04 plus apt's libvulkan-dev + glslc, installed by
-  # Dockerfile.audio-cpp when BUILD_TYPE=vulkan. arm64 vulkan is a one-line add
-  # once amd64 is proven in CI.
-  - build-type: 'vulkan'
-    cuda-major-version: ""
-    cuda-minor-version: ""
-    platforms: 'linux/amd64'
-    tag-latest: 'auto'
-    tag-suffix: '-gpu-vulkan-audio-cpp'
-    runs-on: 'ubuntu-latest'
-    base-image: "ubuntu:24.04"
-    skip-drivers: 'false'
     backend: "audio-cpp"
     dockerfile: "./backend/Dockerfile.audio-cpp"
     context: "./"
