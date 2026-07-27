@@ -252,33 +252,65 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
-	// replicaRemovedHook is invoked after a replica row for (modelName, nodeID)
-	// is removed. It is the single chokepoint that lets the prefix-cache index
-	// be invalidated no matter which removal path (router eviction, reconciler
+	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
+	// is removed. This is the single chokepoint that lets dependent state be
+	// invalidated no matter which removal path (router eviction, reconciler
 	// scale-down, probe reaper, health-monitor reap, RemoteUnloaderAdapter) ran.
 	// The replicaIndex argument is the SPECIFIC replica removed, or negative to
-	// signal "all replicas of (modelName, nodeID)". Stored in an atomic.Pointer
-	// so the startup wiring (setter) and request / reconcile handling (fire) are
-	// race-free.
-	replicaRemovedHook atomic.Pointer[func(modelName, nodeID string, replicaIndex int)]
+	// signal "all replicas of (modelName, nodeID)".
+	//
+	// A LIST, not a single slot: the prefix-cache index and the frontend's local
+	// model store are independent subsystems that both need invalidating, and
+	// they are wired from different places. With one slot the second registration
+	// silently displaced the first.
+	//
+	// Stored in an atomic.Pointer to an immutable slice so the startup wiring
+	// (append) and request / reconcile handling (fire) are race-free.
+	replicaRemovedHooks atomic.Pointer[[]func(modelName, nodeID string, replicaIndex int)]
 }
 
-// SetReplicaRemovedHook registers a callback invoked after a replica row for
+// AddReplicaRemovedHook registers a callback invoked after a replica row for
 // (modelName, nodeID) is removed from the registry. replicaIndex is the
 // specific replica removed, or negative to mean "all replicas of the node".
-// Used to invalidate the prefix-cache index so it never points at a replica
-// that no longer hosts the model. Set once at startup before serving. Safe to
-// leave unset (no-op).
-func (r *NodeRegistry) SetReplicaRemovedHook(fn func(modelName, nodeID string, replicaIndex int)) {
-	r.replicaRemovedHook.Store(&fn)
+// Every registered hook fires; registering one never displaces another.
+// Called at startup before serving. Safe to leave unregistered (no-op).
+func (r *NodeRegistry) AddReplicaRemovedHook(fn func(modelName, nodeID string, replicaIndex int)) {
+	if fn == nil {
+		return
+	}
+	for {
+		current := r.replicaRemovedHooks.Load()
+		existing := r.loadReplicaRemovedHooks()
+		updated := make([]func(string, string, int), 0, len(existing)+1)
+		updated = append(updated, existing...)
+		updated = append(updated, fn)
+		if r.replicaRemovedHooks.CompareAndSwap(current, &updated) {
+			return
+		}
+	}
 }
 
-// fireReplicaRemoved invokes the replica-removed hook if one is set. A negative
+// loadReplicaRemovedHooks returns the currently registered hooks, or nil when
+// none are registered.
+func (r *NodeRegistry) loadReplicaRemovedHooks() []func(modelName, nodeID string, replicaIndex int) {
+	if p := r.replicaRemovedHooks.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
+// fireReplicaRemoved invokes every registered replica-removed hook. A negative
 // replicaIndex means all replicas of (modelName, nodeID). Nil-safe.
 func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string, replicaIndex int) {
-	if fn := r.replicaRemovedHook.Load(); fn != nil && *fn != nil {
-		(*fn)(modelName, nodeID, replicaIndex)
+	for _, fn := range r.loadReplicaRemovedHooks() {
+		fn(modelName, nodeID, replicaIndex)
 	}
+}
+
+// hasReplicaRemovedHook reports whether any hook is registered, so bulk delete
+// paths can skip the extra enumeration query when nothing is listening.
+func (r *NodeRegistry) hasReplicaRemovedHook() bool {
+	return len(r.loadReplicaRemovedHooks()) > 0
 }
 
 // nodeModelNames returns the DISTINCT model names that have node_models rows
@@ -290,7 +322,7 @@ func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string, replicaIndex
 // the model. Skips the query entirely when no hook is set (these are lifecycle
 // ops, not the request hot path, but the query is pure overhead with no hook).
 func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID string) []string {
-	if fn := r.replicaRemovedHook.Load(); fn == nil || *fn == nil {
+	if !r.hasReplicaRemovedHook() {
 		return nil
 	}
 	var names []string

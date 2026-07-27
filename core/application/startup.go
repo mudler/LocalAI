@@ -283,6 +283,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 			distSvc.Registry,
 		)
 		application.modelLoader.SetModelStore(distStore)
+		// Drop the local stub when a model's last replica leaves the registry.
+		// The store reports local stubs UNION registry rows, and every removal
+		// path deletes the row only, so without this the frontend keeps
+		// reporting a model as loaded long after the replica is gone.
+		// Registered unconditionally: this is independent of the prefix cache.
+		distSvc.Registry.AddReplicaRemovedHook(
+			nodes.NewLocalStubInvalidator(distSvc.Registry, distStore),
+		)
 		// Start health monitor
 		distSvc.Health.Start(options.Context)
 		// Start replica reconciler for auto-scaling model replicas

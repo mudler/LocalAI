@@ -1475,7 +1475,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 
 			// UnloadModel must route the eviction through the registry removal
 			// chokepoint (RemoveAllNodeModelReplicas). The registry's
-			// SetReplicaRemovedHook is what invalidates the prefix index in
+			// AddReplicaRemovedHook is what invalidates the prefix index in
 			// production; the router no longer invalidates directly. Here the
 			// fake registry records the removal but fires no hook, so we assert
 			// the chokepoint is exercised rather than the downstream
