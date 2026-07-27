@@ -129,13 +129,20 @@ ParsedOptions parse_model_options(const std::vector<std::string> &entries) {
                                "non-negative integer, got '" + value + "'";
                 return parsed;
             }
+        } else if (key == "live_idle_timeout_ms") {
+            if (!parse_non_negative_int(value,
+                                        parsed.options.live_idle_timeout_ms)) {
+                parsed.error = "audio-cpp: option 'live_idle_timeout_ms' needs a "
+                               "non-negative integer, got '" + value + "'";
+                return parsed;
+            }
         } else {
             // Quotes the whole entry, not just the key: an entry like ":value"
             // has an empty key and would otherwise leave nothing to grep for.
             parsed.error = "audio-cpp: unknown option key '" + entry +
                            "'. Known keys: family, task, backend, device, "
                            "threads, model_spec_override, busy_timeout_ms, "
-                           "load.<key>, session.<key>";
+                           "live_idle_timeout_ms, load.<key>, session.<key>";
             return parsed;
         }
     }

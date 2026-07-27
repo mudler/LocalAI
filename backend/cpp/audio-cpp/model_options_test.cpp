@@ -45,6 +45,11 @@ static void test_defaults() {
     check(r.options.device == 0, "device defaults to 0");
     check(r.options.threads == 0, "threads defaults to 0");
     check(r.options.busy_timeout_ms == 0, "busy_timeout_ms defaults to 0");
+    // NOT zero, unlike every other numeric option here. A live stream holds the
+    // model's lane while it waits on the client, so the default has to bound
+    // that wait; 0 is the explicit "no limit" the operator opts into.
+    check(r.options.live_idle_timeout_ms == 30000,
+          "live_idle_timeout_ms defaults to 30000");
     check(r.options.load_options.empty(), "load_options defaults empty");
     check(r.options.session_options.empty(), "session_options defaults empty");
 }
@@ -57,6 +62,7 @@ static void test_scalar_options() {
         "device:1",
         "threads:8",
         "busy_timeout_ms:30000",
+        "live_idle_timeout_ms:5000",
     });
     check(r.error.empty(), "scalar options parse without error");
     check(r.options.family == "qwen3_tts", "family parsed");
@@ -65,6 +71,10 @@ static void test_scalar_options() {
     check(r.options.device == 1, "device parsed");
     check(r.options.threads == 8, "threads parsed");
     check(r.options.busy_timeout_ms == 30000, "busy_timeout_ms parsed");
+    check(r.options.live_idle_timeout_ms == 5000, "live_idle_timeout_ms parsed");
+    check(parse_model_options({"live_idle_timeout_ms:0"}).options.live_idle_timeout_ms == 0,
+          "an explicit 0 turns the live idle limit off rather than reverting to "
+          "the default");
 }
 
 // Values containing colons must survive: split on the FIRST colon only.
@@ -106,6 +116,10 @@ static void test_errors() {
           "empty session key is rejected");
     check(!parse_model_options({"busy_timeout_ms:abc"}).error.empty(),
           "non-numeric busy_timeout_ms is rejected");
+    check(!parse_model_options({"live_idle_timeout_ms:abc"}).error.empty(),
+          "non-numeric live_idle_timeout_ms is rejected");
+    check(!parse_model_options({"live_idle_timeout_ms:-1"}).error.empty(),
+          "negative live_idle_timeout_ms is rejected");
     check(!parse_model_options({"device:-1"}).error.empty(),
           "negative device is rejected");
     check(!parse_model_options({"threads:x"}).error.empty(),

@@ -135,6 +135,7 @@ add_executable(${TARGET}
     stream_delta.cpp
     wav_header.cpp
     inference_lane.cpp
+    live_watchdog.cpp
 )
 
 # loaded_model.cpp mirrors engine::runtime::VoiceTaskKind onto its own Task enum.

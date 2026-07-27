@@ -99,6 +99,12 @@ public:
     // from the load to the request that honours it.
     const std::string &pinned_task() const noexcept { return pinned_task_; }
 
+    // The `live_idle_timeout_ms` option: how long AudioTranscriptionLive waits
+    // for the next audio frame before cancelling the stream to give this
+    // model's lane back. 0 means no limit. See the option in model_options.h
+    // for why it exists and how the default was chosen.
+    int live_idle_timeout_ms() const noexcept { return live_idle_timeout_ms_; }
+
     // Throws the same CapabilityError session_for would throw when this family
     // cannot serve the RPC, and RETURNS THE RESOLVED ROUTE otherwise.
     //
@@ -231,6 +237,7 @@ private:
     std::string identity_;
     bool supports_timestamps_ = false;
     int wait_budget_ceiling_ms_ = 0;
+    int live_idle_timeout_ms_ = 0;
 };
 
 // Prepares and runs an offline session. prepare() is called for every run

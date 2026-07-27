@@ -17,6 +17,7 @@
 #include "capability_routing.h"
 #include "generation_request.h"
 #include "inference_lane.h"
+#include "live_watchdog.h"
 #include "loaded_model.h"
 #include "model_options.h"
 #include "result_map.h"
@@ -465,6 +466,18 @@ void refuse_cloning_without_a_clip(const audiocpp_backend::LoadedModel &model,
         "path of a WAV file (a voice that is not a file on disk is treated as a "
         "named preset)");
 }
+
+// A live stream whose peer stopped sending without closing, cancelled by the
+// idle watchdog. Its own type rather than a flag, so the read loop can unwind
+// without the driver going on to finalize a decode nobody is waiting for.
+//
+// NOT handled by to_status: it is thrown and caught inside one handler, and
+// giving it a clause there keeps to_status a statement about exceptions that
+// cross unit boundaries.
+class LiveIdleTimeout : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
 
 // Maps a thrown exception onto the gRPC status the client should see.
 GStatus to_status(const std::exception &err) {
@@ -1559,7 +1572,7 @@ public:
     // cuts people off mid-sentence. False is not a degradation here, it is the
     // truth: this backend does not know.
     GStatus AudioTranscriptionLive(
-        ServerContext *,
+        ServerContext *context,
         grpc::ServerReaderWriter<backend::TranscriptLiveResponse,
                                  backend::TranscriptLiveRequest> *stream) override {
         try {
@@ -1587,6 +1600,24 @@ public:
             }
             const backend::TranscriptLiveConfig config = incoming.config();
 
+            audiocpp_backend::RequestShape shape;
+            // No request signal chooses the task here: TranscriptLiveConfig has
+            // no prompt field, so has_prompt_text stays false and the only
+            // candidate is Asr. pinned_task is still copied, because without it
+            // the model's `task:` option is dead on this RPC.
+            shape.pinned_task = model->pinned_task();
+
+            // FIRST, before the lane and BEFORE the rate check below, like every
+            // other handler here. A family that cannot stream ASR is answering a
+            // question about itself, and that answer outranks any complaint
+            // about the request: pkg/grpc/grpcerrors/errors.go degrades to the
+            // file path on UNIMPLEMENTED and on nothing else, so a live-incapable
+            // model asked at a wrong rate must not answer INVALID_ARGUMENT and
+            // cost the caller its fallback. Unreachable from LocalAI today,
+            // which always sends 16000, and wrong on its own terms regardless.
+            model->check_can_serve(audiocpp_backend::Rpc::AudioTranscriptionLive,
+                                   shape);
+
             // 16 kHz mono or nothing, and this is a REFUSAL rather than a
             // resample for the reason spelled out at kSpeechSampleRate: the
             // streaming families build their spans in their own 16 kHz feature
@@ -1598,34 +1629,23 @@ public:
             // resampler cannot be applied to it incrementally, so the only
             // honest answers are this refusal or a wrong timestamp.
             //
+            // ZERO means 16000, which is what backend.proto documents. Every
+            // OTHER value is refused, including a negative one: -1 is malformed
+            // rather than absent, and quietly handing it the default would be
+            // this handler inventing a request the caller did not make.
+            //
             // Costs nothing today: core/backend/transcript_live.go hardcodes
-            // liveSampleRate = 16000, and backend.proto documents 0 as 16000 and
-            // says backends may reject other rates.
-            const int sample_rate =
-                config.sample_rate() > 0 ? config.sample_rate() : kSpeechSampleRate;
-            if (sample_rate != kSpeechSampleRate) {
+            // liveSampleRate = 16000.
+            if (config.sample_rate() != 0 &&
+                config.sample_rate() != kSpeechSampleRate) {
                 return GStatus(grpc::StatusCode::INVALID_ARGUMENT,
                                "audio-cpp: live transcription accepts " +
                                    std::to_string(kSpeechSampleRate) +
-                                   " Hz mono PCM only, got " +
-                                   std::to_string(sample_rate) +
+                                   " Hz mono PCM only (or 0 to mean it), got " +
+                                   std::to_string(config.sample_rate()) +
                                    " Hz; resample on the client side");
             }
-
-            audiocpp_backend::RequestShape shape;
-            // No request signal chooses the task here: TranscriptLiveConfig has
-            // no prompt field, so has_prompt_text stays false and the only
-            // candidate is Asr. pinned_task is still copied, because without it
-            // the model's `task:` option is dead on this RPC.
-            shape.pinned_task = model->pinned_task();
-
-            // Before the lane, like every other handler: a family that cannot
-            // stream ASR is answering a question about itself and must not
-            // queue behind somebody else's run to be told no. This is also what
-            // produces the UNIMPLEMENTED the client reads as "degrade to the
-            // file path", so it has to happen before the ack below.
-            model->check_can_serve(audiocpp_backend::Rpc::AudioTranscriptionLive,
-                                   shape);
+            const int sample_rate = kSpeechSampleRate;
 
             // THE LANE IS HELD FOR THE WHOLE STREAM, which is longer than any
             // other handler holds it: as long as the user keeps talking. The
@@ -1718,9 +1738,43 @@ public:
                 }
             };
 
+            // ARMED ONLY NOW, which is after the lane was taken and before the
+            // first audio frame is read, and DISARMED when the read side closes.
+            // Both ends matter:
+            //
+            //   - not earlier, because acquire() above can legitimately block
+            //     for as long as another live stream is running, and cancelling
+            //     a caller for waiting its turn would be this backend punishing
+            //     its own queue. The read of the CONFIG is likewise unwatched:
+            //     it holds no lane, so a client that stalls there wedges
+            //     nothing.
+            //   - not later, because everything past the read loop is OUR
+            //     compute. A decode that outruns the window is not a peer that
+            //     went quiet, and cancelling there would throw away the
+            //     transcript the client is waiting for.
+            //
+            // The status the client actually receives is CANCELLED, not the
+            // DEADLINE_EXCEEDED returned below: TryCancel is the only way to
+            // unblock a synchronous Read, and it decides the wire status itself.
+            // The point of this is not the status, it is that the lane comes
+            // back.
+            audiocpp_backend::IdleWatchdog idle(
+                std::chrono::milliseconds(model->live_idle_timeout_ms()),
+                [context, &model] {
+                    // Logged, because from the client's side this looks like an
+                    // unexplained cancellation and there is nowhere else to say
+                    // why.
+                    std::cerr << "audio-cpp: live stream idle for "
+                              << model->live_idle_timeout_ms()
+                              << " ms with the send side still open; cancelling "
+                                 "it to release the model lane\n";
+                    context->TryCancel();
+                });
+
             std::int64_t consumed_frames = 0;
             const auto next_frames = [&](std::vector<float> &out) {
                 while (stream->Read(&incoming)) {
+                    idle.touch();
                     if (incoming.has_config()) {
                         // backend.proto says a second Config resets the decode
                         // session. audio.cpp cannot do that truthfully: a reset
@@ -1752,6 +1806,21 @@ public:
                     consumed_frames += static_cast<std::int64_t>(pcm.size());
                     return true;
                 }
+                // The read side is closed, one way or the other. Stop the timer
+                // BEFORE saying so, since what follows is finalize().
+                idle.disarm();
+                if (idle.fired()) {
+                    // Read returned false because we cancelled the RPC, not
+                    // because the client closed. Thrown rather than returned so
+                    // the driver does not go on to finalize: there is nobody
+                    // left to send a transcript to, and the whole point was to
+                    // stop occupying the lane.
+                    throw LiveIdleTimeout(
+                        "audio-cpp: no audio frame arrived within " +
+                        std::to_string(model->live_idle_timeout_ms()) +
+                        " ms and the client did not close the stream; cancelled "
+                        "to release the model");
+                }
                 return false;
             };
 
@@ -1762,6 +1831,19 @@ public:
             // also buffers the wire's frames up to the family's own preferred
             // window, which is one second for nemotron_asr and nothing like the
             // 512-sample frames a client's audio callback produces.
+            //
+            // "LIVE" HERE MEANS INCREMENTAL INPUT, NOT LOW LATENCY, and with the
+            // families in the pinned checkout it does not yet mean incremental
+            // OUTPUT either. nemotron_asr's process_audio_chunk only appends to
+            // its buffer (src/models/nemotron_asr/session.cpp:424-436); the whole
+            // decode, and therefore every delta, happens inside finalize(). So
+            // against nemotron_asr every delta arrives AFTER the client closes
+            // its send side, and the driver's policy-window buffering changes
+            // nothing measurable. It is not inert for vibevoice_asr or
+            // higgs_audio_stt, which decode per chunk. Nobody should benchmark
+            // time-to-first-delta against nemotron_asr and conclude this is
+            // broken: it is the family, and the fix is a family that streams its
+            // decode.
             const auto result = audiocpp_backend::run_streaming_live(
                 session, task, next_frames, emit, lane);
 
@@ -1781,6 +1863,11 @@ public:
                 stream->Write(final_response);
             }
             return GStatus::OK;
+        } catch (const LiveIdleTimeout &err) {
+            // For the server's own record, and for a client that somehow reads
+            // it: TryCancel has already decided the wire status is CANCELLED.
+            // The lane was released by unwinding to here, which is the point.
+            return GStatus(grpc::StatusCode::DEADLINE_EXCEEDED, err.what());
         } catch (const std::exception &err) {
             return to_status(err);
         }

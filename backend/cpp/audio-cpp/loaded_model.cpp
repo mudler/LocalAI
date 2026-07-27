@@ -371,6 +371,7 @@ LoadedModel::LoadedModel(const std::string &resolved_path,
 
     pinned_task_ = options.task;
     wait_budget_ceiling_ms_ = options.busy_timeout_ms;
+    live_idle_timeout_ms_ = options.live_idle_timeout_ms;
 
     engine::runtime::ModelLoadRequest request;
     request.model_path = std::filesystem::path(resolved_path);
