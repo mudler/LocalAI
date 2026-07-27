@@ -46737,7 +46737,7 @@
     process inside ggml_concat when tested locally. The backend refuses
     anything but f32/i64 weights for this family, so a wrong build fails at
     load with a clear message rather than crashing.
-  license: apache-2.0
+  license: openrail
   tags:
     - audio-cpp
     - supertonic
@@ -46807,7 +46807,11 @@
     the audio-cpp backend through /v1/audio/transcriptions. 40 MB, offline
     transcription only. Q8_0 is the only package upstream publishes and tests
     for this family, and it is recorded as a clean Pass.
-  license: apache-2.0
+
+    Licensing: the checkpoint is pulled from NVIDIA NGC
+    (nvidia/nemo/stt_en_citrinet_256), whose use is governed by the NGC Terms
+    of Use rather than a named open licence.
+  license: other
   tags:
     - audio-cpp
     - citrinet
@@ -46836,9 +46840,9 @@
     - https://github.com/0xShug0/audio.cpp
   description: |
     Nemotron 3.5 ASR Streaming 0.6B (audio.cpp, F16) - streaming English speech
-    to text, served by the audio-cpp backend. This is the family behind the
-    live transcription RPC, so it drives the realtime transcription session as
-    well as ordinary /v1/audio/transcriptions calls.
+    to text, served by the audio-cpp backend. It serves the backend's live
+    bidirectional transcription RPC as well as ordinary
+    /v1/audio/transcriptions calls.
 
     F16 rather than Q8_0 because upstream's tested-status table records Q8_0 as
     "Pass (minor filler drift)" while 16-bit is a clean Pass, and drift in a
@@ -46878,7 +46882,10 @@
 
     Q8_0 because upstream records it as a clean Pass, the same as 16-bit, at
     two thirds of the size.
-  license: other
+
+    Licensing: the base checkpoint nvidia/diar_sortformer_4spk-v1 is
+    CC BY-NC 4.0, so commercial use is not permitted.
+  license: cc-by-nc-4.0
   tags:
     - audio-cpp
     - sortformer
@@ -47043,6 +47050,7 @@
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://github.com/0xShug0/audio.cpp
+    - https://github.com/NVIDIA/NeMo
   description: |
     MarbleNet VAD (audio.cpp) - NeMo voice activity detection over /v1/vad, an
     alternative to Silero with different segment boundaries. The model ships
