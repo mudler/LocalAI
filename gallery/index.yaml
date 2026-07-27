@@ -45985,6 +45985,7 @@
     - model: qwen3-coder-next-ud-q5-k-m
     - model: qwen3-coder-next-ud-q6-k
     - model: qwen3-coder-next-q8-0
+    - model: qwen3-coder-next-mxfp4_moe
 - name: qwen3.5-35b-a3b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   description: Qwen3.5-35B-A3B. Quality ladder and quantization rungs published by mudler/Qwen3.5-35B-A3B-APEX-GGUF and its unsloth counterpart; LocalAI picks the build that fits the hardware.
