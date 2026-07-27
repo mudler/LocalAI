@@ -129,6 +129,35 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4"
     metal: "metal-ds4"
     metal-darwin-arm64: "metal-ds4"
+- &audiocpp
+  name: "audio-cpp"
+  alias: "audio-cpp"
+  license: apache-2.0
+  description: |
+    0xShug0/audio.cpp - a ggml audio inference framework covering text to
+    speech, voice cloning, transcription, forced alignment, voice activity
+    detection, speaker diarization, source separation, voice conversion and
+    music generation, across 30+ model families. Consumes audio.cpp-native
+    GGUF packages from huggingface.co/audio-cpp/audio.cpp-gguf.
+  urls:
+    - https://github.com/0xShug0/audio.cpp
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+  tags:
+    - TTS
+    - text-to-speech
+    - audio-transcription
+    - CPU
+    - CUDA
+    - Vulkan
+  # No metal/metal-darwin-arm64 key: there is no Darwin matrix entry for
+  # audio-cpp yet, and pointing a capability at a tag CI never builds hands the
+  # user a pull failure instead of the CPU fallback below.
+  capabilities:
+    default: "cpu-audio-cpp"
+    nvidia: "cuda12-audio-cpp"
+    nvidia-cuda-12: "cuda12-audio-cpp"
+    nvidia-cuda-13: "cuda13-audio-cpp"
+    vulkan: "vulkan-audio-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -2001,6 +2030,14 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4-development"
     metal: "metal-ds4-development"
     metal-darwin-arm64: "metal-ds4-development"
+- !!merge <<: *audiocpp
+  name: "audio-cpp-development"
+  capabilities:
+    default: "cpu-audio-cpp-development"
+    nvidia: "cuda12-audio-cpp-development"
+    nvidia-cuda-12: "cuda12-audio-cpp-development"
+    nvidia-cuda-13: "cuda13-audio-cpp-development"
+    vulkan: "vulkan-audio-cpp-development"
 - !!merge <<: *stablediffusionggml
   name: "stablediffusion-ggml-development"
   capabilities:
@@ -6828,3 +6865,44 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-vllm-cpp"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-vllm-cpp
+## audio-cpp
+- !!merge <<: *audiocpp
+  name: "cpu-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cpu-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda12-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda12-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda13-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda13-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *audiocpp
+  name: "vulkan-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-audio-cpp
+- !!merge <<: *audiocpp
+  name: "vulkan-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-audio-cpp

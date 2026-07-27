@@ -3143,6 +3143,100 @@ include:
     dockerfile: "./backend/Dockerfile.privacy-filter"
     context: "./"
     ubuntu-version: '2404'
+  # audio-cpp: 0xShug0/audio.cpp, a multi-family ggml audio engine (TTS, ASR,
+  # VAD, diarization, source separation, music generation).
+  #
+  # These entries deliberately carry NO builder-base-image, unlike the
+  # privacy-filter and llama-cpp blocks above. The prebuilt
+  # quay.io/go-skynet/ci-cache:base-grpc-* images ship a from-source gRPC whose
+  # protobuf is v26, and protobuf has depended on abseil since v22. audio.cpp
+  # links sentencepiece with SPM_PROTOBUF_PROVIDER=package (needed to stop
+  # sentencepiece's vendored protobuf 3.14 from colliding with the 3.21 the
+  # generated backend.pb.cc is built against, which broke every nested-message
+  # parse), so sentencepiece then sees real abseil's
+  # `absl::lts_20240116::internal` alongside its own vendored plain
+  # `absl::internal` and every `absl::internal::` reference becomes ambiguous.
+  # Verified, not theorised: building against base-grpc-amd64 fails at
+  # sentencepiece-static.dir/error.cc.o with "reference to 'internal' is
+  # ambiguous". Dockerfile.audio-cpp therefore installs Ubuntu Noble's apt
+  # gRPC/protobuf 3.21.12 itself and has a single `builder` stage, so the
+  # BUILDER_BASE_IMAGE / BUILDER_TARGET / SKIP_DRIVERS build-args are never
+  # consumed. Same reason CUDA needs its toolkit in base-image rather than in a
+  # builder image: this is the ds4 shape, not the llama-cpp one.
+  #
+  # No ROCm entry: upstream has no HIP configuration. No CUDA arm64 or L4T
+  # entry: upstream documents and validates CUDA on x86 only. Darwin/Metal
+  # lands with scripts/build/audio-cpp-darwin.sh, which does not exist yet.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-audio-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "nvidia/cuda:12.8.1-devel-ubuntu24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  # Vulkan: ubuntu:24.04 plus apt's libvulkan-dev + glslc, installed by
+  # Dockerfile.audio-cpp when BUILD_TYPE=vulkan. arm64 vulkan is a one-line add
+  # once amd64 is proven in CI.
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""

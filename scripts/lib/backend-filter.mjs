@@ -81,6 +81,9 @@ export function inferBackendPath(item) {
   if (item.dockerfile.endsWith("ds4")) {
     return `backend/cpp/ds4/`;
   }
+  if (item.dockerfile.endsWith("audio-cpp")) {
+    return `backend/cpp/audio-cpp/`;
+  }
   if (item.dockerfile.endsWith("llama-cpp")) {
     return `backend/cpp/llama-cpp/`;
   }
@@ -103,6 +106,16 @@ export function inferBackendPathDarwin(item) {
   // same lang=go-for-runner convention, source under backend/cpp.
   if (item.backend === "privacy-filter") {
     return `backend/cpp/privacy-filter/`;
+  }
+  // audio-cpp is C++ too. There is no Darwin matrix entry for it yet: the
+  // Metal build needs scripts/build/audio-cpp-darwin.sh and a
+  // `backends/audio-cpp-darwin` make target, neither of which exists, so this
+  // case (and the DARWIN_BESPOKE_BUILDERS membership below) is inert today. It
+  // is here so that adding the entry is a one-line change that cannot
+  // accidentally route a C++ backend through the generic
+  // build-darwin-go-backend path, which would look for backend/go/audio-cpp/.
+  if (item.backend === "audio-cpp") {
+    return `backend/cpp/audio-cpp/`;
   }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;
@@ -145,7 +158,17 @@ const isDarwinPython = item => !item.lang;
 // backend_build_darwin.yml routes llama-cpp, ds4 and privacy-filter to their
 // own bespoke make targets; every other lang=go entry goes through
 // `make build-darwin-go-backend` -> scripts/build/golang-darwin.sh.
-const DARWIN_BESPOKE_BUILDERS = new Set(["llama-cpp", "ds4", "privacy-filter"]);
+//
+// audio-cpp is listed ahead of its Darwin matrix entry (see
+// inferBackendPathDarwin): it is a C++/ggml backend that will need the same
+// bespoke treatment, and listing it here now means the entry, when it lands,
+// cannot be silently claimed by the generic Go path.
+const DARWIN_BESPOKE_BUILDERS = new Set([
+  "llama-cpp",
+  "ds4",
+  "privacy-filter",
+  "audio-cpp",
+]);
 const isDarwinGenericGo = item =>
   !!item.lang && !DARWIN_BESPOKE_BUILDERS.has(item.backend);
 
