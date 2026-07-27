@@ -53,7 +53,7 @@ form-data, returns audio bytes.
 | `audio` | file   | yes | Primary input audio |
 | `reference` | file | no | Optional auxiliary signal |
 | `response_format` | string | no | `wav` (default), `mp3`, `ogg`, `flac` |
-| `sample_rate` | int | no | Desired output sample rate |
+| `sample_rate` | int | no | Desired output sample rate in Hz. Omit it for the backend's own rate; otherwise it must be between 8000 and 192000, and a value outside that range is refused with a 400 |
 | `params[<key>]` | string | no | Repeated; forwarded to backend |
 | `params[stem]` | string | no | Multi-output transforms only; picks which named output the body carries (see [stems](#multi-output-transforms-source-separation-stems)) |
 

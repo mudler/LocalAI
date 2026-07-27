@@ -60,7 +60,44 @@ const (
 	// default ceiling is generous; raised here to 1 MiB to allow larger
 	// frame_samples for backends with longer hops.
 	audioTransformWSReadLimit = 1 << 20
+
+	// minAudioTransformSampleRate / maxAudioTransformSampleRate bound the
+	// caller-supplied `sample_rate` form field.
+	//
+	// THIS IS A RESOURCE BOUND, not a taste judgement. The value is
+	// interpolated straight into ffmpeg's -ar by utils.AudioResample, and
+	// ffmpeg accepts absurd rates happily: -ar 999999999 on a one second clip
+	// writes a 3.9 GB WAV and exits 0, into a GeneratedContentDir that nothing
+	// sweeps, and a separation request repeats that for every stem
+	// (see convertStems). At the other end -ar 1 writes a ZERO byte file, also
+	// exit 0, which was then served to the caller as the transformed audio.
+	//
+	// 8000 is the lowest rate any telephony codec uses and the lowest anything
+	// here is trained on; 192000 is the highest rate consumer audio hardware
+	// and the WAV container are routinely used at, and is already 4x the
+	// 48 kHz every model in the gallery produces. `sample_rate` unset (0) still
+	// means "leave the backend's own rate alone" and skips the check.
+	minAudioTransformSampleRate = 8000
+	maxAudioTransformSampleRate = 192000
 )
+
+// validateAudioTransformSampleRate returns an HTTP 400 for a requested output
+// rate outside [minAudioTransformSampleRate, maxAudioTransformSampleRate].
+// Zero means unset and is always accepted.
+//
+// Split out from the handler so the bound is testable without a model, a
+// backend or a multipart body: the handler rejects before it touches disk.
+func validateAudioTransformSampleRate(sampleRate int) error {
+	if sampleRate == 0 {
+		return nil
+	}
+	if sampleRate < minAudioTransformSampleRate || sampleRate > maxAudioTransformSampleRate {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf(
+			"sample_rate must be between %d and %d Hz (got %d)",
+			minAudioTransformSampleRate, maxAudioTransformSampleRate, sampleRate))
+	}
+	return nil
+}
 
 // AudioTransformEndpoint implements the batch audio-transform API. Accepts a
 // multipart/form-data request with `audio` (required) and an optional
@@ -77,7 +114,7 @@ const (
 // @Param audio formData file true "primary input audio file"
 // @Param reference formData file false "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)"
 // @Param response_format formData string false "wav | mp3 | ogg | flac"
-// @Param sample_rate formData integer false "desired output sample rate"
+// @Param sample_rate formData integer false "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000"
 // @Success 200 {string} binary "transformed audio file"
 // @Router /audio/transformations [post]
 // @Router /audio/transform [post]
@@ -94,6 +131,12 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 		}
 
 		xlog.Debug("LocalAI Audio Transform Request received", "model", input.Model)
+
+		// Before the temp dir and before the model is touched: a rejected rate
+		// must not cost an upload, a decode or an inference.
+		if err := validateAudioTransformSampleRate(input.SampleRate); err != nil {
+			return err
+		}
 
 		audioFile, err := c.FormFile("audio")
 		if err != nil {
@@ -450,7 +493,17 @@ func saveMultipartFileAsWAV(fh *multipart.FileHeader, dir, name string, foldToMo
 	}
 	defer func() { _ = f.Close() }()
 
-	raw := filepath.Join(dir, "raw-"+path.Base(fh.Filename))
+	// `name` prefixes the raw copy too, and that is not cosmetic. Both parts of
+	// one request land in the SAME dir, and a client that uploads
+	// `-F audio=@mic/clip.wav -F reference=@loopback/clip.wav` sends the same
+	// BASENAME twice. Without the prefix both parts write "raw-clip.wav", and
+	// because utils.AudioToWavPreservingShape hardlinks a WAV that is already
+	// PCM16 rather than copying it, audio.wav and raw-clip.wav are one inode:
+	// the reference part's os.Create then truncates the audio the caller
+	// uploaded first and refills it with the reference. The request still
+	// returns 200, with mic == reference, which for AEC means the canceller
+	// nulls everything and hands back near-silence.
+	raw := filepath.Join(dir, name+"-raw-"+path.Base(fh.Filename))
 	out, err := os.Create(raw)
 	if err != nil {
 		return "", err

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	laudio "github.com/mudler/LocalAI/pkg/audio"
@@ -203,5 +204,61 @@ var _ = Describe("utils/ffmpeg shape-preserving conversion", func() {
 
 		Expect(AudioToWavPreservingShape(src, dst)).To(Succeed())
 		Expect(src).To(BeAnExistingFile(), "the upload must survive the conversion")
+	})
+})
+
+// AudioResample interpolates the caller's sample rate straight into ffmpeg's
+// -ar, and a successful exit does not mean a usable file came out. Measured
+// against ffmpeg 7 on a one second 16 kHz clip: -ar 1 exits 0 and writes 78
+// bytes, a bare header with no audio behind it, whose declared data size still
+// claims 70 bytes so go-audio parses it as a 35 SECOND file. Both the exit
+// status and the parsed duration say "audio"; only the bytes on disk say
+// otherwise. Before this guard that file was returned to the caller as the
+// transformed audio, with a 200.
+var _ = Describe("utils/ffmpeg resample output", func() {
+	var dir string
+
+	BeforeEach(func() {
+		dir = GinkgoT().TempDir()
+		if _, err := exec.LookPath("ffmpeg"); err != nil {
+			Skip("ffmpeg is not installed")
+		}
+	})
+
+	It("refuses an output ffmpeg wrote with no audio in it", func() {
+		src := filepath.Join(dir, "speech.wav")
+		writeWAV(src, 16000, 1, 16000)
+
+		dst, err := AudioResample(src, 1)
+
+		Expect(err).To(HaveOccurred(),
+			"a header with no audio must not be handed back as the transformed audio")
+		Expect(err.Error()).To(ContainSubstring("no audio"))
+		Expect(dst).To(BeEmpty())
+	})
+
+	It("resamples normally at a rate inside the endpoint's bounds", func() {
+		src := filepath.Join(dir, "speech.wav")
+		writeWAV(src, 16000, 1, 16000)
+
+		dst, err := AudioResample(src, 8000)
+
+		Expect(err).ToNot(HaveOccurred())
+		rate, channels, _ := readShape(dst)
+		Expect(rate).To(Equal(uint32(8000)))
+		Expect(channels).To(Equal(uint16(1)))
+		info, err := os.Stat(dst)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Size()).To(BeNumerically(">", 8000), "half a second of 8 kHz mono is 8 kB of PCM")
+	})
+
+	It("is a no-op for an unset rate", func() {
+		src := filepath.Join(dir, "speech.wav")
+		writeWAV(src, 16000, 1, 160)
+
+		dst, err := AudioResample(src, 0)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dst).To(Equal(src))
 	})
 })
