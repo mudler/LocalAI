@@ -222,6 +222,29 @@ var _ = Describe("VoiceCloningForModel", func() {
 		Entry("legacy option custom opt-in", ModelConfig{Name: "private-build", Backend: "qwen3-tts-cpp", Options: []string{"voice_cloning:true"}}, true),
 		Entry("legacy option opt-out", ModelConfig{Name: "voxcpm-1.5", Backend: "voxcpm", Options: []string{"voice_cloning=false"}}, false),
 	)
+
+	// A pinned gallery variant must reach the SAME per-backend rule as the meta
+	// name, in both directions. Resolving the capability by stripping the prefix
+	// while still keying the model-variant switch on the pinned spelling made
+	// every variant fall through to the permissive default: cuda12-vibevoice-cpp
+	// advertised cloning for the realtime 0.5B model, which cannot do it, and
+	// /v1/audio/speech accepted a profile: voice it had to fail on in the backend
+	// instead of rejecting it with a 400.
+	DescribeTable("resolves the model-variant rule through pinned gallery variants",
+		func(cfg ModelConfig, expected bool) {
+			Expect(VoiceCloningForModel(&cfg) != nil).To(Equal(expected))
+		},
+		Entry("cuda12-vibevoice-cpp 0.5B stays unsupported", ModelConfig{Name: "vibevoice-cpp-0.5b", Backend: "cuda12-vibevoice-cpp"}, false),
+		Entry("cuda12-vibevoice-cpp 1.5B stays supported", ModelConfig{Name: "vibevoice-1.5b", Backend: "cuda12-vibevoice-cpp"}, true),
+		Entry("metal-coqui tacotron2 stays unsupported", ModelConfig{Name: "tacotron2-en", Backend: "metal-coqui"}, false),
+		Entry("metal-coqui xtts stays supported", ModelConfig{Name: "xtts-v2", Backend: "metal-coqui"}, true),
+		Entry("cuda12-crispasr ASR stays unsupported", ModelConfig{Name: "parakeet-asr", Backend: "cuda12-crispasr"}, false),
+		Entry("cuda12-crispasr F5 stays supported", ModelConfig{Name: "f5-tts-crispasr", Backend: "cuda12-crispasr"}, true),
+		Entry("cpu-qwen3-tts-cpp CustomVoice stays unsupported", ModelConfig{Name: "qwen3-tts-flash", Backend: "cpu-qwen3-tts-cpp"}, false),
+		Entry("cpu-qwen3-tts-cpp Base stays supported", ModelConfig{Name: "qwen3-tts-cpp-0.6b-base", Backend: "cpu-qwen3-tts-cpp"}, true),
+		Entry("release channel suffix too", ModelConfig{Name: "vibevoice-cpp-0.5b", Backend: "vibevoice-cpp-development"}, false),
+		Entry("pinned audio-cpp keeps its unconditional cloning", ModelConfig{Name: "audio-cpp-chatterbox", Backend: "cuda12-audio-cpp"}, true),
+	)
 })
 
 var _ = Describe("IsValidUsecaseForBackend", func() {

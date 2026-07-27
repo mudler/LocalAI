@@ -843,16 +843,29 @@ func UsesLlamaCppServingOptions(backend string) bool {
 // Exact match FIRST, so a backend genuinely registered under a variant-looking
 // name keeps its own entry and stripping can never shadow it.
 func GetBackendCapability(backend string) *BackendCapability {
+	capability, _ := resolveBackendCapability(backend)
+	return capability
+}
+
+// resolveBackendCapability is GetBackendCapability plus the key the entry was
+// found under. Callers that then branch on backend identity MUST use that key,
+// not the name they passed in. VoiceCloningForModel is the reason this exists:
+// its per-backend switch encodes which model variants of a backend can clone,
+// and keying it on the caller's spelling meant "cuda12-vibevoice-cpp" resolved
+// the capability by stripping but missed the "vibevoice-cpp" case, falling
+// through to the permissive default and advertising cloning for the 0.5B model
+// that cannot do it.
+func resolveBackendCapability(backend string) (*BackendCapability, string) {
 	name := NormalizeBackendName(backend)
 	if cap, ok := BackendCapabilities[name]; ok {
-		return &cap
+		return &cap, name
 	}
 	if base := stripBackendVariant(name); base != name {
 		if cap, ok := BackendCapabilities[base]; ok {
-			return &cap
+			return &cap, base
 		}
 	}
-	return nil
+	return nil, name
 }
 
 // AudioTransformRequiresMono16kInput reports whether /audio/transform must fold
@@ -883,8 +896,7 @@ func VoiceCloningForModel(cfg *ModelConfig) *VoiceCloningCapability {
 	if cfg == nil {
 		return nil
 	}
-	backend := NormalizeBackendName(cfg.Backend)
-	capability := GetBackendCapability(backend)
+	capability, backend := resolveBackendCapability(cfg.Backend)
 	if capability == nil || capability.VoiceCloning == nil {
 		return nil
 	}
