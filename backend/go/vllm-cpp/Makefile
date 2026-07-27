@@ -17,7 +17,12 @@ VLLM_CPP_VERSION?=a42b8187caff02c570c28e19e4dc2b1d7f55ed14
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
 # metal`, i.e. a full Xcode the macOS runners do not have, while the wheel ships
 # include/, lib/libmlx.dylib and the compiled mlx.metallib ready to link.
-VLLM_CPP_MLX?=on
+#
+# DEFAULT OFF. It was on when this branch opened, on the strength of an A/B that
+# had MLX at 1.88x. That measurement is stale: vllm.cpp's own Metal kernels have
+# since improved several-fold, and re-measured on the same M4 the provider is now
+# 46% SLOWER end to end (11.98 vs 22.06 warm tok/s). See the README.
+VLLM_CPP_MLX?=off
 MLX_VERSION?=0.29.3
 MLX_VENV?=$(abspath ./mlx-venv)
 # Resolved lazily (recursive `=`, not `:=`): the glob only matches once the venv
