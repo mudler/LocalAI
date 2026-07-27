@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -586,16 +587,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
-				tracked.OnFirstComplete(func() {
-					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
-				})
-				return &RouteResult{
-					Node:   node,
-					Client: tracked,
-					Release: func() {
-						closeClient(grpcClient)
-					},
-				}, nil
+				return r.newRouteResult(node, trackingKey, replicaIdx, grpcClient, tracked), nil
 			}
 		}
 	}
@@ -659,16 +651,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
-					tracked.OnFirstComplete(func() {
-						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
-					})
-					return &RouteResult{
-						Node:   node,
-						Client: tracked,
-						Release: func() {
-							closeClient(grpcClient)
-						},
-					}, nil
+					return r.newRouteResult(node, trackingKey, replicaIdx, grpcClient, tracked), nil
 				}
 			}
 		}
@@ -686,16 +669,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 
 		replicaIdx := result.ReplicaIndex
 		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey, replicaIdx)
-		tracked.OnFirstComplete(func() {
-			r.registry.DecrementInFlight(context.Background(), result.Node.ID, trackingKey, replicaIdx)
-		})
-		return &RouteResult{
-			Node:   result.Node,
-			Client: tracked,
-			Release: func() {
-				closeClient(result.Client)
-			},
-		}, nil
+		return r.newRouteResult(result.Node, trackingKey, replicaIdx, result.Client, tracked), nil
 	}
 
 	if r.db != nil {
@@ -1811,6 +1785,39 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.
+// newRouteResult builds the RouteResult for a routed replica, wiring the
+// load-time in_flight reservation to a release that fires exactly once, on
+// whichever happens first: the triggering inference completing, or the route
+// being torn down without one ever running.
+//
+// Tying it to teardown as well as to the first inference is what stops the
+// reservation leaking. A route whose caller never reaches the backend (client
+// disconnect, handler error, validation failure after load) previously left
+// in_flight pinned at 1 forever, and every eviction query requires
+// in_flight = 0, so that replica's VRAM could never be reclaimed.
+func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
+	var once sync.Once
+	release := func() {
+		once.Do(func() {
+			if err := r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx); err != nil {
+				// Worth surfacing: a reservation that fails to come back is
+				// exactly what the leak sweeper later has to clean up.
+				xlog.Warn("Failed to release routing in-flight reservation",
+					"node", node.ID, "model", trackingKey, "replica", replicaIdx, "error", err)
+			}
+		})
+	}
+	tracked.OnFirstComplete(release)
+	return &RouteResult{
+		Node:   node,
+		Client: tracked,
+		Release: func() {
+			release()
+			closeClient(raw)
+		},
+	}
+}
+
 func closeClient(client grpc.Backend) {
 	if closer, ok := client.(io.Closer); ok {
 		closer.Close()
