@@ -62,11 +62,19 @@ std::int64_t seconds_to_samples(double seconds, int sample_rate) {
     //
     // That round trip is exact only below roughly 2^23 samples. Past that the
     // float samples_to_seconds returns can no longer resolve adjacent indices
-    // and the trip fails whatever the rounding: measured first failures run
-    // from 11289602 samples (4.3 min at 44.1 kHz, 2.1 min at 96 kHz) to
-    // 16384001 (17 min at 16 kHz). That is a property of the float seconds API
-    // itself, not of the rounding here, and it is why nothing should use these
-    // to carry a sample-accurate position in a long recording.
+    // and the trip fails whatever the rounding. Both the first failing INDEX
+    // and the duration it stands for depend on the rate, so they are listed per
+    // rate rather than folded into one range; measured:
+    //
+    //   16 kHz    16384001 samples   17.1 min
+    //   44.1 kHz  11289602 samples    4.3 min
+    //   48 kHz    12288002 samples    4.3 min
+    //   96 kHz    12288002 samples    2.1 min
+    //
+    // The shortest recording this bites is therefore a couple of minutes of
+    // 96 kHz audio. It is a property of the float seconds API itself, not of
+    // the rounding here, and it is why nothing should use these to carry a
+    // sample-accurate position in a long recording.
     return static_cast<std::int64_t>(std::llround(scaled));
 }
 

@@ -141,6 +141,70 @@ static void test_a_firing_watchdog_still_joins_cleanly() {
     check(calls.load() == 1, "the callback ran once, inside the scope");
 }
 
+// The predicate the live read loop filters on.
+static void test_only_a_frame_with_audio_counts() {
+    using audiocpp_backend::live_frame_carries_audio;
+    check(live_frame_carries_audio(true, false),
+          "a frame with a non-empty pcm field carries audio");
+    check(!live_frame_carries_audio(true, true),
+          "an empty pcm field does not");
+    check(!live_frame_carries_audio(false, false),
+          "an unset audio oneof does not, whatever the pcm field looks like");
+    check(!live_frame_carries_audio(false, true),
+          "and neither does an unset oneof with an empty pcm field");
+}
+
+// The defect this closes, expressed as behaviour rather than as a call order:
+// a peer writing frames the decoder cannot consume, faster than the window,
+// used to hold the model's only inference lane forever, because the read loop
+// touched the watchdog before it filtered them out. One lane per model and one
+// model per process, so that is a single client denying the whole backend,
+// which is exactly what the watchdog exists to prevent.
+static void test_empty_frames_do_not_hold_the_lane() {
+    std::atomic<int> cancels{0};
+    std::atomic<bool> stop{false};
+    audiocpp_backend::IdleWatchdog watchdog(80ms, [&cancels] { ++cancels; });
+
+    // The read loop with the real filter in it: frames arrive continuously,
+    // none of them carries audio, and only a frame that does may touch.
+    std::thread peer([&] {
+        while (!stop.load()) {
+            if (audiocpp_backend::live_frame_carries_audio(false, true)) {
+                watchdog.touch();
+            }
+            std::this_thread::sleep_for(5ms);
+        }
+    });
+
+    std::this_thread::sleep_for(600ms);
+    stop.store(true);
+    peer.join();
+    watchdog.disarm();
+
+    check(cancels.load() == 1,
+          "a flood of frames with no audio in them still releases the lane");
+
+    // The mirror image, so this cannot pass merely because the watchdog always
+    // fires: a peer that keeps sending audio is left alone, exactly as before.
+    std::atomic<int> live_cancels{0};
+    std::atomic<bool> live_stop{false};
+    audiocpp_backend::IdleWatchdog live(80ms, [&live_cancels] { ++live_cancels; });
+    std::thread speaker([&] {
+        while (!live_stop.load()) {
+            if (audiocpp_backend::live_frame_carries_audio(true, false)) {
+                live.touch();
+            }
+            std::this_thread::sleep_for(5ms);
+        }
+    });
+    std::this_thread::sleep_for(600ms);
+    live_stop.store(true);
+    speaker.join();
+    live.disarm();
+    check(live_cancels.load() == 0,
+          "a peer that keeps sending audio is never cancelled");
+}
+
 int main() {
     test_it_fires_when_nothing_touches_it();
     test_touching_defers_it_indefinitely();
@@ -150,6 +214,8 @@ int main() {
     test_fired_survives_a_later_disarm();
     test_the_destructor_joins();
     test_a_firing_watchdog_still_joins_cleanly();
+    test_only_a_frame_with_audio_counts();
+    test_empty_frames_do_not_hold_the_lane();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

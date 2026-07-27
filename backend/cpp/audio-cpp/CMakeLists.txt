@@ -105,9 +105,23 @@ target_link_libraries(hw_grpc_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 #
 # "package" makes sentencepiece use the protobuf found above, which is the one
 # the generated code was built against. It must be set before add_subdirectory,
-# since that is when sentencepiece's own cache entry is created. After it, zero
-# google::protobuf:: definitions remain in the executable, and citrinet_asr,
-# which parses a SentencePiece ModelProto at load, still tokenizes correctly.
+# since that is when sentencepiece's own cache entry is created.
+#
+# WHAT THAT BUYS IS ONE PROTOBUF RUNTIME, not an executable free of protobuf
+# symbols, and the difference matters to whoever checks this next. Measured with
+# nm -C --defined-only on the linked grpc-server, 2515 google::protobuf::
+# symbols are still DEFINED in it, and that is what should be there: they are
+# generated code, sentencepiece::ModelProto's own _InternalParse and
+# CheckTypeAndMergeFrom among them, which name protobuf types in their
+# signatures and are compiled into every user of a .proto. Expecting zero would
+# send a reader looking for a regression that is not one.
+#
+# The claim that decides whether the ABI mismatch above is gone is the RUNTIME
+# one, and it holds: google::protobuf::internal::ParseContext::ParseMessage is
+# UNDEFINED in the executable, so every generated _InternalParse resolves it to
+# libprotobuf.so at load instead of to a vendored 3.14 copy. No vendored
+# protobuf-lite archive is pulled in at all, and citrinet_asr, which parses a
+# SentencePiece ModelProto at load, tokenizes correctly as a result.
 set(SPM_PROTOBUF_PROVIDER "package" CACHE STRING
     "Make sentencepiece use the found protobuf, not its vendored 3.14 copy" FORCE)
 

@@ -81,4 +81,19 @@ private:
     std::thread thread_;
 };
 
+// Whether one message read off a live stream is a frame the decoder can
+// actually consume, which is the ONLY thing that counts as the peer proving it
+// is still there.
+//
+// Split out of the read loop so the distinction is testable, and because
+// getting it wrong is silent. The loop used to touch the watchdog on ANY
+// message, before it filtered on has_audio and on an empty pcm field, so a peer
+// writing unset-oneof or zero-length frames faster than the window held the
+// lane forever: no audio was ever fed, no work was ever done, and the timer
+// that exists to break exactly that grip was reset by the frames doing it.
+// There is one lane per model and one model per process, so that is a single
+// client denying the whole backend. The thrown message already said "no audio
+// frame arrived"; this is the code agreeing with it.
+bool live_frame_carries_audio(bool has_audio, bool pcm_empty);
+
 } // namespace audiocpp_backend

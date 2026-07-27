@@ -496,10 +496,17 @@ float audio_duration_seconds(const engine::runtime::AudioBuffer &audio) {
 // chatterbox advertises clon and no tts at all, so before this every preset-only
 // or voice-less request to it got that engine-internal message.
 //
-// It cannot misfire on the legitimate case: has_voice_reference is what made
-// routing choose VoiceCloning in the first place, so reaching here with a clip
-// present is impossible unless the model pinned task:clon, and a clon pin with
-// no clip is exactly the misconfiguration worth naming.
+// The case it catches is the FALLBACK one, which is worth stating the right way
+// round. A clip is what makes routing put VoiceCloning first, but VoiceCloning
+// is also the last candidate a clip-less TTS request falls back to
+// (task_candidates returns {Tts, VoiceCloning, VoiceDesign} when no clip and no
+// instructions are supplied), so a family that advertises clon and no tts at
+// all - chatterbox, which is what ships in the gallery - routes EVERY voice-less
+// request here. A task:clon pin arrives here the same way.
+//
+// It cannot misfire on the legitimate case for the opposite reason: a request
+// that did supply a clip has voice_is_file set and returns on the line above
+// before anything is thrown.
 //
 // Deliberately NOT generalised to "every task whose family declares
 // supports_speaker_reference". That flag lives on the engine's CapabilitySet, is
@@ -1827,7 +1834,6 @@ public:
             std::int64_t consumed_frames = 0;
             const auto next_frames = [&](std::vector<float> &out) {
                 while (stream->Read(&incoming)) {
-                    idle.touch();
                     if (incoming.has_config()) {
                         // backend.proto says a second Config resets the decode
                         // session. audio.cpp cannot do that truthfully: a reset
@@ -1844,15 +1850,20 @@ public:
                             "' cannot reset a live session mid-stream; close "
                             "this stream and open a new one");
                     }
-                    if (!incoming.has_audio()) {
-                        // Neither arm of the oneof is set. Nothing to feed, and
-                        // not worth failing a live session over.
-                        continue;
-                    }
+                    // Touched only for a frame the decoder can actually consume,
+                    // and touched AFTER the filters rather than before them.
+                    // Neither arm of the oneof set, or an empty pcm field, is
+                    // nothing to feed and not worth failing a live session over
+                    // - but it is also not the peer proving it is still there,
+                    // and resetting the window for it let one client hold the
+                    // model's only lane indefinitely by writing empty frames
+                    // faster than the window. See live_frame_carries_audio.
                     const auto &pcm = incoming.audio().pcm();
-                    if (pcm.empty()) {
+                    if (!audiocpp_backend::live_frame_carries_audio(
+                            incoming.has_audio(), pcm.empty())) {
                         continue;
                     }
+                    idle.touch();
                     out.assign(pcm.begin(), pcm.end());
                     // Mono, so floats and frames are the same count. Only used
                     // for the duration reported in final_result.

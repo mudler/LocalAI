@@ -166,6 +166,35 @@ const char *const kVoiceEmbedReason =
     "itself exists upstream, and TitaNet and ECAPA-TDNN exist as internal "
     "conditioning encoders, but neither is registered as a loadable family";
 
+// The tasks an RPC is ever willing to route to, independent of request shape.
+//
+// DERIVED from task_candidates rather than restated, so a task added to an
+// RPC's candidate list cannot become inadmissible as a pin by omission. Setting
+// every shape flag yields each RPC's widest list: the per-flag branches only
+// reorder the same three tasks for Tts, and only ADD Alignment for
+// transcription, so the union is what comes back.
+std::vector<Task> admissible_tasks(Rpc rpc) {
+    RequestShape widest;
+    widest.has_voice_reference = true;
+    widest.has_instructions = true;
+    widest.has_prompt_text = true;
+    return task_candidates(rpc, widest);
+}
+
+std::string join_task_names(const std::vector<Task> &tasks) {
+    std::string out;
+    for (const Task task : tasks) {
+        if (!out.empty()) {
+            out += ", ";
+        }
+        out += task_name(task);
+    }
+    if (out.empty()) {
+        out = "nothing";
+    }
+    return out;
+}
+
 std::string join_attempts(const std::vector<Task> &tasks,
                           const std::vector<Mode> &modes) {
     std::string out;
@@ -324,8 +353,34 @@ Route resolve_route(Rpc rpc, const RequestShape &shape,
                           "align, vad, diar, sep, vdes, spk";
             return route;
         }
-        // A pinned task is honoured exactly. Silently rerouting would make the
-        // option meaningless and hide a misconfigured model.
+        // A pin is honoured exactly, but ONLY on an RPC that could have routed
+        // to it anyway. It used to replace the candidate list wholesale for
+        // every RPC, and because the model's `task:` option is copied into the
+        // shape by all nine handlers, one pin bled across all nine surfaces and
+        // produced wrong 200s rather than errors: nemotron with task:asr made
+        // Vad return 200 with zero segments after a full ASR decode, so 14
+        // seconds of speech was reported as silence, and silero_vad with
+        // task:vad made AudioTranscription return 200 with empty text and four
+        // segments whose spans were VAD segments, which the srt/vtt/lrc writers
+        // then rendered as a well formed subtitle file of four timed EMPTY
+        // cues. Refusing is what the docs already promise: "if the family
+        // cannot serve it, the request is refused rather than rerouted".
+        //
+        // Every legitimate pin survives, because a pin only ever names the task
+        // its own RPC already routes to: svc is in AudioTransform's candidates,
+        // tts/clon/vdes in TTS's, asr in transcription's, vad and diar in
+        // theirs.
+        const std::vector<Task> admissible = admissible_tasks(rpc);
+        if (std::find(admissible.begin(), admissible.end(), pinned) ==
+            admissible.end()) {
+            route.error = std::string("audio-cpp: this model pins task '") +
+                          task_name(pinned) + "', which the " + rpc_name(rpc) +
+                          " RPC never routes to (it routes to " +
+                          join_task_names(admissible) +
+                          "). Remove the task option to reach this RPC, or call "
+                          "the RPC the pinned task serves";
+            return route;
+        }
         tasks = {pinned};
     } else {
         tasks = task_candidates(rpc, shape);

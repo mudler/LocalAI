@@ -68,4 +68,8 @@ void IdleWatchdog::run() {
     }
 }
 
+bool live_frame_carries_audio(bool has_audio, bool pcm_empty) {
+    return has_audio && !pcm_empty;
+}
+
 } // namespace audiocpp_backend

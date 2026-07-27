@@ -240,6 +240,103 @@ static void test_pinned_task_overrides_routing() {
     check(!u.ok, "a pinned but unsupported task is refused");
 }
 
+// A pin lives on the MODEL, and every one of the nine handlers copies it into
+// the shape, so a pin set for one RPC arrives at all of them. It used to
+// replace the candidate list wholesale, which turned the other eight into wrong
+// 200s rather than errors: nemotron pinned to asr made Vad answer with zero
+// segments after a full ASR decode, and silero_vad pinned to vad made
+// AudioTranscription answer with empty text and four segments whose spans were
+// VAD segments, which the srt/vtt/lrc writers rendered as timed EMPTY cues.
+static void test_pin_must_be_admissible_for_the_rpc() {
+    Capabilities nemotron_asr{"nemotron_asr",
+                              {{Task::Asr, {Mode::Offline, Mode::Streaming}},
+                               {Task::Vad, {Mode::Offline}}}};
+
+    // The pin is legitimate on the RPC it was meant for.
+    RequestShape asr_pin;
+    asr_pin.pinned_task = "asr";
+    const auto transcription =
+        resolve_route(Rpc::AudioTranscription, asr_pin, nemotron_asr);
+    check(transcription.ok && transcription.task == Task::Asr,
+          "an admissible pin is still honoured exactly");
+
+    // ...and refused on one that never routes to it, EVEN THOUGH the family
+    // advertises the pinned task. That is the whole point: family support is
+    // not the question, RPC admissibility is.
+    const auto vad = resolve_route(Rpc::Vad, asr_pin, nemotron_asr);
+    check(!vad.ok, "an inadmissible pin is refused rather than served");
+    check(vad.error.find("asr") != std::string::npos,
+          "the refusal names the pinned task");
+    check(vad.error.find(rpc_name(Rpc::Vad)) != std::string::npos,
+          "the refusal names the RPC that cannot serve it");
+
+    Capabilities silero{"silero_vad", {{Task::Vad, {Mode::Offline}}}};
+    RequestShape vad_pin;
+    vad_pin.pinned_task = "vad";
+    const auto vad_ok = resolve_route(Rpc::Vad, vad_pin, silero);
+    check(vad_ok.ok && vad_ok.task == Task::Vad, "vad is admissible on Vad");
+    const auto transcribe_vad =
+        resolve_route(Rpc::AudioTranscription, vad_pin, silero);
+    check(!transcribe_vad.ok,
+          "a vad pin cannot make a transcription request return empty cues");
+
+    // Every pin a shipped configuration could sensibly set stays reachable on
+    // the RPC that serves it. This is the list the fix was checked against.
+    struct AdmissibleCase {
+        Rpc rpc;
+        const char *task;
+    };
+    const AdmissibleCase kAdmissible[] = {
+        {Rpc::AudioTransform, "svc"},   {Rpc::AudioTransform, "sep"},
+        {Rpc::AudioTransform, "vc"},    {Rpc::AudioTransform, "s2s"},
+        {Rpc::Tts, "tts"},              {Rpc::Tts, "clon"},
+        {Rpc::Tts, "vdes"},             {Rpc::TtsStream, "tts"},
+        {Rpc::AudioTranscription, "asr"},
+        {Rpc::AudioTranscription, "align"},
+        {Rpc::AudioTranscriptionStream, "asr"},
+        {Rpc::AudioTranscriptionLive, "asr"},
+        {Rpc::Vad, "vad"},              {Rpc::Diarize, "diar"},
+        {Rpc::SoundGeneration, "gen"},
+    };
+    for (const auto &entry : kAdmissible) {
+        Task task = Task::Tts;
+        check(parse_task_name(entry.task, task),
+              std::string("known task name: ") + entry.task);
+        // A family that advertises the pinned task offline and nothing else, so
+        // the ONLY thing that can refuse the route is the admissibility check.
+        Capabilities only{"probe",
+                          {{task, {Mode::Offline, Mode::Streaming}}}};
+        RequestShape pin;
+        pin.pinned_task = entry.task;
+        const auto route = resolve_route(entry.rpc, pin, only);
+        check(route.ok && route.task == task,
+              std::string("pin '") + entry.task + "' stays admissible on " +
+                  rpc_name(entry.rpc));
+    }
+
+    // And the pins that must NOT cross over, one per RPC pair that was
+    // observed producing a wrong 200.
+    const AdmissibleCase kInadmissible[] = {
+        {Rpc::Vad, "asr"},          {Rpc::Diarize, "asr"},
+        {Rpc::AudioTranscription, "vad"}, {Rpc::AudioTranscription, "diar"},
+        {Rpc::Tts, "asr"},          {Rpc::Vad, "tts"},
+        {Rpc::SoundGeneration, "tts"},    {Rpc::AudioTransform, "asr"},
+    };
+    for (const auto &entry : kInadmissible) {
+        Task task = Task::Tts;
+        check(parse_task_name(entry.task, task),
+              std::string("known task name: ") + entry.task);
+        Capabilities only{"probe",
+                          {{task, {Mode::Offline, Mode::Streaming}}}};
+        RequestShape pin;
+        pin.pinned_task = entry.task;
+        const auto route = resolve_route(entry.rpc, pin, only);
+        check(!route.ok,
+              std::string("pin '") + entry.task + "' is refused on " +
+                  rpc_name(entry.rpc));
+    }
+}
+
 static void test_vad_and_diarize() {
     Capabilities silero{"silero_vad", {{Task::Vad, {Mode::Offline, Mode::Streaming}}}};
     const auto v = resolve_route(Rpc::Vad, RequestShape{}, silero);
@@ -484,6 +581,7 @@ int main() {
     test_prompt_does_not_hijack_asr();
     test_audio_transform_prefers_separation();
     test_pinned_task_overrides_routing();
+    test_pin_must_be_admissible_for_the_rpc();
     test_vad_and_diarize();
     test_sound_generation();
     test_names_round_trip();
