@@ -396,6 +396,23 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
+	// Finished operations. Separate from /api/operations on purpose: that
+	// endpoint is polled once a second by every open tab, so the record does
+	// not ride along with it.
+	app.GET("/api/operations/history", func(c echo.Context) error {
+		return c.JSON(200, map[string]any{
+			"operations": opcache.History(),
+		})
+	}, adminMiddleware)
+
+	// Clear the record. Live operations and undismissed failures are untouched.
+	app.DELETE("/api/operations/history", func(c echo.Context) error {
+		opcache.ClearHistory()
+		return c.JSON(200, map[string]any{
+			"success": true,
+		})
+	}, adminMiddleware)
+
 	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {
 		// Trimmed once, here, so "is the user searching?" has a single answer
