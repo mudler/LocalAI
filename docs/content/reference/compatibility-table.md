@@ -55,7 +55,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 |---------|-------------|-------------|
 | [piper](https://github.com/rhasspy/piper) | Fast neural TTS | CPU, Metal |
 | [Coqui TTS](https://github.com/idiap/coqui-ai-TTS) | TTS with 1100+ languages and voice cloning | CUDA 12, ROCm, Intel SYCL, Metal |
-| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
+| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [Kokoros](https://huggingface.co/hexgrad/Kokoro-82M) | Pure Rust Kokoro TTS via ONNX | CPU |
 | [Chatterbox](https://github.com/resemble-ai/chatterbox) | Production-grade TTS with emotion control | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [VibeVoice](https://github.com/microsoft/VibeVoice) | Real-time TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
