@@ -109,12 +109,15 @@ These are on the operation cards. **Cancel** and **Retry** are labelled
 buttons; dismissing is the **X** at the end of a failed card. The strip has no
 cancel button; the page is the only place work is stopped or restarted.
 
-- **Cancel** is offered while an operation can still be stopped. For
-  artifact-backed gallery models, cancelling an active download leaves its
-  partial files in place so a later install resumes rather than starting over.
-  A cancelled operation leaves the live sections immediately and is not held on
-  the strip the way a completed one is; it appears in the record as
-  `cancelled`.
+- **Cancel** is offered while an operation is queued, whatever it is, and while
+  an install is running. It is not offered once a removal has started: a
+  removal in progress cannot be interrupted, so the window to call one off is
+  the queue, before a worker picks it up. Cancelling there stops it before
+  anything is touched. For artifact-backed gallery models, cancelling an active
+  download leaves its partial files in place so a later install resumes rather
+  than starting over. A cancelled operation leaves the live sections
+  immediately and is not held on the strip the way a completed one is; it
+  appears in the record as `cancelled`.
 - **Retry** is offered on a failed model or backend install. It acknowledges
   the failure, which moves it into the record, and installs the same target
   again. It is not offered on a failed removal, which is not restarted by
@@ -166,7 +169,7 @@ Both surfaces are backed by these endpoints. All of them are admin-only when
 | Method   | Path                             | Description                                                              |
 | -------- | -------------------------------- | ------------------------------------------------------------------------ |
 | `GET`    | `/api/operations`                | Running, queued and failed operations, least advanced first.              |
-| `POST`   | `/api/operations/{jobID}/cancel` | Cancel a running or queued operation.                                     |
+| `POST`   | `/api/operations/{jobID}/cancel` | Cancel a queued operation, or a running install. Not a running removal.  |
 | `POST`   | `/api/operations/{jobID}/dismiss`| Acknowledge a failed operation and move it into the record.               |
 | `GET`    | `/api/operations/history`        | List finished operations, newest first.                                   |
 | `DELETE` | `/api/operations/history`        | Clear the record. Live operations are untouched.                          |

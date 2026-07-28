@@ -570,8 +570,10 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
-						// A delete is not cancellable; an install is, matching
-						// the model channel.
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is, matching the model channel. The queued phase before
+						// this point is cancellable either way (see markQueued).
 						Cancellable: !op.Delete,
 					}); err != nil {
 						// Not fatal: the install still runs and the in-memory
@@ -611,7 +613,10 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
-						// A delete is not cancellable; an install is.
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is. The queued phase before this point is cancellable
+						// either way (see markQueued).
 						Cancellable: !op.Delete,
 					}); err != nil {
 						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)

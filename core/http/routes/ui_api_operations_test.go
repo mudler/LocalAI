@@ -1,6 +1,7 @@
 package routes_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,6 +18,27 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/system"
 )
+
+// parkedModelManager parks inside the operation the worker is running so a
+// spec can read /api/operations while that operation is genuinely in flight.
+// Without it the terminal status lands before the request is served and the
+// running phase is unobservable.
+type parkedModelManager struct {
+	entered chan string
+	release chan struct{}
+}
+
+func (m *parkedModelManager) InstallModel(_ context.Context, op *galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig], _ galleryop.ProgressCallback) error {
+	m.entered <- op.GalleryElementName
+	<-m.release
+	return nil
+}
+
+func (m *parkedModelManager) DeleteModel(name string) error {
+	m.entered <- name
+	<-m.release
+	return nil
+}
 
 // These specs guard the contract between the opcache (which stores
 // node-scoped backend installs under a "node:<nodeID>:<backend>" key) and the
@@ -223,6 +245,69 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		// Cancelling is what the queued state exists for: an op waiting behind
 		// a long install is the one a user most wants to call off.
 		Expect(found["cancellable"]).To(BeTrue())
+	})
+
+	It("offers cancel on a queued removal", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		// Nothing consumes the channel: the removal is admitted and waits, which
+		// is the one window in a removal's life where calling it off both works
+		// and leaves nothing behind.
+		jobID := "job-queued-removal"
+		opcache.Set("localai@qwen3-4b", jobID)
+		galleryService.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 jobID,
+			GalleryElementName: "localai@qwen3-4b",
+			Delete:             true,
+		})
+		Eventually(func() *galleryop.OpStatus {
+			return galleryService.GetStatus(jobID)
+		}, "2s", "10ms").ShouldNot(BeNil())
+
+		found := operationByJobID(appCfg, galleryService, opcache, jobID)
+		Expect(found).ToNot(BeNil(), "an admitted removal must be listed while it waits")
+		Expect(found["isQueued"]).To(BeTrue())
+		Expect(found["isDeletion"]).To(BeTrue())
+		Expect(found["cancellable"]).To(BeTrue(),
+			"hiding Cancel here strands the removal behind whatever is installing")
+	})
+
+	It("does not offer cancel once a removal is running", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		// A real worker running a real handler: the entry status is the thing
+		// under test, so it must come from the handler and not from the spec.
+		// The manager parks inside the removal to hold the running phase open.
+		manager := &parkedModelManager{entered: make(chan string, 1), release: make(chan struct{})}
+		galleryService.SetModelManager(manager)
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		DeferCleanup(func() { close(manager.release) })
+		Expect(galleryService.Start(ctx, nil, nil)).To(Succeed())
+
+		jobID := "job-running-removal"
+		opcache.Set("localai@qwen3-4b", jobID)
+		galleryService.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 jobID,
+			GalleryElementName: "localai@qwen3-4b",
+			Delete:             true,
+		})
+		Eventually(manager.entered, "5s").Should(Receive(Equal("localai@qwen3-4b")))
+
+		found := operationByJobID(appCfg, galleryService, opcache, jobID)
+		Expect(found).ToNot(BeNil())
+		Expect(found["isQueued"]).To(BeFalse())
+		Expect(found["isDeletion"]).To(BeTrue())
+		Expect(found["cancellable"]).To(BeFalse(),
+			"a Cancel button on a running removal cannot be honoured: DeleteModel takes no context")
 	})
 
 	It("does not emit isCancelled, which no live operation can ever be", func() {

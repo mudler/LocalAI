@@ -77,6 +77,16 @@ func enqueueContext(ctx context.Context) context.Context {
 }
 
 // markQueued publishes the pre-worker status for an admitted operation.
+//
+// Cancellable is unconditional here, removals included, which is the opposite
+// way round from the running phase (see the handler-entry writes in models.go
+// and backends.go). The asymmetry is real: cancelling a queued op releases the
+// delivery goroutine above and abandonQueued retires it, so the worker never
+// sees it and nothing is touched, so it is safe and effective for a removal as
+// it is for an install. It is once the worker starts a removal that cancelling
+// becomes impossible, because DeleteModel and DeleteBackend take no context.
+// Reporting a queued removal as uncancellable hid the Cancel button in the one
+// window where it would have worked.
 func (g *GalleryService) markQueued(id, elementName string, deletion bool) {
 	if id == "" {
 		return
@@ -86,7 +96,7 @@ func (g *GalleryService) markQueued(id, elementName string, deletion bool) {
 		Phase:              PhaseQueued,
 		GalleryElementName: elementName,
 		Deletion:           deletion,
-		Cancellable:        !deletion,
+		Cancellable:        true,
 	})
 }
 
