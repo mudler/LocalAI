@@ -822,6 +822,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Min:         f64(0),
 			Order:       213,
 		},
+		"proxy.cache_prompt": {
+			Section:     "proxy",
+			Label:       "Proxy Anthropic Prompt Cache",
+			Description: "Inject Anthropic prompt-cache breakpoints (cache_control: ephemeral) on the stable prefix (system, tools, last message) when mode is translate and provider is anthropic. Serves the repeated prefix at the cache-read rate on multi-turn/agentic calls. No effect otherwise.",
+			Component:   "checkbox",
+			Order:       214,
+		},
 
 		// --- MITM intercept hosts ---
 		// Each host listed here is claimed by this model config; the

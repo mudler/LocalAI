@@ -457,12 +457,17 @@ var _ = Describe("SmartRouter", func() {
 				// TouchNodeModel should have been called
 				Expect(reg.touchCalls).To(ContainElement("n1:my-model"))
 
-				// The initial in-flight reservation from FindAndLockNodeWithModel is released
-				// after the first inference call completes via OnFirstComplete callback.
-				// Release only closes the client.
+				// The initial in-flight reservation from FindAndLockNodeWithModel is
+				// released by whichever comes first: the first inference completing
+				// (OnFirstComplete) or the route being torn down. Teardown must
+				// release it too, or a route that never reached the backend leaks the
+				// counter and pins the replica against every eviction query.
 				result.Release()
-				// No decrement on Release — it happens via OnFirstComplete after first Predict
-				Expect(reg.decrementCalls).To(BeEmpty())
+				Expect(reg.decrementCalls).To(ContainElement("n1:my-model"))
+
+				// Exactly once, however many times teardown runs.
+				result.Release()
+				Expect(reg.decrementCalls).To(HaveLen(1))
 			})
 		})
 
@@ -487,9 +492,14 @@ var _ = Describe("SmartRouter", func() {
 				Expect(result).ToNot(BeNil())
 				Expect(result.Node.ID).To(Equal("n2"))
 
-				// SetNodeModel should record the model as loaded on the node
-				Expect(reg2.setCalls).To(HaveLen(1))
-				Expect(reg2.setCalls[0]).To(ContainSubstring("n2:some-model:loaded"))
+				// The load lifecycle is published: a staging row appears as soon
+				// as the node is chosen (what makes a multi-minute cold load
+				// visible in /api/nodes and the UI), then the final loaded row.
+				// This path passes nil model options, so the checkpoint-load
+				// phase (and its "loading" state) is skipped.
+				Expect(reg2.setCalls).To(HaveLen(2))
+				Expect(reg2.setCalls[0]).To(ContainSubstring("n2:some-model:staging"))
+				Expect(reg2.setCalls[1]).To(ContainSubstring("n2:some-model:loaded"))
 			})
 		})
 
@@ -1470,7 +1480,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 
 			// UnloadModel must route the eviction through the registry removal
 			// chokepoint (RemoveAllNodeModelReplicas). The registry's
-			// SetReplicaRemovedHook is what invalidates the prefix index in
+			// AddReplicaRemovedHook is what invalidates the prefix index in
 			// production; the router no longer invalidates directly. Here the
 			// fake registry records the removal but fires no hook, so we assert
 			// the chokepoint is exercised rather than the downstream

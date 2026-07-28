@@ -26,6 +26,23 @@ test.describe('Nodes roster header', () => {
 })
 
 test.describe('Nodes roster panels', () => {
+  test('shows used and total system RAM reported by a worker', async ({ page }) => {
+    await mockCluster(page, [
+      {
+        id: 'n1',
+        name: 'alpha',
+        node_type: 'backend',
+        address: '10.0.0.1:50051',
+        status: 'healthy',
+        total_ram: 8_000_000_000,
+        available_ram: 3_000_000_000,
+      },
+    ])
+
+    await page.goto('/app/nodes')
+    await expect(page.locator('.node-panel').filter({ hasText: 'alpha' })).toContainText('RAM 4.7 GB / 7.5 GB', { timeout: 15_000 })
+  })
+
   test('shows model chips without clicking and filters by type', async ({ page }) => {
     await page.route('**/api/nodes', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
       { id: 'n1', name: 'alpha', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy' },

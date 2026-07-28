@@ -36,6 +36,9 @@ func (s *backendSupervisor) subscribeLifecycleEvents() error {
 	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendList(s.nodeID), s.handleBackendList); err != nil {
 		return fmt.Errorf("subscribing to backend list events: %w", err)
 	}
+	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelsRunning(s.nodeID), s.handleModelsRunning); err != nil {
+		return fmt.Errorf("subscribing to models running events: %w", err)
+	}
 	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelUnload(s.nodeID), s.handleModelUnload); err != nil {
 		return fmt.Errorf("subscribing to model unload events: %w", err)
 	}

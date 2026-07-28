@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -319,6 +320,26 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// that built modelOpts may have no GPU at all in distributed mode.
 	applyNodeHardwareDefaults(modelOpts, node, backendType)
 
+	// Publish the load lifecycle from the moment the node is chosen: staging a
+	// large model takes minutes, and without a registry row the whole phase is
+	// invisible to /api/nodes and the UI — a cold load looks exactly like
+	// nothing happening. The row also reserves the replica slot against
+	// concurrent schedulers. Removed on any failure below so a dead load does
+	// not leave a phantom replica.
+	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "staging", backendAddr, 0); err != nil {
+		xlog.Warn("Failed to record staging state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+	}
+	lifecycleSettled := false
+	defer func() {
+		if lifecycleSettled {
+			return
+		}
+		cleanupCtx := context.WithoutCancel(ctx)
+		if err := r.registry.RemoveNodeModel(cleanupCtx, node.ID, trackingKey, replicaIndex); err != nil {
+			xlog.Warn("Failed to clear lifecycle row after failed load", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+		}
+	}()
+
 	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
 	// path fields to their remote equivalents on a clone, and only the local
 	// paths can be stat'ed here.
@@ -341,6 +362,11 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if loadOpts != nil {
 		xlog.Info("Loading model on remote node", "node", node.Name, "model", modelName, "addr", backendAddr,
 			"payloadBytes", payloadBytes, "loadBudget", loadTimeout)
+
+		// Staging is done; the checkpoint load on the worker begins.
+		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loading", backendAddr, 0); err != nil {
+			xlog.Warn("Failed to record loading state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+		}
 
 		// The cold-load hold above this call extends on STAGING progress, and
 		// the remote LoadModel reports none — so once the last byte lands the
@@ -380,7 +406,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
-	// Record the model as loaded on this node (specific replica slot).
+	// Record the model as loaded on this node (specific replica slot). From
+	// here the row is authoritative; the failure-cleanup defer must not touch it.
+	lifecycleSettled = true
 	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight); err != nil {
 		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 	}
@@ -559,16 +587,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 				r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
-				tracked.OnFirstComplete(func() {
-					r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
-				})
-				return &RouteResult{
-					Node:   node,
-					Client: tracked,
-					Release: func() {
-						closeClient(grpcClient)
-					},
-				}, nil
+				return r.newRouteResult(node, trackingKey, replicaIdx, grpcClient, tracked), nil
 			}
 		}
 	}
@@ -632,16 +651,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 					r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
 					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
-					tracked.OnFirstComplete(func() {
-						r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
-					})
-					return &RouteResult{
-						Node:   node,
-						Client: tracked,
-						Release: func() {
-							closeClient(grpcClient)
-						},
-					}, nil
+					return r.newRouteResult(node, trackingKey, replicaIdx, grpcClient, tracked), nil
 				}
 			}
 		}
@@ -659,16 +669,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 
 		replicaIdx := result.ReplicaIndex
 		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey, replicaIdx)
-		tracked.OnFirstComplete(func() {
-			r.registry.DecrementInFlight(context.Background(), result.Node.ID, trackingKey, replicaIdx)
-		})
-		return &RouteResult{
-			Node:   result.Node,
-			Client: tracked,
-			Release: func() {
-				closeClient(result.Client)
-			},
-		}, nil
+		return r.newRouteResult(result.Node, trackingKey, replicaIdx, result.Client, tracked), nil
 	}
 
 	if r.db != nil {
@@ -1554,6 +1555,31 @@ func pathBytes(path string) int64 {
 // countStageableFiles returns the number of regular files a model path expands
 // to for staging: 1 for a regular file, the contained file count for a
 // directory, and 0 if the path does not exist.
+// isHashSidecar reports whether path is a checksum sidecar that the receiving
+// side generated for a neighbouring file (see hashSidecarSuffix in
+// file_transfer_server.go), rather than a file belonging to the model.
+//
+// Staging these is what made model directories grow without bound: the
+// receiver writes "<file>.sha256" for every file it accepts, so re-staging a
+// directory that already held sidecars produced "<file>.sha256.sha256", then
+// "<file>.sha256.sha256.sha256", multiplying the tree on every pass.
+//
+// The check is deliberately "a sidecar sitting next to a real file" rather than
+// a blanket suffix ban, so a model that genuinely ships a .sha256 payload with
+// no corresponding base file is still transferred.
+func isHashSidecar(path string) bool {
+	for _, suffix := range []string{targetSidecarSuffix, hashSidecarSuffix} {
+		base, ok := strings.CutSuffix(path, suffix)
+		if !ok {
+			continue
+		}
+		if fi, err := os.Stat(base); err == nil && !fi.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
 func countStageableFiles(path string) int {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -1563,11 +1589,13 @@ func countStageableFiles(path string) int {
 		return 1
 	}
 	n := 0
-	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}
-		if !d.IsDir() {
+		// Must mirror stageDirectory's skip list, or the progress bar counts
+		// files that are never uploaded and never reaches 100%.
+		if !d.IsDir() && !isHashSidecar(p) {
 			n++
 		}
 		return nil
@@ -1588,6 +1616,11 @@ func (r *SmartRouter) stageDirectory(ctx context.Context, node *BackendNode, tra
 			return walkErr
 		}
 		if d.IsDir() {
+			return nil
+		}
+		// Checksum sidecars are regenerated by the receiver for every file it
+		// accepts; re-uploading them makes it write sidecars for the sidecars.
+		if isHashSidecar(path) {
 			return nil
 		}
 
@@ -1752,6 +1785,39 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.
+// newRouteResult builds the RouteResult for a routed replica, wiring the
+// load-time in_flight reservation to a release that fires exactly once, on
+// whichever happens first: the triggering inference completing, or the route
+// being torn down without one ever running.
+//
+// Tying it to teardown as well as to the first inference is what stops the
+// reservation leaking. A route whose caller never reaches the backend (client
+// disconnect, handler error, validation failure after load) previously left
+// in_flight pinned at 1 forever, and every eviction query requires
+// in_flight = 0, so that replica's VRAM could never be reclaimed.
+func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
+	var once sync.Once
+	release := func() {
+		once.Do(func() {
+			if err := r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx); err != nil {
+				// Worth surfacing: a reservation that fails to come back is
+				// exactly what the leak sweeper later has to clean up.
+				xlog.Warn("Failed to release routing in-flight reservation",
+					"node", node.ID, "model", trackingKey, "replica", replicaIdx, "error", err)
+			}
+		})
+	}
+	tracked.OnFirstComplete(release)
+	return &RouteResult{
+		Node:   node,
+		Client: tracked,
+		Release: func() {
+			release()
+			closeClient(raw)
+		},
+	}
+}
+
 func closeClient(client grpc.Backend) {
 	if closer, ok := client.(io.Closer); ok {
 		closer.Close()

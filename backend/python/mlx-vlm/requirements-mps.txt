@@ -1,1 +1,3 @@
 git+https://github.com/Blaizzy/mlx-vlm@v0.4.4
+torch
+torchvision

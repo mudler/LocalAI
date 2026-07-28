@@ -13,6 +13,11 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* A flex item's automatic minimum is its content's minimum, so without this
+     any single wide descendant (a long install error in the operations strip,
+     a wide table on a phone) drags the whole column past the viewport and
+     every page gets a horizontal scrollbar. */
+  min-width: 0;
   transition: margin-left var(--duration-normal) var(--ease-default);
 }
 
@@ -663,41 +668,151 @@
   to { transform: rotate(360deg); }
 }
 
-/* Operations bar */
-.operations-bar {
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-subtle);
-  padding: var(--spacing-xs) var(--spacing-md);
-}
-
-.operation-text {
-  font-family: var(--font-mono);
-}
-.operation-progress {
-  font-variant-numeric: tabular-nums;
-}
-
-.operation-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-xs) 0;
-  flex-wrap: wrap;
-}
-
-.operation-info {
+/* Operations strip: always exactly one line. Anything that does not fit here
+   belongs on /app/activity. */
+.operations-strip {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  flex: 2 1 0;
+  min-height: 40px;
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-left: 2px solid var(--color-primary);
+  font-size: 0.8125rem;
+  /* An install error is arbitrarily long text. This clips it; the shrinking
+     is done by min-width on .main-content above and on __detail below. */
+  overflow: hidden;
+}
+.operations-strip--error { border-left-color: var(--color-error); background: var(--color-error-light); }
+.operations-strip--queued { border-left-color: var(--color-text-disabled); }
+.operations-strip--staging { border-left-color: var(--color-info); }
+.operations-strip--removing { border-left-color: var(--color-warning); }
+.operations-strip--done { border-left-color: var(--color-success); }
+
+.operations-strip__icon { flex: none; font-size: 0.8125rem; }
+.operations-strip--error .operations-strip__icon { color: var(--color-error); }
+.operations-strip--queued .operations-strip__icon { color: var(--color-text-muted); }
+.operations-strip--staging .operations-strip__icon { color: var(--color-info); }
+.operations-strip--removing .operations-strip__icon { color: var(--color-warning); }
+.operations-strip--done .operations-strip__icon { color: var(--color-success); }
+
+.operations-strip__spinner {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary-light);
+  border-top-color: var(--color-primary);
+  animation: operationsStripSpin 0.9s linear infinite;
+}
+@keyframes operationsStripSpin { to { transform: rotate(360deg); } }
+
+.operations-strip__verb { flex: none; color: var(--color-text-secondary); white-space: nowrap; }
+.operations-strip__name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* overflow: hidden zeroes the automatic minimum size, so without a floor the
+     name loses the shrink contest to a long error and the identity of the
+     thing that broke is the first casualty. */
+  min-width: 12ch;
+}
+.operations-strip__sep { flex: none; color: var(--color-border-strong); }
+/* min-width and overflow are what let these shrink: a nowrap flex item's
+   automatic minimum size is otherwise its full content width. */
+.operations-strip__detail,
+.operations-strip__bytes {
+  flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.operations-strip__bytes { font-variant-numeric: tabular-nums; }
+.operations-strip__spacer { flex: 1 1 auto; min-width: var(--spacing-xs); }
+.operations-strip__pct {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+.operations-strip__track {
+  flex: 0 0 132px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+.operations-strip__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transition: width var(--duration-slow) var(--ease-spring);
+}
+.operations-strip--staging .operations-strip__fill { background: var(--color-info); }
+
+.operations-strip__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-height: 28px;
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-primary-border);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.operations-strip__more:hover { background: var(--color-primary); color: var(--color-primary-text); }
+.operations-strip__more--neutral {
+  background: transparent;
+  border-color: var(--color-border-default);
+  color: var(--color-text-secondary);
 }
 
-.operation-info > .operation-text {
-  flex: 1 1 auto;
-  min-width: 0;
+.operations-strip__hide {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.operations-strip__hide:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+/* Narrow screens drop the prose, never the name, the percentage or the
+   counter. */
+@media (max-width: 640px) {
+  .operations-strip__verb,
+  .operations-strip__detail,
+  .operations-strip__bytes,
+  .operations-strip__sep,
+  .operations-strip__track { display: none; }
+  .operations-strip__name { max-width: 45vw; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .operations-strip__spinner { animation: none; }
+  .operations-strip__fill { transition: none; }
+}
+
+/* Row-level install indicator, used by the Models and Backends tables. */
 .operation-spinner {
   width: 16px;
   height: 16px;
@@ -708,19 +823,6 @@
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
-}
-
-.operation-text {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.operation-progress {
-  font-size: 0.75rem;
-  color: var(--color-primary);
-  font-weight: 500;
 }
 
 .operation-bar-container {
@@ -760,38 +862,7 @@
   white-space: nowrap;
 }
 
-.operation-cancel {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px 6px;
-  font-size: 0.875rem;
-}
-.operation-cancel:hover {
-  color: var(--color-error);
-}
-
-/* Operations bar: per-node breakdown (multi-worker installs) */
-.operation-expand {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0 var(--spacing-xs);
-  font-size: var(--text-xs);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.operation-expand:hover {
-  color: var(--color-text-primary);
-}
-.operation-expand-label {
-  font-size: var(--text-xs);
-}
-
+/* Per-node breakdown of a multi-worker install. */
 .operation-nodes-list {
   list-style: none;
   margin: var(--spacing-xs) 0 0;
@@ -5563,20 +5634,6 @@ button.collapsible-header:focus-visible {
     border-right: 0;
     margin-inline: calc(-1 * var(--spacing-md));
   }
-
-  /* Operations toasts: scroll horizontally instead of wrapping */
-  .operations-bar {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-  }
-  .operation-item { flex-shrink: 0; }
-  .operation-text {
-    max-width: 60vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 }
 
 /* Reduced motion — disable non-essential transitions for users who
@@ -5584,7 +5641,7 @@ button.collapsible-header:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
   .page-transition,
-  .operations-bar,
+  .operations-strip,
   .page,
   .main-content {
     transition: none !important;
@@ -9644,4 +9701,225 @@ button.collapsible-header:focus-visible {
   .variant-row,
   .variant-row__info,
   .variant-row__action { transition: none; }
+}
+
+/* Live operation card on /app/activity. Status is carried by the icon and the
+   tag rather than a coloured rail, so a page of cards does not read as stripes. */
+.operation-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.operation-card--error { border-color: var(--color-error-border); background: var(--color-error-light); }
+.operation-card__main { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); }
+.operation-card__icon { flex: none; }
+.operation-card__icon--error { color: var(--color-error); }
+.operation-card__icon--staging { color: var(--color-info); }
+.operation-card__icon--removing { color: var(--color-warning); }
+.operation-card__spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary-light);
+  border-top-color: var(--color-primary);
+  animation: operationsStripSpin 0.9s linear infinite;
+}
+.operation-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.operation-card__title { display: flex; align-items: center; gap: var(--spacing-xs); flex-wrap: wrap; }
+.operation-card__name { font-family: var(--font-mono); font-weight: 500; }
+.operation-card__tag {
+  font-size: 0.625rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 1px var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-muted);
+}
+.operation-card__tag--model { color: var(--color-primary); border-color: var(--color-primary-border); background: var(--color-primary-light); }
+.operation-card__tag--backend { color: var(--color-info); border-color: var(--color-info-border); background: var(--color-info-light); }
+.operation-card__tag--cluster { color: var(--color-warning); border-color: var(--color-warning-border); background: var(--color-warning-light); }
+.operation-card__sub { display: flex; align-items: center; gap: var(--spacing-xs); flex-wrap: wrap; font-size: 0.75rem; color: var(--color-text-muted); }
+.operation-card__bytes { font-variant-numeric: tabular-nums; }
+/* The legacy installer message embeds an absolute file path, so it is both long
+   and a single unbreakable token. Left unclamped it wraps to three lines and
+   becomes the largest thing on the card, which is how it looked against a real
+   download. One line, ellipsised, full text in the title. */
+.operation-card__message {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.operation-card__verb { color: var(--color-text-secondary); }
+/* A Go error is arbitrarily long and often multi-line. Clamped so it cannot
+   push the rest of the card off screen; the full text is in the title. */
+.operation-card__error {
+  color: var(--color-error);
+  font-family: var(--font-mono);
+  /* A flex item defaults to min-width:auto, so one unbroken token (a URL
+     inside a Go error) would refuse to shrink and push the sub row past the
+     card. The vertical clamp below cannot help with that. */
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.operation-card__track { height: 4px; border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
+.operation-card__fill { display: block; height: 100%; border-radius: var(--radius-full); background: var(--color-primary); transition: width var(--duration-slow) var(--ease-spring); }
+.operation-card__actions { display: flex; align-items: center; gap: var(--spacing-xs); flex: none; }
+.operation-card__pct { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--color-primary); }
+.operation-card__hide {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.operation-card__hide:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+.operation-card__nodes-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-height: 28px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+.operation-card__nodes-toggle:hover { color: var(--color-text-secondary); background: var(--color-bg-hover); }
+
+/* The node list carries its own inset here. It was written for the old bar,
+   whose parent supplied one, and the card only pads its main row. */
+.operation-card .operation-nodes-list { padding: 0 var(--spacing-sm) var(--spacing-xs); }
+/* One rule between the card body and the node block, not two: when the
+   disclosure is there, it is already the separator. */
+.operation-card__nodes-toggle + .operation-nodes-list { margin-top: 0; border-top: 0; }
+.operation-card .operation-node-error {
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operation-card__spinner { animation: none; }
+  .operation-card__fill { transition: none; }
+  .operation-card .operation-node-bar { transition: none; }
+}
+
+/* ── Activity page ────────────────────────────────────────────────────────── */
+.activity-page { display: flex; flex-direction: column; gap: var(--spacing-md); }
+.activity-filters { display: flex; gap: var(--spacing-xs); flex-wrap: wrap; }
+.activity-chip {
+  min-height: 28px;
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.activity-chip[aria-pressed="true"] {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+.activity-section { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.activity-section__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.activity-section__count { font-family: var(--font-mono); color: var(--color-text-muted); font-weight: 400; }
+.activity-rows {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.activity-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+  min-height: 38px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: 0.8125rem;
+}
+.activity-row:last-child { border-bottom: 0; }
+.activity-row:hover { background: var(--color-bg-hover); }
+.activity-row__icon--completed { color: var(--color-success); }
+.activity-row__icon--failed { color: var(--color-error); }
+.activity-row__icon--cancelled { color: var(--color-warning); }
+.activity-row__name { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-row__name small { font-family: var(--font-sans); color: var(--color-text-muted); margin-left: var(--spacing-xs); }
+.activity-row__when { color: var(--color-text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.activity-row__action { color: var(--color-primary); font-size: 0.75rem; text-decoration: none; white-space: nowrap; }
+.activity-row__action:hover { text-decoration: underline; }
+.activity-note { font-size: 0.75rem; color: var(--color-text-muted); margin: 0; }
+.activity-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xl) var(--spacing-md);
+  text-align: center;
+}
+.activity-empty__icon { font-size: 1.5rem; color: var(--color-text-disabled); margin-bottom: var(--spacing-xs); }
+.activity-empty__title { margin: 0; font-weight: 500; color: var(--color-text-secondary); }
+.activity-empty__body { margin: 0; max-width: 46ch; font-size: 0.8125rem; color: var(--color-text-muted); }
+/* A chip matching nothing is a smaller event than an empty instance, and gets
+   less of the page so the chip row above stays the obvious thing to change. */
+.activity-empty--filtered { padding: var(--spacing-lg) var(--spacing-md); }
+
+.nav-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--spacing-xs);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.nav-badge--error { background: var(--color-error); color: var(--color-bg-secondary); }
+/* Collapsed, the label is gone and the item centres its icon: an inline badge
+   would shove that icon off the rail's axis. Pinning it to the corner keeps the
+   count visible without moving anything else. */
+.sidebar.collapsed .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  font-size: 0.5625rem;
 }
