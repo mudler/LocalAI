@@ -4984,7 +4984,7 @@
     - filename: nanbeige4.2-3b-Q8_0.gguf
       sha256: 44707bb25e7ba3f2b0b5f3c2311da95ee3676986dd2014ce2aaeb14113590e33
       uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q8_0.gguf
-- name: nanbeige4.2-3b-q4
+- name: nanbeige4.2-3b
   url: github:mudler/LocalAI/gallery/nanbeige4.2.yaml@master
   urls:
     - https://huggingface.co/Nanbeige/Nanbeige4.2-3B
