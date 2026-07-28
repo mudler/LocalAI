@@ -25,6 +25,11 @@ The LocalAI web interface provides an intuitive way to manage your backends:
 5. Install or delete backends with a single click
 6. Monitor installation progress in real-time
 
+Installs run in the background. The strip at the top of the app follows the
+current one, and **Operate → Activity** lists everything in flight, what needs
+attention, and what has finished, and is where a running install is cancelled
+or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
+
 Each backend card displays:
 - Backend name and description
 - Type of models it supports

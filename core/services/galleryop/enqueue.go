@@ -8,9 +8,21 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// queuedMessage is the status message an operation carries between admission
-// (the HTTP handler minting the job ID) and the moment the worker starts it.
-const queuedMessage = "queued"
+// PhaseQueued is the phase (and the status message) an operation carries
+// between admission (the HTTP handler minting the job ID) and the moment the
+// worker starts it.
+//
+// It is the ONLY signal for "this op has not started yet". A missing status is
+// not one: markQueued publishes a status at admission, so an op that is queued
+// behind a running install has a status for its whole queued life.
+const PhaseQueued = "queued"
+
+// IsQueued reports whether the operation is still waiting for the gallery
+// worker to pick it up. Nil-safe so callers holding a status that may not
+// exist can ask without a guard of their own.
+func (o *OpStatus) IsQueued() bool {
+	return o != nil && !o.Processed && o.Phase == PhaseQueued
+}
 
 // EnqueueModelOp admits a model operation: it registers a queryable "queued"
 // status for op.ID and then hands the op to the gallery worker.
@@ -65,16 +77,26 @@ func enqueueContext(ctx context.Context) context.Context {
 }
 
 // markQueued publishes the pre-worker status for an admitted operation.
+//
+// Cancellable is unconditional here, removals included, which is the opposite
+// way round from the running phase (see the handler-entry writes in models.go
+// and backends.go). The asymmetry is real: cancelling a queued op releases the
+// delivery goroutine above and abandonQueued retires it, so the worker never
+// sees it and nothing is touched, so it is safe and effective for a removal as
+// it is for an install. It is once the worker starts a removal that cancelling
+// becomes impossible, because DeleteModel and DeleteBackend take no context.
+// Reporting a queued removal as uncancellable hid the Cancel button in the one
+// window where it would have worked.
 func (g *GalleryService) markQueued(id, elementName string, deletion bool) {
 	if id == "" {
 		return
 	}
 	g.UpdateStatus(id, &OpStatus{
-		Message:            queuedMessage,
-		Phase:              queuedMessage,
+		Message:            PhaseQueued,
+		Phase:              PhaseQueued,
 		GalleryElementName: elementName,
 		Deletion:           deletion,
-		Cancellable:        !deletion,
+		Cancellable:        true,
 	})
 }
 
