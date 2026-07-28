@@ -9714,6 +9714,8 @@ button.collapsible-header:focus-visible {
 .operation-card__icon { flex: none; }
 .operation-card__icon--error { color: var(--color-error); }
 .operation-card__icon--cancelling { color: var(--color-warning); }
+.operation-card__icon--staging { color: var(--color-info); }
+.operation-card__icon--removing { color: var(--color-warning); }
 .operation-card__spinner {
   width: 14px;
   height: 14px;
@@ -9741,8 +9743,18 @@ button.collapsible-header:focus-visible {
 .operation-card__tag--cluster { color: var(--color-warning); border-color: var(--color-warning-border); background: var(--color-warning-light); }
 .operation-card__sub { display: flex; align-items: center; gap: var(--spacing-xs); flex-wrap: wrap; font-size: 0.75rem; color: var(--color-text-muted); }
 .operation-card__bytes { font-variant-numeric: tabular-nums; }
-.operation-card__cancelling { color: var(--color-warning); }
-.operation-card__error { color: var(--color-error); font-family: var(--font-mono); }
+.operation-card__verb { color: var(--color-text-secondary); }
+/* A Go error is arbitrarily long and often multi-line. Clamped so it cannot
+   push the rest of the card off screen; the full text is in the title. */
+.operation-card__error {
+  color: var(--color-error);
+  font-family: var(--font-mono);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
 .operation-card__track { height: 4px; border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
 .operation-card__fill { display: block; height: 100%; border-radius: var(--radius-full); background: var(--color-primary); transition: width var(--duration-slow) var(--ease-spring); }
 .operation-card__actions { display: flex; align-items: center; gap: var(--spacing-xs); flex: none; }
@@ -9775,7 +9787,21 @@ button.collapsible-header:focus-visible {
 }
 .operation-card__nodes-toggle:hover { color: var(--color-text-secondary); background: var(--color-bg-hover); }
 
+/* The node list carries its own inset here. It was written for the old bar,
+   whose parent supplied one, and the card only pads its main row. */
+.operation-card .operation-nodes-list { padding: 0 var(--spacing-sm) var(--spacing-xs); }
+/* One rule between the card body and the node block, not two: when the
+   disclosure is there, it is already the separator. */
+.operation-card__nodes-toggle + .operation-nodes-list { margin-top: 0; border-top: 0; }
+.operation-card .operation-node-error {
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .operation-card__spinner { animation: none; }
   .operation-card__fill { transition: none; }
+  .operation-card .operation-node-bar { transition: none; }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../utils/format'
 
@@ -29,13 +29,46 @@ function formatEta(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
-export default function OperationCard({ operation, onCancel, onDismiss }) {
+export default function OperationCard({ operation, onCancel, onDismiss, onRetry }) {
   const { t } = useTranslation('admin')
   const nodes = Array.isArray(operation.nodes) ? operation.nodes : []
-  const [nodesOpen, setNodesOpen] = useState(nodes.length > 0 && nodes.length <= 4)
+  // Holds only what the user chose. The default has to stay a live
+  // expression: an operation appears in /api/operations as soon as it is
+  // admitted, but its nodes are filled in later, when the fan-out starts
+  // reporting. State seeded at mount would latch on the empty list.
+  const [nodesOpenOverride, setNodesOpenOverride] = useState(null)
+  const listId = useId()
 
   const failed = Boolean(operation.error)
   const cancelling = !failed && Boolean(operation.isCancelled)
+  const name = operation.name || operation.id
+  const kind = operation.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
+
+  // Same chain as the one-line strip, so the two never describe one job
+  // differently. Without it a removal and an install render identically: a
+  // deletion has no phase, no bytes and no nodes to tell them apart.
+  let icon
+  let verb
+  if (failed) {
+    icon = <i className="fas fa-circle-exclamation operation-card__icon operation-card__icon--error" aria-hidden="true" />
+    verb = t('activity.verb.failed', { kind })
+  } else if (cancelling) {
+    icon = <i className="fas fa-ban operation-card__icon operation-card__icon--cancelling" aria-hidden="true" />
+    verb = t('activity.verb.cancelling')
+  } else if (operation.isQueued) {
+    icon = <i className="fas fa-clock operation-card__icon" aria-hidden="true" />
+    verb = t('activity.verb.queued')
+  } else if (operation.taskType === 'staging') {
+    icon = <i className="fas fa-cloud-arrow-up operation-card__icon operation-card__icon--staging" aria-hidden="true" />
+    verb = t('activity.verb.staging')
+  } else if (operation.isDeletion) {
+    icon = <i className="fas fa-trash operation-card__icon operation-card__icon--removing" aria-hidden="true" />
+    verb = t('activity.verb.removing', { kind })
+  } else {
+    icon = <span className="operation-card__spinner" aria-hidden="true" />
+    verb = t('activity.verb.installing', { kind })
+  }
+
   const byteLabel = Number.isFinite(operation.currentBytes) && Number.isFinite(operation.totalBytes) && operation.totalBytes > 0
     ? `${formatBytes(operation.currentBytes)} / ${formatBytes(operation.totalBytes)}`
     : ''
@@ -46,23 +79,27 @@ export default function OperationCard({ operation, onCancel, onDismiss }) {
   // Same call the strip makes, for the same reason.
   const showProgress = !failed && !cancelling && !operation.isQueued && operation.progress > 0
   const canCancel = operation.cancellable && !operation.isCancelled && !failed
+  // Retrying means reconstructing an install call out of the operation, which
+  // is page knowledge. The card offers the button only when the page handed it
+  // a handler, so the control can never be present with nothing behind it.
+  const canRetry = failed && typeof onRetry === 'function'
+
+  // One node needs no disclosure: the single row is the whole story, and a
+  // count-less string would render "Show 1 nodes".
+  const showNodesToggle = nodes.length > 1
+  const nodesOpen = nodesOpenOverride ?? (nodes.length > 0 && nodes.length <= 4)
+  const showNodesList = nodes.length > 0 && (nodesOpen || !showNodesToggle)
 
   return (
     <div className={`operation-card${failed ? ' operation-card--error' : ''}`}>
       <div className="operation-card__main">
-        {failed
-          ? <i className="fas fa-circle-exclamation operation-card__icon operation-card__icon--error" aria-hidden="true" />
-          : cancelling
-            ? <i className="fas fa-ban operation-card__icon operation-card__icon--cancelling" aria-hidden="true" />
-            : operation.isQueued
-              ? <i className="fas fa-clock operation-card__icon" aria-hidden="true" />
-              : <span className="operation-card__spinner" aria-hidden="true" />}
+        {icon}
 
         <div className="operation-card__body">
           <div className="operation-card__title">
-            <span className="operation-card__name">{operation.name || operation.id}</span>
+            <span className="operation-card__name">{name}</span>
             <span className={`operation-card__tag operation-card__tag--${operation.isBackend ? 'backend' : 'model'}`}>
-              {operation.isBackend ? t('activity.kind.backend') : t('activity.kind.model')}
+              {kind}
             </span>
             {nodes.length > 1 && (
               <span className="operation-card__tag operation-card__tag--cluster">
@@ -72,8 +109,9 @@ export default function OperationCard({ operation, onCancel, onDismiss }) {
           </div>
 
           <div className="operation-card__sub">
-            {failed && <span className="operation-card__error">{operation.error}</span>}
-            {cancelling && <span className="operation-card__cancelling">{t('activity.verb.cancelling')}</span>}
+            <span className="operation-card__verb">{verb}</span>
+            {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
+            {failed && <span className="operation-card__error" title={operation.error}>{operation.error}</span>}
             {!failed && !cancelling && phaseKey && <span>{t(phaseKey)}</span>}
             {!failed && !cancelling && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
             {!failed && byteLabel && <span className="operation-card__bytes">{byteLabel}</span>}
@@ -87,7 +125,7 @@ export default function OperationCard({ operation, onCancel, onDismiss }) {
               aria-valuenow={Math.round(operation.progress)}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={t('activity.progressLabel', { name: operation.name || operation.id })}
+              aria-label={t('activity.progressLabel', { name })}
             >
               <span className="operation-card__fill" style={{ width: `${operation.progress}%` }} />
             </div>
@@ -97,12 +135,25 @@ export default function OperationCard({ operation, onCancel, onDismiss }) {
         <div className="operation-card__actions">
           {showProgress && <span className="operation-card__pct" aria-hidden="true">{Math.round(operation.progress)}%</span>}
           {canCancel && (
+            // A page of cards would otherwise hand a screen reader a list of
+            // identical "Cancel" buttons with nothing to tell them apart.
             <button
               type="button"
               className="btn btn-sm btn-danger operation-card__cancel"
               onClick={() => onCancel?.(operation.jobID)}
+              aria-label={t('activity.cancelLabel', { name })}
             >
               {t('activity.cancel')}
+            </button>
+          )}
+          {canRetry && (
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary operation-card__retry"
+              onClick={() => onRetry(operation)}
+              aria-label={t('activity.retryLabel', { name })}
+            >
+              {t('activity.retry')}
             </button>
           )}
           {failed && (
@@ -119,14 +170,36 @@ export default function OperationCard({ operation, onCancel, onDismiss }) {
         </div>
       </div>
 
-      {nodes.length > 0 && nodesOpen && (
-        <ul className="operation-nodes-list">
+      {/* The disclosure sits above what it discloses: a control that follows
+          its own region reads backwards to anyone moving through the page. */}
+      {showNodesToggle && (
+        <button
+          type="button"
+          className="operation-card__nodes-toggle"
+          aria-expanded={nodesOpen}
+          aria-controls={listId}
+          onClick={() => setNodesOpenOverride(!nodesOpen)}
+        >
+          <i className={`fas fa-chevron-${nodesOpen ? 'up' : 'down'}`} aria-hidden="true" />
+          {nodesOpen ? t('activity.hideNodes') : t('activity.showNodes', { count: nodes.length })}
+        </button>
+      )}
+
+      {/* Hidden rather than unmounted while collapsed, so the toggle's
+          aria-controls always points at something that exists. */}
+      {nodes.length > 0 && (
+        <ul className="operation-nodes-list" id={listId} hidden={!showNodesList}>
           {nodes.map((node) => (
             <li key={node.node_id} className={`operation-node operation-node-${node.status}`}>
               <span className={`operation-node-status operation-node-status-${node.status}`}>
-                {t(nodeStatusKeys[node.status] || 'activity.node.queued')}
+                {/* An unmapped status is shown as it arrived: inventing
+                    "queued" for it would report a state the node is not in. */}
+                {nodeStatusKeys[node.status] ? t(nodeStatusKeys[node.status]) : node.status}
               </span>
               <span className="operation-node-name">{node.node_name || node.node_id}</span>
+              {node.file_name && (
+                <span className="operation-node-file" title={node.file_name}>{node.file_name}</span>
+              )}
               {(node.current || node.total) && (
                 <span className="operation-node-bytes">{node.current || '?'} / {node.total || '?'}</span>
               )}
@@ -136,21 +209,14 @@ export default function OperationCard({ operation, onCancel, onDismiss }) {
               {node.error && (
                 <span className="operation-node-error" title={node.error}>{node.error}</span>
               )}
+              {node.percentage > 0 && node.percentage < 100 && (
+                <div className="operation-node-bar-container">
+                  <div className="operation-node-bar" style={{ width: `${node.percentage}%` }} />
+                </div>
+              )}
             </li>
           ))}
         </ul>
-      )}
-
-      {nodes.length > 0 && (
-        <button
-          type="button"
-          className="operation-card__nodes-toggle"
-          aria-expanded={nodesOpen}
-          onClick={() => setNodesOpen((open) => !open)}
-        >
-          <i className={`fas fa-chevron-${nodesOpen ? 'up' : 'down'}`} aria-hidden="true" />
-          {nodesOpen ? t('activity.hideNodes') : t('activity.showNodes', { count: nodes.length })}
-        </button>
       )}
     </div>
   )
