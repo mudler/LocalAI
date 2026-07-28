@@ -120,7 +120,9 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
                 server's own message is the only detail those jobs have. It is
                 skipped while queued because there it is just "queued", which
                 the line below already says in the user's language. */}
-            {!failed && !phaseKey && !operation.isQueued && operation.message && <span>{operation.message}</span>}
+            {!failed && !phaseKey && !operation.isQueued && operation.message && (
+              <span className="operation-card__message" title={operation.message}>{operation.message}</span>
+            )}
             {!failed && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
             {!failed && byteLabel && <span className="operation-card__bytes">{byteLabel}</span>}
             {!failed && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}

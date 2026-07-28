@@ -9744,6 +9744,17 @@ button.collapsible-header:focus-visible {
 .operation-card__tag--cluster { color: var(--color-warning); border-color: var(--color-warning-border); background: var(--color-warning-light); }
 .operation-card__sub { display: flex; align-items: center; gap: var(--spacing-xs); flex-wrap: wrap; font-size: 0.75rem; color: var(--color-text-muted); }
 .operation-card__bytes { font-variant-numeric: tabular-nums; }
+/* The legacy installer message embeds an absolute file path, so it is both long
+   and a single unbreakable token. Left unclamped it wraps to three lines and
+   becomes the largest thing on the card, which is how it looked against a real
+   download. One line, ellipsised, full text in the title. */
+.operation-card__message {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .operation-card__verb { color: var(--color-text-secondary); }
 /* A Go error is arbitrarily long and often multi-line. Clamped so it cannot
    push the rest of the card off screen; the full text is in the title. */
