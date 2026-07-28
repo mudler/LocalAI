@@ -1455,6 +1455,7 @@
   alias: "kokoro"
   name: "kokoro"
   capabilities:
+    default: "cpu-kokoro"
     nvidia: "cuda12-kokoro"
     intel: "intel-kokoro"
     amd: "rocm-kokoro"
@@ -5186,11 +5187,22 @@
 - !!merge <<: *kokoro
   name: "kokoro-development"
   capabilities:
+    default: "cpu-kokoro-development"
     nvidia: "cuda12-kokoro-development"
     intel: "intel-kokoro-development"
     amd: "rocm-kokoro-development"
     nvidia-l4t: "nvidia-l4t-kokoro-development"
     metal: "metal-kokoro-development"
+- !!merge <<: *kokoro
+  name: "cpu-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-kokoro"
+  mirrors:
+    - localai/localai-backends:latest-cpu-kokoro
+- !!merge <<: *kokoro
+  name: "cpu-kokoro-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-kokoro"
+  mirrors:
+    - localai/localai-backends:master-cpu-kokoro
 - !!merge <<: *kokoro
   name: "cuda12-kokoro-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-kokoro"
