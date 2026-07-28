@@ -129,10 +129,11 @@ var _ = Describe("GalleryStore terminal operations", func() {
 		})
 	})
 
-	// An operation finishes exactly once. The paths that retire one are not
-	// mutually exclusive, so the first terminal status has to be the one that
-	// sticks.
-	Describe("terminal statuses are final", func() {
+	// An operation settles exactly once. The paths that retire one are not
+	// mutually exclusive, so the first settled outcome has to be the one that
+	// sticks — but a failure is not a settled outcome, because the reaper
+	// writes one onto an operation that is still going to finish.
+	Describe("a settled outcome is final", func() {
 		It("refuses to overwrite a cancelled operation with the handler's context error", func() {
 			Expect(store.Create(&distributed.GalleryOperationRecord{
 				ID: "op-1", GalleryElementName: "localai@qwen3-4b", OpType: "model_install", Status: "downloading",
@@ -187,6 +188,35 @@ var _ = Describe("GalleryStore terminal operations", func() {
 			Expect(op.Cancellable).To(BeFalse())
 			Expect(op.OpType).To(Equal("model_install"),
 				"the descriptive columns must still be filled in")
+		})
+
+		// The gallery worker is a single goroutine consuming both channels
+		// serially, so an operation queued behind a large download sits in
+		// "pending" with nothing bumping updated_at. After 30 minutes the stale
+		// reaper gives up on it and writes "failed" — and then the worker gets
+		// to it and it installs perfectly well. A failure has to stay
+		// correctable or that row is wrong forever: a red card with Retry for a
+		// model that is installed, invisible to ListActive, and no longer
+		// deduped by FindDuplicate.
+		It("lets a real completion correct a failure the stale reaper wrote", func() {
+			Expect(store.UpsertCacheKey("op-1", "localai@qwen3-4b", false)).To(Succeed())
+
+			reaped, err := store.CleanStale(0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reaped).To(Equal(int64(1)), "a queued row is what the reaper acts on")
+
+			// The worker finally dequeues it and runs it to completion.
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "op-1", GalleryElementName: "localai@qwen3-4b",
+				OpType: "model_install", Status: "pending", Cancellable: true,
+			})).To(Succeed())
+			Expect(store.UpdateStatus("op-1", "completed", "")).To(Succeed())
+
+			op, err := store.Get("op-1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(op.Status).To(Equal("completed"))
+			Expect(op.Error).To(BeEmpty(),
+				"a corrected outcome must not keep the reaper's error as its reason")
 		})
 
 		It("still applies a first terminal status to an active row", func() {

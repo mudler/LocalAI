@@ -13,7 +13,9 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/routes"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -97,6 +99,30 @@ var _ = Describe("/api/operations/history", func() {
 		Expect(rec.Code).To(Equal(http.StatusOK))
 
 		Expect(opcache.History()).To(BeEmpty())
+	})
+
+	// Answering 200 on a clear that did not happen makes the record vanish from
+	// the page and come straight back on the next fetch, with nothing said
+	// about why.
+	It("reports a failed clear as a 500 rather than claiming success", func() {
+		db := testutil.SetupTestDB()
+		store, err := distributed.NewGalleryStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		opcache.SetGalleryStore(store)
+		finish("model-one", "job-1")
+
+		// What a database outage looks like from the handler's side.
+		Expect(db.Migrator().DropTable(&distributed.GalleryOperationRecord{})).To(Succeed())
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/operations/history", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+
+		var body map[string]any
+		Expect(json.Unmarshal(rec.Body.Bytes(), &body)).To(Succeed())
+		Expect(body).To(HaveKey("error"))
+		Expect(body).ToNot(HaveKey("success"))
 	})
 
 	It("leaves the live operations payload unchanged", func() {

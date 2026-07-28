@@ -571,8 +571,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						OpType:             opType,
 						Status:             "pending",
 						// A delete is not cancellable; an install is, matching
-						// the model channel. Hydrate copies this column onto
-						// the status the UI reads.
+						// the model channel.
 						Cancellable: !op.Delete,
 					}); err != nil {
 						// Not fatal: the install still runs and the in-memory
