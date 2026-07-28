@@ -3,13 +3,55 @@ package oci
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+type compressedOnlyLayer struct {
+	v1.Layer
+	digest v1.Hash
+}
+
+func (l compressedOnlyLayer) Uncompressed() (io.ReadCloser, error) {
+	return nil, errors.New("downloaded layer reopened from source")
+}
+
+func (l compressedOnlyLayer) Digest() (v1.Hash, error) { return l.digest, nil }
+
+func buildLayer(entries ...tar.Header) v1.Layer {
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(zw)
+	for _, header := range entries {
+		content := []byte(header.PAXRecords["content"])
+		header.PAXRecords = nil
+		header.Size = int64(len(content))
+		Expect(tw.WriteHeader(&header)).To(Succeed())
+		if len(content) != 0 {
+			_, err := tw.Write(content)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+	Expect(tw.Close()).To(Succeed())
+	Expect(zw.Close()).To(Succeed())
+	layer, err := tarball.LayerFromReader(bytes.NewReader(buf.Bytes()))
+	Expect(err).NotTo(HaveOccurred())
+	digest, _, err := v1.SHA256(bytes.NewReader([]byte{byte(len(entries))}))
+	Expect(err).NotTo(HaveOccurred())
+	return compressedOnlyLayer{Layer: layer, digest: digest}
+}
 
 // buildTar assembles an in-memory tar carrying a directory, a regular file and
 // a relative symlink pointing at that file, mirroring the layout of a backend
@@ -46,6 +88,35 @@ func buildTar() []byte {
 }
 
 var _ = Describe("Tar extraction fallback for link-less filesystems", func() {
+	It("downloads a layered image once and preserves whiteouts before copying links", func() {
+		base := buildLayer(
+			tar.Header{Name: "lib/removed.so", Mode: 0644, PAXRecords: map[string]string{"content": "removed"}},
+			tar.Header{Name: "lib/libcublas.so.12", Mode: 0644, PAXRecords: map[string]string{"content": "old library"}},
+		)
+		top := buildLayer(
+			tar.Header{Name: "lib/.wh.removed.so", Mode: 0644},
+			tar.Header{Name: "lib/libcublas.so.12", Mode: 0644, PAXRecords: map[string]string{"content": "new library"}},
+			tar.Header{Name: "lib/libcublas.so", Typeflag: tar.TypeSymlink, Linkname: "libcublas.so.12", Mode: 0777},
+		)
+		image, err := mutate.AppendLayers(empty.Image, base, top)
+		Expect(err).NotTo(HaveOccurred())
+
+		tmp := GinkgoT().TempDir()
+		tarPath := filepath.Join(tmp, "rootfs.tar")
+		Expect(DownloadOCIImageTar(context.Background(), image, "test/image", tarPath, nil)).To(Succeed())
+
+		originalSymlink := symlink
+		symlink = func(string, string) error { return syscall.ENOTSUP }
+		DeferCleanup(func() { symlink = originalSymlink })
+
+		destination := filepath.Join(tmp, "destination")
+		Expect(os.Mkdir(destination, 0755)).To(Succeed())
+		Expect(ExtractOCIImageFromTar(context.Background(), tarPath, "test/image", destination, nil)).To(Succeed())
+		Expect(filepath.Join(destination, "lib", "removed.so")).NotTo(BeAnExistingFile())
+		Expect(os.ReadFile(filepath.Join(destination, "lib", "libcublas.so.12"))).To(Equal([]byte("new library")))
+		Expect(os.ReadFile(filepath.Join(destination, "lib", "libcublas.so"))).To(Equal([]byte("new library")))
+	})
+
 	Describe("isLinkUnsupportedError", func() {
 		It("recognises filesystem link-unsupported errors", func() {
 			Expect(isLinkUnsupportedError(syscall.ENOTSUP)).To(BeTrue())

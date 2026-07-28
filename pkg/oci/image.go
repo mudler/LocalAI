@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -398,8 +399,9 @@ func DownloadOCIImageTar(ctx context.Context, img v1.Image, imageRef string, tar
 		downloadedSize += layerSize
 	}
 
-	// Create a local image from the downloaded layers
-	localImg, err := mutate.AppendLayers(img, downloadedLayers...)
+	// Build the local image only from the downloaded layers. Appending them to
+	// img duplicates the layer stack and makes extraction reopen the source.
+	localImg, err := mutate.AppendLayers(empty.Image, downloadedLayers...)
 	if err != nil {
 		return fmt.Errorf("failed to create local image: %v", err)
 	}
