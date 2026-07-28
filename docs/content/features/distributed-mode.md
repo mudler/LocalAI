@@ -202,13 +202,16 @@ The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_T
 
 ### Watching Backend Installs
 
-While a worker downloads a backend, the admin **Operations Bar** at the top
-of the UI shows real-time progress: current file, downloaded/total bytes,
-and percentage. This works the same as single-node mode.
+While a worker downloads a backend, the admin operations strip at the top
+of the UI shows real-time progress: a percentage, and, when the install
+targets several workers, a roll-up of how far the fan-out has got,
+`2 of 5 nodes done`. Per-file byte counts are not on the strip; they are in
+the per-node detail below.
 
-When an install targets more than one worker, an **N nodes** chevron
-appears on the operation row. Click it to expand a per-node breakdown,
-with one row per worker showing:
+The per-node detail is on the **Operate → Activity** page
+([Activity]({{% relref "operations/activity" %}})). When an install targets
+more than one worker, an **N nodes** tag appears on the operation card, with
+one row per worker showing:
 
 - A status pill: **Queued** (gray), **Downloading** (blue), **Worker busy**
   (yellow), **Done** (green), or **Failed** (red).
@@ -224,6 +227,12 @@ finishes; no action is required from the operator.
 If a worker is running an older LocalAI release that does not report
 progress, its row in the breakdown will still show terminal status
 (queued / done / failed / worker busy) but no per-file progress.
+
+The **Record** on that page - what model and backend installs and removals have
+finished - is read from PostgreSQL rather than from the replica's memory. Every
+replica reports the same record, it survives restarts, a replica added by a
+scale-out or a rolling deploy reports it in full, and **Clear history** clears
+it for every replica.
 
 ## Worker Configuration
 
