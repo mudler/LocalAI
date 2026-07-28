@@ -87,7 +87,12 @@ export default function OperationsBar() {
   } else if (shown.error) {
     modifier = 'operations-strip--error'
     icon = <i className="fas fa-circle-exclamation operations-strip__icon" aria-hidden="true" />
-    verb = t('activity.verb.failed', { kind })
+    // Same split as the card, so the two surfaces never describe one failed
+    // job differently: a removal reported as a failed install is the opposite
+    // of what happened.
+    if (shown.isDeletion) verb = t('activity.verb.failedRemoval', { kind })
+    else if (shown.taskType === 'staging') verb = t('activity.verb.failedStaging')
+    else verb = t('activity.verb.failed', { kind })
   } else if (shown.isCancelled) {
     modifier = 'operations-strip--cancelling'
     icon = <i className="fas fa-ban operations-strip__icon" aria-hidden="true" />

@@ -37,7 +37,9 @@
       "failed": "Couldn't install {{kind}}",
       "queued": "Queued",
       "staging": "Staging model",
-      "removing": "Removing {{kind}}"
+      "removing": "Removing {{kind}}",
+      "failedRemoval": "Couldn't remove {{kind}}",
+      "failedStaging": "Couldn't stage model"
     },
     "phase": {
       "resolving": "Resolving files",
@@ -45,6 +47,29 @@
       "verifying": "Verifying",
       "committing": "Finalizing",
       "persisting": "Saving configuration"
+    },
+    "clearHistory": "Clear history",
+    "inProgress": "In progress",
+    "needsAttention": "Needs attention",
+    "record": "Record",
+    "summaryBusy": "{{running}} running, {{failed}} needs attention.",
+    "summaryQuiet": "Nothing running. {{count}} operations since startup.",
+    "historyNote": "Keeps the last 50 operations. History is in memory and resets when LocalAI restarts.",
+    "emptyTitle": "No operations since startup",
+    "emptyBody": "Model and backend installs appear here while they run and stay as a record afterwards. History is kept in memory, so it resets when LocalAI restarts.",
+    "browseModels": "Browse models",
+    "viewInModels": "View in Models",
+    "viewInBackends": "View in Backends",
+    "rowInstalled": "installed in {{duration}}",
+    "rowFailed": "failed: {{error}}",
+    "rowCancelled": "cancelled",
+    "rowRemoved": "removed",
+    "retryFailed": "Retry failed: {{message}}",
+    "filter": {
+      "all": "All",
+      "models": "Models",
+      "backends": "Backends",
+      "cluster": "Cluster"
     }
   },
   "manage": {

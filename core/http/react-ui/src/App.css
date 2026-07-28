@@ -9749,6 +9749,10 @@ button.collapsible-header:focus-visible {
 .operation-card__error {
   color: var(--color-error);
   font-family: var(--font-mono);
+  /* A flex item defaults to min-width:auto, so one unbroken token (a URL
+     inside a Go error) would refuse to shrink and push the sub row past the
+     card. The vertical clamp below cannot help with that. */
+  min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -9804,4 +9808,103 @@ button.collapsible-header:focus-visible {
   .operation-card__spinner { animation: none; }
   .operation-card__fill { transition: none; }
   .operation-card .operation-node-bar { transition: none; }
+}
+
+/* ── Activity page ────────────────────────────────────────────────────────── */
+.activity-page { display: flex; flex-direction: column; gap: var(--spacing-md); }
+.activity-filters { display: flex; gap: var(--spacing-xs); flex-wrap: wrap; }
+.activity-chip {
+  min-height: 28px;
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.activity-chip[aria-pressed="true"] {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+.activity-section { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.activity-section__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.activity-section__count { font-family: var(--font-mono); color: var(--color-text-muted); font-weight: 400; }
+.activity-rows {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.activity-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+  min-height: 38px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: 0.8125rem;
+}
+.activity-row:last-child { border-bottom: 0; }
+.activity-row:hover { background: var(--color-bg-hover); }
+.activity-row__icon--completed { color: var(--color-success); }
+.activity-row__icon--failed { color: var(--color-error); }
+.activity-row__icon--cancelled { color: var(--color-warning); }
+.activity-row__name { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-row__name small { font-family: var(--font-sans); color: var(--color-text-muted); margin-left: var(--spacing-xs); }
+.activity-row__when { color: var(--color-text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.activity-row__action { color: var(--color-primary); font-size: 0.75rem; text-decoration: none; white-space: nowrap; }
+.activity-row__action:hover { text-decoration: underline; }
+.activity-note { font-size: 0.75rem; color: var(--color-text-muted); margin: 0; }
+.activity-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xl) var(--spacing-md);
+  text-align: center;
+}
+.activity-empty__icon { font-size: 1.5rem; color: var(--color-text-disabled); margin-bottom: var(--spacing-xs); }
+.activity-empty__title { margin: 0; font-weight: 500; color: var(--color-text-secondary); }
+.activity-empty__body { margin: 0; max-width: 46ch; font-size: 0.8125rem; color: var(--color-text-muted); }
+
+.nav-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--spacing-xs);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.nav-badge--error { background: var(--color-error); color: var(--color-bg-secondary); }
+/* Collapsed, the label is gone and the item centres its icon: an inline badge
+   would shove that icon off the rail's axis. Pinning it to the corner keeps the
+   count visible without moving anything else. */
+.sidebar.collapsed .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  font-size: 0.5625rem;
 }

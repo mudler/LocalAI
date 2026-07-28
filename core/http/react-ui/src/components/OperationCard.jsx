@@ -51,7 +51,12 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
   let verb
   if (failed) {
     icon = <i className="fas fa-circle-exclamation operation-card__icon operation-card__icon--error" aria-hidden="true" />
-    verb = t('activity.verb.failed', { kind })
+    // The failure phrase has to name the work that actually failed. A removal
+    // or a staging job reported as a failed install describes the opposite of
+    // what happened, and would make the missing Retry button look like a bug.
+    if (operation.isDeletion) verb = t('activity.verb.failedRemoval', { kind })
+    else if (operation.taskType === 'staging') verb = t('activity.verb.failedStaging')
+    else verb = t('activity.verb.failed', { kind })
   } else if (cancelling) {
     icon = <i className="fas fa-ban operation-card__icon operation-card__icon--cancelling" aria-hidden="true" />
     verb = t('activity.verb.cancelling')
