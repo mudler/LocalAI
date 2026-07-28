@@ -101,6 +101,7 @@ var _ = Describe("runtime settings registry", func() {
 		src.AgentPool.DatabaseURL = "postgres://x"
 		src.AgentPool.AgentHubURL = "https://hub"
 		src.DisableLocalAIAssistant = true
+		src.Distributed.DiskHeadroomDisabled = true
 		src.Branding = BrandingConfig{
 			InstanceName: "n", InstanceTagline: "t",
 			LogoFile: "l.png", LogoHorizontalFile: "lh.png", FaviconFile: "f.ico",

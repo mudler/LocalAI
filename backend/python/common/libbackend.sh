@@ -398,40 +398,80 @@ function ensureVenv() {
 function runProtogen() {
     ensureVenv
 
-    # Match grpcio-tools to the grpcio already installed by the backend's
-    # requirements. grpcio and grpcio-tools are released in lockstep, and the
-    # protoc that grpcio-tools bundles stamps a Protobuf "gencode" version into
-    # backend_pb2.py. Left unpinned, `uv pip install grpcio-tools` pulls the
-    # newest release, whose newer gencode (e.g. 7.35.0) trips Protobuf's
-    # runtime >= gencode guarantee at import time when a backend caps the
-    # protobuf runtime lower (vLLM pins it to 6.33.6), crashing the backend with
-    # "grpc service not ready" before it ever loads a model. Pinning
-    # grpcio-tools to the installed grpcio version keeps the gencode in step with
-    # the runtime. Backends whose protobuf runtime trails grpcio can set
-    # GRPCIO_TOOLS_VERSION to the newest generator their runtime accepts. Falls
-    # back to unpinned when grpcio isn't installed yet.
-    # See mudler/LocalAI#10718.
-    local grpcio_tools_spec="grpcio-tools"
-    local grpcio_version
-    if [ -n "${GRPCIO_TOOLS_VERSION:-}" ]; then
-        grpcio_tools_spec="grpcio-tools==${GRPCIO_TOOLS_VERSION}"
-    else
-        grpcio_version="$(python -c 'import importlib.metadata as m; print(m.version("grpcio"))' 2>/dev/null || true)"
+    # The protoc that grpcio-tools bundles stamps a Protobuf "gencode" version
+    # into backend_pb2.py, and Protobuf refuses to import a stub whose gencode is
+    # newer than the installed runtime. Left unpinned, grpcio-tools resolves to
+    # the newest release (1.82.1, gencode 7.35.0) which a backend holding the
+    # runtime lower (vLLM resolves protobuf to 6.33.6) then cannot import,
+    # crashing with "grpc service not ready" before it ever loads a model.
+    #
+    # Resolve the generator in a THROWAWAY environment so the backend's own venv
+    # keeps exactly the dependency set its requirements files declared. The
+    # generator is a build tool and has no business editing the runtime deps: the
+    # spec below is chosen to fit the venv as it stands, never to change it.
+    # Falls back to unpinned when neither version can be detected.
+    # See mudler/LocalAI#10718, #10940.
+    local protobuf_version grpcio_version protogen_env protogen_python
+    protobuf_version="$(python -c 'import importlib.metadata as m; print(m.version("protobuf"))' 2>/dev/null || true)"
+    grpcio_version="$(python -c 'import importlib.metadata as m; print(m.version("grpcio"))' 2>/dev/null || true)"
+
+    # The stubs impose TWO independent constraints on the generator, and both
+    # have to hold or the backend dies on import:
+    #
+    #   backend_pb2.py       needs  protobuf runtime >= gencode
+    #   backend_pb2_grpc.py  needs  installed grpcio >= grpcio-tools
+    #
+    # Bound grpcio-tools from both sides and let the resolver find the newest
+    # version that satisfies them. The protobuf ceiling makes it back off to an
+    # older grpcio-tools when the runtime is behind, which is what bounds the
+    # gencode; the grpcio ceiling keeps the _grpc stub loadable. Pinning only one
+    # side is what made the earlier attempts fail, in both directions.
+    local -a protogen_spec=("grpcio-tools")
+    if [ -n "${grpcio_version}" ]; then
+        protogen_spec=("grpcio-tools<=${grpcio_version}")
     fi
-    if [ "${grpcio_tools_spec}" = "grpcio-tools" ] && [ -n "${grpcio_version}" ]; then
-        grpcio_tools_spec="grpcio-tools==${grpcio_version}"
+    if [ -n "${protobuf_version}" ]; then
+        protogen_spec+=("protobuf<=${protobuf_version}")
     fi
 
+    protogen_env="$(mktemp -d)"
+
     if [ "x${USE_PIP}" == "xtrue" ]; then
-        pip install "${grpcio_tools_spec}"
+        python -m venv "${protogen_env}"
+        "${protogen_env}/bin/pip" install "${protogen_spec[@]}"
     else
-        uv pip install "${grpcio_tools_spec}"
+        uv venv "${protogen_env}"
+        VIRTUAL_ENV="${protogen_env}" uv pip install "${protogen_spec[@]}"
     fi
+    protogen_python="${protogen_env}/bin/python"
+
     pushd "${EDIR}" >/dev/null
+        # Drop the cached bytecode along with the sources. CPython validates a
+        # .pyc against the source's mtime *and size*, both of which can be
+        # unchanged across a regeneration (the gencode triple is the same width
+        # whether it reads 7.35.0 or 6.33.5), so a stale backend_pb2.pyc can be
+        # reused in place of the stub we just generated.
         rm -f backend_pb2.py backend_pb2.pyi backend_pb2_grpc.py
-        # use the venv python (ensures correct interpreter & sys.path)
-        python -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
+        rm -rf __pycache__
+        # Generate with the throwaway toolchain; the output is plain Python and
+        # carries no dependency on the interpreter that produced it.
+        "${protogen_python}" -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
+
+        # Verify with the BACKEND's python, which is the interpreter that has to
+        # import these at model load. Fail the build rather than ship a backend
+        # that cannot import its own stubs: otherwise the gencode/runtime
+        # mismatch only surfaces in a released image, as an opaque
+        # "grpc service not ready".
+        # Check BOTH stubs: backend_pb2 catches a gencode ahead of the protobuf
+        # runtime, backend_pb2_grpc catches generated code ahead of the installed
+        # grpcio. Checking only the former lets the latter reach CI, or users.
+        if ! python -c 'import backend_pb2, backend_pb2_grpc' >/dev/null; then
+            echo "runProtogen: generated stubs are not importable by the backend venv (protobuf ${protobuf_version:-unknown}, grpcio ${grpcio_version:-unknown})" >&2
+            exit 1
+        fi
     popd >/dev/null
+
+    rm -rf "${protogen_env}"
 }
 
 

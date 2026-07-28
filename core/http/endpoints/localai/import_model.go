@@ -108,7 +108,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			opcache.Set(galleryID, uuid.String())
 		}
 
-		galleryService.ModelGalleryChannel <- galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		galleryService.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req: gallery.GalleryModel{
 				Overrides: map[string]any{},
 			},
@@ -116,7 +116,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			GalleryElementName: galleryID,
 			GalleryElement:     &modelConfig,
 			BackendGalleries:   appConfig.BackendGalleries,
-		}
+		})
 
 		resp.ID = uuid.String()
 		resp.StatusURL = fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), uuid.String())

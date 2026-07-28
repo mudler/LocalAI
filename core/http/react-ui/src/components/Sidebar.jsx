@@ -8,6 +8,7 @@ import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
+import { useOperations } from '../hooks/useOperations'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -83,6 +84,7 @@ export default function Sidebar({ isOpen, onClose }) {
   })
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
+  const { operations } = useOperations()
   const branding = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
@@ -159,6 +161,12 @@ export default function Sidebar({ isOpen, onClose }) {
   const visibleTopItems = topItems.filter(filterItem)
   // Shared shape for the console gating helpers (consoleConfig.js).
   const auth = { isAdmin, authEnabled, hasFeature, features }
+
+  // One badge, on the always-visible sidebar entry. The console rail only
+  // exists while the user is on an Operate route and can be collapsed, so
+  // badging the rail item instead would let the count disappear entirely.
+  const failedOps = operations.filter((op) => op.error).length
+  const activeOps = operations.length
 
   // Inline sections (Create) carry no gating; a plain filterItem pass suffices.
   const getVisibleSectionItems = (section) => section.items.filter(filterItem)
@@ -249,6 +257,11 @@ export default function Sidebar({ isOpen, onClose }) {
                 >
                   <i className={`${config.icon} nav-icon`} />
                   <span className="nav-label">{label}</span>
+                  {config.groups.some(g => g.items.some(i => i.badge === 'operations')) && activeOps > 0 && (
+                    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
+                      {failedOps > 0 ? failedOps : activeOps}
+                    </span>
+                  )}
                 </NavLink>
               </div>
             )

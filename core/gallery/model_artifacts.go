@@ -10,7 +10,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
-	"github.com/mudler/xlog"
 )
 
 type ArtifactMaterializer interface {
@@ -19,6 +18,7 @@ type ArtifactMaterializer interface {
 
 type installOptions struct {
 	materializer ArtifactMaterializer
+	variant      string
 }
 
 type InstallOption func(*installOptions)
@@ -28,6 +28,16 @@ func WithArtifactMaterializer(materializer ArtifactMaterializer) InstallOption {
 		if materializer != nil {
 			options.materializer = materializer
 		}
+	}
+}
+
+// WithVariant pins a gallery entry to a specific variant by name, bypassing
+// hardware-based selection. The entry's own name is a valid pin, since the
+// entry is itself the last resort. Ignored for entries that declare no
+// variants.
+func WithVariant(variant string) InstallOption {
+	return func(options *installOptions) {
+		options.variant = variant
 	}
 }
 
@@ -43,7 +53,7 @@ func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.M
 	result, err := materializer.Ensure(ctx, modelsPath, artifactSpec)
 	if err != nil {
 		if inferred {
-			xlog.Warn("falling back to legacy model loading after artifact materialization failed", "model", typed.Name, "error", err)
+			config.LogArtifactFallback(typed.Name, typed.Backend, err)
 			return false, nil
 		}
 		return false, fmt.Errorf("materialize primary model artifact: %w", err)

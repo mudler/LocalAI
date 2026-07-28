@@ -181,9 +181,31 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
 		})
 
+		It("swaps the emitted backend to vllm-cpp when preferred, keeping engine-side templating", func() {
+			preferences := json.RawMessage(`{"backend": "vllm-cpp"}`)
+			details := Details{
+				URI:         "https://example.com/my-model.gguf",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: vllm-cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("backend: llama-cpp\n"), fmt.Sprintf("Model config: %+v", modelConfig))
+			// vllm-cpp rides the autoparser-style flow: the ENGINE templates and
+			// parses tools, so use_tokenizer_template carries over; only the
+			// llama-cpp-specific use_jinja option is dropped.
+			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("use_jinja"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("use_tokenizer_template: true"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(len(modelConfig.Files)).To(Equal(1))
+			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
+		})
+
 		It("keeps backend: llama-cpp for unknown backend preferences", func() {
 			// Unknown backend values must not leak into the emitted YAML —
-			// we only honour the two curated drop-in replacements.
+			// we only honour the curated drop-in replacements.
 			preferences := json.RawMessage(`{"backend": "something-weird"}`)
 			details := Details{
 				URI:         "https://example.com/my-model.gguf",
@@ -529,7 +551,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 	})
 
 	Context("AdditionalBackends", func() {
-		It("advertises ik-llama-cpp and turboquant as drop-in replacements", func() {
+		It("advertises ik-llama-cpp, turboquant and vllm-cpp as drop-in replacements", func() {
 			entries := importer.AdditionalBackends()
 
 			names := make([]string, 0, len(entries))
@@ -538,15 +560,13 @@ var _ = Describe("LlamaCPPImporter", func() {
 				names = append(names, e.Name)
 				byName[e.Name] = e
 			}
-			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant"))
+			Expect(names).To(ConsistOf("ik-llama-cpp", "turboquant", "vllm-cpp"))
 
-			ik := byName["ik-llama-cpp"]
-			Expect(ik.Modality).To(Equal("text"))
-			Expect(ik.Description).NotTo(BeEmpty())
-
-			tq := byName["turboquant"]
-			Expect(tq.Modality).To(Equal("text"))
-			Expect(tq.Description).NotTo(BeEmpty())
+			for _, name := range names {
+				e := byName[name]
+				Expect(e.Modality).To(Equal("text"))
+				Expect(e.Description).NotTo(BeEmpty())
+			}
 		})
 	})
 })

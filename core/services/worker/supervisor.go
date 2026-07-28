@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -33,6 +34,19 @@ type backendProcess struct {
 	// keyed on the backend name resolves to nothing and the process is
 	// orphaned while its files are removed from disk.
 	backendName string
+	// backendDir is the directory the process was started out of — its
+	// working directory, and the directory a reinstall replaces. backendDirID
+	// is that directory's identity at spawn time, compared with os.SameFile so
+	// a rebuilt directory at the same path is recognised as a different one.
+	//
+	// A working directory follows the inode across a rename, so a process that
+	// outlives gallery.InstallBackend's rename-install-delete swap ends up with
+	// a deleted inode as its CWD and every getcwd(2) in it fails with ENOENT.
+	// Recording identity (not just the path) is what lets the reuse gate spot
+	// such a survivor; matching on backendName alone cannot, because the name
+	// is exactly what stays the same across a reinstall.
+	backendDir   string
+	backendDirID os.FileInfo
 }
 
 const workerBackendFreeTimeout = 5 * time.Second
@@ -402,6 +416,21 @@ func (s *backendSupervisor) releasePort(port int) {
 // backend it was started from, recorded so delete/stop can find this process
 // by backend name later.
 func (s *backendSupervisor) startBackend(backend, backendName, backendPath string) (string, error) {
+	// Mirrors the working directory pkg/model.startProcess hands the child.
+	backendDir := filepath.Dir(backendPath)
+
+	// A process that outlived a reinstall of this backend is still alive and
+	// still recorded under this key, but its working directory is now a
+	// deleted inode. The reuse branch below would hand that process straight
+	// back to the caller; stop it first so the fresh spawn chdirs into the
+	// newly installed directory. Forced, because a graceful Free() into a
+	// process whose CWD no longer resolves buys nothing and can hang.
+	if s.getAddr(backend) != "" && !s.backendDirIntact(backend) {
+		if err := s.stopBackendExact(backend, true); err != nil {
+			return "", fmt.Errorf("stopping backend process running from a replaced directory %s: %w", backend, err)
+		}
+	}
+
 	s.mu.Lock()
 
 	// Already running?
@@ -433,11 +462,25 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		return "", fmt.Errorf("starting backend process: %w", err)
 	}
 
+	// Record the directory this process runs out of, and its identity, while
+	// it is still the live one. pkg/model.startProcess passes exactly this
+	// directory as the child's working directory, so it is what a later
+	// reinstall unlinks out from under this process. A stat failure is not
+	// fatal: leaving backendDirID nil degrades to today's name-only reuse
+	// gate rather than refusing to start the backend.
+	dirInfo, dirErr := os.Stat(backendDir)
+	if dirErr != nil {
+		xlog.Warn("Could not record backend directory identity; reuse gate degrades to name matching",
+			"backend", backend, "dir", backendDir, "error", dirErr)
+	}
+
 	s.processes[backend] = &backendProcess{
-		proc:        proc,
-		addr:        clientAddr,
-		port:        port,
-		backendName: backendName,
+		proc:         proc,
+		addr:         clientAddr,
+		port:         port,
+		backendName:  backendName,
+		backendDir:   backendDir,
+		backendDirID: dirInfo,
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
@@ -676,6 +719,10 @@ func (s *backendSupervisor) resolveStopTargets(id string) []string {
 // A process with no recorded backendName predates this field and is accepted:
 // treating it as a mismatch would restart every running backend once on
 // rollout.
+//
+// The name check alone is not sufficient. A reinstall keeps the name and
+// replaces the directory, which is the one case name matching cannot see, so
+// backendDirIntact gates reuse first.
 func (s *backendSupervisor) processMatchesBackend(key, backend string) bool {
 	s.mu.Lock()
 	bp, ok := s.processes[key]
@@ -686,6 +733,10 @@ func (s *backendSupervisor) processMatchesBackend(key, backend string) bool {
 	recorded := bp.backendName
 	s.mu.Unlock()
 
+	if !s.backendDirIntact(key) {
+		return false
+	}
+
 	if recorded == "" || recorded == backend {
 		return true
 	}
@@ -693,6 +744,59 @@ func (s *backendSupervisor) processMatchesBackend(key, backend string) bool {
 	// same on-disk backend, which is a legitimate reuse.
 	_, match := s.backendIdentity(backend)[recorded]
 	return match
+}
+
+// backendDirIntact reports whether the process under `key` is still running
+// out of the installed backend directory.
+//
+// gallery.InstallBackend replaces a backend by renaming the live directory to
+// `<name>.install-backup`, moving the staged directory into place, then
+// deleting the backup. A working directory follows the inode across a rename,
+// so any process that outlived that swap now has a deleted inode as its CWD
+// and every getcwd(2) in it fails with ENOENT. Python backends import torch
+// lazily inside LoadModel, so the survivor still answers HealthCheck and only
+// detonates when a model is loaded through it — surfacing as a bare
+// `[Errno 2] No such file or directory` from deep inside torch's custom-op
+// registration, with nothing pointing at the reinstall that caused it.
+//
+// The install paths already stop processes by name before replacing the
+// directory. This is the backstop for when that bookkeeping misses one — a
+// legacy entry with no recorded name, backendIdentity degraded to name-only
+// matching because ListSystemBackends failed, or an earlier reinstall having
+// rewritten the metadata.json that carries the alias. Comparing the recorded
+// directory identity with what is on disk needs none of that bookkeeping to
+// have been correct.
+//
+// A process with no recorded directory predates this field and is accepted, so
+// a rollout does not restart every running backend once.
+func (s *backendSupervisor) backendDirIntact(key string) bool {
+	s.mu.Lock()
+	bp, ok := s.processes[key]
+	if !ok {
+		s.mu.Unlock()
+		return false
+	}
+	dir, recorded := bp.backendDir, bp.backendDirID
+	s.mu.Unlock()
+
+	if dir == "" || recorded == nil {
+		return true
+	}
+
+	current, err := os.Stat(dir)
+	if err != nil {
+		xlog.Warn("Backend process is running from a directory that no longer exists; it must not be reused",
+			"processKey", key, "dir", dir, "error", err)
+		return false
+	}
+	// Same path, different inode: the directory was replaced underneath the
+	// process, which is exactly what a reinstall does.
+	if !os.SameFile(recorded, current) {
+		xlog.Warn("Backend directory was replaced under a running process (reinstall); it must not be reused",
+			"processKey", key, "dir", dir)
+		return false
+	}
+	return true
 }
 
 // stopBackend stops the backend process(es) matching the given identifier.

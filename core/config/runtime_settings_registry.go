@@ -418,6 +418,16 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig, v string) { o.AgentPool.AgentHubURL = v },
 		restartRequired()),
 
+	// Distributed disk-headroom admission check: stored as the negation for UI
+	// clarity (the config member is the "disabled" flag so its zero value is
+	// the safe, enabled default). No restartRequired(): the SmartRouter reads
+	// the ApplicationConfig member live on every scheduling decision, which is
+	// the whole point of exposing it here rather than as env/CLI only.
+	field("distributed_disk_headroom_check",
+		func(s *RuntimeSettings) **bool { return &s.DistributedDiskHeadroomCheck },
+		func(o *ApplicationConfig) bool { return !o.Distributed.DiskHeadroomDisabled },
+		func(o *ApplicationConfig, v bool) { o.Distributed.DiskHeadroomDisabled = !v }),
+
 	// LocalAI Assistant: stored as the negation for UI clarity.
 	field("localai_assistant_enabled",
 		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },

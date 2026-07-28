@@ -62,10 +62,14 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		}
 		return nil
 	case op.GalleryElementName != "":
+		opts := []gallery.InstallOption{gallery.WithArtifactMaterializer(m.artifactMaterializer)}
+		if op.Variant != "" {
+			opts = append(opts, gallery.WithVariant(op.Variant))
+		}
 		return gallery.InstallModelFromGallery(ctx, op.Galleries, op.BackendGalleries,
 			m.systemState, m.modelLoader, op.GalleryElementName, op.Req, progressCb,
 			m.enforcePredownloadScans, m.automaticallyInstallBackend, m.requireBackendIntegrity,
-			gallery.WithArtifactMaterializer(m.artifactMaterializer))
+			opts...)
 	default:
 		return installModelFromRemoteConfig(ctx, m.systemState, m.modelLoader, op.Req,
 			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity,

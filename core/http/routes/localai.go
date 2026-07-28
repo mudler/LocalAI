@@ -224,8 +224,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
+	router.GET("/api/traces/:id", localai.GetAPITraceEndpoint(), adminMiddleware)
 	router.POST("/api/traces/clear", localai.ClearAPITracesEndpoint(), adminMiddleware)
 	router.GET("/api/backend-traces", localai.GetBackendTracesEndpoint(), adminMiddleware)
+	router.GET("/api/backend-traces/:id", localai.GetBackendTraceEndpoint(), adminMiddleware)
 	router.POST("/api/backend-traces/clear", localai.ClearBackendTracesEndpoint(), adminMiddleware)
 	// Backend logs — standalone only (distributed mode uses node-proxied routes)
 	if !appConfig.Distributed.Enabled {
@@ -260,8 +262,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"system":               "/system",
 			"version":              "/version",
 			"traces":               "/api/traces",
+			"trace":                "/api/traces/:id",
 			"traces_clear":         "/api/traces/clear",
 			"backend_traces":       "/api/backend-traces",
+			"backend_trace":        "/api/backend-traces/:id",
 			"backend_traces_clear": "/api/backend-traces/clear",
 		}
 		if !appConfig.Distributed.Enabled {

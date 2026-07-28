@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/emirpasic/gods/v2/queues/circularbuffer"
@@ -36,6 +38,10 @@ type APIExchangeResponse struct {
 }
 
 type APIExchange struct {
+	// ID identifies this exchange for the lifetime of the process. The list
+	// endpoint returns trimmed entries; clients fetch the full payload back
+	// by ID from /api/traces/:id.
+	ID        string              `json:"id"`
 	Timestamp time.Time           `json:"timestamp"`
 	Duration  time.Duration       `json:"duration"`
 	Request   APIExchangeRequest  `json:"request"`
@@ -55,6 +61,11 @@ var traceBuffer *circularbuffer.Queue[APIExchange]
 var mu sync.Mutex
 var logChan = make(chan APIExchange, 100)
 var tracingMaxItems int
+var traceIDSeq atomic.Uint64
+
+func nextTraceID() string {
+	return strconv.FormatUint(traceIDSeq.Add(1), 10)
+}
 
 var doInitializeTracing = sync.OnceFunc(func() {
 	maxItems := tracingMaxItems
@@ -225,6 +236,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			responseBody := make([]byte, resBody.Len())
 			copy(responseBody, resBody.Bytes())
 			exchange := APIExchange{
+				ID:        nextTraceID(),
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),
 				ClientIP:  c.RealIP(),
@@ -280,6 +292,58 @@ func GetTraces() []APIExchange {
 	})
 
 	return traces
+}
+
+// GetTracesPage returns the newest-first window [offset, offset+limit) of the
+// trace buffer together with the total number of buffered exchanges. A limit
+// <= 0 means "no bound" and returns everything from offset onwards.
+func GetTracesPage(offset, limit int) ([]APIExchange, int) {
+	all := GetTraces()
+	return window(all, offset, limit), len(all)
+}
+
+// GetTrace returns the buffered exchange with the given ID.
+func GetTrace(id string) (APIExchange, bool) {
+	for _, t := range GetTraces() {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	return APIExchange{}, false
+}
+
+// SummarizeExchange strips the heavy parts of an exchange: request/response
+// bodies and header maps. What remains is enough to render the trace list
+// (method, path, status, timing, sizes, caller), and the byte counters are
+// preserved so the UI can still say how big the dropped payload was. Callers
+// fetch the full record by ID when a row is expanded.
+//
+// This is what keeps the polling cost bounded: bodies are what made
+// /api/traces a multi-megabyte response on every refresh.
+func SummarizeExchange(e APIExchange) APIExchange {
+	e.Request.Body = nil
+	e.Request.Headers = nil
+	e.Response.Body = nil
+	e.Response.Headers = nil
+	return e
+}
+
+// window slices s to the requested page, clamping out-of-range bounds to an
+// empty result rather than panicking.
+func window[T any](s []T, offset, limit int) []T {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(s) {
+		return []T{}
+	}
+	s = s[offset:]
+	if limit > 0 && limit < len(s) {
+		s = s[:limit]
+	}
+	out := make([]T, len(s))
+	copy(out, s)
+	return out
 }
 
 // ClearTraces clears the in-memory logs

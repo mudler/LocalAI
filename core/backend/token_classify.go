@@ -87,8 +87,9 @@ func ModelTokenClassify(text string, opts TokenClassifyOptions, loader *model.Mo
 			startTime = time.Now()
 		}
 		resp, err := inferenceModel.TokenClassify(ctx, &pb.TokenClassifyRequest{
-			Text:      text,
-			Threshold: opts.Threshold,
+			ModelIdentity: modelConfig.Model,
+			Text:          text,
+			Threshold:     opts.Threshold,
 		})
 		entities := tokenClassifyResponseToEntities(resp)
 		if appConfig.EnableTracing {
