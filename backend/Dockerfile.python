@@ -1,6 +1,14 @@
 ARG BASE_IMAGE=ubuntu:24.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
+# CI mirror of the CUDA aarch64 wheels from pypi.jetson-ai-lab.io, kept warm
+# by .github/workflows/jetson-wheels.yml so l4t builds survive the upstream
+# index's recurring multi-hour outages. The default (scratch) mounts an empty
+# directory, which makes installRequirements fall through to the upstream
+# index unchanged — local and Jetson-native builds are unaffected.
+ARG JETSON_WHEELS_IMAGE=scratch
+
+FROM ${JETSON_WHEELS_IMAGE} AS jetson-wheels
 
 FROM ${BASE_IMAGE} AS builder
 ARG BACKEND=rerankers
@@ -222,7 +230,8 @@ ENV FROM_SOURCE=${FROM_SOURCE}
 # and picks up newer wheels from PyPI / nightly indexes.
 ARG DEPS_REFRESH=initial
 
-RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
+RUN --mount=type=bind,from=jetson-wheels,target=/jetson-wheels \
+    cd /${BACKEND} && PORTABLE_PYTHON=true JETSON_WHEELS_DIR=/jetson-wheels make
 
 # Package GPU libraries into the backend's lib directory.
 #
