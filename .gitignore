@@ -41,7 +41,12 @@ models/*
 test-models/
 test-dir/
 tests/e2e-aio/backends
-mock-backend
+# The mock backend binary built by `make build-mock-backend`. Anchored to its
+# full path: a bare `mock-backend` also matched the *directory* holding the
+# source, so git would not descend into it and adding a file there needed -f.
+# tests/e2e/mock-backend/.gitignore covers the same binary; kept here too so
+# the artifact stays ignored if that scoped file is ever removed.
+/tests/e2e/mock-backend/mock-backend
 
 release/
 
@@ -106,3 +111,10 @@ core/http/react-ui/test-results/
 # the realtime-conformance gate; only the .fizz sources are authoritative.
 formal-verification/*.json
 formal-verification/out/
+
+# `go build ./.github/ci/apexentries` drops a binary of the package name into
+# whatever directory it runs in, one `git add -A` away from being committed.
+# Both paths are anchored: an unanchored `apexentries` would also match the
+# package directory itself and untrack the source.
+/apexentries
+/.github/ci/apexentries/apexentries

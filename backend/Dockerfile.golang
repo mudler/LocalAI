@@ -218,6 +218,33 @@ RUN if [ "${BACKEND}" = "crispasr" ]; then \
     apt-get clean && rm -rf /var/lib/apt/lists/*; \
 fi
 
+# sherpa-onnx links onnxruntime's CUDA execution provider, and
+# libonnxruntime_providers_cuda.so has cuDNN as a hard DT_NEEDED. The
+# onnxruntime GPU tarball does not ship cuDNN itself, so without this the
+# builder has none (the arm64 + CUDA 13 branch above is the only other place
+# that installs it) and package-gpu-libs.sh correctly refuses to produce a
+# package that references cuDNN with no cuDNN available to it.
+#
+# Installed per-backend rather than for every cublas build: the auto-detection
+# in package-gpu-libs.sh bundles only what a package actually references, so
+# the ggml backends would not grow either way, but they would all pay ~1.1 GB
+# of builder layer and registry cache for a library they never call.
+#
+# Runtime package only, no -dev: sherpa-onnx consumes onnxruntime's prebuilt
+# CUDA provider and never compiles against cuDNN headers. libcudnn9-cuda-N
+# carries the dispatcher plus all seven dlopen()ed sublibraries, which is what
+# complete_cudnn_family needs to assemble a whole bundle.
+RUN <<EOT bash
+    if [ "${BACKEND}" = "sherpa-onnx" ] && [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libcudnn9-cuda-${CUDA_MAJOR_VERSION} && \
+        ldconfig && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
 COPY . /LocalAI
 
 RUN git config --global --add safe.directory /LocalAI

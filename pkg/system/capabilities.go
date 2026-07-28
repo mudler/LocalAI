@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/mudler/xlog"
@@ -18,8 +19,8 @@ const (
 	Intel  = "intel"
 
 	// Private constants - only used within this package
-	defaultCapability  = "default"
-	disableCapability  = "disable"
+	defaultCapability = "default"
+	disableCapability = "disable"
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
@@ -43,7 +44,213 @@ const (
 	backendTokenROCM   = "rocm"
 	backendTokenHIP    = "hip"
 	backendTokenSYCL   = "sycl"
+	backendTokenCPU    = "cpu"
+
+	// Engine names (private). Unlike the tokens above these are whole backend
+	// identities as a gallery entry's `backend:` field spells them, not build
+	// tags. See the two preference tables below for why the distinction matters.
+	engineVLLM     = "vllm"
+	engineSGLang   = "sglang"
+	engineLlamaCpp = "llama-cpp"
+	engineMLX      = "mlx"
+
+	// Serving feature names (private). A third vocabulary again: not a build
+	// tag and not an engine, but the inference-time strategy a published build
+	// enables. They are matched against a gallery entry's declared TAGS and
+	// nothing else, so they are spelled the way gallery authors spell a tag.
+	servingFeatureDFlash = "dflash"
+	servingFeatureMTP    = "mtp"
 )
+
+// There are THREE preference tables below and they speak DIFFERENT VOCABULARIES,
+// matched against three different things. Merging any two looks tempting and
+// silently breaks a consumer, because a token that means something in one
+// vocabulary means nothing in the others. Read this before editing any of them.
+//
+//   - backendBuildTagPreferenceRules holds BUILD TAGS ("cuda", "rocm", "metal").
+//     They are matched as substrings of INSTALLED BACKEND BUILD DIRECTORY NAMES
+//     such as "llama-cpp-cuda-12" or "cuda12-vllm". Consumer: alias resolution
+//     in ListSystemBackends (core/gallery/backends.go), which picks which
+//     installed build of one alias to run.
+//
+//   - engineNamePreferenceRules holds ENGINE NAMES ("vllm", "llama-cpp", "mlx").
+//     They are matched as substrings of a gallery entry's `backend:` value,
+//     which never carries a build tag: no entry in gallery/index.yaml contains
+//     "cuda", "rocm", "sycl" or "vulkan" anywhere in its backend name. Consumer:
+//     gallery variant auto-selection (core/gallery/resolve_variant.go), which
+//     picks which build of one model's weights to install.
+//
+//   - servingFeaturePreferenceTokens holds SERVING FEATURES ("dflash", "mtp").
+//     They are matched against a gallery entry's declared TAGS, whole and
+//     case-insensitively, rather than against a backend, an engine or the entry
+//     name. Same consumer as the engine table, applied one rank below it. See
+//     the token list for why a tag is the only signal.
+//
+// Feeding build tags to the variant ranker matches nothing, which does not
+// error: every candidate simply scores equal and size alone decides, so the
+// preference silently stops existing. That is exactly the bug this split fixes.
+// A serving feature fed to either of the other two tables fails the same way.
+
+// backendPreferenceRule maps a detected capability to preferred tokens, best
+// first. Both tables share this shape; only their vocabulary differs.
+type backendPreferenceRule struct {
+	capabilityPrefix string
+	tokens           []string
+}
+
+// backendBuildTagPreferenceRules is the BUILD TAG table. See the block comment
+// above for the vocabulary contract.
+//
+// Matching is by capability PREFIX, because a detected capability is refined at
+// runtime ("nvidia" becomes "nvidia-cuda-12" when the toolkit is present) and a
+// preference is about the vendor rather than the point release. Rules are tried
+// in order, so a more specific prefix must precede any rule it shares a prefix
+// with.
+//
+// Tokens are matched as substrings of a build directory name, so "cuda" covers
+// "cuda12-llama-cpp". A build matching no token is not an error and is never
+// discarded; it simply sorts below every recognised one.
+var backendBuildTagPreferenceRules = []backendPreferenceRule{
+	{Nvidia, []string{backendTokenCUDA, vulkan, backendTokenCPU}},
+	{AMD, []string{backendTokenROCM, backendTokenHIP, vulkan, backendTokenCPU}},
+	{Intel, []string{backendTokenSYCL, Intel, backendTokenCPU}},
+	{metal, []string{backendTokenMetal, backendTokenCPU}},
+	{darwinX86, []string{darwinX86, backendTokenCPU}},
+	{vulkan, []string{vulkan, backendTokenCPU}},
+}
+
+// defaultBackendBuildTagTokens is what a host with no matching rule prefers.
+// A capability nobody has taught this table about degrades to plain CPU rather
+// than to an error or to an empty list.
+var defaultBackendBuildTagTokens = []string{backendTokenCPU}
+
+// engineNamePreferenceRules is the ENGINE NAME table. See the block comment
+// above for the vocabulary contract.
+//
+// Capability matching is by prefix, exactly as the build tag table does it.
+//
+// Tokens are matched as SUBSTRINGS of an engine name, which is load bearing:
+// "vllm" also covers "vllm-omni", "mlx" also covers "mlx-vlm" and "mlx-audio",
+// and "llama-cpp" also covers "ik-llama-cpp". Each of those is a build of the
+// engine named by the token, so ranking them together is correct. Order the
+// tokens so no token is a substring of an engine that should rank differently.
+//
+// A capability is deliberately ABSENT rather than guessed at when no engine
+// ordering can be justified for it. An absent rule degrades to ordering by size
+// alone, which is the behaviour that predates preference and is always safe.
+//
+// Safe, however, only where every candidate engine is equally at home on the
+// host. Where one is not, the rule has to be written here, because the hardware
+// filter will not write it: IsBackendCompatible derives support from the engine
+// NAME, and "vllm" and "sglang" contain none of the darwin, cuda, rocm or sycl
+// tokens it keys on, so a GPU serving engine is never filtered out on a host
+// with no GPU. Left unranked there, it wins on size alone whenever its build is
+// the larger one, and a CPU-only box installs vLLM over llama.cpp.
+var engineNamePreferenceRules = []backendPreferenceRule{
+	// vLLM first on every host with a dedicated serving engine build. It is the
+	// throughput engine, and a model published with a vLLM build is published
+	// that way precisely because that build is the one worth running.
+	// SGLang sits directly behind it: same class of GPU serving engine, ships
+	// cuda/rocm/intel builds alike, but it is behind vLLM because vLLM covers
+	// far more of the gallery. llama-cpp is the portable fallback.
+	{Nvidia, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	{AMD, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	{Intel, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	// MLX is the native accelerated runtime on Apple silicon, whereas a
+	// metal-enabled GGUF build is the portable engine merely compiled with GPU
+	// offload. No vLLM or SGLang build targets metal, so neither is listed.
+	{metal, []string{engineMLX, engineLlamaCpp}},
+	// A Vulkan host has exactly one LLM engine with a Vulkan build, so a
+	// llama-cpp variant is the only one that will use the GPU at all.
+	{vulkan, []string{engineLlamaCpp}},
+	// No usable accelerator: either nothing was detected, or a GPU was found
+	// with too little VRAM to serve from, both of which report "default".
+	// llama.cpp is the engine built to run well on a CPU; vLLM and SGLang are
+	// GPU serving engines whose CPU paths exist but are not what an unattended
+	// auto-selection should hand a CPU-only box.
+	//
+	// The GPU engines are enumerated behind llama.cpp rather than left
+	// unmatched. Listing llama.cpp alone would already make it win, since an
+	// unmatched engine ranks below every listed one, but it would leave vLLM
+	// and SGLang tied with each other and with any engine nobody has ranked
+	// yet, so download size would decide among them. Naming them fixes that
+	// order and says the omission of a GPU engine from the top spot is a
+	// decision rather than an oversight. Ranking never filters, so a vLLM
+	// variant offered alone is still installed here.
+	{defaultCapability, []string{engineLlamaCpp, engineVLLM, engineSGLang}},
+	// An Intel Mac has no accelerated runtime at all: MLX needs Apple silicon,
+	// and no vLLM or SGLang build targets darwin. Same ordering, same reasons.
+	// MLX is deliberately left unlisted so it ranks last, since
+	// IsBackendCompatible admits any darwin-tokened engine on this capability
+	// and will not drop it.
+	{darwinX86, []string{engineLlamaCpp, engineVLLM, engineSGLang}},
+}
+
+// defaultEnginePreferenceTokens is empty on purpose. It is now only reached by
+// a capability nobody has taught this table about, which an operator can force
+// via LOCALAI_FORCE_META_BACKEND_CAPABILITY; the detected "default" has its own
+// rule above. Guessing an order for hardware we know nothing about would be
+// worse than ordering by size alone, which is what the ranker reads an empty
+// list as and is the behaviour that predates preference.
+var defaultEnginePreferenceTokens = []string{}
+
+// servingFeaturePreferenceTokens is the SERVING FEATURE table, best first. See
+// the block comment above for the vocabulary contract.
+//
+// A serving feature is a way of running the same weights faster rather than a
+// different set of weights: a DFlash build pairs the base GGUF with a drafter
+// so the target accepts several speculated tokens per step, and an MTP build
+// carries extra prediction heads to the same end. Both produce the same
+// distribution as the plain build, so whenever one fits there is no reason to
+// install the plain build instead.
+//
+// DFlash leads because it is the newer pairing and accepts more tokens per step
+// in practice; MTP follows; a build naming neither is plain and ranks last.
+// A build's extra weights make it strictly larger than the plain build, which
+// is why this ranks BELOW fit: the size filter drops the pairing on a host too
+// small for it before this list is ever consulted.
+//
+// Unlike the two tables above this one is NOT keyed by capability. A serving
+// feature is a property of the published build, and no hardware prefers the
+// plain build over an equivalent faster one, so there is no host-shaped
+// ordering to express. Should one ever appear, this becomes a rule table like
+// its neighbours without any consumer changing.
+//
+// A token is matched against an entry's declared TAGS, compared whole and
+// case-insensitively, and against NOTHING ELSE. A tag is the declaration: an
+// author writing "mtp" in a tag list means the feature, so it can be compared
+// exactly without the ambiguity free text carries.
+//
+// Two rejected alternatives, because both look like obvious improvements:
+//
+//   - The ENTRY NAME. It was the original signal and is now gone. A naming
+//     convention is not a contract, and a name is author-supplied free text
+//     where a short marker turns up inside unrelated words ("smtp-assistant"),
+//     or names weights that carry MTP heads without the entry enabling
+//     anything ("qwen3.6-27b-nvfp4-mtp", whose only option is use_jinja).
+//     Reading a name infers a capability nobody declared.
+//
+//   - overrides.options, where "spec_type:draft-mtp" is what actually turns
+//     the feature on. That spelling is llama.cpp's config vocabulary. ds4
+//     spells the same feature "mtp_path" and sglang spells it
+//     "speculative_algorithm" in a referenced config file, so keying a
+//     cross-backend ranking decision on one backend's option syntax would
+//     rank the other backends' builds as plain.
+//
+// Options are the CURATION-TIME check instead: a gallery entry earns the tag
+// when it configures the feature in whatever vocabulary its backend uses. The
+// rule is written down in .agents/adding-gallery-models.md, and the
+// backend-specific syntax never reaches the selection logic.
+var servingFeaturePreferenceTokens = []string{servingFeatureDFlash, servingFeatureMTP}
+
+// ServingFeaturePreferenceTokens returns the serving features to prefer, best
+// first, for ranking gallery model variants against each other.
+//
+// It is a package function rather than a SystemState method precisely because
+// the answer does not depend on the host; see the table for why.
+func ServingFeaturePreferenceTokens() []string {
+	return slices.Clone(servingFeaturePreferenceTokens)
+}
 
 var (
 	cuda13DirExists bool
@@ -219,28 +426,52 @@ func (s *SystemState) getSystemCapabilities() string {
 // backend implementation order for the current system capability. Callers can use
 // these tokens to select the most appropriate concrete backend among multiple
 // candidates sharing the same alias (e.g., "llama-cpp").
+//
+// These are BUILD TAGS matched against installed build directory names. For
+// engine names as a gallery entry spells them, use EnginePreferenceTokens.
 func (s *SystemState) BackendPreferenceTokens() []string {
-	capStr := strings.ToLower(s.getSystemCapabilities())
-	switch {
-	case strings.HasPrefix(capStr, Nvidia):
-		return []string{backendTokenCUDA, vulkan, "cpu"}
-	case strings.HasPrefix(capStr, AMD):
-		return []string{backendTokenROCM, backendTokenHIP, vulkan, "cpu"}
-	case strings.HasPrefix(capStr, Intel):
-		return []string{backendTokenSYCL, Intel, "cpu"}
-	case strings.HasPrefix(capStr, metal):
-		return []string{backendTokenMetal, "cpu"}
-	case strings.HasPrefix(capStr, darwinX86):
-		return []string{"darwin-x86", "cpu"}
-	case strings.HasPrefix(capStr, vulkan):
-		return []string{vulkan, "cpu"}
-	default:
-		return []string{"cpu"}
-	}
+	return s.preferenceTokens(backendBuildTagPreferenceRules, defaultBackendBuildTagTokens)
 }
 
-// DetectedCapability returns the detected system capability string.
+// EnginePreferenceTokens returns the engine names this host prefers, best first,
+// for ranking gallery model variants against each other.
+//
+// These are ENGINE NAMES matched against a gallery entry's `backend:` value
+// ("vllm", "llama-cpp", "mlx"), never build tags. Feeding this function's output
+// to installed-build alias resolution, or BackendPreferenceTokens' output to
+// variant ranking, matches nothing and silently disables the preference.
+//
+// An empty result is normal and means "no engine ordering applies here", which
+// the ranker reads as ordering by size alone.
+func (s *SystemState) EnginePreferenceTokens() []string {
+	return s.preferenceTokens(engineNamePreferenceRules, defaultEnginePreferenceTokens)
+}
+
+// preferenceTokens resolves the current capability against one preference table.
+// The rules live in the tables above; this only looks them up, so teaching
+// LocalAI about a new runtime never means editing logic.
+func (s *SystemState) preferenceTokens(rules []backendPreferenceRule, fallback []string) []string {
+	capStr := strings.ToLower(s.getSystemCapabilities())
+	for _, rule := range rules {
+		if strings.HasPrefix(capStr, rule.capabilityPrefix) {
+			// Copied so a caller cannot mutate the shared table out from under
+			// every other host lookup.
+			return slices.Clone(rule.tokens)
+		}
+	}
+	return slices.Clone(fallback)
+}
+
+// DetectedCapability returns the raw detected capability string (e.g. "metal",
+// "nvidia-cuda-12", "default") with no map-membership fallback applied.
 // This can be used by the UI to display what capability was detected.
+//
+// Why this exists alongside Capability: Capability resolves against a caller
+// supplied map and falls back to "default" then "cpu" when the detected value
+// is absent from that map, so its answer describes what that caller can serve
+// rather than what the hardware is. A caller reasoning about the hardware
+// itself, or reporting it to a human, cannot tell a genuinely detected
+// "default" apart from a substituted one and needs the undecorated value.
 func (s *SystemState) DetectedCapability() string {
 	return s.getSystemCapabilities()
 }

@@ -56,6 +56,22 @@
         "additionalProperties": false
       }
     },
+    "variants": {
+      "type": "array",
+      "description": "Other builds of the same model (other backends, other quantizations) the installer may pick instead of this entry's own payload. Order carries no meaning: the installer drops what this host cannot run or does not have the memory for, then takes the largest of what is left, installing it under this entry's own name. If nothing is left this entry installs itself. Clients that predate variants support drop this key and install the entry unchanged.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["model"],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "Name of a gallery entry that declares no variants of its own"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "prompt_templates": {
       "type": "array",
       "description": "Prompt templates written as .tmpl files",

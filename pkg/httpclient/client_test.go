@@ -3,6 +3,7 @@ package httpclient_test
 import (
 	"crypto/tls"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -53,6 +54,55 @@ var _ = Describe("httpclient", func() {
 			Expect(ok).To(BeTrue())
 			Expect(t.TLSClientConfig).NotTo(BeNil())
 			Expect(t.TLSClientConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
+		})
+	})
+
+	Describe("WithResponseHeaderTimeout", func() {
+		It("aborts a peer that accepts the request but never sends headers", func() {
+			release := make(chan struct{})
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				<-release
+			}))
+			defer srv.Close()
+			defer close(release)
+
+			c := httpclient.New(httpclient.WithResponseHeaderTimeout(200 * time.Millisecond))
+			done := make(chan error, 1)
+			go func() {
+				_, err := c.Get(srv.URL)
+				done <- err
+			}()
+
+			var err error
+			Eventually(done, "3s").Should(Receive(&err))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("timeout awaiting response headers"))
+		})
+
+		It("does not bound the response body once headers have arrived", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				if f, ok := w.(http.Flusher); ok {
+					f.Flush()
+				}
+				time.Sleep(500 * time.Millisecond)
+				_, _ = w.Write([]byte("late"))
+			}))
+			defer srv.Close()
+
+			c := httpclient.New(httpclient.WithResponseHeaderTimeout(200 * time.Millisecond))
+			resp, err := c.Get(srv.URL)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(body)).To(Equal("late"), "a slow body must not be truncated")
+		})
+
+		It("leaves the transport unbounded when not opted in, so streaming is unaffected", func() {
+			t, ok := httpclient.New().Transport.(*http.Transport)
+			Expect(ok).To(BeTrue())
+			Expect(t.ResponseHeaderTimeout).To(BeZero())
 		})
 	})
 

@@ -101,12 +101,12 @@ services:
         - BASE_IMAGE=ubuntu:24.04
     command:
       - worker
-    # The image's default HEALTHCHECK targets the server's /readyz on 8080.
-    # Workers don't run the OpenAI API server — their HTTP file transfer
-    # server runs on the gRPC base port - 1 (50050 here) and exposes /readyz.
-    # Override the env var so the inherited HEALTHCHECK probes the right port.
+    # No HEALTHCHECK_ENDPOINT override is needed: the image's healthcheck
+    # detects worker mode and derives the port from LOCALAI_SERVE_ADDR below
+    # (gRPC base port - 1 = 50050). The worker's /readyz reports 503 while its
+    # NATS connection is down, so `unhealthy` here means the worker genuinely
+    # cannot receive work.
     environment:
-      HEALTHCHECK_ENDPOINT: "http://localhost:50050/readyz"
       LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
       LOCALAI_ADVERTISE_ADDR: "worker-1:50051"
       LOCALAI_ADVERTISE_HTTP_ADDR: "worker-1:50050"
@@ -200,10 +200,9 @@ services:
       - |
         apt-get update -qq && apt-get install -y -qq docker.io >/dev/null 2>&1
         exec /entrypoint.sh agent-worker
-    # The agent worker is NATS-only — no HTTP server to probe. Disable the
-    # image's inherited HEALTHCHECK so the container doesn't show unhealthy.
-    healthcheck:
-      disable: true
+    # The agent worker is NATS-only — no HTTP server to probe. The image's
+    # healthcheck detects that mode and reports healthy rather than probing a
+    # port that will never bind, so no override is needed here.
     environment:
       LOCALAI_NATS_URL: "nats://nats:4222"
       LOCALAI_REGISTER_TO: "http://localai:8080"

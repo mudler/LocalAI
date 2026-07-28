@@ -48,6 +48,7 @@ type proxyConfig struct {
 	upstreamModel string
 	localModel    string // ModelOptions.Model — fallback when upstream_model is unset
 	apiKey        string // resolved at Load time
+	cachePrompt   bool   // inject Anthropic prompt-cache breakpoints (translate+anthropic)
 }
 
 func NewCloudProxy() *CloudProxy {
@@ -106,6 +107,7 @@ func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
 		upstreamModel: po.GetUpstreamModel(),
 		localModel:    opts.GetModel(),
 		apiKey:        key,
+		cachePrompt:   po.GetCachePrompt(),
 	})
 	xlog.Info("cloud-proxy: ready",
 		"upstream", po.GetUpstreamUrl(),

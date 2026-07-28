@@ -16,7 +16,7 @@ The audio analog to [Face Recognition](/features/face-recognition/),
 served over the same `/v1/voice/*` HTTP API by two backends:
 
 - **`voice-detect` (recommended, default).** A standalone C++/ggml
-  engine ([voice-detect.cpp](https://github.com/mudler/voice-detect.cpp)):
+  engine ([voice-detect.cpp](https://github.com/localai-org/voice-detect.cpp)):
   no Python, no onnxruntime, no torch runtime. Each gallery entry is a
   single self-describing GGUF. This is the recommended option for new
   deployments.

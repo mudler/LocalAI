@@ -203,6 +203,7 @@ func (c *Client) InstallModel(ctx context.Context, req localaitools.InstallModel
 		Req: gallery.GalleryModel{
 			Metadata: gallery.Metadata{Name: req.ModelName},
 		},
+		Variant:          req.Variant,
 		Galleries:        galleries,
 		BackendGalleries: c.AppConfig.BackendGalleries,
 	}

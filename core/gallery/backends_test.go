@@ -32,6 +32,42 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		os.RemoveAll(tempDir)
 	})
 
+	It("keeps the Kokoro CPU fallback installable from the backend gallery", func() {
+		backends, err := ReadConfigFile[[]*GalleryBackend](filepath.Join("..", "..", "backend", "index.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		byName := make(map[string]*GalleryBackend, len(*backends))
+		for _, backend := range *backends {
+			byName[backend.Name] = backend
+		}
+
+		Expect(byName).To(HaveKey("kokoro"))
+		Expect(byName["kokoro"].CapabilitiesMap).To(HaveKeyWithValue("default", "cpu-kokoro"))
+		Expect(byName).To(HaveKey("cpu-kokoro"))
+		Expect(byName["cpu-kokoro"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:latest-cpu-kokoro"))
+
+		type matrixEntry struct {
+			Backend     string `yaml:"backend"`
+			Platforms   string `yaml:"platforms"`
+			PlatformTag string `yaml:"platform-tag"`
+			TagSuffix   string `yaml:"tag-suffix"`
+		}
+		type backendMatrix struct {
+			Include []matrixEntry `yaml:"include"`
+		}
+
+		matrix, err := ReadConfigFile[backendMatrix](filepath.Join("..", "..", ".github", "backend-matrix.yml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var cpuArchitectures []string
+		for _, entry := range matrix.Include {
+			if entry.Backend == "kokoro" && entry.TagSuffix == "-cpu-kokoro" {
+				cpuArchitectures = append(cpuArchitectures, entry.Platforms+"/"+entry.PlatformTag)
+			}
+		}
+		Expect(cpuArchitectures).To(ConsistOf("linux/amd64/amd64", "linux/arm64/arm64"))
+	})
+
 	It("ListSystemBackends prefers optimal alias candidate", func() {
 		// Arrange two installed backends sharing the same alias
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }

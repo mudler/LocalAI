@@ -60,3 +60,9 @@ if [ "x${USE_PIP}" == "xtrue" ]; then
 else
     uv pip install "protobuf>=5.29.0"
 fi
+
+# Regenerate the stubs against the protobuf runtime settled on just above. The
+# pin exists because transitive deps drag protobuf down; generating before that
+# pin is applied is what stamps a gencode the runtime then rejects.
+# See mudler/LocalAI#10718.
+runProtogen

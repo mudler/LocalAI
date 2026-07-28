@@ -320,6 +320,19 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	return messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
 }
 
+// ListRunningModels asks a worker node which model backend processes it
+// currently has running, via NATS request-reply.
+//
+// The timeout is short on purpose: the worker answers straight out of its
+// in-memory process table, so a slow reply means the worker itself is in
+// trouble, and the caller treats no-answer as "don't know" rather than as
+// "nothing running".
+func (a *RemoteUnloaderAdapter) ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error) {
+	subject := messaging.SubjectNodeModelsRunning(nodeID)
+	return messaging.RequestJSON[messaging.ModelsRunningRequest, messaging.ModelsRunningReply](
+		a.nats, subject, messaging.ModelsRunningRequest{}, 10*time.Second)
+}
+
 // StopBackend tells a worker node to stop a specific gRPC backend process.
 // If backend is empty, the worker stops ALL backends.
 // The node stays registered and can receive another InstallBackend later.

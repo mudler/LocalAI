@@ -96,6 +96,7 @@ const (
 	subjectAgentCancelPrefix    = "agent."
 	subjectFineTuneCancelPrefix = "finetune."
 	subjectGalleryCancelPrefix  = "gallery."
+	subjectResponseCancelPrefix = "responses."
 )
 
 // Wildcard subjects for NATS subscriptions that match all IDs.
@@ -106,6 +107,7 @@ const (
 	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"
+	SubjectResponseCancelWildcard  = "responses.*.cancel"
 )
 
 // SubjectJobCancel returns the NATS subject to cancel a running job.
@@ -126,6 +128,17 @@ func SubjectFineTuneCancel(jobID string) string {
 // SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
 func SubjectGalleryCancel(opID string) string {
 	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".cancel"
+}
+
+// SubjectResponseCancel returns the NATS subject used to cancel an in-flight
+// Open Responses generation. Only the replica that created the response holds
+// its context.CancelFunc, so a cancel that lands on any other replica is
+// broadcast here and applied by whichever replica actually owns the function.
+// Broadcast rather than request/reply on purpose: if the owner crashed or was
+// scaled down, nobody answers and the caller must not block waiting for a
+// reply that will never come.
+func SubjectResponseCancel(responseID string) string {
+	return subjectResponseCancelPrefix + sanitizeSubjectToken(responseID) + ".cancel"
 }
 
 // Node Backend Lifecycle (Pub/Sub — targeted to specific nodes)
@@ -350,6 +363,36 @@ type ModelDeleteRequest struct {
 type ModelDeleteReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
+}
+
+// SubjectNodeModelsRunning asks a worker node which model backend processes it
+// currently has running. Uses NATS request-reply.
+//
+// This is the authoritative answer to "is this replica still alive". The worker
+// owns the process table, so unlike a health probe against the backend's own
+// serving port, its reply does not depend on whether that backend happens to be
+// busy: a model mid-generation cannot answer a gRPC health check for minutes at
+// a time, but the worker answers immediately either way.
+func SubjectNodeModelsRunning(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".models.running"
+}
+
+// ModelsRunningRequest is the payload for a models.running NATS request.
+type ModelsRunningRequest struct{}
+
+// ModelsRunningReply is the response from a models.running NATS request.
+type ModelsRunningReply struct {
+	Models []RunningModelInfo `json:"models"`
+	Error  string             `json:"error,omitempty"`
+}
+
+// RunningModelInfo identifies one live backend process on a worker. The triple
+// is isomorphic to a controller NodeModel row's (model_name, replica_index,
+// address), which is what lets the reconciler diff the two directly.
+type RunningModelInfo struct {
+	ModelID      string `json:"model_id"`
+	ReplicaIndex int    `json:"replica_index"`
+	Address      string `json:"address,omitempty"`
 }
 
 // SubjectNodeStop tells a serve-backend node to shut down entirely

@@ -9,6 +9,7 @@ export default function NodePanel({ node, models = [], onApprove, onDrain, onRes
   const isAgent = node.node_type === 'agent'
   const open = () => navigate(`/app/nodes/${node.id}`)
   const usedVRAM = node.total_vram && node.available_vram != null ? node.total_vram - node.available_vram : null
+  const usedRAM = node.total_ram && node.available_ram != null ? node.total_ram - node.available_ram : null
 
   return (
     <div className="node-panel">
@@ -44,6 +45,9 @@ export default function NodePanel({ node, models = [], onApprove, onDrain, onRes
             <div className="node-panel__meta">
               {node.total_vram > 0 && (
                 <span className="cell-mono">VRAM {formatVRAM(usedVRAM) || '0'} / {formatVRAM(node.total_vram)}</span>
+              )}
+              {node.total_ram > 0 && (
+                <span className="cell-mono">RAM {formatVRAM(usedRAM) || '0'} / {formatVRAM(node.total_ram)}</span>
               )}
               <span className="cell-mono">{node.in_flight_count || 0} in-flight</span>
             </div>

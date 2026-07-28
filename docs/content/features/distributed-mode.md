@@ -25,12 +25,13 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
-2. If no node has the model → prefer nodes with enough free VRAM
-3. Fall back to idle nodes (zero models), then least-loaded nodes
-4. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
-5. If all models are busy → wait (with timeout) for a model to become idle, then evict
-6. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
-7. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
+2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom))
+3. If no node has the model → prefer nodes with enough free VRAM
+4. Fall back to idle nodes (zero models), then least-loaded nodes
+5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
+6. If all models are busy → wait (with timeout) for a model to become idle, then evict
+7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
+8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
 
 Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
 
@@ -68,14 +69,47 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
+| `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
-| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | `5m` | Deadline for the `LoadModel` gRPC call the frontend issues to a worker. It starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint load and pipeline init. Raise it for very large checkpoints: a multi-tens-of-GB diffusion or video model on unified memory routinely needs more than 5 minutes, and the load then fails with `rpc error: code = DeadlineExceeded` at exactly the timeout. Raising this also widens the cold-load lock ceiling below, so the two knobs never fight. |
+| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
-The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That ceiling is **derived**, not configured: `max(backend-install-timeout + model-load-timeout + 5m, 25m)`. With the defaults that is `15m + 5m + 5m = 25m`, matching previous releases; raising either timeout widens the ceiling in step, so a longer load deadline is never clipped by it.
+### The model load deadline scales with the checkpoint
+
+The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
+
+So the deadline is derived per model:
+
+```
+budget = 5m + 20s per GiB of checkpoint,  capped at 6h
+```
+
+| Checkpoint | Derived budget |
+|---|---|
+| 2 GB | 5m40s |
+| 70 GB | 28m20s |
+| 600 GB | 3h25m |
+
+The per-GiB rate is deliberately pessimistic — it corresponds to reading weights at about 54 MB/s, below what any supported storage sustains — because the two errors are not symmetric: a budget that is too long costs only *failure latency* on a load that was going to fail anyway, while a budget that is too short causes a guaranteed false failure on a load that was perfectly healthy.
+
+The size is measured from the model files on the frontend's disk, over the same set of paths that get staged to the worker. If those files are not present locally — a backend handed a bare HuggingFace repo id fetches its own weights on the worker — there is nothing to measure and the budget stays at the plain 5m default. Pin `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` for those models if their load is slow.
+
+When the budget *is* exceeded, the error names the budget, the checkpoint size it was derived from, and the knob that overrides it, instead of surfacing a bare `context deadline exceeded`.
+
+### The cold-load lock ceiling
+
+The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That bound is **derived**, not configured, and it is based on *progress* rather than on wall-clock time.
+
+The load starts with a base budget of `max(backend-install-timeout + model-load-timeout + 5m, 25m)` — with the defaults, `15m + 5m + 5m = 25m`. That budget covers the steps that report no progress: node selection, backend install, and the remote `LoadModel` call. Raising either timeout widens it in step, so a longer load deadline is never clipped.
+
+That base is the hold's *starting* budget, not its maximum. Because the derived load budget above can exceed it — a 70 GB checkpoint's 28m20s against a 25m base — the hold is widened again as the router enters the load phase, by the derived budget plus the same 5m of slack. Without that step the ceiling would cancel a load that was still comfortably inside its own deadline.
+
+While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all — on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard — so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
+
+An absolute cap of 24h ends the hold even if progress keeps arriving, so a degenerate peer trickling a few bytes at a time cannot pin the lock forever. No configuration is needed for either value; both are sized well above any legitimate transfer.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -168,13 +202,16 @@ The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_T
 
 ### Watching Backend Installs
 
-While a worker downloads a backend, the admin **Operations Bar** at the top
-of the UI shows real-time progress: current file, downloaded/total bytes,
-and percentage. This works the same as single-node mode.
+While a worker downloads a backend, the admin operations strip at the top
+of the UI shows real-time progress: a percentage, and, when the install
+targets several workers, a roll-up of how far the fan-out has got,
+`2 of 5 nodes done`. Per-file byte counts are not on the strip; they are in
+the per-node detail below.
 
-When an install targets more than one worker, an **N nodes** chevron
-appears on the operation row. Click it to expand a per-node breakdown,
-with one row per worker showing:
+The per-node detail is on the **Operate → Activity** page
+([Activity]({{% relref "operations/activity" %}})). When an install targets
+more than one worker, an **N nodes** tag appears on the operation card, with
+one row per worker showing:
 
 - A status pill: **Queued** (gray), **Downloading** (blue), **Worker busy**
   (yellow), **Done** (green), or **Failed** (red).
@@ -190,6 +227,12 @@ finishes; no action is required from the operator.
 If a worker is running an older LocalAI release that does not report
 progress, its row in the breakdown will still show terminal status
 (queued / done / failed / worker busy) but no per-file progress.
+
+The **Record** on that page - what model and backend installs and removals have
+finished - is read from PostgreSQL rather than from the replica's memory. Every
+replica reports the same record, it survives restarts, a replica added by a
+scale-out or a rolling deploy reports it in full, and **Clear history** clears
+it for every replica.
 
 ## Worker Configuration
 
@@ -231,6 +274,19 @@ local-ai worker \
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
+
+### Worker Health Probes
+
+The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
+
+| Endpoint | Meaning |
+|----------|---------|
+| `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered *and* its NATS connection is live; 503 otherwise. |
+
+`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+
+The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
 
 ### Worker Address Configuration
 
@@ -316,7 +372,10 @@ usage is reported back to the frontend:
 share one physical RAM between CPU and GPU. LocalAI detects them via
 `/sys/devices/soc0/family` and `/sys/devices/soc0/soc_id` (no `nvidia-smi`
 required) and reports system-RAM figures as VRAM. Free VRAM therefore tracks
-`MemAvailable` in `/proc/meminfo`.
+`MemAvailable` in `/proc/meminfo`. Workers report RAM metrics independently
+from VRAM on every registration and heartbeat. On unified-memory nodes, the
+available RAM and available VRAM values should therefore track each other
+closely; on discrete-GPU nodes they can change independently.
 
 ### Node Labels
 
@@ -411,6 +470,39 @@ curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
 ```
 
 The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "advanced/vram-management#vram-budget-allocation-ceiling" %}}).
+
+### Disk headroom
+
+Model weights are **staged onto the worker's disk** before the backend loads them, so a node needs free space as well as free VRAM. Each worker reports the capacity of the filesystem backing its **models directory** (`--models-path`), not the root filesystem, on registration and on every heartbeat. Those figures appear as `total_disk` and `available_disk` in the nodes API and as **Models disk free** on the node detail page.
+
+Before placing a model, the SmartRouter removes any node whose models filesystem cannot hold it. The requirement is derived from the model's actual on-disk size plus a small margin (5%, at least 1 GiB), rather than a fixed percentage of the node's disk — a fixed threshold would take a small-but-usable node out of rotation for models it could comfortably store. When the model's size cannot be determined locally (a bare HuggingFace repo id that the worker fetches itself), the node only has to clear a 2 GiB floor.
+
+If **no** node has enough space, the request fails immediately with a capacity error naming the requirement and each node's free space, for example:
+
+```
+scheduling longcat-video-avatar-1.5: no node has enough free disk for the model:
+need 73.5 GB free on the models filesystem, but nvidia-thor has 0 B free of 937.0 GB
+```
+
+This is deliberately a scheduling-time verdict. Without it, a worker with a full disk still reported `status: healthy`, accepted the staging request, transferred tens of gigabytes and only then failed with `no space left on device` — minutes after a decision that could never have succeeded.
+
+Workers that predate this feature (or whose disk reading fails) report `total_disk` as `0`. Such nodes are treated as *unknown*, not *full*, and stay in rotation, so a rolling upgrade never empties the candidate pool. A full disk is distinguishable because it reports a non-zero `total_disk` with `available_disk` at `0`.
+
+Low disk does **not** mark a node `unhealthy`. Disk is compared per model rather than against a global threshold, so a node that is too small for one model remains a valid target for smaller ones. The check is also skipped entirely in [shared-models mode](#shared-models-directory), where nothing is staged to the worker at all.
+
+#### Turning the check off
+
+The check is **on by default**. To disable it, start the frontend with `--distributed-disk-headroom-check=false` / `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK=false`, or toggle **Settings → Distributed → Disk headroom check** in the WebUI (`distributed_disk_headroom_check` via `POST /api/settings`). The runtime setting takes effect on the next placement, with no restart; the env/CLI flag only sets the value LocalAI boots with, and both write the same underlying value, so the last change wins.
+
+Disabling means **warn, do not block**. Node selection goes back to ignoring free disk (the pre-check behaviour), but the check still runs, and when it would have rejected *every* node it logs a warning naming the shortfall:
+
+```
+WARN No node has room to store this model, but the disk-headroom check is DISABLED;
+     scheduling anyway — staging will most likely fail with ENOSPC
+     model=longcat-video-avatar-1.5 knob=distributed-disk-headroom-check
+```
+
+The alternative — skipping the check outright — was rejected because it reproduces the condition that made the original bug expensive: the cluster was doing something that could not work and said nothing about it. The escape hatch exists for setups where the size estimate is wrong (deduplicating or compressing filesystems, a backend that fetches its own weights rather than using the staged copy), and in exactly those cases the operator needs to see what LocalAI thought was wrong. Disabling is logged once at startup as well.
 
 The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 
