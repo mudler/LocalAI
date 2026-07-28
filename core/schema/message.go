@@ -38,6 +38,25 @@ type Message struct {
 	Reasoning *string `json:"reasoning,omitempty" yaml:"reasoning,omitempty"`
 }
 
+// UnmarshalJSON decodes Message, accepting reasoning_content as an inbound
+// alias for reasoning so vLLM/DeepSeek/OpenAI-SDK style clients that emit
+// reasoning_content on assistant turns round-trip through the interleaved
+// thinking loop. Canonical reasoning wins when both are present.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	type messageAlias Message
+	aux := struct {
+		*messageAlias
+		ReasoningContent *string `json:"reasoning_content,omitempty"`
+	}{messageAlias: (*messageAlias)(m)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if m.Reasoning == nil && aux.ReasoningContent != nil {
+		m.Reasoning = aux.ReasoningContent
+	}
+	return nil
+}
+
 type ToolCall struct {
 	Index        int          `json:"index"`
 	ID           string       `json:"id"`

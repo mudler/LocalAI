@@ -52,7 +52,12 @@
       "size": "Größe",
       "advanced": "Erweiterte Einstellungen",
       "seed": "Seed",
-      "seedPlaceholder": "Zufällig"
+      "seedPlaceholder": "Zufällig",
+      "frames": "Frames",
+      "referenceMedia": "Referenzmedien",
+      "startImage": "Startbild",
+      "endImage": "Endbild",
+      "avatarAudio": "Avatar-Audio"
     },
     "actions": {
       "generate": "Video generieren",

@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -103,7 +103,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -208,6 +208,20 @@ test: prepare-test
 test-backend-cpp:
 	bash backend/cpp/run-unit-tests.sh
 
+## Runs the shell-level regression tests for the image packaging scripts
+## (scripts/build/*_test.sh). These guard invariants that only ever break
+## inside a container build - a missing transitive dep, a partial cuDNN
+## family - and that no Go test can observe. Needs only bash + gcc + ldd.
+test-build-scripts:
+	@set -e; for t in scripts/build/*_test.sh; do echo "== $$t"; bash "$$t"; done
+
+## Runs the unit tests for the CI helper scripts under scripts/lib/. Currently
+## the backend matrix path filter, whose failure mode is invisible in CI: it
+## emits an empty matrix, every job goes green, and the change ships to no
+## image at all (see PR #10946). Plain `node --test`, no dependencies.
+test-ci-scripts:
+	@set -e; for t in scripts/lib/*_test.mjs; do echo "== $$t"; node --test "$$t"; done
+
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
 ## --fail-fast so a single failure doesn't truncate the coverage number, and
@@ -255,8 +269,7 @@ LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
 
 ## Set LINT_NEW_FROM to a git ref to override .golangci.yml's
 ## new-from-merge-base (origin/master). Useful from a fork clone where
-## origin/master is stale relative to the canonical repo — the pre-commit
-## hook passes the resolved upstream ref here so local lint matches CI.
+## origin/master is stale relative to the canonical repo.
 LINT_NEW_FROM?=
 lint:
 	@command -v golangci-lint >/dev/null 2>&1 || { \
@@ -274,17 +287,6 @@ lint-all:
 		exit 1; \
 	}
 	golangci-lint run --new=false --new-from-merge-base= --new-from-rev= $$(go list -e -f '{{.Dir}}' ./... | grep -vE '$(LINT_EXCLUDE_DIRS_RE)')
-
-########################################################
-## Git hooks
-########################################################
-## Points git at the versioned .githooks/ directory so the pre-commit hook
-## (lint + coverage gate) runs locally. Run once per clone. Undo with:
-## `git config --unset core.hooksPath`. Skip a single commit with
-## `git commit --no-verify`.
-install-hooks:
-	git config core.hooksPath .githooks
-	@echo 'Installed git hooks: core.hooksPath -> .githooks (pre-commit runs lint + test-coverage-check on Go changes)'
 
 ########################################################
 ## E2E AIO tests (uses standard image with pre-configured models)
@@ -412,8 +414,13 @@ test-realtime: build-mock-backend
 test-realtime-conformance:
 	GOCMD=$(GOCMD) ./scripts/realtime-conformance.sh
 
+# Verify the shared model-loader shutdown behavior independently of any API
+# modality (focused loader/gRPC/distributed/worker tests under -race + FizzBee).
+test-model-lifecycle-conformance:
+	GOCMD=$(GOCMD) ./scripts/model-lifecycle-conformance.sh
+
 # Install the pinned, checksum-verified FizzBee model checker (into .tools/,
-# gitignored) used by test-realtime-conformance. Idempotent; no-op if present.
+# gitignored) used by the conformance targets. Idempotent; no-op if present.
 install-fizzbee:
 	./scripts/install-fizzbee.sh
 
@@ -565,6 +572,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/chatterbox
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/vllm-omni
+	$(MAKE) -C backend/python/longcat-video
 	$(MAKE) -C backend/python/sglang
 	$(MAKE) -C backend/python/vibevoice
 	$(MAKE) -C backend/python/liquid-audio
@@ -594,6 +602,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/chatterbox test
 	$(MAKE) -C backend/python/vllm test
 	$(MAKE) -C backend/python/vllm-omni test
+	$(MAKE) -C backend/python/longcat-video test
 	$(MAKE) -C backend/python/vibevoice test
 	$(MAKE) -C backend/python/liquid-audio test
 	$(MAKE) -C backend/python/moonshine test
@@ -616,6 +625,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/locate-anything-cpp test
 	$(MAKE) -C backend/go/depth-anything-cpp test
 	$(MAKE) -C backend/go/supertonic test
+	$(MAKE) -C backend/go/vllm-cpp test
 
 ##
 ## End-to-end gRPC tests that exercise a built backend container image.
@@ -645,6 +655,9 @@ test-extra: prepare-test-extra
 ## suite against it.
 ##
 BACKEND_TEST_MODEL_URL?=https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
+## Suite timeout for `go test`. Wrappers whose model download alone can eat
+## most of the default (multi-GB models on a slow HF CDN day) override this.
+BACKEND_TEST_TIMEOUT?=30m
 
 ## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
 ## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
@@ -672,7 +685,7 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_FACE_IMAGE_3_URL="$$BACKEND_TEST_FACE_IMAGE_3_URL" \
 	BACKEND_TEST_FACE_IMAGE_3_FILE="$$BACKEND_TEST_FACE_IMAGE_3_FILE" \
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING="$$BACKEND_TEST_VERIFY_DISTANCE_CEILING" \
-	go test -v -timeout 30m ./tests/e2e-backends/...
+	go test -v -timeout $(BACKEND_TEST_TIMEOUT) ./tests/e2e-backends/...
 
 ## Convenience wrappers: build the image, then exercise it.
 test-extra-backend-llama-cpp: docker-build-llama-cpp
@@ -693,6 +706,16 @@ test-extra-backend-turboquant: docker-build-turboquant
 	BACKEND_IMAGE=local-ai-backend:turboquant \
 	BACKEND_TEST_CACHE_TYPE_K=q8_0 \
 	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
+	$(MAKE) test-extra-backend
+
+## bonsai: exercises the llama.cpp-fork backend with a real Q1_0 (1-bit) model —
+## the PrismML Bonsai-8B GGUF, whose weight quant is *only* decodable by the fork's
+## Q1_0 kernels. Loading it is what makes this backend distinct from stock llama-cpp;
+## a standard-quant model would only test the upstream code path the llama-cpp backend
+## already covers.
+test-extra-backend-bonsai: docker-build-bonsai
+	BACKEND_IMAGE=local-ai-backend:bonsai \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/prism-ml/Bonsai-8B-gguf/resolve/main/Bonsai-8B-Q1_0.gguf \
 	$(MAKE) test-extra-backend
 
 ## Audio transcription wrapper for the llama-cpp backend.
@@ -1012,6 +1035,7 @@ test-extra-backend-vibevoice-cpp-tts: docker-build-vibevoice-cpp
 ## post-image disk budget.
 test-extra-backend-vibevoice-cpp-transcription: docker-build-vibevoice-cpp
 	BACKEND_IMAGE=local-ai-backend:vibevoice-cpp \
+	BACKEND_TEST_TIMEOUT=120m \
 	BACKEND_TEST_MODEL_URL='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/vibevoice-asr-q4_k.gguf#vibevoice-asr-q4_k.gguf' \
 	BACKEND_TEST_EXTRA_FILES='https://huggingface.co/mudler/vibevoice.cpp-models/resolve/main/tokenizer.gguf#tokenizer.gguf' \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
@@ -1040,6 +1064,18 @@ test-extra-backend-whisper-transcription: docker-build-whisper
 test-extra-backend-parakeet-cpp-transcription: docker-build-parakeet-cpp
 	BACKEND_IMAGE=local-ai-backend:parakeet-cpp \
 	BACKEND_TEST_MODEL_URL=https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/realtime_eou_120m-v1-f16.gguf \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,transcription \
+	$(MAKE) test-extra-backend
+
+## Audio transcription wrapper for the moss-transcribe-cpp (moss-transcribe.cpp
+## ggml port) backend. Mirrors test-extra-backend-parakeet-cpp-transcription:
+## drives the AudioTranscription RPC against a published MOSS GGUF using the JFK
+## 11s clip from whisper.cpp's CI samples. Not part of the default test suite -
+## run explicitly once the pinned model URL is reachable.
+test-extra-backend-moss-transcribe-cpp-transcription: docker-build-moss-transcribe-cpp
+	BACKEND_IMAGE=local-ai-backend:moss-transcribe-cpp \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/mudler/moss-transcribe.cpp-gguf/resolve/main/moss-transcribe-q5_k.gguf \
 	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
 	BACKEND_TEST_CAPS=health,load,transcription \
 	$(MAKE) test-extra-backend
@@ -1193,6 +1229,10 @@ BACKEND_IK_LLAMA_CPP = ik-llama-cpp|ik-llama-cpp|.|false|false
 # turboquant is a llama.cpp fork with TurboQuant KV-cache quantization.
 # Reuses backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
 BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
+# bonsai is a llama.cpp fork (PrismML) adding the Q1_0 (1-bit) and Q2_0 (ternary)
+# weight-quant kernels the Bonsai / Ternary-Bonsai models ship in. Reuses
+# backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
+BACKEND_BONSAI = bonsai|bonsai|.|false|false
 # ds4 is antirez/ds4, a DeepSeek V4 Flash-specific inference engine.
 # Single-model; hardware-only validation lives at tests/e2e-backends/
 # (BACKEND_BINARY mode); see docs/superpowers/plans/2026-05-11-ds4-backend.md.
@@ -1212,10 +1252,14 @@ BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|tr
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
+BACKEND_MOSS_TRANSCRIBE_CPP = moss-transcribe-cpp|golang|.|false|true
 BACKEND_DEPTH_ANYTHING_CPP = depth-anything-cpp|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
 BACKEND_QWEN3_TTS_CPP = qwen3-tts-cpp|golang|.|false|true
+BACKEND_MOSS_TTS_CPP = moss-tts-cpp|golang|.|false|true
+BACKEND_MAGPIE_TTS_CPP = magpie-tts-cpp|golang|.|false|true
+BACKEND_VLLM_CPP = vllm-cpp|golang|.|false|true
 BACKEND_OMNIVOICE_CPP = omnivoice-cpp|golang|.|false|true
 BACKEND_VIBEVOICE_CPP = vibevoice-cpp|golang|.|false|true
 BACKEND_LOCALVQE = localvqe|golang|.|false|true
@@ -1237,6 +1281,7 @@ BACKEND_NEUTTS = neutts|python|.|false|true
 BACKEND_KOKORO = kokoro|python|.|false|true
 BACKEND_VLLM = vllm|python|.|false|true
 BACKEND_VLLM_OMNI = vllm-omni|python|.|false|true
+BACKEND_LONGCAT_VIDEO = longcat-video|python|.|--progress=plain|true
 BACKEND_SGLANG = sglang|python|.|false|true
 BACKEND_DIFFUSERS = diffusers|python|.|--progress=plain|true
 BACKEND_CHATTERBOX = chatterbox|python|.|false|true
@@ -1294,6 +1339,7 @@ endef
 $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_IK_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
+$(eval $(call generate-docker-build-target,$(BACKEND_BONSAI)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PRIVACY_FILTER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
@@ -1305,6 +1351,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PARAKEET_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MOSS_TRANSCRIBE_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DEPTH_ANYTHING_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXTRAL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OPUS)))
@@ -1321,6 +1368,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_NEUTTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KOKORO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VLLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VLLM_OMNI)))
+$(eval $(call generate-docker-build-target,$(BACKEND_LONGCAT_VIDEO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SGLANG)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DIFFUSERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CHATTERBOX)))
@@ -1338,6 +1386,9 @@ $(eval $(call generate-docker-build-target,$(BACKEND_WHISPERX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACE_STEP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_ACESTEP_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN3_TTS_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MOSS_TTS_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MAGPIE_TTS_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_VLLM_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OMNIVOICE_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCALVQE)))
@@ -1357,7 +1408,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-privacy-filter
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-privacy-filter
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -1392,7 +1443,7 @@ test-ui-e2e: build-ui-test-server
 UI_TEST_WORKERS ?=
 PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
 
-## Fast Playwright e2e run used by the pre-commit hook on React UI changes.
+## Fast Playwright e2e run for local React UI validation.
 ## Force-rebuilds the (non-instrumented) dist so the suite tests the working
 ## tree — not a stale dist the `react-ui` skip-guard would leave — re-embeds
 ## it into ui-test-server, and runs the specs. Uses the nix-provided browser

@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Integrations"
-weight = 19
+weight = 8
 icon = "sync"
 
 +++
@@ -14,54 +14,54 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 ### Build & Deploy
 
-- [aikit](https://github.com/sozercan/aikit) — Build and deploy custom LocalAI containers
-- [Helm chart](https://github.com/go-skynet/helm-charts) — Deploy LocalAI on Kubernetes
-- [GitHub Actions](https://github.com/marketplace/actions/start-localai) — Use LocalAI in CI/CD workflows
+- [aikit](https://github.com/sozercan/aikit) - Build and deploy custom LocalAI containers
+- [Helm chart](https://github.com/go-skynet/helm-charts) - Deploy LocalAI on Kubernetes
+- [GitHub Actions](https://github.com/marketplace/actions/start-localai) - Use LocalAI in CI/CD workflows
 
 ### Web UIs
 
 - [localai-admin](https://github.com/Jirubizu/localai-admin)
 - [LocalAI-frontend](https://github.com/go-skynet/LocalAI-frontend)
-- [QA-Pilot](https://github.com/reid41/QA-Pilot) — Interactive chat for navigating GitHub code repositories
-- [Big AGI](https://github.com/enricoros/big-agi) — Powerful web interface running entirely in the browser
+- [QA-Pilot](https://github.com/reid41/QA-Pilot) - Interactive chat for navigating GitHub code repositories
+- [Big AGI](https://github.com/enricoros/big-agi) - Powerful web interface running entirely in the browser
 
 ### Agentic Libraries & Assistants
 
-- [cogito](https://github.com/mudler/cogito) — Agentic library for Go
-- [LocalAGI](https://github.com/mudler/LocalAGI) — Local smart assistant with autonomous agents
+- [cogito](https://github.com/mudler/cogito) - Agentic library for Go
+- [LocalAGI](https://github.com/mudler/LocalAGI) - Local smart assistant with autonomous agents
 
 ### MCP Servers
 
-- [MCPs](https://github.com/mudler/MCPs) — Model Context Protocol servers
+- [MCPs](https://github.com/mudler/MCPs) - Model Context Protocol servers
 
 ### OS Assistants
 
-- [Keygeist](https://github.com/mudler/Keygeist) — AI-powered keyboard operator for Linux
+- [Keygeist](https://github.com/mudler/Keygeist) - AI-powered keyboard operator for Linux
 
 ### Voice
 
-- [VoxInput](https://github.com/richiejp/VoxInput) — Use voice to control your desktop
+- [VoxInput](https://github.com/richiejp/VoxInput) - Use voice to control your desktop
 
 ### IDE & Editor Plugins
 
 - [VSCode extension](https://github.com/badgooooor/localai-vscode-plugin)
-- [GPTLocalhost (Word Add-in)](https://gptlocalhost.com/demo#LocalAI) — Run LocalAI in Microsoft Word locally
+- [GPTLocalhost (Word Add-in)](https://gptlocalhost.com/demo#LocalAI) - Run LocalAI in Microsoft Word locally
 
 ### Framework Integrations
 
-- [Langchain (Python)](https://python.langchain.com/docs/integrations/providers/localai/) — [pypi](https://pypi.org/project/langchain-localai/)
-- [langchain4j](https://github.com/langchain4j/langchain4j) — Java LangChain
-- [lingoose](https://github.com/henomis/lingoose) — Go framework for LLM apps
-- [LLPhant](https://github.com/theodo-group/LLPhant) — PHP library for LLMs and vector databases
-- [FlowiseAI](https://github.com/FlowiseAI/Flowise) — Low-code LLM app builder
+- [Langchain (Python)](https://python.langchain.com/docs/integrations/providers/localai/) - [pypi](https://pypi.org/project/langchain-localai/)
+- [langchain4j](https://github.com/langchain4j/langchain4j) - Java LangChain
+- [lingoose](https://github.com/henomis/lingoose) - Go framework for LLM apps
+- [LLPhant](https://github.com/theodo-group/LLPhant) - PHP library for LLMs and vector databases
+- [FlowiseAI](https://github.com/FlowiseAI/Flowise) - Low-code LLM app builder
 - [LLMStack](https://github.com/trypromptly/LLMStack)
 - [Midori AI Subsystem Manager](https://io.midori-ai.xyz/subsystem/manager/)
 
 ### Terminal Tools
 
-- [ShellOracle](https://github.com/djcopley/ShellOracle) — Terminal utility
-- [Shell-Pilot](https://github.com/reid41/shell-pilot) — Interact with LLMs via pure shell scripts
-- [Mods](https://github.com/charmbracelet/mods) — AI on the command line
+- [ShellOracle](https://github.com/djcopley/ShellOracle) - Terminal utility
+- [Shell-Pilot](https://github.com/reid41/shell-pilot) - Interact with LLMs via pure shell scripts
+- [Mods](https://github.com/charmbracelet/mods) - AI on the command line
 
 ### Chat Bots
 
@@ -72,24 +72,24 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 ### Home Automation
 
-- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) — Conversation agent for Home Assistant that supports a custom OpenAI endpoint
-- [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) — Image & video feed analysis for Home Assistant
+- [Extended OpenAI Conversation](https://github.com/jekalmin/extended_openai_conversation) - Conversation agent for Home Assistant that supports a custom OpenAI endpoint
+- [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) - Image & video feed analysis for Home Assistant
 - [OpenAI TTS Speech Service](https://github.com/sfortis/openai_tts) - OpenAI TTS custom component for Home Assistant
-- [LocalAI Monitor](https://github.com/loryanstrant/HA-LocalAI-Monitor) — Monitor & control of LocalAI from Home Assistant
+- [LocalAI Monitor](https://github.com/loryanstrant/HA-LocalAI-Monitor) - Monitor & control of LocalAI from Home Assistant
 - Nextcloud [integration plugin](https://apps.nextcloud.com/apps/integration_openai) and [AI assistant](https://apps.nextcloud.com/apps/assistant)
 
 ### Automation & DevOps
 
-- [Reflexia](https://github.com/JackBekket/Reflexia) — Auto-documentation
-- [GitHelper](https://github.com/JackBekket/GitHelper) — GitHub bot for issues with code and documentation context
-- [kairos](https://github.com/kairos-io/kairos) — Immutable Linux OS
+- [Reflexia](https://github.com/JackBekket/Reflexia) - Auto-documentation
+- [GitHelper](https://github.com/JackBekket/GitHelper) - GitHub bot for issues with code and documentation context
+- [kairos](https://github.com/kairos-io/kairos) - Immutable Linux OS
 
 ### Other Integrations
 
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
 - [Logseq GPT3 OpenAI plugin](https://github.com/briansunter/logseq-plugin-gpt3-openai)
-- [CodeGPT (JetBrains)](https://plugins.jetbrains.com/plugin/21056-codegpt) — Custom OpenAI-compatible endpoints
-- [Wave Terminal](https://docs.waveterm.dev/features/supportedLLMs/localai) — Native LocalAI support
+- [CodeGPT (JetBrains)](https://plugins.jetbrains.com/plugin/21056-codegpt) - Custom OpenAI-compatible endpoints
+- [Wave Terminal](https://docs.waveterm.dev/features/supportedLLMs/localai) - Native LocalAI support
 - [Obsidian BMO Chatbot](https://github.com/longy2k/obsidian-bmo-chatbot)
 - [spark](https://github.com/cedriking/spark)
 - [openops (Mattermost)](https://github.com/mattermost/openops)

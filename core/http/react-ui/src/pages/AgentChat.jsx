@@ -221,7 +221,14 @@ export default function AgentChat() {
             return updated
           })
         } else if (data.type === 'done') {
-          // Content will be finalized by json_message event
+          // One agent turn runs several internal LLM generations (tool
+          // selection, reasoning, final answer) over the same SSE channel;
+          // 'done' marks the boundary between them. Reset the accumulated
+          // text so an internal generation's output doesn't merge into the
+          // next one's bubble — the final json_message carries the
+          // authoritative full answer anyway.
+          setStreamContent('')
+          setStreamReasoning('')
         }
       } catch (_err) {
         // ignore

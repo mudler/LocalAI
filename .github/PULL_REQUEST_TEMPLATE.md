@@ -7,6 +7,7 @@ This PR fixes #
 
 **[Signed commits](../CONTRIBUTING.md#signing-off-on-commits-developer-certificate-of-origin)**
 - [ ] Yes, I signed my commits.
+- [ ] Documentation updated (docs/content/) for user-facing changes, or not applicable
  
 <!--
 Thank you for contributing to LocalAI! 

@@ -69,4 +69,4 @@ docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubuserc
 ## Next Steps
 
 - Visit the [advanced section]({{%relref "advanced" %}}) for more insights on prompt templates and configuration files.
-- To learn about fine-tuning an LLM model, check out the [fine-tuning section]({{%relref "advanced/fine-tuning" %}}).
+- To learn about fine-tuning an LLM model, check out the [fine-tuning section]({{%relref "features/fine-tuning" %}}).

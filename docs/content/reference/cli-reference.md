@@ -50,6 +50,7 @@ Complete reference for all LocalAI command-line interface (CLI) parameters and e
 | `--force-eviction-when-busy` | `false` | Force eviction even when models have active API calls (default: false for safety). **Warning:** Enabling this can interrupt active requests | `$LOCALAI_FORCE_EVICTION_WHEN_BUSY`, `$FORCE_EVICTION_WHEN_BUSY` |
 | `--lru-eviction-max-retries` | `30` | Maximum number of retries when waiting for busy models to become idle before eviction | `$LOCALAI_LRU_EVICTION_MAX_RETRIES`, `$LRU_EVICTION_MAX_RETRIES` |
 | `--lru-eviction-retry-interval` | `1s` | Interval between retries when waiting for busy models to become idle (e.g., `1s`, `2s`) | `$LOCALAI_LRU_EVICTION_RETRY_INTERVAL`, `$LRU_EVICTION_RETRY_INTERVAL` |
+| `--model-load-failure-cooldown` | `10s` | After a model load fails, refuse new load attempts for that model for this long (HTTP 503 + `Retry-After`) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. `0` disables | `$LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN`, `$MODEL_LOAD_FAILURE_COOLDOWN` |
 
 For more information on VRAM management, see [VRAM and Memory Management]({{%relref "advanced/vram-management" %}}).
 
@@ -72,7 +73,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
 | `-t, --threads` | | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested | `$LOCALAI_THREADS`, `$THREADS` |
-| `--context-size` | | Default context size for models | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
+| `--context-size` | | Default context size for models (`-1` = each model's full trained context from GGUF metadata) | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
 
 ## API Flags
 
@@ -82,6 +83,8 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
 | `--csrf` | `false` | Enable Fiber CSRF middleware | `$LOCALAI_CSRF` |
+| `--disable-http-compression` | `false` | Disable gzip compression of HTTP responses. Compression is enabled by default; streaming endpoints (streaming chat completions, SSE bridges, WebSocket upgrades) and already-compressed formats are never compressed | `$LOCALAI_DISABLE_HTTP_COMPRESSION` |
+| `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
 | `--upload-limit` | `15` | Default upload-limit in MB | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |
 | `--api-keys` | | List of API Keys to enable API authentication. When this is set, all requests must be authenticated with one of these API keys | `$LOCALAI_API_KEY`, `$API_KEY` |
 | `--disable-webui` | `false` | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | `$LOCALAI_DISABLE_WEBUI`, `$DISABLE_WEBUI` |
@@ -105,7 +108,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--auth-enabled` | `false` | Enable user authentication and authorization | `$LOCALAI_AUTH` |
-| `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth — `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
+| `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth - `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
 | `--github-client-id` | | GitHub OAuth App Client ID (auto-enables auth when set) | `$GITHUB_CLIENT_ID` |
 | `--github-client-secret` | | GitHub OAuth App Client Secret | `$GITHUB_CLIENT_SECRET` |
 | `--oidc-issuer` | | OIDC issuer URL for auto-discovery | `$LOCALAI_OIDC_ISSUER` |
@@ -150,13 +153,19 @@ LocalAI supports several subcommands beyond `run`:
 
 - `local-ai models` - Manage LocalAI models and definitions
 - `local-ai backends` - Manage LocalAI backends and definitions
+- `local-ai chat` - Open an interactive chat session against a running LocalAI server
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
-- `local-ai worker` - Run workers to distribute workload (llama.cpp-only)
+- `local-ai agent` - Run agents standalone without the full LocalAI server
+- `local-ai mcp-server` - Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)
+- `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
+- `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
+- `local-ai agent-worker` - Start an agent worker for distributed mode (executes agent chats via NATS)
 - `local-ai util` - Utility commands
 - `local-ai explorer` - Run P2P explorer
 - `local-ai federated` - Run LocalAI in federated mode
+- `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
 
 Use `local-ai <command> --help` for more information on each command.
 

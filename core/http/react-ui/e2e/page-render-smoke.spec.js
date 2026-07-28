@@ -19,6 +19,7 @@ const PAGES = [
   ['/app/studio', 'Studio'],
   ['/app/manage', 'Manage'],
   ['/app/backends', 'Backends'],
+  ['/app/activity', 'Activity'],
   ['/app/settings', 'Settings'],
   ['/app/nodes', 'Nodes'],
   ['/app/scheduling', 'Scheduling'],
@@ -26,6 +27,8 @@ const PAGES = [
   ['/app/voice', 'Voice recognition'],
   ['/app/fine-tune', 'Fine-tuning'],
   ['/app/quantize', 'Quantize'],
+  ['/app/voice-library', 'Voice Library'],
+  ['/app/voice-library/new', 'Create voice profile'],
 ]
 
 test.describe('Page render smoke', () => {

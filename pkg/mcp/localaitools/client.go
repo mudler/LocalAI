@@ -64,6 +64,10 @@ type LocalAIClient interface {
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)
 	ListNodes(ctx context.Context) ([]Node, error)
+	// SetNodeVRAMBudget sets (or, with an empty budget, clears) a federated
+	// node's VRAM allocation cap as a sticky admin override. Only meaningful
+	// in distributed mode; single-process clients report it as unavailable.
+	SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error
 	VRAMEstimate(ctx context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error)
 
 	// ---- State ----
@@ -79,6 +83,11 @@ type LocalAIClient interface {
 	// SetBranding updates the text branding fields. Asset uploads are not
 	// exposed over MCP — admins use the Settings UI for binary files.
 	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
+
+	// ---- Voice profile library ----
+	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
+	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
+	DeleteVoiceProfile(ctx context.Context, id string) error
 
 	// ---- Usage / billing ----
 

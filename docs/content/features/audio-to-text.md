@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Audio to Text"
-weight = 16
+weight = 30
 url = "/features/audio-to-text/"
 +++
 
@@ -12,12 +12,12 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **moonshine**: Ultra-fast transcription engine optimized for low-end devices
 - **faster-whisper**: Fast Whisper implementation with CTranslate2
 - **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events).
-- **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder — the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
+- **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder - the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
 
 The endpoint input supports all the audio formats supported by `ffmpeg`.
 
-> Looking for **"who spoke when"** instead of a flat transcript? See [Speaker Diarization](/features/audio-diarization/) — `/v1/audio/diarization` returns time-stamped speaker segments and supports the `rttm` format used by `pyannote.metrics`.
+> Looking for **"who spoke when"** instead of a flat transcript? See [Speaker Diarization](/features/audio-diarization/) - `/v1/audio/diarization` returns time-stamped speaker segments and supports the `rttm` format used by `pyannote.metrics`.
 
 ## Usage
 
@@ -107,7 +107,7 @@ In addition to `file` and `model`, the endpoint accepts the following multipart 
 | `timestamp_granularities[]` | Multi-value form field: `word` and/or `segment`. Honored when the backend produces the requested granularity. |
 | `response_format` | One of `json` (default for backwards-compat), `verbose_json`, `text`, `srt`, `vtt`, `lrc`. |
 | `stream` | When `true`, the endpoint emits an SSE stream of `transcript.text.delta` events followed by a final `transcript.text.done` event. |
-| `diarize` | LocalAI extension — speaker diarization (whisper.cpp only). |
+| `diarize` | LocalAI extension - speaker diarization (whisper.cpp only). |
 
 The response body for `verbose_json` includes `text`, `language`, `duration`, and `segments[]` (with `speaker` populated when diarization is enabled).
 
@@ -133,7 +133,7 @@ data: {"type":"transcript.text.done","text":"And so, my fellow Americans..."}
 data: [DONE]
 ```
 
-Backends that do not natively stream tokens fall back to emitting one delta plus a done event with the full text — the SSE contract is identical either way.
+Backends that do not natively stream tokens fall back to emitting one delta plus a done event with the full text - the SSE contract is identical either way.
 
 ## Using the llama-cpp backend with an audio-capable model
 
@@ -220,4 +220,4 @@ By default each request runs on its own. Raise `batch_max_size` (for example 4 t
 
 ## See also
 
-- [Audio Transform]({{< relref "audio-transform.md" >}}) — clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.
+- [Audio Transform]({{< relref "audio-transform.md" >}}) - clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.

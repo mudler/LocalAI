@@ -46,6 +46,16 @@ copy_lib() {
         return
     fi
 
+    # Families we deliberately do not bundle are excluded on every route into
+    # the target dir, not just the allowlist. The transitive sweep resolves
+    # DT_NEEDED entries against the build image's system libs, so without this
+    # it would quietly re-import part of an excluded family (e.g. libnvinfer
+    # pulling libcudnn back in) and recreate the partial-set hazard.
+    # shellcheck disable=SC2053  # unquoted on purpose: it is a glob pattern
+    if [[ -n "${EXCLUDE_LIB_PATTERN:-}" && "$src_basename" == ${EXCLUDE_LIB_PATTERN} ]]; then
+        return
+    fi
+
     if [ -L "$src" ]; then
         # Source is a symbolic link
         # Resolve the real file (following all symlinks)
@@ -173,35 +183,349 @@ sweep_transitive_deps() {
     done
 }
 
+# Whether to bundle cuDNN into the backend's lib/ at all.
+#
+# "auto" decides per backend from what that backend's venv actually provides,
+# which is the only thing that can be right across the fleet:
+#
+#   - venv ships a complete pip cuDNN (longcat-video, speaker-recognition):
+#     do not bundle. lib/ is first on LD_LIBRARY_PATH and LD_LIBRARY_PATH beats
+#     DT_RUNPATH, so anything bundled shadows the exact cuDNN torch was built
+#     against. cuDNN's own libraries have RUNPATH=$ORIGIN, so the dispatcher
+#     finds its siblings in the venv unaided.
+#   - venv ships no pip cuDNN (vllm, and any backend on the Jetson index, whose
+#     torch links the bundled cuDNN instead): bundle the complete family, or the
+#     backend ends up with no cuDNN at all. This stays conservative rather than
+#     detecting consumers, because for a Python backend they live inside the
+#     venv - torch, ctranslate2, onnxruntime - where the transitive sweep does
+#     not look.
+#   - no venv (Go/C++ backends): bundle only if something in the package
+#     actually references cuDNN. Go backends stage their own shared object into
+#     package/lib, which IS the target dir, so the existing sweep already finds
+#     the dispatcher when it is a real dependency - that is how libcudnn_graph
+#     reached longcat. ggml uses cuBLAS, not cuDNN, so llama-cpp, whisper,
+#     rfdetr-cpp, sam3-cpp and stablediffusion-ggml reference none of it: they
+#     shed the ~57 MB they carry today rather than growing to ~576 MB for
+#     libraries they never call. face-detect and voice-detect, built with
+#     -D*_GGML_CUDNN=ON on arm64 + CUDA 13, do reference it and get the
+#     complete family - that growth is the cost of correctness, paid only where
+#     cuDNN is actually used.
+#
+# A static per-Dockerfile flag cannot express this: both shapes occur among
+# Python backends on the very same image, and a backend switches shape whenever
+# it changes package index or gains/loses torch. Detection stays correct on its
+# own. "true"/"false" remain as explicit overrides.
+#
+# This works because both Dockerfiles populate the backend before packaging:
+# Dockerfile.python builds the venv (RUN ... make) first, and Go backends invoke
+# this script from their own package.sh after staging their binaries.
+PACKAGE_CUDNN="${PACKAGE_CUDNN:-auto}"
+
+# The cuDNN 9 sublibraries that must always travel together. The dispatcher
+# libcudnn.so.9 is a thin shim that dlopen()s these by bare soname on first use,
+# so none of them is a DT_NEEDED of anything and sweep_transitive_deps cannot
+# discover them. See verify_cudnn_bundle for why a partial set is fatal.
+CUDNN9_SUBLIBS=(
+    libcudnn_adv
+    libcudnn_cnn
+    libcudnn_engines_precompiled
+    libcudnn_engines_runtime_compiled
+    libcudnn_graph
+    libcudnn_heuristic
+    libcudnn_ops
+)
+
+# Classify the cuDNN 9 install in a directory: "complete", "partial" or
+# "absent". Works for both layouts we care about - apt ships versioned real
+# files behind .so.9 symlinks, pip ships plain .so.9 files - because it only
+# ever looks for the .so.9 sonames the loader actually resolves.
+cudnn_family_state() {
+    local dir="$1"
+    local present=0 missing=0 name
+
+    for name in libcudnn "${CUDNN9_SUBLIBS[@]}"; do
+        if [ -e "$dir/${name}.so.9" ]; then
+            present=$((present + 1))
+        else
+            missing=$((missing + 1))
+        fi
+    done
+
+    if [ "$present" -eq 0 ]; then
+        echo absent
+    elif [ "$missing" -eq 0 ]; then
+        echo complete
+    else
+        echo partial
+    fi
+}
+
+# Whether anything in a directory references cuDNN.
+#
+# Deliberately a string scan of the binaries rather than ldd. ldd reports only
+# DT_NEEDED, which would miss a consumer that solely dlopen()s cuDNN - the
+# soname then lives in .rodata with no dynamic entry at all. Matching the string
+# catches both, and over-matching is the safe direction here: the cost of a
+# false positive is a bundled library nobody calls, the cost of a false negative
+# is a backend that cannot load.
+cudnn_is_referenced() {
+    local dir="$1"
+    [ -d "$dir" ] || return 1
+
+    # Already-bundled cuDNN counts: it means something pulled it in, and the
+    # family has to be completed around it.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local existing=("$dir"/libcudnn*)
+    eval "$old_nullglob"
+    [ ${#existing[@]} -gt 0 ] && return 0
+
+    grep -rlq --binary-files=binary -e 'libcudnn' "$dir" 2>/dev/null
+}
+
+# Copy any missing member of the cuDNN 9 family into the target dir.
+#
+# Only the dispatcher is ever a DT_NEEDED, so the sweep can discover it but
+# never the seven sublibraries it dlopen()s. Once anything has pulled cuDNN in,
+# the rest of the family has to be completed by hand or the backend ships the
+# partial set behind issue #10905.
+# Args: $1 = target dir, $2.. = source lib dirs
+complete_cudnn_family() {
+    local dir="$1"; shift
+    local search=("$@") name src found
+
+    for name in libcudnn "${CUDNN9_SUBLIBS[@]}"; do
+        [ -e "$dir/${name}.so.9" ] && continue
+        found=false
+        for src in "${search[@]}"; do
+            if [ -e "$src/${name}.so.9" ]; then
+                copy_lib "$src/${name}.so.9"
+                found=true
+                break
+            fi
+        done
+        if [ "$found" = false ]; then
+            echo "WARNING: cuDNN is in use but ${name}.so.9 was not found in ${search[*]}" >&2
+        fi
+    done
+}
+
+# Whether this backend has a Python venv at all, which is what separates the
+# conservative Python path from the detection-driven Go/C++ one.
+backend_has_venv() {
+    local edir="${1:-$(dirname "$TARGET_LIB_DIR")}"
+    [ -d "$edir/venv" ]
+}
+
+# Locate the cuDNN a Python backend's venv provides, if any. libbackend.sh fixes
+# the venv at <backend>/venv, and TARGET_LIB_DIR is <backend>/lib, so the
+# backend dir is one level up. Prints nothing when there is no venv at all,
+# which is the normal case for Go/C++ backends.
+cudnn_venv_lib_dir() {
+    local edir="${1:-$(dirname "$TARGET_LIB_DIR")}"
+
+    # `local x=$(...)` on purpose: masks shopt -p's nonzero exit under set -e.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local candidates=("$edir"/venv/lib/python*/site-packages/nvidia/cudnn/lib)
+    eval "$old_nullglob"
+
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [ -d "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+}
+
+# Fail the build unless exactly one complete cuDNN ends up visible to the
+# backend. Both failure modes below are silent at build time and only surface
+# when a model first reaches a cuDNN call, so they have to be caught here.
+#
+# Backends run with LD_LIBRARY_PATH=<backend>/lib (libbackend.sh / run.sh), and
+# LD_LIBRARY_PATH is searched before a library's own DT_RUNPATH. So anything in
+# lib/ shadows the venv's cuDNN:
+#
+#   - a PARTIAL bundle shadows part of the venv's set while the rest still
+#     resolves from the venv, leaving the process on two cuDNN builds at once
+#     (issue #10905, longcat-video: 4 of 8 at 9.24.0 vs the venv's 9.20.0.48);
+#   - bundling NOTHING when the venv has nothing either leaves the backend with
+#     no cuDNN at all (vllm, whose Jetson-index torch ships no pip cuDNN).
+#
+# That second case is indistinguishable from a correct skip by looking at lib/
+# alone, which is why the venv state and what the build image had to offer are
+# both inputs here.
+#
+# Args: $1 = bundle dir, $2 = venv cuDNN state, $3 = system cuDNN state.
+verify_cudnn_bundle() {
+    local dir="${1:-$TARGET_LIB_DIR}"
+    local venv_state="${2:-}"
+    local system_state="${3:-}"
+
+    [ -n "$venv_state" ] || venv_state=$(cudnn_family_state "$(cudnn_venv_lib_dir)")
+    [ -n "$system_state" ] || system_state=absent
+
+    local bundle_state
+    bundle_state=$(cudnn_family_state "$dir")
+
+    # `local x=$(...)` on purpose: masks shopt -p's nonzero exit under set -e.
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local cudnn_files=("$dir"/libcudnn*.so.*)
+    eval "$old_nullglob"
+
+    # Distinct versions among the real (non-symlink) files. Bare-major sonames
+    # like libcudnn.so.9 carry no minor/patch, so they say nothing about which
+    # build a file came from and are skipped here.
+    local versions=() f ver
+    for f in "${cudnn_files[@]}"; do
+        [ -L "$f" ] && continue
+        ver="${f##*.so.}"
+        case "$ver" in
+            *.*) versions+=("$ver") ;;
+        esac
+    done
+
+    if [ ${#versions[@]} -gt 1 ]; then
+        local distinct
+        distinct=$(printf '%s\n' "${versions[@]}" | sort -u)
+        if [ "$(printf '%s\n' "$distinct" | grep -c .)" -gt 1 ]; then
+            echo "ERROR: bundled cuDNN mixes multiple builds in $dir:" >&2
+            # shellcheck disable=SC2086  # split on purpose: one version per line
+            printf '       %s\n' $distinct >&2
+            echo "       a mixed set fails at runtime with CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH" >&2
+            return 1
+        fi
+    fi
+
+    if [ "$bundle_state" = partial ]; then
+        local missing=() sublib
+        for sublib in libcudnn "${CUDNN9_SUBLIBS[@]}"; do
+            [ -e "$dir/${sublib}.so.9" ] || missing+=("${sublib}.so.9")
+        done
+        echo "ERROR: incomplete cuDNN 9 bundle in $dir, missing: ${missing[*]}" >&2
+        echo "       cuDNN's sublibraries are dlopen()ed, so a partial set is only" >&2
+        echo "       detectable here - at runtime it fails with CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH" >&2
+        return 1
+    fi
+
+    if [ "$venv_state" = partial ]; then
+        echo "ERROR: the backend venv carries an incomplete cuDNN 9" >&2
+        echo "       (site-packages/nvidia/cudnn/lib); a pip cuDNN is complete or absent" >&2
+        return 1
+    fi
+
+    if [ "$bundle_state" = complete ] && [ "$venv_state" = complete ]; then
+        echo "ERROR: cuDNN is present both in $dir and in the backend venv" >&2
+        echo "       lib/ precedes DT_RUNPATH on LD_LIBRARY_PATH, so the bundle would" >&2
+        echo "       shadow the cuDNN this backend's torch was built against" >&2
+        return 1
+    fi
+
+    # Zero cuDNN is the correct and common end state - llama-cpp, whisper and
+    # every other ggml backend go through cuBLAS and never call cuDNN. It is only
+    # an error when something in the package does reference cuDNN, because then
+    # the backend cannot load. Note this asks what the package needs, not what
+    # the build image happens to have: the two are different machines, and
+    # letting the runtime image's system cuDNN complete a bundle is precisely
+    # the silent breakage in #10905.
+    if [ "$bundle_state" = absent ] && [ "$venv_state" = absent ] && cudnn_is_referenced "$dir"; then
+        echo "ERROR: something in $dir references cuDNN but no cuDNN is available to it" >&2
+        echo "       nothing bundled and no pip cuDNN in the venv (build image: ${system_state})." >&2
+        echo "       It would resolve against the runtime image's system cuDNN, if any," >&2
+        echo "       mixing versions - or fail to load outright." >&2
+        return 1
+    fi
+
+    return 0
+}
+
 # Package NVIDIA CUDA libraries
 package_cuda_libs() {
     echo "Packaging CUDA libraries for BUILD_TYPE=${BUILD_TYPE}..."
 
-    local cuda_lib_paths=(
-        "/usr/local/cuda/lib64"
-        "/usr/local/cuda-${CUDA_MAJOR_VERSION:-}/lib64"
-        "/usr/lib/x86_64-linux-gnu"
-        "/usr/lib/aarch64-linux-gnu"
-    )
+    # CUDA_LIB_DIRS (space-separated) overrides the search roots, which keeps
+    # the packaging logic testable without a real CUDA install.
+    local cuda_lib_paths
+    if [ -n "${CUDA_LIB_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # intentional word-split of the override
+        cuda_lib_paths=(${CUDA_LIB_DIRS})
+    else
+        cuda_lib_paths=(
+            "/usr/local/cuda/lib64"
+            "/usr/local/cuda-${CUDA_MAJOR_VERSION:-}/lib64"
+            "/usr/lib/x86_64-linux-gnu"
+            "/usr/lib/aarch64-linux-gnu"
+        )
+    fi
 
-    # Core CUDA runtime libraries
+    # Core CUDA runtime libraries.
+    #
+    # Patterns are deliberately per *family* (libfoo*.so*) rather than per
+    # soname. Several CUDA components split into sublibraries that the main
+    # library dlopen()s at runtime - cuDNN 9 into eight, TensorRT into
+    # libnvinfer_plugin/libnvinfer_builder_resource, nvRTC into
+    # libnvrtc-builtins. dlopen leaves no DT_NEEDED entry, so
+    # sweep_transitive_deps cannot find them and every one of them has to be
+    # matched here. Copying part of a family is worse than copying none of it:
+    # lib/ is first on LD_LIBRARY_PATH, so the copied part shadows a complete
+    # set from the backend's venv while the rest still loads from the venv,
+    # leaving the process on two different builds at once (issue #10905).
     local cuda_libs=(
         "libcudart.so*"
-        "libcublas.so*"
-        "libcublasLt.so*"
-        "libcufft.so*"
-        "libcurand.so*"
-        "libcusparse.so*"
-        "libcusolver.so*"
-        "libnvrtc.so*"
-        "libnvrtc-builtins.so*"
-        "libcudnn.so*"
-        "libcudnn_ops.so*"
-        "libcudnn_cnn.so*"
+        "libcublas*.so*"
+        "libcufft*.so*"
+        "libcurand*.so*"
+        "libcusparse*.so*"
+        "libcusolver*.so*"
+        "libnvrtc*.so*"
         "libnvJitLink.so*"
-        "libnvinfer.so*"
-        "libnvonnxparser.so*"
+        "libnvinfer*.so*"
+        "libnvonnxparser*.so*"
     )
+
+    # Decide per backend whether to bundle cuDNN (see PACKAGE_CUDNN).
+    local cudnn_venv_dir cudnn_venv_state cudnn_system_state=absent bundle_cudnn
+    cudnn_venv_dir=$(cudnn_venv_lib_dir)
+    cudnn_venv_state=$(cudnn_family_state "${cudnn_venv_dir:-/nonexistent}")
+
+    local lib_path
+    for lib_path in "${cuda_lib_paths[@]}"; do
+        if [ "$(cudnn_family_state "$lib_path")" != absent ]; then
+            cudnn_system_state=$(cudnn_family_state "$lib_path")
+            break
+        fi
+    done
+
+    # "detect" defers to the transitive sweep: cuDNN is copied only if something
+    # in the package actually references it, and the family is completed after.
+    case "${PACKAGE_CUDNN}" in
+        true)  bundle_cudnn=true ;;
+        false) bundle_cudnn=false ;;
+        *)
+            if [ "$cudnn_venv_state" = complete ]; then
+                bundle_cudnn=false
+            elif backend_has_venv; then
+                bundle_cudnn=true
+            else
+                bundle_cudnn=detect
+            fi
+            ;;
+    esac
+
+    echo "cuDNN: venv=${cudnn_venv_state} system=${cudnn_system_state} PACKAGE_CUDNN=${PACKAGE_CUDNN} -> bundle=${bundle_cudnn}"
+
+    # When cuDNN is skipped outright the exclusion has to cover the transitive
+    # sweep too, or a dependent's DT_NEEDED on libcudnn drags a partial family
+    # back in. Under "detect" that sweep is exactly what we want to run, so no
+    # exclusion is set and the family is completed once it has.
+    if [ "$bundle_cudnn" = "true" ]; then
+        cuda_libs+=("libcudnn*.so*")
+    elif [ "$bundle_cudnn" = "false" ]; then
+        echo "Skipping cuDNN: the backend venv already provides a complete set at ${cudnn_venv_dir}"
+        export EXCLUDE_LIB_PATTERN="libcudnn*"
+    fi
 
     for lib_path in "${cuda_lib_paths[@]}"; do
         if [ -d "$lib_path" ]; then
@@ -220,6 +544,16 @@ package_cuda_libs() {
     # Pull in transitive deps the allowlist misses so the backend is
     # self-contained (same class of failure as #10537).
     sweep_transitive_deps "$TARGET_LIB_DIR"
+
+    # The sweep can only ever have brought in the dispatcher, so complete the
+    # family around whatever it found.
+    if [ "$bundle_cudnn" != "false" ] && cudnn_is_referenced "$TARGET_LIB_DIR"; then
+        complete_cudnn_family "$TARGET_LIB_DIR" "${cuda_lib_paths[@]}"
+    fi
+
+    # Hard-fail the image build rather than ship a backend that only breaks once
+    # a model actually reaches a cuDNN call at inference time.
+    verify_cudnn_bundle "$TARGET_LIB_DIR" "$cudnn_venv_state" "$cudnn_system_state"
 
     echo "CUDA libraries packaged successfully"
 }
@@ -511,6 +845,12 @@ export -f is_core_lib
 export -f copy_elf_deps
 export -f sweep_transitive_deps
 export -f copy_rocm_data_dir
+export -f cudnn_family_state
+export -f cudnn_is_referenced
+export -f complete_cudnn_family
+export -f backend_has_venv
+export -f cudnn_venv_lib_dir
+export -f verify_cudnn_bundle
 export -f package_cuda_libs
 export -f package_rocm_libs
 export -f package_intel_libs

@@ -13,6 +13,9 @@ config_file: |-
 
     # TTS configuration
     tts:
+      # Advertise saved Voice Library profiles. A per-request saved profile
+      # overrides voice/audio_path/default_voice without changing this YAML.
+      voice_cloning: true
       # Voice selection - can be:
       # 1. Built-in voice name (e.g., "alba", "marius", "javert", "jean", "fantine", "cosette", "eponine", "azelma")
       # 2. HuggingFace URL (e.g., "hf://kyutai/tts-voices/alba-mackenna/casual.wav")

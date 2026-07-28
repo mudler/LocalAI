@@ -18,14 +18,24 @@ import (
 )
 
 func (a *Application) StopP2P() error {
-	if a.p2pCancel != nil {
-		a.p2pCancel()
-		a.p2pCancel = nil
-		a.p2pCtx = nil
-		// Wait a bit for shutdown to complete
-		time.Sleep(200 * time.Millisecond)
-	}
+	a.p2pMutex.Lock()
+	defer a.p2pMutex.Unlock()
+
+	a.stopP2PLocked()
 	return nil
+}
+
+// stopP2PLocked cancels the running P2P stack, if any, and clears the
+// context fields. Callers must hold a.p2pMutex.
+func (a *Application) stopP2PLocked() {
+	if a.p2pCancel == nil {
+		return
+	}
+	a.p2pCancel()
+	a.p2pCancel = nil
+	a.p2pCtx = nil
+	// Wait a bit for shutdown to complete
+	time.Sleep(200 * time.Millisecond)
 }
 
 func (a *Application) StartP2P() error {
@@ -37,8 +47,13 @@ func (a *Application) StartP2P() error {
 	networkID := a.applicationConfig.P2PNetworkID
 
 	ctx, cancel := context.WithCancel(a.ApplicationConfig().Context)
+	// Publishing the context is the only shared-state write here; the node
+	// and discoverer setup below works off the local ctx/cancel, so the lock
+	// is not held across the network calls.
+	a.p2pMutex.Lock()
 	a.p2pCtx = ctx
 	a.p2pCancel = cancel
+	a.p2pMutex.Unlock()
 
 	var n *node.Node
 	// Here we are avoiding creating multiple nodes:
@@ -131,13 +146,7 @@ func (a *Application) RestartP2P() error {
 	defer a.p2pMutex.Unlock()
 
 	// Stop existing P2P if running
-	if a.p2pCancel != nil {
-		a.p2pCancel()
-		a.p2pCancel = nil
-		a.p2pCtx = nil
-		// Wait a bit for shutdown to complete
-		time.Sleep(200 * time.Millisecond)
-	}
+	a.stopP2PLocked()
 
 	appConfig := a.ApplicationConfig()
 
@@ -151,8 +160,8 @@ func (a *Application) RestartP2P() error {
 	go func() {
 		if err := a.StartP2P(); err != nil {
 			xlog.Error("Failed to start P2P stack", "error", err)
-			if a.p2pCancel != nil {
-				a.p2pCancel()
+			if stopErr := a.StopP2P(); stopErr != nil {
+				xlog.Error("Failed to stop partially started P2P stack", "error", stopErr)
 			}
 		}
 	}()

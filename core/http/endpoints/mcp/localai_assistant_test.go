@@ -84,6 +84,10 @@ func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (stubClient) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	return &vram.EstimateResult{SizeDisplay: "stub"}, nil
 }
@@ -99,6 +103,18 @@ func (stubClient) GetBranding(_ context.Context) (*localaitools.Branding, error)
 
 func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
 	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (stubClient) ListVoiceProfiles(_ context.Context) ([]localaitools.VoiceProfile, error) {
+	return []localaitools.VoiceProfile{}, nil
+}
+
+func (stubClient) CreateVoiceProfile(_ context.Context, _ localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	return &localaitools.VoiceProfile{Name: "stub-voice"}, nil
+}
+
+func (stubClient) DeleteVoiceProfile(_ context.Context, _ string) error {
+	return nil
 }
 
 func (stubClient) GetUsageStats(_ context.Context, _ localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {

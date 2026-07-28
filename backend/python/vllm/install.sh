@@ -119,7 +119,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # can rewrite it. Darwin therefore follows vllm-metal and can lag the Linux
     # vllm pin (requirements-cublas13-after.txt, bumped independently against
     # vllm/vllm) until vllm-metal supports a newer vLLM.
-    VLLM_METAL_VERSION="v0.3.0.dev20260704102955"
+    VLLM_METAL_VERSION="v0.3.0.dev20260726174827"
 
     # The coupled vLLM source version is whatever this vllm-metal release builds
     # against -- it declares it in its own installer as `vllm_v=`. Derive it from
@@ -259,3 +259,11 @@ elif [ "x${BUILD_TYPE}" == "x" ] && [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
 else
     installRequirements
 fi
+
+# installRequirements generates the protobuf stubs at the end of its own run, but
+# most branches above install vllm *after* it, and vllm re-resolves the protobuf
+# runtime when it lands. Stubs generated against the pre-vllm runtime can end up
+# newer than the runtime that finally ships, which is exactly the gencode 7.35.0 /
+# runtime 6.33.6 crash in mudler/LocalAI#10718. Regenerate once the dependency set
+# is final; runProtogen clears the previous stubs first, so this is idempotent.
+runProtogen

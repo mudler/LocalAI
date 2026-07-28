@@ -98,6 +98,53 @@ test('retry regenerates the first answer and drops the later turn', async ({ pag
   expect(contents.join('\n')).not.toContain('first answer')
 })
 
+const FILE_TURNS = [
+  {
+    role: 'user',
+    content: [
+      { type: 'text', text: 'what does the file say' },
+      { type: 'text', text: '\n\n--- File: notes.txt ---\nthe secret is 42\n--- End of notes.txt ---' },
+    ],
+    files: [{ name: 'notes.txt', type: 'file', content: 'the secret is 42' }],
+  },
+  { role: 'assistant', content: 'the file says the secret is 42' },
+  { role: 'user', content: 'anything else' },
+  { role: 'assistant', content: 'nope, that is it' },
+]
+
+test('regenerating a non-last answer in a fork still sends the uploaded file content', async ({ page }) => {
+  await mockModels(page)
+  let sentMessages = null
+  await page.route('**/v1/chat/completions', (route) => {
+    sentMessages = route.request().postDataJSON()?.messages || []
+    const sse =
+      `data: ${JSON.stringify({ choices: [{ delta: { content: 'REGENERATED file answer' } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n` +
+      `data: [DONE]\n\n`
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse })
+  })
+  await seedChat(page, FILE_TURNS)
+  await page.goto('/app/chat')
+
+  // Fork after the second turn, then regenerate the FIRST (now non-last) answer.
+  const secondAssistant = page.locator('.chat-message-assistant').nth(1)
+  await secondAssistant.hover()
+  await secondAssistant.getByTitle('Branch from here').click()
+  await expect(page.locator('.chat-header-title')).toHaveText('Seeded Chat (fork)')
+
+  const firstAssistant = page.locator('.chat-message-assistant').first()
+  await firstAssistant.hover()
+  await firstAssistant.getByTitle('Regenerate').click()
+
+  await expect(page.locator('.chat-message-assistant')).toContainText(['REGENERATED file answer'])
+
+  // The outbound payload for the regenerated turn must still carry the file text.
+  const contents = (sentMessages || []).map(m =>
+    typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+  )
+  expect(contents.join('\n')).toContain('the secret is 42')
+})
+
 test('copy chat puts the whole conversation on the clipboard', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await mockModels(page)

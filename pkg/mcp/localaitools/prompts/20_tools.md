@@ -14,6 +14,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `vram_estimate` — Estimate VRAM use for a model under a given config.
 - `system_info` — LocalAI version, paths, distributed flag, loaded models, installed backends.
 - `list_nodes` — List federated worker nodes (only useful in distributed mode).
+- `list_voice_profiles` — List reusable voice-cloning profiles and their stable TTS voice URIs.
 
 ## Mutating (require user confirmation per safety rule 1)
 
@@ -27,3 +28,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `load_model` — Pre-load a model into memory so the first request pays no cold-start cost. For a realtime pipeline model, every sub-model (VAD, transcription, LLM, TTS, sound_detection, voice_recognition) is loaded. Inverse of stopping a model.
 - `toggle_model_state` — Enable or disable a model (`action`: `enable` or `disable`).
 - `toggle_model_pinned` — Pin or unpin a model (`action`: `pin` or `unpin`).
+- `create_voice_profile` — Save a consent-confirmed base64 PCM-WAV reference and exact transcript for reuse in TTS.
+- `delete_voice_profile` — Permanently delete a saved voice profile by UUID.

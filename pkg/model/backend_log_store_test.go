@@ -199,3 +199,40 @@ var _ = Describe("BackendLogStore", func() {
 		})
 	})
 })
+
+var _ = Describe("ParseBackendProcessKey", func() {
+	It("round-trips every key BackendProcessKey produces", func() {
+		for _, tc := range []struct {
+			modelID string
+			replica int
+		}{
+			{"qwen3-0.6b", 0},
+			{"qwen3-0.6b", 7},
+			{"weird#name", 3},
+			{"a", 0},
+		} {
+			modelID, replica, ok := model.ParseBackendProcessKey(model.BackendProcessKey(tc.modelID, tc.replica))
+			Expect(ok).To(BeTrue(), "key for %s#%d", tc.modelID, tc.replica)
+			Expect(modelID).To(Equal(tc.modelID))
+			Expect(replica).To(Equal(tc.replica))
+		}
+	})
+
+	It("splits at the last separator so '#' in a model ID survives", func() {
+		// Splitting at the first separator would yield the model "weird" and
+		// address a row that does not exist, leaving the real stale row behind.
+		modelID, replica, ok := model.ParseBackendProcessKey("weird#name#3")
+		Expect(ok).To(BeTrue())
+		Expect(modelID).To(Equal("weird#name"))
+		Expect(replica).To(Equal(3))
+	})
+
+	It("rejects anything it did not produce", func() {
+		// Callers act on the result by deleting a routing row, so a guess is
+		// worse than a refusal.
+		for _, key := range []string{"", "#", "no-suffix", "model#", "#0", "model#x", "model#-1", "model#0.5"} {
+			_, _, ok := model.ParseBackendProcessKey(key)
+			Expect(ok).To(BeFalse(), "expected %q to be rejected", key)
+		}
+	})
+})

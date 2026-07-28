@@ -28,19 +28,20 @@ type RuntimeSettings struct {
 
 	// Eviction settings
 	ForceEvictionWhenBusy    *bool   `json:"force_eviction_when_busy,omitempty"`    // Force eviction even when models have active API calls (default: false for safety)
-	SizeAwareEviction        *bool   `json:"size_aware_eviction,omitempty"`          // Evict largest models first rather than least-recently-used (default: false)
+	SizeAwareEviction        *bool   `json:"size_aware_eviction,omitempty"`         // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
 
 	// Performance settings
-	Threads              *int  `json:"threads,omitempty"`
-	ContextSize          *int  `json:"context_size,omitempty"`
-	F16                  *bool `json:"f16,omitempty"`
-	Debug                *bool `json:"debug,omitempty"`
-	EnableTracing        *bool `json:"enable_tracing,omitempty"`
-	TracingMaxItems      *int  `json:"tracing_max_items,omitempty"`
-	TracingMaxBodyBytes  *int  `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
-	EnableBackendLogging *bool `json:"enable_backend_logging,omitempty"`
+	Threads              *int    `json:"threads,omitempty"`
+	ContextSize          *int    `json:"context_size,omitempty"`
+	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
+	F16                  *bool   `json:"f16,omitempty"`
+	Debug                *bool   `json:"debug,omitempty"`
+	EnableTracing        *bool   `json:"enable_tracing,omitempty"`
+	TracingMaxItems      *int    `json:"tracing_max_items,omitempty"`
+	TracingMaxBodyBytes  *int    `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
+	EnableBackendLogging *bool   `json:"enable_backend_logging,omitempty"`
 
 	// Security/CORS settings
 	CORS             *bool   `json:"cors,omitempty"`
@@ -78,6 +79,12 @@ type RuntimeSettings struct {
 	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"` // chromem | postgres
 	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
 	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"` // override the agenthub.localai.io endpoint
+
+	// Distributed-mode settings. Read LIVE by the SmartRouter on each
+	// scheduling decision, so toggling takes effect on the next placement
+	// without a restart. Stored as the negation of
+	// DistributedConfig.DiskHeadroomDisabled for UI clarity.
+	DistributedDiskHeadroomCheck *bool `json:"distributed_disk_headroom_check,omitempty"` // Reject nodes without room to store the model (default: true)
 
 	// LocalAI Assistant settings — read live by the chat handler at request
 	// entry, so flipping the toggle takes effect on the next request.

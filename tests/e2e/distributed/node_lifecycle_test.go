@@ -141,6 +141,15 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 		})
 
 		It("should be no-op for models not on any node", func() {
+			// Unloading is idempotent by contract: cleanup paths (model
+			// deletion, config edits, watchdog eviction) legitimately run
+			// against an already-unloaded model, and the watchdog's LRU
+			// reclaimer only untracks a model when shutdown reports success.
+			// Callers needing to tell "stopped it" from "nothing to stop" —
+			// ShutdownModel, so it can answer 404 — use HasRemoteModel instead.
+			// The same contract is pinned at unit level by "with no nodes
+			// returns nil" in core/services/nodes/unloader_test.go; keep them
+			// in step.
 			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
 			Expect(adapter.UnloadRemoteModel("nonexistent-model")).To(Succeed())
 		})

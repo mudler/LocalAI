@@ -72,6 +72,7 @@
     "asr": "음성 인식",
     "tts": "텍스트 음성 변환",
     "image": "이미지 / 비디오",
+    "video": "비디오 생성",
     "embeddings": "임베딩",
     "reranker": "리랭커",
     "detection": "객체 감지",

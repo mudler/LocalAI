@@ -660,9 +660,16 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
     ctx_params.vae_conv_direct = vae_conv_direct;
     ctx_params.force_sdxl_vae_conv_scale = force_sdxl_vae_conv_scale;
-    ctx_params.chroma_use_dit_mask = chroma_use_dit_mask;
-    ctx_params.chroma_use_t5_mask = chroma_use_t5_mask;
-    ctx_params.chroma_t5_mask_pad = chroma_t5_mask_pad;
+    // Chroma knobs: upstream dropped the dedicated chroma_use_dit_mask /
+    // chroma_use_t5_mask / chroma_t5_mask_pad struct fields and now reads them
+    // from the generic model_args key=value spec (parse_key_value_args). Emit
+    // them there so the existing chroma options keep working. This string must
+    // outlive new_sd_ctx() below.
+    std::string model_args_spec =
+        "chroma_use_dit_mask=" + std::string(chroma_use_dit_mask ? "true" : "false") +
+        ",chroma_use_t5_mask=" + std::string(chroma_use_t5_mask ? "true" : "false") +
+        ",chroma_t5_mask_pad=" + std::to_string(chroma_t5_mask_pad);
+    ctx_params.model_args = model_args_spec.c_str();
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {

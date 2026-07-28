@@ -4,8 +4,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("importer helpers", func() {
@@ -103,4 +106,51 @@ var _ = Describe("importer helpers", func() {
 				To(Equal("mlx-community/test-model"))
 		})
 	})
+})
+
+var _ = Describe("managed artifact attachment", func() {
+	details := importers.Details{
+		URI:         "https://huggingface.co/owner/repo",
+		HuggingFace: &hfapi.ModelDetails{ModelID: "owner/repo"},
+	}
+
+	It("attaches a source when the imported model is the discovered repository", func() {
+		input := gallery.ModelConfig{ConfigFile: "backend: transformers\nparameters:\n  model: owner/repo\n"}
+		output, err := importers.AttachPrimaryArtifact(input, details)
+		Expect(err).NotTo(HaveOccurred())
+		var cfg config.ModelConfig
+		Expect(yaml.Unmarshal([]byte(output.ConfigFile), &cfg)).To(Succeed())
+		Expect(cfg.Artifacts).To(HaveLen(1))
+		Expect(cfg.Artifacts[0].Source.Repo).To(Equal("owner/repo"))
+	})
+
+	It("preserves explicit gallery files", func() {
+		input := gallery.ModelConfig{
+			ConfigFile: "parameters:\n  model: owner/repo\n",
+			Files:      []gallery.File{{Filename: "model.gguf", URI: "https://huggingface.co/owner/repo/resolve/main/model.gguf"}},
+		}
+		output, err := importers.AttachPrimaryArtifact(input, details)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(output.ConfigFile).To(Equal(input.ConfigFile))
+	})
+
+	It("does not attach a managed source to an unmigrated backend", func() {
+		input := gallery.ModelConfig{ConfigFile: "backend: custom-python\nparameters:\n  model: owner/repo\n"}
+		output, err := importers.AttachPrimaryArtifact(input, details)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(output.ConfigFile).To(Equal(input.ConfigFile))
+	})
+
+	DescribeTable("does not guess an unrelated or local source",
+		func(model string, candidate importers.Details) {
+			input := gallery.ModelConfig{ConfigFile: "parameters:\n  model: " + model + "\n"}
+			output, err := importers.AttachPrimaryArtifact(input, candidate)
+			Expect(err).NotTo(HaveOccurred())
+			var cfg config.ModelConfig
+			Expect(yaml.Unmarshal([]byte(output.ConfigFile), &cfg)).To(Succeed())
+			Expect(cfg.Artifacts).To(BeEmpty())
+		},
+		Entry("different repo", "other/repo", details),
+		Entry("local file", "/models/repo", importers.Details{URI: "file:///models/repo"}),
+	)
 })

@@ -120,4 +120,54 @@ var _ = Describe("InstallBackendOnNodeEndpoint async behavior", func() {
 
 		Expect(opcache.Exists(galleryop.NodeScopedKey("node-xyz", "custom"))).To(BeTrue())
 	})
+
+	// The node detail page's per-node "Upgrade" button used to reuse the
+	// install path, which the worker treats as "ensure installed" and
+	// short-circuits when the backend already exists on disk - the original
+	// "backend upgraded but nothing happens" bug. Upgrades must dispatch an
+	// op with Upgrade=true so the gallery service routes it to the
+	// force-reinstall backend.upgrade path, scoped to the one node.
+	Describe("UpgradeBackendOnNodeEndpoint", func() {
+		It("returns 202 with a jobID and dispatches an Upgrade op scoped to the node", func() {
+			body := `{"backend": "llama-cpp"}`
+			req := httptest.NewRequest(http.MethodPost, "/api/nodes/node-xyz/backends/upgrade", bytes.NewBufferString(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("id")
+			c.SetParamValues("node-xyz")
+
+			handler := localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appCfg)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusAccepted))
+
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp["jobID"]).To(BeAssignableToTypeOf(""))
+			Expect(resp["jobID"].(string)).ToNot(BeEmpty())
+			Expect(resp["statusUrl"]).To(Equal("/api/backends/job/" + resp["jobID"].(string)))
+
+			var op galleryop.ManagementOp[gallery.GalleryBackend, any]
+			Eventually(dispatched, "2s").Should(Receive(&op))
+			Expect(op.Upgrade).To(BeTrue(), "op must take the force-reinstall upgrade path")
+			Expect(op.TargetNodeID).To(Equal("node-xyz"))
+			Expect(op.GalleryElementName).To(Equal("llama-cpp"))
+
+			Expect(opcache.Exists(galleryop.NodeScopedKey("node-xyz", "llama-cpp"))).To(BeTrue())
+			Expect(opcache.IsBackendOp(galleryop.NodeScopedKey("node-xyz", "llama-cpp"))).To(BeTrue())
+		})
+
+		It("returns 400 when no backend name is supplied", func() {
+			req := httptest.NewRequest(http.MethodPost, "/api/nodes/node-xyz/backends/upgrade", bytes.NewBufferString(`{}`))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("id")
+			c.SetParamValues("node-xyz")
+
+			handler := localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appCfg)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		})
+	})
 })

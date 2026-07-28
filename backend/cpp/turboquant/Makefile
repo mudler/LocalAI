@@ -1,7 +1,7 @@
 
 # Pinned to the HEAD of feature/turboquant-kv-cache on https://github.com/TheTom/llama-cpp-turboquant.
 # Auto-bumped nightly by .github/workflows/bump_deps.yaml.
-TURBOQUANT_VERSION?=7d9715f1f071fa07c7b2ad3dbfd320b314139e65
+TURBOQUANT_VERSION?=c26cbdffcf6fc9b7430cd6b117757e9a3f70b7ea
 LLAMA_REPO?=https://github.com/TheTom/llama-cpp-turboquant
 
 CMAKE_ARGS?=
@@ -37,6 +37,10 @@ PATCHES_DIR := $(CURRENT_MAKEFILE_DIR)/patches
 define turboquant-build
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build
+	# Drop patches vendored for upstream llama.cpp: the fork tree diverges, so
+	# they reject there. Fork-specific patches live in backend/cpp/turboquant/patches/
+	# and are applied by apply-patches.sh below.
+	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build purge
 	# Augment the copied grpc-server.cpp's KV-cache allow-list with the
 	# fork's turbo2/turbo3/turbo4 types. We patch the *copy*, never the
@@ -74,6 +78,10 @@ turboquant-fallback:
 turboquant-cpu-all:
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build
+	# Drop patches vendored for upstream llama.cpp: the fork tree diverges, so
+	# they reject there. Fork-specific patches live in backend/cpp/turboquant/patches/
+	# and are applied by apply-patches.sh below.
+	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build purge
 	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server.cpp
 	$(info $(GREEN)I turboquant build info:cpu-all-variants$(RESET))

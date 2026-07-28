@@ -35,6 +35,39 @@ var _ = Describe("grpcerrors", func() {
 		Expect(status.Code(grpcerrors.ModelNotLoaded("whisper"))).To(Equal(codes.FailedPrecondition))
 	})
 
+	DescribeTable("IsModelMismatch",
+		func(err error, want bool) {
+			Expect(grpcerrors.IsModelMismatch(err)).To(Equal(want))
+		},
+		Entry("nil", nil, false),
+		Entry("typed via constructor", grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf"), true),
+		// The sentinel is what makes this detectable, not the code alone.
+		// insightface's Embedding returns NOT_FOUND "no face detected" on a
+		// PredictOptions RPC (backend/python/insightface/backend.py:127). A
+		// code-only check would make the router drop a healthy replica row on
+		// every faceless image, so this entry must stay false.
+		Entry("insightface no-face NotFound", status.Error(codes.NotFound, "no face detected"), false),
+		Entry("insightface no-face in both images",
+			status.Error(codes.NotFound, "no face detected in one or both images"), false),
+		Entry("unrelated NotFound", status.Error(codes.NotFound, "Job 7 not found"), false),
+		// Must not overlap with the model-not-loaded signal, which the router
+		// handles identically today but for a different reason.
+		Entry("model not loaded is not a mismatch", grpcerrors.ModelNotLoaded("llama-cpp"), false),
+		Entry("unrelated error", errors.New("context deadline exceeded"), false),
+	)
+
+	It("ModelMismatch carries NotFound and names both models", func() {
+		err := grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
+		Expect(err.Error()).To(ContainSubstring(grpcerrors.ModelMismatchSentinel))
+		Expect(err.Error()).To(ContainSubstring("a.gguf"))
+		Expect(err.Error()).To(ContainSubstring("b.gguf"))
+	})
+
+	It("IsModelNotLoaded does not claim a mismatch", func() {
+		Expect(grpcerrors.IsModelNotLoaded(grpcerrors.ModelMismatch("llama-cpp", "a", "b"))).To(BeFalse())
+	})
+
 	DescribeTable("IsLiveTranscriptionUnsupported",
 		func(err error, want bool) {
 			Expect(grpcerrors.IsLiveTranscriptionUnsupported(err)).To(Equal(want))

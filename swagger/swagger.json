@@ -596,7 +596,7 @@
         },
         "/api/backend-traces": {
             "get": {
-                "description": "Returns captured backend traces (LLM calls, embeddings, TTS, etc.) in reverse chronological order",
+                "description": "Returns a bounded, newest-first page of captured backend traces (LLM calls, embeddings, TTS, etc). The heavy body and data fields are omitted unless full=true; fetch them per-trace from /api/backend-traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
                 "produces": [
                     "application/json"
                 ],
@@ -604,6 +604,26 @@
                     "monitoring"
                 ],
                 "summary": "List backend operation traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default 50, max 1000, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the body and data payloads (default false)",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Backend operation traces",
@@ -625,6 +645,42 @@
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/backend-traces/{id}": {
+            "get": {
+                "description": "Returns a single captured backend trace, including the body and data payloads omitted from the list response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get one backend operation trace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Backend operation trace",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1121,6 +1177,90 @@
                 }
             }
         },
+        "/api/nodes/{id}/vram-budget": {
+            "put": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Update a node's VRAM allocation budget",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New value (\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpdateVRAMBudgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid budget",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Reset a node's VRAM budget to the worker default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
                 "tags": [
@@ -1283,7 +1423,7 @@
         },
         "/api/traces": {
             "get": {
-                "description": "Returns captured API exchange traces (request/response pairs) in reverse chronological order",
+                "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
                 "produces": [
                     "application/json"
                 ],
@@ -1291,6 +1431,26 @@
                     "monitoring"
                 ],
                 "summary": "List API request/response traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default 50, max 1000, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include request/response bodies and headers (default false)",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Traced API exchanges",
@@ -1312,6 +1472,212 @@
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/traces/{id}": {
+            "get": {
+                "description": "Returns a single captured API exchange, including the request and response bodies omitted from the list response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get one API trace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Traced API exchange",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles": {
+            "get": {
+                "description": "List saved voice-cloning references without exposing filesystem paths.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "List voice profiles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.VoiceProfileListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Create a voice profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Display name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional language tag",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact transcript of the reference clip",
+                        "name": "transcript",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Confirms authorization to clone the voice",
+                        "name": "consent_confirmed",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to 50 MiB",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/voiceprofile.Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles/{id}": {
+            "delete": {
+                "description": "Permanently remove a saved voice-cloning profile. Admin-only.",
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Delete a voice profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Voice profile UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles/{id}/audio": {
+            "get": {
+                "description": "Stream the saved reference WAV for an authenticated TTS user.",
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Preview voice profile audio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Voice profile UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -3191,7 +3557,7 @@
                 "tags": [
                     "video"
                 ],
-                "summary": "Creates a video given a prompt.",
+                "summary": "Creates a video from a prompt and optional image or audio conditioning.",
                 "parameters": [
                     {
                         "description": "query params",
@@ -3532,6 +3898,15 @@
                 }
             }
         },
+        "gallery.Variant": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model is the name of a gallery entry that declares no variants of its own.",
+                    "type": "string"
+                }
+            }
+        },
         "galleryop.NodeProgress": {
             "type": "object",
             "properties": {
@@ -3575,6 +3950,9 @@
                     "description": "Cancelled is true if the operation was cancelled",
                     "type": "boolean"
                 },
+                "current_bytes": {
+                    "type": "integer"
+                },
                 "deletion": {
                     "description": "Deletion is true if the operation is a deletion",
                     "type": "boolean"
@@ -3601,11 +3979,17 @@
                         "$ref": "#/definitions/galleryop.NodeProgress"
                     }
                 },
+                "phase": {
+                    "type": "string"
+                },
                 "processed": {
                     "type": "boolean"
                 },
                 "progress": {
                     "type": "number"
+                },
+                "total_bytes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3742,6 +4126,17 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "variant": {
+                    "description": "Variant installs one specific build of an entry that declares variants,\nnamed as it appears in the entry's `variants` list (see the `variants`\nand `auto_variant` fields of the gallery listing). Leave it empty to let\nLocalAI auto-select the largest build this host can actually run.",
+                    "type": "string"
+                },
+                "variants": {
+                    "description": "Variants is an optional, UNORDERED list of alternative builds of the same\nmodel (other backends such as MLX or vLLM, other quantizations) that the\ninstaller may pick instead of this entry's own payload. Authoring is\ndeliberately dumb: name the models, and the selector works out which one\nthis host should get.\n\nThe entry itself is always the last resort, so an entry carrying variants\nstays a complete, installable entry and older LocalAI releases, which drop\nthis key, install it exactly as before.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.Variant"
+                    }
                 }
             }
         },
@@ -3775,6 +4170,26 @@
                 "value": {
                     "description": "Value is the new per-model replica cap on this node. Must be \u003e= 1.",
                     "type": "integer"
+                }
+            }
+        },
+        "localai.UpdateVRAMBudgetRequest": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "Value is the VRAM cap (\"80%\" or \"12GB\"). Empty string clears the cap.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.VoiceProfileListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/voiceprofile.Profile"
+                    }
                 }
             }
         },
@@ -3874,7 +4289,7 @@
                     "type": "integer"
                 },
                 "state": {
-                    "description": "loading, loaded, unloading, idle",
+                    "description": "staging, loading, loaded, unloading, idle",
                     "type": "string"
                 },
                 "updated_at": {
@@ -3946,6 +4361,21 @@
                 }
             }
         },
+        "schema.APIError": {
+            "type": "object",
+            "properties": {
+                "code": {},
+                "message": {
+                    "type": "string"
+                },
+                "param": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.AnthropicContentBlock": {
             "type": "object",
             "properties": {
@@ -3963,10 +4393,16 @@
                 "name": {
                     "type": "string"
                 },
+                "signature": {
+                    "type": "string"
+                },
                 "source": {
                     "$ref": "#/definitions/schema.AnthropicImageSource"
                 },
                 "text": {
+                    "type": "string"
+                },
+                "thinking": {
                     "type": "string"
                 },
                 "tool_use_id": {
@@ -4036,6 +4472,14 @@
                 "temperature": {
                     "type": "number"
                 },
+                "thinking": {
+                    "description": "Thinking gates extended-thinking output. We only surface thinking\ncontent blocks when the client explicitly opts in, matching Anthropic's\nAPI where thinking is off unless requested.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.AnthropicThinkingParam"
+                        }
+                    ]
+                },
                 "tool_choice": {},
                 "tools": {
                     "type": "array",
@@ -4080,6 +4524,18 @@
                 },
                 "usage": {
                     "$ref": "#/definitions/schema.AnthropicUsage"
+                }
+            }
+        },
+        "schema.AnthropicThinkingParam": {
+            "type": "object",
+            "properties": {
+                "budget_tokens": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "\"enabled\" | \"disabled\"",
+                    "type": "string"
                 }
             }
         },
@@ -4457,6 +4913,14 @@
                 },
                 "vocal_language": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schema.APIError"
                 }
             }
         },
@@ -6430,6 +6894,10 @@
                     "description": "(optional) desired output sample rate",
                     "type": "integer"
                 },
+                "speed": {
+                    "description": "Speed is the OpenAI `speed` field (0.25-4.0). It is a pointer so an\nexplicit `\"speed\": 0` (invalid, rejected with 400) is distinguishable\nfrom an omitted field (left at the backend default). It is normalised\ninto Params[\"speed\"] so it reaches the backend over the same channel as\nthe other per-request generation parameters.",
+                    "type": "number"
+                },
                 "stream": {
                     "description": "(optional) enable streaming TTS",
                     "type": "boolean"
@@ -6560,6 +7028,10 @@
         "schema.VideoRequest": {
             "type": "object",
             "properties": {
+                "audio": {
+                    "description": "URL or base64 audio for audio-conditioned generation",
+                    "type": "string"
+                },
                 "cfg_scale": {
                     "description": "classifier-free guidance scale",
                     "type": "number"
@@ -6590,6 +7062,13 @@
                 "num_frames": {
                     "description": "total number of frames to generate",
                     "type": "integer"
+                },
+                "params": {
+                    "description": "backend-specific generation parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "prompt": {
                     "description": "text description of the video to generate",
@@ -6887,6 +7366,64 @@
                 },
                 "url": {
                     "description": "Webhook endpoint URL",
+                    "type": "string"
+                }
+            }
+        },
+        "voiceprofile.AudioMetadata": {
+            "type": "object",
+            "properties": {
+                "bit_depth": {
+                    "type": "integer"
+                },
+                "channels": {
+                    "type": "integer"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "sample_rate": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "voiceprofile.Profile": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "consent_confirmed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "transcript": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "voice": {
                     "type": "string"
                 }
             }

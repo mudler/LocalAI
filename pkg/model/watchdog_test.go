@@ -13,6 +13,8 @@ import (
 type mockProcessManager struct {
 	mu             sync.Mutex
 	shutdownCalls  []string
+	forceCalls     []string
+	gracefulCalls  []string
 	shutdownErrors map[string]error
 }
 
@@ -27,6 +29,18 @@ func (m *mockProcessManager) ShutdownModel(modelName string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.shutdownCalls = append(m.shutdownCalls, modelName)
+	m.gracefulCalls = append(m.gracefulCalls, modelName)
+	if err, ok := m.shutdownErrors[modelName]; ok {
+		return err
+	}
+	return nil
+}
+
+func (m *mockProcessManager) ShutdownModelForce(modelName string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.shutdownCalls = append(m.shutdownCalls, modelName)
+	m.forceCalls = append(m.forceCalls, modelName)
 	if err, ok := m.shutdownErrors[modelName]; ok {
 		return err
 	}
@@ -38,6 +52,22 @@ func (m *mockProcessManager) getShutdownCalls() []string {
 	defer m.mu.Unlock()
 	result := make([]string, len(m.shutdownCalls))
 	copy(result, m.shutdownCalls)
+	return result
+}
+
+func (m *mockProcessManager) getForceShutdownCalls() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]string, len(m.forceCalls))
+	copy(result, m.forceCalls)
+	return result
+}
+
+func (m *mockProcessManager) getGracefulShutdownCalls() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]string, len(m.gracefulCalls))
+	copy(result, m.gracefulCalls)
 	return result
 }
 
@@ -160,6 +190,44 @@ var _ = Describe("WatchDog", func() {
 			wd.AddAddressModelMap("addr1", "model1")
 			wd.UpdateLastUsed("addr1")
 			// Verify the time was updated
+		})
+
+		It("remains busy until every parallel request completes", func() {
+			wd.AddAddressModelMap("addr1", "model1")
+			wd.Mark("addr1")
+			busySince := wd.GetState().BusyTime["addr1"]
+			wd.Mark("addr1")
+			wd.UnMark("addr1")
+
+			state := wd.GetState()
+			Expect(state.InFlight).To(HaveKeyWithValue("addr1", 1))
+			Expect(state.BusyTime).To(HaveKeyWithValue("addr1", busySince))
+			Expect(state.IdleTime).NotTo(HaveKey("addr1"))
+
+			wd.UnMark("addr1")
+			state = wd.GetState()
+			Expect(state.InFlight).NotTo(HaveKey("addr1"))
+			Expect(state.BusyTime).NotTo(HaveKey("addr1"))
+			Expect(state.IdleTime).To(HaveKey("addr1"))
+		})
+
+		It("tracks the oldest active request instead of continuous parallel traffic", func() {
+			wd.AddAddressModelMap("addr1", "model1")
+			finishFirst := wd.TrackRequest("addr1")
+			firstStarted := wd.GetState().BusyTime["addr1"]
+			time.Sleep(10 * time.Millisecond)
+			finishSecond := wd.TrackRequest("addr1")
+
+			finishFirst()
+			state := wd.GetState()
+			Expect(state.InFlight).To(HaveKeyWithValue("addr1", 1))
+			Expect(state.BusyTime["addr1"]).To(BeTemporally(">", firstStarted))
+
+			finishSecond()
+			state = wd.GetState()
+			Expect(state.InFlight).NotTo(HaveKey("addr1"))
+			Expect(state.BusyTime).NotTo(HaveKey("addr1"))
+			Expect(state.IdleTime).To(HaveKey("addr1"))
 		})
 	})
 
@@ -663,6 +731,33 @@ var _ = Describe("WatchDog", func() {
 			shutdowns := pm.getShutdownCalls()
 			Expect(shutdowns).To(ContainElement("model2"))
 			Expect(shutdowns).ToNot(ContainElement("model1"))
+		})
+	})
+
+	Context("Busy Killer", func() {
+		It("force-shuts down a model that is stuck busy past the busy timeout", func() {
+			// Regression: a backend stuck on an in-flight gRPC call must be
+			// killed via the force path (stop the process first), not the
+			// graceful one, which intentionally waits for active calls until
+			// its bounded deadline.
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(10*time.Millisecond),
+				model.WithBusyCheck(true),
+				model.WithWatchdogInterval(20*time.Millisecond),
+			)
+
+			wd.AddAddressModelMap("addr1", "stuckModel")
+			wd.Mark("addr1") // busy — simulates an in-flight gRPC call
+
+			go wd.Run()
+			defer wd.Shutdown()
+
+			Eventually(func() []string {
+				return pm.getForceShutdownCalls()
+			}, "300ms", "10ms").Should(ContainElement("stuckModel"))
+			Expect(pm.getShutdownCalls()).To(ContainElement("stuckModel"))
+			Expect(pm.getGracefulShutdownCalls()).To(BeEmpty())
 		})
 	})
 

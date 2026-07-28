@@ -100,7 +100,7 @@ func kbCitationRawFileURL(collection, entryKey, userID string) string {
 	}
 
 	var escapedEntrySegments []string
-	for _, segment := range strings.Split(entryKey, "/") {
+	for segment := range strings.SplitSeq(entryKey, "/") {
 		if segment == "" {
 			continue
 		}

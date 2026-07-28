@@ -767,10 +767,6 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	return nil
 }
 
-// decodeWavMono16k converts any input audio to 16 kHz mono PCM and returns the
-// float samples plus the clip duration in seconds. Mirrors the whisper
-// backend: utils.AudioToWav (ffmpeg) normalises rate/channels, go-audio
-// decodes the PCM.
 // convertToWavMono16k converts an arbitrary audio file to a 16 kHz mono WAV in
 // a fresh temp dir and returns the path together with a cleanup func the caller
 // must defer. WAV inputs already at 16 kHz/mono/16-bit are passed through by
@@ -792,6 +788,10 @@ func convertToWavMono16k(path string) (string, func(), error) {
 	return converted, cleanup, nil
 }
 
+// decodeWavMono16k converts any input audio to 16 kHz mono PCM and returns the
+// float samples plus the clip duration in seconds. Mirrors the whisper
+// backend: utils.AudioToWav (ffmpeg) normalises rate/channels, go-audio
+// decodes the PCM.
 func decodeWavMono16k(path string) ([]float32, float32, error) {
 	converted, cleanup, err := convertToWavMono16k(path)
 	if err != nil {

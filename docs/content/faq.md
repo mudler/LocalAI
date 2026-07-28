@@ -2,7 +2,7 @@
 +++
 disableToc = false
 title = "FAQ"
-weight = 24
+weight = 9
 icon = "quiz"
 url = "/faq/"
 +++
@@ -30,7 +30,7 @@ Yes. You can load any compatible model, not just the ones in the gallery. And be
 
 ### How do I get models? 
 
-Most gguf-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=gguf, or models from gpt4all are compatible too: https://github.com/nomic-ai/gpt4all.
+The easiest way is the built-in model gallery: open the web interface at `http://localhost:8080`, go to the Models page, and install a model by name. You can also install from the command line with `local-ai models install <model-name>`. Most gguf-based models work, and you can point LocalAI at any compatible GGUF from Hugging Face (https://huggingface.co/models?search=gguf). Be cautious about downloading models from untrusted sources, as there may be security vulnerabilities in llama.cpp or ggml that could be maliciously exploited.
 
 ### Where are models stored?
 
@@ -64,17 +64,9 @@ Model sizes vary significantly depending on the model and quantization level:
 
 LocalAI applies a set of defaults when loading models with the llama.cpp backend, one of these is mirostat sampling - while it achieves better results, it slows down the inference. You can disable this by setting `mirostat: 0` in the model config file. See also the advanced section ({{%relref "advanced/advanced-usage" %}}) for more information and [this issue](https://github.com/mudler/LocalAI/issues/2780).
 
-### What's the difference with Serge, or XXX?
-
-LocalAI is a multi-model solution that doesn't focus on a specific model type (e.g., llama.cpp or alpaca.cpp), and it handles all of these internally for faster inference,  easy to set up locally and deploy to Kubernetes.
-
 ### Everything is slow, how is it possible?
 
-There are few situation why this could occur. Some tips are:
-- Don't use HDD to store your models. Prefer SSD over HDD. In case you are stuck with HDD, disable `mmap` in the model config file so it loads everything in memory.
-- Watch out CPU overbooking. Ideally the `--threads` should match the number of physical cores. For instance if your CPU has 4 cores, you would ideally allocate `<= 4` threads to a model.
-- Run LocalAI with `DEBUG=true`. This gives more information, including stats on the token inference speed.
-- Check that you are actually getting an output: run a simple curl request with `"stream": true` to see how fast the model is responding. 
+See the performance section of the runtime errors reference: {{% relref "reference/runtime-errors" %}}.
 
 ### Can I use it with a Discord bot, or XXX?
 
@@ -84,23 +76,15 @@ Yes! If the client uses OpenAI and supports setting a different base URL to send
 
 There is GPU support, see {{%relref "features/GPU-acceleration" %}}.
 
-### Where is the webUI? 
+### Where is the WebUI?
 
-There is the availability of localai-webui and chatbot-ui in the examples section and can be setup as per the instructions. However as LocalAI is an API you can already plug it into existing projects that provides are UI interfaces to OpenAI's APIs. There are several already on Github, and should be compatible with LocalAI already (as it mimics the OpenAI API)
-
-### Does it work with AutoGPT? 
-
-Yes, see the [examples](https://github.com/mudler/LocalAI-examples)!
+LocalAI ships with a built-in web interface. Once LocalAI is running, open `http://localhost:8080` in your browser to manage models, chat, and configure the server. There is nothing extra to install. Because LocalAI also exposes an OpenAI-compatible API, you can additionally plug it into any existing application that talks to the OpenAI API by pointing that application at the LocalAI endpoint.
 
 ### How can I troubleshoot when something is wrong?
 
 Enable the debug mode by setting `DEBUG=true` in the environment variables. This will give you more information on what's going on.
-You can also specify `--debug` in the command line.
+You can also specify `--debug` in the command line. For matching a specific runtime or backend error message to its cause and fix, see the runtime errors reference: {{% relref "reference/runtime-errors" %}}.
 
-### I'm getting 'invalid pitch' error when running with CUDA, what's wrong?
+### I'm getting 'invalid pitch', 'SIGILL', a CUDA out-of-memory error, or a model that will not load
 
-This typically happens when your prompt exceeds the context size. Try to reduce the prompt size, or increase the context size.
-
-### I'm getting a 'SIGILL' error, what's wrong?
-
-Your CPU probably does not have support for certain instructions that are compiled by default in the pre-built binaries. If you are running in a container, try setting `REBUILD=true` and disable the CPU instructions that are not compatible with your CPU. For instance: `CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make build`
+These runtime and backend failures, and how to read the real error behind an HTTP `500`, are documented in the runtime errors reference: {{% relref "reference/runtime-errors" %}}.

@@ -1,8 +1,9 @@
 +++
 disableToc = false
 title = "Fine-Tuning"
-weight = 18
+weight = 84
 url = '/features/fine-tuning/'
+aliases = ['/advanced/fine-tuning/']
 +++
 
 ![The fine-tune job lifecycle: create, train with SSE progress, then export to LoRA, merged, or GGUF](/images/diagrams/finetune-job-lifecycle.png)
@@ -139,22 +140,26 @@ GRPO training requires reward functions to evaluate model completions. Specify t
 
 | Name | Description | Parameters |
 |------|-------------|-----------|
-| `format_reward` | Checks `<think>...</think>` then answer format (1.0/0.0) | — |
-| `reasoning_accuracy_reward` | Extracts `<answer>` content, compares to dataset's `answer` column | — |
+| `format_reward` | Checks `<think>...</think>` then answer format (1.0/0.0) | - |
+| `reasoning_accuracy_reward` | Extracts `<answer>` content, compares to dataset's `answer` column | - |
 | `length_reward` | Score based on proximity to target length [0, 1] | `target_length` (default: 200) |
-| `xml_tag_reward` | Scores properly opened/closed `<think>` and `<answer>` tags | — |
-| `no_repetition_reward` | Penalizes n-gram repetition [0, 1] | — |
-| `code_execution_reward` | Checks Python code block syntax validity (1.0/0.0) | — |
+| `xml_tag_reward` | Scores properly opened/closed `<think>` and `<answer>` tags | - |
+| `no_repetition_reward` | Penalizes n-gram repetition [0, 1] | - |
+| `code_execution_reward` | Checks Python code block syntax validity (1.0/0.0) | - |
 
 #### Inline Custom Reward Functions
 
 You can provide custom reward function code as a Python function body. The function receives `completions` (list of strings) and `**kwargs`, and must return `list[float]`.
 
-**Security restrictions for inline code:**
-- Allowed builtins: `len`, `int`, `float`, `str`, `list`, `dict`, `range`, `enumerate`, `zip`, `map`, `filter`, `sorted`, `min`, `max`, `sum`, `abs`, `round`, `any`, `all`, `isinstance`, `print`, `True`, `False`, `None`
-- Available modules: `re`, `math`, `json`, `string`
-- Blocked: `open`, `__import__`, `exec`, `eval`, `compile`, `os`, `subprocess`, `getattr`, `setattr`, `delattr`, `globals`, `locals`
-- Functions are compiled and validated at job start (fail-fast on syntax errors)
+{{% notice warning %}}
+**Inline reward code executes arbitrary Python and is disabled by default.**
+
+Inline code is compiled and run in the backend process. The restricted-builtins allowlist is **not** a security sandbox — trivial expressions can escape it to reach the host (arbitrary code execution). Because the fine-tuning endpoint is unauthenticated by default, inline reward functions are refused unless the operator explicitly opts in by setting `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend.
+
+Only enable it on a trusted, access-controlled instance where every caller of the fine-tuning API is authorized to run code on the host. Otherwise use the builtin reward functions above.
+{{% /notice %}}
+
+The function is given the reduced builtin set (`len`, `int`, `float`, `str`, `list`, `dict`, `range`, `enumerate`, `zip`, `map`, `filter`, `sorted`, `min`, `max`, `sum`, `abs`, `round`, `any`, `all`, `isinstance`, `print`) plus the `re`, `math`, `json`, and `string` modules, and is compiled and validated at job start (fail-fast on syntax errors). Treat these as ergonomics, not as an isolation boundary.
 
 #### Example API Request
 
@@ -200,10 +205,10 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs \
 
 When fine-tuning is enabled, a "Fine-Tune" page appears in the sidebar under the Agents section. The UI provides:
 
-1. **Job Configuration** — Select backend, model, training method, adapter type, and hyperparameters
-2. **Dataset Upload** — Upload local datasets or reference HuggingFace datasets
-3. **Training Monitor** — Real-time loss chart, progress bar, metrics display
-4. **Export** — Export trained models in various formats
+1. **Job Configuration** - Select backend, model, training method, adapter type, and hyperparameters
+2. **Dataset Upload** - Upload local datasets or reference HuggingFace datasets
+3. **Training Monitor** - Real-time loss chart, progress bar, metrics display
+4. **Export** - Export trained models in various formats
 
 ## Dataset Formats
 

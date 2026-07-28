@@ -28,8 +28,14 @@ type TranscriptionRequest struct {
 	TimestampGranularities []string
 }
 
-func (r *TranscriptionRequest) toProto(threads uint32) *proto.TranscriptRequest {
+// modelIdentity is ModelConfig.Model, the value the backend received as
+// ModelOptions.Model at LoadModel, so it can reject a request that reached it
+// through a stale distributed route (#10952). It is a parameter rather than a
+// TranscriptionRequest field because the request is built by HTTP handlers that
+// have no ModelConfig, while every caller of this method does.
+func (r *TranscriptionRequest) toProto(threads uint32, modelIdentity string) *proto.TranscriptRequest {
 	return &proto.TranscriptRequest{
+		ModelIdentity:          modelIdentity,
 		Dst:                    r.Audio,
 		Language:               r.Language,
 		Translate:              r.Translate,
@@ -85,7 +91,7 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 		audioSnippet = trace.AudioSnippet(req.Audio, appConfig.TracingMaxBodyBytes)
 	}
 
-	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads)))
+	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads), modelConfig.Model))
 	if err != nil {
 		if appConfig.EnableTracing {
 			errData := map[string]any{
@@ -158,7 +164,7 @@ func ModelTranscriptionStream(ctx context.Context, req TranscriptionRequest, ml 
 		return err
 	}
 
-	pbReq := req.toProto(uint32(*modelConfig.Threads))
+	pbReq := req.toProto(uint32(*modelConfig.Threads), modelConfig.Model)
 	pbReq.Stream = true
 
 	return transcriptionModel.AudioTranscriptionStream(ctx, pbReq, func(chunk *proto.TranscriptStreamResponse) {

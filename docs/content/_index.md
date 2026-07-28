@@ -1,63 +1,86 @@
 +++
 title = "LocalAI"
-description = "The free, OpenAI and Anthropic alternative. A small, composable AI stack: run any model locally and install only what you use."
+description = "The open, modular AI runtime. Run text, vision, voice, image, video, agents, and more on hardware you control."
 type = "home"
 +++
 
-**The free, OpenAI and Anthropic alternative. A small, composable AI stack.** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. A lean core that pulls model backends on demand, so you install only what you use. 
+<div class="lai-home">
+  <section class="lai-hero">
+    <div class="lai-hero__copy">
+      <p class="lai-signal"><span></span> Open source · MIT licensed</p>
+      <h1>One runtime.<br><strong>Every kind of AI.</strong><br>Your hardware.</h1>
+      <p class="lai-hero__lede">LocalAI runs text, vision, speech, sound, images, video, embeddings, reranking, and autonomous agents behind one modular stack-from a CPU laptop to a distributed GPU cluster.</p>
+      <div class="lai-actions">
+        <a class="lai-button" href="/installation/">Install LocalAI <b>→</b></a>
+        <a class="lai-link" href="https://github.com/mudler/LocalAI">View on GitHub ↗</a>
+      </div>
+      <div class="lai-proof"><span>60+ backends</span><span>CPU to cluster</span><span>OpenAI · Anthropic · Ollama · ElevenLabs APIs</span></div>
+    </div>
+  </section>
 
-**No cloud, no limits, no compromise.**
+  <section class="lai-breadth">
+    <header><p>The runtime, not just the endpoint.</p><h2>Bring the model. Choose the engine. Keep control.</h2></header>
+    <div class="lai-lanes">
+      <a href="/features/text-generation/"><span>Reason</span><b>Language models · tools · structured output</b><em>Text</em></a>
+      <a href="/features/openai-realtime/"><span>Listen & speak</span><b>Realtime WebRTC · transcription · TTS · diarization</b><em>Voice</em></a>
+      <a href="/features/image-generation/"><span>Create</span><b>Images · video · music · sound</b><em>Media</em></a>
+      <a href="/features/object-detection/"><span>See</span><b>Vision · detection · recognition · depth</b><em>Perception</em></a>
+      <a href="/features/agents/"><span>Act</span><b>Agents · MCP · skills · RAG · interactive tools</b><em>Agentic</em></a>
+    </div>
+  </section>
 
-{{% notice tip %}}
-**[⭐ Star us on GitHub](https://github.com/mudler/LocalAI)** - 40k+ stars and growing!
+  <section class="lai-architecture">
+    <div class="lai-architecture__copy">
+      <p>A small core, not a giant bundle.</p>
+      <h2>Backends arrive when the model needs them.</h2>
+      <p>LocalAI keeps the core lean. Each backend wraps a best-in-class engine-llama.cpp, vLLM, SGLang, MLX, whisper.cpp, diffusion engines, and many more-as an isolated service pulled on demand.</p>
+      <ul><li>Install, update, or remove engines independently.</li><li>Mix CPU, NVIDIA, AMD, Intel, Apple Silicon, Vulkan, and Jetson.</li><li>Build your own backend in any language through an open gRPC contract.</li></ul>
+      <a href="/reference/architecture/">Explore the architecture →</a>
+    </div>
+    <figure><img src="/images/diagrams/composable-core.png" alt="LocalAI's small core connected to independent on-demand model backends" /></figure>
+  </section>
 
-**Drop-in replacement for OpenAI API** - modular suite of tools that work seamlessly together or independently. 
+  <section class="lai-engines">
+    <div class="lai-engines__intro">
+      <p>We integrate the best engines. We build new ones, too.</p>
+      <h2>Inference work that moves the open ecosystem forward.</h2>
+      <p>The LocalAI team develops native C, C++, Rust, and GGML engines when the available stack is too heavy, too closed, or simply does not exist yet.</p>
+      <a href="https://github.com/mudler/LocalAI#backends-built-by-us">See the engines we maintain ↗</a>
+    </div>
+    <div class="lai-engine-reel">
+      <div><span>Speech</span><b>parakeet.cpp</b><small>Streaming multilingual ASR</small></div>
+      <div><span>Voice</span><b>vibevoice.cpp</b><small>Long-form TTS and ASR</small></div>
+      <div><span>Identity</span><b>voice-detect.cpp</b><small>Speaker recognition and analysis</small></div>
+      <div><span>Vision</span><b>face-detect.cpp</b><small>Recognition and anti-spoofing</small></div>
+      <div><span>Perception</span><b>locate-anything.cpp</b><small>Open-vocabulary detection</small></div>
+      <div><span>Privacy</span><b>privacy-filter.cpp</b><small>Native PII detection</small></div>
+      <div><span>3D</span><b>free-splatter.cpp</b><small>Pose-free reconstruction</small></div>
+      <div><span>Quantization</span><b>apex-quant</b><small>MoE-aware GGUF recipes</small></div>
+    </div>
+  </section>
 
-Start with **[LocalAI](https://localai.io)**'s OpenAI-compatible API, extend with **[LocalAGI](https://github.com/mudler/LocalAGI)**'s autonomous agents, and enhance with **[LocalRecall](https://github.com/mudler/LocalRecall)**'s semantic search - all running locally on your hardware.
+  <section class="lai-scale">
+    <header><p>Start on one machine. Keep going.</p><h2>The same runtime from workstation to private AI fabric.</h2></header>
+    <div class="lai-scale__path">
+      <div><span>01</span><b>Laptop</b><p>Run useful models locally, including CPU-only setups.</p></div>
+      <div><span>02</span><b>Team server</b><p>Add authentication, API keys, roles, quotas, and usage visibility.</p></div>
+      <div><span>03</span><b>Distributed cluster</b><p>Route across workers, fit models across devices, and scale with demand.</p></div>
+    </div>
+  </section>
 
-**Open Source** MIT Licensed.
-{{% /notice %}}
+  <section class="lai-platform">
+    <div><p>More than inference</p><h2>A complete local AI control plane.</h2></div>
+    <div class="lai-platform__list">
+      <article><b>Agents built in</b><p>Create agents with MCP tools, skills, memory, RAG, citations, and streamed execution from the UI or API.</p></article>
+      <article><b>Realtime by design</b><p>Build interruptible voice experiences with WebRTC, streaming STT, LLM output, and TTS.</p></article>
+      <article><b>Privacy you can enforce</b><p>Keep data on your infrastructure and add PII analysis, redaction, policy middleware, and audit visibility.</p></article>
+      <article><b>Models under your control</b><p>Discover capabilities, import models, fine-tune, quantize, route, and monitor them in one place.</p></article>
+    </div>
+  </section>
 
-<center><iframe width="560" height="315" src="https://www.youtube.com/embed/PDqYhB9nNHA?si=jUClTH7uuGMwMvFw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></center>
-
-## Why Choose LocalAI?
-
-**OpenAI API Compatible** - Run AI models locally with our modular ecosystem. From language models to autonomous agents and semantic search, build your complete AI stack without the cloud.
-
-### Key Features
-
-- **LLM Inferencing**: LocalAI is a free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
-- **Agentic-first**: Extend LocalAI with LocalAGI, an autonomous AI agent platform that runs locally, no coding required. Build and deploy autonomous agents with ease.
-- **Memory and Knowledge base**: Extend LocalAI with LocalRecall, A local rest api for semantic search and memory management. Perfect for AI applications.
-- **OpenAI Compatible**: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
-- **No GPU Required**: Run on consumer grade hardware. No need for expensive GPUs or cloud services.
-- **Multiple Models**: Support for various model families including LLMs, image generation, and audio models. Supports multiple backends for inferencing.
-- **Privacy Focused**: Keep your data local. No data leaves your machine, ensuring complete privacy.
-- **Easy Setup**: Simple installation and configuration. Get started in minutes with Binaries installation, Docker, Podman, Kubernetes or local installation.
-- **Community Driven**: Active community support and regular updates. Contribute and help shape the future of LocalAI.
-
-## Quick Start
-
-**Docker is the recommended installation method** for most users:
-
-```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
-```
-
-For complete installation instructions, see the [Installation guide](/installation/).
-
-## Get Started
-
-1. **[Install LocalAI](/installation/)** - Choose your installation method (Docker recommended)
-2. **[Quickstart Guide](/getting-started/quickstart/)** - Get started quickly after installation
-3. **[Install and Run Models](/getting-started/models/)** - Learn how to work with AI models
-4. **[Try It Out](/getting-started/try-it-out/)** - Explore examples and use cases
-
-## Learn More
-
-- [Explore available models](https://models.localai.io)
-- [Model compatibility](/model-compatibility/)
-- [Try out examples](https://github.com/mudler/LocalAI-examples)
-- [Join the community](https://discord.gg/uJAeKSAGDy)
-- [Check the LocalAI Github repository](https://github.com/mudler/LocalAI)
-- [Check the LocalAGI Github repository](https://github.com/mudler/LocalAGI)
+  <section class="lai-start">
+    <div><p>One command to begin</p><h2>Run your first local AI stack.</h2></div>
+    <pre><code>docker run -ti --name local-ai -p 8080:8080 localai/localai:latest</code></pre>
+    <div class="lai-start__links"><a href="/installation/">Installation options</a><a href="https://models.localai.io">Browse models</a><a href="/model-compatibility/">Compare backends</a><a href="https://discord.gg/uJAeKSAGDy">Join Discord</a></div>
+  </section>
+</div>

@@ -34,7 +34,15 @@ type Opus struct {
 	decoders   map[string]*cachedDecoder
 }
 
+// Load accepts only the codec's own name (what the realtime WebRTC path
+// sends) or no name at all — there is no model artefact here, so without
+// this check the model loader's greedy autoload (which probes every
+// installed backend with real model names) would happily bind an LLM to
+// the audio codec.
 func (o *Opus) Load(opts *pb.ModelOptions) error {
+	if m := opts.GetModel(); m != "" && m != "opus" {
+		return fmt.Errorf("opus: refusing to load %q: opus is an audio codec, not a model backend", m)
+	}
 	o.decoders = make(map[string]*cachedDecoder)
 	go o.evictLoop()
 	return Init()

@@ -293,3 +293,65 @@ var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
 		Expect(opts.Metadata).ToNot(HaveKey("chat_template_kwargs"))
 	})
 })
+
+var _ = Describe("EffectiveContextSize", func() {
+	Context("EffectiveContextSize", func() {
+		It("clamps a negative (auto-max sentinel) context size to the default", func() {
+			neg := -1
+			cfg := config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &neg}}
+			Expect(EffectiveContextSize(cfg)).To(Equal(DefaultContextSize))
+		})
+
+		It("returns an explicit positive context size unchanged", func() {
+			ctx := 8192
+			cfg := config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+			Expect(EffectiveContextSize(cfg)).To(Equal(8192))
+		})
+
+		It("falls back to the default when context size is unset", func() {
+			cfg := config.ModelConfig{}
+			Expect(EffectiveContextSize(cfg)).To(Equal(DefaultContextSize))
+		})
+	})
+})
+
+// Guards the model identity carried in PredictOptions, which lets a backend
+// reject a request that reached it through a stale distributed route (#10952).
+//
+// The safety of the whole mechanism rests on the predict-time value being the
+// SAME expression as the load-time one: ModelOptions passes model.WithModel(
+// c.Model), which becomes ModelOptions.Model at LoadModel, and gRPCPredictOpts
+// receives the same config value in the same function a few lines later. If
+// this ever starts sending ModelID()/Name or the resolved file path instead,
+// every request to a correctly-routed backend gets rejected. The configs below
+// deliberately give Model, Name and ModelID() three different values so that
+// substituting any of them for the others fails here.
+var _ = Describe("gRPCPredictOpts model identity", func() {
+	withModel := func(name, modelFile string) config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		cfg.Name = name
+		cfg.Model = modelFile
+		return cfg
+	}
+
+	It("sends ModelConfig.Model, the value LoadModel receives", func() {
+		cfg := withModel("friendly-name", "qwen/actual-weights.gguf")
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.ModelIdentity).To(Equal("qwen/actual-weights.gguf"))
+	})
+
+	It("does not send ModelID(), which LoadModel never receives", func() {
+		cfg := withModel("friendly-name", "qwen/actual-weights.gguf")
+		Expect(cfg.ModelID()).To(Equal("friendly-name"))
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.ModelIdentity).ToNot(Equal(cfg.ModelID()))
+	})
+
+	// Configs with no model file cannot identify anything. Empty means "skip
+	// the check" on the backend, which is the safe direction.
+	It("leaves the identity empty when the config names no model", func() {
+		opts := gRPCPredictOpts(withModel("some-name", ""), "/tmp/models")
+		Expect(opts.ModelIdentity).To(BeEmpty())
+	})
+})

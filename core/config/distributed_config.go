@@ -76,11 +76,33 @@ type DistributedConfig struct {
 
 	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
 	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
+	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
+	// router issues once a worker has the backend installed and the model files
+	// staged. It therefore covers only the backend's own checkpoint load and
+	// pipeline init, which for a multi-tens-of-GB diffusion/video checkpoint on
+	// unified memory can far exceed the 5m default.
+	ModelLoadTimeout time.Duration // gRPC deadline for remote LoadModel (default 5m)
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
 	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
+
+	// DiskHeadroomDisabled turns off the scheduler's free-disk admission check,
+	// restoring the pre-#11054 behaviour where node selection ignores whether a
+	// node can actually store the model. The check is ON by default because it
+	// prevents a measured failure (a node with 0 bytes free accepted a 70GB
+	// model and failed 16 minutes into staging); this is the escape hatch for
+	// setups where our size estimate is wrong (deduplicating filesystems, a
+	// worker that fetches its own weights), not the norm.
+	//
+	// Disabling does NOT silence the check: it still runs and warns when it
+	// would have rejected every node, so the operator keeps the diagnosis
+	// without being blocked. See SmartRouter.scheduleNewModel.
+	//
+	// Stored as the negation of the CLI/runtime flag so the zero value is
+	// "enabled" (mirrors PrefixCacheDisabled).
+	DiskHeadroomDisabled bool
 
 	// PrefixCacheDisabled turns off prefix-cache-aware routing, falling back to
 	// round-robin (the floor). Prefix-cache routing is ON by default in
@@ -142,6 +164,7 @@ func (c DistributedConfig) Validate() error {
 		FlagMCPCIJobTimeout:       c.MCPCIJobTimeout,
 		FlagBackendInstallTimeout: c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout: c.BackendUpgradeTimeout,
+		FlagModelLoadTimeout:      c.ModelLoadTimeout,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -286,6 +309,12 @@ func WithBackendUpgradeTimeout(d time.Duration) AppOption {
 	}
 }
 
+func WithModelLoadTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelLoadTimeout = d
+	}
+}
+
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
@@ -295,6 +324,13 @@ var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 // workers (see DistributedConfig.SharedModels).
 var EnableDistributedSharedModels = func(o *ApplicationConfig) {
 	o.Distributed.SharedModels = true
+}
+
+// DisableDiskHeadroomCheck turns off the scheduler's free-disk admission
+// check (see DistributedConfig.DiskHeadroomDisabled). The check is enabled by
+// default in distributed mode.
+var DisableDiskHeadroomCheck = func(o *ApplicationConfig) {
+	o.Distributed.DiskHeadroomDisabled = true
 }
 
 // DisablePrefixCache turns off prefix-cache-aware routing (falls back to
@@ -342,6 +378,11 @@ const (
 	FlagMCPCIJobTimeout       = "mcp-ci-job-timeout"
 	FlagBackendInstallTimeout = "backend-install-timeout"
 	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
+	FlagModelLoadTimeout      = "model-load-timeout"
+	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
+	// the warning the check emits while disabled, so the operator reading a
+	// log line knows exactly which knob produced it.
+	FlagDiskHeadroomCheck = "distributed-disk-headroom-check"
 )
 
 // Defaults for distributed timeouts.
@@ -355,6 +396,7 @@ const (
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 	DefaultBackendInstallTimeout = 15 * time.Minute
 	DefaultBackendUpgradeTimeout = 15 * time.Minute
+	DefaultModelLoadTimeout      = 5 * time.Minute
 )
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
@@ -406,6 +448,11 @@ func (c DistributedConfig) BackendInstallTimeoutOrDefault() time.Duration {
 // BackendUpgradeTimeoutOrDefault returns the configured timeout or the default.
 func (c DistributedConfig) BackendUpgradeTimeoutOrDefault() time.Duration {
 	return cmp.Or(c.BackendUpgradeTimeout, DefaultBackendUpgradeTimeout)
+}
+
+// ModelLoadTimeoutOrDefault returns the configured timeout or the default.
+func (c DistributedConfig) ModelLoadTimeoutOrDefault() time.Duration {
+	return cmp.Or(c.ModelLoadTimeout, DefaultModelLoadTimeout)
 }
 
 // MCPToolTimeoutOrDefault returns the configured timeout or the default.

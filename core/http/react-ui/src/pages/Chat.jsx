@@ -809,9 +809,11 @@ export default function Chat() {
       if (history[i].role === 'user') { userIdx = i; break }
     }
     if (userIdx === -1) return
-    const userMsg = typeof history[userIdx].content === 'string'
-      ? history[userIdx].content
-      : history[userIdx].content?.[0]?.text || ''
+    // Reuse the original message's content verbatim (not re-extracted text):
+    // it already has any file text / image_url / audio_url / video_url parts
+    // embedded from when it was first sent, which display-only file metadata
+    // can't reconstruct.
+    const userContent = history[userIdx].content
     const userFiles = history[userIdx].files || []
     // Drop the user turn and everything after it; sendMessage re-appends it.
     // Thread the truncated history through explicitly: updateChatSettings only
@@ -819,7 +821,7 @@ export default function Chat() {
     // the stale pre-truncation history for the outbound API payload.
     const baseHistory = history.slice(0, userIdx)
     updateChatSettings(activeChat.id, { history: baseHistory })
-    await sendMessage(userMsg, userFiles, { baseHistory })
+    await sendMessage(userContent, userFiles, { baseHistory, prebuiltContent: true })
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
   const handleKeyDown = (e) => {

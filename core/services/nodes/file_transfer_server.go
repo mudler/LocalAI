@@ -46,17 +46,26 @@ const (
 // It provides PUT/GET/POST endpoints for uploading, downloading, and allocating temp files,
 // as well as backend log REST and WebSocket endpoints when logStore is non-nil.
 // Auth is via Bearer token (registration token), using constant-time comparison.
-func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
+// A nil readiness fails open, keeping /readyz's historical always-200 answer.
+func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return StartFileTransferServerWithListener(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, logStore...)
+	return StartFileTransferServerWithReadiness(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
 // This avoids the TOCTOU race of closing a listener and re-binding to the same port.
 func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithReadiness(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, logStore...)
+}
+
+// StartFileTransferServerWithReadiness is StartFileTransferServerWithListener
+// plus a readiness gate for the /readyz probe. A nil readiness fails open, so
+// the probe keeps its historical always-200 behaviour for callers that have no
+// meaningful readiness signal to report.
+func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -131,18 +140,30 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 
 	// Liveness/readiness probes — unauthenticated so container orchestrators
 	// (Docker HEALTHCHECK, k8s probes) can hit them without the bearer token.
-	// Reaching this point means the listener is bound and the mux is serving.
-	healthHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
+	probe := func(check func() error) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			if err := check(); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte("not ready: " + err.Error()))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
 		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
 	}
-	mux.HandleFunc("/readyz", healthHandler)
-	mux.HandleFunc("/healthz", healthHandler)
+
+	// Liveness: reaching this point means the listener is bound and the mux is
+	// serving. Deliberately independent of readiness — a worker whose NATS link
+	// is momentarily down must not be restarted, or a NATS blip becomes a
+	// cluster-wide restart storm.
+	mux.HandleFunc("/healthz", probe(func() error { return nil }))
+	// Readiness: "can this worker actually accept work?" See WorkerReadiness.
+	mux.HandleFunc("/readyz", probe(readiness.Check))
 
 	addr := lis.Addr().String()
 	server := &http.Server{

@@ -51,10 +51,10 @@ function transcriptionTrace(audioWavBase64) {
 }
 
 async function openBackendTraceRow(page, traces) {
-  await page.route('**/api/traces', (route) => {
+  await page.route('**/api/traces?*', (route) => {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) })
   })
-  await page.route('**/api/backend-traces', (route) => {
+  await page.route('**/api/backend-traces?*', (route) => {
     route.fulfill({ contentType: 'application/json', body: JSON.stringify(traces) })
   })
   await page.goto('/app/traces')

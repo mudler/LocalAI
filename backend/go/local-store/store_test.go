@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/store"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -186,8 +187,18 @@ var _ = Describe("StoresFind", func() {
 })
 
 var _ = Describe("StoresLoad", func() {
-	It("is a no-op", func() {
-		Expect(NewStore().Load(&pb.ModelOptions{Model: "any-namespace"})).To(Succeed())
+	It("accepts prefixed store namespaces", func() {
+		Expect(NewStore().Load(&pb.ModelOptions{Model: store.NamespacePrefix + "any-namespace"})).To(Succeed())
+	})
+
+	It("accepts the prefix alone (default store)", func() {
+		Expect(NewStore().Load(&pb.ModelOptions{Model: store.NamespacePrefix})).To(Succeed())
+	})
+
+	It("refuses model names without the namespace prefix", func() {
+		err := NewStore().Load(&pb.ModelOptions{Model: "some-llm.gguf"})
+		Expect(err).To(MatchError(ContainSubstring("not a store namespace")))
+		Expect(NewStore().Load(&pb.ModelOptions{})).NotTo(Succeed())
 	})
 })
 
