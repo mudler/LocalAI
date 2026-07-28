@@ -2,3 +2,16 @@
 # (FunctionCallParser, ReasoningParser) move between releases.
 # 0.5.11 is the floor for Gemma 4 support (PR sgl-project/sglang#21952).
 sglang[all]>=0.5.11
+
+# Keep nvidia-modelopt on a stable release. sglang[all] pulls it in through its
+# `diffusion` extra with no version bound of its own, and install.sh passes a
+# GLOBAL --prerelease=allow (needed because flash-attn-4 only ships 4.0.0b*
+# wheels). Unbounded plus prereleases-allowed resolves to 0.46.0rc0, whose build
+# backend imports wheel_stub without declaring it as a build dependency; with
+# --no-build-isolation also in EXTRA_PIP_INSTALL_FLAGS nothing installs it, and
+# every cublas sglang image fails with "No module named 'wheel_stub'".
+#
+# Bounding this one package rather than dropping the global flag: the flag is
+# load-bearing for flash-attn-4, and this is the narrower change. Raise the
+# bound once 0.46.0 final ships.
+nvidia-modelopt<0.46
