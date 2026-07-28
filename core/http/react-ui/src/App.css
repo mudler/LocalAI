@@ -675,11 +675,18 @@
   border-bottom: 1px solid var(--color-border-subtle);
   border-left: 2px solid var(--color-primary);
   font-size: 0.8125rem;
+  /* An install error is arbitrarily long text. Containment keeps the strip's
+     width from depending on it: without this the strip reports a 1600px
+     minimum, .main-content is sized to fit, and every page under the strip
+     gets a horizontal scrollbar for as long as the failure is on screen. */
+  contain: inline-size;
+  overflow: hidden;
 }
 .operations-strip--error { border-left-color: var(--color-error); background: var(--color-error-light); }
 .operations-strip--queued { border-left-color: var(--color-text-disabled); }
 .operations-strip--staging { border-left-color: var(--color-info); }
 .operations-strip--removing { border-left-color: var(--color-warning); }
+.operations-strip--cancelling { border-left-color: var(--color-warning); }
 .operations-strip--done { border-left-color: var(--color-success); }
 
 .operations-strip__icon { flex: none; font-size: 0.8125rem; }
@@ -687,6 +694,7 @@
 .operations-strip--queued .operations-strip__icon { color: var(--color-text-muted); }
 .operations-strip--staging .operations-strip__icon { color: var(--color-info); }
 .operations-strip--removing .operations-strip__icon { color: var(--color-warning); }
+.operations-strip--cancelling .operations-strip__icon { color: var(--color-warning); }
 .operations-strip--done .operations-strip__icon { color: var(--color-success); }
 
 .operations-strip__spinner {
@@ -700,7 +708,7 @@
 }
 @keyframes operationsStripSpin { to { transform: rotate(360deg); } }
 
-.operations-strip__verb { color: var(--color-text-secondary); white-space: nowrap; }
+.operations-strip__verb { flex: none; color: var(--color-text-secondary); white-space: nowrap; }
 .operations-strip__name {
   font-family: var(--font-mono);
   font-weight: 500;
@@ -708,9 +716,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.operations-strip__sep { color: var(--color-border-strong); }
+.operations-strip__sep { flex: none; color: var(--color-border-strong); }
+/* min-width and overflow are what let these shrink: a nowrap flex item's
+   automatic minimum size is otherwise its full content width. */
 .operations-strip__detail,
 .operations-strip__bytes {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--color-text-muted);
   font-size: 0.75rem;
   white-space: nowrap;
@@ -5615,13 +5629,6 @@ button.collapsible-header:focus-visible {
     border-left: 0;
     border-right: 0;
     margin-inline: calc(-1 * var(--spacing-md));
-  }
-
-  .operations-strip__name {
-    max-width: 60vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 

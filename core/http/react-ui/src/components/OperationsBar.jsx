@@ -60,7 +60,10 @@ export default function OperationsBar() {
 
   const shown = primary || finished
   if (!shown) return null
-  if (primary && hiddenJobID === primary.jobID) return null
+  // A job keeps its jobID when it turns into a failure, so hiding the running
+  // operation would otherwise swallow that same job's error. Hiding is a way
+  // to get on with your work, never a way to opt out of bad news.
+  if (hiddenJobID === shown.jobID && !shown.error) return null
 
   const extra = Math.max(0, operations.length - 1)
   const isFinished = !primary
@@ -76,11 +79,19 @@ export default function OperationsBar() {
   if (isFinished) {
     modifier = 'operations-strip--done'
     icon = <i className="fas fa-check operations-strip__icon" aria-hidden="true" />
-    verb = t('activity.verb.installed', { kind })
+    // The completion phrase has to match the work that just ended: a removal
+    // that reports "Installed" reads as the opposite of what happened.
+    if (shown.isDeletion) verb = t('activity.verb.removed', { kind })
+    else if (shown.taskType === 'staging') verb = t('activity.verb.staged')
+    else verb = t('activity.verb.installed', { kind })
   } else if (shown.error) {
     modifier = 'operations-strip--error'
     icon = <i className="fas fa-circle-exclamation operations-strip__icon" aria-hidden="true" />
     verb = t('activity.verb.failed', { kind })
+  } else if (shown.isCancelled) {
+    modifier = 'operations-strip--cancelling'
+    icon = <i className="fas fa-ban operations-strip__icon" aria-hidden="true" />
+    verb = t('activity.verb.cancelling')
   } else if (shown.isQueued) {
     modifier = 'operations-strip--queued'
     icon = <i className="fas fa-clock operations-strip__icon" aria-hidden="true" />
@@ -113,7 +124,9 @@ export default function OperationsBar() {
     || (phaseKey ? t(phaseKey) : '')
     || (shown.isQueued ? t('activity.waitingForInstaller') : '')
 
-  const showProgress = !isFinished && !shown.error && !shown.isQueued && shown.progress > 0
+  // A cancelling operation keeps reporting progress it will never finish, so
+  // the bar is dropped rather than left creeping forward.
+  const showProgress = !isFinished && !shown.error && !shown.isQueued && !shown.isCancelled && shown.progress > 0
 
   const onHide = () => {
     // A failure is dismissed server side, which moves it into the record.
@@ -123,12 +136,15 @@ export default function OperationsBar() {
       dismissFailedOp(shown.id)
       return
     }
-    if (primary) setHiddenJobID(primary.jobID)
+    setHiddenJobID(shown.jobID)
     setFinished(null)
   }
 
   return (
-    <div className={`operations-strip ${modifier}`.trim()} role="status" aria-live="polite">
+    // role="status" already implies a polite live region. It deliberately does
+    // not cover the percentage, which changes every poll and would have a
+    // screen reader re-reading the whole strip once a second.
+    <div className={`operations-strip ${modifier}`.trim()} role="status">
       {icon}
       <span className="operations-strip__verb">{verb}</span>
       <span className="operations-strip__name">{shown.name || shown.id}</span>
@@ -138,8 +154,8 @@ export default function OperationsBar() {
       <span className="operations-strip__spacer" />
       {showProgress && (
         <>
-          <span className="operations-strip__pct">{Math.round(shown.progress)}%</span>
-          <span className="operations-strip__track">
+          <span className="operations-strip__pct" aria-hidden="true">{Math.round(shown.progress)}%</span>
+          <span className="operations-strip__track" aria-hidden="true">
             <span className="operations-strip__fill" style={{ width: `${shown.progress}%` }} />
           </span>
         </>
