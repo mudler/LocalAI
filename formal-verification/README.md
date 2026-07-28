@@ -55,9 +55,7 @@ Two layers, **both required — the gate is fail-closed**:
 FizzBee is pinned and checksum-verified (`fizzbee.sha256`), so "couldn't install"
 is not a reason to skip — run `make install-fizzbee`. The **only** way to skip is
 the explicit, loud `REALTIME_CONFORMANCE_SKIP_FIZZBEE=1` opt-out, intended for
-local work on unrelated code. CI never sets it, and `pre-commit` runs the full
-gate whenever `respcoord/**`, `turncoord/**`, `conncoord/**`, `compactcoord/**`, `ttscoord/**`, or `formal-verification/**` is
-staged (so a pure `.fizz` edit still re-verifies).
+local work on unrelated code. CI never sets it.
 
 ## Running the model-loader lifecycle gate
 
@@ -163,5 +161,5 @@ All five mapped machines (M1–M5) have landed. To add a new sealed-state machin
 3. Add transition-table + Ginkgo/Gomega seeded property conformance tests
    (one `*_suite_test.go` bootstrap per package; LocalAI mandates Ginkgo/Gomega).
 4. The gate picks up new `*.fizz` specs automatically; add the new Go package to
-   the `-race` test list in `scripts/realtime-conformance.sh` (and the path
-   filters in `.githooks/pre-commit` + `.github/workflows/realtime-conformance.yml`).
+   the `-race` test list in `scripts/realtime-conformance.sh` and the path
+   filters in `.github/workflows/realtime-conformance.yml`.

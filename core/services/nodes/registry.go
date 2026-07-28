@@ -35,9 +35,21 @@ type BackendNode struct {
 	// reservation is only here to keep two scheduling decisions within the
 	// same heartbeat window from over-committing the same node.
 	ReservedVRAM uint64 `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
-	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`           // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"`   // Available system RAM in bytes
-	GPUVendor    string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	// TotalDisk / AvailableDisk describe the filesystem that BACKS THE WORKER'S
+	// MODELS DIRECTORY, not the root filesystem: staged weights are written
+	// there, so that is the only mount whose free space decides whether a
+	// staging request can succeed. Reported by the worker on registration and
+	// refreshed on every heartbeat.
+	//
+	// TotalDisk == 0 means "this worker does not report disk" (pre-upgrade
+	// worker, or a stat that failed) and is the ONLY value readers may treat as
+	// unknown. AvailableDisk == 0 is a real, actionable reading: it is exactly
+	// what a 100%-full node reports, and the case this pair exists to catch.
+	TotalDisk     uint64 `gorm:"column:total_disk;default:0" json:"total_disk"`
+	AvailableDisk uint64 `gorm:"column:available_disk;default:0" json:"available_disk"`
+	GPUVendor     string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
 	// GPUComputeCapability is the worker GPU's compute capability as
 	// "major.minor" (e.g. "12.1" for GB10 / DGX Spark). Reported by the worker
 	// on registration; used by the router to pick per-arch options (e.g. a
@@ -94,6 +106,8 @@ const (
 	ColTotalVRAM           = "total_vram"
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
+	ColTotalDisk           = "total_disk"
+	ColAvailableDisk       = "available_disk"
 	ColGPUVendor           = "gpu_vendor"
 	ColGPUComputeCap       = "gpu_compute_capability"
 	ColLastHeartbeat       = "last_heartbeat"
@@ -114,7 +128,7 @@ type NodeModel struct {
 	ModelName     string    `gorm:"index;size:255" json:"model_name"`
 	ReplicaIndex  int       `gorm:"column:replica_index;default:0;index" json:"replica_index"`
 	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
-	State         string    `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
+	State         string    `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
 	InFlight      int       `json:"in_flight"`                         // number of active requests on this replica
 	LastUsed      time.Time `json:"last_used"`
 	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`    // frontend ID that triggered loading
@@ -238,33 +252,65 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
-	// replicaRemovedHook is invoked after a replica row for (modelName, nodeID)
-	// is removed. It is the single chokepoint that lets the prefix-cache index
-	// be invalidated no matter which removal path (router eviction, reconciler
+	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
+	// is removed. This is the single chokepoint that lets dependent state be
+	// invalidated no matter which removal path (router eviction, reconciler
 	// scale-down, probe reaper, health-monitor reap, RemoteUnloaderAdapter) ran.
 	// The replicaIndex argument is the SPECIFIC replica removed, or negative to
-	// signal "all replicas of (modelName, nodeID)". Stored in an atomic.Pointer
-	// so the startup wiring (setter) and request / reconcile handling (fire) are
-	// race-free.
-	replicaRemovedHook atomic.Pointer[func(modelName, nodeID string, replicaIndex int)]
+	// signal "all replicas of (modelName, nodeID)".
+	//
+	// A LIST, not a single slot: the prefix-cache index and the frontend's local
+	// model store are independent subsystems that both need invalidating, and
+	// they are wired from different places. With one slot the second registration
+	// silently displaced the first.
+	//
+	// Stored in an atomic.Pointer to an immutable slice so the startup wiring
+	// (append) and request / reconcile handling (fire) are race-free.
+	replicaRemovedHooks atomic.Pointer[[]func(modelName, nodeID string, replicaIndex int)]
 }
 
-// SetReplicaRemovedHook registers a callback invoked after a replica row for
+// AddReplicaRemovedHook registers a callback invoked after a replica row for
 // (modelName, nodeID) is removed from the registry. replicaIndex is the
 // specific replica removed, or negative to mean "all replicas of the node".
-// Used to invalidate the prefix-cache index so it never points at a replica
-// that no longer hosts the model. Set once at startup before serving. Safe to
-// leave unset (no-op).
-func (r *NodeRegistry) SetReplicaRemovedHook(fn func(modelName, nodeID string, replicaIndex int)) {
-	r.replicaRemovedHook.Store(&fn)
+// Every registered hook fires; registering one never displaces another.
+// Called at startup before serving. Safe to leave unregistered (no-op).
+func (r *NodeRegistry) AddReplicaRemovedHook(fn func(modelName, nodeID string, replicaIndex int)) {
+	if fn == nil {
+		return
+	}
+	for {
+		current := r.replicaRemovedHooks.Load()
+		existing := r.loadReplicaRemovedHooks()
+		updated := make([]func(string, string, int), 0, len(existing)+1)
+		updated = append(updated, existing...)
+		updated = append(updated, fn)
+		if r.replicaRemovedHooks.CompareAndSwap(current, &updated) {
+			return
+		}
+	}
 }
 
-// fireReplicaRemoved invokes the replica-removed hook if one is set. A negative
+// loadReplicaRemovedHooks returns the currently registered hooks, or nil when
+// none are registered.
+func (r *NodeRegistry) loadReplicaRemovedHooks() []func(modelName, nodeID string, replicaIndex int) {
+	if p := r.replicaRemovedHooks.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
+// fireReplicaRemoved invokes every registered replica-removed hook. A negative
 // replicaIndex means all replicas of (modelName, nodeID). Nil-safe.
 func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string, replicaIndex int) {
-	if fn := r.replicaRemovedHook.Load(); fn != nil && *fn != nil {
-		(*fn)(modelName, nodeID, replicaIndex)
+	for _, fn := range r.loadReplicaRemovedHooks() {
+		fn(modelName, nodeID, replicaIndex)
 	}
+}
+
+// hasReplicaRemovedHook reports whether any hook is registered, so bulk delete
+// paths can skip the extra enumeration query when nothing is listening.
+func (r *NodeRegistry) hasReplicaRemovedHook() bool {
+	return len(r.loadReplicaRemovedHooks()) > 0
 }
 
 // nodeModelNames returns the DISTINCT model names that have node_models rows
@@ -276,7 +322,7 @@ func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string, replicaIndex
 // the model. Skips the query entirely when no hook is set (these are lifecycle
 // ops, not the request hot path, but the query is pure overhead with no hook).
 func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID string) []string {
-	if fn := r.replicaRemovedHook.Load(); fn == nil || *fn == nil {
+	if !r.hasReplicaRemovedHook() {
 		return nil
 	}
 	var names []string
@@ -421,6 +467,18 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				}).Error; err != nil {
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
 			}
+		}
+		// Force-write the disk columns. Updates(struct) above zero-skips, and a
+		// worker whose models filesystem is 100% full re-registers with
+		// available_disk == 0 — the single most important reading there is.
+		// Zero-skipping it would leave the last healthy-looking value in place
+		// and put the full node straight back into rotation.
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+			Updates(map[string]any{
+				ColTotalDisk:     node.TotalDisk,
+				ColAvailableDisk: node.AvailableDisk,
+			}).Error; err != nil {
+			return fmt.Errorf("recording disk capacity for node %s: %w", node.Name, err)
 		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
@@ -687,6 +745,11 @@ type HeartbeatUpdate struct {
 	AvailableVRAM *uint64 `json:"available_vram,omitempty"`
 	TotalVRAM     *uint64 `json:"total_vram,omitempty"`
 	AvailableRAM  *uint64 `json:"available_ram,omitempty"`
+	// AvailableDisk / TotalDisk describe the worker's models filesystem.
+	// Pointers so a worker that cannot read them omits the fields rather than
+	// reporting a zero the scheduler would act on.
+	AvailableDisk *uint64 `json:"available_disk,omitempty"`
+	TotalDisk     *uint64 `json:"total_disk,omitempty"`
 	GPUVendor     string  `json:"gpu_vendor,omitempty"`
 }
 
@@ -719,6 +782,14 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 		if update.AvailableRAM != nil {
 			updates[ColAvailableRAM] = *update.AvailableRAM
+		}
+		// Written unconditionally when reported, INCLUDING zero: a full disk
+		// reports 0 free, and that is the reading the scheduler must act on.
+		if update.AvailableDisk != nil {
+			updates[ColAvailableDisk] = *update.AvailableDisk
+		}
+		if update.TotalDisk != nil {
+			updates[ColTotalDisk] = *update.TotalDisk
 		}
 		if update.GPUVendor != "" {
 			updates[ColGPUVendor] = update.GPUVendor

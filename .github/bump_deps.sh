@@ -1,5 +1,8 @@
 #!/bin/bash
 set -xe
+
+source "$(dirname "${BASH_SOURCE[0]}")/gh_curl.sh"
+
 REPO=$1
 BRANCH=$2
 VAR=$3
@@ -9,10 +12,11 @@ if [ -z "$FILE" ]; then
     FILE="Makefile"
 fi
 
-# -L so a renamed/transferred upstream repo (GitHub answers 301) still
-# resolves instead of handing us the redirect body, and -f so an HTTP error
-# aborts the run rather than letting an error page reach sed below.
-LAST_COMMIT=$(curl -sfL -H "Accept: application/vnd.github.VERSION.sha" "https://api.github.com/repos/$REPO/commits/$BRANCH")
+# gh_curl follows redirects so a renamed/transferred upstream repo (GitHub
+# answers 301) still resolves, and fails on HTTP errors rather than letting an
+# error page reach sed below. `|| true` keeps a failed lookup from aborting the
+# script at exit 22 with no context — the SHA guard below reports it instead.
+LAST_COMMIT=$(gh_curl -H "Accept: application/vnd.github.VERSION.sha" "https://api.github.com/repos/$REPO/commits/$BRANCH" || true)
 
 # Guard the sed input: anything that is not a bare 40-hex SHA (an API error
 # body, an empty response) would otherwise be spliced into the Makefile pin —

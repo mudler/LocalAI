@@ -304,9 +304,10 @@ installation. Their operation progresses through these phases:
 resolving -> downloading -> verifying -> committing -> persisting
 ```
 
-The admin Operations Bar and `GET /api/operations` expose `currentBytes` and
-`totalBytes` as raw transport bytes. Cancelling an active download leaves its
-partial files in place so a retry can resume. A verification failure never
+The admin operations strip, the [Activity]({{% relref "operations/activity" %}})
+page and `GET /api/operations` expose `currentBytes` and `totalBytes` as raw
+transport bytes. Cancelling an active download leaves its partial files in
+place so a retry can resume. A verification failure never
 exposes a completed snapshot, while a retry or another installation reuses an
 already verified content-addressed snapshot.
 
@@ -666,3 +667,14 @@ Returns a json containing the error, and if the job is being processed:
 ```json
 {"error":null,"processed":true,"message":"completed"}
 ```
+
+Installations are processed one at a time. A job submitted while another install
+is still running is reported as queued until the installer picks it up:
+
+```json
+{"error":null,"processed":false,"message":"queued","phase":"queued"}
+```
+
+A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
+from this endpoint means the ID is genuinely unknown rather than merely waiting
+its turn.

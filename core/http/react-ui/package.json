@@ -15,6 +15,9 @@
     "build:coverage-v8": "COVERAGE_V8=true vite build",
     "coverage:report": "nyc report"
   },
+  "overrides": {
+    "hono": "4.12.25"
+  },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/commands": "^6.8.1",
@@ -32,6 +35,7 @@
     "@modelcontextprotocol/sdk": "^1.25.1",
     "dompurify": "^3.4.12",
     "highlight.js": "^11.11.1",
+    "hono": "4.12.25",
     "i18next": "^26.0.8",
     "i18next-browser-languagedetector": "^8.2.1",
     "i18next-http-backend": "^3.0.6",

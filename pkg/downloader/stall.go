@@ -14,6 +14,22 @@ import (
 // <= 0 disables the guard.
 var DownloadStallTimeout = 60 * time.Second
 
+// DownloadResponseHeaderTimeout bounds how long a download request may wait for
+// the server's response headers. DownloadStallTimeout cannot cover this window:
+// it wraps the response body, which does not exist until the client has a
+// response. A peer that accepts the connection, reads the request and then
+// never answers leaves http.Client.Do parked forever, freezing an install at
+// zero bytes for the process lifetime.
+//
+// The value has to tolerate an origin legitimately slow to *start* answering (a
+// CDN under load, cold object storage, a redirect chain) while still bounding a
+// wedge. Two minutes is far above any plausible legitimate time-to-first-byte
+// and twice the stall window, so a genuine wedge fails in bounded time and the
+// retry machinery resumes from the .partial. Deliberately NOT a client-level
+// Timeout: that would also bound the body and truncate multi-tens-of-GB
+// downloads. Overridable (tests set it small); a value <= 0 disables the guard.
+var DownloadResponseHeaderTimeout = 120 * time.Second
+
 // idleTimeoutReader wraps a streaming ReadCloser and aborts reads that make no
 // progress within timeout. A standard io.Copy blocks indefinitely on a Read
 // against a dead-but-unclosed socket; nothing in the copy loop can interrupt a

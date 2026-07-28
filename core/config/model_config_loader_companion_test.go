@@ -111,6 +111,39 @@ parameters: {model: meituan-longcat/LongCat-Video-Avatar-1.5}
 		Expect(loaded.ModelFileName()).To(ContainSubstring(loaded.Artifacts[0].Resolved.CacheKey))
 	})
 
+	It("keeps every resolved artifact in the persisted file across a reload", func() {
+		// Regression for the distributed longcat-video companion loss: a
+		// controller resolves the primary and companion in memory, but if the
+		// binding it writes back to disk carries only the primary, the companion
+		// is gone the moment the process restarts and reloads the file. With no
+		// companion in the config, withCompanionArtifactOptions synthesizes no
+		// base_model option, so the remote backend falls back to downloading the
+		// base repo itself and fails ("base_model must point to a LongCat-Video
+		// checkpoint"). The persisted document, reloaded fresh, must still name
+		// the companion.
+		modelsPath := GinkgoT().TempDir()
+		configPath := filepath.Join(modelsPath, "avatar.yaml")
+		Expect(os.WriteFile(configPath, []byte(companionConfig), 0644)).To(Succeed())
+
+		fake := &companionMaterializer{}
+		loader := NewModelConfigLoader(modelsPath, WithArtifactMaterializer(fake))
+		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+		Expect(loader.PreloadWithContext(context.Background(), modelsPath)).To(Succeed())
+
+		// A fresh loader models the restart: it only ever sees what was written
+		// back to disk, never the in-memory state the first loader held.
+		reloaded := NewModelConfigLoader(modelsPath, WithArtifactMaterializer(&companionMaterializer{}))
+		Expect(reloaded.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+
+		persisted, found := reloaded.GetModelConfig("avatar")
+		Expect(found).To(BeTrue())
+		Expect(persisted.Artifacts).To(HaveLen(2))
+		Expect(persisted.Artifacts[1].Name).To(Equal("base_model"))
+		Expect(persisted.Artifacts[1].Target).To(Equal(modelartifacts.TargetCompanion))
+		Expect(persisted.Artifacts[1].Resolved).ToNot(BeNil())
+		Expect(persisted.Artifacts[1].Resolved.CacheKey).ToNot(BeEmpty())
+	})
+
 	It("fails the load when an explicitly declared companion cannot be acquired", func() {
 		// Explicit artifacts are all-or-nothing: a config that names a companion
 		// is asserting the backend needs it, so silently loading without it

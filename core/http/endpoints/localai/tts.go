@@ -40,6 +40,10 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			return echo.ErrBadRequest
 		}
 
+		if err := applyTTSSpeed(input); err != nil {
+			return err
+		}
+
 		xlog.Debug("LocalAI TTS Request received", "model", input.Model)
 
 		if cfg.Backend == "" && input.Backend != "" {

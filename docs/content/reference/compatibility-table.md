@@ -24,6 +24,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) | Hard fork of llama.cpp optimized for CPU/hybrid CPU+GPU with IQK quants, custom quant mixes, and MLA for DeepSeek | GPT | yes | yes | CPU (AVX2+) |
 | [turboquant](https://github.com/TheTom/llama-cpp-turboquant) | llama.cpp fork adding the TurboQuant KV-cache quantization scheme | GPT | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Jetson L4T |
 | [ds4](https://github.com/antirez/ds4) | DeepSeek V4 Flash single-model inference engine, optimized for Metal and CUDA | GPT | no | yes | CPU, CUDA 12/13, Metal, Jetson L4T |
+| [vllm.cpp](https://github.com/mudler/vllm.cpp) | From-scratch C++20 port of vLLM by the LocalAI team: paged KV cache, continuous batching, prefix caching, safetensors + GGUF, engine-enforced structured output, no Python at inference | GPT, Functions | no | yes | CPU, CUDA 12/13 (Blackwell-family), Vulkan, Metal, Jetson L4T (GB10) |
 | [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention; GPTQ/AWQ/FP8 quantization | GPT, Functions, Multimodal | no | yes | CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
 | [vLLM Omni](https://github.com/vllm-project/vllm-omni) | Unified multimodal generation (text, image, video, audio) on top of vLLM | Multimodal GPT, Functions | no | yes | CUDA 12/13, ROCm, Jetson L4T |
 | [SGLang](https://github.com/sgl-project/sglang) | Fast serving framework for LLMs and vision-language models with speculative decoding | GPT, Functions, Multimodal | no | yes | CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
@@ -54,12 +55,13 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 |---------|-------------|-------------|
 | [piper](https://github.com/rhasspy/piper) | Fast neural TTS | CPU, Metal |
 | [Coqui TTS](https://github.com/idiap/coqui-ai-TTS) | TTS with 1100+ languages and voice cloning | CUDA 12, ROCm, Intel SYCL, Metal |
-| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
+| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [Kokoros](https://huggingface.co/hexgrad/Kokoro-82M) | Pure Rust Kokoro TTS via ONNX | CPU |
 | [Chatterbox](https://github.com/resemble-ai/chatterbox) | Production-grade TTS with emotion control | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [VibeVoice](https://github.com/microsoft/VibeVoice) | Real-time TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [vibevoice.cpp](https://github.com/mudler/vibevoice.cpp) | Native C++/GGML port of VibeVoice for TTS (voice cloning) and long-form ASR with diarization | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [moss-tts.cpp](https://github.com/mudler/moss-tts.cpp) | Native C++/GGML port of OpenMOSS MOSS-TTS-Local v1.5: 48 kHz stereo TTS with reference-audio voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [magpie-tts.cpp](https://github.com/mudler/magpie-tts.cpp) | Native C++/GGML port of NVIDIA Magpie TTS Multilingual 357M: 22.05 kHz mono TTS, 5 baked voices, 9+ languages | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) | TTS with custom voice, voice design, and voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [qwentts.cpp](https://github.com/ServeurpersoCom/qwentts.cpp) | Native C++/GGML Qwen3-TTS with streaming, named speakers, and voice design | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [OmniVoice](https://github.com/ServeurpersoCom/omnivoice.cpp) | Native C++/GGML TTS with voice cloning, voice design, and streaming | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |

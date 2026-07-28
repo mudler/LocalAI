@@ -246,6 +246,44 @@ func (d *loadDeadline) Observe() {
 	d.timer.Reset(time.Until(next))
 }
 
+// Extend pushes the expiry out to at least now+d, for a phase whose duration is
+// known up front but which reports no progress of its own.
+//
+// Observe() cannot serve that case: it grants exactly one stall window, so a
+// step that legitimately runs for half an hour in silence — the remote
+// LoadModel reading a 70 GB checkpoint — is cancelled long before it finishes.
+// Extend states the budget once instead of inferring it from a heartbeat that
+// will never arrive. Like Observe it only ever moves the expiry forward and
+// never past the absolute cap, so it cannot be used to escape the hard bound.
+func (d *loadDeadline) Extend(dur time.Duration) {
+	if d == nil || dur <= 0 {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.stopped {
+		return
+	}
+	next := time.Now().Add(dur)
+	if next.After(d.hardExpiry) {
+		next = d.hardExpiry
+	}
+	if !next.After(d.expiry) {
+		return
+	}
+	d.expiry = next
+	d.timer.Reset(time.Until(next))
+}
+
+// extendLoadDeadline widens the cold-load hold attached to ctx to cover a phase
+// of known duration. A context without a load deadline (single-host paths, tests
+// constructing routers directly) is a no-op.
+func extendLoadDeadline(ctx context.Context, d time.Duration) {
+	if ld, ok := ctx.Value(loadDeadlineKey{}).(*loadDeadline); ok {
+		ld.Extend(d)
+	}
+}
+
 // observeLoadProgress pushes out the cold-load deadline attached to ctx, if any.
 // Callers report byte-level movement here; a context without a load deadline
 // (single-host paths, tests constructing stagers directly) is a no-op.

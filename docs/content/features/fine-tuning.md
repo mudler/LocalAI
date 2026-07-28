@@ -151,11 +151,15 @@ GRPO training requires reward functions to evaluate model completions. Specify t
 
 You can provide custom reward function code as a Python function body. The function receives `completions` (list of strings) and `**kwargs`, and must return `list[float]`.
 
-**Security restrictions for inline code:**
-- Allowed builtins: `len`, `int`, `float`, `str`, `list`, `dict`, `range`, `enumerate`, `zip`, `map`, `filter`, `sorted`, `min`, `max`, `sum`, `abs`, `round`, `any`, `all`, `isinstance`, `print`, `True`, `False`, `None`
-- Available modules: `re`, `math`, `json`, `string`
-- Blocked: `open`, `__import__`, `exec`, `eval`, `compile`, `os`, `subprocess`, `getattr`, `setattr`, `delattr`, `globals`, `locals`
-- Functions are compiled and validated at job start (fail-fast on syntax errors)
+{{% notice warning %}}
+**Inline reward code executes arbitrary Python and is disabled by default.**
+
+Inline code is compiled and run in the backend process. The restricted-builtins allowlist is **not** a security sandbox — trivial expressions can escape it to reach the host (arbitrary code execution). Because the fine-tuning endpoint is unauthenticated by default, inline reward functions are refused unless the operator explicitly opts in by setting `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend.
+
+Only enable it on a trusted, access-controlled instance where every caller of the fine-tuning API is authorized to run code on the host. Otherwise use the builtin reward functions above.
+{{% /notice %}}
+
+The function is given the reduced builtin set (`len`, `int`, `float`, `str`, `list`, `dict`, `range`, `enumerate`, `zip`, `map`, `filter`, `sorted`, `min`, `max`, `sum`, `abs`, `round`, `any`, `all`, `isinstance`, `print`) plus the `re`, `math`, `json`, and `string` modules, and is compiled and validated at job start (fail-fast on syntax errors). Treat these as ergonomics, not as an isolation boundary.
 
 #### Example API Request
 

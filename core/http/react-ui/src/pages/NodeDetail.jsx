@@ -64,6 +64,7 @@ export default function NodeDetail() {
   const delLabel = async (k) => { try { await nodesApi.deleteLabel(id, k); refresh() } catch (e) { addToast(e.message, 'error') } }
 
   const usedVRAM = node.total_vram && node.available_vram != null ? node.total_vram - node.available_vram : 0
+  const usedRAM = node.total_ram && node.available_ram != null ? node.total_ram - node.available_ram : 0
   // {modelName: replicaCount} of loaded models so the shrink confirm can warn
   // if the new cap is below the actual count of any single model on this node.
   const loadedModelCounts = (() => {
@@ -88,12 +89,28 @@ export default function NodeDetail() {
         }
       />
 
-      {/* Inline metrics row: VRAM / in-flight - no boxes, just labelled values. */}
+      {/* Inline resource and activity metrics - no boxes, just labelled values. */}
       <div className="node-detail__metrics">
         {node.total_vram > 0 && (
           <div>
             <div className="drawer-eyebrow">VRAM</div>
             <span className="cell-mono">{formatVRAM(usedVRAM) || '0'} / {formatVRAM(node.total_vram)}</span>
+          </div>
+        )}
+        {node.total_ram > 0 && (
+          <div>
+            <div className="drawer-eyebrow">RAM</div>
+            <span className="cell-mono">{formatVRAM(usedRAM) || '0'} / {formatVRAM(node.total_ram)}</span>
+          </div>
+        )}
+        {node.total_disk > 0 && (
+          <div>
+            {/* Free space on the worker's MODELS filesystem. A node can look
+                perfectly healthy on VRAM while having nowhere to put the
+                weights, which is why this sits next to VRAM rather than
+                buried in a diagnostics panel. */}
+            <div className="drawer-eyebrow">Models disk free</div>
+            <span className="cell-mono">{formatVRAM(node.available_disk || 0) || '0'} / {formatVRAM(node.total_disk)}</span>
           </div>
         )}
         <div>

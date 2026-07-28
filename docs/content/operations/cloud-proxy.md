@@ -180,6 +180,34 @@ image blocks, and per-request usage tokens are dropped through the
 internal `Predict()` signature. Use passthrough mode when your clients need
 the upstream's full feature set.
 
+#### Anthropic prompt caching
+
+`proxy.cache_prompt: true` makes the translator add Anthropic
+[prompt-cache](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)
+breakpoints (`cache_control: {type: ephemeral}`) to the stable prefix of every
+request: the system block, the last tool, and the final message block (at most
+three of Anthropic's four allowed breakpoints). Anthropic then serves that
+repeated prefix at the cache-read rate (~0.1x input) on subsequent calls, which
+sharply cuts cost on agentic or multi-turn workloads that re-send a large,
+unchanging system-plus-tools prefix each turn.
+
+The flag only applies with `mode: translate` and `provider: anthropic`; it has
+no effect in passthrough mode, for other providers, or when unset (the system
+field is then still emitted as a bare string).
+
+```yaml
+name: claude-cached
+backend: cloud-proxy
+
+proxy:
+  mode: translate
+  provider: anthropic
+  upstream_url: https://api.anthropic.com/v1/messages
+  api_key_env: ANTHROPIC_API_KEY
+  upstream_model: claude-3-5-sonnet-20241022
+  cache_prompt: true
+```
+
 ## Loading secrets from a file
 
 `api_key_file` is an alternative to `api_key_env` when your secret manager

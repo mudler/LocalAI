@@ -1077,7 +1077,7 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
-	Describe("SetReplicaRemovedHook", func() {
+	Describe("AddReplicaRemovedHook", func() {
 		type removed struct {
 			model, node string
 			replica     int
@@ -1089,7 +1089,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-model", 1, "loaded", "a", 0)).To(Succeed())
 
 			var fired []removed
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				fired = append(fired, removed{model: modelName, node: nodeID, replica: replicaIndex})
 			})
 
@@ -1106,7 +1106,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "hook-all-model", 1, "loaded", "b", 0)).To(Succeed())
 
 			var fired []removed
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				fired = append(fired, removed{model: modelName, node: nodeID, replica: replicaIndex})
 			})
 
@@ -1148,7 +1148,7 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				// Bulk node-scoped deletes signal "all replicas" with replica<0.
 				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
@@ -1165,7 +1165,7 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				// Bulk node-scoped deletes signal "all replicas" with replica<0.
 				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
@@ -1182,7 +1182,7 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				// Bulk node-scoped deletes signal "all replicas" with replica<0.
 				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
@@ -1199,7 +1199,7 @@ var _ = Describe("NodeRegistry", func() {
 			seedTwoModels(node)
 
 			fired := map[removed]int{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				// Bulk node-scoped deletes signal "all replicas" with replica<0.
 				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[removed{model: modelName, node: nodeID}]++
@@ -1238,7 +1238,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(expectedModels).To(HaveLen(2), "seed should create two distinct models")
 
 			fired := map[string]struct{}{}
-			registry.SetReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
+			registry.AddReplicaRemovedHook(func(modelName, nodeID string, replicaIndex int) {
 				Expect(nodeID).To(Equal(node.ID))
 				Expect(replicaIndex).To(BeNumerically("<", 0))
 				fired[modelName] = struct{}{}

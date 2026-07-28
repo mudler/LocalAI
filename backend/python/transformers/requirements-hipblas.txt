@@ -5,7 +5,7 @@ transformers>=5.14.1
 llvmlite==0.43.0
 numba==0.60.0
 bitsandbytes
-sentence-transformers==5.6.0
+sentence-transformers==5.6.1
 diffusers
 soundfile
 protobuf==7.35.0

@@ -170,7 +170,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			progress := 0
 			isDeletion := false
 			isQueued := false
-			isCancelled := false
 			isCancellable := false
 			message := ""
 			phase := ""
@@ -189,7 +188,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 				progress = int(status.Progress)
 				isDeletion = status.Deletion
-				isCancelled = status.Cancelled
+				// Admission publishes a "queued" status before the op reaches
+				// the worker, so a queued op HAS a status: the phase is the
+				// only truthful signal. Reading "queued" off a missing status
+				// instead (what this used to do) made the state unreachable,
+				// and every queued operation rendered as if it were already
+				// installing.
+				isQueued = status.IsQueued()
 				isCancellable = status.Cancellable
 				message = status.Message
 				phase = status.Phase
@@ -198,11 +203,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				if isDeletion {
 					taskType = "deletion"
 				}
-				if isCancelled {
-					taskType = "cancelled"
-				}
 			} else {
-				// Job is queued but hasn't started
+				// No status at all: an op hydrated from the store or replicated
+				// from a peer whose outcome this replica never held. It has not
+				// been observed running, so it is reported as waiting.
 				isQueued = true
 				isCancellable = true
 				message = "Operation queued"
@@ -247,6 +251,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
+			// No isCancelled field: a cancellation is terminal and removes the
+			// operation from this list before the next poll (CancelOperation
+			// marks the status Processed, GetStatus evicts it and the cancel
+			// handler deletes it), so nothing here could ever report one. The
+			// cancelled outcome is reported by /api/operations/history.
 			opData := map[string]any{
 				"id":          galleryID,
 				"name":        displayName,
@@ -257,7 +266,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":  isDeletion,
 				"isBackend":   isBackend,
 				"isQueued":    isQueued,
-				"isCancelled": isCancelled,
 				"cancellable": isCancellable,
 				"message":     message,
 			}
@@ -333,7 +341,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					"isDeletion":  false,
 					"isBackend":   false,
 					"isQueued":    false,
-					"isCancelled": false,
 					"cancellable": false,
 					"message":     status.Message,
 					"nodeName":    status.NodeName,
@@ -393,6 +400,28 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation dismissed",
+		})
+	}, adminMiddleware)
+
+	// Finished operations. Separate from /api/operations on purpose: that
+	// endpoint is polled once a second by every open tab, so the record does
+	// not ride along with it.
+	app.GET("/api/operations/history", func(c echo.Context) error {
+		return c.JSON(200, map[string]any{
+			"operations": opcache.History(),
+		})
+	}, adminMiddleware)
+
+	// Clear the record. Live operations and undismissed failures are untouched.
+	app.DELETE("/api/operations/history", func(c echo.Context) error {
+		if err := opcache.ClearHistory(); err != nil {
+			xlog.Error("could not clear the operation record", "error", err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{
+				"error": err.Error(),
+			})
+		}
+		return c.JSON(200, map[string]any{
+			"success": true,
 		})
 	}, adminMiddleware)
 
@@ -986,9 +1015,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.ModelGalleryChannel <- op
-		}()
+		galleryService.EnqueueModelOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1035,10 +1062,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.ModelGalleryChannel <- op
-			cl.RemoveModelConfig(galleryName)
-		}()
+		galleryService.EnqueueModelOp(op)
+		cl.RemoveModelConfig(galleryName)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1444,9 +1469,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1508,9 +1531,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1556,9 +1577,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":   uid,
@@ -1677,11 +1696,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
 		galleryService.StoreCancellation(uid, cancelFunc)
-		// Non-blocking send — BackendGalleryChannel is unbuffered and a direct
-		// send would hang the HTTP handler whenever the worker is busy.
-		go func() {
-			galleryService.BackendGalleryChannel <- op
-		}()
+		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
 			"jobID":     uid,

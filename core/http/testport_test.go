@@ -5,7 +5,7 @@ import "os"
 // testHTTPAddr is the loopback address the in-process API server binds in
 // these suites. The 9090 default matches what CI has always used; set
 // LOCALAI_TEST_HTTP_PORT when something else already listens on 9090 locally,
-// otherwise the pre-commit coverage gate can never pass on that machine (the
+// otherwise the coverage suite can never pass on that machine (the
 // suite would poll whatever service squats the port and time out).
 var testHTTPAddr = "127.0.0.1:" + testHTTPPort()
 

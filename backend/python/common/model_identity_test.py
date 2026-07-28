@@ -9,7 +9,9 @@ failure modes are silent: enforcement that is wired up but never installed, and
 enforcement that rejects requests it should serve.
 """
 
+import asyncio
 import os
+import threading
 import unittest
 
 import grpc
@@ -62,6 +64,13 @@ def _handler(behavior, response_streaming=False):
     if response_streaming:
         return grpc.unary_stream_rpc_method_handler(behavior)
     return grpc.unary_unary_rpc_method_handler(behavior)
+
+
+def _const_continuation(handler):
+    async def continuation(_):
+        return handler
+
+    return continuation
 
 
 class TestInterceptorInstalled(unittest.TestCase):
@@ -302,6 +311,177 @@ class TestModalityMethods(unittest.TestCase):
     def test_codec_rpcs_stay_unguarded(self):
         for method in ("/backend.Backend/AudioEncode", "/backend.Backend/AudioDecode"):
             self.assertNotIn(method, model_identity._GUARDED_METHODS)
+
+
+class TestAsyncInterceptorBehavior(unittest.TestCase):
+    """The grpc.aio counterpart, which had no behavioral coverage.
+
+    AsyncModelIdentityInterceptor wraps a backend's own servicer behavior. That
+    behavior may be sync or async: several backends define `def LoadModel` and
+    `def Embedding` (not `async def`), and grpc.aio's dispatch adapts both. The
+    interceptor invokes the behavior itself, so if it awaits unconditionally it
+    breaks every sync method it guards with "object <T> can't be used in
+    'await'". These tests exercise both shapes; the sync ones are the regression.
+    """
+
+    def setUp(self):
+        self.interceptor = model_identity.AsyncModelIdentityInterceptor()
+
+    def _wrap(self, method, handler):
+        async def continuation(_):
+            return handler
+
+        return asyncio.run(
+            self.interceptor.intercept_service(continuation, _FakeCallDetails(method))
+        )
+
+    def _load(self, behavior, model):
+        wrapped = self._wrap("/backend.Backend/LoadModel", _handler(behavior))
+        return asyncio.run(wrapped.unary_unary(_Request(Model=model), _FakeContext()))
+
+    def _call_unary(self, behavior, identity):
+        wrapped = self._wrap("/backend.Backend/Predict", _handler(behavior))
+        return asyncio.run(
+            wrapped.unary_unary(_Request(ModelIdentity=identity), _FakeContext())
+        )
+
+    def _drain_stream(self, behavior, identity):
+        wrapped = self._wrap(
+            "/backend.Backend/PredictStream", _handler(behavior, response_streaming=True)
+        )
+
+        async def drain():
+            out = []
+            async for item in wrapped.unary_stream(
+                _Request(ModelIdentity=identity), _FakeContext()
+            ):
+                out.append(item)
+            return out
+
+        return asyncio.run(drain())
+
+    # --- LoadModel: sync behavior is the regression, async must still work ---
+
+    def test_load_records_with_sync_behavior(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+        self.assertEqual(self.interceptor.state.loaded, "a.gguf")
+
+    def test_load_records_with_async_behavior(self):
+        async def behavior(request, context):
+            return _Result()
+
+        self._load(behavior, "a.gguf")
+        self.assertEqual(self.interceptor.state.loaded, "a.gguf")
+
+    def test_failed_sync_load_records_nothing(self):
+        self._load(lambda request, context: _Result(success=False), "a.gguf")
+        self.assertEqual(self.interceptor.state.loaded, "")
+
+    # --- guarded unary: sync and async behaviors both served / rejected ---
+
+    def test_guard_serves_sync_behavior(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+        result = self._call_unary(lambda request, context: "served", "a.gguf")
+        self.assertEqual(result, "served")
+
+    def test_guard_serves_async_behavior(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+
+        async def behavior(request, context):
+            return "served"
+
+        self.assertEqual(self._call_unary(behavior, "a.gguf"), "served")
+
+    def test_guard_rejects_mismatch(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+        with self.assertRaises(_Aborted):
+            self._call_unary(lambda request, context: "served", "b.gguf")
+
+    # --- guarded stream: sync generator and async generator both work ---
+
+    def test_guard_stream_serves_sync_generator(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+
+        def behavior(request, context):
+            yield "a"
+            yield "b"
+
+        self.assertEqual(self._drain_stream(behavior, "a.gguf"), ["a", "b"])
+
+    def test_guard_stream_serves_async_generator(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+
+        async def behavior(request, context):
+            yield "a"
+            yield "b"
+
+        self.assertEqual(self._drain_stream(behavior, "a.gguf"), ["a", "b"])
+
+    # --- sync behavior must not run on the event-loop thread ---
+    #
+    # Awaiting a sync method's return fixed the TypeError, but calling the
+    # (possibly slow) sync behavior on the event loop still froze all aio RPC
+    # handling. These record the thread each behavior runs on and assert it is a
+    # worker thread, not the loop thread.
+
+    def _run_capturing_loop_thread(self, method, handler, request):
+        captured = {}
+
+        async def run():
+            captured["loop"] = threading.get_ident()
+            wrapped = await self.interceptor.intercept_service(
+                _const_continuation(handler), _FakeCallDetails(method)
+            )
+            behavior = wrapped.unary_stream if handler.response_streaming else wrapped.unary_unary
+            if handler.response_streaming:
+                async for _ in behavior(request, _FakeContext()):
+                    pass
+            else:
+                await behavior(request, _FakeContext())
+
+        asyncio.run(run())
+        return captured["loop"]
+
+    def test_sync_load_runs_off_the_event_loop(self):
+        ran = {}
+
+        def behavior(request, context):
+            ran["thread"] = threading.get_ident()
+            return _Result()
+
+        loop_thread = self._run_capturing_loop_thread(
+            "/backend.Backend/LoadModel", _handler(behavior), _Request(Model="a.gguf")
+        )
+        self.assertIn("thread", ran)
+        self.assertNotEqual(ran["thread"], loop_thread)
+
+    def test_sync_guarded_unary_runs_off_the_event_loop(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+        ran = {}
+
+        def behavior(request, context):
+            ran["thread"] = threading.get_ident()
+            return "served"
+
+        loop_thread = self._run_capturing_loop_thread(
+            "/backend.Backend/Predict", _handler(behavior), _Request(ModelIdentity="a.gguf")
+        )
+        self.assertNotEqual(ran["thread"], loop_thread)
+
+    def test_sync_stream_next_runs_off_the_event_loop(self):
+        self._load(lambda request, context: _Result(), "a.gguf")
+        ran = {}
+
+        def behavior(request, context):
+            ran["thread"] = threading.get_ident()
+            yield "a"
+
+        loop_thread = self._run_capturing_loop_thread(
+            "/backend.Backend/PredictStream",
+            _handler(behavior, response_streaming=True),
+            _Request(ModelIdentity="a.gguf"),
+        )
+        self.assertNotEqual(ran["thread"], loop_thread)
 
 
 if __name__ == "__main__":
