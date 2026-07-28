@@ -26,7 +26,7 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
   const { isAdmin } = useAuth()
   const intervalRef = useRef(null)
   const lastSerializedRef = useRef('[]')
-  const liveCountRef = useRef(0)
+  const liveIDsRef = useRef(new Set())
 
   // History is fetched on demand, never on the poll interval: it only changes
   // when an operation finishes, and the Activity page is the only consumer.
@@ -70,10 +70,22 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
       // An operation leaving the live list is the one moment the record can
       // have changed. Refetching here keeps the page correct without polling
       // a second endpoint every second.
-      if (ops.length < liveCountRef.current) {
+      //
+      // Tracked by identity rather than by count: during a batch install one
+      // operation finishing in the same second another starts leaves the
+      // length unchanged, and a count comparison would miss the completion.
+      const liveIDs = new Set(ops.map((op) => op.jobID || op.id))
+      let departed = false
+      for (const id of liveIDsRef.current) {
+        if (!liveIDs.has(id)) {
+          departed = true
+          break
+        }
+      }
+      liveIDsRef.current = liveIDs
+      if (departed) {
         fetchHistory()
       }
-      liveCountRef.current = ops.length
 
       setError((prev) => (prev === null ? prev : null))
     } catch (err) {
@@ -149,9 +161,22 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
       if (!seen.has(key)) samples.delete(key)
     }
 
-    // All or nothing: if any byte-tracked operation has no estimate yet,
+    // All or nothing: if any operation still transferring has no estimate yet,
     // nobody shows one this tick.
-    const tracked = withEta.filter((op) => Number.isFinite(op.totalBytes) && op.totalBytes > 0)
+    //
+    // Only operations still moving bytes get a vote. One that has finished
+    // downloading and is committing or installing sits pinned at
+    // currentBytes == totalBytes while remaining live, and it can never
+    // produce an estimate; counting it would blank the whole row for as long
+    // as it lasts. A transient stall would do the same for a single tick,
+    // which reads as flicker.
+    const tracked = withEta.filter(
+      (op) =>
+        Number.isFinite(op.totalBytes) &&
+        op.totalBytes > 0 &&
+        Number.isFinite(op.currentBytes) &&
+        op.currentBytes < op.totalBytes
+    )
     if (tracked.length > 0 && tracked.some((op) => op.etaSeconds === undefined)) {
       return withEta.map(({ etaSeconds: _etaSeconds, ...op }) => op)
     }
