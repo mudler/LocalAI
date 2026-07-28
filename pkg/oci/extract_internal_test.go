@@ -87,6 +87,36 @@ func buildTar() []byte {
 	return buf.Bytes()
 }
 
+func buildChainedLinkTar() []byte {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	content := []byte("real library bytes")
+	Expect(tw.WriteHeader(&tar.Header{
+		Name:     "lib/libcublas.so",
+		Typeflag: tar.TypeSymlink,
+		Linkname: "libcublas.so.12",
+		Mode:     0777,
+	})).To(Succeed())
+	Expect(tw.WriteHeader(&tar.Header{
+		Name:     "lib/libcublas.so.12",
+		Typeflag: tar.TypeSymlink,
+		Linkname: "libcublas.so.12.8.5.5",
+		Mode:     0777,
+	})).To(Succeed())
+	Expect(tw.WriteHeader(&tar.Header{
+		Name:     "lib/libcublas.so.12.8.5.5",
+		Typeflag: tar.TypeReg,
+		Mode:     0644,
+		Size:     int64(len(content)),
+	})).To(Succeed())
+	_, err := tw.Write(content)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(tw.Close()).To(Succeed())
+	return buf.Bytes()
+}
+
 var _ = Describe("Tar extraction fallback for link-less filesystems", func() {
 	It("downloads a layered image once and preserves whiteouts before copying links", func() {
 		base := buildLayer(
@@ -184,6 +214,18 @@ var _ = Describe("Tar extraction fallback for link-less filesystems", func() {
 			data, err := os.ReadFile(linkPath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(Equal("real library bytes"))
+		})
+
+		It("materialises chained symlinks regardless of archive order", func() {
+			origSymlink := symlink
+			symlink = func(string, string) error { return syscall.ENOTSUP }
+			DeferCleanup(func() { symlink = origSymlink })
+
+			dir := GinkgoT().TempDir()
+			Expect(extractTarCopyingLinks(bytes.NewReader(buildChainedLinkTar()), dir)).To(Succeed())
+
+			Expect(os.ReadFile(filepath.Join(dir, "lib", "libcublas.so"))).To(Equal([]byte("real library bytes")))
+			Expect(os.ReadFile(filepath.Join(dir, "lib", "libcublas.so.12"))).To(Equal([]byte("real library bytes")))
 		})
 	})
 })

@@ -611,11 +611,25 @@ func extractTarCopyingLinks(r io.Reader, targetDestination string) error {
 		}
 	}
 
-	// Second pass: materialise links that the filesystem could not represent.
-	for _, link := range pending {
-		if err := copyFilePreservingMode(link.targetPath, link.path); err != nil {
-			return fmt.Errorf("failed to copy link target %s -> %s: %w", link.targetPath, link.path, err)
+	// Materialise links in dependency order. Soname links are often chained
+	// (libfoo.so -> libfoo.so.1 -> libfoo.so.1.2), and archives do not guarantee
+	// that the nearest-to-file link appears first.
+	for len(pending) > 0 {
+		var unresolved []pendingLink
+		for _, link := range pending {
+			if err := copyFilePreservingMode(link.targetPath, link.path); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					unresolved = append(unresolved, link)
+					continue
+				}
+				return fmt.Errorf("failed to copy link target %s -> %s: %w", link.targetPath, link.path, err)
+			}
 		}
+		if len(unresolved) == len(pending) {
+			link := unresolved[0]
+			return fmt.Errorf("failed to resolve copied link target %s -> %s", link.targetPath, link.path)
+		}
+		pending = unresolved
 	}
 	return nil
 }
