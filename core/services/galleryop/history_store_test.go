@@ -1,6 +1,7 @@
 package galleryop_test
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,7 +49,7 @@ var _ = Describe("OpCache history source", func() {
 
 		It("clears the in-memory ring", func() {
 			recordLocally("llama-cpp", "job-local")
-			cache.ClearHistory()
+			Expect(cache.ClearHistory()).To(Succeed())
 			Expect(cache.History()).To(BeEmpty())
 		})
 	})
@@ -150,6 +151,17 @@ var _ = Describe("OpCache history source", func() {
 			Expect(history[0].Error).To(Equal("disk full"))
 		})
 
+		It("reads a backend operation off the op type when the cache key never landed", func() {
+			// is_backend_op is only ever written by UpsertCacheKey, so the rows
+			// that need the name fallback would report a backend operation as a
+			// model one and file it under the wrong page filter.
+			seed("job-nokey", "", "vllm", "backend_install", "failed", "oci pull failed", false)
+
+			history := cache.History()
+			Expect(history).To(HaveLen(1))
+			Expect(history[0].IsBackend).To(BeTrue())
+		})
+
 		It("carries a cancellation through as cancelled", func() {
 			seed("job-cancel", "localai@qwen3-4b", "localai@qwen3-4b", "model_install", "cancelled", "", false)
 
@@ -178,6 +190,30 @@ var _ = Describe("OpCache history source", func() {
 			Expect(cache.History()).To(BeEmpty())
 		})
 
+		// The cancel handler persists "cancelled" synchronously, then the
+		// handler goroutine unwinds with the context error and Start hands that
+		// to updateError. If the second write wins, the page renders a
+		// cancelled install as a red failure card offering Retry, with a raw
+		// "context canceled" as the reason.
+		It("records a cancelled install as cancelled, not as a context-cancelled failure", func() {
+			svc.SetGalleryStore(store)
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "job-cancel", GalleryElementName: "localai@qwen3-4b",
+				OpType: "model_install", Status: "downloading",
+			})).To(Succeed())
+			Expect(store.UpsertCacheKey("job-cancel", "localai@qwen3-4b", false)).To(Succeed())
+
+			Expect(store.Cancel("job-cancel")).To(Succeed())
+			svc.UpdateStatus("job-cancel", &galleryop.OpStatus{
+				Error: context.Canceled, Processed: true, Message: "error: context canceled",
+			})
+
+			history := cache.History()
+			Expect(history).To(HaveLen(1))
+			Expect(history[0].Outcome).To(Equal(galleryop.OutcomeCancelled))
+			Expect(history[0].Error).To(BeEmpty())
+		})
+
 		It("falls back to the local ring when the store read fails", func() {
 			recordLocally("llama-cpp", "job-local")
 			seed("job-peer", "localai@qwen3-4b", "localai@qwen3-4b", "model_install", "completed", "", false)
@@ -198,7 +234,7 @@ var _ = Describe("OpCache history source", func() {
 				ID: "job-running", GalleryElementName: "busy", OpType: "model_install", Status: "downloading",
 			})).To(Succeed())
 
-			cache.ClearHistory()
+			Expect(cache.ClearHistory()).To(Succeed())
 
 			Expect(cache.History()).To(BeEmpty())
 
@@ -213,10 +249,22 @@ var _ = Describe("OpCache history source", func() {
 
 		It("empties the local ring too, so a store failure cannot resurrect the record", func() {
 			recordLocally("llama-cpp", "job-local")
-			cache.ClearHistory()
+			Expect(cache.ClearHistory()).To(Succeed())
 			breakStore()
 
 			Expect(cache.History()).To(BeEmpty())
+		})
+
+		// Reporting success on a clear that did not happen makes the record
+		// vanish from the page and come straight back on the next fetch, with
+		// nothing said about why.
+		It("reports a failed clear instead of claiming success", func() {
+			recordLocally("llama-cpp", "job-local")
+			breakStore()
+
+			Expect(cache.ClearHistory()).ToNot(Succeed())
+			Expect(cache.History()).To(HaveLen(1),
+				"a failed clear must leave the fallback record intact rather than fake an empty one")
 		})
 	})
 })

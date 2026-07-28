@@ -65,7 +65,7 @@ var _ = Describe("OpCache history ring", func() {
 		cache.DeleteUUID("job-a")
 		Expect(cache.History()).To(HaveLen(1))
 
-		cache.ClearHistory()
+		Expect(cache.ClearHistory()).To(Succeed())
 		Expect(cache.History()).To(BeEmpty())
 	})
 })

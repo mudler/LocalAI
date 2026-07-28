@@ -50,7 +50,9 @@ var activeStatuses = []string{"pending", "downloading", "processing"}
 // set so the two never disagree about what "finished" means.
 var terminalStatuses = []string{"completed", "failed", "cancelled"}
 
-func (GalleryOperationRecord) TableName() string { return "gallery_operations" }
+const galleryOperationsTable = "gallery_operations"
+
+func (GalleryOperationRecord) TableName() string { return galleryOperationsTable }
 
 // GalleryStore manages gallery operation state in PostgreSQL.
 type GalleryStore struct {
@@ -72,6 +74,13 @@ func NewGalleryStore(db *gorm.DB) (*GalleryStore, error) {
 // name, op type, status) rather than fail with a primary-key conflict.
 // CacheKey and IsBackendOp are intentionally not in DoUpdates so the
 // placeholder's values win.
+//
+// The status, cancellable and updated_at columns are frozen once the row is
+// terminal. An admin can cancel an operation while it is still queued, and the
+// worker then dequeues it and calls Create with status "pending" — without the
+// freeze that reopens a cancelled operation, which reads as live forever. The
+// descriptive columns still update, so the row keeps gaining its name and
+// op_type.
 func (s *GalleryStore) Create(op *GalleryOperationRecord) error {
 	if op.ID == "" {
 		op.ID = uuid.New().String()
@@ -80,11 +89,26 @@ func (s *GalleryStore) Create(op *GalleryOperationRecord) error {
 	op.UpdatedAt = op.CreatedAt
 	return s.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{
-			"gallery_element_name", "op_type", "status",
-			"frontend_id", "user_id", "cancellable", "updated_at",
+		DoUpdates: clause.Assignments(map[string]any{
+			"gallery_element_name": gorm.Expr("excluded.gallery_element_name"),
+			"op_type":              gorm.Expr("excluded.op_type"),
+			"frontend_id":          gorm.Expr("excluded.frontend_id"),
+			"user_id":              gorm.Expr("excluded.user_id"),
+			"status":               keepWhenTerminal("status"),
+			"cancellable":          keepWhenTerminal("cancellable"),
+			"updated_at":           keepWhenTerminal("updated_at"),
 		}),
 	}).Create(op).Error
+}
+
+// keepWhenTerminal builds the upsert assignment for a column that must not be
+// rewritten once the operation has finished: it keeps the stored value for a
+// terminal row and takes the incoming one otherwise.
+func keepWhenTerminal(column string) clause.Expr {
+	stored := galleryOperationsTable + "."
+	return gorm.Expr(
+		"CASE WHEN "+stored+"status IN ? THEN "+stored+column+" ELSE excluded."+column+" END",
+		terminalStatuses)
 }
 
 // UpdateProgress updates progress for an operation. The cancellable flag is
@@ -117,6 +141,15 @@ func (s *GalleryStore) UpdateProgress(id string, progress float64, message, down
 // UpdateStatus updates the status of an operation. A terminal status is never
 // cancellable, so the flag is cleared here to keep the persisted row consistent
 // with what the UI should offer.
+//
+// A row that already reached a terminal status is left alone. An operation
+// finishes once, and the paths that retire one are not mutually exclusive:
+// cancelling writes "cancelled" synchronously, and the handler goroutine then
+// unwinds with the context error, which without this guard would overwrite the
+// row with "failed: context canceled" and make the Activity page render a
+// cancelled install as a red failure offering Retry. The guard also keeps
+// updated_at pinned to when the operation actually finished, which is the key
+// ListTerminal orders the record by.
 func (s *GalleryStore) UpdateStatus(id, status, errMsg string) error {
 	updates := map[string]any{
 		"status":      status,
@@ -126,7 +159,9 @@ func (s *GalleryStore) UpdateStatus(id, status, errMsg string) error {
 	if errMsg != "" {
 		updates["error"] = errMsg
 	}
-	return s.db.Model(&GalleryOperationRecord{}).Where("id = ?", id).Updates(updates).Error
+	return s.db.Model(&GalleryOperationRecord{}).
+		Where("id = ? AND status NOT IN ?", id, terminalStatuses).
+		Updates(updates).Error
 }
 
 // Get retrieves an operation by ID.

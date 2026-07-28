@@ -414,7 +414,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// Clear the record. Live operations and undismissed failures are untouched.
 	app.DELETE("/api/operations/history", func(c echo.Context) error {
-		opcache.ClearHistory()
+		if err := opcache.ClearHistory(); err != nil {
+			xlog.Error("could not clear the operation record", "error", err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{
+				"error": err.Error(),
+			})
+		}
 		return c.JSON(200, map[string]any{
 			"success": true,
 		})

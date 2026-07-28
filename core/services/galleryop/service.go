@@ -570,7 +570,10 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
-						Cancellable:        true,
+						// A delete is not cancellable; an install is, matching
+						// the model channel. Hydrate copies this column onto
+						// the status the UI reads.
+						Cancellable: !op.Delete,
 					}); err != nil {
 						// Not fatal: the install still runs and the in-memory
 						// status still updates. Logged because without the row
@@ -763,7 +766,7 @@ func (g *GalleryService) Hydrate() error {
 			DownloadedFileSize: op.DownloadedFileSize,
 			GalleryElementName: op.GalleryElementName,
 			Cancellable:        op.Cancellable,
-			Deletion:           op.OpType == "model_delete",
+			Deletion:           IsDeleteOpType(op.OpType),
 		}
 		if op.Error != "" {
 			st.Error = errors.New(op.Error)

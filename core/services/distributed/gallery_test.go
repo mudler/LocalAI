@@ -129,6 +129,80 @@ var _ = Describe("GalleryStore terminal operations", func() {
 		})
 	})
 
+	// An operation finishes exactly once. The paths that retire one are not
+	// mutually exclusive, so the first terminal status has to be the one that
+	// sticks.
+	Describe("terminal statuses are final", func() {
+		It("refuses to overwrite a cancelled operation with the handler's context error", func() {
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "op-1", GalleryElementName: "localai@qwen3-4b", OpType: "model_install", Status: "downloading",
+			})).To(Succeed())
+
+			// The cancel handler persists the outcome synchronously...
+			Expect(store.Cancel("op-1")).To(Succeed())
+			// ...and the handler goroutine then unwinds with the context error,
+			// which Start hands to updateError unconditionally.
+			Expect(store.UpdateStatus("op-1", "failed", "context canceled")).To(Succeed())
+
+			op, err := store.Get("op-1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(op.Status).To(Equal("cancelled"),
+				"a cancelled install must not be rewritten as a failure")
+			Expect(op.Error).To(BeEmpty(), "and must not carry a raw context error for the UI to render")
+		})
+
+		It("keeps updated_at pinned to when the operation actually finished", func() {
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "op-1", GalleryElementName: "one", OpType: "model_install", Status: "downloading",
+			})).To(Succeed())
+			Expect(store.UpdateStatus("op-1", "completed", "")).To(Succeed())
+
+			finished, err := store.Get("op-1")
+			Expect(err).ToNot(HaveOccurred())
+
+			time.Sleep(10 * time.Millisecond)
+			Expect(store.UpdateStatus("op-1", "failed", "late write")).To(Succeed())
+
+			after, err := store.Get("op-1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(after.UpdatedAt).To(BeTemporally("==", finished.UpdatedAt),
+				"a late write must not reorder the record")
+		})
+
+		It("does not let a worker dequeue reopen an operation cancelled while queued", func() {
+			// Admission writes the placeholder row...
+			Expect(store.UpsertCacheKey("op-1", "localai@qwen3-4b", false)).To(Succeed())
+			// ...the admin cancels before the worker gets to it...
+			Expect(store.Cancel("op-1")).To(Succeed())
+			// ...and the worker then dequeues it and calls Create.
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "op-1", GalleryElementName: "localai@qwen3-4b", OpType: "model_install",
+				Status: "pending", Cancellable: true,
+			})).To(Succeed())
+
+			op, err := store.Get("op-1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(op.Status).To(Equal("cancelled"),
+				"reopening it would leave a cancelled operation reading as live forever")
+			Expect(op.Cancellable).To(BeFalse())
+			Expect(op.OpType).To(Equal("model_install"),
+				"the descriptive columns must still be filled in")
+		})
+
+		It("still applies a first terminal status to an active row", func() {
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "op-1", GalleryElementName: "one", OpType: "model_install", Status: "downloading",
+			})).To(Succeed())
+			Expect(store.UpdateStatus("op-1", "failed", "no space left on device")).To(Succeed())
+
+			op, err := store.Get("op-1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(op.Status).To(Equal("failed"))
+			Expect(op.Error).To(Equal("no space left on device"))
+			Expect(op.Cancellable).To(BeFalse())
+		})
+	})
+
 	Describe("ClearTerminal", func() {
 		It("removes finished operations and leaves in-flight ones alone", func() {
 			Expect(store.Create(&distributed.GalleryOperationRecord{

@@ -206,3 +206,7 @@ or `cancelled`.
 curl -X DELETE http://localhost:8080/api/operations/history \
   -H "Authorization: Bearer <admin-key>"
 ```
+
+The `DELETE` answers `500` with an `error` if the record could not be cleared,
+which in distributed mode means the rows are still there. It never reports
+success on a record it did not clear.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -584,22 +585,29 @@ func (m *OpCache) History() []OpRecord {
 // which is the only way "Clear history" can mean anything: clearing one
 // replica's ring leaves the record to reappear on the next poll routed
 // elsewhere.
-func (m *OpCache) ClearHistory() {
+//
+// The error is returned rather than logged because the caller is an HTTP
+// handler and the rows are what the next read returns: reporting success on a
+// failed delete makes the record vanish from the page and come straight back on
+// the next fetch, with nothing said about why.
+func (m *OpCache) ClearHistory() error {
 	m.mu.RLock()
 	store := m.store
 	m.mu.RUnlock()
 
-	// The local ring goes either way. In distributed mode it is what a failed
-	// store read falls back to, so leaving it populated would let a database
-	// blip resurrect a record the admin just cleared.
-	m.history.clear()
-
 	if store == nil {
-		return
+		m.history.clear()
+		return nil
 	}
+
+	// Store first: the ring is only ever a fallback for a failed read, so
+	// emptying it before the rows are confirmed gone would report an empty
+	// record while the real one is still there.
 	if err := store.ClearTerminal(); err != nil {
-		xlog.Warn("OpCache failed to clear the persisted operation record", "error", err)
+		return fmt.Errorf("clearing the persisted operation record: %w", err)
 	}
+	m.history.clear()
+	return nil
 }
 
 func (m *OpCache) DeleteUUID(uuid string) {
