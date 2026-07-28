@@ -457,12 +457,17 @@ var _ = Describe("SmartRouter", func() {
 				// TouchNodeModel should have been called
 				Expect(reg.touchCalls).To(ContainElement("n1:my-model"))
 
-				// The initial in-flight reservation from FindAndLockNodeWithModel is released
-				// after the first inference call completes via OnFirstComplete callback.
-				// Release only closes the client.
+				// The initial in-flight reservation from FindAndLockNodeWithModel is
+				// released by whichever comes first: the first inference completing
+				// (OnFirstComplete) or the route being torn down. Teardown must
+				// release it too, or a route that never reached the backend leaks the
+				// counter and pins the replica against every eviction query.
 				result.Release()
-				// No decrement on Release — it happens via OnFirstComplete after first Predict
-				Expect(reg.decrementCalls).To(BeEmpty())
+				Expect(reg.decrementCalls).To(ContainElement("n1:my-model"))
+
+				// Exactly once, however many times teardown runs.
+				result.Release()
+				Expect(reg.decrementCalls).To(HaveLen(1))
 			})
 		})
 
@@ -1475,7 +1480,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 
 			// UnloadModel must route the eviction through the registry removal
 			// chokepoint (RemoveAllNodeModelReplicas). The registry's
-			// SetReplicaRemovedHook is what invalidates the prefix index in
+			// AddReplicaRemovedHook is what invalidates the prefix index in
 			// production; the router no longer invalidates directly. Here the
 			// fake registry records the removal but fires no hook, so we assert
 			// the chokepoint is exercised rather than the downstream

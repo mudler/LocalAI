@@ -23,7 +23,8 @@
     "cluster": "Cluster",
     "observability": "Observability",
     "access": "Access",
-    "system": "System"
+    "system": "System",
+    "activity": "Activity"
   },
   "items": {
     "home": "Home",
@@ -55,7 +56,8 @@
     "system": "Sistema",
     "settings": "Impostazioni",
     "api": "API",
-    "middleware": "Middleware"
+    "middleware": "Middleware",
+    "activity": "Attività"
   },
   "footer": {
     "github": "GitHub",

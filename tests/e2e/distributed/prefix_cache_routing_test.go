@@ -110,7 +110,7 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 		// invalidation is exercised end to end. A negative replica index means
 		// "all replicas of the node" (InvalidateNode); otherwise drop the exact
 		// replica.
-		registry.SetReplicaRemovedHook(func(modelName, nodeID string, replica int) {
+		registry.AddReplicaRemovedHook(func(modelName, nodeID string, replica int) {
 			if replica < 0 {
 				idx.InvalidateNode(modelName, nodeID)
 			} else {

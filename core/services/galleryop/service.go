@@ -149,9 +149,18 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	// another. If the caller explicitly populates Nodes on the incoming op,
 	// that wins; an empty Nodes slice on the incoming op is treated as "no
 	// new per-node data" and the previous Nodes are carried forward.
-	if op != nil && len(op.Nodes) == 0 {
-		if prev := g.statuses[s]; prev != nil && len(prev.Nodes) > 0 {
-			op.Nodes = prev.Nodes
+	if op != nil {
+		if prev := g.statuses[s]; prev != nil {
+			if len(op.Nodes) == 0 && len(prev.Nodes) > 0 {
+				op.Nodes = prev.Nodes
+			}
+			// A job is a delete or an install for its whole life. markQueued is
+			// the only writer that knows which; every later status omits the
+			// flag, so an unset value means "no new information", not "this is
+			// an install".
+			if !op.Deletion {
+				op.Deletion = prev.Deletion
+			}
 		}
 	}
 	g.statuses[s] = op
@@ -552,12 +561,20 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
+					opType := "backend_install"
+					if op.Delete {
+						opType = "backend_delete"
+					}
 					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 						ID:                 op.ID,
 						GalleryElementName: op.GalleryElementName,
-						OpType:             "backend_install",
+						OpType:             opType,
 						Status:             "pending",
-						Cancellable:        true,
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is, matching the model channel. The queued phase before
+						// this point is cancellable either way (see markQueued).
+						Cancellable: !op.Delete,
 					}); err != nil {
 						// Not fatal: the install still runs and the in-memory
 						// status still updates. Logged because without the row
@@ -596,7 +613,10 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
-						// A delete is not cancellable; an install is.
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is. The queued phase before this point is cancellable
+						// either way (see markQueued).
 						Cancellable: !op.Delete,
 					}); err != nil {
 						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
@@ -750,7 +770,7 @@ func (g *GalleryService) Hydrate() error {
 			DownloadedFileSize: op.DownloadedFileSize,
 			GalleryElementName: op.GalleryElementName,
 			Cancellable:        op.Cancellable,
-			Deletion:           op.OpType == "model_delete",
+			Deletion:           IsDeleteOpType(op.OpType),
 		}
 		if op.Error != "" {
 			st.Error = errors.New(op.Error)

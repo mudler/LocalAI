@@ -102,6 +102,9 @@ test.describe('Nodes page — per-node backend actions', () => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
 
+    await expect(page.locator('.node-detail__metrics')).toContainText('RAM')
+    await expect(page.locator('.node-detail__metrics')).toContainText('3.7 GB / 7.5 GB')
+
     // Negative: the old, ambiguous wording must not be used.
     await expect(page.locator('button[title="Reinstall backend"]')).toHaveCount(0)
     await expect(page.locator('button[title="Reinstall backend"] i.fa-sync-alt')).toHaveCount(0)

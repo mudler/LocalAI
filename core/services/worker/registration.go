@@ -13,6 +13,12 @@ import (
 	"github.com/mudler/xlog"
 )
 
+var (
+	totalAvailableVRAM  = xsysinfo.TotalAvailableVRAM
+	getGPUAggregateInfo = xsysinfo.GetGPUAggregateInfo
+	getSystemRAMInfo    = xsysinfo.GetSystemRAMInfo
+)
+
 // effectiveBasePort returns the port used as base for gRPC backend processes.
 // Priority: Addr port → ServeAddr port → 50051
 func (cfg *Config) effectiveBasePort() int {
@@ -118,7 +124,7 @@ func (cfg *Config) registrationBody() map[string]any {
 	}
 
 	// Detect GPU info for VRAM-aware scheduling
-	totalVRAM, err := xsysinfo.TotalAvailableVRAM()
+	totalVRAM, err := totalAvailableVRAM()
 	if err != nil {
 		xlog.Debug("Failed to detect worker VRAM; registering without GPU capacity", "error", err)
 	}
@@ -179,15 +185,14 @@ func (cfg *Config) registrationBody() map[string]any {
 		body["vram_budget"] = cfg.VRAMBudget
 	}
 
-	// If no GPU detected, report system RAM so the scheduler/UI has capacity info
-	if totalVRAM == 0 {
-		ramInfo, err := xsysinfo.GetSystemRAMInfo()
-		if err != nil {
-			xlog.Debug("Failed to detect worker RAM for registration", "error", err)
-		} else {
-			body["total_ram"] = ramInfo.Total
-			body["available_ram"] = ramInfo.Available
-		}
+	// Report system RAM independently from VRAM so both discrete-GPU and
+	// unified-memory workers expose the capacity visible to the host.
+	ramInfo, err := getSystemRAMInfo()
+	if err != nil {
+		xlog.Debug("Failed to detect worker RAM for registration", "error", err)
+	} else {
+		body["total_ram"] = ramInfo.Total
+		body["available_ram"] = ramInfo.Available
 	}
 	if cfg.RegistrationToken != "" {
 		body["token"] = cfg.RegistrationToken
@@ -220,20 +225,17 @@ func (cfg *Config) registrationBody() map[string]any {
 // free capacity.
 func (cfg *Config) heartbeatBody() map[string]any {
 	body := map[string]any{}
-	aggregate := xsysinfo.GetGPUAggregateInfo()
+	aggregate := getGPUAggregateInfo()
 	if aggregate.TotalVRAM > 0 {
 		body["available_vram"] = aggregate.FreeVRAM
 	}
 
-	// CPU-only workers (or workers that lost GPU visibility momentarily):
-	// report system RAM so the scheduler still has capacity info.
-	if aggregate.TotalVRAM == 0 {
-		ramInfo, err := xsysinfo.GetSystemRAMInfo()
-		if err != nil {
-			xlog.Debug("Failed to detect worker RAM for heartbeat", "error", err)
-		} else {
-			body["available_ram"] = ramInfo.Available
-		}
+	// RAM availability changes independently from VRAM on discrete-GPU nodes.
+	ramInfo, err := getSystemRAMInfo()
+	if err != nil {
+		xlog.Debug("Failed to detect worker RAM for heartbeat", "error", err)
+	} else {
+		body["available_ram"] = ramInfo.Available
 	}
 
 	// Free disk changes far faster than VRAM under staging traffic (each

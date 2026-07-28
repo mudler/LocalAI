@@ -609,7 +609,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 3f229b2430617c678e817ebdadb9489c1fbfc95ec4afccda8b2cb1994f780ad4
+      sha256: 09cb761c6e5832abd5eac1764f5bd376b814ac7ddc2a1676b65bd2b5b582c57d
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -46049,6 +46049,7 @@
     - model: qwen3-coder-next-ud-q5-k-m
     - model: qwen3-coder-next-ud-q6-k
     - model: qwen3-coder-next-q8-0
+    - model: qwen3-coder-next-mxfp4_moe
 - name: qwen3.5-35b-a3b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   description: Qwen3.5-35B-A3B. Quality ladder and quantization rungs published by mudler/Qwen3.5-35B-A3B-APEX-GGUF and its unsloth counterpart; LocalAI picks the build that fits the hardware.
