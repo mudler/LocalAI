@@ -243,6 +243,21 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return nil
 	}
 
+	activatedListeners, err := systemdActivatedListeners()
+	if err != nil {
+		return fmt.Errorf("loading systemd socket activation listeners: %w", err)
+	}
+	activatedListener, err := selectSystemdListener(activatedListeners)
+	if err != nil {
+		for _, listener := range activatedListeners {
+			_ = listener.Close()
+		}
+		return err
+	}
+	if activatedListener != nil {
+		defer activatedListener.Close()
+	}
+
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 
@@ -732,8 +747,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// LAN, or VPN that's the historical "trusted network" deployment, but on
 	// a public IP it makes every model, gallery install, settings change, and
 	// admin endpoint reachable by anyone who can connect to the port.
+	listenAddress := r.Address
+	if activatedListener != nil {
+		listenAddress = activatedListener.Addr().String()
+	}
+
 	authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
-	if err := requireAuthOrTrustedBind(r.Address, authConfigured, r.AllowInsecurePublicBind); err != nil {
+	if err := requireAuthOrTrustedBind(listenAddress, authConfigured, r.AllowInsecurePublicBind); err != nil {
 		return err
 	}
 
@@ -743,7 +763,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	xlog.Info("LocalAI is started and running", "address", r.Address)
+	if activatedListener != nil {
+		appHTTP.Listener = activatedListener
+		xlog.Info("Using systemd socket activation listener", "address", listenAddress)
+	}
+	xlog.Info("LocalAI is started and running", "address", listenAddress)
 
 	// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
 	if token != "" || app.ApplicationConfig().P2PToken != "" {
@@ -762,11 +786,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// backends like PostgreSQL need to call the embeddings API during
 	// collection initialization.
 	go func() {
-		waitForServerReady(r.Address, app.ApplicationConfig().Context)
+		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
 		app.StartAgentPool()
 	}()
 
-	return appHTTP.Start(r.Address)
+	return appHTTP.Start(listenAddress)
 }
 
 // waitForServerReady polls the given address until the HTTP server is
