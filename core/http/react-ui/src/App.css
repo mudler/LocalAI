@@ -715,6 +715,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* overflow: hidden zeroes the automatic minimum size, so without a floor the
+     name loses the shrink contest to a long error and the identity of the
+     thing that broke is the first casualty. */
+  min-width: 12ch;
 }
 .operations-strip__sep { flex: none; color: var(--color-border-strong); }
 /* min-width and overflow are what let these shrink: a nowrap flex item's

@@ -2,6 +2,7 @@ package routes_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 
@@ -27,6 +28,29 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 	// distributed-services branch guards on a nil check on the returned
 	// *DistributedServices, which is nil for a fresh Application{}.
 	noopMw := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+
+	// operationByJobID serves GET /api/operations and returns the single
+	// operation carrying jobID, or nil if the endpoint did not list it.
+	operationByJobID := func(appCfg *config.ApplicationConfig, svc *galleryop.GalleryService, opcache *galleryop.OpCache, jobID string) map[string]any {
+		GinkgoHelper()
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, svc, opcache, &application.Application{}, noopMw)
+		req := httptest.NewRequest(http.MethodGet, "/api/operations", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+		for _, op := range envelope.Operations {
+			if op["jobID"] == jobID {
+				return op
+			}
+		}
+		return nil
+	}
 
 	It("emits nodeID and the un-prefixed backend name for keys built by NodeScopedKey", func() {
 		appCfg := &config.ApplicationConfig{}
@@ -228,6 +252,69 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
 		Expect(envelope.Operations).To(HaveLen(1))
 		Expect(envelope.Operations[0]).ToNot(HaveKey("isCancelled"))
+	})
+
+	It("reports a running removal as a deletion", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		// Admitted the way the delete handlers admit it, so the spec fails if
+		// admission and this endpoint ever disagree about what a removal is.
+		jobID := "job-delete-running"
+		opcache.Set("localai@qwen3-4b", jobID)
+		galleryService.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 jobID,
+			GalleryElementName: "localai@qwen3-4b",
+			Delete:             true,
+		})
+		Eventually(func() *galleryop.OpStatus {
+			return galleryService.GetStatus(jobID)
+		}, "2s", "10ms").ShouldNot(BeNil())
+
+		// The worker's first write is a fresh OpStatus that says nothing about
+		// the kind of job. Only the queued seed ever knew.
+		galleryService.UpdateStatus(jobID, &galleryop.OpStatus{Message: "processing model: localai@qwen3-4b", Cancellable: true})
+
+		found := operationByJobID(appCfg, galleryService, opcache, jobID)
+		Expect(found).ToNot(BeNil(), "a running removal must be listed")
+		Expect(found["isQueued"]).To(BeFalse())
+		Expect(found["isDeletion"]).To(BeTrue(), "a running removal must report as a removal, not an install")
+		Expect(found["taskType"]).To(Equal("deletion"))
+	})
+
+	It("still reports a failed removal as a deletion", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		jobID := "job-delete-failed"
+		opcache.Set("localai@qwen3-4b", jobID)
+		galleryService.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 jobID,
+			GalleryElementName: "localai@qwen3-4b",
+			Delete:             true,
+		})
+		Eventually(func() *galleryop.OpStatus {
+			return galleryService.GetStatus(jobID)
+		}, "2s", "10ms").ShouldNot(BeNil())
+
+		galleryService.UpdateStatus(jobID, &galleryop.OpStatus{Message: "processing model: localai@qwen3-4b", Cancellable: true})
+		galleryService.UpdateStatus(jobID, &galleryop.OpStatus{
+			Error: errors.New("permission denied"), Processed: true, Message: "error: permission denied",
+		})
+
+		found := operationByJobID(appCfg, galleryService, opcache, jobID)
+		// This is the one that matters: the UI offers Retry on any failure that
+		// is not a removal, and Retry installs. A failed removal that reports
+		// isDeletion=false gets a Retry button that re-downloads the model.
+		Expect(found).ToNot(BeNil(), "a failed removal stays listed until it is dismissed")
+		Expect(found["isDeletion"]).To(BeTrue(), "a failed removal must not be offered a Retry that reinstalls")
+		Expect(found["taskType"]).To(Equal("deletion"))
 	})
 
 	It("surfaces managed model artifact phase and byte counters", func() {

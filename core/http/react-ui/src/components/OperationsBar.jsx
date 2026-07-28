@@ -23,10 +23,10 @@ const SUCCESS_HOLD_MS = 4000
 // sort (progress ascending) already puts the operation that gates the batch
 // first, and it is the most stable choice across polls.
 //
-// Exported alongside the component on purpose: the Activity page selects the
-// same operation, and a second copy of the rule would drift.
-// eslint-disable-next-line react-refresh/only-export-components
-export function primaryOperation(operations) {
+// The strip is the only surface that picks one operation out of many. The
+// Activity page shows all of them, partitioned into failed and running, so it
+// has no primary to agree with.
+function primaryOperation(operations) {
   if (!operations || operations.length === 0) return null
   return operations.find((op) => op.error) || operations[0]
 }

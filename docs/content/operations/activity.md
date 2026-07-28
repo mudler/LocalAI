@@ -56,9 +56,12 @@ each shown only when it has something in it.
 One card per running or queued operation, each naming what is being done and to
 what. A percentage and progress bar appear only once the operation is running
 and has reported progress, so a queued operation and a removal show none.
-Artifact-backed gallery models also report downloaded and total bytes, plus an
-estimate of the time left once enough of the transfer has been observed to work
-one out.
+Artifact-backed gallery models also report the phase, downloaded and total
+bytes, and an estimate of the time left once enough of the transfer has been
+observed to work one out. Every backend install, and every gallery model that
+lists its files directly, reports no phase and no byte counters; those cards
+show the installer's own status line instead, which names the file being
+fetched and its size.
 
 An install that involves workers shows a per-node list, with one row per
 worker:

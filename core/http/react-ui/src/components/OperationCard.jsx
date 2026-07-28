@@ -114,6 +114,13 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
             {failed && <span className="operation-card__error" title={operation.error}>{operation.error}</span>}
             {!failed && phaseKey && <span>{t(phaseKey)}</span>}
+            {/* Phases and byte counters exist only on the managed-artifact
+                path, so a legacy files: gallery model and every backend
+                install would otherwise say nothing beyond the verb. The
+                server's own message is the only detail those jobs have. It is
+                skipped while queued because there it is just "queued", which
+                the line below already says in the user's language. */}
+            {!failed && !phaseKey && !operation.isQueued && operation.message && <span>{operation.message}</span>}
             {!failed && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
             {!failed && byteLabel && <span className="operation-card__bytes">{byteLabel}</span>}
             {!failed && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}

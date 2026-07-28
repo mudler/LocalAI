@@ -149,9 +149,18 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	// another. If the caller explicitly populates Nodes on the incoming op,
 	// that wins; an empty Nodes slice on the incoming op is treated as "no
 	// new per-node data" and the previous Nodes are carried forward.
-	if op != nil && len(op.Nodes) == 0 {
-		if prev := g.statuses[s]; prev != nil && len(prev.Nodes) > 0 {
-			op.Nodes = prev.Nodes
+	if op != nil {
+		if prev := g.statuses[s]; prev != nil {
+			if len(op.Nodes) == 0 && len(prev.Nodes) > 0 {
+				op.Nodes = prev.Nodes
+			}
+			// A job is a delete or an install for its whole life. markQueued is
+			// the only writer that knows which; every later status omits the
+			// flag, so an unset value means "no new information", not "this is
+			// an install".
+			if !op.Deletion {
+				op.Deletion = prev.Deletion
+			}
 		}
 	}
 	g.statuses[s] = op
