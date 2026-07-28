@@ -11,18 +11,25 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=a42b8187caff02c570c28e19e4dc2b1d7f55ed14
+VLLM_CPP_VERSION?=eec09bed5a03457837b499781c23d8e44f106813
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
 # metal`, i.e. a full Xcode the macOS runners do not have, while the wheel ships
 # include/, lib/libmlx.dylib and the compiled mlx.metallib ready to link.
 #
-# DEFAULT OFF. It was on when this branch opened, on the strength of an A/B that
-# had MLX at 1.88x. That measurement is stale: vllm.cpp's own Metal kernels have
-# since improved several-fold, and re-measured on the same M4 the provider is now
-# 46% SLOWER end to end (11.98 vs 22.06 warm tok/s). See the README.
-VLLM_CPP_MLX?=off
+# DEFAULT ON, but ONLY because VLLM_CPP_VERSION above is pinned at or past
+# vllm.cpp 89c46aeb, which SHAPE-GATES the provider to prefill. The ordering is
+# load-bearing, not incidental:
+#
+#   pin >= 89c46aeb, MLX on   -> 99.1% of MLX-LM  (gated: prefill only)
+#   pin <  89c46aeb, MLX on   -> ~51%             (ungated: it also takes decode)
+#
+# MLX's steel GEMM wins prefill (537 ms TTFT against 602) and loses decode badly,
+# because the provider pays an mx::eval sync plus an output memcpy per call and
+# decode makes ~112 calls per TOKEN. Ungated it does both; gated it does only the
+# good half. So if this pin is ever moved BACKWARDS, this default must go with it.
+VLLM_CPP_MLX?=on
 MLX_VERSION?=0.29.3
 MLX_VENV?=$(abspath ./mlx-venv)
 # Resolved lazily (recursive `=`, not `:=`): the glob only matches once the venv

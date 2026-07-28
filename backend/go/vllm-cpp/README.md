@@ -41,39 +41,37 @@ options:
 - max_num_seqs:16
 ```
 
-## Apple Silicon: the MLX GEMM provider (OFF by default)
+## Apple Silicon: the MLX GEMM provider (ON by default, gated to prefill)
 
-`BUILD_TYPE=metal` can build vllm.cpp's optional MLX provider for the dense GEMM
-(`VLLM_CPP_MLX=on`). **It is OFF by default, because it is currently slower.**
+`BUILD_TYPE=metal` builds vllm.cpp's MLX provider for the dense GEMM
+(`VLLM_CPP_MLX=on`, the default here). It is on because upstream now SHAPE-GATES
+it to prefill; it was briefly off in this branch's history, and that was correct
+at the time for an ungated provider.
 
-This branch originally shipped it ON, on the strength of an A/B that had MLX at
-1.88-2.19x against the native MSL GEMM. That measurement was honest when taken
-and is now stale: vllm.cpp's Metal kernels have since improved several-fold
-(mma prefill attention, vectorised decode V accumulation, a fused qk-norm-RoPE
-preamble and more), so the native path no longer resembles the one MLX was
-compared against.
+The gate matters more than the flag. MLX's steel GEMM wins prefill but loses
+decode, because the provider pays an `mx::eval` synchronisation plus an output
+memcpy on every call and decode makes ~112 calls *per token*. Measured on an
+Apple M4, Qwen3-1.7B-bf16 warm at p=512 g=128:
 
-Re-measured on the same Apple M4, same binary, arms toggled with
-`VT_OP_PROVIDER_DISABLE=mlx`, Qwen3-1.7B-bf16 warm at p=512 g=128:
-
-| | prefill TTFT | warm throughput |
+| configuration | prefill TTFT | warm throughput |
 |---|--:|--:|
-| MLX provider ON | 1370 ms | **11.98 tok/s** |
-| MLX provider OFF | 1400 ms | **22.06 tok/s** |
+| MLX **gated to prefill** (pin >= 89c46aeb) | **524.5 ms** | **24.40 tok/s — 99.1% of MLX-LM** |
+| MLX ungated (older pins) | 537 ms | 12.7 tok/s |
+| MLX off | 602 ms | 23.9 tok/s |
 
-MLX's steel GEMM is still ~20% faster than ours in isolation, but the provider
-pays a per-op `mx::eval` synchronisation plus an output `memcpy` (it cannot write
-into our buffer). On prefill's ~112 GEMMs that overhead leaves +2%; on decode,
-where the same sync is paid once per matmul per token, it costs 46%.
+**`VLLM_CPP_VERSION` and this flag are coupled.** Moving the pin back before
+`89c46aeb` while leaving `VLLM_CPP_MLX=on` would take the middle row — roughly
+half throughput. If you roll the pin back, roll the default back with it.
 
-Turning it on is therefore only sensible for prefill-dominated workloads, and
-even then the margin is small. Full disposition in vllm.cpp `docs/BENCHMARKS.md`,
-"The MLX provider verdict".
+One caveat: MLX's GEMM is not bit-identical to the native kernel, so an MLX build
+produces a different greedy sequence than a non-MLX one. That is a property of the
+provider, not of the gate, and it predates this packaging. Full disposition in
+vllm.cpp `docs/BENCHMARKS.md`.
 
 Build knobs:
 
-- `VLLM_CPP_MLX=on` builds the provider in: ~19 MB `libmlx.dylib` plus a ~105 MB
-  `mlx.metallib`, and currently slower end to end. Off is the default.
+- `VLLM_CPP_MLX=off` builds Metal without the provider: ~124 MB smaller, and
+  96.4% of MLX-LM instead of 99.1%.
 - `MLX_VERSION` pins the wheel (default `0.29.3`). MLX is consumed as the
   prebuilt pip wheel because building it from source needs `xcrun metal`, i.e. a
   full Xcode the macOS runners do not have.
