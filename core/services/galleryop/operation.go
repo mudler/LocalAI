@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -226,6 +227,11 @@ type OpCache struct {
 	backendOps     *xsync.SyncedMap[string, bool] // Tracks which operations are backend operations
 	galleryService *GalleryService
 
+	// Finished operations, for GET /api/operations/history. started stamps the
+	// start time when an op enters the cache so the record can report duration.
+	history *opHistory
+	started *xsync.SyncedMap[string, time.Time]
+
 	// Distributed sync (nil when standalone).
 	mu    sync.RWMutex
 	nats  messaging.MessagingClient
@@ -238,6 +244,8 @@ func NewOpCache(galleryService *GalleryService) *OpCache {
 		status:         xsync.NewSyncedMap[string, string](),
 		backendOps:     xsync.NewSyncedMap[string, bool](),
 		galleryService: galleryService,
+		history:        newOpHistory(DefaultHistorySize),
+		started:        xsync.NewSyncedMap[string, time.Time](),
 	}
 }
 
@@ -364,6 +372,7 @@ func (m *OpCache) applyEnd(evt OpCacheEvent) {
 
 func (m *OpCache) Set(key string, value string) {
 	m.status.Set(key, value)
+	m.started.Set(value, time.Now())
 	m.persistAndBroadcastStart(key, value, false)
 }
 
@@ -371,6 +380,7 @@ func (m *OpCache) Set(key string, value string) {
 func (m *OpCache) SetBackend(key string, value string) {
 	m.status.Set(key, value)
 	m.backendOps.Set(key, true)
+	m.started.Set(value, time.Now())
 	m.persistAndBroadcastStart(key, value, true)
 }
 
@@ -405,7 +415,92 @@ func (m *OpCache) Get(key string) string {
 	return m.status.Get(key)
 }
 
+// recordTerminal appends a finished operation to the history ring. It must run
+// BEFORE the cache entry is deleted: the gallery key is the only place the
+// display name, the backend flag and the node scoping live.
+//
+// Safe to call for an unknown job ID (no key, no record) and safe to call
+// twice for the same job (the ring dedupes), which is what makes it usable
+// from both the local delete path and the NATS end event.
+func (m *OpCache) recordTerminal(jobID string) {
+	if jobID == "" {
+		return
+	}
+
+	key := ""
+	for _, k := range m.status.Keys() {
+		if m.status.Get(k) == jobID {
+			key = k
+			break
+		}
+	}
+	if key == "" {
+		return
+	}
+
+	rec := OpRecord{
+		ID:         key,
+		JobID:      jobID,
+		IsBackend:  m.backendOps.Get(key),
+		TaskType:   "installation",
+		Outcome:    OutcomeCompleted,
+		FinishedAt: time.Now(),
+	}
+	if m.started.Exists(jobID) {
+		rec.StartedAt = m.started.Get(jobID)
+	}
+
+	// Node-scoped backend installs carry the node inside the key as
+	// "node:<nodeID>:<backend>"; the record reports them separately.
+	name := key
+	if nodeID, backend, ok := ParseNodeScopedKey(key); ok {
+		rec.NodeID = nodeID
+		name = backend
+	}
+	if _, after, found := strings.Cut(name, "@"); found {
+		name = after
+	}
+	rec.Name = name
+
+	// Outcome order matters. An operation that left the cache while it was
+	// still unprocessed did not get to finish: the cancel endpoint calls
+	// DeleteUUID the instant CancelOperation returns, long before the status
+	// flips to Cancelled, so !Processed is what identifies a cancellation
+	// there. Without it every cancelled install would be recorded as a success.
+	if status := m.galleryService.GetStatus(jobID); status != nil {
+		if status.Deletion {
+			rec.TaskType = "deletion"
+		}
+		switch {
+		case status.Error != nil:
+			rec.Outcome = OutcomeFailed
+			rec.Error = status.Error.Error()
+		case status.Cancelled || !status.Processed:
+			rec.Outcome = OutcomeCancelled
+		}
+	} else {
+		// Queued but never started, then removed.
+		rec.Outcome = OutcomeCancelled
+	}
+
+	m.history.add(rec)
+	m.started.Delete(jobID)
+}
+
+// History returns finished operations, newest first.
+func (m *OpCache) History() []OpRecord {
+	return m.history.list()
+}
+
+// ClearHistory empties the record. Live operations are untouched.
+func (m *OpCache) ClearHistory() {
+	m.history.clear()
+}
+
 func (m *OpCache) DeleteUUID(uuid string) {
+	// Before the keys go: they carry the name and the backend flag.
+	m.recordTerminal(uuid)
+
 	deleted := false
 	for _, k := range m.status.Keys() {
 		if m.status.Get(k) == uuid {
