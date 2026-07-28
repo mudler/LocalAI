@@ -1,8 +1,11 @@
 package galleryop
 
 import (
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/mudler/LocalAI/core/services/distributed"
 )
 
 // DefaultHistorySize bounds the in-memory record of finished operations. The
@@ -32,6 +35,49 @@ const (
 	OutcomeFailed    = "failed"
 	OutcomeCancelled = "cancelled"
 )
+
+// recordFromStore maps a persisted gallery operation onto the record shape the
+// Activity page consumes, so the store-backed and ring-backed reads of the same
+// operation are indistinguishable to the page.
+func recordFromStore(op distributed.GalleryOperationRecord) OpRecord {
+	// UpsertCacheKey lands when the request is admitted, which is after the row
+	// exists: an operation that failed in between has a row and no cache key.
+	// The gallery element name is what it was asked for by, and is the closest
+	// stand-in the row carries.
+	key := op.CacheKey
+	if key == "" {
+		key = op.GalleryElementName
+	}
+	name, nodeID := operationDisplayName(key)
+
+	rec := OpRecord{
+		ID:         key,
+		Name:       name,
+		JobID:      op.ID,
+		IsBackend:  op.IsBackendOp,
+		NodeID:     nodeID,
+		TaskType:   "installation",
+		Error:      op.Error,
+		StartedAt:  op.CreatedAt,
+		FinishedAt: op.UpdatedAt,
+	}
+	if strings.HasSuffix(op.OpType, "_delete") {
+		rec.TaskType = "deletion"
+	}
+
+	// The persisted statuses and the Outcome constants happen to be the same
+	// three strings; mapping them explicitly means a change to either side
+	// shows up here rather than silently mislabelling every finished operation.
+	switch op.Status {
+	case OutcomeFailed:
+		rec.Outcome = OutcomeFailed
+	case OutcomeCancelled:
+		rec.Outcome = OutcomeCancelled
+	default:
+		rec.Outcome = OutcomeCompleted
+	}
+	return rec
+}
 
 // opHistory is a bounded, deduped ring of finished operations, oldest first.
 // It knows nothing about jobs or statuses so it can be tested on its own.

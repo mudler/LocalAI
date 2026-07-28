@@ -228,6 +228,12 @@ If a worker is running an older LocalAI release that does not report
 progress, its row in the breakdown will still show terminal status
 (queued / done / failed / worker busy) but no per-file progress.
 
+The **Record** on that page - what model and backend installs and removals have
+finished - is read from PostgreSQL rather than from the replica's memory. Every
+replica reports the same record, it survives restarts, a replica added by a
+scale-out or a rolling deploy reports it in full, and **Clear history** clears
+it for every replica.
+
 ## Worker Configuration
 
 Workers are started with the `worker` subcommand. Each worker is generic - it doesn't need a backend type at startup:

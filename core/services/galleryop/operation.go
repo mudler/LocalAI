@@ -514,17 +514,7 @@ func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 		rec.StartedAt = started
 	}
 
-	// Node-scoped backend installs carry the node inside the key as
-	// "node:<nodeID>:<backend>"; the record reports them separately.
-	name := key
-	if nodeID, backend, ok := ParseNodeScopedKey(key); ok {
-		rec.NodeID = nodeID
-		name = backend
-	}
-	if _, after, found := strings.Cut(name, "@"); found {
-		name = after
-	}
-	rec.Name = name
+	rec.Name, rec.NodeID = operationDisplayName(key)
 
 	// Outcome order matters: an error outweighs everything else, because an op
 	// can carry both an error and an unfinished status and the failure is what
@@ -557,13 +547,59 @@ func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 }
 
 // History returns finished operations, newest first.
+//
+// With a gallery store wired the record comes from PostgreSQL, so every replica
+// answers with the same history: the in-memory ring only holds what this
+// replica happened to serve, which makes the page's contents depend on which
+// replica the poll was routed to and leaves a replica added by a scale-out or a
+// rolling deploy blank forever.
 func (m *OpCache) History() []OpRecord {
-	return m.history.list()
+	m.mu.RLock()
+	store := m.store
+	m.mu.RUnlock()
+
+	if store == nil {
+		return m.history.list()
+	}
+
+	ops, err := store.ListTerminal(DefaultHistorySize)
+	if err != nil {
+		// A transient database failure must not blank the page. The ring holds
+		// a subset of the same record, so it is a strictly better answer than
+		// nothing.
+		xlog.Warn("OpCache failed to read the operation record; falling back to the local ring", "error", err)
+		return m.history.list()
+	}
+
+	records := make([]OpRecord, 0, len(ops))
+	for _, op := range ops {
+		records = append(records, recordFromStore(op))
+	}
+	return records
 }
 
 // ClearHistory empties the record. Live operations are untouched.
+//
+// With a gallery store wired this clears the record for the whole cluster,
+// which is the only way "Clear history" can mean anything: clearing one
+// replica's ring leaves the record to reappear on the next poll routed
+// elsewhere.
 func (m *OpCache) ClearHistory() {
+	m.mu.RLock()
+	store := m.store
+	m.mu.RUnlock()
+
+	// The local ring goes either way. In distributed mode it is what a failed
+	// store read falls back to, so leaving it populated would let a database
+	// blip resurrect a record the admin just cleared.
 	m.history.clear()
+
+	if store == nil {
+		return
+	}
+	if err := store.ClearTerminal(); err != nil {
+		xlog.Warn("OpCache failed to clear the persisted operation record", "error", err)
+	}
 }
 
 func (m *OpCache) DeleteUUID(uuid string) {
@@ -650,6 +686,25 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 	}
 
 	return processingModelsData, taskTypes
+}
+
+// operationDisplayName reduces an operation key to what the record shows: the
+// node prefix ("node:<nodeID>:") detached into a node ID the page reports
+// separately, and the gallery prefix ("<gallery>@") dropped.
+//
+// The in-memory ring and the store-backed record both go through this, so the
+// same operation cannot end up named two different ways depending on which
+// source answered.
+func operationDisplayName(key string) (name, nodeID string) {
+	name = key
+	if id, backend, ok := ParseNodeScopedKey(key); ok {
+		nodeID = id
+		name = backend
+	}
+	if _, after, found := strings.Cut(name, "@"); found {
+		name = after
+	}
+	return name, nodeID
 }
 
 // NodeScopedKeyPrefix is the opcache key prefix used by InstallBackendOnNodeEndpoint

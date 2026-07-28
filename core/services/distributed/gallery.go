@@ -22,7 +22,7 @@ type GalleryOperationRecord struct {
 	GalleryElementName string    `gorm:"size:255" json:"gallery_element_name"`
 	CacheKey           string    `gorm:"index;size:512" json:"cache_key,omitempty"` // OpCache key (galleryID or node:<id>:<backend>)
 	IsBackendOp        bool      `json:"is_backend_op"`                             // true if installed via SetBackend
-	OpType             string    `gorm:"size:32" json:"op_type"`                    // "model_install", "model_delete", "backend_install"
+	OpType             string    `gorm:"size:32" json:"op_type"`                    // "model_install", "model_delete", "backend_install", "backend_delete"
 	Status             string    `gorm:"size:32;default:pending" json:"status"`     // pending, downloading, processing, completed, failed, cancelled
 	Progress           float64   `json:"progress"`                                  // 0.0 to 1.0
 	Phase              string    `gorm:"size:32" json:"phase,omitempty"`
@@ -44,6 +44,11 @@ type GalleryOperationRecord struct {
 // the dedup lookup share this set so the two paths never disagree about what
 // "still active" means.
 var activeStatuses = []string{"pending", "downloading", "processing"}
+
+// terminalStatuses lists the gallery_operations.status values that represent a
+// finished operation. The Activity record and the retention reaper share this
+// set so the two never disagree about what "finished" means.
+var terminalStatuses = []string{"completed", "failed", "cancelled"}
 
 func (GalleryOperationRecord) TableName() string { return "gallery_operations" }
 
@@ -237,7 +242,32 @@ func (s *GalleryStore) CleanStale(age time.Duration) (int64, error) {
 // CleanOld removes operations older than the given duration.
 func (s *GalleryStore) CleanOld(retention time.Duration) error {
 	cutoff := time.Now().Add(-retention)
-	return s.db.Where("created_at < ? AND status IN ?", cutoff,
-		[]string{"completed", "failed", "cancelled"}).
+	return s.db.Where("created_at < ? AND status IN ?", cutoff, terminalStatuses).
 		Delete(&GalleryOperationRecord{}).Error
+}
+
+// ListTerminal returns finished operations, newest-finished first. It backs the
+// Activity page's record: in distributed mode the per-replica in-memory ring
+// shows a different history depending on which replica served the request, and
+// a replica added by a scale-out has none at all.
+//
+// The order is by updated_at, which is when the operation reached its terminal
+// status, rather than created_at, which is when it was queued: the record
+// reports what finished and when.
+//
+// limit <= 0 returns every row.
+func (s *GalleryStore) ListTerminal(limit int) ([]GalleryOperationRecord, error) {
+	var ops []GalleryOperationRecord
+	q := s.db.Where("status IN ?", terminalStatuses).Order("updated_at DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	return ops, q.Find(&ops).Error
+}
+
+// ClearTerminal deletes every finished operation, cluster-wide. Operations
+// still in flight survive, so clearing the record cannot lose an install that
+// has not reported its outcome yet.
+func (s *GalleryStore) ClearTerminal() error {
+	return s.db.Where("status IN ?", terminalStatuses).Delete(&GalleryOperationRecord{}).Error
 }

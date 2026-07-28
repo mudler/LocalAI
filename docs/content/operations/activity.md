@@ -135,14 +135,21 @@ with the `variant` you want rather than using **Retry**. See
 
 ## History
 
-The record holds the last 50 finished operations. It is kept in memory, so it
-is empty again after a LocalAI restart, and in distributed mode each replica
-keeps its own: what you see is the record of the replica serving the page. For
-durable per-model install state, use the model and backend listings rather than
-this page.
+The record holds the last 50 finished operations. Where it is kept depends on
+how LocalAI is running:
+
+- **Standalone**: in memory, so it is empty again after a restart. For durable
+  per-model install state, use the model and backend listings rather than this
+  page.
+- **[Distributed mode]({{% relref "features/distributed-mode" %}})**: in
+  PostgreSQL, alongside the operations themselves. It is the same record on
+  every replica, it survives restarts, and a replica added by a scale-out or a
+  rolling deploy reports it in full rather than starting empty.
 
 **Clear history**, beside the page title whenever the record has anything in
 it, empties it. Running operations and unacknowledged failures are untouched.
+In distributed mode it clears the record for every replica, not just the one
+serving the page.
 
 ## The sidebar count
 
@@ -168,7 +175,7 @@ Both `GET` endpoints wrap their list in an `operations` key rather than
 returning a bare array:
 
 ```bash
-# What has finished on this instance
+# What has finished
 curl http://localhost:8080/api/operations/history \
   -H "Authorization: Bearer <admin-key>"
 ```

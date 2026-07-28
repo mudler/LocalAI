@@ -561,10 +561,14 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
+					opType := "backend_install"
+					if op.Delete {
+						opType = "backend_delete"
+					}
 					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 						ID:                 op.ID,
 						GalleryElementName: op.GalleryElementName,
-						OpType:             "backend_install",
+						OpType:             opType,
 						Status:             "pending",
 						Cancellable:        true,
 					}); err != nil {
