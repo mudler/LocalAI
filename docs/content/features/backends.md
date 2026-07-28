@@ -25,6 +25,11 @@ The LocalAI web interface provides an intuitive way to manage your backends:
 5. Install or delete backends with a single click
 6. Monitor installation progress in real-time
 
+Installs run in the background. The strip at the top of the app follows the
+current one, and **Operate → Activity** lists everything in flight, what needs
+attention, and what has finished, and is where a running install is cancelled
+or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
+
 Each backend card displays:
 - Backend name and description
 - Type of models it supports
@@ -124,7 +129,7 @@ For getting started, see the available backends in LocalAI here: https://github.
 
 LocalAI supports various types of backends:
 
-- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, SGLang, transformers, MLX)
+- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX)
 - **Speech-to-Text Backends**: For transcription and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, faster-whisper, NeMo)
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)

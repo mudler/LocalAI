@@ -509,6 +509,12 @@ message ProxyOptions {
   string api_key_file = 5;
   string upstream_model = 6;
   int32 request_timeout_seconds = 7;
+  // cache_prompt enables automatic Anthropic prompt-cache breakpoints
+  // (cache_control: ephemeral) on the stable prefix — system, tools, and
+  // the last message block — when translating to the Anthropic provider.
+  // Cuts input cost on repeated/agentic calls (cache read = 0.1x). Only
+  // meaningful for mode=translate + provider=anthropic; ignored otherwise.
+  bool cache_prompt = 8;
 }
 
 message Result {

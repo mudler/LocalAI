@@ -6948,6 +6948,10 @@ const docTemplate = `{
                     "description": "(optional) desired output sample rate",
                     "type": "integer"
                 },
+                "speed": {
+                    "description": "Speed is the OpenAI ` + "`" + `speed` + "`" + ` field (0.25-4.0). It is a pointer so an\nexplicit ` + "`" + `\"speed\": 0` + "`" + ` (invalid, rejected with 400) is distinguishable\nfrom an omitted field (left at the backend default). It is normalised\ninto Params[\"speed\"] so it reaches the backend over the same channel as\nthe other per-request generation parameters.",
+                    "type": "number"
+                },
                 "stream": {
                     "description": "(optional) enable streaming TTS",
                     "type": "boolean"

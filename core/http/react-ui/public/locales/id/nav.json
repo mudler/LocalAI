@@ -23,7 +23,8 @@
     "cluster": "Kluster",
     "observability": "Observabilitas",
     "access": "Akses",
-    "system": "Sistem"
+    "system": "Sistem",
+    "activity": "Activity"
   },
   "items": {
     "home": "Beranda",
@@ -55,7 +56,8 @@
     "swarm": "Swarm",
     "system": "Sistem",
     "settings": "Pengaturan",
-    "api": "API"
+    "api": "API",
+    "activity": "Aktivitas"
   },
   "footer": {
     "github": "GitHub",

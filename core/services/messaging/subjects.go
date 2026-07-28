@@ -365,6 +365,36 @@ type ModelDeleteReply struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// SubjectNodeModelsRunning asks a worker node which model backend processes it
+// currently has running. Uses NATS request-reply.
+//
+// This is the authoritative answer to "is this replica still alive". The worker
+// owns the process table, so unlike a health probe against the backend's own
+// serving port, its reply does not depend on whether that backend happens to be
+// busy: a model mid-generation cannot answer a gRPC health check for minutes at
+// a time, but the worker answers immediately either way.
+func SubjectNodeModelsRunning(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".models.running"
+}
+
+// ModelsRunningRequest is the payload for a models.running NATS request.
+type ModelsRunningRequest struct{}
+
+// ModelsRunningReply is the response from a models.running NATS request.
+type ModelsRunningReply struct {
+	Models []RunningModelInfo `json:"models"`
+	Error  string             `json:"error,omitempty"`
+}
+
+// RunningModelInfo identifies one live backend process on a worker. The triple
+// is isomorphic to a controller NodeModel row's (model_name, replica_index,
+// address), which is what lets the reconciler diff the two directly.
+type RunningModelInfo struct {
+	ModelID      string `json:"model_id"`
+	ReplicaIndex int    `json:"replica_index"`
+	Address      string `json:"address,omitempty"`
+}
+
 // SubjectNodeStop tells a serve-backend node to shut down entirely
 // (deregister + exit). The node will not restart the backend process.
 func SubjectNodeStop(nodeID string) string {
