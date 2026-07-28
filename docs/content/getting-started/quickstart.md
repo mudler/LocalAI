@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Quickstart"
-weight = 1
+weight = 2
 url = '/basics/getting_started/'
 icon = "rocket_launch"
 +++
@@ -10,7 +10,7 @@ icon = "rocket_launch"
 
 **LocalAI** is a free, open-source alternative to OpenAI (Anthropic, etc.), functioning as a drop-in replacement REST API for local inferencing. It allows you to run [LLMs]({{% relref "features/text-generation" %}}), generate images, and produce audio, all locally or on-premises with consumer-grade hardware, supporting multiple model families and architectures.
 
-LocalAI comes with a **built-in web interface** for chatting with models, managing installations, configuring AI agents, and more — no extra tools needed.
+LocalAI comes with a **built-in web interface** for chatting with models, managing installations, configuring AI agents, and more, with no extra tools needed.
 
 {{% notice tip %}}
 
@@ -32,20 +32,20 @@ This guide assumes you have already [installed LocalAI](/installation/). If you 
 Once installed, start LocalAI. For Docker installations:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-cpu
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
 For GPU acceleration, choose the image that matches your hardware:
 
 | Hardware | Docker image |
 |----------|-------------|
-| CPU only | `localai/localai:latest-cpu` |
+| CPU only | `localai/localai:latest` |
 | NVIDIA CUDA | `localai/localai:latest-gpu-nvidia-cuda-12` |
 | AMD (ROCm) | `localai/localai:latest-gpu-hipblas` |
 | Intel GPU | `localai/localai:latest-gpu-intel` |
 | Vulkan | `localai/localai:latest-gpu-vulkan` |
 
-For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--device` flags. See [Container images]({{% relref "getting-started/container-images" %}}) for the full reference.
+For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--device` flags. See [Container images]({{% relref "getting-started/containers" %}}) for the full reference.
 
 ### Using the Web Interface
 
@@ -58,14 +58,17 @@ Open **http://localhost:8080** in your browser. The web interface lets you:
 - **Monitor system resources** and loaded models
 - **Configure settings** including GPU acceleration
 
-To get started, navigate to the **Models** page, browse the gallery, and install a model. Once installed, head to the **Chat** page to start a conversation.
+To get your first chat working:
+
+1. Open the **Models** page and search for `qwen3-4b`. Click **Install** on the `qwen3-4b` entry and wait for the download to finish. (`qwen3-4b` is a small, CPU-friendly Qwen3 model that also supports tool calling, so you can reuse it later in the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough.)
+2. Open the **Chat** page, select `qwen3-4b` from the model dropdown, type a message, and send it. You should get a reply within a few seconds.
 
 ### Downloading models from the CLI
 
 When starting LocalAI (either via Docker or via CLI) you can specify as argument a list of models to install automatically before starting the API, for example:
 
 ```bash
-local-ai run llama-3.2-1b-instruct:q4_k_m
+local-ai run qwen3-4b
 local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 local-ai run ollama://gemma:2b
 local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
@@ -83,7 +86,7 @@ local-ai models install <name> # Install a model
 **Automatic Backend Detection**: When you install models from the gallery or YAML files, LocalAI automatically detects your system's GPU capabilities (NVIDIA, AMD, Intel) and downloads the appropriate backend. For advanced configuration options, see [GPU Acceleration]({{% relref "features/gpu-acceleration#automatic-backend-detection" %}}).
  {{% /notice %}}
 
-For a full list of options, you can run LocalAI with `--help` or refer to the [Linux Installation guide]({{% relref "installation/linux" %}}) for installer configuration options.
+For a full list of options, run LocalAI with `--help`, or see the [Linux Installation guide]({{% relref "getting-started/linux" %}}).
 
 ### Using the API
 
@@ -93,7 +96,7 @@ LocalAI exposes an OpenAI-compatible API. You can use it with any OpenAI SDK or 
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "llama-3.2-1b-instruct:q4_k_m",
+    "model": "qwen3-4b",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -102,16 +105,16 @@ LocalAI also supports the **Anthropic Messages API**, the **Open Responses API**
 
 ## Built-in AI Agents
 
-LocalAI includes a built-in AI agent platform with support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). You can create agents that use tools, browse the web, execute code, and interact with external services — all from the web interface.
+LocalAI includes a built-in AI agent platform with support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). You can create agents that use tools, browse the web, execute code, and interact with external services, all from the web interface.
 
 To get started with agents:
 
 1. Install a model that supports tool calling (most modern LLMs do)
 2. Navigate to the **Agents** page in the web interface
 3. Create a new agent, configure its tools and system prompt
-4. Start chatting — the agent will use tools autonomously
+4. Start chatting; the agent will use tools autonomously
 
-No separate installation required — agents are part of LocalAI.
+No separate installation required: agents are part of LocalAI. For a full step-by-step walkthrough, see [Build your first agent]({{% relref "getting-started/first-agent" %}}).
 
 ## Scaling with Distributed Mode
 
@@ -121,16 +124,16 @@ For production deployments or when you need more compute, LocalAI supports distr
 - **P2P federation**: Connect multiple LocalAI instances for load-balanced inference
 - **Model sharding**: Split large models across multiple machines
 
-See the **Nodes** page in the web interface or the [Distribution docs]({{% relref "features/distribution" %}}) for setup instructions.
+See the **Nodes** page in the web interface or the [Distributed inference docs]({{% relref "features/distributed_inferencing" %}}) for setup instructions.
 
 ## What's Next?
 
 There is much more to explore! LocalAI supports video generation, voice cloning, embeddings, image understanding, and more. Check out:
 
-- [Container images reference]({{% relref "getting-started/container-images" %}})
+- [Container images reference]({{% relref "getting-started/containers" %}})
 - [Try the API endpoints]({{% relref "getting-started/try-it-out" %}})
 - [All features]({{% relref "features" %}})
 - [Model gallery](https://models.localai.io)
 - [Run models manually]({{% relref "getting-started/models" %}})
-- [Build from source]({{% relref "installation/build" %}})
+- [Build from source]({{% relref "getting-started/build" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)

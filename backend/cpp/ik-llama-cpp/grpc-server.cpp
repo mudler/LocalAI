@@ -2412,7 +2412,33 @@ static void params_parse(const backend::ModelOptions* request,
 
 // GRPC Server start
 class BackendServiceImpl final : public backend::Backend::Service {
+private:
+  // The ModelOptions.Model this process was loaded with. Compared against
+  // PredictOptions.ModelIdentity so a request that reached us through a stale
+  // distributed route is rejected instead of answered from the wrong model
+  // (#10952).
+  std::string loaded_model_identity;
+
 public:
+  // checkModelIdentity mirrors pkg/grpc/server.go and
+  // backend/python/common/model_identity.py. Either side being empty means
+  // "skip": the request side is empty for a controller that predates the field,
+  // and the loaded side is empty when such a controller performed the load. A
+  // false rejection is worse than the miss it prevents.
+  grpc::Status checkModelIdentity(const backend::PredictOptions* request) {
+    if (request == nullptr || request->modelidentity().empty()) {
+      return grpc::Status::OK;
+    }
+    if (loaded_model_identity.empty() || loaded_model_identity == request->modelidentity()) {
+      return grpc::Status::OK;
+    }
+    // NOT_FOUND plus this exact sentinel is the cross-language contract the
+    // router matches on (grpcerrors.ModelMismatchSentinel).
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "ik-llama-cpp: model identity mismatch: loaded \"" + loaded_model_identity +
+                        "\", requested \"" + request->modelidentity() + "\"");
+  }
+
   grpc::Status Health(ServerContext* context, const backend::HealthMessage* request, backend::Reply* reply) {
     // Implement Health RPC
     reply->set_message("OK");
@@ -2438,9 +2464,12 @@ public:
     result->set_message("Loading succeeded");
     result->set_success(true);
     loaded_model = true;
+    loaded_model_identity = request->model();
     return Status::OK;
   }
   grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         json data = parse_options(true, request, llama);
         const int task_id = llama.queue_tasks.get_new_id();
         llama.queue_results.add_waiting_task_id(task_id);
@@ -2495,6 +2524,8 @@ public:
 
 
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         json data = parse_options(false, request, llama);
         const int task_id = llama.queue_tasks.get_new_id();
         llama.queue_results.add_waiting_task_id(task_id);
@@ -2532,6 +2563,8 @@ public:
 
     /// https://github.com/ggerganov/llama.cpp/blob/aa2341298924ac89778252015efcb792f2df1e20/examples/server/server.cpp#L2969
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
         json data = parse_options(false, request, llama);
         const int task_id = llama.queue_tasks.get_new_id();
         llama.queue_results.add_waiting_task_id(task_id);
@@ -2556,6 +2589,8 @@ public:
     }
 
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response){
+        auto identity = checkModelIdentity(request);
+        if (!identity.ok()) return identity;
          json data = parse_options(false, request, llama);
 
          std::vector<llama_token> tokens = llama.tokenize(data["prompt"],false);

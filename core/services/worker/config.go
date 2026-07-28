@@ -22,6 +22,13 @@ type Config struct {
 	Addr      string `env:"LOCALAI_ADDR" help:"Address where this worker is reachable (host:port). Port is base for gRPC backends, port-1 for HTTP." group:"server"`
 	ServeAddr string `env:"LOCALAI_SERVE_ADDR" default:"0.0.0.0:50051" help:"(Advanced) gRPC base port bind address" group:"server" hidden:""`
 
+	// GRPCMaxPort bounds the dynamic gRPC port allocator at [basePort, this].
+	// The width of that range is how many backend processes this worker can run
+	// concurrently; released ports also sit in a short quarantine before reuse,
+	// so a worker with heavy start/stop churn needs headroom above its true
+	// concurrency. 0 = up to 65535.
+	GRPCMaxPort int `env:"LOCALAI_GRPC_MAX_PORT" default:"0" help:"Highest port the worker may assign to a backend gRPC process. The range is [base port, this]; its width caps concurrent backends on this worker. 0 uses up to 65535." group:"server"`
+
 	BackendsPath            string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends" group:"server"`
 	BackendsSystemPath      string `env:"LOCALAI_BACKENDS_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends" group:"server"`
 	BackendGalleries        string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"server" default:"${backends}"`
@@ -60,6 +67,11 @@ type Config struct {
 	// is published so model schedulers can target high-capacity nodes via
 	// the existing label selector.
 	MaxReplicasPerModel int `env:"LOCALAI_MAX_REPLICAS_PER_MODEL" default:"1" help:"Max replicas of any single model on this worker. Default 1 preserves single-replica behavior; set higher to allow stacking replicas on a fat node." group:"registration"`
+
+	// VRAMBudget optionally caps this node's VRAM for model allocation ("80%" or
+	// "12GB"). Reported to the server as a string; the server resolves and
+	// enforces it against the raw VRAM this worker reports. Empty = no cap.
+	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
 	// NATS (required)
 	NatsURL         string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`

@@ -129,6 +129,39 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal("job-123"))
 		})
+
+		It("forwards a chosen variant to the apply endpoint", func() {
+			// The assistant's whole ability to honor "install the Q8 one"
+			// rests on this field surviving the hop to REST.
+			var body map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				_ = json.NewEncoder(w).Encode(map[string]any{"uuid": "job-123"})
+			}))
+			DeferCleanup(srv.Close)
+
+			_, err := New(srv.URL, "").InstallModel(context.Background(), localaitools.InstallModelRequest{
+				ModelName: "qwen2.5-7b-instruct",
+				Variant:   "qwen2.5-7b-instruct-q8",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).To(HaveKeyWithValue("variant", "qwen2.5-7b-instruct-q8"))
+		})
+
+		It("omits the variant when none was chosen, so the server auto-selects", func() {
+			var body map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				_ = json.NewEncoder(w).Encode(map[string]any{"uuid": "job-123"})
+			}))
+			DeferCleanup(srv.Close)
+
+			_, err := New(srv.URL, "").InstallModel(context.Background(), localaitools.InstallModelRequest{
+				ModelName: "qwen2.5-7b-instruct",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).ToNot(HaveKey("variant"))
+		})
 	})
 
 	Describe("GetJobStatus", func() {

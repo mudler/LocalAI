@@ -52,7 +52,12 @@
       "size": "Dimensione",
       "advanced": "Impostazioni avanzate",
       "seed": "Seed",
-      "seedPlaceholder": "Casuale"
+      "seedPlaceholder": "Casuale",
+      "frames": "Fotogrammi",
+      "referenceMedia": "Media di riferimento",
+      "startImage": "Immagine iniziale",
+      "endImage": "Immagine finale",
+      "avatarAudio": "Audio avatar"
     },
     "actions": {
       "generate": "Genera video",

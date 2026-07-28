@@ -32,6 +32,42 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		os.RemoveAll(tempDir)
 	})
 
+	It("keeps the Kokoro CPU fallback installable from the backend gallery", func() {
+		backends, err := ReadConfigFile[[]*GalleryBackend](filepath.Join("..", "..", "backend", "index.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		byName := make(map[string]*GalleryBackend, len(*backends))
+		for _, backend := range *backends {
+			byName[backend.Name] = backend
+		}
+
+		Expect(byName).To(HaveKey("kokoro"))
+		Expect(byName["kokoro"].CapabilitiesMap).To(HaveKeyWithValue("default", "cpu-kokoro"))
+		Expect(byName).To(HaveKey("cpu-kokoro"))
+		Expect(byName["cpu-kokoro"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:latest-cpu-kokoro"))
+
+		type matrixEntry struct {
+			Backend     string `yaml:"backend"`
+			Platforms   string `yaml:"platforms"`
+			PlatformTag string `yaml:"platform-tag"`
+			TagSuffix   string `yaml:"tag-suffix"`
+		}
+		type backendMatrix struct {
+			Include []matrixEntry `yaml:"include"`
+		}
+
+		matrix, err := ReadConfigFile[backendMatrix](filepath.Join("..", "..", ".github", "backend-matrix.yml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var cpuArchitectures []string
+		for _, entry := range matrix.Include {
+			if entry.Backend == "kokoro" && entry.TagSuffix == "-cpu-kokoro" {
+				cpuArchitectures = append(cpuArchitectures, entry.Platforms+"/"+entry.PlatformTag)
+			}
+		}
+		Expect(cpuArchitectures).To(ConsistOf("linux/amd64/amd64", "linux/arm64/arm64"))
+	})
+
 	It("ListSystemBackends prefers optimal alias candidate", func() {
 		// Arrange two installed backends sharing the same alias
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
@@ -133,6 +169,44 @@ var _ = Describe("Gallery Backends", func() {
 			err := InstallBackendFromGallery(context.TODO(), galleries, systemState, ml, "test-backend", nil, true, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
+		})
+
+		It("removes files from a previous install that are absent in the new artifact", func() {
+			// A reinstall must fully replace the installed backend, not overlay
+			// the new artifact onto the old one: a stale library or package
+			// directory left behind from an earlier version can shadow the new
+			// one at import time (e.g. an old vllm .so lingering next to a fresh
+			// build). Mirror the atomic-swap behaviour UpgradeBackend already has.
+			makeSource := func(files map[string]string) string {
+				dir, err := os.MkdirTemp("", "backend-src-*")
+				Expect(err).NotTo(HaveOccurred())
+				for name, content := range files {
+					Expect(os.WriteFile(filepath.Join(dir, name), []byte(content), 0644)).To(Succeed())
+				}
+				return dir
+			}
+
+			srcV1 := makeSource(map[string]string{
+				"run.sh":       "#!/bin/sh\necho v1\n",
+				"stale-lib.so": "old",
+			})
+			defer func() { _ = os.RemoveAll(srcV1) }()
+			cfgV1 := &GalleryBackend{Metadata: Metadata{Name: "orphan-test"}, URI: srcV1}
+			Expect(InstallBackend(context.TODO(), systemState, ml, cfgV1, nil, false)).To(Succeed())
+
+			installed := filepath.Join(tempDir, "orphan-test")
+			Expect(filepath.Join(installed, "stale-lib.so")).To(BeARegularFile())
+
+			// Reinstall from an artifact that no longer ships stale-lib.so.
+			srcV2 := makeSource(map[string]string{
+				"run.sh": "#!/bin/sh\necho v2\n",
+			})
+			defer func() { _ = os.RemoveAll(srcV2) }()
+			cfgV2 := &GalleryBackend{Metadata: Metadata{Name: "orphan-test"}, URI: srcV2}
+			Expect(InstallBackend(context.TODO(), systemState, ml, cfgV2, nil, false)).To(Succeed())
+
+			Expect(filepath.Join(installed, "run.sh")).To(BeARegularFile())
+			Expect(filepath.Join(installed, "stale-lib.so")).NotTo(BeAnExistingFile())
 		})
 	})
 

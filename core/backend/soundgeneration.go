@@ -62,14 +62,19 @@ func SoundGeneration(
 	}
 
 	req := &proto.SoundGenerationRequest{
-		Text:        text,
-		Model:       modelConfig.Model,
-		Dst:         filePath,
-		Sample:      doSample,
-		Duration:    duration,
-		Temperature: temperature,
-		Src:         sourceFile,
-		SrcDivisor:  sourceDivisor,
+		Text: text,
+		// Model is rewritten to a worker-local path by the distributed file
+		// stager; ModelIdentity carries the untranslated value the backend
+		// compares against what it loaded (#10952). They start out equal here
+		// and must stay two separate fields.
+		ModelIdentity: modelConfig.Model,
+		Model:         modelConfig.Model,
+		Dst:           filePath,
+		Sample:        doSample,
+		Duration:      duration,
+		Temperature:   temperature,
+		Src:           sourceFile,
+		SrcDivisor:    sourceDivisor,
 	}
 	if think != nil {
 		req.Think = think

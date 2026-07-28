@@ -61,7 +61,15 @@ func extractModelGroupsFromConfigs(configs []config.ModelConfig) map[string][]st
 	return out
 }
 
+// StopWatchdog signals the watchdog to stop. It takes the watchdogMutex because
+// startWatchdog/RestartWatchdog reassign and close a.watchdogStop under that same
+// lock, and POST /api/settings can reach either this or RestartWatchdog depending
+// on WatchdogShouldRun(). Without the lock, two callers can both observe a non-nil
+// channel and close it twice, which panics.
 func (a *Application) StopWatchdog() error {
+	a.watchdogMutex.Lock()
+	defer a.watchdogMutex.Unlock()
+
 	if a.watchdogStop != nil {
 		close(a.watchdogStop)
 		a.watchdogStop = nil

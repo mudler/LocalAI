@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -25,9 +26,14 @@ import (
 // and the GRPC client talks to it via a channel to send status updates
 type WatchDog struct {
 	sync.Mutex
-	busyTime             map[string]time.Time
-	idleTime             map[string]time.Time
-	lastUsed             map[string]time.Time // LRU tracking: when each model was last used
+	busyTime       map[string]time.Time
+	inFlight       map[string]int
+	requestStarts  map[string]map[uint64]time.Time
+	legacyRequests map[string][]uint64
+	nextRequestID  uint64
+	idleTime       map[string]time.Time
+	lastUsed       map[string]time.Time // LRU tracking: when each model was last used
+
 	timeout, idletimeout time.Duration
 	addressMap           map[string]*process.Process
 	addressModelMap      map[string]string
@@ -62,6 +68,11 @@ type WatchDog struct {
 
 type ProcessManager interface {
 	ShutdownModel(modelName string) error
+	// ShutdownModelForce stops the backend without waiting for an in-flight
+	// gRPC call to finish. Used when the watchdog evicts a backend that is
+	// stuck busy: the graceful ShutdownModel intentionally waits for active
+	// calls until its bounded deadline.
+	ShutdownModelForce(modelName string) error
 }
 
 // NewWatchDog creates a new WatchDog with the provided options.
@@ -84,6 +95,9 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		idletimeout:              o.idleTimeout,
 		pm:                       o.processManager,
 		busyTime:                 make(map[string]time.Time),
+		inFlight:                 make(map[string]int),
+		requestStarts:            make(map[string]map[uint64]time.Time),
+		legacyRequests:           make(map[string][]uint64),
 		idleTime:                 make(map[string]time.Time),
 		lastUsed:                 make(map[string]time.Time),
 		addressMap:               make(map[string]*process.Process),
@@ -236,22 +250,96 @@ func (wd *WatchDog) Add(address string, p *process.Process) {
 	wd.addressMap[address] = p
 }
 
+// TrackRequest records one request and returns an idempotent completion
+// callback. The per-request identity lets the busy watchdog follow the oldest
+// request that is still active instead of treating uninterrupted parallel
+// traffic as one indefinitely old request.
+func (wd *WatchDog) TrackRequest(address string) func() {
+	wd.Lock()
+	requestID := wd.beginRequestLocked(address, false)
+	wd.Unlock()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			wd.Lock()
+			defer wd.Unlock()
+			wd.finishRequestLocked(address, requestID)
+		})
+	}
+}
+
+// Mark and UnMark retain the legacy public API for non-gRPC callers. Callers
+// that can keep the completion callback should use TrackRequest so overlapping
+// requests can complete in any order without losing their individual ages.
 func (wd *WatchDog) Mark(address string) {
 	wd.Lock()
 	defer wd.Unlock()
-	now := time.Now()
-	wd.busyTime[address] = now
-	wd.lastUsed[address] = now // Update LRU tracking
-	delete(wd.idleTime, address)
+	wd.beginRequestLocked(address, true)
 }
 
-func (wd *WatchDog) UnMark(ModelAddress string) {
+func (wd *WatchDog) UnMark(address string) {
 	wd.Lock()
 	defer wd.Unlock()
+	requests := wd.legacyRequests[address]
+	if len(requests) == 0 {
+		return
+	}
+	requestID := requests[len(requests)-1]
+	requests = requests[:len(requests)-1]
+	if len(requests) == 0 {
+		delete(wd.legacyRequests, address)
+	} else {
+		wd.legacyRequests[address] = requests
+	}
+	wd.finishRequestLocked(address, requestID)
+}
+
+func (wd *WatchDog) beginRequestLocked(address string, legacy bool) uint64 {
 	now := time.Now()
-	delete(wd.busyTime, ModelAddress)
-	wd.idleTime[ModelAddress] = now
-	wd.lastUsed[ModelAddress] = now // Update LRU tracking
+	wd.nextRequestID++
+	requestID := wd.nextRequestID
+	starts := wd.requestStarts[address]
+	if starts == nil {
+		starts = make(map[uint64]time.Time)
+		wd.requestStarts[address] = starts
+	}
+	starts[requestID] = now
+	if legacy {
+		wd.legacyRequests[address] = append(wd.legacyRequests[address], requestID)
+	}
+	wd.inFlight[address] = len(starts)
+	if len(starts) == 1 {
+		wd.busyTime[address] = now
+	}
+	wd.lastUsed[address] = now
+	delete(wd.idleTime, address)
+	return requestID
+}
+
+func (wd *WatchDog) finishRequestLocked(address string, requestID uint64) {
+	starts := wd.requestStarts[address]
+	if _, exists := starts[requestID]; !exists {
+		return
+	}
+	delete(starts, requestID)
+	now := time.Now()
+	wd.lastUsed[address] = now // Update LRU tracking
+	if len(starts) > 0 {
+		wd.inFlight[address] = len(starts)
+		var oldest time.Time
+		for _, started := range starts {
+			if oldest.IsZero() || started.Before(oldest) {
+				oldest = started
+			}
+		}
+		wd.busyTime[address] = oldest
+		return
+	}
+	delete(wd.requestStarts, address)
+	delete(wd.inFlight, address)
+	delete(wd.busyTime, address)
+	wd.idleTime[address] = now
 }
 
 // UpdateLastUsed updates the last used time for a model address (for LRU tracking)
@@ -273,6 +361,7 @@ func (wd *WatchDog) GetLoadedModelCount() int {
 type WatchDogState struct {
 	AddressModelMap map[string]string
 	BusyTime        map[string]time.Time
+	InFlight        map[string]int
 	IdleTime        map[string]time.Time
 	LastUsed        map[string]time.Time
 	AddressMap      map[string]*process.Process
@@ -295,6 +384,11 @@ func (wd *WatchDog) GetState() WatchDogState {
 		busyTime[k] = v
 	}
 
+	inFlight := make(map[string]int, len(wd.inFlight))
+	for k, v := range wd.inFlight {
+		inFlight[k] = v
+	}
+
 	idleTime := make(map[string]time.Time, len(wd.idleTime))
 	for k, v := range wd.idleTime {
 		idleTime[k] = v
@@ -313,6 +407,7 @@ func (wd *WatchDog) GetState() WatchDogState {
 	return WatchDogState{
 		AddressModelMap: addressModelMap,
 		BusyTime:        busyTime,
+		InFlight:        inFlight,
 		IdleTime:        idleTime,
 		LastUsed:        lastUsed,
 		AddressMap:      addressMap,
@@ -327,6 +422,30 @@ func (wd *WatchDog) RestoreState(state WatchDogState) {
 
 	wd.addressModelMap = state.AddressModelMap
 	wd.busyTime = state.BusyTime
+	wd.inFlight = state.InFlight
+	if wd.inFlight == nil {
+		wd.inFlight = make(map[string]int, len(wd.busyTime))
+		for address := range wd.busyTime {
+			wd.inFlight[address] = 1
+		}
+	}
+	wd.requestStarts = make(map[string]map[uint64]time.Time, len(wd.inFlight))
+	wd.legacyRequests = make(map[string][]uint64, len(wd.inFlight))
+	for address, count := range wd.inFlight {
+		started := wd.busyTime[address]
+		if started.IsZero() {
+			started = time.Now()
+			wd.busyTime[address] = started
+		}
+		requests := make(map[uint64]time.Time, count)
+		for range count {
+			wd.nextRequestID++
+			requestID := wd.nextRequestID
+			requests[requestID] = started
+			wd.legacyRequests[address] = append(wd.legacyRequests[address], requestID)
+		}
+		wd.requestStarts[address] = requests
+	}
 	wd.idleTime = state.IdleTime
 	wd.lastUsed = state.LastUsed
 	wd.addressMap = state.AddressMap
@@ -340,6 +459,17 @@ type modelUsageInfo struct {
 	model     string
 	lastUsed  time.Time
 	sizeBytes int64 // on-disk file size; 0 if unknown
+}
+
+// evictionTarget is a model selected for eviction, retaining whether it was busy
+// at selection time. A busy target must be shut down via ShutdownModelForce:
+// the graceful path waits for its in-flight gRPC call to finish, but a busy
+// eviction only happens when that call is stuck (busy-killer) or the operator
+// opted into forceEvictionWhenBusy — either way, waiting for the graceful
+// deadline would defeat prompt eviction.
+type evictionTarget struct {
+	model   string
+	wasBusy bool
 }
 
 // EnforceLRULimitResult contains the result of LRU enforcement
@@ -410,13 +540,10 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	needMore := len(modelsToShutdown) < modelsToEvict && skippedBusyCount > 0
 	wd.Unlock()
 
-	// Now shutdown models without holding the watchdog lock to prevent deadlock
-	for _, model := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(model); err != nil {
-			xlog.Error("[WatchDog] error shutting down model during LRU eviction", "error", err, "model", model)
-		}
-		xlog.Debug("[WatchDog] LRU eviction complete", "model", model)
-	}
+	// Now shutdown models without holding the watchdog lock to prevent
+	// deadlock. Busy targets go through the force path so the loader doesn't
+	// wait on their stuck in-flight call (which would re-deadlock here).
+	wd.shutdownEvicted(modelsToShutdown, "LRU eviction")
 
 	if needMore {
 		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", len(modelsToShutdown), "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls")
@@ -431,9 +558,10 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 // collectEvictionsLocked walks `candidates` (already in eviction order) and
 // untracks up to `maxToEvict` models that are eligible for eviction. Pinned
 // models are always skipped; busy models are skipped unless `force` is true.
-// Returns the names of evicted models and the number skipped because they
-// were busy. Must be called with wd.Lock() held.
-func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvict int, force bool) (evicted []string, skippedBusy int) {
+// Returns the evicted models (with their busy state at selection time) and
+// the number skipped because they were busy. Must be called with wd.Lock()
+// held.
+func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvict int, force bool) (evicted []evictionTarget, skippedBusy int) {
 	for i := 0; len(evicted) < maxToEvict && i < len(candidates); i++ {
 		m := candidates[i]
 		if wd.pinnedModels[m.model] {
@@ -447,10 +575,28 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 			continue
 		}
 		xlog.Info("[WatchDog] evicting model", "model", m.model, "busy", isBusy)
-		evicted = append(evicted, m.model)
+		evicted = append(evicted, evictionTarget{model: m.model, wasBusy: isBusy})
 		wd.untrack(m.address)
 	}
 	return evicted, skippedBusy
+}
+
+// shutdownEvicted shuts down each evicted model, using the force path for any
+// that were busy at selection time so a stuck in-flight call does not consume
+// the graceful shutdown deadline.
+func (wd *WatchDog) shutdownEvicted(targets []evictionTarget, label string) {
+	for _, t := range targets {
+		var err error
+		if t.wasBusy {
+			err = wd.pm.ShutdownModelForce(t.model)
+		} else {
+			err = wd.pm.ShutdownModel(t.model)
+		}
+		if err != nil {
+			xlog.Error("[WatchDog] error shutting down model during "+label, "error", err, "model", t.model, "busy", t.wasBusy)
+		}
+		xlog.Debug("[WatchDog] "+label+" complete", "model", t.model, "busy", t.wasBusy)
+	}
 }
 
 // EnforceGroupExclusivity evicts every loaded model that shares at least one
@@ -502,12 +648,7 @@ func (wd *WatchDog) EnforceGroupExclusivity(requestedModel string) EnforceLRULim
 	needMore := len(modelsToShutdown) < len(conflicts)
 	wd.Unlock()
 
-	for _, m := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(m); err != nil {
-			xlog.Error("[WatchDog] error shutting down model during group eviction", "error", err, "model", m)
-		}
-		xlog.Debug("[WatchDog] Group eviction complete", "model", m)
-	}
+	wd.shutdownEvicted(modelsToShutdown, "group eviction")
 
 	if needMore {
 		xlog.Warn("[WatchDog] Group eviction incomplete", "requested", requestedModel, "evicted", len(modelsToShutdown), "needed", len(conflicts), "skippedBusy", skippedBusyCount, "reason", "some conflicts are busy or pinned")
@@ -623,12 +764,15 @@ func (wd *WatchDog) checkBusy() {
 	}
 	wd.Unlock()
 
-	// Now shutdown models without holding the watchdog lock to prevent deadlock
+	// The busy-killer targets backends whose in-flight gRPC call has been
+	// stuck past the busy timeout. Use the force path so the loader stops
+	// the process FIRST (dropping the stuck call's gRPC connection) instead
+	// of waiting for the graceful shutdown deadline.
 	for _, model := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(model); err != nil {
+		if err := wd.pm.ShutdownModelForce(model); err != nil {
 			xlog.Error("[watchdog] error shutting down model", "error", err, "model", model)
 		}
-		xlog.Debug("[WatchDog] model shut down", "model", model)
+		xlog.Debug("[WatchDog] busy model shut down", "model", model)
 	}
 }
 
@@ -743,10 +887,20 @@ func (wd *WatchDog) evictLRUModel() {
 
 	xlog.Info("[WatchDog] Memory reclaimer evicting LRU model", "model", lruModel.model, "lastUsed", lruModel.lastUsed)
 
+	// A busy target only gets here when forceEvictionWhenBusy is true, i.e.
+	// the operator accepted evicting models with active calls. Route it
+	// through the force path so the loader stops the process first instead
+	// of blocking on the stuck in-flight call while holding its mutex.
+	_, wasBusy := wd.busyTime[lruModel.address]
+
 	wd.Unlock()
 
 	// Shutdown the model
-	if err := wd.pm.ShutdownModel(lruModel.model); err != nil && err != modelNotFoundErr {
+	shutdown := wd.pm.ShutdownModel
+	if wasBusy {
+		shutdown = wd.pm.ShutdownModelForce
+	}
+	if err := shutdown(lruModel.model); err != nil && !errors.Is(err, ErrModelNotFound) {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
 	} else {
 		// Untrack the model
@@ -762,6 +916,9 @@ func (wd *WatchDog) untrack(address string) {
 		delete(wd.modelSizes, modelID)
 	}
 	delete(wd.busyTime, address)
+	delete(wd.inFlight, address)
+	delete(wd.requestStarts, address)
+	delete(wd.legacyRequests, address)
 	delete(wd.idleTime, address)
 	delete(wd.lastUsed, address)
 	delete(wd.addressModelMap, address)

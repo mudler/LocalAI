@@ -217,7 +217,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/audio/classification", soundClassificationHandler, soundClassificationMiddleware...)
 	app.POST("/audio/classification", soundClassificationHandler, soundClassificationMiddleware...)
 
-	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	audioSpeechHandler := localai.TTSEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.VoiceProfileStore())
 	audioSpeechMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		traceMiddleware,

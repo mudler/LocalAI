@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/xlog"
 )
 
 func RegisterOpenResponsesRoutes(app *echo.Echo,
@@ -19,6 +20,16 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	var natsClient mcpTools.MCPNATSClient
 	if d := application.Distributed(); d != nil {
 		natsClient = d.Nats
+
+		// Replicate response metadata across frontend replicas and subscribe to
+		// delegated cancels. Without this a GET, a previous_response_id lookup or
+		// a cancel that the load balancer sends to a replica other than the
+		// creator 404s, and the cancel never reaches the CancelFunc (#10993).
+		// Standalone deployments skip this entirely and stay process-local.
+		if err := openresponses.GetGlobalStore().EnableDistributed(
+			application.ApplicationConfig().Context, d.Nats, application.InstanceID()); err != nil {
+			xlog.Error("Failed to enable cross-replica Open Responses store", "error", err)
+		}
 	}
 
 	// Open Responses API endpoint

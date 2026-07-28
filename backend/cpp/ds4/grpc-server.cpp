@@ -51,6 +51,11 @@ namespace {
 
 // Global state - ds4 is single-engine-per-process by design.
 std::mutex g_engine_mu;
+// The ModelOptions.Model this process loaded, compared against
+// PredictOptions.ModelIdentity so a request that arrived through a stale
+// distributed route is rejected rather than answered from the wrong model
+// (#10952). Guarded by g_engine_mu like the rest of the engine state.
+std::string g_loaded_model_identity;
 ds4_engine *g_engine = nullptr;
 ds4_session *g_session = nullptr;
 int g_ctx_size = 32768;
@@ -562,6 +567,24 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
     ds4_chat_append_assistant_prefix(engine, out, think);
 }
 
+// check_model_identity mirrors pkg/grpc/server.go and
+// backend/python/common/model_identity.py. Either side empty means "skip": the
+// request side is empty for a controller that predates the field, the loaded
+// side when such a controller performed the load. A false rejection is worse
+// than the miss it prevents. Callers must already hold g_engine_mu.
+static GStatus check_model_identity(const backend::PredictOptions *request) {
+    if (request == nullptr || request->modelidentity().empty()) return GStatus::OK;
+    if (g_loaded_model_identity.empty() ||
+        g_loaded_model_identity == request->modelidentity()) {
+        return GStatus::OK;
+    }
+    // NOT_FOUND plus this exact sentinel is the cross-language contract the
+    // router matches on (grpcerrors.ModelMismatchSentinel).
+    return GStatus(StatusCode::NOT_FOUND,
+                   "ds4: model identity mismatch: loaded \"" + g_loaded_model_identity +
+                   "\", requested \"" + request->modelidentity() + "\"");
+}
+
 class DS4Backend final : public backend::Backend::Service {
 public:
     GStatus Health(ServerContext *, const backend::HealthMessage *,
@@ -716,6 +739,7 @@ public:
         }
 
         result->set_success(true);
+        g_loaded_model_identity = request->model();
         result->set_message("loaded " + model_path);
         return GStatus::OK;
     }
@@ -724,6 +748,7 @@ public:
                           backend::TokenizationResponse *response) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (!g_engine) return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        if (GStatus id = check_model_identity(request); !id.ok()) return id;
         ds4_tokens out = {};
         ds4_tokenize_text(g_engine, request->prompt().c_str(), &out);
         for (int i = 0; i < out.len; ++i) response->add_tokens(out.v[i]);
@@ -738,6 +763,7 @@ public:
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
+        if (GStatus id = check_model_identity(request); !id.ok()) return id;
         if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
             return GStatus(StatusCode::UNAVAILABLE, route_err);
         }
@@ -837,6 +863,7 @@ public:
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
+        if (GStatus id = check_model_identity(request); !id.ok()) return id;
         if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
             return GStatus(StatusCode::UNAVAILABLE, route_err);
         }

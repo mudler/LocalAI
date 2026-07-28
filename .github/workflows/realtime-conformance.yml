@@ -54,7 +54,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: false
       - name: Cache FizzBee
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .tools/fizzbee
           key: fizzbee-v0.5.2-${{ runner.os }}-${{ hashFiles('formal-verification/fizzbee.sha256') }}

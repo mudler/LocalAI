@@ -109,7 +109,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		if !slices.Contains(modelNames, modelName) {
 			utils.ResetDownloadTimers()
 			// if we failed to load the model, we try to download it
-			err := gallery.InstallModelFromGallery(ctx, o.Galleries, o.BackendGalleries, o.SystemState, loader, modelName, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries, o.RequireBackendIntegrity)
+			err := gallery.InstallModelFromGallery(ctx, o.Galleries, o.BackendGalleries, o.SystemState, loader, modelName, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries, o.RequireBackendIntegrity, gallery.WithArtifactMaterializer(o.ModelArtifactMaterializer))
 			if err != nil {
 				xlog.Error("failed to install model from gallery", "error", err, "model", modelFile)
 				//return nil, err
@@ -463,7 +463,9 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			r, err := regexp.Compile(c)
 			if err != nil {
-				xlog.Fatal("failed to compile regex", "error", err)
+				mu.Unlock()
+				xlog.Error("failed to compile cutstrings regex, skipping", "error", err, "regex", c)
+				continue
 			}
 			cutstrings[c] = r
 			reg = cutstrings[c]
@@ -480,7 +482,9 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			regex, err := regexp.Compile(r)
 			if err != nil {
-				xlog.Fatal("failed to compile regex", "error", err)
+				mu.Unlock()
+				xlog.Error("failed to compile extract_regex regex, skipping", "error", err, "regex", r)
+				continue
 			}
 			cutstrings[r] = regex
 			reg = regex

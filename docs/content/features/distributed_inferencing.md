@@ -1,8 +1,9 @@
 +++
 disableToc = false
 title = "P2P / Federated Inference"
-weight = 15
+weight = 70
 url = "/features/distribute/"
+aliases = ["/features/distribution/"]
 +++
 
 ![Federated vs worker mode: federated routes a whole request to one node; worker shards one model across nodes](/images/diagrams/federated-vs-worker.png)
@@ -10,6 +11,18 @@ url = "/features/distribute/"
 {{% notice tip %}}
 Looking for production-grade horizontal scaling with PostgreSQL and NATS? See [Distributed Mode]({{% relref "features/distributed-mode" %}}).
 {{% /notice %}}
+
+## Choosing a distributed mode
+
+LocalAI can spread inference across multiple machines in three ways. Pick the one that matches your setup:
+
+| Mode | Best for | Guide |
+|------|----------|-------|
+| **P2P / Federated inference** | Ad-hoc clusters, community sharing, quick experimentation. Nodes discover each other via a shared libp2p token, with no central server. | This page |
+| **Distributed Mode (PostgreSQL + NATS)** | Production deployments, Kubernetes, and managed infrastructure. Stateless frontends behind a load balancer, workers self-register, and state lives in PostgreSQL. | [Distributed Mode]({{% relref "features/distributed-mode" %}}) |
+| **MLX distributed** | Apple Silicon clusters running MLX models over the MLX distributed runtime. | [MLX Distributed]({{% relref "features/mlx-distributed" %}}) |
+
+For the low-level protocol and endpoints used by P2P workers, see the [P2P API reference]({{% relref "reference/p2p-api" %}}).
 
 This functionality enables LocalAI to distribute inference requests across multiple worker nodes, improving efficiency and performance. Nodes are automatically discovered and connect via p2p by using a shared token which makes sure the communication is secure and private between the nodes of the network.
 

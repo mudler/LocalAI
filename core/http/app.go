@@ -5,15 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -44,6 +48,29 @@ var embedDirStatic embed.FS
 var reactUI embed.FS
 
 var quietPaths = []string{"/api/operations", "/api/resources", "/healthz", "/readyz"}
+
+// immutableAssetCacheControl is the Cache-Control served for content-hashed
+// build output. The filename changes whenever the content does, so a one-year
+// TTL plus `immutable` is safe and removes both the re-download and the
+// conditional revalidation round-trip.
+const immutableAssetCacheControl = "public, max-age=31536000, immutable"
+
+// applyModelLoadCooldown maps a ModelLoadCooldownError anywhere in err's chain
+// to HTTP 503 with a Retry-After header (whole seconds, floor 1), so a client
+// polling a model whose load recently failed backs off instead of triggering a
+// fresh backend start. If err is not a cooldown error, code is returned as-is.
+func applyModelLoadCooldown(err error, code int, c echo.Context) int {
+	var coolErr *model.ModelLoadCooldownError
+	if !errors.As(err, &coolErr) {
+		return code
+	}
+	secs := int(math.Ceil(coolErr.RetryAfter.Seconds()))
+	if secs < 1 {
+		secs = 1
+	}
+	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	return http.StatusServiceUnavailable
+}
 
 // @title LocalAI API
 // @version 2.0.0
@@ -110,6 +137,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			if errors.As(err, &he) {
 				code = he.Code
 			}
+			code = applyModelLoadCooldown(err, code, c)
 
 			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
@@ -137,6 +165,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			if errors.As(err, &he) {
 				code = he.Code
 			}
+			code = applyModelLoadCooldown(err, code, c)
 			c.NoContent(code)
 		}
 	}
@@ -178,6 +207,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Referrer-Policy). Set early so every response — including 404s and
 	// errors — picks them up.
 	e.Use(httpMiddleware.SecurityHeaders())
+
+	// Gzip responses. Registered before the tracing and handler middlewares so
+	// the response writer it installs sits underneath them: the trace buffer
+	// keeps capturing plaintext while the wire carries the compressed bytes.
+	if !application.ApplicationConfig().DisableHTTPCompression {
+		e.Use(httpMiddleware.Compression(application.ApplicationConfig().HTTPCompressionMinLength))
+	}
 
 	// Custom logger middleware using xlog
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -240,7 +276,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Health Checks should always be exempt from auth, so register these first
-	routes.HealthRoutes(e)
+	routes.HealthRoutes(e, application.Ready)
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.
@@ -420,7 +456,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		ftNats,
 		ftStore,
 	)
-	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), fineTuningMw)
+	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), application, fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
@@ -442,7 +478,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		quantNats,
 		quantStore,
 	)
-	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), quantizationMw)
+	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
 
 	// Node management routes (distributed mode)
 	distCfg := application.ApplicationConfig().Distributed
@@ -489,6 +525,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 				if err != nil {
 					return c.String(http.StatusNotFound, "React UI not built")
 				}
+				// index.html names the content-hashed bundles, so it must never
+				// be cached: a stale copy pins the browser to the previous
+				// deploy's assets.
+				c.Response().Header().Set("Cache-Control", "no-cache")
 				// Inject <base href> for reverse-proxy support; baseURL comes
 				// from attacker-controllable Host / X-Forwarded-Host headers.
 				baseURL := httpMiddleware.BaseURL(c)
@@ -550,8 +590,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 			})
 
 			// Serve React static assets (JS, CSS, etc.) and i18n locale JSONs
-			// from the embedded React build.
-			serveReactSubdir := func(subdir string) echo.HandlerFunc {
+			// from the embedded React build. cacheControl is stamped on every
+			// hit so the browser can reuse the bytes instead of re-fetching
+			// ~1.8 MB of bundle on each navigation.
+			serveReactSubdir := func(subdir, cacheControl string) echo.HandlerFunc {
 				return func(c echo.Context) error {
 					p := subdir + "/" + c.Param("*")
 					f, err := reactFS.Open(p)
@@ -563,14 +605,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 							if contentType == "" {
 								contentType = echo.MIMEOctetStream
 							}
+							if cacheControl != "" {
+								c.Response().Header().Set("Cache-Control", cacheControl)
+							}
 							return c.Stream(http.StatusOK, contentType, f)
 						}
 					}
 					return echo.NewHTTPError(http.StatusNotFound)
 				}
 			}
-			e.GET("/assets/*", serveReactSubdir("assets"))
-			e.GET("/locales/*", serveReactSubdir("locales"))
+			// Vite content-hashes everything under /assets (Manage-DrwQK63f.js),
+			// so a given URL can never change content: cache it for a year and
+			// skip revalidation entirely. Locale JSONs keep stable names, so
+			// they only get a short TTL.
+			e.GET("/assets/*", serveReactSubdir("assets", immutableAssetCacheControl))
+			e.GET("/locales/*", serveReactSubdir("locales", "public, max-age=300"))
 		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())

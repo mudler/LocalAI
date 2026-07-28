@@ -38,9 +38,12 @@ var _ = Describe("GalleryService cancellable persistence across restart", func()
 		// Simulate a progress tick: the live path always marks installs
 		// cancellable while they are downloading/processing.
 		svc.UpdateStatus("op-inflight", &galleryop.OpStatus{
-			Message:     "downloading",
-			Progress:    25,
-			Cancellable: true,
+			Message:      "downloading",
+			Progress:     25,
+			Phase:        "downloading",
+			CurrentBytes: 123,
+			TotalBytes:   456,
+			Cancellable:  true,
 		})
 
 		// A fresh replica boots and hydrates from the store.
@@ -52,5 +55,8 @@ var _ = Describe("GalleryService cancellable persistence across restart", func()
 		Expect(st).ToNot(BeNil(), "the in-flight op must hydrate after a restart")
 		Expect(st.Cancellable).To(BeTrue(),
 			"a still-active install must rehydrate as cancellable so the admin can dismiss it")
+		Expect(st.Phase).To(Equal("downloading"))
+		Expect(st.CurrentBytes).To(Equal(int64(123)))
+		Expect(st.TotalBytes).To(Equal(int64(456)))
 	})
 })

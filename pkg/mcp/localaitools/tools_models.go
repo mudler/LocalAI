@@ -83,7 +83,7 @@ func registerModelTools(s *mcp.Server, client LocalAIClient, opts Options) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolInstallModel,
-		Description: "Install a model from a gallery. Requires explicit user confirmation per safety rule 1. Returns a job id; poll with get_job_status.",
+		Description: "Install a model from a gallery. Some entries offer several variants (quantizations or engines) of the same model; leaving `variant` empty auto-selects the largest one this machine can actually run, which is almost always what the user wants. Set `variant` only when the user names a specific build. Requires explicit user confirmation per safety rule 1. Returns a job id; poll with get_job_status.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args InstallModelRequest) (*mcp.CallToolResult, any, error) {
 		// Empty-string check at the tool layer: the SDK schema validator
 		// only enforces presence, not non-empty, and we want a consistent

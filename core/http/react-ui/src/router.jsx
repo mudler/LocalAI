@@ -43,6 +43,11 @@ const Sound = page('sound', () => import('./pages/Sound'))
 const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
 const Talk = page('talk', () => import('./pages/Talk'))
 const Backends = page('backends', () => import('./pages/Backends'))
+// Only referenced from JSX below, which eslint cannot see without
+// eslint-plugin-react. Suppressed here rather than left to widen the file's
+// warning count; the surrounding page consts predate the lint baseline.
+// eslint-disable-next-line no-unused-vars
+const Activity = page('activity', () => import('./pages/Activity'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
 const P2P = page('p2p', () => import('./pages/P2P'))
@@ -68,6 +73,8 @@ const Quantize = page('quantize', () => import('./pages/Quantize'))
 const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
+const VoiceLibrary = page('voice-library', () => import('./pages/VoiceLibrary'))
+const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
@@ -149,6 +156,8 @@ const appChildren = [
     element: <ConsoleLayout config={operateConsole} />,
     children: [
       { path: 'backends', element: <Admin><Backends /></Admin> },
+      { path: 'activity', element: <Admin><Activity /></Admin> },
+      { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
@@ -166,6 +175,7 @@ const appChildren = [
 
   // Models management (Install Models) — top-level destination, full-width.
   { path: 'models', element: <Admin><Models /></Admin> },
+  { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },

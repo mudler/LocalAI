@@ -51,7 +51,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	ml.SetBackendLoggingEnabled(true)
 
 	// Register already-installed backends
-	gallery.RegisterBackends(systemState, ml)
+	if err := gallery.RegisterBackends(systemState, ml); err != nil {
+		return fmt.Errorf("registering installed backends: %w", err)
+	}
 
 	// Parse galleries config
 	var galleries []config.Gallery
@@ -147,7 +149,12 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
 	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
-	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, ml.BackendLogs())
+	// The readiness gate is created here but only armed once NATS is up, below.
+	// Until then /readyz reports ready, which is correct: reaching this line
+	// means the worker has already registered with the frontend, so it is
+	// mid-startup rather than broken.
+	readiness := &nodes.WorkerReadiness{}
+	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -160,6 +167,11 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}
 	defer natsClient.Close()
+
+	// Arm the readiness gate now that the worker can actually receive work.
+	// From here /readyz tracks the live NATS link, so a worker that is up but
+	// cut off from the bus reports 503 instead of a meaningless 200 (#10987).
+	readiness.Set(nodes.NATSReadiness(natsClient))
 
 	// Start heartbeat goroutine (after NATS is connected so IsConnected check works)
 	go func() {
@@ -190,26 +202,36 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Set the registration token once before any backends are started
 	if cfg.RegistrationToken != "" {
-		os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken)
+		if err := os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken); err != nil {
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("setting backend authentication token: %w", err)
+		}
 	}
 
 	supervisor := &backendSupervisor{
-		cfg:         cfg,
-		ml:          ml,
-		systemState: systemState,
-		galleries:   galleries,
-		nodeID:      nodeID,
-		nats:        natsClient,
-		sigCh:       sigCh,
-		processes:   make(map[string]*backendProcess),
-		nextPort:    basePort,
+		cfg:          cfg,
+		ml:           ml,
+		systemState:  systemState,
+		galleries:    galleries,
+		nodeID:       nodeID,
+		nats:         natsClient,
+		sigCh:        sigCh,
+		processes:    make(map[string]*backendProcess),
+		portAffinity: make(map[string]portOwnership),
+		nextPort:     basePort,
+		minPort:      basePort,
+		maxPort:      cfg.effectiveMaxPort(basePort),
 	}
-	supervisor.subscribeLifecycleEvents()
+	if err := supervisor.subscribeLifecycleEvents(); err != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
+	}
 
 	// Subscribe to file staging NATS subjects if S3 is configured
 	if cfg.StorageURL != "" {
 		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
-			xlog.Error("Failed to subscribe to file staging subjects", "error", err)
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("subscribing to file staging subjects: %w", err)
 		}
 	}
 
@@ -228,7 +250,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Shutting down worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	regClient.GracefulDeregister(nodeID)
-	supervisor.stopAllBackends()
+	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return runErr
 }

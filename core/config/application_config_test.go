@@ -648,4 +648,11 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(appConfig.SingleBackend).To(BeFalse()) // 3 != 1, so single backend is false
 		})
 	})
+
+	Describe("SetVRAMBudget", func() {
+		It("stores the VRAM budget via SetVRAMBudget", func() {
+			o := NewApplicationConfig(SetVRAMBudget("80%"))
+			Expect(o.VRAMBudget).To(Equal("80%"))
+		})
+	})
 })

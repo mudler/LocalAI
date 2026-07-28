@@ -249,7 +249,6 @@ var grandfatheredUnregistered = []string{
 	"trimspace",
 	"trimsuffix",
 	"trust_remote_code",
-	"tts.audio_path",
 	"type",
 	"yarn_attn_factor",
 	"yarn_beta_fast",

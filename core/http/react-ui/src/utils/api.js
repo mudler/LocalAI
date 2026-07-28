@@ -85,12 +85,22 @@ export const modelsApi = {
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
-  install: (id) => postJSON(API_CONFIG.endpoints.installModel(id), {}),
+  // variant is optional. Omitting it lets the server auto-select the best
+  // build for this host, which is what the listing's auto_variant predicted.
+  install: (id, variant) => postJSON(
+    variant
+      ? `${API_CONFIG.endpoints.installModel(id)}?variant=${encodeURIComponent(variant)}`
+      : API_CONFIG.endpoints.installModel(id),
+    {}
+  ),
   delete: (id) => postJSON(API_CONFIG.endpoints.deleteModel(id), {}),
   estimate: (id, contexts) => fetchJSON(
     buildUrl(API_CONFIG.endpoints.modelEstimate(id),
       contexts?.length ? { contexts: contexts.join(',') } : {})
   ),
+  // Companion to estimate: the listing reports only has_variants, so the
+  // description is fetched per entry, on demand.
+  variants: (id) => fetchJSON(API_CONFIG.endpoints.modelVariants(id)),
   getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),
@@ -164,6 +174,8 @@ export const operationsApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.operations),
   cancel: (jobID) => postJSON(API_CONFIG.endpoints.cancelOperation(jobID), {}),
   dismiss: (jobID) => postJSON(API_CONFIG.endpoints.dismissOperation(jobID), {}),
+  history: () => fetchJSON(API_CONFIG.endpoints.operationsHistory),
+  clearHistory: () => fetchJSON(API_CONFIG.endpoints.operationsHistory, { method: 'DELETE' }),
 }
 
 // Settings API
@@ -200,10 +212,29 @@ export const backendLogsApi = {
 }
 
 // Traces API
+//
+// The list endpoints return a bounded page with the heavy request/response
+// bodies stripped; the total buffered count arrives in X-Total-Count and the
+// full record is fetched per trace when a row is expanded. Polling the
+// unbounded form used to move tens of megabytes every few seconds.
+export const DEFAULT_TRACE_PAGE_SIZE = 50
+
+async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offset = 0, full = false } = {}) {
+  const response = await fetch(buildUrl(endpoint, { limit, offset, full: full ? 'true' : undefined }), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const items = await handleResponse(response)
+  const list = Array.isArray(items) ? items : []
+  const total = parseInt(response.headers.get('X-Total-Count') || '', 10)
+  return { items: list, total: Number.isNaN(total) ? list.length : total }
+}
+
 export const tracesApi = {
-  get: () => fetchJSON(API_CONFIG.endpoints.traces),
+  get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
+  getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
-  getBackend: () => fetchJSON(API_CONFIG.endpoints.backendTraces),
+  getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
+  getBackendOne: (id) => fetchJSON(API_CONFIG.endpoints.backendTrace(id)),
   clearBackend: () => postJSON(API_CONFIG.endpoints.clearBackendTraces, {}),
 }
 
@@ -285,6 +316,21 @@ async function postMultipartAudioBlob(endpoint, formData) {
 export const ttsApi = {
   generate: (body) => postAudioBlob(API_CONFIG.endpoints.tts, body),
   generateV1: (body) => postAudioBlob(API_CONFIG.endpoints.audioSpeech, body),
+}
+
+// Reusable voice-cloning profiles. The browser uploads multipart PCM-WAV;
+// list/preview are available to TTS-authorized users while mutations are
+// enforced as admin-only by the server.
+export const voiceProfilesApi = {
+  list: () => fetchJSON('/api/voice-profiles'),
+  create: (formData) => fetch(apiUrl('/api/voice-profiles'), {
+    method: 'POST',
+    body: formData,
+  }).then(handleResponse),
+  delete: (id) => fetch(apiUrl(`/api/voice-profiles/${enc(id)}`), {
+    method: 'DELETE',
+  }).then(handleResponse),
+  audioUrl: (id) => apiUrl(`/api/voice-profiles/${enc(id)}/audio`),
 }
 
 // Sound generation
@@ -552,6 +598,11 @@ export const nodesApi = {
     ...(opts.alias ? { alias: opts.alias } : {}),
     ...(opts.backend_galleries ? { backend_galleries: opts.backend_galleries } : {}),
   }),
+  // upgradeBackend force-reinstalls a gallery backend on a single node. This
+  // is a distinct endpoint from installBackend: the worker treats install as
+  // "ensure installed" and no-ops when the backend already exists on disk,
+  // so an upgrade dispatched through install would silently do nothing.
+  upgradeBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsUpgrade(id), { backend }),
   deleteBackend: (id, backend) => postJSON(API_CONFIG.endpoints.nodeBackendsDelete(id), { backend }),
   getBackendLogs: (id) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogs(id)),
   getBackendLogLines: (id, modelId) => fetchJSON(API_CONFIG.endpoints.nodeBackendLogsModel(id, modelId)),
@@ -568,6 +619,17 @@ export const nodesApi = {
     body: JSON.stringify({ value }),
   }),
   resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
+    method: 'DELETE',
+  }),
+  // Set a sticky admin override for the per-node VRAM allocation budget. The
+  // value is a string ("80%" or "12GB"); resolution to a byte ceiling happens
+  // server-side. Call resetVramBudget to clear the override entirely.
+  updateVramBudget: (id, value) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }),
+  resetVramBudget: (id) => fetchJSON(API_CONFIG.endpoints.nodeVramBudget(id), {
     method: 'DELETE',
   }),
   listScheduling: () => fetchJSON(API_CONFIG.endpoints.nodesScheduling),

@@ -12,12 +12,16 @@ ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 ENV DEBIAN_FRONTEND=noninteractive
 
+# hwdata ships /usr/share/hwdata/pci.ids. Without it, the ghw library we use
+# for hardware detection cannot resolve PCI vendor IDs and fails to enumerate
+# GPUs at all, so the image reports "No GPU detected" (see issue #10941).
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        ffmpeg libopenblas0 libopenblas-dev libopus0 sox && \
+        ffmpeg libopenblas0 libopenblas-dev libopus0 sox \
+        hwdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -389,7 +393,12 @@ RUN go install github.com/mikefarah/yq/v4@latest
 # If you cannot find a more suitable place for an addition, this layer is a suitable place for it.
 FROM requirements-drivers
 
-ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
+# Optional override for the HEALTHCHECK target. Left empty so healthcheck.sh
+# derives the endpoint from the mode the container is actually running — the
+# same image runs `local-ai run` (HTTP on 8080) and `local-ai worker` (HTTP on
+# the gRPC base port minus one), and a hardcoded default marked every worker
+# permanently unhealthy (#10987). Set it to pin an explicit URL.
+ENV HEALTHCHECK_ENDPOINT=""
 
 ARG CUDA_MAJOR_VERSION=12
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -399,6 +408,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 WORKDIR /
 
 COPY ./entrypoint.sh .
+COPY ./scripts/build/healthcheck.sh .
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
@@ -409,9 +419,22 @@ RUN --mount=from=builder,src=/build/,dst=/mnt/build \
 # Make sure the models directory exists
 RUN mkdir -p /models /backends /data
 
-# Define the health check command
-HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
-  CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
+# Define the health check command.
+#
+# --start-period is the knob for slow starts, not --timeout/--retries. Since
+# #10949 a frontend's startup preload materializes HuggingFace artifacts before
+# the HTTP server binds (31 GB observed on a live cluster), so a healthy replica
+# can legitimately fail probes for a long time. Failures inside the start period
+# leave the container `starting` instead of burning retries, and the period ends
+# early on the first success — so a generous value costs a fast-starting
+# container nothing. A process that actually died is handled by the restart
+# policy, not by health.
+#
+# --timeout is a per-probe deadline: 10m meant a wedged probe could hang for ten
+# minutes and stretch detection without bound. A localhost curl that has not
+# answered in 10s is itself the fault being detected.
+HEALTHCHECK --start-period=60m --interval=1m --timeout=10s --retries=3 \
+  CMD /healthcheck.sh
 
 VOLUME /models /backends /configuration /data
 EXPOSE 8080

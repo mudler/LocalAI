@@ -23,7 +23,8 @@
     "cluster": "Cluster",
     "observability": "Observability",
     "access": "Access",
-    "system": "System"
+    "system": "System",
+    "activity": "Activity"
   },
   "items": {
     "home": "Home",
@@ -49,13 +50,15 @@
     "users": "Users",
     "middleware": "Middleware",
     "backends": "Backends",
+    "voiceLibrary": "Voice Library",
     "traces": "Traces",
     "nodes": "Nodes",
     "scheduling": "Scheduling",
     "swarm": "Swarm",
     "system": "System",
     "settings": "Settings",
-    "api": "API"
+    "api": "API",
+    "activity": "Activity"
   },
   "footer": {
     "github": "GitHub",
@@ -65,6 +68,8 @@
   },
   "console": {
     "automation": "Automation",
-    "training": "Training"
+    "training": "Training",
+    "expandNavigation": "Expand {{section}} navigation",
+    "collapseNavigation": "Collapse {{section}} navigation"
   }
 }

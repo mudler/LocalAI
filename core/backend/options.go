@@ -7,14 +7,16 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
-	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
 )
@@ -93,8 +95,9 @@ func recordModelLoadFailure(appConfig *config.ApplicationConfig, modelName, back
 func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 	seen := make(map[string]bool)
 	input := vram.ModelEstimateInput{}
+	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
 
-	addFile := func(uri string) {
+	addFile := func(uri string, size int64) {
 		if !vram.IsWeightFile(uri) {
 			return
 		}
@@ -106,7 +109,7 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 			return
 		}
 		seen[resolved] = true
-		input.Files = append(input.Files, vram.FileInput{URI: resolved})
+		input.Files = append(input.Files, vram.FileInput{URI: resolved, Size: size})
 	}
 
 	// tryHFRepo resolves any huggingface:// or hf:// URI to an HTTPS URL and
@@ -123,13 +126,30 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 
 	for _, f := range c.DownloadFiles {
 		uriStr := string(f.URI)
-		addFile(uriStr)
-		tryHFRepo(uriStr)
+		addFile(uriStr, 0)
+		if !managedPrimary {
+			tryHFRepo(uriStr)
+		}
 	}
-	addFile(c.Model)
-	tryHFRepo(c.Model)
+	if managedPrimary {
+		// The snapshot directory is derived from the cache key, not from
+		// ModelFileName(): for a single-file artifact ModelFileName() resolves to
+		// the file inside the snapshot, whereas the manifest and every artifact
+		// file live relative to the snapshot directory itself.
+		if snapshotDir, err := modelartifacts.RelativeSnapshotPath(c.Artifacts[0].Resolved.CacheKey); err == nil {
+			manifest, err := modelartifacts.ReadManifest(filepath.Join(modelsPath, filepath.Dir(snapshotDir), "manifest.json"))
+			if err == nil {
+				for _, file := range manifest.Files {
+					addFile(filepath.Join(snapshotDir, filepath.FromSlash(file.Path)), file.Size)
+				}
+			}
+		}
+	} else {
+		addFile(c.Model, 0)
+		tryHFRepo(c.Model)
+	}
 	if c.MMProj != "" {
-		addFile(c.MMProj)
+		addFile(c.MMProj, 0)
 	}
 
 	if len(input.Files) == 0 && input.HFRepo == "" {
@@ -152,6 +172,10 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithModel(c.Model),
 		model.WithContext(so.Context),
 		model.WithModelID(c.ModelID()),
+	}
+	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
+	if managedPrimary {
+		defOpts = append(defOpts, model.WithModelFile(c.ModelFileName()))
 	}
 
 	threads := 1
@@ -215,9 +239,12 @@ const (
 )
 
 // EffectiveContextSize is the context window the backend will run with: the
-// configured value, or DefaultContextSize when unset.
+// configured value, or DefaultContextSize when unset. A negative value (the
+// context_size: -1 auto-max sentinel) that survived config resolution, e.g. on
+// a backend that never ran the GGUF resolver, is clamped here so a negative
+// n_ctx never reaches a backend.
 func EffectiveContextSize(c config.ModelConfig) int {
-	if c.ContextSize != nil {
+	if c.ContextSize != nil && *c.ContextSize > 0 {
 		return *c.ContextSize
 	}
 	return DefaultContextSize
@@ -252,6 +279,48 @@ func EffectiveBatchSize(c config.ModelConfig) int {
 		return config.SinglePassBatchForContext(localGPU(), ctx)
 	}
 	return DefaultBatchSize
+}
+
+// withCompanionArtifactOptions surfaces each resolved companion snapshot to the
+// backend as "<artifact name>:<snapshot path>", reusing the key:value option
+// convention backends already parse.
+//
+// The value is deliberately relative to the models directory and deliberately
+// not persisted to the config YAML. It is derived from a content-addressed cache
+// key that only exists after the artifact resolves, so a static gallery override
+// could not carry it, and a persisted copy would rot the moment a re-resolve
+// produced a new key. Staying relative also lets a remote worker resolve it
+// under its own ModelPath after staging rewrites the model root.
+//
+// An option the author set explicitly always wins: pinning a companion to a
+// local checkout has to beat the managed snapshot.
+func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.Spec) []string {
+	configured := make(map[string]struct{}, len(options))
+	for _, option := range options {
+		if name, _, found := strings.Cut(option, ":"); found {
+			configured[name] = struct{}{}
+		}
+	}
+
+	// Copy before appending: opts.Options would otherwise share (and could
+	// reallocate away from) the config's own slice.
+	combined := slices.Clone(options)
+	for _, artifact := range artifacts {
+		if artifact.Target != modelartifacts.TargetCompanion || artifact.Resolved == nil {
+			continue
+		}
+		if _, exists := configured[artifact.Name]; exists {
+			xlog.Debug("keeping the configured companion option over the managed snapshot", "artifact", artifact.Name)
+			continue
+		}
+		snapshot, err := modelartifacts.RelativeSnapshotPath(artifact.Resolved.CacheKey)
+		if err != nil {
+			xlog.Warn("skipping companion artifact with an unusable cache key", "artifact", artifact.Name, "error", err)
+			continue
+		}
+		combined = append(combined, artifact.Name+":"+snapshot)
+	}
+	return combined
 }
 
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
@@ -344,7 +413,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		IMG2IMG:              c.Diffusers.IMG2IMG,
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
-		Options:              c.Options,
+		Options:              withCompanionArtifactOptions(c.Options, c.Artifacts),
 		Overrides:            c.Overrides,
 		EngineArgs:           engineArgsJSON,
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
@@ -406,6 +475,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			ApiKeyFile:            c.Proxy.APIKeyFile,
 			UpstreamModel:         c.Proxy.UpstreamModel,
 			RequestTimeoutSeconds: int32(c.Proxy.RequestTimeoutSeconds),
+			CachePrompt:           c.Proxy.CachePrompt,
 		}
 	}
 
@@ -445,6 +515,13 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 	}
 
 	pbOpts := &pb.PredictOptions{
+		// c.Model, not c.ModelID()/c.ModelFileName(): this must be the SAME
+		// expression ModelOptions feeds to model.WithModel, which is what the
+		// backend receives as ModelOptions.Model at LoadModel time. Both are
+		// read from this same config value, so the backend's equality check
+		// cannot false-reject. See PredictOptions.ModelIdentity in
+		// backend/backend.proto and #10952.
+		ModelIdentity:       c.Model,
 		Temperature:         float32(*c.Temperature),
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,

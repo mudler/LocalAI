@@ -359,6 +359,47 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 			Expect(upgrades).To(HaveKey("my-backend-development"))
 			Expect(upgrades).NotTo(HaveKey("my-alias"))
 		})
+
+		// Hardware-specific backends live on GPU worker nodes while the
+		// controller is typically a CPU-only pod. The gallery candidate set
+		// must therefore NOT be filtered by the controller's own capability:
+		// doing so drops every cuda/rocm/l4t entry, FindGalleryElement
+		// returns nil, and the backend is silently skipped. Observed live:
+		// 48 installed backends, only 5 (all CPU) ever evaluated, while
+		// cuda13-nvidia-l4t-arm64-longcat-video-development sat two versions
+		// behind on a worker.
+		It("flags a GPU-only backend installed on a worker even though the controller is CPU-only", func() {
+			cpuOnlyState := system.NewCapabilityState("default",
+				system.WithBackendPath(backendsPath))
+
+			writeGalleryYAML([]GalleryBackend{
+				{
+					Metadata: Metadata{Name: "cuda13-nvidia-l4t-arm64-longcat-video-development"},
+					URI:      filepath.Join(tempDir, "gpu-source"),
+					Version:  "2.0.0",
+				},
+			})
+
+			installed := SystemBackends{
+				"cuda13-nvidia-l4t-arm64-longcat-video-development": SystemBackend{
+					Name: "cuda13-nvidia-l4t-arm64-longcat-video-development",
+					Metadata: &BackendMetadata{
+						Name:    "cuda13-nvidia-l4t-arm64-longcat-video-development",
+						Version: "1.0.0",
+					},
+					Nodes: []NodeBackendRef{
+						{NodeID: "a", NodeName: "gpu-worker-1", Version: "1.0.0"},
+					},
+				},
+			}
+
+			upgrades, err := CheckUpgradesAgainst(context.Background(), galleries, cpuOnlyState, installed)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(upgrades).To(HaveKey("cuda13-nvidia-l4t-arm64-longcat-video-development"))
+			info := upgrades["cuda13-nvidia-l4t-arm64-longcat-video-development"]
+			Expect(info.InstalledVersion).To(Equal("1.0.0"))
+			Expect(info.AvailableVersion).To(Equal("2.0.0"))
+		})
 	})
 
 	Describe("UpgradeBackend", func() {

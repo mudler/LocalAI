@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # CrispASR version (release tag)
 CRISPASR_REPO?=https://github.com/CrispStrobe/CrispASR
-CRISPASR_VERSION?=09df654e304947f7521e1f52992ceacccf03c300
+CRISPASR_VERSION?=7bb8be77a8c1677e32bba58514bb2d42f29a7a48
 SO_TARGET?=libgocrispasr.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -60,14 +60,21 @@ sources/CrispASR:
 	git remote add origin $(CRISPASR_REPO) && \
 	git fetch origin && \
 	git checkout $(CRISPASR_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
+	git submodule update --init --recursive --depth 1 --single-branch -- \
+		ggml third_party/c2pa-audio
 	# CrispASR's src/CMakeLists.txt locates its vendored llama.cpp
-	# (crispasr-llama-core, used by the chat C-ABI) via ${CMAKE_SOURCE_DIR},
-	# which assumes CrispASR is the top-level CMake project. We add_subdirectory
-	# it, so ${CMAKE_SOURCE_DIR} is THIS backend dir and the talk-llama sources
-	# aren't found. Rewrite to ${PROJECT_SOURCE_DIR} (the crispasr project root),
-	# which is correct both standalone and as a subproject. Idempotent.
-	sed -i.bak 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
+	# (crispasr-llama-core, used by the chat C-ABI), c2pa-audio submodule
+	# (crispasr_c2pa_native, the pure-C++ C2PA signer), and WebRTC VAD via
+	# ${CMAKE_SOURCE_DIR}, which assumes CrispASR is the top-level CMake
+	# project. We add_subdirectory it, so ${CMAKE_SOURCE_DIR} is THIS backend
+	# dir and those sources aren't found. Rewrite to ${PROJECT_SOURCE_DIR}
+	# (the crispasr project root), which is correct both standalone and as a
+	# subproject. Idempotent.
+	sed -i.bak \
+		-e 's#\$${CMAKE_SOURCE_DIR}/examples/talk-llama#\$${PROJECT_SOURCE_DIR}/examples/talk-llama#' \
+		-e 's#\$${CMAKE_SOURCE_DIR}/third_party/c2pa-audio#\$${PROJECT_SOURCE_DIR}/third_party/c2pa-audio#' \
+		-e 's#\$${CMAKE_SOURCE_DIR}/third_party#\$${PROJECT_SOURCE_DIR}/third_party#' \
+		sources/CrispASR/src/CMakeLists.txt && rm -f sources/CrispASR/src/CMakeLists.txt.bak
 
 # Detect OS
 UNAME_S := $(shell uname -s)

@@ -1453,20 +1453,34 @@ func extractImage(image, dest string) {
 
 // downloadFile fetches url into dest using curl -L. Used for CI convenience;
 // local runs can use BACKEND_TEST_MODEL_FILE to skip downloading.
-// Retry flags guard against transient CI network hiccups (github.com in
-// particular has been flaky from GHA runners, timing out TCP connects).
+// Model files can be huge (the vibevoice ASR e2e model is >10 GB), so a
+// wall-clock cap per attempt (--max-time) is the wrong guard: on a slow CDN
+// day no attempt can ever finish, and curl's --retry restarts from byte
+// zero, so repeated attempts make no forward progress (this hung the
+// vibevoice transcription job until the suite timeout). Instead, abort only
+// on a real stall (--speed-limit/--speed-time) and resume from the bytes
+// already on disk (-C -), with the retry loop out here because curl does
+// not re-evaluate the resume offset on its internal retries.
 func downloadFile(url, dest string) {
 	GinkgoHelper()
-	cmd := exec.Command("curl", "-sSfL",
-		"--connect-timeout", "30",
-		"--max-time", "600",
-		"--retry", "5",
-		"--retry-delay", "5",
-		"--retry-all-errors",
-		"-o", dest, url)
-	cmd.Stdout = GinkgoWriter
-	cmd.Stderr = GinkgoWriter
-	Expect(cmd.Run()).To(Succeed(), "failed to download %s", url)
+	var err error
+	for attempt := 1; attempt <= 6; attempt++ {
+		if attempt > 1 {
+			time.Sleep(5 * time.Second)
+		}
+		cmd := exec.Command("curl", "-sSfL",
+			"--connect-timeout", "30",
+			"-C", "-",
+			"--speed-limit", "1048576",
+			"--speed-time", "120",
+			"-o", dest, url)
+		cmd.Stdout = GinkgoWriter
+		cmd.Stderr = GinkgoWriter
+		if err = cmd.Run(); err == nil {
+			break
+		}
+	}
+	Expect(err).NotTo(HaveOccurred(), "failed to download %s", url)
 	fi, err := os.Stat(dest)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(fi.Size()).To(BeNumerically(">", 1024), "downloaded file is suspiciously small")

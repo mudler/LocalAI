@@ -52,7 +52,12 @@
       "size": "크기",
       "advanced": "고급 설정",
       "seed": "시드",
-      "seedPlaceholder": "랜덤"
+      "seedPlaceholder": "랜덤",
+      "frames": "프레임",
+      "referenceMedia": "참조 미디어",
+      "startImage": "시작 이미지",
+      "endImage": "종료 이미지",
+      "avatarAudio": "아바타 오디오"
     },
     "actions": {
       "generate": "생성",

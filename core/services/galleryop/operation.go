@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -43,6 +45,15 @@ type ManagementOp[T any, E any] struct {
 	// build on one node without touching the rest of the cluster.
 	TargetNodeID string
 
+	// Variant pins a model install to one of the gallery entry's declared
+	// variants, by that variant's model name. Empty means auto-select: LocalAI
+	// picks the largest variant this host's backend support and memory can
+	// actually run, and falls back to the entry's own build.
+	//
+	// A name that is not among the entry's variants fails the install rather
+	// than quietly auto-selecting, so a typo cannot masquerade as a choice.
+	Variant string
+
 	// Upgrade is true if this is an upgrade operation (not a fresh install)
 	Upgrade bool
 
@@ -61,6 +72,9 @@ type OpStatus struct {
 	Processed          bool    `json:"processed"`
 	Message            string  `json:"message"`
 	Progress           float64 `json:"progress"`
+	Phase              string  `json:"phase,omitempty"`
+	CurrentBytes       int64   `json:"current_bytes,omitempty"`
+	TotalBytes         int64   `json:"total_bytes,omitempty"`
 	TotalFileSize      string  `json:"file_size"`
 	DownloadedFileSize string  `json:"downloaded_size"`
 	GalleryElementName string  `json:"gallery_element_name"`
@@ -89,6 +103,9 @@ type opStatusWire struct {
 	Processed          bool           `json:"processed"`
 	Message            string         `json:"message"`
 	Progress           float64        `json:"progress"`
+	Phase              string         `json:"phase,omitempty"`
+	CurrentBytes       int64          `json:"current_bytes,omitempty"`
+	TotalBytes         int64          `json:"total_bytes,omitempty"`
 	TotalFileSize      string         `json:"file_size"`
 	DownloadedFileSize string         `json:"downloaded_size"`
 	GalleryElementName string         `json:"gallery_element_name"`
@@ -104,6 +121,9 @@ func (o OpStatus) MarshalJSON() ([]byte, error) {
 		Processed:          o.Processed,
 		Message:            o.Message,
 		Progress:           o.Progress,
+		Phase:              o.Phase,
+		CurrentBytes:       o.CurrentBytes,
+		TotalBytes:         o.TotalBytes,
 		TotalFileSize:      o.TotalFileSize,
 		DownloadedFileSize: o.DownloadedFileSize,
 		GalleryElementName: o.GalleryElementName,
@@ -127,6 +147,9 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 	o.Processed = w.Processed
 	o.Message = w.Message
 	o.Progress = w.Progress
+	o.Phase = w.Phase
+	o.CurrentBytes = w.CurrentBytes
+	o.TotalBytes = w.TotalBytes
 	o.TotalFileSize = w.TotalFileSize
 	o.DownloadedFileSize = w.DownloadedFileSize
 	o.GalleryElementName = w.GalleryElementName
@@ -205,6 +228,11 @@ type OpCache struct {
 	backendOps     *xsync.SyncedMap[string, bool] // Tracks which operations are backend operations
 	galleryService *GalleryService
 
+	// Finished operations, for GET /api/operations/history. started stamps the
+	// start time when an op enters the cache so the record can report duration.
+	history *opHistory
+	started *xsync.SyncedMap[string, time.Time]
+
 	// Distributed sync (nil when standalone).
 	mu    sync.RWMutex
 	nats  messaging.MessagingClient
@@ -217,6 +245,8 @@ func NewOpCache(galleryService *GalleryService) *OpCache {
 		status:         xsync.NewSyncedMap[string, string](),
 		backendOps:     xsync.NewSyncedMap[string, bool](),
 		galleryService: galleryService,
+		history:        newOpHistory(DefaultHistorySize),
+		started:        xsync.NewSyncedMap[string, time.Time](),
 	}
 }
 
@@ -322,6 +352,11 @@ func (m *OpCache) applyStart(evt OpCacheEvent) {
 	if evt.CacheKey == "" || evt.JobID == "" {
 		return
 	}
+	// A retry admitted on a peer arrives as a start event reusing the key, which
+	// strands the stamp of whichever job the key pointed at here. Only the drop
+	// half of stampStart runs: a replicated op deliberately carries no stamp and
+	// reports as zero-length through recordTerminal's finish-time fallback.
+	m.dropReplacedStamp(evt.CacheKey, evt.JobID)
 	m.status.Set(evt.CacheKey, evt.JobID)
 	if evt.IsBackend {
 		m.backendOps.Set(evt.CacheKey, true)
@@ -333,24 +368,52 @@ func (m *OpCache) applyEnd(evt OpCacheEvent) {
 	if evt.JobID == "" {
 		return
 	}
+	// Record before the keys go. The history ring dedupes by job ID, so the
+	// originating replica recording locally and then receiving its own
+	// broadcast still produces one entry.
+	m.recordTerminal(evt.JobID, terminalPeer)
 	for _, k := range m.status.Keys() {
 		if m.status.Get(k) == evt.JobID {
 			m.status.Delete(k)
 			m.backendOps.Delete(k)
 		}
 	}
+	// recordTerminal only drops the stamp on the path where it found a cache
+	// key; an end event that overtakes the local Set finds none. The operation
+	// is over cluster-wide either way, so the stamp goes unconditionally.
+	m.started.Delete(evt.JobID)
 }
 
 func (m *OpCache) Set(key string, value string) {
+	m.stampStart(key, value)
 	m.status.Set(key, value)
 	m.persistAndBroadcastStart(key, value, false)
 }
 
 // SetBackend sets a key-value pair and marks it as a backend operation
 func (m *OpCache) SetBackend(key string, value string) {
+	m.stampStart(key, value)
 	m.status.Set(key, value)
 	m.backendOps.Set(key, true)
 	m.persistAndBroadcastStart(key, value, true)
+}
+
+// stampStart records when jobID started, so the history record can report a
+// duration.
+func (m *OpCache) stampStart(key, jobID string) {
+	m.dropReplacedStamp(key, jobID)
+	m.started.Set(jobID, time.Now())
+}
+
+// dropReplacedStamp forgets the start time of the job a cache key is about to
+// stop pointing at. Retrying an operation reuses the key with a fresh job ID,
+// so without this the map would grow for the lifetime of the process: the
+// callers in ui_api.go are not uniformly guarded by Exists. Must run before
+// status.Set, which is what the previous job ID is read from.
+func (m *OpCache) dropReplacedStamp(key, jobID string) {
+	if prev := m.status.Get(key); prev != "" && prev != jobID {
+		m.started.Delete(prev)
+	}
 }
 
 func (m *OpCache) persistAndBroadcastStart(key, value string, isBackend bool) {
@@ -384,7 +447,173 @@ func (m *OpCache) Get(key string) string {
 	return m.status.Get(key)
 }
 
+// terminalSource is the path that retired an operation. It exists for one
+// decision: what a missing gallery status means. Locally it means the op was
+// queued and removed before anything ran; on the peer path it means this
+// replica never held the outcome, which is a different thing wearing the same
+// signal.
+type terminalSource int
+
+const (
+	terminalLocal terminalSource = iota
+	terminalPeer
+)
+
+// recordTerminal appends a finished operation to the history ring. It must run
+// BEFORE the cache entry is deleted: the gallery key is the only place the
+// display name, the backend flag and the node scoping live.
+//
+// Safe to call for an unknown job ID (no key, no record) and safe to call
+// twice for the same job (the ring dedupes), which is what makes it usable
+// from both the local delete path and the NATS end event.
+func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
+	if jobID == "" {
+		return
+	}
+
+	key := ""
+	for _, k := range m.status.Keys() {
+		if m.status.Get(k) == jobID {
+			key = k
+			break
+		}
+	}
+	if key == "" {
+		return
+	}
+
+	// A replica that restarted mid-operation hydrates its cache keys from
+	// PostgreSQL, but gallery statuses are in-memory only and come back empty.
+	// The end broadcast then arrives with nothing to read the outcome from, and
+	// guessing would file a successful install as cancelled. Record nothing:
+	// absence beats wrong data in a "what just happened" view, and it is exactly
+	// what this replica produced before the end event started recording.
+	status := m.galleryService.GetStatus(jobID)
+	if status == nil && src == terminalPeer {
+		return
+	}
+
+	rec := OpRecord{
+		ID:         key,
+		JobID:      jobID,
+		IsBackend:  m.backendOps.Get(key),
+		TaskType:   "installation",
+		Outcome:    OutcomeCompleted,
+		FinishedAt: time.Now(),
+	}
+	// hydrateFromStore and applyStart populate status without a stamp, so an op
+	// recovered from PostgreSQL or replicated from a peer has no start time.
+	// Reporting the finish time makes such a record a zero-length operation
+	// rather than one that appears to have run since year one.
+	//
+	// Read the stamp once and reject a zero value rather than testing Exists and
+	// then reading: a concurrent recordTerminal for the same job can delete the
+	// stamp between the two, and the read that follows returns the zero time,
+	// which would overwrite the fallback with year one.
+	rec.StartedAt = rec.FinishedAt
+	if started := m.started.Get(jobID); !started.IsZero() {
+		rec.StartedAt = started
+	}
+
+	rec.Name, rec.NodeID = operationDisplayName(key)
+
+	// Outcome order matters: an error outweighs everything else, because an op
+	// can carry both an error and an unfinished status and the failure is what
+	// the user needs to see.
+	//
+	// An operation that left the cache while it was still unprocessed never got
+	// to finish, so it is not a success. That is what the dismiss endpoint
+	// produces when it fires on an op that is still in flight, and what a status
+	// that exists but never started looks like. The cancel endpoint is already
+	// covered by status.Cancelled, which CancelOperation sets synchronously
+	// before the handler removes the entry.
+	if status != nil {
+		if status.Deletion {
+			rec.TaskType = "deletion"
+		}
+		switch {
+		case status.Error != nil:
+			rec.Outcome = OutcomeFailed
+			rec.Error = status.Error.Error()
+		case status.Cancelled || !status.Processed:
+			rec.Outcome = OutcomeCancelled
+		}
+	} else {
+		// Queued but never started, then removed.
+		rec.Outcome = OutcomeCancelled
+	}
+
+	m.history.add(rec)
+	m.started.Delete(jobID)
+}
+
+// History returns finished operations, newest first.
+//
+// With a gallery store wired the record comes from PostgreSQL, so every replica
+// answers with the same history: the in-memory ring only holds what this
+// replica happened to serve, which makes the page's contents depend on which
+// replica the poll was routed to and leaves a replica added by a scale-out or a
+// rolling deploy blank forever.
+func (m *OpCache) History() []OpRecord {
+	m.mu.RLock()
+	store := m.store
+	m.mu.RUnlock()
+
+	if store == nil {
+		return m.history.list()
+	}
+
+	ops, err := store.ListTerminal(DefaultHistorySize)
+	if err != nil {
+		// A transient database failure must not blank the page. The ring holds
+		// a subset of the same record, so it is a strictly better answer than
+		// nothing.
+		xlog.Warn("OpCache failed to read the operation record; falling back to the local ring", "error", err)
+		return m.history.list()
+	}
+
+	records := make([]OpRecord, 0, len(ops))
+	for _, op := range ops {
+		records = append(records, recordFromStore(op))
+	}
+	return records
+}
+
+// ClearHistory empties the record. Live operations are untouched.
+//
+// With a gallery store wired this clears the record for the whole cluster,
+// which is the only way "Clear history" can mean anything: clearing one
+// replica's ring leaves the record to reappear on the next poll routed
+// elsewhere.
+//
+// The error is returned rather than logged because the caller is an HTTP
+// handler and the rows are what the next read returns: reporting success on a
+// failed delete makes the record vanish from the page and come straight back on
+// the next fetch, with nothing said about why.
+func (m *OpCache) ClearHistory() error {
+	m.mu.RLock()
+	store := m.store
+	m.mu.RUnlock()
+
+	if store == nil {
+		m.history.clear()
+		return nil
+	}
+
+	// Store first: the ring is only ever a fallback for a failed read, so
+	// emptying it before the rows are confirmed gone would report an empty
+	// record while the real one is still there.
+	if err := store.ClearTerminal(); err != nil {
+		return fmt.Errorf("clearing the persisted operation record: %w", err)
+	}
+	m.history.clear()
+	return nil
+}
+
 func (m *OpCache) DeleteUUID(uuid string) {
+	// Before the keys go: they carry the name and the backend flag.
+	m.recordTerminal(uuid, terminalLocal)
+
 	deleted := false
 	for _, k := range m.status.Keys() {
 		if m.status.Get(k) == uuid {
@@ -465,6 +694,25 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 	}
 
 	return processingModelsData, taskTypes
+}
+
+// operationDisplayName reduces an operation key to what the record shows: the
+// node prefix ("node:<nodeID>:") detached into a node ID the page reports
+// separately, and the gallery prefix ("<gallery>@") dropped.
+//
+// The in-memory ring and the store-backed record both go through this, so the
+// same operation cannot end up named two different ways depending on which
+// source answered.
+func operationDisplayName(key string) (name, nodeID string) {
+	name = key
+	if id, backend, ok := ParseNodeScopedKey(key); ok {
+		nodeID = id
+		name = backend
+	}
+	if _, after, found := strings.Cut(name, "@"); found {
+		name = after
+	}
+	return name, nodeID
 }
 
 // NodeScopedKeyPrefix is the opcache key prefix used by InstallBackendOnNodeEndpoint

@@ -16,6 +16,7 @@ const CHIPS = [
   { key: 'asr', label: 'Speech' },
   { key: 'tts', label: 'TTS' },
   { key: 'image', label: 'Image' },
+  { key: 'video', label: 'Video' },
   { key: 'embeddings', label: 'Embeddings' },
   { key: 'reranker', label: 'Rerankers' },
   { key: 'detection', label: 'Detection' },

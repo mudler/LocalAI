@@ -29,6 +29,11 @@ func ImageGeneration(ctx context.Context, height, width, step, seed int, positiv
 		_, err := inferenceModel.GenerateImage(
 			ctx,
 			&proto.GenerateImageRequest{
+				// ModelIdentity is ModelConfig.Model — the SAME expression
+				// ModelOptions feeds to model.WithModel above, which the
+				// backend receives as ModelOptions.Model at LoadModel. Equal
+				// by construction, so the check cannot false-reject (#10952).
+				ModelIdentity:    modelConfig.Model,
 				Height:           int32(height),
 				Width:            int32(width),
 				Step:             int32(step),

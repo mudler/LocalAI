@@ -14,7 +14,7 @@
 # not need a side-checkout.
 
 VOICEDETECT_VERSION?=1db1759572c90faef6f3a78c36b5941a096a9f89
-VOICEDETECT_REPO?=https://github.com/mudler/voice-detect.cpp
+VOICEDETECT_REPO?=https://github.com/localai-org/voice-detect.cpp
 
 GOCMD?=go
 GO_TAGS?=

@@ -21,6 +21,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -197,9 +198,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             backend_pb2.Result: The load model result.
         """
-        engine_args = AsyncEngineArgs(
-            model=request.Model,
-        )
+        model_ref, _local_only = resolve_model_reference(request)
+        engine_args = AsyncEngineArgs(model=model_ref)
 
         if request.Quantization != "":
             engine_args.quantization = request.Quantization
@@ -260,7 +260,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 tokenizer = self.llm.tokenizer
             if tokenizer is None:
                 tokenizer = get_tokenizer(
-                    request.Model,
+                    model_ref,
                     trust_remote_code=bool(request.TrustRemoteCode),
                     truncation_side="left",
                 )

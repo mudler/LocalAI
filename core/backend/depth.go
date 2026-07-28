@@ -40,6 +40,10 @@ func Depth(
 		startTime = time.Now()
 	}
 
+	// Stamped here for the same reason as in rerank.go: the caller builds the
+	// request without a ModelConfig, this function has the one that loaded.
+	in.ModelIdentity = modelConfig.Model
+
 	res, err := depthModel.Depth(ctx, in)
 
 	if appConfig.EnableTracing {

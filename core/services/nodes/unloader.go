@@ -12,13 +12,9 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
-
-// backendStopRequest is the request payload for backend.stop (fire-and-forget).
-type backendStopRequest struct {
-	Backend string `json:"backend"`
-}
 
 // NodeCommandSender abstracts NATS-based commands to worker nodes.
 // Used by HTTP endpoint handlers to avoid coupling to the concrete RemoteUnloaderAdapter.
@@ -76,30 +72,77 @@ func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
 	return a.installTimeout
 }
 
+// Compile-time proof that the adapter still satisfies the loader's optional
+// extensions. Both are consumed via runtime type assertion in deleteProcess, so
+// a signature drift here would silently downgrade behavior — losing force
+// propagation, or making ShutdownModel unable to tell a cluster-wide miss from
+// a completed unload — rather than failing the build.
+var (
+	_ model.RemoteModelUnloader        = (*RemoteUnloaderAdapter)(nil)
+	_ model.RemoteModelContextUnloader = (*RemoteUnloaderAdapter)(nil)
+	_ model.RemoteModelPresenceChecker = (*RemoteUnloaderAdapter)(nil)
+)
+
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
 // to stop their backend process via NATS backend.stop event.
-// The worker process handles: Free() → kill process.
+// The worker process handles a bounded Free() followed by process termination;
+// forced shutdown skips Free().
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
 func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
-	ctx := context.Background()
+	return a.UnloadRemoteModelContext(context.Background(), modelName, false)
+}
+
+// HasRemoteModel reports whether any node currently holds the model. It exists
+// because UnloadRemoteModel is idempotent and so cannot signal "there was
+// nothing to stop"; ShutdownModel consults this first so it can answer 404 for
+// a model loaded neither locally nor anywhere in the cluster, instead of the
+// misleading 500 "model not found" that a local-store miss used to produce.
+func (a *RemoteUnloaderAdapter) HasRemoteModel(ctx context.Context, modelName string) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	nodes, err := a.registry.FindNodesWithModel(ctx, modelName)
-	if err != nil || len(nodes) == 0 {
+	if err != nil {
+		return false, fmt.Errorf("finding nodes with model %q: %w", modelName, err)
+	}
+	return len(nodes) > 0, nil
+}
+
+// UnloadRemoteModelContext is the cancellation-aware extension used by the
+// model loader to preserve forced shutdown across the distributed boundary.
+func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	nodes, err := a.registry.FindNodesWithModel(ctx, modelName)
+	if err != nil {
+		return fmt.Errorf("finding nodes with model %q: %w", modelName, err)
+	}
+	if len(nodes) == 0 {
+		// Unloading is idempotent by contract: cleanup paths (model deletion,
+		// config edits, watchdog eviction) legitimately run against an
+		// already-unloaded model and must not fail. Callers that need to tell
+		// this case apart use HasRemoteModel before unloading.
 		xlog.Debug("No remote nodes found with model", "model", modelName)
 		return nil
 	}
 
+	var unloadErr error
 	for _, node := range nodes {
-		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID)
-		if err := a.StopBackend(node.ID, modelName); err != nil {
+		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
+		if err := a.stopBackend(node.ID, modelName, force); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
+			unloadErr = errors.Join(unloadErr, fmt.Errorf("stopping model on node %s: %w", node.ID, err))
 			continue
 		}
 		// Remove every replica of this model on the node — the worker will
 		// handle the actual process cleanup.
-		a.registry.RemoveAllNodeModelReplicas(ctx, node.ID, modelName)
+		if err := a.registry.RemoveAllNodeModelReplicas(ctx, node.ID, modelName); err != nil {
+			unloadErr = errors.Join(unloadErr, fmt.Errorf("removing model replicas from node %s: %w", node.ID, err))
+		}
 	}
 
-	return nil
+	return unloadErr
 }
 
 // InstallBackend sends a backend.install request-reply to a worker node.
@@ -142,7 +185,9 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	}, a.installTimeout)
 
 	if sub != nil {
-		_ = sub.Unsubscribe()
+		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
+			xlog.Warn("Failed to unsubscribe from backend install progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
+		}
 	}
 
 	if err != nil && isNATSTimeout(err) {
@@ -216,12 +261,17 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 	}, a.upgradeTimeout)
 
 	if sub != nil {
-		_ = sub.Unsubscribe()
+		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
+			xlog.Warn("Failed to unsubscribe from backend upgrade progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
+		}
 	}
 
 	if err != nil && isNATSTimeout(err) {
 		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
 			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	}
+	if err == nil {
+		a.dropStoppedReplicaRows(nodeID, "backend.upgrade", backendType, reply.StoppedProcessKeys, reply.ReportsStoppedProcesses)
 	}
 	return reply, err
 }
@@ -250,7 +300,9 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 	}, a.upgradeTimeout)
 
 	if sub != nil {
-		_ = sub.Unsubscribe()
+		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
+			xlog.Warn("Failed to unsubscribe from legacy backend install progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
+		}
 	}
 
 	if err != nil && isNATSTimeout(err) {
@@ -268,18 +320,32 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	return messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
 }
 
+// ListRunningModels asks a worker node which model backend processes it
+// currently has running, via NATS request-reply.
+//
+// The timeout is short on purpose: the worker answers straight out of its
+// in-memory process table, so a slow reply means the worker itself is in
+// trouble, and the caller treats no-answer as "don't know" rather than as
+// "nothing running".
+func (a *RemoteUnloaderAdapter) ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error) {
+	subject := messaging.SubjectNodeModelsRunning(nodeID)
+	return messaging.RequestJSON[messaging.ModelsRunningRequest, messaging.ModelsRunningReply](
+		a.nats, subject, messaging.ModelsRunningRequest{}, 10*time.Second)
+}
+
 // StopBackend tells a worker node to stop a specific gRPC backend process.
 // If backend is empty, the worker stops ALL backends.
 // The node stays registered and can receive another InstallBackend later.
 func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
+	return a.stopBackend(nodeID, backend, false)
+}
+
+func (a *RemoteUnloaderAdapter) stopBackend(nodeID, backend string, force bool) error {
 	subject := messaging.SubjectNodeBackendStop(nodeID)
-	if backend == "" {
+	if backend == "" && !force {
 		return a.nats.Publish(subject, nil)
 	}
-	req := struct {
-		Backend string `json:"backend"`
-	}{Backend: backend}
-	return a.nats.Publish(subject, req)
+	return a.nats.Publish(subject, messaging.BackendStopRequest{Backend: backend, Force: force})
 }
 
 // DeleteBackend tells a worker node to delete a backend (stop + remove files).
@@ -287,7 +353,55 @@ func (a *RemoteUnloaderAdapter) DeleteBackend(nodeID, backendName string) (*mess
 	subject := messaging.SubjectNodeBackendDelete(nodeID)
 	xlog.Info("Sending NATS backend.delete", "nodeID", nodeID, "backend", backendName)
 
-	return messaging.RequestJSON[messaging.BackendDeleteRequest, messaging.BackendDeleteReply](a.nats, subject, messaging.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
+	reply, err := messaging.RequestJSON[messaging.BackendDeleteRequest, messaging.BackendDeleteReply](a.nats, subject, messaging.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
+	if err != nil {
+		return reply, err
+	}
+	a.dropStoppedReplicaRows(nodeID, "backend.delete", backendName, reply.StoppedProcessKeys, reply.ReportsStoppedProcesses)
+	return reply, nil
+}
+
+// dropStoppedReplicaRows removes the NodeModel rows addressing processes a
+// worker just terminated.
+//
+// Why eagerly, rather than leaving it to the existing health checks: stopping a
+// process returns its gRPC port to the worker's allocator, and the next backend
+// started there can be handed that same port. Until the row is gone it names a
+// live address, so both SmartRouter.probeHealth and the HealthMonitor per-model
+// probe — which verify liveness, not identity — pass against whatever now
+// occupies the port, and the request is served by the wrong backend rather than
+// failing. Nothing else on the delete/upgrade path tells the controller the
+// address just became invalid, unlike model.unload which drops its rows itself.
+//
+// reported=false means the worker predates this reply field. Its empty list is
+// then indistinguishable from "stopped nothing", so it must NOT be read as a
+// completed cleanup: leave the rows alone and fall back to the probe-based
+// staleness recovery that was the only mechanism before this change.
+func (a *RemoteUnloaderAdapter) dropStoppedReplicaRows(nodeID, op, backendName string, processKeys []string, reported bool) {
+	if !reported {
+		xlog.Debug("Worker did not report stopped processes; relying on probe-based staleness recovery",
+			"nodeID", nodeID, "op", op, "backend", backendName)
+		return
+	}
+	ctx := context.Background()
+	for _, key := range processKeys {
+		modelName, replicaIndex, ok := model.ParseBackendProcessKey(key)
+		if !ok {
+			// Acting on a guess could evict the row of a healthy sibling replica.
+			xlog.Warn("Ignoring unparseable process key reported by worker",
+				"nodeID", nodeID, "op", op, "backend", backendName, "processKey", key)
+			continue
+		}
+		xlog.Info("Dropping replica row for a process the worker stopped",
+			"nodeID", nodeID, "op", op, "backend", backendName, "model", modelName, "replica", replicaIndex)
+		if err := a.registry.RemoveNodeModel(ctx, nodeID, modelName, replicaIndex); err != nil {
+			// Best-effort: probe-based recovery remains the backstop, and failing
+			// the operator's delete over a bookkeeping error would be worse than
+			// the stale row this prevents.
+			xlog.Warn("Failed to drop replica row for a stopped process",
+				"nodeID", nodeID, "op", op, "model", modelName, "replica", replicaIndex, "error", err)
+		}
+	}
 }
 
 // UnloadModelOnNode sends a model.unload request to a specific node.

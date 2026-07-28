@@ -29,6 +29,11 @@ func ApplyServingDefaults(cfg *ModelConfig) {
 	if cfg == nil {
 		return
 	}
+	// cache_reuse is a llama.cpp server option; a backend that strictly
+	// validates its options rejects it. Only inject it on the llama.cpp path.
+	if !UsesLlamaCppServingOptions(cfg.Backend) {
+		return
+	}
 	if !backendOptionSet(cfg.Options, "cache_reuse", "n_cache_reuse") {
 		cfg.Options = append(cfg.Options, fmt.Sprintf("cache_reuse:%d", DefaultCacheReuse))
 		xlog.Debug("[serving_defaults] enabling cross-request prefix cache",

@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/joho/godotenv"
 	"github.com/mudler/LocalAI/core/cli"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/xlog"
 
@@ -65,8 +66,8 @@ For documentation and support:
 			// denied". See cli.DefaultGeneratedContentPath.
 			"generatedcontentpath": cli.DefaultGeneratedContentPath(),
 			"uploadpath":           cli.DefaultUploadPath(),
-			"galleries":            `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`,
-			"backends":             `[{"name":"localai", "url":"github:mudler/LocalAI/backend/index.yaml@master"}]`,
+			"galleries":            config.DefaultGalleriesJSON,
+			"backends":             config.DefaultBackendGalleriesJSON,
 			"version":              internal.PrintableVersion(),
 		},
 	)

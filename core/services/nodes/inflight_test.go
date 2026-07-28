@@ -9,8 +9,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // --- Fakes ---
@@ -447,6 +450,43 @@ var _ = Describe("InFlightTrackingClient", func() {
 			err := client.PredictStream(context.Background(), &pb.PredictOptions{}, func(*pb.Reply) {})
 			Expect(err).To(HaveOccurred())
 			Expect(tracker.removed).To(Equal(1))
+		})
+	})
+
+	// A wrong-model answer means the cached row points at a port that has been
+	// recycled for another model's backend (#10952). The row is stale for a
+	// different reason than "model not loaded", but the cure is the same: drop
+	// it so the next request reloads somewhere correct.
+	Describe("wrong-model self-heal", func() {
+		It("removes the replica when the backend reports a model mismatch", func() {
+			backend.predictErr = grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+
+		It("removes the replica on a streamed call too", func() {
+			backend.streamErr = grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+			err := client.PredictStream(context.Background(), &pb.PredictOptions{}, func(*pb.Reply) {})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+
+		It("returns the mismatch error unchanged so the caller can tell why", func() {
+			backend.predictErr = grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(grpcerrors.IsModelMismatch(err)).To(BeTrue())
+		})
+
+		// The sentinel is what separates our signal from an ordinary NotFound.
+		// insightface's Embedding answers NOT_FOUND "no face detected" on a
+		// PredictOptions RPC, and dropping a healthy row for that would evict
+		// a working replica every time a photo has no face in it.
+		It("keeps the replica on an unrelated NotFound", func() {
+			backend.predictErr = status.Error(codes.NotFound, "no face detected")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(0))
 		})
 	})
 })

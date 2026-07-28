@@ -10,8 +10,10 @@ import MediaHistory from '../components/MediaHistory'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { soundApi } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useTranslation } from 'react-i18next'
 
 export default function Sound() {
+  const { t } = useTranslation('media')
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const [model, setModel] = useState(urlModel || '')
@@ -79,63 +81,63 @@ export default function Sound() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-music" /> Sound Generation</>} />
+        <PageHeader title={<><i className="fas fa-music" /> {t('sound.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
-            <label className="form-label">Model</label>
+            <label className="form-label">{t('sound.labels.model')}</label>
             <ModelSelector value={model} onChange={setModel} capability={CAP_SOUND_GENERATION} />
           </div>
 
           {/* Mode toggle */}
           <div className="segmented">
-            <button type="button" className={`segmented__item${mode === 'simple' ? ' is-active' : ''}`} onClick={() => setMode('simple')}>Simple</button>
-            <button type="button" className={`segmented__item${mode === 'advanced' ? ' is-active' : ''}`} onClick={() => setMode('advanced')}>Advanced</button>
+            <button type="button" className={`segmented__item${mode === 'simple' ? ' is-active' : ''}`} onClick={() => setMode('simple')}>{t('sound.labels.simple')}</button>
+            <button type="button" className={`segmented__item${mode === 'advanced' ? ' is-active' : ''}`} onClick={() => setMode('advanced')}>{t('sound.labels.advanced')}</button>
           </div>
 
           {mode === 'simple' ? (
             <>
               <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe the sound..." rows={3} />
+                <label className="form-label">{t('sound.labels.prompt')}</label>
+                <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder={t('sound.labels.promptPlaceholder')} rows={3} />
               </div>
               <div className="form-grid-2col">
                 <label className="checkbox-row">
                   <input type="checkbox" checked={instrumental} onChange={(e) => setInstrumental(e.target.checked)} />
-                  <span>Instrumental</span>
+                  <span>{t('sound.labels.instrumental')}</span>
                 </label>
                 <div className="form-group">
-                  <label className="form-label">Vocal language</label>
-                  <input className="input" value={vocalLanguage} onChange={(e) => setVocalLanguage(e.target.value)} placeholder="e.g. English" />
+                  <label className="form-label">{t('sound.labels.vocalLanguage')}</label>
+                  <input className="input" value={vocalLanguage} onChange={(e) => setVocalLanguage(e.target.value)} placeholder={t('sound.labels.vocalLanguagePlaceholder')} />
                 </div>
               </div>
             </>
           ) : (
             <>
               <div className="form-group">
-                <label className="form-label">Caption</label>
+                <label className="form-label">{t('sound.labels.caption')}</label>
                 <textarea className="textarea" value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} />
               </div>
               <div className="form-group">
-                <label className="form-label">Lyrics</label>
-                <textarea className="textarea" value={lyrics} onChange={(e) => setLyrics(e.target.value)} rows={3} />
+                <label className="form-label">{t('sound.labels.lyrics')}</label>
+                <textarea className="textarea" value={lyrics} onChange={(e) => setLyrics(e.target.value)} placeholder={t('sound.labels.lyricsPlaceholder')} rows={3} />
               </div>
               <div className="form-grid-2col">
-                <div className="form-group"><label className="form-label">BPM</label><input className="input" type="number" value={bpm} onChange={(e) => setBpm(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">Duration (s)</label><input className="input" type="number" step="0.1" value={duration} onChange={(e) => setDuration(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">Key/Scale</label><input className="input" value={keyscale} onChange={(e) => setKeyscale(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">Language</label><input className="input" value={language} onChange={(e) => setLanguage(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">Time Signature</label><input className="input" value={timesignature} onChange={(e) => setTimesignature(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{t('sound.labels.bpm')}</label><input className="input" type="number" value={bpm} onChange={(e) => setBpm(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{t('sound.labels.duration')}</label><input className="input" type="number" step="0.1" value={duration} onChange={(e) => setDuration(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{t('sound.labels.keyscale')}</label><input className="input" value={keyscale} onChange={(e) => setKeyscale(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{t('sound.labels.language')}</label><input className="input" value={language} onChange={(e) => setLanguage(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">{t('sound.labels.timesignature')}</label><input className="input" value={timesignature} onChange={(e) => setTimesignature(e.target.value)} /></div>
               </div>
               <label className="checkbox-row">
                 <input type="checkbox" checked={think} onChange={(e) => setThink(e.target.checked)} />
-                <span>Think mode</span>
+                <span>{t('sound.labels.thinkMode')}</span>
               </label>
             </>
           )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> Generating...</> : <><i className="fas fa-music" /> Generate Sound</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('sound.actions.generating')}</> : <><i className="fas fa-music" /> {t('sound.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -163,7 +165,7 @@ export default function Sound() {
           ) : (
             <div className="media-empty">
               <i className="fas fa-music media-empty__icon" />
-              <p>Generated sound will appear here</p>
+              <p>{t('sound.empty')}</p>
             </div>
           )}
         </div>

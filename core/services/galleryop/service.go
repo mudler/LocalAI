@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -94,6 +95,15 @@ func (g *GalleryService) BackendManager() BackendManager {
 	return g.backendManager
 }
 
+// ModelArtifactMaterializer returns the controller-only acquisition capability
+// used by startup paths that install gallery entries outside the operation loop.
+func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer {
+	if g == nil || g.appConfig == nil {
+		return nil
+	}
+	return g.appConfig.ModelArtifactMaterializer
+}
+
 // SetNATSClient sets the NATS client for distributed progress publishing.
 // Accepting the wider MessagingClient (vs. plain Publisher) lets
 // SubscribeBroadcasts wire the wildcard subscriptions that keep peer
@@ -139,9 +149,18 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	// another. If the caller explicitly populates Nodes on the incoming op,
 	// that wins; an empty Nodes slice on the incoming op is treated as "no
 	// new per-node data" and the previous Nodes are carried forward.
-	if op != nil && len(op.Nodes) == 0 {
-		if prev := g.statuses[s]; prev != nil && len(prev.Nodes) > 0 {
-			op.Nodes = prev.Nodes
+	if op != nil {
+		if prev := g.statuses[s]; prev != nil {
+			if len(op.Nodes) == 0 && len(prev.Nodes) > 0 {
+				op.Nodes = prev.Nodes
+			}
+			// A job is a delete or an install for its whole life. markQueued is
+			// the only writer that knows which; every later status omits the
+			// flag, so an unset value means "no new information", not "this is
+			// an install".
+			if !op.Deletion {
+				op.Deletion = prev.Deletion
+			}
 		}
 	}
 	g.statuses[s] = op
@@ -167,7 +186,10 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
-			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable); err != nil {
+			if err := store.UpdateProgress(s, op.Progress, op.Message, op.DownloadedFileSize, op.Cancellable,
+				distributed.OperationProgressDetails{
+					Phase: op.Phase, CurrentBytes: op.CurrentBytes, TotalBytes: op.TotalBytes,
+				}); err != nil {
 				xlog.Warn("Failed to persist gallery operation progress", "op_id", s, "error", err)
 			}
 		}
@@ -307,6 +329,12 @@ func (g *GalleryService) ReapStaleOperations(age time.Duration) (int64, error) {
 	if store == nil {
 		return 0, nil
 	}
+	// Collect the IDs before the update: once CleanStale flips them to
+	// "failed" they no longer match the stale predicate.
+	staleIDs, err := store.ListStale(age)
+	if err != nil {
+		xlog.Warn("Failed to list stale gallery operations", "error", err)
+	}
 	n, err := store.CleanStale(age)
 	if err != nil {
 		return 0, err
@@ -314,7 +342,41 @@ func (g *GalleryService) ReapStaleOperations(age time.Duration) (int64, error) {
 	if n > 0 {
 		xlog.Info("Reaped stale gallery operations", "count", n)
 	}
+	// The database row is only half the picture. GET /models/jobs/<id> and
+	// /api/operations read the in-memory statuses map, which is populated
+	// locally and via the NATS progress broadcast and never expires. An op
+	// orphaned by a replica that died mid-download therefore kept serving its
+	// last frozen tick (phase=downloading, processed=false, error=none) on
+	// every replica indefinitely, long after the reaper had already given up
+	// on the row. Reconcile the in-memory copy with the reap.
+	for _, id := range staleIDs {
+		g.failStaleStatus(id)
+	}
 	return n, nil
+}
+
+// failStaleStatus flips a locally-cached in-progress status to a terminal
+// failure after its store row was reaped. Statuses that already reached a
+// terminal state are left alone so a genuine completion or cancellation that
+// raced the reaper is not rewritten as a failure.
+func (g *GalleryService) failStaleStatus(id string) {
+	g.Lock()
+	st, ok := g.statuses[id]
+	if !ok || st == nil || st.Processed {
+		g.Unlock()
+		return
+	}
+	elementName := st.GalleryElementName
+	g.Unlock()
+
+	xlog.Warn("Marking orphaned gallery operation as failed", "op_id", id, "element", elementName)
+	g.UpdateStatus(id, &OpStatus{
+		Processed:          true,
+		Error:              errors.New("stale operation reaped (abandoned by a crashed or restarted instance)"),
+		Message:            "error: stale operation reaped (abandoned by a crashed or restarted instance)",
+		GalleryElementName: elementName,
+		Cancellable:        false,
+	})
 }
 
 // CancelOperation cancels an in-progress operation by its ID.
@@ -452,6 +514,25 @@ func (g *GalleryService) removeCancellation(id string) {
 	delete(g.cancellations, id)
 }
 
+// runOpHandler runs one operation handler and converts a panic into an error.
+//
+// The gallery worker is a single goroutine consuming both channels serially. A
+// panic anywhere in an install handler (a malformed gallery entry, a nil
+// dereference in a backend-specific path) took down the entire process with it,
+// and every queued operation went with it. Containing the panic to the
+// operation that caused it keeps the consumer alive so subsequent operations
+// are still picked up, and surfaces the failure on the op itself instead of as
+// an unexplained restart.
+func runOpHandler(fn func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Error("Gallery operation handler panicked", "panic", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("gallery operation handler panicked: %v", r)
+		}
+	}()
+	return fn()
+}
+
 func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, systemState *system.SystemState) error {
 	// updates the status with an error
 	var updateError func(id string, e error)
@@ -480,15 +561,29 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
-					g.galleryStore.Create(&distributed.GalleryOperationRecord{
+					opType := "backend_install"
+					if op.Delete {
+						opType = "backend_delete"
+					}
+					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 						ID:                 op.ID,
 						GalleryElementName: op.GalleryElementName,
-						OpType:             "backend_install",
+						OpType:             opType,
 						Status:             "pending",
-						Cancellable:        true,
-					})
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is, matching the model channel. The queued phase before
+						// this point is cancellable either way (see markQueued).
+						Cancellable: !op.Delete,
+					}); err != nil {
+						// Not fatal: the install still runs and the in-memory
+						// status still updates. Logged because without the row
+						// the cross-replica dedup guard and hydration cannot
+						// see this operation at all.
+						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
+					}
 				}
-				err := g.backendHandler(&op, systemState)
+				err := runOpHandler(func() error { return g.backendHandler(&op, systemState) })
 				if err != nil {
 					updateError(op.ID, err)
 				} else if g.OnBackendOpCompleted != nil {
@@ -513,16 +608,21 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 					if op.Delete {
 						opType = "model_delete"
 					}
-					g.galleryStore.Create(&distributed.GalleryOperationRecord{
+					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 						ID:                 op.ID,
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
-						// A delete is not cancellable; an install is.
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is. The queued phase before this point is cancellable
+						// either way (see markQueued).
 						Cancellable: !op.Delete,
-					})
+					}); err != nil {
+						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
+					}
 				}
-				err := g.modelHandler(&op, cl, systemState)
+				err := runOpHandler(func() error { return g.modelHandler(&op, cl, systemState) })
 				if err != nil {
 					updateError(op.ID, err)
 				}
@@ -662,12 +762,15 @@ func (g *GalleryService) Hydrate() error {
 		st := &OpStatus{
 			Message:            op.Message,
 			Progress:           op.Progress,
+			Phase:              op.Phase,
+			CurrentBytes:       op.CurrentBytes,
+			TotalBytes:         op.TotalBytes,
 			FileName:           op.FileName,
 			TotalFileSize:      op.TotalFileSize,
 			DownloadedFileSize: op.DownloadedFileSize,
 			GalleryElementName: op.GalleryElementName,
 			Cancellable:        op.Cancellable,
-			Deletion:           op.OpType == "model_delete",
+			Deletion:           IsDeleteOpType(op.OpType),
 		}
 		if op.Error != "" {
 			st.Error = errors.New(op.Error)

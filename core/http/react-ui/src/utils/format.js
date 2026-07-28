@@ -38,6 +38,13 @@ export function formatTimestamp(ts) {
   return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0')
 }
 
+// Like formatTimestamp but prefixed with the localized date, for views where
+// traces/entries can span more than one day and the time alone is ambiguous.
+export function formatDateTime(ts) {
+  if (!ts) return '-'
+  return new Date(ts).toLocaleDateString() + ' ' + formatTimestamp(ts)
+}
+
 export function relativeTime(ts) {
   if (!ts) return ''
   const diff = Date.now() - ts

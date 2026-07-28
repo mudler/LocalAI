@@ -3,10 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // Encode an AudioBuffer as a 16-bit PCM mono WAV blob. Libsndfile (which the
 // SpeechBrain / ONNX voice backends use) reads this shape without extra
 // decoders. We downmix to mono because speaker-encoder models expect a single
-// channel and sample-rate resampling is handled server-side.
-function audioBufferToWavBlob(audioBuffer) {
-  const sampleRate = audioBuffer.sampleRate
-  const numFrames = audioBuffer.length
+// channel. Callers may request a target sample rate for backends with a shared
+// reference-audio contract; ordinary media capture preserves the source rate.
+export function audioBufferToWavBlob(audioBuffer, targetSampleRate = audioBuffer.sampleRate) {
+  const sourceSampleRate = audioBuffer.sampleRate
+  const sampleRate = targetSampleRate
+  const numFrames = Math.max(1, Math.round(audioBuffer.length * sampleRate / sourceSampleRate))
   const bitsPerSample = 16
   const blockAlign = bitsPerSample / 8 // mono, 1 channel
   const byteRate = sampleRate * blockAlign
@@ -37,8 +39,14 @@ function audioBufferToWavBlob(audioBuffer) {
   for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c))
   let offset = 44
   for (let i = 0; i < numFrames; i++) {
+    const sourcePosition = i * sourceSampleRate / sampleRate
+    const left = Math.min(Math.floor(sourcePosition), audioBuffer.length - 1)
+    const right = Math.min(left + 1, audioBuffer.length - 1)
+    const fraction = sourcePosition - left
     let sum = 0
-    for (let c = 0; c < numChannels; c++) sum += channels[c][i]
+    for (let c = 0; c < numChannels; c++) {
+      sum += channels[c][left] + (channels[c][right] - channels[c][left]) * fraction
+    }
     const mono = Math.max(-1, Math.min(1, sum / numChannels))
     view.setInt16(offset, mono < 0 ? mono * 0x8000 : mono * 0x7FFF, true)
     offset += 2

@@ -12,6 +12,7 @@ import { useMediaCapture } from '../hooks/useMediaCapture'
 import useObjectUrl from '../hooks/useObjectUrl'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 import MediaHistory from '../components/MediaHistory'
+import { useTranslation } from 'react-i18next'
 
 // AudioTransform — Studio tab for the audio_transform capability. Takes a
 // primary audio file plus an optional reference (loopback for AEC, target
@@ -22,6 +23,7 @@ import MediaHistory from '../components/MediaHistory'
 // bleed of the reference, giving the user a real (mic, ref) pair to test
 // echo cancellation against.
 export default function AudioTransform() {
+  const { t } = useTranslation('media')
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
 
@@ -167,22 +169,22 @@ export default function AudioTransform() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-wave-square" /> Audio Transform</>} />
+        <PageHeader title={<><i className="fas fa-wave-square" /> {t('audioTransform.title')}</>} />
 
         <form onSubmit={handleProcess}>
           <div className="form-group">
-            <label className="form-label">Model</label>
+            <label className="form-label">{t('audioTransform.labels.model')}</label>
             <ModelSelector value={model} onChange={setModel} capability={CAP_AUDIO_TRANSFORM} />
           </div>
 
           <AudioInput
-            label="Audio (required)"
+            label={t('audioTransform.labels.audio')}
             file={audioFile}
             onChange={setAudioFile}
           />
           <AudioInput
-            label="Reference (optional)"
-            help="Loopback / far-end signal for echo cancellation, target speaker for voice conversion. Leave empty for unconditional transform."
+            label={t('audioTransform.labels.reference')}
+            help={t('audioTransform.labels.referenceHelp')}
             file={referenceFile}
             onChange={setReferenceFile}
           />
@@ -192,9 +194,7 @@ export default function AudioTransform() {
               <p className="audio-transform-echo__notice" role="note">
                 <i className="fas fa-circle-info" aria-hidden="true" />
                 <span>
-                  Browsers often apply their own WebRTC echo cancellation and
-                  noise suppression by default. This usually results in worse
-                  performance than running LocalVQE on the raw audio.
+                  {t('audioTransform.input.echoNotice')}
                 </span>
               </p>
               <div className="audio-transform-echo__row">
@@ -204,8 +204,8 @@ export default function AudioTransform() {
                   onClick={echoActive ? stopEchoTest : startEchoTest}
                 >
                   {echoActive
-                    ? <><i className="fas fa-stop" /> Stop echo test</>
-                    : <><i className="fas fa-headphones-alt" /> Echo test (record mic while playing reference)</>}
+                    ? <><i className="fas fa-stop" /> {t('audioTransform.input.stopEchoTest')}</>
+                    : <><i className="fas fa-headphones-alt" /> {t('audioTransform.input.echoTest')}</>}
                 </button>
                 {echoActive && echoCap.recording && (
                   <span className="audio-transform-echo__elapsed">
@@ -222,20 +222,20 @@ export default function AudioTransform() {
 
           <div className="form-group">
             <label className="form-label">
-              Advanced parameters
-              <span className="form-help"> &mdash; backend-specific (one <code>key=value</code> per line, e.g. <code>noise_gate=true</code>)</span>
+              {t('audioTransform.labels.advancedParameters')}
+              <span className="form-help"> &mdash; {t('audioTransform.labels.advancedParametersHelp')}</span>
             </label>
             <textarea
               className="textarea"
               value={paramsText}
               onChange={(e) => setParamsText(e.target.value)}
-              placeholder={`# Optional. For LocalVQE:\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50`}
+              placeholder={t('audioTransform.labels.advancedParametersPlaceholder')}
               rows={4}
             />
           </div>
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> Processing...</> : <><i className="fas fa-wand-magic-sparkles" /> Transform</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('audioTransform.actions.processing')}</> : <><i className="fas fa-wand-magic-sparkles" /> {t('audioTransform.actions.transform')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -251,7 +251,7 @@ export default function AudioTransform() {
                 <WaveformPlayer
                   key={r.kind || r.url}
                   src={r.url}
-                  label={resultLabel(r)}
+                  label={resultLabel(r, t)}
                   height={r.kind === 'output' ? 120 : 96}
                   dimmed={r.kind === 'reference'}
                   download={r.kind === 'output' ? `audio-transform-${selectedEntry.model || 'output'}.wav` : undefined}
@@ -263,28 +263,28 @@ export default function AudioTransform() {
             <div className="audio-transform-stack">
               {audioUrl && (
                 <div className="audio-spectrogram-pair">
-                  <Spectrogram src={audioUrl} label="Input spectrum" testId="spectrogram-input" />
+                  <Spectrogram src={audioUrl} label={t('audioTransform.result.inputSpectrum')} testId="spectrogram-input" />
                   {outputUrl ? (
-                    <Spectrogram src={outputUrl} label="Output spectrum" testId="spectrogram-output" />
+                    <Spectrogram src={outputUrl} label={t('audioTransform.result.outputSpectrum')} testId="spectrogram-output" />
                   ) : (
                     <div className="audio-spectrogram">
-                      <div className="audio-spectrogram__label">Output spectrum</div>
+                      <div className="audio-spectrogram__label">{t('audioTransform.result.outputSpectrum')}</div>
                       <div
                         className="audio-spectrogram__canvas-wrap audio-spectrogram__canvas-wrap--empty"
                         style={{ height: 140 }}
                       >
-                        <span className="audio-spectrogram__hint">Transform to compare attenuation</span>
+                        <span className="audio-spectrogram__hint">{t('audioTransform.result.outputSpectrumHint')}</span>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-              <WaveformPlayer src={audioUrl} label="Audio" height={96} />
-              <WaveformPlayer src={referenceUrl} label="Reference" height={96} dimmed={!referenceFile} />
+              <WaveformPlayer src={audioUrl} label={t('audioTransform.result.audio')} height={96} />
+              <WaveformPlayer src={referenceUrl} label={t('audioTransform.result.reference')} height={96} dimmed={!referenceFile} />
               {outputUrl && (
                 <WaveformPlayer
                   src={outputUrl}
-                  label="Output"
+                  label={t('audioTransform.result.output')}
                   height={120}
                   download={`audio-transform-${model || 'output'}-${new Date().toISOString().slice(0, 10)}.wav`}
                 />
@@ -292,7 +292,7 @@ export default function AudioTransform() {
               {!audioUrl && !outputUrl && (
                 <div className="media-empty">
                   <i className="fas fa-wave-square media-empty__icon" />
-                  <p>Choose an audio file (and optional reference) to transform</p>
+                  <p>{t('audioTransform.empty')}</p>
                 </div>
               )}
             </div>
@@ -324,6 +324,7 @@ function resultLabel(r) {
 // as `File([blob], 'recording-XXX.wav', { type: 'audio/wav' })` so callers
 // can treat them identically to uploaded files).
 function AudioInput({ label, help, file, onChange }) {
+  const { t } = useTranslation('media')
   const [tab, setTab] = useState('upload') // 'upload' | 'record'
   const cap = useMediaCapture('audio')
   const [recordPending, setRecordPending] = useState(false)
@@ -371,7 +372,7 @@ function AudioInput({ label, help, file, onChange }) {
             className={`audio-transform-input__tab${tab === 'upload' ? ' active' : ''}`}
             onClick={() => setTab('upload')}
           >
-            <i className="fas fa-upload" /> Upload
+            <i className="fas fa-upload" /> {t('audioTransform.input.upload')}
           </button>
           <button
             type="button"
@@ -380,7 +381,7 @@ function AudioInput({ label, help, file, onChange }) {
             className={`audio-transform-input__tab${tab === 'record' ? ' active' : ''}`}
             onClick={() => setTab('record')}
           >
-            <i className="fas fa-microphone" /> Record
+            <i className="fas fa-microphone" /> {t('audioTransform.input.record')}
           </button>
         </div>
 
@@ -395,14 +396,14 @@ function AudioInput({ label, help, file, onChange }) {
             {hasFile ? (
               <div className="audio-transform-drop__file">
                 <i className="fas fa-file-audio" /> {file.name}
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>Clear</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>{t('audioTransform.input.clear')}</button>
               </div>
             ) : (
               <>
-                <i className="fas fa-upload" /> Drop a file here or
+                <i className="fas fa-upload" /> {t('audioTransform.input.uploadDescription')}
                 <label className="audio-transform-drop__pick">
                   <input type="file" accept="audio/*" onChange={onPick} hidden />
-                  browse
+                  {t('audioTransform.input.uploadBrowse')}
                 </label>
               </>
             )}
@@ -413,23 +414,23 @@ function AudioInput({ label, help, file, onChange }) {
           <div className="audio-transform-rec">
             {!cap.supported && (
               <div className="audio-transform-rec__notice">
-                <i className="fas fa-circle-info" /> Microphone capture is unavailable in this browser.
+                <i className="fas fa-circle-info" /> {t('audioTransform.input.microphoneUnavailable')}
               </div>
             )}
             {cap.supported && (
               <>
                 {!cap.recording && !recordPending && (
                   <button type="button" className="btn btn-primary btn-sm" onClick={startRecord}>
-                    <i className="fas fa-circle" style={{ color: '#e25555' }} /> Start recording
+                    <i className="fas fa-circle" style={{ color: '#e25555' }} /> {t('audioTransform.input.startRecording')}
                   </button>
                 )}
                 {cap.recording && (
                   <button type="button" className="btn btn-secondary btn-sm" onClick={stopRecord}>
-                    <i className="fas fa-stop" /> Stop ({cap.elapsed.toFixed(1)}s)
+                    <i className="fas fa-stop" /> {t('audioTransform.input.stop')} ({cap.elapsed.toFixed(1)}s)
                   </button>
                 )}
                 {recordPending && !cap.recording && (
-                  <div className="audio-transform-rec__pending">Encoding…</div>
+                  <div className="audio-transform-rec__pending">{t('audioTransform.input.encoding')}</div>
                 )}
                 {cap.error && (
                   <div className="audio-transform-rec__notice audio-transform-rec__notice--error">
@@ -439,7 +440,7 @@ function AudioInput({ label, help, file, onChange }) {
                 {hasFile && !cap.recording && (
                   <div className="audio-transform-drop__file" style={{ marginTop: 'var(--spacing-sm)' }}>
                     <i className="fas fa-file-audio" /> {file.name}
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>Clear</button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>{t('audioTransform.input.clear')}</button>
                   </div>
                 )}
               </>

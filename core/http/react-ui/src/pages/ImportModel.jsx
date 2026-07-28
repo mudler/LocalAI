@@ -16,7 +16,7 @@ const BACKENDS_FALLBACK_EMPTY = []
 
 // Modality keys used as i18n keys under "modality.*" namespace; resolved
 // at render time inside `buildBackendOptions`.
-const MODALITY_KEYS = ['text', 'asr', 'tts', 'image', 'embeddings', 'reranker', 'detection', 'vad']
+const MODALITY_KEYS = ['text', 'asr', 'tts', 'image', 'video', 'embeddings', 'reranker', 'detection', 'vad']
 
 // buildBackendOptions groups known backends by modality and tags
 // auto_detect=false entries with a muted "manual pick" badge so users

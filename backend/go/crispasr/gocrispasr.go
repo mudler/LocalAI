@@ -530,11 +530,51 @@ func setVoice(voice string) {
 	}
 }
 
+// applyRequestVoice distinguishes named speakers from per-request reference
+// WAVs. The latter are used by F5-TTS and require the exact transcript under
+// the cross-backend params.ref_text contract.
+func applyRequestVoice(req *pb.TTSRequest) error {
+	voice := strings.TrimSpace(req.Voice)
+	if voice == "" {
+		return nil
+	}
+
+	info, statErr := os.Stat(voice)
+	looksLikeFile := filepath.IsAbs(voice) || strings.EqualFold(filepath.Ext(voice), ".wav")
+	if statErr == nil && info.Mode().IsRegular() {
+		refText := ""
+		if req.Params != nil {
+			refText = strings.TrimSpace(req.Params["ref_text"])
+			if refText == "" {
+				refText = strings.TrimSpace(req.Params["voice_text"])
+			}
+		}
+		if refText == "" {
+			return fmt.Errorf("crispasr: params.ref_text is required with a reference voice WAV")
+		}
+		if rc := CppTTSSetVoiceFile(voice, refText); rc < 0 {
+			return fmt.Errorf("crispasr: failed to apply reference voice %q (rc=%d)", voice, rc)
+		}
+		return nil
+	}
+	if looksLikeFile {
+		if statErr != nil {
+			return fmt.Errorf("crispasr: reference voice %q: %w", voice, statErr)
+		}
+		return fmt.Errorf("crispasr: reference voice %q is not a regular file", voice)
+	}
+
+	setVoice(voice)
+	return nil
+}
+
 func (w *CrispASR) TTS(req *pb.TTSRequest) error {
 	if req.Dst == "" {
 		return fmt.Errorf("crispasr: TTS requires a destination path")
 	}
-	setVoice(req.Voice)
+	if err := applyRequestVoice(req); err != nil {
+		return err
+	}
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err
@@ -553,7 +593,9 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	if req.Text == "" {
 		return fmt.Errorf("crispasr: TTSStream requires text")
 	}
-	setVoice(req.Voice)
+	if err := applyRequestVoice(req); err != nil {
+		return err
+	}
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err

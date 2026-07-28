@@ -98,6 +98,7 @@ func ModelScore(prompt string, candidates []string, opts ScoreOptions, loader *m
 			startTime = time.Now()
 		}
 		resp, err := b.Score(ctx, &pb.ScoreRequest{
+			ModelIdentity:        modelConfig.Model,
 			Prompt:               prompt,
 			Candidates:           candidates,
 			IncludeTokenLogprobs: opts.IncludeTokenLogprobs,

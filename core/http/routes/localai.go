@@ -64,7 +64,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint(appConfig.SystemState), adminMiddleware)
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
-		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)), adminMiddleware)
 		router.GET("/backends/known", backendGalleryEndpointService.ListKnownBackendsEndpoint(appConfig.SystemState), adminMiddleware)
 		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint(), adminMiddleware)
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
@@ -151,7 +151,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// Forget does not load a voice model — it only needs the registry.
 	router.POST("/v1/voice/forget", localai.VoiceForgetEndpoint(app.VoiceRegistry()))
 
-	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig)
+	voiceProfiles := app.VoiceProfileStore()
+	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
+	router.GET("/api/voice-profiles/:id/audio", localai.ServeVoiceProfileAudioEndpoint(voiceProfiles))
+	router.POST("/api/voice-profiles", localai.CreateVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+	router.DELETE("/api/voice-profiles/:id", localai.DeleteVoiceProfileEndpoint(voiceProfiles), adminMiddleware)
+
+	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig, voiceProfiles)
 	router.POST("/tts",
 		ttsHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
@@ -218,8 +224,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
+	router.GET("/api/traces/:id", localai.GetAPITraceEndpoint(), adminMiddleware)
 	router.POST("/api/traces/clear", localai.ClearAPITracesEndpoint(), adminMiddleware)
 	router.GET("/api/backend-traces", localai.GetBackendTracesEndpoint(), adminMiddleware)
+	router.GET("/api/backend-traces/:id", localai.GetBackendTraceEndpoint(), adminMiddleware)
 	router.POST("/api/backend-traces/clear", localai.ClearBackendTracesEndpoint(), adminMiddleware)
 	// Backend logs — standalone only (distributed mode uses node-proxied routes)
 	if !appConfig.Distributed.Enabled {
@@ -254,8 +262,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"system":               "/system",
 			"version":              "/version",
 			"traces":               "/api/traces",
+			"trace":                "/api/traces/:id",
 			"traces_clear":         "/api/traces/clear",
 			"backend_traces":       "/api/backend-traces",
+			"backend_trace":        "/api/backend-traces/:id",
 			"backend_traces_clear": "/api/backend-traces/clear",
 		}
 		if !appConfig.Distributed.Enabled {
@@ -283,6 +293,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
 				"vram_estimate":       "/api/models/vram-estimate",
 				"tts":                 "/tts",
+				"voice_profiles":      "/api/voice-profiles",
 				"transcription":       "/v1/audio/transcriptions",
 				"image_generation":    "/v1/images/generations",
 				"swagger":             "/swagger/index.html",
@@ -318,11 +329,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"list_aliases": "/api/aliases",
 				},
 				"ai_functions": map[string]string{
-					"tts":       "/tts",
-					"vad":       "/vad",
-					"video":     "/video",
-					"detection": "/v1/detection",
-					"tokenize":  "/v1/tokenize",
+					"tts":            "/tts",
+					"voice_profiles": "/api/voice-profiles",
+					"vad":            "/vad",
+					"video":          "/video",
+					"detection":      "/v1/detection",
+					"tokenize":       "/v1/tokenize",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -363,6 +375,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"agents":          appConfig.AgentPool.Enabled,
 				"p2p":             appConfig.P2PToken != "",
 				"tracing":         true,
+				"voice_profiles":  true,
 			},
 		})
 	})

@@ -3,10 +3,12 @@ package gallery
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/xlog"
@@ -25,6 +27,101 @@ func (e modelConfigCacheEntry) hasExpired() bool {
 
 // modelConfigCache caches parsed model config maps keyed by URL.
 var modelConfigCache = xsync.NewSyncedMap[string, modelConfigCacheEntry]()
+
+// VoiceCloningCapability returns the same variant-aware reference-audio
+// contract used for installed models, but derived from a gallery entry before
+// it is installed. This keeps gallery recommendations tied to server-owned
+// capability metadata instead of a second allow-list in the frontend.
+func (m *GalleryModel) VoiceCloningCapability(basePath string) *config.VoiceCloningCapability {
+	if m == nil {
+		return nil
+	}
+
+	baseConfig := m.ConfigFile
+	if len(baseConfig) == 0 && m.URL != "" {
+		baseConfig = fetchModelConfigMap(m.URL, basePath)
+	}
+
+	modelReference := nestedString(m.Overrides, "parameters", "model")
+	if modelReference == "" {
+		modelReference = nestedString(baseConfig, "parameters", "model")
+	}
+
+	options, overridden := stringSliceValue(m.Overrides, "options")
+	if !overridden {
+		options, _ = stringSliceValue(baseConfig, "options")
+	}
+	voiceCloning, overridden := nestedBool(m.Overrides, "tts", "voice_cloning")
+	if !overridden {
+		voiceCloning, _ = nestedBool(baseConfig, "tts", "voice_cloning")
+	}
+
+	modelConfig := &config.ModelConfig{
+		Name:    m.Name,
+		Backend: m.Backend,
+		Options: options,
+		TTSConfig: config.TTSConfig{
+			VoiceCloning: voiceCloning,
+		},
+	}
+	modelConfig.Model = modelReference
+	return config.VoiceCloningForModel(modelConfig)
+}
+
+func nestedBool(values map[string]any, outer, inner string) (*bool, bool) {
+	if values == nil {
+		return nil, false
+	}
+	nested, ok := values[outer].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	value, exists := nested[inner]
+	if !exists {
+		return nil, false
+	}
+	enabled, ok := value.(bool)
+	if !ok {
+		return nil, true
+	}
+	return &enabled, true
+}
+
+func nestedString(values map[string]any, outer, inner string) string {
+	if values == nil {
+		return ""
+	}
+	nested, ok := values[outer].(map[string]any)
+	if !ok {
+		return ""
+	}
+	value, _ := nested[inner].(string)
+	return value
+}
+
+func stringSliceValue(values map[string]any, key string) ([]string, bool) {
+	if values == nil {
+		return nil, false
+	}
+	raw, exists := values[key]
+	if !exists {
+		return nil, false
+	}
+	switch items := raw.(type) {
+	case []string:
+		return slices.Clone(items), true
+	case []any:
+		result := make([]string, 0, len(items))
+		for _, item := range items {
+			if value, ok := item.(string); ok {
+				result = append(result, value)
+			}
+		}
+		return result, true
+	default:
+		return nil, true
+	}
+}
 
 // resolveBackend determines the backend for a GalleryModel by checking (in priority order):
 // 1. Overrides["backend"] — highest priority, same as install-time merge

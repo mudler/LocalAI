@@ -9,10 +9,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
 
 func strPtr(s string) *string { return &s }
-func boolPtr(b bool) *bool     { return &b }
+func boolPtr(b bool) *bool    { return &b }
 
 var _ = Describe("RuntimeSettings persistence helpers", func() {
 	var (
@@ -93,6 +95,38 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 		})
 	})
 
+	// VRAMBudget round trip pins the Settings-page persistence contract: the
+	// operator-set cap must survive ToRuntimeSettings (GET /api/settings) ->
+	// ApplyRuntimeSettings (POST /api/settings) so it lives past a save, and an
+	// empty value must clear the cap rather than being dropped.
+	Describe("VRAMBudget round trip", func() {
+		// ApplyRuntimeSettings live-applies the cap through the process-global
+		// xsysinfo.SetDefaultVRAMBudget. Reset it after each spec so a cap set
+		// here cannot bleed into other core/config specs under Ginkgo's
+		// randomized ordering.
+		AfterEach(func() {
+			xsysinfo.SetDefaultVRAMBudget(vrambudget.Budget{})
+		})
+
+		It("round-trips the VRAM budget", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			rs := o.ToRuntimeSettings()
+			Expect(rs.VRAMBudget).NotTo(BeNil())
+			Expect(*rs.VRAMBudget).To(Equal("80%"))
+
+			o2 := config.NewApplicationConfig()
+			o2.ApplyRuntimeSettings(&rs)
+			Expect(o2.VRAMBudget).To(Equal("80%"))
+		})
+
+		It("applies an empty VRAM budget as clearing the cap", func() {
+			o := config.NewApplicationConfig(config.SetVRAMBudget("80%"))
+			empty := ""
+			o.ApplyRuntimeSettings(&config.RuntimeSettings{VRAMBudget: &empty})
+			Expect(o.VRAMBudget).To(Equal(""))
+		})
+	})
+
 	// MITM round trip pins the contract that loadRuntimeSettingsFromFile
 	// MITM listener address must survive a write/read round trip so the
 	// next process restart can bring the listener back up. (Intercept
@@ -161,6 +195,31 @@ var _ = Describe("RuntimeSettings persistence helpers", func() {
 			Expect(*ondisk.LogoFile).To(Equal("logo.png"), "logo_file was clobbered by Save")
 			Expect(ondisk.InstanceName).ToNot(BeNil())
 			Expect(*ondisk.InstanceName).To(Equal("Acme AI"))
+		})
+	})
+
+	// MergeAPIKeys is the single env+runtime key merge shared by the
+	// settings endpoint and the runtime_settings.json file watcher. Env/CLI
+	// keys must always survive, and runtime entries that duplicate an env
+	// key must be dropped so repeated saves cannot stack them (#9071).
+	Describe("MergeAPIKeys", func() {
+		It("keeps env keys first and appends runtime keys", func() {
+			Expect(config.MergeAPIKeys([]string{"env1"}, []string{"rt1", "rt2"})).
+				To(Equal([]string{"env1", "rt1", "rt2"}))
+		})
+
+		It("drops runtime entries that duplicate an env key (#9071)", func() {
+			Expect(config.MergeAPIKeys([]string{"env1"}, []string{"env1", "rt1"})).
+				To(Equal([]string{"env1", "rt1"}))
+		})
+
+		It("clears runtime keys when the runtime list is empty", func() {
+			Expect(config.MergeAPIKeys([]string{"env1"}, []string{})).
+				To(Equal([]string{"env1"}))
+		})
+
+		It("handles no env keys", func() {
+			Expect(config.MergeAPIKeys(nil, []string{"rt1"})).To(Equal([]string{"rt1"}))
 		})
 	})
 })

@@ -215,8 +215,11 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context) {
 			var err error
 			if bm != nil {
 				// Background auto-upgrade: no live admin watching a progress bar,
-				// so opID is empty and the distributed path skips progress streaming.
-				err = bm.UpgradeBackend(ctx, "", name, nil)
+				// so op.ID is empty and the distributed path skips progress streaming.
+				err = bm.UpgradeBackend(ctx, &galleryop.ManagementOp[gallery.GalleryBackend, any]{
+					GalleryElementName: name,
+					Upgrade:            true,
+				}, nil)
 			} else {
 				err = gallery.UpgradeBackend(ctx, uc.systemState, uc.modelLoader,
 					uc.galleries, name, nil, uc.appConfig.RequireBackendIntegrity)

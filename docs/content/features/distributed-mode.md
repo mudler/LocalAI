@@ -1,14 +1,14 @@
 +++
 disableToc = false
 title = "Distributed Mode"
-weight = 14
+weight = 71
 url = "/features/distributed-mode/"
 +++
 
 Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
 
 {{% notice note %}}
-Distributed mode requires authentication enabled with a **PostgreSQL** database — SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
+Distributed mode requires authentication enabled with a **PostgreSQL** database - SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
 {{% /notice %}}
 
 ## Architecture Overview
@@ -17,7 +17,7 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
 
-**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type — the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
+**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
 
 ### Scheduling Algorithm
 
@@ -25,19 +25,20 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node → use it (per-model gRPC address)
-2. If no node has the model → prefer nodes with enough free VRAM
-3. Fall back to idle nodes (zero models), then least-loaded nodes
-4. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
-5. If all models are busy → wait (with timeout) for a model to become idle, then evict
-6. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
-7. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
+2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom))
+3. If no node has the model → prefer nodes with enough free VRAM
+4. Fall back to idle nodes (zero models), then least-loaded nodes
+5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
+6. If all models are busy → wait (with timeout) for a model to become idle, then evict
+7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
+8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
 
 Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
 
 ## Prerequisites
 
-- **PostgreSQL** (with pgvector extension recommended for RAG) — used for node registry, job store, auth, and shared state
-- **NATS** server — used for real-time backend lifecycle events and file staging
+- **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
+- **NATS** server - used for real-time backend lifecycle events and file staging
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -65,14 +66,50 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
-| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` — one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
+| `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
+| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+### The model load deadline scales with the checkpoint
+
+The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
+
+So the deadline is derived per model:
+
+```
+budget = 5m + 20s per GiB of checkpoint,  capped at 6h
+```
+
+| Checkpoint | Derived budget |
+|---|---|
+| 2 GB | 5m40s |
+| 70 GB | 28m20s |
+| 600 GB | 3h25m |
+
+The per-GiB rate is deliberately pessimistic — it corresponds to reading weights at about 54 MB/s, below what any supported storage sustains — because the two errors are not symmetric: a budget that is too long costs only *failure latency* on a load that was going to fail anyway, while a budget that is too short causes a guaranteed false failure on a load that was perfectly healthy.
+
+The size is measured from the model files on the frontend's disk, over the same set of paths that get staged to the worker. If those files are not present locally — a backend handed a bare HuggingFace repo id fetches its own weights on the worker — there is nothing to measure and the budget stays at the plain 5m default. Pin `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` for those models if their load is slow.
+
+When the budget *is* exceeded, the error names the budget, the checkpoint size it was derived from, and the knob that overrides it, instead of surfacing a bare `context deadline exceeded`.
+
+### The cold-load lock ceiling
+
+The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That bound is **derived**, not configured, and it is based on *progress* rather than on wall-clock time.
+
+The load starts with a base budget of `max(backend-install-timeout + model-load-timeout + 5m, 25m)` — with the defaults, `15m + 5m + 5m = 25m`. That budget covers the steps that report no progress: node selection, backend install, and the remote `LoadModel` call. Raising either timeout widens it in step, so a longer load deadline is never clipped.
+
+That base is the hold's *starting* budget, not its maximum. Because the derived load budget above can exceed it — a 70 GB checkpoint's 28m20s against a 25m base — the hold is widened again as the router enters the load phase, by the derived budget plus the same 5m of slack. Without that step the ceiling would cancel a load that was still comfortably inside its own deadline.
+
+While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all — on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard — so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
+
+An absolute cap of 24h ends the hold even if progress keeps arriving, so a degenerate peer trickling a few bytes at a time cannot pin the lock forever. No configuration is needed for either value; both are sized well above any legitimate transfer.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -110,7 +147,7 @@ The same env vars apply to backend workers and `local-ai agent-worker`. If the s
 
 Workers connect with that JWT and seed automatically (shown once; store securely). Override with `LOCALAI_NATS_JWT` / `LOCALAI_NATS_USER_SEED` if needed. Set `LOCALAI_NATS_REQUIRE_AUTH=true` on workers when the bus requires credentials.
 
-When `LOCALAI_NATS_REQUIRE_AUTH=true` and no static credentials are provided, a worker that registers while still **pending admin approval** keeps re-registering (with backoff) until an admin approves it and the frontend mints its JWT — it does not start unauthenticated. This retry is **bounded**: if the node is never approved (or no credentials are minted) after a large number of attempts, the worker exits non-zero so the failure is visible (a crash-looping or failed worker) rather than hanging silently. Minted worker JWTs are also **refreshed automatically** before they expire (the worker re-registers at ~75% of the JWT lifetime), so long-running workers survive past `LOCALAI_NATS_WORKER_JWT_TTL`; the NATS connection picks up the new JWT on its next reconnect. If refresh fails persistently, the worker exits (to restart and re-acquire) rather than drifting toward an expired, unrenewable JWT. Statically configured (`LOCALAI_NATS_JWT`) and service (`LOCALAI_NATS_SERVICE_JWT`) credentials are used as-is and not refreshed.
+When `LOCALAI_NATS_REQUIRE_AUTH=true` and no static credentials are provided, a worker that registers while still **pending admin approval** keeps re-registering (with backoff) until an admin approves it and the frontend mints its JWT - it does not start unauthenticated. This retry is **bounded**: if the node is never approved (or no credentials are minted) after a large number of attempts, the worker exits non-zero so the failure is visible (a crash-looping or failed worker) rather than hanging silently. Minted worker JWTs are also **refreshed automatically** before they expire (the worker re-registers at ~75% of the JWT lifetime), so long-running workers survive past `LOCALAI_NATS_WORKER_JWT_TTL`; the NATS connection picks up the new JWT on its next reconnect. If refresh fails persistently, the worker exits (to restart and re-acquire) rather than drifting toward an expired, unrenewable JWT. Statically configured (`LOCALAI_NATS_JWT`) and service (`LOCALAI_NATS_SERVICE_JWT`) credentials are used as-is and not refreshed.
 
 Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://github.com/mudler/LocalAI/blob/master/scripts/nats-auth-setup.sh) (requires [nsc](https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/nsc)). Configure the NATS server with account resolver JWTs before enabling `LOCALAI_NATS_REQUIRE_AUTH`.
 
@@ -130,7 +167,7 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 | `--storage-access-key` | `LOCALAI_STORAGE_ACCESS_KEY` | *(empty)* | S3 access key |
 | `--storage-secret-key` | `LOCALAI_STORAGE_SECRET_KEY` | *(empty)* | S3 secret key |
 
-When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** — no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
+When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** - no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
 
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
@@ -142,19 +179,39 @@ Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) 
 
 This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
 
+### Model artifact staging
+
+For managed Hugging Face artifacts, the controller resolves the repository and
+downloads every selected file. Workers receive the committed snapshot through
+the existing directory stager. They never receive `HF_TOKEN` and do not contact
+Hugging Face for managed artifacts.
+
+With `LOCALAI_DISTRIBUTED_SHARED_MODELS` enabled, workers use the shared
+absolute snapshot path and skip transfer. Otherwise, the controller stages the
+complete snapshot tree to each worker before loading the backend.
+
 {{% notice warning %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** — anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+Every controller and worker must have enough disk space for its own snapshot
+copy unless shared-models mode is enabled. Account for temporary partial files
+during installation as well as the committed snapshot.
+{{% /notice %}}
+
+{{% notice warning %}}
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /notice %}}
 
 ### Watching Backend Installs
 
-While a worker downloads a backend, the admin **Operations Bar** at the top
-of the UI shows real-time progress: current file, downloaded/total bytes,
-and percentage. This works the same as single-node mode.
+While a worker downloads a backend, the admin operations strip at the top
+of the UI shows real-time progress: a percentage, and, when the install
+targets several workers, a roll-up of how far the fan-out has got,
+`2 of 5 nodes done`. Per-file byte counts are not on the strip; they are in
+the per-node detail below.
 
-When an install targets more than one worker, an **N nodes** chevron
-appears on the operation row. Click it to expand a per-node breakdown,
-with one row per worker showing:
+The per-node detail is on the **Operate → Activity** page
+([Activity]({{% relref "operations/activity" %}})). When an install targets
+more than one worker, an **N nodes** tag appears on the operation card, with
+one row per worker showing:
 
 - A status pill: **Queued** (gray), **Downloading** (blue), **Worker busy**
   (yellow), **Done** (green), or **Failed** (red).
@@ -171,9 +228,15 @@ If a worker is running an older LocalAI release that does not report
 progress, its row in the breakdown will still show terminal status
 (queued / done / failed / worker busy) but no per-file progress.
 
+The **Record** on that page - what model and backend installs and removals have
+finished - is read from PostgreSQL rather than from the replica's memory. Every
+replica reports the same record, it survives restarts, a replica added by a
+scale-out or a rolling deploy reports it in full, and **Clear history** clears
+it for every replica.
+
 ## Worker Configuration
 
-Workers are started with the `worker` subcommand. Each worker is generic — it doesn't need a backend type at startup:
+Workers are started with the `worker` subcommand. Each worker is generic - it doesn't need a backend type at startup:
 
 ```bash
 local-ai worker \
@@ -185,6 +248,7 @@ local-ai worker \
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
 | `--addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | gRPC listen address |
+| `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
@@ -203,12 +267,26 @@ local-ai worker \
 | `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | *(empty)* | Client private key for NATS mTLS |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
+| `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
 
 {{% notice tip %}}
 **Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
+
+### Worker Health Probes
+
+The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
+
+| Endpoint | Meaning |
+|----------|---------|
+| `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered *and* its NATS connection is live; 503 otherwise. |
+
+`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+
+The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
 
 ### Worker Address Configuration
 
@@ -232,9 +310,46 @@ For advanced networking scenarios (NAT, load balancers, separate gRPC/HTTP ports
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LOCALAI_SERVE_ADDR` | gRPC base port bind address | `0.0.0.0:50051` |
+| `LOCALAI_GRPC_MAX_PORT` | Highest port assignable to a backend gRPC process | `65535` |
 | `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address | `0.0.0.0:{gRPC port - 1}` |
 | `LOCALAI_ADVERTISE_ADDR` | Public gRPC address (if different from `LOCALAI_ADDR`) | Derived from `LOCALAI_ADDR` |
 | `LOCALAI_ADVERTISE_HTTP_ADDR` | Public HTTP address (if different from gRPC host) | Derived from advertise host + HTTP port |
+
+### Backend gRPC port range
+
+Every backend process a worker starts listens on its own gRPC port, allocated
+upward from the worker's base port (`LOCALAI_SERVE_ADDR`, default `50051`).
+`LOCALAI_GRPC_MAX_PORT` sets the top of that range. The width of
+`[base port, LOCALAI_GRPC_MAX_PORT]` is therefore a hard cap on how many
+backend processes one worker can run concurrently.
+
+Set it when the worker shares a host with other services and you need to keep
+the rest of the ephemeral range clear, or when you want a worker's backend
+count bounded explicitly rather than by whatever the host happens to allow:
+
+```bash
+# Confine this worker's backends to 50051-50150 (100 concurrent backends).
+LOCALAI_SERVE_ADDR=0.0.0.0:50051
+LOCALAI_GRPC_MAX_PORT=50150
+```
+
+Leave it unset (the default) and the worker may use anything up to 65535.
+
+Budget headroom above your real concurrency. When a backend stops, its port is
+held briefly before it can be reused, so a worker with heavy start/stop churn
+has more ports tied up than it has running backends at any instant. If the
+range does fill, backend starts fail with:
+
+```
+no free gRPC port in range: 50051-50150 is fully consumed by 100 running
+backend(s) and 12 port(s) still in quarantine; raise LOCALAI_GRPC_MAX_PORT to
+widen the range
+```
+
+Raise `LOCALAI_GRPC_MAX_PORT` (or reduce how many models you schedule onto that
+worker). A value above 65535 is clamped, and a value below the base port is
+ignored in favour of the full range, so a typo degrades the setting rather than
+wedging every backend start on the node.
 
 ### NVIDIA GPU support
 
@@ -257,7 +372,10 @@ usage is reported back to the frontend:
 share one physical RAM between CPU and GPU. LocalAI detects them via
 `/sys/devices/soc0/family` and `/sys/devices/soc0/soc_id` (no `nvidia-smi`
 required) and reports system-RAM figures as VRAM. Free VRAM therefore tracks
-`MemAvailable` in `/proc/meminfo`.
+`MemAvailable` in `/proc/meminfo`. Workers report RAM metrics independently
+from VRAM on every registration and heartbeat. On unified-memory nodes, the
+available RAM and available VRAM values should therefore track each other
+closely; on discrete-GPU nodes they can change independently.
 
 ### Node Labels
 
@@ -283,7 +401,7 @@ Workers start as generic processes with no backend installed. When the SmartRout
 3. Replies with the allocated gRPC address
 4. The SmartRouter calls `LoadModel` via direct gRPC to that address
 
-Workers can run **multiple models concurrently** — each model gets its own gRPC process on a separate port. For example, an embedding model on port 50051 and a chat model on port 50052 can run simultaneously on the same worker.
+Workers can run **multiple models concurrently** - each model gets its own gRPC process on a separate port. For example, an embedding model on port 50051 and a chat model on port 50052 can run simultaneously on the same worker.
 
 When the SmartRouter needs to free capacity, it can unload models with zero in-flight requests without affecting other models on the same worker.
 
@@ -291,7 +409,7 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 The API is split into two prefixes with distinct auth:
 
-### `/api/node/` — Node self-service
+### `/api/node/` - Node self-service
 
 Used by workers themselves (registration, heartbeat, etc.). Authenticated via the registration token, exempt from global auth.
 
@@ -303,7 +421,7 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `GET` | `/api/node/:id/models` | Query own loaded models |
 | `DELETE` | `/api/node/:id` | Deregister self |
 
-### `/api/nodes/` — Admin management
+### `/api/nodes/` - Admin management
 
 Used by the WebUI and admin API consumers. Requires admin authentication.
 
@@ -316,11 +434,77 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
+| `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
 | `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
+| `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
+| `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
 The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
+
+### Per-node VRAM budget
+
+Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
+
+There are two ways to set the cap:
+
+- **At the worker:** start it with `--vram-budget` / `LOCALAI_VRAM_BUDGET` (see [Worker Configuration](#worker-configuration)).
+- **From the frontend, live:** set it per node in the **node capacity editor** on the node detail page, or via the admin API:
+
+```bash
+# Cap node placement at 80% of its detected VRAM
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"value":"80%"}'
+
+# Or an absolute amount
+curl -X PUT http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"value":"12GB"}'
+
+# Clear the budget (revert to all detected VRAM)
+curl -X DELETE http://frontend:8080/api/nodes/<node-id>/vram-budget \
+  -H "Authorization: Bearer <admin-token>"
+```
+
+The value accepts the same formats as the standalone budget: a percentage (`80%`) or an absolute amount (`12GB`, `12GiB`, `12000MB`, or raw bytes). It is a **hard ceiling**: the node's advertised VRAM becomes `min(detected, budget)`, so a budget can only lower the number, never raise it above the hardware. An admin-set node budget is **sticky across worker restarts**: it is stored in the node registry and reapplied when the worker re-registers, so it wins over whatever the worker reports on reconnect. For the underlying semantics and the standalone equivalent, see [VRAM Budget]({{%relref "advanced/vram-management#vram-budget-allocation-ceiling" %}}).
+
+### Disk headroom
+
+Model weights are **staged onto the worker's disk** before the backend loads them, so a node needs free space as well as free VRAM. Each worker reports the capacity of the filesystem backing its **models directory** (`--models-path`), not the root filesystem, on registration and on every heartbeat. Those figures appear as `total_disk` and `available_disk` in the nodes API and as **Models disk free** on the node detail page.
+
+Before placing a model, the SmartRouter removes any node whose models filesystem cannot hold it. The requirement is derived from the model's actual on-disk size plus a small margin (5%, at least 1 GiB), rather than a fixed percentage of the node's disk — a fixed threshold would take a small-but-usable node out of rotation for models it could comfortably store. When the model's size cannot be determined locally (a bare HuggingFace repo id that the worker fetches itself), the node only has to clear a 2 GiB floor.
+
+If **no** node has enough space, the request fails immediately with a capacity error naming the requirement and each node's free space, for example:
+
+```
+scheduling longcat-video-avatar-1.5: no node has enough free disk for the model:
+need 73.5 GB free on the models filesystem, but nvidia-thor has 0 B free of 937.0 GB
+```
+
+This is deliberately a scheduling-time verdict. Without it, a worker with a full disk still reported `status: healthy`, accepted the staging request, transferred tens of gigabytes and only then failed with `no space left on device` — minutes after a decision that could never have succeeded.
+
+Workers that predate this feature (or whose disk reading fails) report `total_disk` as `0`. Such nodes are treated as *unknown*, not *full*, and stay in rotation, so a rolling upgrade never empties the candidate pool. A full disk is distinguishable because it reports a non-zero `total_disk` with `available_disk` at `0`.
+
+Low disk does **not** mark a node `unhealthy`. Disk is compared per model rather than against a global threshold, so a node that is too small for one model remains a valid target for smaller ones. The check is also skipped entirely in [shared-models mode](#shared-models-directory), where nothing is staged to the worker at all.
+
+#### Turning the check off
+
+The check is **on by default**. To disable it, start the frontend with `--distributed-disk-headroom-check=false` / `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK=false`, or toggle **Settings → Distributed → Disk headroom check** in the WebUI (`distributed_disk_headroom_check` via `POST /api/settings`). The runtime setting takes effect on the next placement, with no restart; the env/CLI flag only sets the value LocalAI boots with, and both write the same underlying value, so the last change wins.
+
+Disabling means **warn, do not block**. Node selection goes back to ignoring free disk (the pre-check behaviour), but the check still runs, and when it would have rejected *every* node it logs a warning naming the shortfall:
+
+```
+WARN No node has room to store this model, but the disk-headroom check is DISABLED;
+     scheduling anyway — staging will most likely fail with ENOSPC
+     model=longcat-video-avatar-1.5 knob=distributed-disk-headroom-check
+```
+
+The alternative — skipping the check outright — was rejected because it reproduces the condition that made the original bug expensive: the cluster was doing something that could not work and said nothing about it. The escape hatch exists for setups where the size estimate is wrong (deduplicating or compressing filesystems, a backend that fetches its own weights rather than using the staged copy), and in exactly those cases the operator needs to see what LocalAI thought was wrong. Disabling is logged once at startup as well.
+
+The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 
 ## Node Approval
 
@@ -345,7 +529,7 @@ To skip manual approval and let nodes join immediately, set `--auto-approve-node
 | `healthy` | Node is active and responding to heartbeats |
 | `unhealthy` | Node has missed heartbeats beyond the threshold (detected by the HealthMonitor) |
 | `offline` | Node is temporarily offline (graceful shutdown or stale heartbeat). The node row is preserved so re-registration restores the previous approval status without requiring re-approval |
-| `draining` | Node is shutting down gracefully — no new requests are routed to it, existing in-flight requests are allowed to complete |
+| `draining` | Node is shutting down gracefully - no new requests are routed to it, existing in-flight requests are allowed to complete |
 
 ## Agent Workers
 
@@ -385,7 +569,7 @@ MCP servers configured in model configs work in distributed mode. The frontend r
 
 A single vLLM model can span multiple GPU nodes via data parallelism: the head node serves the OpenAI API and runs the local DP ranks, follower nodes run vanilla `vllm serve --headless` and speak ZMQ directly to the head. LocalAI's role is starting the follower processes and surfacing them in the admin UI; the cross-rank tensor traffic is vLLM's own.
 
-This mode is **operator-launched** — the head config and each follower's invocation must agree on the topology (`data_parallel_size`, `data_parallel_size_local`, `data_parallel_address`, `data_parallel_rpc_port`). The SmartRouter does not place follower ranks automatically.
+This mode is **operator-launched** - the head config and each follower's invocation must agree on the topology (`data_parallel_size`, `data_parallel_size_local`, `data_parallel_address`, `data_parallel_rpc_port`). The SmartRouter does not place follower ranks automatically.
 
 ### Head node configuration
 
@@ -421,7 +605,7 @@ local-ai p2p-worker vllm \
   --registration-token changeme
 ```
 
-`--register-to` is optional but recommended — it makes the follower visible in the admin UI as an `agent`-type node tagged with `node.role=vllm-follower`. Without it the worker just runs vLLM and exits silently when vLLM does. The role label discourages SmartRouter from placing other models on the follower; pair it with model selectors like `{"!node.role":"vllm-follower"}` if you also run regular LocalAI models on the same fleet.
+`--register-to` is optional but recommended - it makes the follower visible in the admin UI as an `agent`-type node tagged with `node.role=vllm-follower`. Without it the worker just runs vLLM and exits silently when vLLM does. The role label discourages SmartRouter from placing other models on the follower; pair it with model selectors like `{"!node.role":"vllm-follower"}` if you also run regular LocalAI models on the same fleet.
 
 ### Worked example: 2-node Kimi-K2.6 deployment
 
@@ -454,7 +638,7 @@ A `curl http://10.0.0.1:8080/v1/chat/completions ...` against the head will then
 
 ### Intel Arc / XPU notes
 
-vLLM XPU supports DP (`vllm/platforms/xpu.py:198` handles `world_size_across_dp > 1`; ranks bind to `xpu:{local_rank}` in `xpu_worker.py:62`, with xccl as the collective backend). Each rank still needs a distinct discrete GPU — the iGPU on a hybrid host is not a viable second device.
+vLLM XPU supports DP (`vllm/platforms/xpu.py:198` handles `world_size_across_dp > 1`; ranks bind to `xpu:{local_rank}` in `xpu_worker.py:62`, with xccl as the collective backend). Each rank still needs a distinct discrete GPU - the iGPU on a hybrid host is not a viable second device.
 
 Older XE-HPG GPUs (e.g. Arc A770) need to bypass the cutlass attention path:
 
@@ -463,7 +647,7 @@ engine_args:
   attention_backend: TRITON_ATTN
 ```
 
-`docker-compose.vllm-multinode.intel.yaml` at the repo root is the Intel equivalent of `docker-compose.vllm-multinode.yaml` — uses `/dev/dri` passthrough, `ZE_AFFINITY_MASK` to pin each rank to one device, and `latest-gpu-intel` images. Run via `./tests/e2e/vllm-multinode/smoke.sh --intel`.
+`docker-compose.vllm-multinode.intel.yaml` at the repo root is the Intel equivalent of `docker-compose.vllm-multinode.yaml` - uses `/dev/dri` passthrough, `ZE_AFFINITY_MASK` to pin each rank to one device, and `latest-gpu-intel` images. Run via `./tests/e2e/vllm-multinode/smoke.sh --intel`.
 
 ### Caveats
 
@@ -545,7 +729,7 @@ ds4 layer-split inference is **manual setup** in this release (Phase 1): you pla
 **Adding worker capacity:** Start additional `worker` instances pointing to the same frontend. They self-register automatically:
 
 ```bash
-# Additional workers — no backend type needed
+# Additional workers - no backend type needed
 local-ai worker \
   --register-to http://frontend:8080 \
   --node-name worker-2 \

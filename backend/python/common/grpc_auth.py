@@ -11,6 +11,7 @@ import os
 
 import grpc
 
+from model_identity import AsyncModelIdentityInterceptor, ModelIdentityInterceptor
 from parent_watch import start_parent_death_watcher
 
 
@@ -64,13 +65,15 @@ class AsyncTokenAuthInterceptor(grpc.aio.ServerInterceptor):
 
 
 def get_auth_interceptors(*, aio: bool = False):
-    """Return a list of gRPC interceptors for bearer token auth.
+    """Return the gRPC server interceptors every LocalAI Python backend installs.
+
+    Always includes model-identity enforcement (model_identity.py), which is
+    unrelated to authentication. Bearer token auth is added on top only when
+    LOCALAI_GRPC_AUTH_TOKEN is set.
 
     Args:
         aio: If True, return async-compatible interceptors for grpc.aio.server().
              If False (default), return sync interceptors for grpc.server().
-
-    Returns an empty list when LOCALAI_GRPC_AUTH_TOKEN is not set.
     """
     # Arm the best-effort parent-death backstop here: this is the single helper
     # every LocalAI Python backend invokes exactly once while building its gRPC
@@ -79,9 +82,17 @@ def get_auth_interceptors(*, aio: bool = False):
     # unsupported platforms — see parent_watch.py.
     start_parent_death_watcher()
 
+    # Model-identity enforcement is independent of authentication and must be
+    # installed BEFORE the token check returns. gRPC auth is off by default, so
+    # an identity interceptor added below the early return would never be
+    # installed on any Python backend, and nothing would report it.
+    interceptors = [AsyncModelIdentityInterceptor()] if aio else [ModelIdentityInterceptor()]
+
     token = os.environ.get("LOCALAI_GRPC_AUTH_TOKEN", "")
     if not token:
-        return []
+        return interceptors
     if aio:
-        return [AsyncTokenAuthInterceptor(token)]
-    return [TokenAuthInterceptor(token)]
+        interceptors.append(AsyncTokenAuthInterceptor(token))
+    else:
+        interceptors.append(TokenAuthInterceptor(token))
+    return interceptors

@@ -122,6 +122,9 @@ var _ = Describe("OpStatus JSON wire format", func() {
 		original := &galleryop.OpStatus{
 			Progress:           42.0,
 			Message:            "downloading",
+			Phase:              "downloading",
+			CurrentBytes:       123,
+			TotalBytes:         456,
 			GalleryElementName: "vllm",
 			Error:              errors.New("disk full"),
 			Processed:          true,
@@ -134,6 +137,9 @@ var _ = Describe("OpStatus JSON wire format", func() {
 		Expect(got.Error).ToNot(BeNil(), "the error must survive the round-trip — peer replicas need to surface the failure")
 		Expect(got.Error.Error()).To(Equal("disk full"))
 		Expect(got.Progress).To(Equal(42.0))
+		Expect(got.Phase).To(Equal("downloading"))
+		Expect(got.CurrentBytes).To(Equal(int64(123)))
+		Expect(got.TotalBytes).To(Equal(int64(456)))
 		Expect(got.GalleryElementName).To(Equal("vllm"))
 		Expect(got.Processed).To(BeTrue())
 	})

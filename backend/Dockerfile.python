@@ -224,7 +224,11 @@ ARG DEPS_REFRESH=initial
 
 RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
 
-# Package GPU libraries into the backend's lib directory
+# Package GPU libraries into the backend's lib directory.
+#
+# Must stay after the venv is built above: package-gpu-libs.sh inspects
+# /${BACKEND}/venv to decide whether this backend already carries a complete
+# cuDNN from pip, and bundles one only when it does not (issue #10905).
 RUN mkdir -p /${BACKEND}/lib && \
     TARGET_LIB_DIR="/${BACKEND}/lib" BUILD_TYPE="${BUILD_TYPE}" CUDA_MAJOR_VERSION="${CUDA_MAJOR_VERSION}" \
     bash /package-gpu-libs.sh "/${BACKEND}/lib"

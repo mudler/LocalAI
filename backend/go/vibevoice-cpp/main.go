@@ -37,6 +37,7 @@ func main() {
 	libFuncs := []LibFuncs{
 		{&CppLoad, "vv_capi_load"},
 		{&CppTTS, "vv_capi_tts"},
+		{&CppTTSStream, "vv_capi_tts_stream"},
 		{&CppASR, "vv_capi_asr"},
 		{&CppUnload, "vv_capi_unload"},
 		{&CppVersion, "vv_capi_version"},

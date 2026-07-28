@@ -1,6 +1,17 @@
 {
   "title": "Modelle installieren",
   "subtitle": "Durchsuchen und installieren Sie KI-Modelle aus der Galerie",
+  "recommended": {
+    "title": "Empfohlen für Ihre Hardware",
+    "cpuNote": "Keine GPU erkannt - kleine Modelle, die auf der CPU reaktionsschnell bleiben.",
+    "gpuNote": "Passend zum verfügbaren VRAM, mit Spielraum für den Kontext.",
+    "install": "Installieren",
+    "installing": "Installation läuft",
+    "installStarted": "{{model}} wird installiert…",
+    "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "dismiss": "Empfehlungen ausblenden",
+    "summary": "{{n}} Modelle vorgeschlagen"
+  },
   "stats": {
     "available": "Verfügbar",
     "installed": "Installiert"
@@ -24,8 +35,12 @@
     "embedding": "Embedding",
     "rerank": "Rerank",
     "fitsGpu": "Passt in die GPU",
+    "collapseVariants": "Eine Zeile pro Modell",
     "allBackends": "Alle Backends",
-    "searchBackends": "Backends suchen..."
+    "searchBackends": "Backends suchen...",
+    "contextSize": "Kontext:",
+    "useCaseLabel": "Nach Anwendungsfall filtern",
+    "unavailableForBackend": "Für das gewählte Backend nicht verfügbar"
   },
   "search": {
     "placeholder": "Modelle suchen...",
@@ -71,6 +86,7 @@
   "empty": {
     "title": "Keine Modelle gefunden",
     "withFilters": "Keine Modelle entsprechen den aktuellen Such- oder Filterkriterien.",
+    "collapsedVariantsHint": "Alternative Builds, die ein anderer Eintrag bereits anbietet, sind ausgeblendet. Schalte \"Eine Zeile pro Modell\" aus, um sie einzubeziehen.",
     "noFilters": "Die Modellgalerie ist leer."
   },
   "deleteDialog": {
@@ -83,5 +99,27 @@
     "loadFailed": "Laden der Modelle fehlgeschlagen: {{message}}",
     "installFailed": "Installation fehlgeschlagen: {{message}}",
     "deleteFailed": "Löschen fehlgeschlagen: {{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "Gewichtsformat",
+    "unknownQuantization": "Format unbekannt",
+    "showDetails": "Alle Details zu {{variant}} anzeigen",
+    "hideDetails": "Alle Details zu {{variant}} ausblenden",
+    "detailsLoading": "Details werden geladen...",
+    "detailsUnavailable": "Details zu {{variant}} konnten nicht geladen werden.",
+    "features": {
+      "dflash": "Schneller: DFlash",
+      "mtp": "Schneller: MTP"
+    }
   }
 }

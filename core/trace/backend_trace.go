@@ -6,7 +6,9 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/emirpasic/gods/v2/queues/circularbuffer"
@@ -42,6 +44,10 @@ const (
 )
 
 type BackendTrace struct {
+	// ID identifies this trace for the lifetime of the process, so the list
+	// endpoint can return trimmed entries and clients can fetch the full
+	// record back from /api/backend-traces/:id.
+	ID        string           `json:"id"`
 	Timestamp time.Time        `json:"timestamp"`
 	Duration  time.Duration    `json:"duration"`
 	Type      BackendTraceType `json:"type"`
@@ -68,6 +74,7 @@ var (
 	backendMu          sync.Mutex
 	backendLogChan     = make(chan *BackendTrace, 100)
 	backendInitOnce    sync.Once
+	backendTraceIDSeq  atomic.Uint64
 )
 
 // backendMaxBodyBytes caps each captured string value in a BackendTrace.Data
@@ -125,6 +132,9 @@ func RecordBackendTrace(t BackendTrace) {
 	// /api/backend-traces response and blank the Traces UI.
 	if t.Data != nil {
 		t.Data = sanitizeData(t.Data, maxBody)
+	}
+	if t.ID == "" {
+		t.ID = strconv.FormatUint(backendTraceIDSeq.Add(1), 10)
 	}
 	select {
 	case backendLogChan <- &t:
@@ -239,6 +249,48 @@ func GetBackendTraces() []BackendTrace {
 	})
 
 	return traces
+}
+
+// GetBackendTracesPage returns the newest-first window
+// [offset, offset+limit) of the backend trace buffer plus the total number
+// of buffered traces. A limit <= 0 means "no bound".
+func GetBackendTracesPage(offset, limit int) ([]BackendTrace, int) {
+	all := GetBackendTraces()
+	total := len(all)
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= total {
+		return []BackendTrace{}, total
+	}
+	page := all[offset:]
+	if limit > 0 && limit < len(page) {
+		page = page[:limit]
+	}
+	out := make([]BackendTrace, len(page))
+	copy(out, page)
+	return out, total
+}
+
+// GetBackendTrace returns the buffered trace with the given ID.
+func GetBackendTrace(id string) (BackendTrace, bool) {
+	for _, t := range GetBackendTraces() {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	return BackendTrace{}, false
+}
+
+// SummarizeBackendTrace drops the heavy fields (the full request Body and the
+// Data map, which carries things like base64 audio snippets and complete
+// input_text payloads) while keeping everything the trace list renders. The
+// full record stays reachable by ID. Without this the list response grew to
+// tens of megabytes and the UI re-fetched it every few seconds.
+func SummarizeBackendTrace(t BackendTrace) BackendTrace {
+	t.Body = ""
+	t.Data = nil
+	return t
 }
 
 func ClearBackendTraces() {

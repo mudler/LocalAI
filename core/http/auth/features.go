@@ -57,6 +57,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/audio/speech", FeatureAudioSpeech},
 	{"POST", "/tts", FeatureAudioSpeech},
 	{"POST", "/v1/text-to-speech/:voice-id", FeatureAudioSpeech},
+	{"GET", "/api/voice-profiles", FeatureAudioSpeech},
+	{"GET", "/api/voice-profiles/:id/audio", FeatureAudioSpeech},
 
 	// VAD
 	{"POST", "/vad", FeatureVAD},
