@@ -372,7 +372,10 @@ usage is reported back to the frontend:
 share one physical RAM between CPU and GPU. LocalAI detects them via
 `/sys/devices/soc0/family` and `/sys/devices/soc0/soc_id` (no `nvidia-smi`
 required) and reports system-RAM figures as VRAM. Free VRAM therefore tracks
-`MemAvailable` in `/proc/meminfo`.
+`MemAvailable` in `/proc/meminfo`. Workers report RAM metrics independently
+from VRAM on every registration and heartbeat. On unified-memory nodes, the
+available RAM and available VRAM values should therefore track each other
+closely; on discrete-GPU nodes they can change independently.
 
 ### Node Labels
 
