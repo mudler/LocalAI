@@ -40,13 +40,36 @@ function timeOfDay(iso) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+// Beyond this the elapsed time is not a duration, it is a broken start stamp.
+// A zero-value Go time reaching the page renders as a span of millennia, which
+// the row would state as fact; the page is the last place that can refuse to.
+const MAX_PLAUSIBLE_DURATION_SECONDS = 24 * 60 * 60
+
+// Returns '' when the elapsed time cannot be trusted, which the caller renders
+// as a duration-less phrase rather than as "installed in " with nothing after
+// it. recordTerminal seeds StartedAt = FinishedAt and only overwrites it with a
+// real stamp, so a zero span is an ordinary arrival and gets a floor instead.
 function durationLabel(record) {
   const started = new Date(record.startedAt).getTime()
   const finished = new Date(record.finishedAt).getTime()
-  if (Number.isNaN(started) || Number.isNaN(finished) || finished <= started) return ''
+  if (Number.isNaN(started) || Number.isNaN(finished) || finished < started) return ''
   const seconds = Math.round((finished - started) / 1000)
+  if (seconds > MAX_PLAUSIBLE_DURATION_SECONDS) return ''
+  if (seconds < 1) return '< 1s'
   if (seconds < 60) return `${seconds}s`
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+}
+
+// Cancellation is tested before the task type on purpose: a deletion cancelled
+// mid-flight must report the cancellation, not "removed". recordTerminal
+// produces exactly that pair, and the row's ban icon would otherwise sit beside
+// text claiming work that never happened.
+function recordSummary(record, t) {
+  if (record.outcome === 'failed') return t('activity.rowFailed', { error: record.error })
+  if (record.outcome === 'cancelled') return t('activity.rowCancelled')
+  if (record.taskType === 'deletion') return t('activity.rowRemoved')
+  const duration = durationLabel(record)
+  return duration ? t('activity.rowInstalled', { duration }) : t('activity.rowInstalledPlain')
 }
 
 // Retry only ever means "install this again". A failed deletion would need the
@@ -70,7 +93,12 @@ export default function Activity() {
     // opcache key, and overwriting a failed entry in place skips recordTerminal
     // so the failure would never reach the record. Dismissing first is what
     // puts it there.
-    await dismissFailedOp(op.id)
+    //
+    // By jobID, because the guarantee only holds while both calls address the
+    // same job. Two ops can share an id (a local and a node-scoped install of
+    // one backend), and dismissing by id could retire the other one instead,
+    // leaving this failure to be overwritten in place by the reinstall below.
+    await dismissFailedOp(op.jobID)
     // fullName is the gallery-qualified id the install endpoints expect;
     // `name` has the repo prefix stripped for display. Node-scoped ops already
     // had their prefix removed server side, so fullName is the bare slug there.
@@ -81,11 +109,16 @@ export default function Activity() {
       } else if (op.isBackend) {
         await backendsApi.install(target)
       } else {
-        // Known limitation: /api/operations carries no variant, so a
-        // variant-pinned model retries as an auto-select. Accepted rather than
-        // dropping retry for every model, because auto-select reproduces the
-        // gallery's own default and pinning is the rarer path; a user who
-        // pinned a build can reinstall it from the Models picker.
+        // The variant is not on the payload YET, so a pinned model retries as
+        // an auto-select: someone who chose a specific quant, watched it fail
+        // at 90% and pressed Retry gets a different build, with nothing on
+        // screen saying so. Worth closing, and close to closed: ui_api.go
+        // already reads ?variant= at enqueue and stores it on the ManagementOp,
+        // so it only has to reach the /api/operations payload and this call.
+        // Until then Retry stays, because nothing here distinguishes a pinned
+        // install from an unpinned one and dropping it would cost every model
+        // the button, including the common plain install that hit a network
+        // error.
         await modelsApi.install(target)
       }
     } catch (err) {
@@ -106,11 +139,29 @@ export default function Activity() {
     [history, filter],
   )
 
-  // "Nothing running" must not be said while a failure is waiting for a
-  // decision, so the busy line covers both.
-  const supporting = live.length > 0 || failing.length > 0
-    ? t('activity.summaryBusy', { running: live.length, failed: failing.length })
-    : t('activity.summaryQuiet', { count: history.length })
+  // The header describes the instance, not the current chip, which is what the
+  // Clear-history button beside it already does. A filtered count here would
+  // report "Nothing running" while two model installs were running just
+  // offscreen; the filtered view explains itself through the sections and the
+  // filtered empty state instead.
+  //
+  // "Nothing running" must also not be said while a failure is waiting for a
+  // decision, so both counts get a clause. Each clause is dropped when its
+  // count is zero rather than rendered as a literal 0: the ordinary happy path
+  // would otherwise put "0 needs attention" under the page title on every
+  // render, which reads as a report about failures rather than the absence of
+  // one.
+  const runningTotal = operations.filter((op) => !op.error).length
+  const failingTotal = operations.length - runningTotal
+  const summaryClauses = []
+  if (runningTotal > 0) summaryClauses.push(t('activity.summaryRunning', { count: runningTotal }))
+  if (failingTotal > 0) summaryClauses.push(t('activity.summaryFailed', { count: failingTotal }))
+  let supporting
+  if (summaryClauses.length > 0) supporting = summaryClauses.join(' ')
+  else if (history.length > 0) supporting = t('activity.summaryQuiet', { count: history.length })
+  // Saying "0 operations since startup" directly above "No operations since
+  // startup" states the same nothing twice.
+  else supporting = t('activity.summaryIdle')
 
   return (
     <div className="page page--wide activity-page">
@@ -179,15 +230,7 @@ export default function Activity() {
                 />
                 <span className="activity-row__name">
                   {record.name}
-                  <small>
-                    {record.outcome === 'failed'
-                      ? t('activity.rowFailed', { error: record.error })
-                      : record.taskType === 'deletion'
-                        ? t('activity.rowRemoved')
-                        : record.outcome === 'cancelled'
-                          ? t('activity.rowCancelled')
-                          : t('activity.rowInstalled', { duration: durationLabel(record) })}
-                  </small>
+                  <small>{recordSummary(record, t)}</small>
                 </span>
                 <span className="activity-row__when">{timeOfDay(record.finishedAt)}</span>
                 <Link className="activity-row__action" to={record.isBackend ? '/app/backends' : '/app/models'}>
@@ -200,13 +243,26 @@ export default function Activity() {
         </section>
       )}
 
+      {/* A chip that matches nothing is not an empty system. Telling someone
+          with three model installs on record that nothing has ever run, while
+          the line above them counts those same three, is simply false. */}
       {live.length === 0 && failing.length === 0 && records.length === 0 && (
-        <div className="activity-empty">
-          <i className="fas fa-download activity-empty__icon" aria-hidden="true" />
-          <p className="activity-empty__title">{t('activity.emptyTitle')}</p>
-          <p className="activity-empty__body">{t('activity.emptyBody')}</p>
-          <Link className="btn btn-primary" to="/app/models">{t('activity.browseModels')}</Link>
-        </div>
+        filter === 'all' ? (
+          <div className="activity-empty">
+            <i className="fas fa-download activity-empty__icon" aria-hidden="true" />
+            <p className="activity-empty__title">{t('activity.emptyTitle')}</p>
+            <p className="activity-empty__body">{t('activity.emptyBody')}</p>
+            <Link className="btn btn-primary" to="/app/models">{t('activity.browseModels')}</Link>
+          </div>
+        ) : (
+          <div className="activity-empty activity-empty--filtered">
+            <i className="fas fa-filter activity-empty__icon" aria-hidden="true" />
+            <p className="activity-empty__title">{t('activity.emptyFiltered')}</p>
+            <button type="button" className="btn btn-secondary" onClick={() => setFilter('all')}>
+              {t('activity.showAll')}
+            </button>
+          </div>
+        )
       )}
     </div>
   )

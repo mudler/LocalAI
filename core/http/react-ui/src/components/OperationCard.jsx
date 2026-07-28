@@ -165,7 +165,7 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
             <button
               type="button"
               className="operation-card__hide"
-              onClick={() => onDismiss?.(operation.id)}
+              onClick={() => onDismiss?.(operation.jobID)}
               title={t('activity.moveToHistory')}
               aria-label={t('activity.moveToHistory')}
             >

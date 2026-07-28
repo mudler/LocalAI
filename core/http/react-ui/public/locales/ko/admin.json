@@ -52,8 +52,6 @@
     "inProgress": "In progress",
     "needsAttention": "Needs attention",
     "record": "Record",
-    "summaryBusy": "{{running}} running, {{failed}} needs attention.",
-    "summaryQuiet": "Nothing running. {{count}} operations since startup.",
     "historyNote": "Keeps the last 50 operations. History is in memory and resets when LocalAI restarts.",
     "emptyTitle": "No operations since startup",
     "emptyBody": "Model and backend installs appear here while they run and stay as a record afterwards. History is kept in memory, so it resets when LocalAI restarts.",
@@ -70,7 +68,17 @@
       "models": "Models",
       "backends": "Backends",
       "cluster": "Cluster"
-    }
+    },
+    "summaryRunning_one": "{{count}} operation running.",
+    "summaryRunning_other": "{{count}} operations running.",
+    "summaryFailed_one": "{{count}} operation needs attention.",
+    "summaryFailed_other": "{{count}} operations need attention.",
+    "summaryQuiet_one": "Nothing running. {{count}} operation since startup.",
+    "summaryQuiet_other": "Nothing running. {{count}} operations since startup.",
+    "summaryIdle": "Nothing running.",
+    "emptyFiltered": "No operations match this filter.",
+    "showAll": "Show all",
+    "rowInstalledPlain": "installed"
   },
   "manage": {
     "title": "시스템",

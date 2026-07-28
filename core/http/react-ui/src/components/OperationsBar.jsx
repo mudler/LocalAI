@@ -138,7 +138,7 @@ export default function OperationsBar() {
     // Anything else is hidden locally: the work carries on and the sidebar
     // count still shows it.
     if (shown.error) {
-      dismissFailedOp(shown.id)
+      dismissFailedOp(shown.jobID)
       return
     }
     setHiddenJobID(shown.jobID)

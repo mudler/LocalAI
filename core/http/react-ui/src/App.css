@@ -9880,6 +9880,9 @@ button.collapsible-header:focus-visible {
 .activity-empty__icon { font-size: 1.5rem; color: var(--color-text-disabled); margin-bottom: var(--spacing-xs); }
 .activity-empty__title { margin: 0; font-weight: 500; color: var(--color-text-secondary); }
 .activity-empty__body { margin: 0; max-width: 46ch; font-size: 0.8125rem; color: var(--color-text-muted); }
+/* A chip matching nothing is a smaller event than an empty instance, and gets
+   less of the page so the chip row above stays the obvious thing to change. */
+.activity-empty--filtered { padding: var(--spacing-lg) var(--spacing-md); }
 
 .nav-badge {
   min-width: 18px;

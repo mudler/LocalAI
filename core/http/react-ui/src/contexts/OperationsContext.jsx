@@ -116,17 +116,20 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     }
   }, [fetchOperations])
 
-  const dismissFailedOp = useCallback(async (opId) => {
+  // Takes the jobID, never the display id. /api/operations strips the
+  // "node:<nodeID>:" prefix before emitting, so a local install and a
+  // node-scoped install of the same backend arrive as two distinct jobs
+  // sharing one id: looking the job up by id could dismiss the wrong one,
+  // leaving the failure the user acted on live and silently retiring another.
+  const dismissFailedOp = useCallback(async (jobID) => {
+    if (!jobID) return
     try {
-      const op = operations.find((o) => o.id === opId)
-      if (op?.jobID) {
-        await operationsApi.dismiss(op.jobID)
-        await fetchOperations()
-      }
+      await operationsApi.dismiss(jobID)
+      await fetchOperations()
     } catch {
       // Ignore dismiss errors
     }
-  }, [operations, fetchOperations])
+  }, [fetchOperations])
 
   // Time remaining is derived, not reported. We keep the previous
   // (bytes, timestamp) sample per job and estimate from the delta.
