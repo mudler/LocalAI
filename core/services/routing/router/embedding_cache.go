@@ -52,6 +52,10 @@ type EmbeddingCacheClassifier struct {
 	similarityThreshold float64
 	confidenceThreshold float64
 
+	// budget trims the conversation to the embedder model's own context
+	// before embedding; nil embeds Probe.Prompt as built by the caller.
+	budget *lazyBudget
+
 	hits           atomic.Uint64
 	misses         atomic.Uint64
 	nearMisses     atomic.Uint64
@@ -100,6 +104,15 @@ func NewEmbeddingCacheClassifier(inner Classifier, embedder backend.Embedder, st
 	}
 }
 
+// WithTokenTrim wires the embedder model's own tokenizer and context so the
+// probe embeds the most recent turns that fit instead of a caller-chosen size.
+// nil tokenizer / non-positive context leaves trimming off. Returns the
+// receiver for chaining at construction.
+func (c *EmbeddingCacheClassifier) WithTokenTrim(tokenize func(string) (int, error), maxContextTokens int) *EmbeddingCacheClassifier {
+	c.budget = &lazyBudget{tokenize: tokenize, maxContext: maxContextTokens}
+	return c
+}
+
 // Name is the inner classifier's name — the decision-log "classifier"
 // field should reflect *what* made the decision, not the caching
 // transport. Cache hits set Decision.Cached separately so admins can
@@ -127,7 +140,7 @@ func (c *EmbeddingCacheClassifier) Stats() EmbeddingCacheStats {
 func (c *EmbeddingCacheClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
 	start := time.Now()
 
-	vec, err := c.embedder.Embed(ctx, p.Prompt)
+	vec, err := c.embedder.Embed(ctx, trimmedProbeText(p, c.budget, identityRender))
 	if err != nil {
 		c.embedderErrors.Add(1)
 		xlog.Warn("router: embedding cache embed failed", "error", err)

@@ -1,0 +1,60 @@
+---
+# Authoritative formal design for realtime machine M1: connection lifecycle.
+#
+# Companion to:
+#   - docs/design/realtime-state-machines.md  (the map + invariants)
+#   - core/http/endpoints/openai/conncoord    (the Go implementation)
+#
+# The Go MBT adapter maps each action below onto conncoord.Coordinator.Apply and
+# the StateGetter onto conncoord.Coordinator.State, so this spec is the source of
+# truth the implementation is checked against.
+#
+# The legacy hazard (Part 2, failure mode 6 / invariants #8, #10): a single `done`
+# channel reassigned on every VAD toggle and closed from two sites (toggle-off and
+# teardown) guarded only by a vadServerStarted bool. Modeled here as `running`
+# (the VAD goroutine's done channel is live) and `torn` (teardown happened).
+#
+# NOTE: FizzBee is pre-1.0. Validate the exact syntax/CLI against the version
+# pinned in formal-verification/README.md before trusting the gate.
+deadlock_detection: false
+---
+
+role Conn:
+    action Init:
+        self.running = 0     # VAD goroutine running (its done channel is live)
+        self.torn = 0        # teardown has happened
+        self.teardowns = 0   # how many times teardown ran -- MUST stay <= 1
+
+    # session.update toggled turn detection on. No-op after teardown (the legacy
+    # reassign-and-spawn must never resurrect a torn session).
+    atomic action VadOn:
+        if self.torn == 0:
+            self.running = 1
+
+    # session.update toggled turn detection off (close the running done channel).
+    atomic action VadOff:
+        if self.torn == 0:
+            self.running = 0
+
+    # Transport read loop ended / session closing. THE FIX: setting torn absorbs
+    # every later Close, so teardown's channel closes happen exactly once. To
+    # reproduce the legacy double-teardown hazard, delete `self.torn = 1` below:
+    # the checker then reports TeardownOnce violated (Close runs teardown again).
+    atomic action Close:
+        if self.torn == 0:
+            self.running = 0    # StopVAD if it was running (close-once)
+            self.teardowns += 1 # Teardown
+            self.torn = 1
+
+action Init:
+    c = Conn()
+
+# SAFETY: teardown runs at most once -- the done/decode/sound channels are closed
+# exactly once, never double-closed (Part 4, invariant #10).
+always assertion TeardownOnce:
+    return c.teardowns <= 1
+
+# SAFETY: the VAD goroutine is never (re)started after teardown -- no
+# send-after-close / no goroutine outliving the session (Part 4, invariant #8).
+always assertion NoRunAfterTorn:
+    return not (c.torn == 1 and c.running == 1)

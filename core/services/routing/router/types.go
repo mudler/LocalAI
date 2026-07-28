@@ -31,6 +31,15 @@ type Probe struct {
 	// is the concatenation of message contents (separated by newlines);
 	// for plain completions it is the raw prompt.
 	Prompt string
+
+	// Messages carries the per-turn texts (oldest→newest) when the probe
+	// came from a multi-message chat request. A classifier with a real
+	// tokenizer (the score classifier) uses these to trim an over-long
+	// conversation to the classifier model's context window on turn
+	// boundaries, keeping the most recent turns. Empty for single-input
+	// probes (plain completions, /router/decide), in which case the
+	// classifier falls back to Prompt verbatim.
+	Messages []string
 }
 
 // Decision is the classifier's output. Labels carries the SET of

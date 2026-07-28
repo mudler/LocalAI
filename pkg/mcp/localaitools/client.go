@@ -36,7 +36,19 @@ type LocalAIClient interface {
 	DeleteModel(ctx context.Context, name string) error
 	EditModelConfig(ctx context.Context, name string, patch map[string]any) error
 	ReloadModels(ctx context.Context) error
+	// LoadModel pre-loads a model into memory by name (the inverse of shutting
+	// it down). For a realtime pipeline model every configured sub-model is
+	// loaded; it returns the model names that became resident.
+	LoadModel(ctx context.Context, model string) ([]string, error)
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
+
+	// ---- Model aliases ----
+	// SetAlias creates the alias `name` pointing at `target`, or swaps an
+	// existing alias's target. The server validates that `target` is an
+	// existing, non-alias, enabled model. Deletion reuses DeleteModel.
+	SetAlias(ctx context.Context, name, target string) error
+	// ListAliases returns every configured alias and its target.
+	ListAliases(ctx context.Context) ([]AliasInfo, error)
 
 	// ---- Backends ----
 	// ListBackends returns installed backends. The shape stays a thin
@@ -52,6 +64,10 @@ type LocalAIClient interface {
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)
 	ListNodes(ctx context.Context) ([]Node, error)
+	// SetNodeVRAMBudget sets (or, with an empty budget, clears) a federated
+	// node's VRAM allocation cap as a sticky admin override. Only meaningful
+	// in distributed mode; single-process clients report it as unavailable.
+	SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error
 	VRAMEstimate(ctx context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error)
 
 	// ---- State ----
@@ -68,6 +84,11 @@ type LocalAIClient interface {
 	// exposed over MCP — admins use the Settings UI for binary files.
 	SetBranding(ctx context.Context, req SetBrandingRequest) (*Branding, error)
 
+	// ---- Voice profile library ----
+	ListVoiceProfiles(ctx context.Context) ([]VoiceProfile, error)
+	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
+	DeleteVoiceProfile(ctx context.Context, id string) error
+
 	// ---- Usage / billing ----
 
 	// GetUsageStats returns aggregated token usage. In single-user
@@ -76,24 +97,11 @@ type LocalAIClient interface {
 	GetUsageStats(ctx context.Context, q UsageStatsQuery) (*UsageStats, error)
 
 	// ---- PII filter ----
-	// ListPIIPatterns returns the active PII pattern set with each
-	// one's action.
-	ListPIIPatterns(ctx context.Context) ([]PIIPattern, error)
 	// GetPIIEvents returns recent redaction events. Implementation
-	// enforces "admin required" when auth is on.
+	// enforces "admin required" when auth is on. The regex pattern tools
+	// were removed — detection policy lives on each detector model's
+	// pii_detection block, managed via the model-config tools.
 	GetPIIEvents(ctx context.Context, q PIIEventsQuery) ([]PIIEvent, error)
-	// TestPIIRedaction dry-runs the redactor against text. No event
-	// is recorded.
-	TestPIIRedaction(ctx context.Context, req PIIRedactTestRequest) (*PIIRedactTestResult, error)
-	// SetPIIPatternAction mutates the named pattern's action and/or
-	// disabled state in-process. Transient until PersistPIIPatterns is
-	// called — runtime_settings.json then applies the deltas on the
-	// next start. Admin-required.
-	SetPIIPatternAction(ctx context.Context, req PIIPatternActionUpdate) error
-
-	// PersistPIIPatterns snapshots the live redactor's per-pattern
-	// (action, disabled) state into runtime_settings.json. Admin-required.
-	PersistPIIPatterns(ctx context.Context) error
 
 	// ---- Middleware admin ----
 	// GetMiddlewareStatus returns the aggregated state surfaced on the

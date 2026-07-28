@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
+import PageHeader from '../components/PageHeader'
 
 function ObservableSummary({ observable }) {
   const creation = observable?.creation || {}
@@ -352,29 +353,26 @@ export default function AgentStatus() {
         .as-status-value { font-size: 1rem; font-weight: 600; color: var(--color-text-primary); }
       `}</style>
 
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">
-            <i className="fas fa-chart-bar" style={{ marginRight: 'var(--spacing-xs)' }} />
-            {name} — Status
-          </h1>
-          <p className="page-subtitle">Agent observables and activity history</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-            <i className="fas fa-comment" /> Chat
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-            <i className="fas fa-edit" /> Edit
-          </button>
-          <button className="btn btn-secondary" onClick={fetchData}>
-            <i className="fas fa-sync" /> Refresh
-          </button>
-          <button className="btn btn-danger" onClick={handleClear} disabled={observables.length === 0}>
-            <i className="fas fa-trash" /> Clear
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={<><i className="fas fa-chart-bar" style={{ marginRight: 'var(--spacing-xs)' }} />{name} — Status</>}
+        supporting="Agent observables and activity history"
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+            <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
+              <i className="fas fa-comment" /> Chat
+            </button>
+            <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
+              <i className="fas fa-edit" /> Edit
+            </button>
+            <button className="btn btn-secondary" onClick={fetchData}>
+              <i className="fas fa-sync" /> Refresh
+            </button>
+            <button className="btn btn-danger" onClick={handleClear} disabled={observables.length === 0}>
+              <i className="fas fa-trash" /> Clear
+            </button>
+          </div>
+        }
+      />
 
       {/* Status summary */}
       {status && (

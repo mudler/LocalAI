@@ -11,6 +11,8 @@ import (
 
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/registry/remote"
+	"oras.land/oras-go/v2/registry/remote/auth"
+	"oras.land/oras-go/v2/registry/remote/retry"
 )
 
 func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader func(ocispec.Descriptor) io.Writer) error {
@@ -27,6 +29,16 @@ func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader 
 		return fmt.Errorf("failed to create repository: %v", err)
 	}
 	repo.SkipReferrersGC = true
+
+	// Identify LocalAI to the registry. This mirrors oras' auth.DefaultClient
+	// (same retry policy) but advertises a LocalAI User-Agent instead of the
+	// library default.
+	client := &auth.Client{
+		Client: retry.DefaultClient,
+		Cache:  auth.NewCache(),
+	}
+	client.SetUserAgent(UserAgent())
+	repo.Client = client
 
 	// https://github.com/oras-project/oras/blob/main/cmd/oras/internal/option/remote.go#L364
 	// https://github.com/oras-project/oras/blob/main/cmd/oras/root/blob/fetch.go#L136

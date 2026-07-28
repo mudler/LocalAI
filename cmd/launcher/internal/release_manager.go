@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -50,6 +51,12 @@ type ReleaseManager struct {
 	ChecksumsPath string
 	// MetadataPath is where version metadata is stored
 	MetadataPath string
+	// BaseDownloadURL is the base URL release assets are downloaded from
+	// (defaults to https://github.com; overridable for testing)
+	BaseDownloadURL string
+	// RetryBackoff is the base wait between download attempts; the Nth retry
+	// waits N*RetryBackoff (defaults to 1s; lowered in tests)
+	RetryBackoff time.Duration
 	// HTTPClient is the HTTP client used for downloads
 	HTTPClient *http.Client
 }
@@ -62,28 +69,94 @@ func NewReleaseManager() *ReleaseManager {
 	metadataPath := filepath.Join(homeDir, ".localai", "metadata")
 
 	return &ReleaseManager{
-		GitHubOwner:    "mudler",
-		GitHubRepo:     "LocalAI",
-		BinaryPath:     binaryPath,
-		CurrentVersion: internal.PrintableVersion(),
-		ChecksumsPath:  checksumsPath,
-		MetadataPath:   metadataPath,
-		HTTPClient:     httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects()),
+		GitHubOwner:     "mudler",
+		GitHubRepo:      "LocalAI",
+		BinaryPath:      binaryPath,
+		CurrentVersion:  internal.PrintableVersion(),
+		ChecksumsPath:   checksumsPath,
+		MetadataPath:    metadataPath,
+		BaseDownloadURL: "https://github.com",
+		RetryBackoff:    1 * time.Second,
+		HTTPClient:      httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects()),
 	}
 }
 
-// GetLatestRelease fetches the latest release information from GitHub
+// GetLatestRelease resolves the latest LocalAI release.
+//
+// It first follows the github.com "releases/latest" redirect, which reveals the
+// latest tag in the final URL and—crucially—is NOT subject to the
+// 60-requests/hour unauthenticated rate limit of api.github.com. That limit is
+// per-IP, so on shared/NAT/CGNAT/cloud addresses the API returns 403 almost
+// immediately (e.g. on a fresh install with no LocalAI present yet). The
+// redirect avoids that entirely. The richer JSON API is kept only as a fallback.
+//
+// Only the version is consumed by callers, so the redirect's tag is sufficient.
 func (rm *ReleaseManager) GetLatestRelease() (*Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", rm.GitHubOwner, rm.GitHubRepo)
+	version, redirectErr := rm.latestVersionFromRedirect()
+	if redirectErr == nil {
+		return &Release{Version: version}, nil
+	}
+	log.Printf("Could not resolve latest version via release redirect (%v); falling back to GitHub API", redirectErr)
+
+	release, apiErr := rm.latestReleaseFromAPI()
+	if apiErr != nil {
+		// Surface both failures so a rate-limited API doesn't mask the (usually
+		// more relevant) redirect error.
+		return nil, fmt.Errorf("failed to fetch latest release: %v (redirect: %v)", apiErr, redirectErr)
+	}
+	return release, nil
+}
+
+// latestVersionFromRedirect returns the latest tag by following the github.com
+// "releases/latest" redirect to ".../releases/tag/<tag>".
+func (rm *ReleaseManager) latestVersionFromRedirect() (string, error) {
+	url := fmt.Sprintf("%s/%s/%s/releases/latest", rm.BaseDownloadURL, rm.GitHubOwner, rm.GitHubRepo)
 
 	resp, err := rm.HTTPClient.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status %s", resp.Status)
+	}
+
+	// After the redirect is followed, the final request URL is the tag page.
+	version := path.Base(resp.Request.URL.Path)
+	if version == "" || version == "." || version == "latest" {
+		return "", fmt.Errorf("could not determine version from %s", resp.Request.URL.String())
+	}
+	return version, nil
+}
+
+// latestReleaseFromAPI fetches the latest release JSON from api.github.com. This
+// is the fallback path; it is rate-limited unless GITHUB_TOKEN is set.
+func (rm *ReleaseManager) latestReleaseFromAPI() (*Release, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", rm.GitHubOwner, rm.GitHubRepo)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	// An optional token lifts the unauthenticated 60/hour limit to 5000/hour.
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := rm.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch latest release: status %d", resp.StatusCode)
+		if (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests) &&
+			resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			return nil, fmt.Errorf("GitHub API rate limit exceeded (status %d); retry later or set GITHUB_TOKEN to raise the limit", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
 	// Parse the JSON response properly
@@ -106,7 +179,7 @@ func (rm *ReleaseManager) GetLatestRelease() (*Release, error) {
 }
 
 // DownloadRelease downloads a specific version of LocalAI
-func (rm *ReleaseManager) DownloadRelease(version string, progressCallback func(float64)) error {
+func (rm *ReleaseManager) DownloadRelease(version string, progressCallback func(downloaded, total int64)) error {
 	// Ensure the binary directory exists
 	if err := os.MkdirAll(rm.BinaryPath, 0755); err != nil {
 		return fmt.Errorf("failed to create binary directory: %w", err)
@@ -117,16 +190,16 @@ func (rm *ReleaseManager) DownloadRelease(version string, progressCallback func(
 	localPath := filepath.Join(rm.BinaryPath, "local-ai")
 
 	// Download the binary
-	downloadURL := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s",
-		rm.GitHubOwner, rm.GitHubRepo, version, binaryName)
+	downloadURL := fmt.Sprintf("%s/%s/%s/releases/download/%s/%s",
+		rm.BaseDownloadURL, rm.GitHubOwner, rm.GitHubRepo, version, binaryName)
 
 	if err := rm.downloadFile(downloadURL, localPath, progressCallback); err != nil {
 		return fmt.Errorf("failed to download binary: %w", err)
 	}
 
 	// Download and verify checksums
-	checksumURL := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/LocalAI-%s-checksums.txt",
-		rm.GitHubOwner, rm.GitHubRepo, version, version)
+	checksumURL := fmt.Sprintf("%s/%s/%s/releases/download/%s/LocalAI-%s-checksums.txt",
+		rm.BaseDownloadURL, rm.GitHubOwner, rm.GitHubRepo, version, version)
 
 	checksumPath := filepath.Join(rm.BinaryPath, "checksums.txt")
 	manualChecksumPath := filepath.Join(rm.ChecksumsPath, fmt.Sprintf("checksums-%s.txt", version))
@@ -154,6 +227,10 @@ func (rm *ReleaseManager) DownloadRelease(version string, progressCallback func(
 	// Verify the checksum if we have a checksum file
 	if _, err := os.Stat(checksumPath); err == nil {
 		if err := rm.VerifyChecksum(localPath, checksumPath, binaryName); err != nil {
+			// Discard the corrupt binary (and any leftover partial) so the next
+			// retry starts from a clean slate rather than resuming corruption.
+			os.Remove(localPath)
+			os.Remove(localPath + ".part")
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
 		log.Printf("Checksum verification successful")
@@ -196,44 +273,88 @@ func (rm *ReleaseManager) GetBinaryName(version string) string {
 }
 
 // downloadFile downloads a file from a URL to a local path with optional progress callback
-func (rm *ReleaseManager) downloadFile(url, filepath string, progressCallback func(float64)) error {
+func (rm *ReleaseManager) downloadFile(url, filepath string, progressCallback func(downloaded, total int64)) error {
 	return rm.downloadFileWithRetry(url, filepath, progressCallback, 3)
 }
 
-// downloadFileWithRetry downloads a file from a URL with retry logic
-func (rm *ReleaseManager) downloadFileWithRetry(url, filepath string, progressCallback func(float64), maxRetries int) error {
+// downloadFileWithRetry downloads a file with retry and HTTP Range resume.
+//
+// The body is streamed to "<dest>.part" and only renamed to dest on success, so
+// a dropped connection leaves a partial file that the next attempt continues via
+// a "Range: bytes=N-" request instead of restarting from zero. This matters for
+// GitHub release downloads, which are large and flaky.
+func (rm *ReleaseManager) downloadFileWithRetry(url, dest string, progressCallback func(downloaded, total int64), maxRetries int) error {
+	partPath := dest + ".part"
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if attempt > 1 {
 			log.Printf("Retrying download (attempt %d/%d): %s", attempt, maxRetries, url)
-			time.Sleep(time.Duration(attempt) * time.Second)
+			time.Sleep(time.Duration(attempt) * rm.RetryBackoff)
 		}
 
-		resp, err := rm.HTTPClient.Get(url)
+		// Resume from however much we already have on disk.
+		var offset int64
+		if fi, err := os.Stat(partPath); err == nil {
+			offset = fi.Size()
+		}
+
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return err
+		}
+		if offset > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
+		}
+
+		resp, err := rm.HTTPClient.Do(req)
 		if err != nil {
 			lastErr = err
 			continue
 		}
 
-		if resp.StatusCode != http.StatusOK {
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// Server ignored the Range (or we had nothing): start fresh.
+			offset = 0
+		case http.StatusPartialContent:
+			// Resume: append to the existing partial file.
+		case http.StatusRequestedRangeNotSatisfiable:
+			// Stale or already-complete partial: discard and restart fresh.
+			resp.Body.Close()
+			os.Remove(partPath)
+			lastErr = fmt.Errorf("partial download no longer valid (status %s), restarting", resp.Status)
+			continue
+		default:
 			resp.Body.Close()
 			lastErr = fmt.Errorf("bad status: %s", resp.Status)
 			continue
 		}
 
-		out, err := os.Create(filepath)
+		var out *os.File
+		if offset > 0 {
+			out, err = os.OpenFile(partPath, os.O_WRONLY|os.O_APPEND, 0644)
+		} else {
+			out, err = os.Create(partPath)
+		}
 		if err != nil {
 			resp.Body.Close()
 			return err
 		}
 
-		// Create a progress reader if callback is provided
+		// On a 206 the Content-Length is the remaining bytes, so the full size
+		// is what we already have plus what's still to come.
+		total := resp.ContentLength
+		if offset > 0 && total > 0 {
+			total += offset
+		}
+
 		var reader io.Reader = resp.Body
-		if progressCallback != nil && resp.ContentLength > 0 {
+		if progressCallback != nil && total > 0 {
 			reader = &progressReader{
 				Reader:   resp.Body,
-				Total:    resp.ContentLength,
+				Total:    total,
+				Current:  offset,
 				Callback: progressCallback,
 			}
 		}
@@ -243,11 +364,14 @@ func (rm *ReleaseManager) downloadFileWithRetry(url, filepath string, progressCa
 		out.Close()
 
 		if err != nil {
+			// Keep the partial file so the next attempt can resume from it.
 			lastErr = err
-			os.Remove(filepath)
 			continue
 		}
 
+		if err := os.Rename(partPath, dest); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -322,20 +446,21 @@ func (rm *ReleaseManager) saveVersionMetadata(version string) error {
 	return nil
 }
 
-// progressReader wraps an io.Reader to provide download progress
+// progressReader wraps an io.Reader to provide download progress as a
+// (downloaded, total) byte count so callers can render both a progress bar and
+// a human-readable size.
 type progressReader struct {
 	io.Reader
 	Total    int64
 	Current  int64
-	Callback func(float64)
+	Callback func(downloaded, total int64)
 }
 
 func (pr *progressReader) Read(p []byte) (int, error) {
 	n, err := pr.Reader.Read(p)
 	pr.Current += int64(n)
 	if pr.Callback != nil {
-		progress := float64(pr.Current) / float64(pr.Total)
-		pr.Callback(progress)
+		pr.Callback(pr.Current, pr.Total)
 	}
 	return n, err
 }

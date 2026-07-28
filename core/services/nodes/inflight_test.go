@@ -9,8 +9,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // --- Fakes ---
@@ -20,7 +23,15 @@ type fakeInFlightTracker struct {
 	mu           sync.Mutex
 	increments   int
 	decrements   int
+	removed      int
 	incrementErr error
+}
+
+func (f *fakeInFlightTracker) RemoveNodeModel(_ context.Context, _, _ string, _ int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.removed++
+	return nil
 }
 
 func (f *fakeInFlightTracker) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
@@ -90,6 +101,13 @@ func (f *fakeGRPCBackend) SoundGeneration(_ context.Context, _ *pb.SoundGenerati
 
 func (f *fakeGRPCBackend) Detect(_ context.Context, _ *pb.DetectOptions, _ ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	return &pb.DetectResponse{}, nil
+}
+func (f *fakeGRPCBackend) SoundDetection(_ context.Context, _ *pb.SoundDetectionRequest, _ ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	return &pb.SoundDetectionResponse{}, nil
+}
+
+func (f *fakeGRPCBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	return &pb.DepthResponse{}, nil
 }
 
 func (f *fakeGRPCBackend) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
@@ -177,6 +195,10 @@ func (f *fakeGRPCBackend) AudioTransformStream(_ context.Context, _ ...ggrpc.Cal
 }
 
 func (f *fakeGRPCBackend) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioToAudioStreamClient, error) {
+	return nil, nil
+}
+
+func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
 }
 
@@ -293,6 +315,178 @@ var _ = Describe("InFlightTrackingClient", func() {
 
 			Expect(tracker.increments).To(Equal(1))
 			Expect(tracker.decrements).To(Equal(1))
+		})
+	})
+
+	Describe("non-LLM inference methods track in-flight", func() {
+		// silero-vad and friends only ever expose a single non-Predict method.
+		// If that method isn't wrapped, the load-time reservation released by
+		// onFirstComplete never fires and in-flight is stuck at 1 forever.
+		assertTracked := func(call func() error) {
+			var firstFired int
+			client.OnFirstComplete(func() { firstFired++ })
+			err := call()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.increments).To(Equal(1), "method must increment in-flight")
+			Expect(tracker.decrements).To(Equal(1), "method must decrement in-flight")
+			Expect(firstFired).To(Equal(1), "method must release the load-time reservation")
+		}
+
+		It("VAD", func() {
+			assertTracked(func() error {
+				_, err := client.VAD(context.Background(), &pb.VADRequest{})
+				return err
+			})
+		})
+
+		It("Diarize", func() {
+			assertTracked(func() error {
+				_, err := client.Diarize(context.Background(), &pb.DiarizeRequest{})
+				return err
+			})
+		})
+
+		It("VoiceVerify", func() {
+			assertTracked(func() error {
+				_, err := client.VoiceVerify(context.Background(), &pb.VoiceVerifyRequest{})
+				return err
+			})
+		})
+
+		It("VoiceAnalyze", func() {
+			assertTracked(func() error {
+				_, err := client.VoiceAnalyze(context.Background(), &pb.VoiceAnalyzeRequest{})
+				return err
+			})
+		})
+
+		It("VoiceEmbed", func() {
+			assertTracked(func() error {
+				_, err := client.VoiceEmbed(context.Background(), &pb.VoiceEmbedRequest{})
+				return err
+			})
+		})
+
+		It("FaceVerify", func() {
+			assertTracked(func() error {
+				_, err := client.FaceVerify(context.Background(), &pb.FaceVerifyRequest{})
+				return err
+			})
+		})
+
+		It("FaceAnalyze", func() {
+			assertTracked(func() error {
+				_, err := client.FaceAnalyze(context.Background(), &pb.FaceAnalyzeRequest{})
+				return err
+			})
+		})
+
+		It("TokenClassify", func() {
+			assertTracked(func() error {
+				_, err := client.TokenClassify(context.Background(), &pb.TokenClassifyRequest{})
+				return err
+			})
+		})
+
+		It("Score", func() {
+			assertTracked(func() error {
+				_, err := client.Score(context.Background(), &pb.ScoreRequest{})
+				return err
+			})
+		})
+
+		It("AudioEncode", func() {
+			assertTracked(func() error {
+				_, err := client.AudioEncode(context.Background(), &pb.AudioEncodeRequest{})
+				return err
+			})
+		})
+
+		It("AudioDecode", func() {
+			assertTracked(func() error {
+				_, err := client.AudioDecode(context.Background(), &pb.AudioDecodeRequest{})
+				return err
+			})
+		})
+
+		It("AudioTransform", func() {
+			assertTracked(func() error {
+				_, err := client.AudioTransform(context.Background(), &pb.AudioTransformRequest{})
+				return err
+			})
+		})
+
+		It("SoundDetection", func() {
+			assertTracked(func() error {
+				_, err := client.SoundDetection(context.Background(), &pb.SoundDetectionRequest{})
+				return err
+			})
+		})
+	})
+
+	Describe("stale model reload (self-heal)", func() {
+		It("removes the replica when the backend reports the model is not loaded", func() {
+			backend.predictErr = fmt.Errorf("parakeet-cpp: model not loaded")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+
+		It("keeps the replica on an unrelated error", func() {
+			backend.predictErr = fmt.Errorf("context deadline exceeded")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(0))
+		})
+
+		It("does not remove on success", func() {
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.removed).To(Equal(0))
+		})
+
+		It("self-heals on a streamed call too", func() {
+			backend.streamErr = fmt.Errorf("whisper: model not loaded")
+			err := client.PredictStream(context.Background(), &pb.PredictOptions{}, func(*pb.Reply) {})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+	})
+
+	// A wrong-model answer means the cached row points at a port that has been
+	// recycled for another model's backend (#10952). The row is stale for a
+	// different reason than "model not loaded", but the cure is the same: drop
+	// it so the next request reloads somewhere correct.
+	Describe("wrong-model self-heal", func() {
+		It("removes the replica when the backend reports a model mismatch", func() {
+			backend.predictErr = grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+
+		It("removes the replica on a streamed call too", func() {
+			backend.streamErr = grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+			err := client.PredictStream(context.Background(), &pb.PredictOptions{}, func(*pb.Reply) {})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(1))
+		})
+
+		It("returns the mismatch error unchanged so the caller can tell why", func() {
+			backend.predictErr = grpcerrors.ModelMismatch("llama-cpp", "a.gguf", "b.gguf")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(grpcerrors.IsModelMismatch(err)).To(BeTrue())
+		})
+
+		// The sentinel is what separates our signal from an ordinary NotFound.
+		// insightface's Embedding answers NOT_FOUND "no face detected" on a
+		// PredictOptions RPC, and dropping a healthy row for that would evict
+		// a working replica every time a photo has no face in it.
+		It("keeps the replica on an unrelated NotFound", func() {
+			backend.predictErr = status.Error(codes.NotFound, "no face detected")
+			_, err := client.Predict(context.Background(), &pb.PredictOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(tracker.removed).To(Equal(0))
 		})
 	})
 })

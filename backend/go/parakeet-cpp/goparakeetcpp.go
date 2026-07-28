@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -47,6 +48,13 @@ var (
 	// side reads them as const float*/const int*.
 	CppTranscribePcmBatchJSON func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32) uintptr
 
+	// CppTranscribePcmBatchJSONLang is the multilingual variant of the batched
+	// JSON entry point: identical, plus a trailing target_lang. "" (the model
+	// default, "auto") is passed for non-prompt models, which ignore it; an
+	// unknown locale on a prompt model returns 0 and sets last_error. Present
+	// only in newer libparakeet.so; nil falls back to CppTranscribePcmBatchJSON.
+	CppTranscribePcmBatchJSONLang func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32, targetLang string) uintptr
+
 	// Cache-aware streaming (RNN-T) entry points. stream_begin returns 0 for
 	// non-streaming models. feed/finalize return a malloc'd char* (uintptr,
 	// freed via CppFreeString); feed writes 1 to *eouOut on an <EOU>/<EOB>.
@@ -54,6 +62,18 @@ var (
 	CppStreamFeed     func(s uintptr, pcm []float32, nSamples int32, eouOut unsafe.Pointer) uintptr
 	CppStreamFinalize func(s uintptr) uintptr
 	CppStreamFree     func(s uintptr)
+
+	// CppStreamBeginLang is the multilingual variant of stream_begin: identical,
+	// plus a trailing target_lang ("" means the model default). Present only in
+	// newer libparakeet.so; nil falls back to CppStreamBegin.
+	CppStreamBeginLang func(ctx uintptr, targetLang string) uintptr
+
+	// Streaming JSON variants (ABI v4): feed/finalize returning a malloc'd char*
+	// JSON document {text,eou,frame_sec,words} (uintptr, freed via CppFreeString)
+	// so streaming segments can carry per-word timestamps. Present only in newer
+	// libparakeet.so; nil falls back to the text-only CppStreamFeed/Finalize path.
+	CppStreamFeedJSON     func(s uintptr, pcm []float32, nSamples int32) uintptr
+	CppStreamFinalizeJSON func(s uintptr) uintptr
 )
 
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
@@ -71,9 +91,31 @@ const streamChunkSamples = 16000
 //
 // "start"/"end"/"t" are seconds; "conf" is confidence in (0,1].
 type transcriptJSON struct {
-	Text   string            `json:"text"`
-	Words  []transcriptWord  `json:"words"`
-	Tokens []transcriptToken `json:"tokens"`
+	Text     string            `json:"text"`
+	FrameSec float64           `json:"frame_sec"`
+	Words    []transcriptWord  `json:"words"`
+	Tokens   []transcriptToken `json:"tokens"`
+}
+
+// streamFeedJSON mirrors the document returned by
+// parakeet_capi_stream_feed_json / parakeet_capi_stream_finalize_json (ABI v5):
+//
+//	{"text":"...","eou":0,"eob":0,"frame_sec":0.080000,
+//	 "words":[{"w":"...","start":0.480,"end":0.640,"conf":0.9100}, ...]}
+//
+// "text" is the newly-finalized text since the last call. Under ABI v5 "eou"
+// is 1 iff an <EOU> fired this feed (the user yielded the turn) and "eob" 1
+// iff an <EOB> fired (a backchannel like "uh-huh" ended — NOT a turn
+// boundary). A v4 library has no "eob" field and its "eou" conflates both
+// tokens: Eob stays 0 and Eou keeps the old any-event meaning. "words" are
+// the words finalized this call with absolute (stream-relative) start/end
+// seconds.
+type streamFeedJSON struct {
+	Text     string           `json:"text"`
+	Eou      int              `json:"eou"`
+	Eob      int              `json:"eob"`
+	FrameSec float64          `json:"frame_sec"`
+	Words    []transcriptWord `json:"words"`
 }
 
 type transcriptWord struct {
@@ -102,6 +144,10 @@ type ParakeetCpp struct {
 	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
 	bat      *batcher
 	batStop  chan struct{}
+	// segmentGapFrames is NeMo's segment_gap_threshold in ENCODER FRAMES (model
+	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
+	// top of the punctuation split; converted to seconds via the JSON frame_sec.
+	segmentGapFrames int
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -131,6 +177,11 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if maxWaitMs < 0 {
 		maxWaitMs = 0
 	}
+
+	// NeMo's segment_gap_threshold (encoder frames, default 0=off). Off by
+	// default matches NeMo's default (punctuation-only segments); when set it
+	// additionally splits segments on inter-word silence (see transcriptResultFromDoc).
+	p.segmentGapFrames = optInt(opts, "segment_gap_threshold", 0)
 	if CppTranscribePcmBatchJSON != nil {
 		p.batStop = make(chan struct{})
 		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
@@ -186,8 +237,19 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 	if len(reqs) > 0 {
 		dec = reqs[0].decoder
 	}
+	// All requests in a batch share one language (the batcher coalesces only
+	// same-language requests), so any element's language describes the batch.
+	lang := ""
+	if len(reqs) > 0 {
+		lang = reqs[0].language
+	}
 	p.engineMu.Lock()
-	cstr := CppTranscribePcmBatchJSON(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec)
+	var cstr uintptr
+	if CppTranscribePcmBatchJSONLang != nil {
+		cstr = CppTranscribePcmBatchJSONLang(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec, lang)
+	} else {
+		cstr = CppTranscribePcmBatchJSON(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec)
+	}
 	p.engineMu.Unlock()
 	if cstr == 0 {
 		err := fmt.Errorf("parakeet-cpp: batch transcribe failed: %s", CppLastError(p.ctxPtr))
@@ -225,21 +287,31 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // OpenAI API, whose default is segment-level); token ids always populate
 // Segment.Tokens.
 //
-// translate/diarize/prompt/temperature/language/threads are not applicable to
-// parakeet and are ignored; streaming is handled by AudioTranscriptionStream
+// translate/diarize/prompt/temperature/threads are not applicable to parakeet
+// and are ignored; language is honored on the batched + streaming paths (see
+// opts.GetLanguage() below); streaming is handled by AudioTranscriptionStream
 // (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
-		return pb.TranscriptResult{}, errors.New("parakeet-cpp: model not loaded")
+		return pb.TranscriptResult{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
 	}
 
-	// Fallback when the batched C-API is unavailable: transcribe directly from
-	// the file path (original behavior, no batching).
+	// Fallback when the batched C-API is unavailable: transcribe from a file
+	// path (original behavior, no batching). The C library's audio loader only
+	// understands 16 kHz mono WAV/PCM, so convert the input first - otherwise
+	// any non-WAV upload (MP3, etc.) fails with "failed to load audio". This
+	// mirrors what every other audio backend (whisper, crispasr) does via
+	// utils.AudioToWav before handing the file to the engine.
 	if p.bat == nil {
-		cstr := CppTranscribePathJSON(p.ctxPtr, opts.Dst, 0)
+		converted, cleanup, err := convertToWavMono16k(opts.Dst)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		defer cleanup()
+		cstr := CppTranscribePathJSON(p.ctxPtr, converted, 0)
 		if cstr == 0 {
 			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", CppLastError(p.ctxPtr))
 		}
@@ -249,7 +321,7 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 		}
-		return transcriptResultFromDoc(doc, opts), nil
+		return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 	}
 
 	// Batched path: decode to PCM, submit to the batcher, wait for this request's
@@ -261,7 +333,7 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	}
 	rep := make(chan batchReply, 1)
 	select {
-	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, reply: rep}:
+	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, language: opts.GetLanguage(), reply: rep}:
 	case <-ctx.Done():
 		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
 	}
@@ -278,33 +350,204 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
 		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
-	return transcriptResultFromDoc(doc, opts), nil
+	return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 }
 
+// segmentSeparators is NeMo's default segment_seperators (sentence-ending
+// punctuation). Splitting on these matches NeMo's default segment timestamps.
+var segmentSeparators = []rune{'.', '?', '!'}
+
 // transcriptResultFromDoc maps a decoded transcriptJSON to a TranscriptResult,
-// synthesising a single whole-clip segment and attaching word timings only when
-// the caller requested word granularity. Shared by the batched and direct paths.
-func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest) pb.TranscriptResult {
-	text := strings.TrimSpace(doc.Text)
-	words := make([]*pb.TranscriptWord, 0, len(doc.Words))
-	for _, w := range doc.Words {
-		words = append(words, &pb.TranscriptWord{Start: secondsToNanos(w.Start), End: secondsToNanos(w.End), Text: w.W})
+// grouping words into NeMo-faithful segments (see splitWordsIntoSegments). The
+// optional gapFrames (NeMo's segment_gap_threshold, in encoder FRAMES; 0=off)
+// additionally splits on inter-word silence; it is converted to a seconds gap
+// with the document's frame_sec. Per-segment word timings are attached only when
+// the caller requested word granularity; token ids populate each segment's
+// Tokens by time-window membership. Shared by the batched and direct paths.
+func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int) pb.TranscriptResult {
+	text, eou := stripEouMarker(strings.TrimSpace(doc.Text))
+
+	// Frame-unit gap threshold -> seconds (NeMo segment_gap_threshold). 0 = off.
+	gapSeconds := 0.0
+	if gapFrames > 0 {
+		if doc.FrameSec > 0 {
+			gapSeconds = float64(gapFrames) * doc.FrameSec
+		} else {
+			xlog.Warn("parakeet-cpp: segment_gap_threshold set but libparakeet.so " +
+				"did not report frame_sec; falling back to punctuation-only segments")
+		}
 	}
-	tokens := make([]int32, 0, len(doc.Tokens))
-	for _, t := range doc.Tokens {
-		tokens = append(tokens, t.ID)
+
+	groups := splitWordsIntoSegments(doc.Words, segmentSeparators, gapSeconds)
+	if len(groups) == 0 {
+		// No words (edge case): single whole-clip text segment.
+		return pb.TranscriptResult{
+			Text:     text,
+			Segments: []*pb.TranscriptSegment{{Id: 0, Text: text}},
+			Eou:      eou,
+		}
 	}
-	var segStart, segEnd int64
-	if len(words) > 0 {
-		segStart = words[0].Start
-		segEnd = words[len(words)-1].End
+
+	wantWords := wordsRequested(opts.TimestampGranularities)
+	segments := make([]*pb.TranscriptSegment, 0, len(groups))
+	for id, group := range groups {
+		parts := make([]string, len(group))
+		for i, gw := range group {
+			parts[i] = gw.W
+		}
+		seg := &pb.TranscriptSegment{
+			Id:     int32(id),
+			Start:  secondsToNanos(group[0].Start),
+			End:    secondsToNanos(group[len(group)-1].End),
+			Text:   strings.TrimSpace(strings.Join(parts, " ")),
+			Tokens: tokensInWindow(doc.Tokens, group[0].Start, group[len(group)-1].End),
+		}
+		if wantWords {
+			ws := make([]*pb.TranscriptWord, len(group))
+			for i, gw := range group {
+				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W}
+			}
+			seg.Words = ws
+		}
+		segments = append(segments, seg)
 	}
-	seg := &pb.TranscriptSegment{Id: 0, Start: segStart, End: segEnd, Text: text, Tokens: tokens}
-	if wordsRequested(opts.TimestampGranularities) {
-		seg.Words = words
-	}
-	return pb.TranscriptResult{Text: text, Segments: []*pb.TranscriptSegment{seg}}
+	return pb.TranscriptResult{Text: text, Segments: segments, Eou: eou}
 }
+
+// stripEouMarker removes a trailing literal <EOU>/<EOB> from offline-decode
+// text and reports whether the decode ended on an end-of-UTTERANCE token. The
+// realtime EOU model's offline decode keeps the special token in the
+// detokenized text (the streaming path strips it and surfaces it as flags
+// instead); user-visible transcripts must never carry either marker, but only
+// <EOU> may confirm the semantic_vad retranscribe cross-check — a decode
+// ending on <EOB> means the last thing heard was a backchannel, not the user
+// yielding the turn.
+func stripEouMarker(text string) (string, bool) {
+	if strings.HasSuffix(text, "<EOU>") {
+		return strings.TrimSpace(strings.TrimSuffix(text, "<EOU>")), true
+	}
+	if strings.HasSuffix(text, "<EOB>") {
+		return strings.TrimSpace(strings.TrimSuffix(text, "<EOB>")), false
+	}
+	return text, false
+}
+
+// splitWordsIntoSegments groups words into segments exactly as NeMo's
+// get_segment_offsets does (nemo/collections/asr/parts/utils/timestamp_utils.py).
+// Walking the words, it closes a segment when (1) the gap rule is enabled
+// (gapSeconds > 0) and the segment already has words and the gap from the
+// previous word's end to this word's start is >= gapSeconds - the current word
+// then STARTS a new segment - or, checked only when the gap rule did not apply
+// (NeMo's elif), (2) the word ends with (or is) a separator, which closes the
+// segment INCLUDING that word. Trailing words flush into a final segment.
+// gapSeconds <= 0 disables the gap rule, matching NeMo's default
+// segment_gap_threshold=None (punctuation-only segments).
+func splitWordsIntoSegments(words []transcriptWord, separators []rune, gapSeconds float64) [][]transcriptWord {
+	var segments [][]transcriptWord
+	var cur []transcriptWord
+	for i, word := range words {
+		gapActive := gapSeconds > 0 && len(cur) > 0
+		if gapActive && (word.Start-words[i-1].End) >= gapSeconds {
+			segments = append(segments, cur)
+			cur = []transcriptWord{word}
+			continue
+		}
+		if !gapActive && endsWithSeparator(word.W, separators) {
+			cur = append(cur, word)
+			segments = append(segments, cur)
+			cur = nil
+			continue
+		}
+		cur = append(cur, word)
+	}
+	if len(cur) > 0 {
+		segments = append(segments, cur)
+	}
+	return segments
+}
+
+// endsWithSeparator reports whether w's last rune is in separators (matching
+// NeMo's `word[-1] in delims or word in delims`).
+func endsWithSeparator(w string, separators []rune) bool {
+	r := []rune(strings.TrimSpace(w))
+	if len(r) == 0 {
+		return false
+	}
+	last := r[len(r)-1]
+	for _, s := range separators {
+		if last == s {
+			return true
+		}
+	}
+	return false
+}
+
+// tokensInWindow returns the ids of tokens whose timestamp t falls in
+// [start, end] (inclusive), assigning each token to the segment that spans its
+// time. The last segment's end is the last word end, so the final token is
+// included.
+func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
+	var ids []int32
+	for _, t := range tokens {
+		if t.T >= start && t.T <= end {
+			ids = append(ids, t.ID)
+		}
+	}
+	return ids
+}
+
+// streamSegmenter accumulates streaming decode increments into per-utterance
+// segments. <EOU>/<EOB> are the model's own utterance boundaries; each closes a
+// segment. When the feed carries per-word timings (ABI v4 JSON), a closed
+// segment takes its start/end from its first/last word; against an older
+// text-only library (no words) it falls back to segmenting the delta text, so
+// the same assembler serves both paths.
+type streamSegmenter struct {
+	segs    []*pb.TranscriptSegment
+	cur     []transcriptWord // words for the open segment (ABI v4 JSON path)
+	curText []string         // delta text for the open segment (text-only path)
+	nextID  int32
+}
+
+func (s *streamSegmenter) add(r streamFeedResult) {
+	s.cur = append(s.cur, r.Words...)
+	if len(r.Words) == 0 && r.Delta != "" {
+		// Older libparakeet.so with no per-word timing: segment from the text.
+		s.curText = append(s.curText, r.Delta)
+	}
+	// Both <EOU> and <EOB> reset the decoder, so both close a segment.
+	if r.Eou || r.Eob {
+		s.flush()
+	}
+}
+
+func (s *streamSegmenter) flush() {
+	switch {
+	case len(s.cur) > 0:
+		parts := make([]string, len(s.cur))
+		for i, w := range s.cur {
+			parts[i] = w.W
+		}
+		s.segs = append(s.segs, &pb.TranscriptSegment{
+			Id:    s.nextID,
+			Start: secondsToNanos(s.cur[0].Start),
+			End:   secondsToNanos(s.cur[len(s.cur)-1].End),
+			Text:  strings.TrimSpace(strings.Join(parts, " ")),
+		})
+		s.nextID++
+	case len(s.curText) > 0:
+		// No words this segment: emit a text-only segment (no timestamps),
+		// skipping a purely-whitespace one as the legacy text path did.
+		if t := strings.TrimSpace(strings.Join(s.curText, "")); t != "" {
+			s.segs = append(s.segs, &pb.TranscriptSegment{Id: s.nextID, Text: t})
+			s.nextID++
+		}
+	}
+	s.cur = nil
+	s.curText = nil
+}
+
+func (s *streamSegmenter) segments() []*pb.TranscriptSegment { return s.segs }
 
 // wordsRequested reports whether the caller asked for word-level timestamps.
 // The OpenAI transcription API gates word timings behind
@@ -326,23 +569,124 @@ func secondsToNanos(sec float64) int64 {
 	return int64(sec * 1e9)
 }
 
+// Per-C-call engine serialization for the streaming paths.
+//
+// Every individual C call (begin / feed / finalize / free) takes engineMu and
+// re-checks ctxPtr under the lock; the lock is NEVER held across a stream's
+// lifetime. This is safe because each parakeet.cpp call builds its own ggml
+// graph and all streaming caches live in the session object, not the ctx —
+// the only ctx-shared mutable state is last_error, which is why it is read
+// under the same lock as the failing call. Holding the lock per call (rather
+// than per stream, as this file previously did) keeps a long-lived live
+// session from starving batched unary transcription and vice versa.
+//
+// A stream must not outlive its ctx (C-API contract). Free() takes engineMu
+// and zeroes ctxPtr, so a racing per-call helper returns ModelNotLoaded
+// instead of feeding a freed engine; streamFree of an orphaned session only
+// runs the session destructor, which does not touch the ctx.
+
+// streamBegin opens a cache-aware streaming session. A 0 stream with nil
+// error means the loaded model is not a streaming model.
+func (p *ParakeetCpp) streamBegin(lang string) (uintptr, error) {
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	if p.ctxPtr == 0 {
+		return 0, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	if CppStreamBeginLang != nil {
+		return CppStreamBeginLang(p.ctxPtr, lang), nil
+	}
+	return CppStreamBegin(p.ctxPtr), nil
+}
+
+func (p *ParakeetCpp) streamFree(stream uintptr) {
+	if stream == 0 {
+		return
+	}
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	CppStreamFree(stream)
+}
+
+// streamFeedText runs one text-mode feed (or the finalize flush when
+// finalize is true) under engineMu, returning the newly-finalized delta and
+// whether an <EOU>/<EOB> fired during the call.
+func (p *ParakeetCpp) streamFeedText(stream uintptr, pcm []float32, finalize bool) (delta string, eou, eob bool, err error) {
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	if p.ctxPtr == 0 {
+		return "", false, false, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	var ret uintptr
+	var events int32
+	if finalize {
+		ret = CppStreamFinalize(stream)
+	} else {
+		ret = CppStreamFeed(stream, pcm, int32(len(pcm)), unsafe.Pointer(&events))
+	}
+	if ret == 0 {
+		// last_error is ctx-shared: read it under the same lock as the call.
+		msg := CppLastError(p.ctxPtr)
+		if msg == "" {
+			msg = "unknown error"
+		}
+		return "", false, false, fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
+	}
+	delta = goStringFromCPtr(ret)
+	CppFreeString(ret)
+	// ABI v5: eou_out is a bitmask (bit 0 = <EOU>, bit 1 = <EOB>). A v4
+	// library sets 0/1 for either token, which the bit-0 test reads as the
+	// old conflated eou — the EOB distinction simply isn't available there.
+	return delta, events&1 != 0, events&2 != 0, nil
+}
+
+// streamFeedDoc runs one ABI v4 JSON feed (or finalize) under engineMu and
+// returns the parsed {text,eou,frame_sec,words} document.
+func (p *ParakeetCpp) streamFeedDoc(stream uintptr, pcm []float32, finalize bool) (streamFeedJSON, error) {
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	if p.ctxPtr == 0 {
+		return streamFeedJSON{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	var ret uintptr
+	if finalize {
+		ret = CppStreamFinalizeJSON(stream)
+	} else {
+		ret = CppStreamFeedJSON(stream, pcm, int32(len(pcm)))
+	}
+	if ret == 0 {
+		msg := CppLastError(p.ctxPtr)
+		if msg == "" {
+			msg = "unknown error"
+		}
+		return streamFeedJSON{}, fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
+	}
+	raw := goStringFromCPtr(ret)
+	CppFreeString(ret)
+	var doc streamFeedJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return streamFeedJSON{}, fmt.Errorf("parakeet-cpp: decode stream json: %w", err)
+	}
+	return doc, nil
+}
+
 // AudioTranscriptionStream drives the cache-aware streaming RNN-T over the
-// audio at opts.Dst: it decodes the file to 16 kHz mono PCM, feeds it in
-// chunks to parakeet_capi_stream_feed, and emits each newly-finalized text
-// run as a TranscriptStreamResponse delta. <EOU>/<EOB> events close the
-// current segment; a closing FinalResult carries the full transcript and the
-// per-utterance segments.
+// audio at opts.Dst: it decodes the file to 16 kHz mono PCM, feeds it through
+// the shared decode driver (feedSlices/flushTail), and emits each
+// newly-finalized text run as a TranscriptStreamResponse delta. <EOU>/<EOB>
+// events close the current segment; a closing FinalResult carries the full
+// transcript, the per-utterance segments, and whether the file ended on an
+// utterance boundary.
 //
 // stream_begin returns 0 for models that are not cache-aware streaming models
-// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies). For those we fall
-// back to a single offline transcription emitted as one delta plus a closing
-// FinalResult, matching LocalAI's non-streaming streaming contract (and the
-// whisper backend), so the streaming endpoint works for every model.
+// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies). For those this
+// returns codes.Unimplemented rather than faking a stream from an offline
+// decode — see the stream==0 branch and grpcerrors.StreamTranscriptionUnsupported.
 func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
 	defer close(results)
 
 	if p.ctxPtr == 0 {
-		return errors.New("parakeet-cpp: model not loaded")
+		return grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
 		return errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
@@ -351,109 +695,97 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return status.Error(codes.Canceled, "transcription cancelled")
 	}
 
-	stream := CppStreamBegin(p.ctxPtr)
-	if stream == 0 {
-		// Not a cache-aware streaming model: run a normal offline
-		// transcription and emit it as one delta + a closing final result.
-		res, err := p.AudioTranscription(ctx, opts)
-		if err != nil {
-			return err
-		}
-		if t := strings.TrimSpace(res.Text); t != "" {
-			results <- &pb.TranscriptStreamResponse{Delta: t}
-		}
-		results <- &pb.TranscriptStreamResponse{FinalResult: &res}
-		return nil
+	stream, err := p.streamBegin(opts.GetLanguage())
+	if err != nil {
+		return err
 	}
-	defer CppStreamFree(stream)
-	// The C engine is a single shared context: a streaming session and a batched
-	// unary dispatch must never touch it at once, so hold engineMu for the whole
-	// stream. This lock is intentionally taken AFTER the non-streaming fallback
-	// above returns: that fallback goes through AudioTranscription -> the batcher
-	// -> runBatch, which itself acquires engineMu, so locking here first would
-	// deadlock. Do not hoist this lock above the fallback.
-	p.engineMu.Lock()
-	defer p.engineMu.Unlock()
+	if stream == 0 {
+		// Not a cache-aware streaming model. Report the missing capability
+		// honestly instead of decoding offline and emitting it as one "delta"
+		// + final: a client that asked for streaming must learn the model
+		// cannot stream, not receive a batch result dressed as a stream (which
+		// is indistinguishable except qualitatively, and silently breaks any
+		// feature that genuinely needs incremental output). Callers wanting a
+		// plain transcript use the unary AudioTranscription path. This mirrors
+		// AudioTranscriptionLive, which already returns Unimplemented here.
+		return grpcerrors.StreamTranscriptionUnsupported("parakeet-cpp",
+			"loaded model is not a cache-aware streaming model")
+	}
+	defer p.streamFree(stream)
 
 	data, duration, err := decodeWavMono16k(opts.Dst)
 	if err != nil {
 		return err
 	}
 
+	// Fold the shared decode driver's per-feed increments into the streamed
+	// deltas and the closing batch result: words/text accumulate into
+	// per-utterance segments (streamSegmenter), and the utterance-boundary
+	// latch (boundary.go) records whether the file ended on an <EOU>. These
+	// are the offline path's concern — the live RPC carries none of them.
 	var (
 		full     strings.Builder
-		segText  strings.Builder
-		segments []*pb.TranscriptSegment
-		segID    int32
+		seg      streamSegmenter
+		boundary utteranceBoundary
 	)
-
-	flushSegment := func() {
-		t := strings.TrimSpace(segText.String())
-		segText.Reset()
-		if t == "" {
-			return
+	emit := func(r streamFeedResult) error {
+		if r.Delta != "" {
+			full.WriteString(r.Delta)
+			results <- &pb.TranscriptStreamResponse{Delta: r.Delta}
 		}
-		segments = append(segments, &pb.TranscriptSegment{Id: segID, Text: t})
-		segID++
-	}
-
-	// emitDelta consumes the malloc'd char* returned by feed/finalize: frees
-	// it, accumulates the text, and sends a delta when non-empty. A 0 return
-	// is an error (vs the "" empty-but-non-NULL no-new-text case).
-	emitDelta := func(ret uintptr) error {
-		if ret == 0 {
-			msg := CppLastError(p.ctxPtr)
-			if msg == "" {
-				msg = "unknown error"
-			}
-			return fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
-		}
-		delta := goStringFromCPtr(ret)
-		CppFreeString(ret)
-		if delta == "" {
-			return nil
-		}
-		full.WriteString(delta)
-		segText.WriteString(delta)
-		results <- &pb.TranscriptStreamResponse{Delta: delta}
+		seg.add(r)
+		boundary = boundary.observe(r)
 		return nil
 	}
 
-	for off := 0; off < len(data); off += streamChunkSamples {
-		if err := ctx.Err(); err != nil {
-			return status.Error(codes.Canceled, "transcription cancelled")
-		}
-		end := min(off+streamChunkSamples, len(data))
-		chunk := data[off:end]
-
-		var eou int32
-		ret := CppStreamFeed(stream, chunk, int32(len(chunk)), unsafe.Pointer(&eou))
-		if err := emitDelta(ret); err != nil {
-			return err
-		}
-		if eou != 0 {
-			flushSegment()
-		}
-	}
-
-	// Flush the streaming tail (final encoder chunk).
-	if err := emitDelta(CppStreamFinalize(stream)); err != nil {
+	if err := p.feedSlices(ctx, stream, data, emit); err != nil {
 		return err
 	}
-	flushSegment()
+	if err := p.flushTail(stream, emit); err != nil {
+		return err
+	}
+	seg.flush() // close a trailing utterance that never saw an <EOU>
 
-	text := strings.TrimSpace(full.String())
-	if len(segments) == 0 && text != "" {
-		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: text})
+	// final.Text is the exact concatenation of the streamed deltas (full is
+	// their accumulation), so concat(deltas) == FinalResult.Text holds even
+	// when the model prepends a leading space to the first word (SentencePiece
+	// detokenization). This matches the whisper backend's streaming contract.
+	// The single-segment fallback stays trimmed.
+	fullText := full.String()
+	segments := seg.segments()
+	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
+		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
 	}
 	results <- &pb.TranscriptStreamResponse{
 		FinalResult: &pb.TranscriptResult{
-			Text:     text,
+			Text:     fullText,
 			Segments: segments,
 			Duration: duration,
+			Eou:      boundary.ended(),
 		},
 	}
 	return nil
+}
+
+// convertToWavMono16k converts an arbitrary audio file to a 16 kHz mono WAV in
+// a fresh temp dir and returns the path together with a cleanup func the caller
+// must defer. WAV inputs already at 16 kHz/mono/16-bit are passed through by
+// utils.AudioToWav (hardlink/copy), everything else is transcoded via ffmpeg.
+// Used by the direct (non-batched) transcription path, which hands a file path
+// to the C library's WAV-only audio loader.
+func convertToWavMono16k(path string) (string, func(), error) {
+	dir, err := os.MkdirTemp("", "parakeet")
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup := func() { _ = os.RemoveAll(dir) }
+
+	converted := filepath.Join(dir, "converted.wav")
+	if err := utils.AudioToWav(path, converted); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	return converted, cleanup, nil
 }
 
 // decodeWavMono16k converts any input audio to 16 kHz mono PCM and returns the
@@ -461,16 +793,11 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 // backend: utils.AudioToWav (ffmpeg) normalises rate/channels, go-audio
 // decodes the PCM.
 func decodeWavMono16k(path string) ([]float32, float32, error) {
-	dir, err := os.MkdirTemp("", "parakeet")
+	converted, cleanup, err := convertToWavMono16k(path)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer func() { _ = os.RemoveAll(dir) }()
-
-	converted := filepath.Join(dir, "converted.wav")
-	if err := utils.AudioToWav(path, converted); err != nil {
-		return nil, 0, err
-	}
+	defer cleanup()
 
 	fh, err := os.Open(converted)
 	if err != nil {
@@ -499,6 +826,10 @@ func (p *ParakeetCpp) Free() error {
 		close(p.batStop)
 		p.batStop = nil
 	}
+	// engineMu so an in-flight streaming call (which locks per C call and
+	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
 	if p.ctxPtr != 0 {
 		CppFree(p.ctxPtr)
 		p.ctxPtr = 0

@@ -20,9 +20,10 @@ import (
 
 // fakeModelLocator implements ModelLocator with configurable node lists.
 type fakeModelLocator struct {
-	nodes        []BackendNode
-	findErr      error
-	removedPairs []modelNodePair // records RemoveNodeModel calls
+	nodes           []BackendNode
+	findErr         error
+	removedPairs    []modelNodePair   // records RemoveNodeModel calls
+	removedReplicas []modelReplicaRef // records RemoveNodeModel calls including the replica index
 }
 
 type modelNodePair struct {
@@ -30,12 +31,24 @@ type modelNodePair struct {
 	modelName string
 }
 
+// modelReplicaRef records a row removal at full replica granularity.
+// modelNodePair drops the index because RemoveAllNodeModelReplicas has none;
+// the backend delete/upgrade paths address exactly one replica row, so an
+// assertion that ignored the index could not tell a correct removal from one
+// that wiped a sibling replica still serving traffic.
+type modelReplicaRef struct {
+	nodeID       string
+	modelName    string
+	replicaIndex int
+}
+
 func (f *fakeModelLocator) FindNodesWithModel(_ context.Context, _ string) ([]BackendNode, error) {
 	return f.nodes, f.findErr
 }
 
-func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, _ int) error {
+func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
 	f.removedPairs = append(f.removedPairs, modelNodePair{nodeID, modelName})
+	f.removedReplicas = append(f.removedReplicas, modelReplicaRef{nodeID, modelName, replicaIndex})
 	return nil
 }
 
@@ -126,8 +139,44 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		adapter = NewRemoteUnloaderAdapter(locator, mc, 3*time.Minute, 15*time.Minute)
 	})
 
+	// HasRemoteModel carries the distinction that UnloadRemoteModel
+	// deliberately does not, so ShutdownModel can answer 404 for a model that
+	// is loaded neither locally nor anywhere in the cluster without making the
+	// shared unload path fail for every idempotent cleanup caller.
+	Describe("HasRemoteModel", func() {
+		It("reports false when no node has the model", func() {
+			locator.nodes = nil
+			loaded, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loaded).To(BeFalse())
+		})
+
+		It("reports true when a node has the model", func() {
+			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
+			loaded, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loaded).To(BeTrue())
+		})
+
+		It("surfaces a registry failure instead of reporting absence", func() {
+			// An unreachable registry is not evidence that the model is gone;
+			// reporting false would let ShutdownModel answer a confident 404
+			// on the strength of a failed lookup.
+			locator.findErr = errors.New("registry unavailable")
+			_, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe("UnloadRemoteModel", func() {
 		It("with no nodes returns nil", func() {
+			// Unloading is idempotent: cleanup paths (model deletion, config
+			// edits, watchdog eviction) legitimately run against an already
+			// unloaded model, and turning that into an error wedges the
+			// watchdog's LRU reclaimer, which only untracks a model when
+			// shutdown reports success. The same contract is pinned end to end
+			// by "should be no-op for models not on any node" in
+			// tests/e2e/distributed/node_lifecycle_test.go — keep them in step.
 			locator.nodes = nil
 			Expect(adapter.UnloadRemoteModel("my-model")).To(Succeed())
 			Expect(mc.published).To(BeEmpty())
@@ -160,13 +209,22 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			failOnce := &failOnceMessagingClient{inner: mc, failOn: 0}
 			adapter = NewRemoteUnloaderAdapter(locator, failOnce, 3*time.Minute, 15*time.Minute)
 
-			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
+			Expect(adapter.UnloadRemoteModel("llama")).To(HaveOccurred())
 
 			// The second node should still have been processed.
 			// The first node's StopBackend errored, so RemoveNodeModel was NOT called for it.
 			// The second node's StopBackend succeeded, so RemoveNodeModel WAS called.
 			Expect(locator.removedPairs).To(HaveLen(1))
 			Expect(locator.removedPairs[0].nodeID).To(Equal("node-ok"))
+		})
+
+		It("propagates forced shutdown to every worker", func() {
+			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
+			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", true)).To(Succeed())
+
+			var payload messaging.BackendStopRequest
+			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
+			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
 		})
 	})
 
@@ -182,11 +240,10 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
 			Expect(mc.published).To(HaveLen(1))
 
-			var payload struct {
-				Backend string `json:"backend"`
-			}
+			var payload messaging.BackendStopRequest
 			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
 			Expect(payload.Backend).To(Equal("llama-backend"))
+			Expect(payload.Force).To(BeFalse())
 		})
 	})
 
@@ -282,7 +339,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), messaging.BackendUpgradeReply{Success: true})
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
 
-		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0)
+		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(mc.calls).To(HaveLen(1))

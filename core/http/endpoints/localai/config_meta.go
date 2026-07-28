@@ -124,6 +124,10 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_VAD)
 			case config.UsecaseTranscript:
 				filterFn = config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)
+			case "score": // router classifier usecase (FLAG_SCORE); not in UsecaseInfoMap
+				filterFn = config.BuildUsecaseFilterFn(config.FLAG_SCORE)
+			case config.UsecaseTokenClassify: // PII NER detector usecase (FLAG_TOKEN_CLASSIFY)
+				filterFn = config.BuildUsecaseFilterFn(config.FLAG_TOKEN_CLASSIFY)
 			default:
 				filterFn = config.NoFilterFn
 			}
@@ -151,7 +155,7 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 // @Param name path string true "Model name"
 // @Success 200 {object} map[string]any "success message"
 // @Router /api/models/config-json/{name} [patch]
-func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	svc := modeladmin.NewConfigService(cl, appConfig)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
@@ -169,6 +173,14 @@ func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, app
 		if _, err := svc.PatchConfig(c.Request().Context(), modelName, patchMap); err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), map[string]any{"error": err.Error()})
 		}
+
+		// Patch rewrites the config on disk and reloads only the local loader;
+		// tell peers to refresh so the change is consistent across replicas.
+		// No-op in standalone mode.
+		if gs != nil {
+			gs.BroadcastModelsChanged(modelName, "install")
+		}
+
 		return c.JSON(http.StatusOK, map[string]any{
 			"success": true,
 			"message": fmt.Sprintf("Model '%s' updated successfully", modelName),

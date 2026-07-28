@@ -79,14 +79,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if self.tts.is_multi_lingual and lang is None:
                return backend_pb2.Result(success=False, message=f"Model is multi-lingual, but no language was provided")
 
-            # if model is multi-speaker, use speaker_wav or the speaker_id from request.voice
-            if self.tts.is_multi_speaker and self.AudioPath is None and request.voice is None:
+            # A path-shaped per-request voice is a cloning reference; otherwise
+            # preserve Coqui's named-speaker behavior.
+            request_voice = request.voice if request.voice else ""
+            speaker_wav = request_voice if os.path.isfile(request_voice) else self.AudioPath
+            if self.tts.is_multi_speaker and speaker_wav is None and not request_voice:
                 return backend_pb2.Result(success=False, message=f"Model is multi-speaker, but no speaker was provided")
 
-            if self.tts.is_multi_speaker and request.voice is not None:
-               self.tts.tts_to_file(text=request.text, speaker=request.voice, language=lang, file_path=request.dst)
+            if speaker_wav is not None:
+                self.tts.tts_to_file(text=request.text, speaker_wav=speaker_wav, language=lang, file_path=request.dst)
+            elif self.tts.is_multi_speaker and request_voice:
+               self.tts.tts_to_file(text=request.text, speaker=request_voice, language=lang, file_path=request.dst)
             else:
-                self.tts.tts_to_file(text=request.text, speaker_wav=self.AudioPath, language=lang, file_path=request.dst)
+                self.tts.tts_to_file(text=request.text, language=lang, file_path=request.dst)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         return backend_pb2.Result(success=True)

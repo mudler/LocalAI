@@ -32,7 +32,9 @@ import (
 type anthropicRequest struct {
 	Model         string               `json:"model"`
 	MaxTokens     int32                `json:"max_tokens"`
-	System        string               `json:"system,omitempty"`
+	// System is `any`: a bare string normally, or []anthropicSystemBlock
+	// when cache_prompt is on (the block form carries cache_control).
+	System        any                  `json:"system,omitempty"`
 	Messages      []anthropicMessage   `json:"messages"`
 	Stream        bool                 `json:"stream,omitempty"`
 	Temperature   *float64             `json:"temperature,omitempty"`
@@ -52,9 +54,30 @@ type anthropicMessage struct {
 }
 
 type anthropicTool struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	Name         string                 `json:"name"`
+	Description  string                 `json:"description,omitempty"`
+	InputSchema  json.RawMessage        `json:"input_schema"`
+	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
+}
+
+// anthropicCacheControl marks a prompt-cache breakpoint. Anthropic caches
+// everything up to and including a block tagged {"type":"ephemeral"} (5-min
+// TTL) and serves that prefix at the cache-read rate (0.1x input) on later
+// calls that share it — the win on agentic/multi-turn workloads.
+type anthropicCacheControl struct {
+	Type string `json:"type"` // "ephemeral"
+}
+
+// ephemeralCacheControl is the single reused breakpoint marker.
+var ephemeralCacheControl = &anthropicCacheControl{Type: "ephemeral"}
+
+// anthropicSystemBlock is the block form of the top-level system field.
+// Anthropic accepts system as a bare string OR a list of text blocks; the
+// block form is required to attach cache_control to the system prompt.
+type anthropicSystemBlock struct {
+	Type         string                 `json:"type"` // "text"
+	Text         string                 `json:"text"`
+	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
 }
 
 // anthropicToolChoice mirrors the four shapes Anthropic accepts:
@@ -81,8 +104,9 @@ type anthropicContentBlock struct {
 	// Tool-result block fields. tool_result uses `content` (not
 	// `text`) and pairs with `tool_use_id`; modelling them as
 	// distinct fields avoids ambiguity at marshal time.
-	ToolUseID     string `json:"tool_use_id,omitempty"`
-	ResultContent string `json:"content,omitempty"`
+	ToolUseID     string                 `json:"tool_use_id,omitempty"`
+	ResultContent string                 `json:"content,omitempty"`
+	CacheControl  *anthropicCacheControl `json:"cache_control,omitempty"`
 }
 
 type anthropicResponse struct {
@@ -142,19 +166,12 @@ func buildAnthropicRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream boo
 	if req.MaxTokens <= 0 {
 		req.MaxTokens = anthropicDefaultMaxTokens
 	}
-	// Newer Anthropic models 400 when both temperature and top_p are
-	// set ("`temperature` and `top_p` cannot both be specified for
-	// this model. Please use only one.") even though their docs only
-	// "recommend" picking one. The OpenAI-compatible chat UI almost
-	// always sends both with default values, so prefer temperature
-	// and drop top_p when both are present.
-	if t := opts.GetTemperature(); t != 0 {
-		v := float64(t)
-		req.Temperature = &v
-	} else if t := opts.GetTopP(); t != 0 {
-		v := float64(t)
-		req.TopP = &v
-	}
+	// Do not forward temperature/top_p. Newer Anthropic reasoning models reject
+	// requests that carry temperature ("`temperature` is deprecated for this
+	// model"), and the OpenAI-compatible clients typically send only the
+	// server-side DEFAULT sampling values rather than user intent — dropping
+	// them loses nothing and lets the upstream apply its own defaults.
+	_ = opts
 
 	req.Tools = convertOpenAITools(opts.GetTools())
 	req.ToolChoice = convertOpenAIToolChoice(opts.GetToolChoice())
@@ -162,6 +179,11 @@ func buildAnthropicRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream boo
 	// don't accept {"type":"none"} — collapse to a no-tools request.
 	if req.ToolChoice != nil && req.ToolChoice.Type == anthropicToolChoiceNone {
 		req.Tools, req.ToolChoice = nil, nil
+	}
+	// Prompt-cache breakpoint on the last tool: Anthropic caches the entire
+	// tool block up to the marked tool — usually a large, fully stable prefix.
+	if cfg.cachePrompt && len(req.Tools) > 0 {
+		req.Tools[len(req.Tools)-1].CacheControl = ephemeralCacheControl
 	}
 
 	var systemParts []string
@@ -196,13 +218,52 @@ func buildAnthropicRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream boo
 			})
 		}
 	}
-	req.System = strings.Join(systemParts, "\n\n")
+	// System: block form (with cache_control) when caching is on, else the
+	// bare string. Only set when non-empty so `omitempty` still drops it.
+	if len(systemParts) > 0 {
+		joined := strings.Join(systemParts, "\n\n")
+		if cfg.cachePrompt {
+			req.System = []anthropicSystemBlock{{Type: "text", Text: joined, CacheControl: ephemeralCacheControl}}
+		} else {
+			req.System = joined
+		}
+	}
 
 	if len(req.Messages) == 0 && opts.GetPrompt() != "" {
 		req.Messages = []anthropicMessage{{Role: "user", Content: opts.GetPrompt()}}
 	}
 
+	// Prompt-cache breakpoint on the final message block caches the whole
+	// conversation prefix up to the newest turn. With the system + tools
+	// breakpoints above, Anthropic serves the entire stable head at the
+	// cache-read rate on the next agentic iteration (max 4 breakpoints; we
+	// use at most 3, so we never exceed the limit).
+	if cfg.cachePrompt {
+		markLastMessageCacheable(req.Messages)
+	}
+
 	return json.Marshal(req)
+}
+
+// markLastMessageCacheable tags the final block of the last message with a
+// cache_control breakpoint. String content is promoted to a single text
+// block so the marker has somewhere to attach; block content gets the marker
+// on its last element.
+func markLastMessageCacheable(msgs []anthropicMessage) {
+	if len(msgs) == 0 {
+		return
+	}
+	last := &msgs[len(msgs)-1]
+	switch c := last.Content.(type) {
+	case string:
+		if c != "" {
+			last.Content = []anthropicContentBlock{{Type: "text", Text: c, CacheControl: ephemeralCacheControl}}
+		}
+	case []anthropicContentBlock:
+		if len(c) > 0 {
+			c[len(c)-1].CacheControl = ephemeralCacheControl
+		}
+	}
 }
 
 // appendToolResult appends a tool_result block as a user message,

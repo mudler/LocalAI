@@ -1,6 +1,6 @@
 # parakeet-cpp backend Makefile.
 #
-# Upstream pin lives below as PARAKEET_VERSION?=8a7c48209d7882a7ce79a6b306270e4703194543
+# Upstream pin lives below as PARAKEET_VERSION?=3e1ddd8455ceb9bfae564f84db24ba068b00c56e
 # (.github/bump_deps.sh) can find and update it - matches the
 # whisper.cpp / ds4 / vibevoice-cpp convention.
 #
@@ -15,7 +15,7 @@
 # That's what the L0 smoke test uses. The default target below does the
 # proper clone-at-pin + cmake build so CI doesn't need a side-checkout.
 
-PARAKEET_VERSION?=8a7c48209d7882a7ce79a6b306270e4703194543
+PARAKEET_VERSION?=3e1ddd8455ceb9bfae564f84db24ba068b00c56e
 PARAKEET_REPO?=https://github.com/mudler/parakeet.cpp
 
 GOCMD?=go
@@ -39,7 +39,10 @@ endif
 # is overwritten back to OFF and the build silently falls back to CPU. Forward the
 # PARAKEET_GGML_* options instead. (openblas is not gated, so -DGGML_BLAS passes through.)
 ifeq ($(BUILD_TYPE),cublas)
-	CMAKE_ARGS+=-DPARAKEET_GGML_CUDA=ON
+	# GGML_CUDA_GRAPHS is OFF by ggml default; enabling it gives a small free
+	# speedup (~1% measured on GB10, never negative) by capturing/replaying the
+	# CUDA graph. Not gated by parakeet.cpp, so it passes straight through to ggml.
+	CMAKE_ARGS+=-DPARAKEET_GGML_CUDA=ON -DGGML_CUDA_GRAPHS=ON
 else ifeq ($(BUILD_TYPE),openblas)
 	CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 else ifeq ($(BUILD_TYPE),hipblas)
@@ -71,6 +74,7 @@ libparakeet.so: sources/parakeet.cpp
 	cmake -B sources/parakeet.cpp/build-shared -S sources/parakeet.cpp $(CMAKE_ARGS)
 	cmake --build sources/parakeet.cpp/build-shared --config Release -j$(JOBS)
 	cp -fv sources/parakeet.cpp/build-shared/libparakeet.so* ./ 2>/dev/null || true
+	cp -fv sources/parakeet.cpp/build-shared/libparakeet.dylib ./ 2>/dev/null || true
 	cp -fv sources/parakeet.cpp/include/parakeet_capi.h ./
 
 parakeet-cpp-grpc: libparakeet.so main.go goparakeetcpp.go

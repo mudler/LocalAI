@@ -102,7 +102,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("Distributed instance", "id", cfg.Distributed.InstanceID)
 
 	// Connect to NATS
-	natsClient, err := messaging.New(cfg.Distributed.NatsURL)
+	natsAuth := cfg.Distributed.NatsAuthConfig()
+	if natsAuth.RequireAuth && (natsAuth.ServiceUserJWT == "" || natsAuth.ServiceUserSeed == "") {
+		return nil, fmt.Errorf("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
+	}
+	natsOpts := cfg.Distributed.NatsMessagingOptions("", "")
+	natsClient, err := messaging.New(cfg.Distributed.NatsURL, natsOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
@@ -155,6 +160,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
+
+	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
+	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
+	// on every boot. Runs before the reconciler starts so the first tick already
+	// sees the desired state. Models not listed are left untouched.
+	if cfg.Distributed.ModelSchedulingJSON != "" || cfg.Distributed.ModelSchedulingConfigPath != "" {
+		schedConfigs, err := nodes.ParseSchedulingSeed(cfg.Distributed.ModelSchedulingJSON, cfg.Distributed.ModelSchedulingConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing declarative model scheduling config: %w", err)
+		}
+		if err := registry.SeedModelScheduling(context.Background(), schedConfigs); err != nil {
+			return nil, fmt.Errorf("seeding declarative model scheduling config: %w", err)
+		}
+		xlog.Info("Applied declarative model scheduling config", "models", len(schedConfigs))
+	}
 
 	// Collect SmartRouter option values; the router itself is created after all
 	// dependencies (including FileStager and Unloader) are ready.
@@ -266,13 +286,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		prefixProvider = prefixSync
 
 		// Invalidate the prefix-cache index whenever a replica row is removed.
-		// SetReplicaRemovedHook fires from the single chokepoint all removal paths
+		// AddReplicaRemovedHook fires from the single chokepoint all removal paths
 		// funnel through (RemoveNodeModel / RemoveAllNodeModelReplicas), so this
 		// one hook covers every path: reconciler scale-down, probe reaper,
 		// health-monitor reap, RemoteUnloaderAdapter, and the router. Registering
 		// it only inside this enabled block keeps the disabled path a true no-op
-		// (the registry stays hook-less).
-		registry.SetReplicaRemovedHook(func(model, node string, replica int) {
+		// for the prefix cache; other subsystems register their own hooks
+		// independently and are unaffected either way.
+		registry.AddReplicaRemovedHook(func(model, node string, replica int) {
 			if replica < 0 {
 				prefixSync.InvalidateNode(model, node)
 			} else {
@@ -335,7 +356,45 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
+		SharedModels:     cfg.Distributed.SharedModels,
+		// A closure over the live ApplicationConfig, NOT a snapshot: the
+		// runtime setting (distributed_disk_headroom_check) mutates this exact
+		// member, so a snapshot here would make the toggle a no-op until
+		// restart. env/CLI sets the boot value, POST /api/settings overrides it
+		// live, and this is the single member both write.
+		DiskHeadroomEnabled: func() bool { return !cfg.Distributed.DiskHeadroomDisabled },
+		// RAW, not OrDefault: zero means "derive the budget per model from the
+		// checkpoint size" (config.ModelLoadTimeoutForSize), which is what makes
+		// a 70 GB video checkpoint work without the operator first hitting a
+		// DeadlineExceeded and going looking for a knob. A non-zero value here is
+		// an explicit override and is used verbatim.
+		ModelLoadTimeout: cfg.Distributed.ModelLoadTimeout,
+		// Cap how long a cold load may hold the per-model advisory lock. Derived
+		// from BOTH configured budgets it has to cover, so raising either the
+		// install timeout (slow links pulling multi-GB images) or the model load
+		// timeout (very large checkpoints) widens the ceiling too, instead of
+		// letting a stale bound cut a legitimately slow load short.
+		ModelLoadCeiling: nodes.ModelLoadCeilingFor(
+			cfg.Distributed.BackendInstallTimeoutOrDefault(),
+			cfg.Distributed.ModelLoadTimeoutOrDefault(),
+		),
 	})
+
+	// Wire staging-progress broadcasting so file-staging shows up on every
+	// replica, not just the one performing the transfer. Without this, a
+	// /api/operations poll that round-robins onto a peer sees no staging row and
+	// the progress flickers. The origin publishes; peers mirror via the wildcard.
+	// A silently disabled safety check is how the original incident stayed
+	// invisible for sixteen minutes. Say so once, loudly, at startup.
+	if cfg.Distributed.DiskHeadroomDisabled {
+		xlog.Info("Disk-headroom admission check is DISABLED: node selection will ignore whether a worker can store the model, and staging may fail with ENOSPC partway through a transfer",
+			"knob", config.FlagDiskHeadroomCheck, "env", "LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK")
+	}
+
+	router.StagingTracker().SetPublisher(natsClient)
+	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
+		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
+	}
 
 	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +
 	// RegistrationToken feed the state-reconciliation passes: pending op

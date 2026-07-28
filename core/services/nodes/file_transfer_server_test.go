@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -893,3 +894,50 @@ func sha256Hex(data []byte) string {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
 }
+
+var _ = Describe("StartFileTransferServerWithListener", func() {
+	start := func(token string) (string, func()) {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		staging := GinkgoT().TempDir()
+		models := GinkgoT().TempDir()
+		data := GinkgoT().TempDir()
+		srv, err := StartFileTransferServerWithListener(lis, staging, models, data, token, 0)
+		Expect(err).NotTo(HaveOccurred())
+		base := "http://" + lis.Addr().String()
+		return base, func() { ShutdownFileTransferServer(srv) }
+	}
+
+	// Exercises the empty-token fail-open warning branch: the server serves
+	// file requests with no Authorization header at all.
+	It("serves unauthenticated when started without a token", func() {
+		base, stop := start("")
+		defer stop()
+
+		resp, err := http.Get(base + "/v1/files/missing.bin")
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = resp.Body.Close() }()
+		// No 401 — the empty token fails open. The file is absent so we get 404.
+		Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+	})
+
+	It("rejects requests without the bearer token when a token is set", func() {
+		base, stop := start("s3cret")
+		defer stop()
+
+		resp, err := http.Get(base + "/v1/files/missing.bin")
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = resp.Body.Close() }()
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("serves the unauthenticated health endpoints regardless of token", func() {
+		base, stop := start("s3cret")
+		defer stop()
+
+		resp, err := http.Get(base + "/healthz")
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = resp.Body.Close() }()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+})

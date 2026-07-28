@@ -127,7 +127,7 @@ jobs:
             # the original l4t matrix entry which set skip-drivers: 'true'.
             skip-drivers: 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: false
       - name: Free disk space

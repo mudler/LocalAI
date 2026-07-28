@@ -25,6 +25,8 @@ extern "C" {
 #include <chrono>
 #include <climits>
 #include <csignal>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -49,6 +51,11 @@ namespace {
 
 // Global state - ds4 is single-engine-per-process by design.
 std::mutex g_engine_mu;
+// The ModelOptions.Model this process loaded, compared against
+// PredictOptions.ModelIdentity so a request that arrived through a stale
+// distributed route is rejected rather than answered from the wrong model
+// (#10952). Guarded by g_engine_mu like the rest of the engine state.
+std::string g_loaded_model_identity;
 ds4_engine *g_engine = nullptr;
 ds4_session *g_session = nullptr;
 int g_ctx_size = 32768;
@@ -102,6 +109,130 @@ static bool parse_layers_spec(const std::string &spec, ds4_distributed_layers *o
         out->end = static_cast<uint32_t>(e);
     }
     out->set = true;
+    return true;
+}
+
+// Parse a boolean LoadModel option. An empty value (a bare flag-style option
+// like "ssd_streaming" with no colon) means true so model YAMLs can write
+// options: ["ssd_streaming"] to enable a switch.
+static bool parse_bool_option(const std::string &s, bool *out) {
+    if (s.empty() || s == "true" || s == "1" || s == "yes" || s == "on") { *out = true; return true; }
+    if (s == "false" || s == "0" || s == "no" || s == "off") { *out = false; return true; }
+    return false;
+}
+
+// Table-driven mapping from LoadModel option keys to ds4_engine_options fields.
+// ds4_engine_options is a fixed C struct with no reflection, so the field set
+// is enumerated once here; adding a future engine knob is a one-line table
+// entry rather than a new branch in LoadModel. Two fields need ds4's own typed
+// parsers (Gib, CacheExperts) so a plain string passthrough can't cover them.
+enum class DsOptType { Bool, Int, Uint, Float, Str, Gib, CacheExperts };
+
+struct DsOptSpec {
+    const char *key;
+    DsOptType   type;
+    size_t      off;      // byte offset into ds4_engine_options
+    size_t      off2;     // second offset (CacheExperts writes experts + bytes)
+    bool        is_path;  // Str values: resolve a relative value against the model dir
+};
+
+static const DsOptSpec kEngineOptSpecs[] = {
+    {"mtp_path",                      DsOptType::Str,          offsetof(ds4_engine_options, mtp_path),                      0, true},
+    {"mtp_draft",                     DsOptType::Int,          offsetof(ds4_engine_options, mtp_draft_tokens),              0},
+    {"mtp_margin",                    DsOptType::Float,        offsetof(ds4_engine_options, mtp_margin),                    0},
+    {"prefill_chunk",                 DsOptType::Uint,         offsetof(ds4_engine_options, prefill_chunk),                 0},
+    {"power_percent",                 DsOptType::Int,          offsetof(ds4_engine_options, power_percent),                 0},
+    {"warm_weights",                  DsOptType::Bool,         offsetof(ds4_engine_options, warm_weights),                  0},
+    {"quality",                       DsOptType::Bool,         offsetof(ds4_engine_options, quality),                       0},
+    {"ssd_streaming",                 DsOptType::Bool,         offsetof(ds4_engine_options, ssd_streaming),                 0},
+    {"ssd_streaming_cold",            DsOptType::Bool,         offsetof(ds4_engine_options, ssd_streaming_cold),            0},
+    {"ssd_streaming_preload_experts", DsOptType::Uint,         offsetof(ds4_engine_options, ssd_streaming_preload_experts), 0},
+    {"ssd_streaming_cache_experts",   DsOptType::CacheExperts, offsetof(ds4_engine_options, ssd_streaming_cache_experts),
+                                                               offsetof(ds4_engine_options, ssd_streaming_cache_bytes)},
+    {"simulate_used_memory",          DsOptType::Gib,          offsetof(ds4_engine_options, simulate_used_memory_bytes),    0},
+    {"expert_profile_path",           DsOptType::Str,          offsetof(ds4_engine_options, expert_profile_path),           0, true},
+    {"directional_steering_file",     DsOptType::Str,          offsetof(ds4_engine_options, directional_steering_file),     0, true},
+    {"directional_steering_attn",     DsOptType::Float,        offsetof(ds4_engine_options, directional_steering_attn),     0},
+    {"directional_steering_ffn",      DsOptType::Float,        offsetof(ds4_engine_options, directional_steering_ffn),      0},
+};
+
+// Apply a single key:value LoadModel option to the engine options struct.
+// Unknown keys are ignored (back-compat: callers pass mixed option sets).
+// String values are copied into `storage`, whose elements the engine reads by
+// pointer during ds4_engine_open; `storage` MUST have reserved capacity so
+// push_back never reallocates and dangles an earlier c_str(). Returns false
+// with `err` set when a recognized key has an invalid value.
+static bool apply_engine_option(ds4_engine_options *opt, const std::string &key,
+                                const std::string &val, const std::string &model_dir,
+                                std::vector<std::string> &storage, std::string &err) {
+    const DsOptSpec *spec = nullptr;
+    for (const auto &s : kEngineOptSpecs) {
+        if (key == s.key) { spec = &s; break; }
+    }
+    if (!spec) return true; // unknown key: ignore
+
+    char *base = reinterpret_cast<char *>(opt);
+    switch (spec->type) {
+    case DsOptType::Bool: {
+        bool b = false;
+        if (!parse_bool_option(val, &b)) { err = key + " must be true/false"; return false; }
+        *reinterpret_cast<bool *>(base + spec->off) = b;
+        return true;
+    }
+    case DsOptType::Int: {
+        char *end = nullptr;
+        long v = std::strtol(val.c_str(), &end, 10);
+        if (val.empty() || !end || *end != '\0') { err = key + " must be an integer"; return false; }
+        *reinterpret_cast<int *>(base + spec->off) = static_cast<int>(v);
+        return true;
+    }
+    case DsOptType::Uint: {
+        char *end = nullptr;
+        long v = std::strtol(val.c_str(), &end, 10);
+        if (val.empty() || !end || *end != '\0' || v < 0 || v > static_cast<long>(UINT32_MAX)) {
+            err = key + " must be a non-negative integer"; return false;
+        }
+        *reinterpret_cast<uint32_t *>(base + spec->off) = static_cast<uint32_t>(v);
+        return true;
+    }
+    case DsOptType::Float: {
+        char *end = nullptr;
+        float f = std::strtof(val.c_str(), &end);
+        if (val.empty() || !end || *end != '\0') { err = key + " must be a number"; return false; }
+        *reinterpret_cast<float *>(base + spec->off) = f;
+        return true;
+    }
+    case DsOptType::Str: {
+        // Resolve a relative path option (e.g. mtp_path: a sibling GGUF the
+        // gallery downloaded next to the model) against the model directory, so
+        // YAMLs reference companion files by name. Absolute values pass through.
+        if (spec->is_path && !model_dir.empty() && !val.empty() && val.front() != '/') {
+            storage.push_back(model_dir + "/" + val);
+        } else {
+            storage.push_back(val);
+        }
+        *reinterpret_cast<const char **>(base + spec->off) = storage.back().c_str();
+        return true;
+    }
+    case DsOptType::Gib: {
+        uint64_t bytes = 0;
+        if (!ds4_parse_gib_arg(val.c_str(), &bytes)) {
+            err = key + " must be a GiB value, e.g. 64GB"; return false;
+        }
+        *reinterpret_cast<uint64_t *>(base + spec->off) = bytes;
+        return true;
+    }
+    case DsOptType::CacheExperts: {
+        uint32_t experts = 0;
+        uint64_t bytes = 0;
+        if (!ds4_parse_streaming_cache_experts_arg(val.c_str(), &experts, &bytes)) {
+            err = key + " must be a positive expert count or a <number>GB budget"; return false;
+        }
+        *reinterpret_cast<uint32_t *>(base + spec->off)  = experts;
+        *reinterpret_cast<uint64_t *>(base + spec->off2) = bytes;
+        return true;
+    }
+    }
     return true;
 }
 
@@ -436,6 +567,24 @@ static void build_prompt(ds4_engine *engine, const backend::PredictOptions *requ
     ds4_chat_append_assistant_prefix(engine, out, think);
 }
 
+// check_model_identity mirrors pkg/grpc/server.go and
+// backend/python/common/model_identity.py. Either side empty means "skip": the
+// request side is empty for a controller that predates the field, the loaded
+// side when such a controller performed the load. A false rejection is worse
+// than the miss it prevents. Callers must already hold g_engine_mu.
+static GStatus check_model_identity(const backend::PredictOptions *request) {
+    if (request == nullptr || request->modelidentity().empty()) return GStatus::OK;
+    if (g_loaded_model_identity.empty() ||
+        g_loaded_model_identity == request->modelidentity()) {
+        return GStatus::OK;
+    }
+    // NOT_FOUND plus this exact sentinel is the cross-language contract the
+    // router matches on (grpcerrors.ModelMismatchSentinel).
+    return GStatus(StatusCode::NOT_FOUND,
+                   "ds4: model identity mismatch: loaded \"" + g_loaded_model_identity +
+                   "\", requested \"" + request->modelidentity() + "\"");
+}
+
 class DS4Backend final : public backend::Backend::Service {
 public:
     GStatus Health(ServerContext *, const backend::HealthMessage *,
@@ -476,39 +625,10 @@ public:
             return GStatus::OK;
         }
 
-        std::string mtp_path;
-        int mtp_draft = 0;
-        float mtp_margin = 3.0f;
-        std::string ds4_role, ds4_layers, ds4_listen;
-        for (const auto &opt : request->options()) {
-            auto [k, v] = split_option(opt);
-            if (k == "mtp_path") mtp_path = v;
-            else if (k == "mtp_draft") mtp_draft = std::stoi(v);
-            else if (k == "mtp_margin") mtp_margin = std::stof(v);
-            else if (k == "kv_cache_dir") g_kv_cache_dir = v;
-            else if (k == "ds4_role") ds4_role = v;
-            else if (k == "ds4_layers") ds4_layers = v;
-            else if (k == "ds4_listen") ds4_listen = v;
-            else if (k == "ds4_route_timeout") {
-                if (!parse_positive_int(v, &g_route_timeout_sec)) {
-                    result->set_success(false);
-                    result->set_message("ds4: ds4_route_timeout must be a positive integer");
-                    return GStatus::OK;
-                }
-            }
-        }
-
-        g_kv_cache.SetDir(g_kv_cache_dir);
-
         ds4_engine_options opt = {};
         opt.model_path = model_path.c_str();
-        opt.mtp_path = mtp_path.empty() ? nullptr : mtp_path.c_str();
         opt.n_threads = request->threads() > 0 ? request->threads() : 0;
-        opt.mtp_draft_tokens = mtp_draft;
-        opt.mtp_margin = mtp_margin;
-        opt.directional_steering_file = nullptr;
-        opt.warm_weights = false;
-        opt.quality = false;
+        opt.mtp_margin = 3.0f; // ds4 default; overridable via the mtp_margin option
 
 #if defined(DS4_NO_GPU)
         opt.backend = DS4_BACKEND_CPU;
@@ -517,6 +637,46 @@ public:
 #else
         opt.backend = DS4_BACKEND_CUDA;
 #endif
+
+        // Stable storage for string-valued engine options. The engine reads
+        // these by pointer during ds4_engine_open, so the std::string backing
+        // store must outlive the call and not reallocate; reserve up front so
+        // push_back keeps every prior c_str() valid. Static + clear() reuses
+        // the buffer across LoadModel calls (the old engine is closed above).
+        static std::vector<std::string> s_opt_strings;
+        s_opt_strings.clear();
+        s_opt_strings.reserve(sizeof(kEngineOptSpecs) / sizeof(kEngineOptSpecs[0]));
+
+        // Directory of the main model, used to resolve relative path options.
+        std::string model_dir;
+        if (auto slash = model_path.find_last_of('/'); slash != std::string::npos) {
+            model_dir = model_path.substr(0, slash);
+        }
+
+        std::string ds4_role, ds4_layers, ds4_listen;
+        for (const auto &o : request->options()) {
+            auto [k, v] = split_option(o);
+            if (k == "kv_cache_dir") { g_kv_cache_dir = v; continue; }
+            else if (k == "ds4_role") { ds4_role = v; continue; }
+            else if (k == "ds4_layers") { ds4_layers = v; continue; }
+            else if (k == "ds4_listen") { ds4_listen = v; continue; }
+            else if (k == "ds4_route_timeout") {
+                if (!parse_positive_int(v, &g_route_timeout_sec)) {
+                    result->set_success(false);
+                    result->set_message("ds4: ds4_route_timeout must be a positive integer");
+                    return GStatus::OK;
+                }
+                continue;
+            }
+            std::string err;
+            if (!apply_engine_option(&opt, k, v, model_dir, s_opt_strings, err)) {
+                result->set_success(false);
+                result->set_message("ds4: " + err);
+                return GStatus::OK;
+            }
+        }
+
+        g_kv_cache.SetDir(g_kv_cache_dir);
 
         // Coordinator wiring. 'ds4_role:coordinator' enables layer-split
         // distributed inference: this process listens on ds4_listen and owns
@@ -579,6 +739,7 @@ public:
         }
 
         result->set_success(true);
+        g_loaded_model_identity = request->model();
         result->set_message("loaded " + model_path);
         return GStatus::OK;
     }
@@ -587,6 +748,7 @@ public:
                           backend::TokenizationResponse *response) override {
         std::lock_guard<std::mutex> lock(g_engine_mu);
         if (!g_engine) return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
+        if (GStatus id = check_model_identity(request); !id.ok()) return id;
         ds4_tokens out = {};
         ds4_tokenize_text(g_engine, request->prompt().c_str(), &out);
         for (int i = 0; i < out.len; ++i) response->add_tokens(out.v[i]);
@@ -601,6 +763,7 @@ public:
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
+        if (GStatus id = check_model_identity(request); !id.ok()) return id;
         if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
             return GStatus(StatusCode::UNAVAILABLE, route_err);
         }
@@ -700,6 +863,7 @@ public:
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
+        if (GStatus id = check_model_identity(request); !id.ok()) return id;
         if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
             return GStatus(StatusCode::UNAVAILABLE, route_err);
         }

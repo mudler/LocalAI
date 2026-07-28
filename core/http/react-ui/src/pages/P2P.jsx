@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { p2pApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
 
 function NodeCard({ node, label, iconColor, iconBg }) {
@@ -295,20 +296,24 @@ export default function P2P() {
 
   return (
     <div className="page page--narrow">
-      <div className="page-header">
-        <h1 className="page-title">
-          <i className="fas fa-circle-nodes" style={{ marginRight: 'var(--spacing-sm)' }} />
-          {t('p2p.title')}
-        </h1>
-        <p className="page-subtitle">
-          {t('p2p.subtitle')}
-          {' '}
-          <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
-            style={{ color: 'var(--color-primary)' }}>
-            <i className="fas fa-circle-info" />
-          </a>
-        </p>
-      </div>
+      <PageHeader
+        title={
+          <>
+            <i className="fas fa-circle-nodes" style={{ marginRight: 'var(--spacing-sm)' }} />
+            {t('p2p.title')}
+          </>
+        }
+        supporting={
+          <>
+            {t('p2p.subtitle')}
+            {' '}
+            <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer"
+              style={{ color: 'var(--color-primary)' }}>
+              <i className="fas fa-circle-info" />
+            </a>
+          </>
+        }
+      />
 
       {/* Network Token */}
       <div style={{

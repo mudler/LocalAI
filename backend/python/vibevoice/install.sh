@@ -39,3 +39,11 @@ if [ ! -d VibeVoice ]; then
         uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
     fi
 fi
+
+# The stubs generated at the end of installRequirements were built against the
+# protobuf runtime as it stood before the installs above, which resolve their own
+# dependencies and can move that runtime. Regenerate now that the dependency set
+# is final, so the gencode stamped into backend_pb2.py cannot be newer than the
+# runtime that ships. Same failure mode as mudler/LocalAI#10718; runProtogen
+# clears the previous stubs first, so this is idempotent.
+runProtogen

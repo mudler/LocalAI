@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
+	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -33,10 +34,55 @@ var (
 	CppTTSFree         func(ptr uintptr)
 	CppTTSSetVoice     func(name string) int
 	CppTTSSetVoiceFile func(path string, refText string) int
+
+	// Word-level timestamp accessors (session-based, per-segment)
+	CppGetWordCount func(segI int) int
+	CppGetWordText  func(segI int, wordI int) string
+	CppGetWordT0    func(segI int, wordI int) int64
+	CppGetWordT1    func(segI int, wordI int) int64
+
+	// Parakeet-specific word accessors (global, no segment index)
+	CppGetParakeetWordCount func() int
+	CppGetParakeetWordText  func(wordI int) string
+	CppGetParakeetWordT0    func(wordI int) int64
+	CppGetParakeetWordT1    func(wordI int) int64
 )
 
 type CrispASR struct {
 	base.SingleThread
+	// sampleRate is the output rate (Hz) of the loaded TTS engine's PCM, used to
+	// write a correct WAV header. Most CrispASR TTS backends emit 24 kHz, but
+	// piper returns its model's native rate (16 kHz for x_low/low voices,
+	// 22.05 kHz for medium/high), so it is read from the GGUF metadata at Load.
+	sampleRate int
+}
+
+// defaultTTSSampleRate is the output rate assumed for CrispASR TTS engines that
+// don't advertise one in GGUF metadata (vibevoice/orpheus/chatterbox/qwen3-tts
+// all emit 24 kHz). piper is the exception and carries piper.sample_rate.
+const defaultTTSSampleRate = 24000
+
+// piperSampleRate reads the piper.sample_rate metadata key from a GGUF model.
+// CrispASR's piper backend returns PCM at the model's native rate without
+// resampling, so the WAV header must match it. Returns ok=false for non-piper
+// models (key absent) or an unreadable file, letting the caller fall back to
+// defaultTTSSampleRate.
+func piperSampleRate(modelPath string) (int, bool) {
+	// Only scalar architecture keys are read, so skip the large array metadata
+	// (phoneme map) and mmap the header - same rationale as pkg/vram's reader.
+	f, err := gguf.ParseGGUFFile(modelPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
+	if err != nil {
+		return 0, false
+	}
+	kv, ok := f.Header.MetadataKV.Get("piper.sample_rate")
+	if !ok || kv.ValueType != gguf.GGUFMetadataValueTypeUint32 {
+		return 0, false
+	}
+	rate := int(kv.ValueUint32())
+	if rate <= 0 {
+		return 0, false
+	}
+	return rate, true
 }
 
 // splitOption splits a "prefix:value" model option into its key and value,
@@ -101,6 +147,14 @@ func (w *CrispASR) Load(opts *pb.ModelOptions) error {
 
 	if ret := CppLoadModel(opts.ModelFile, int(opts.Threads), backendName); ret != 0 {
 		return fmt.Errorf("Failed to load CrispASR transcription model")
+	}
+
+	// Determine the TTS output sample rate for the WAV header. piper voices
+	// carry their native rate in GGUF metadata and CrispASR does not resample;
+	// every other engine emits the 24 kHz default.
+	w.sampleRate = defaultTTSSampleRate
+	if rate, ok := piperSampleRate(opts.ModelFile); ok {
+		w.sampleRate = rate
 	}
 
 	// Load the companion file (codec/tokenizer/s3gen) after the session is open.
@@ -168,6 +222,28 @@ func (w *CrispASR) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	return pb.VADResponse{
 		Segments: vadSegments,
 	}, nil
+}
+
+// isValidWord reports whether a TranscriptWord contains recognisable speech
+// content. The parakeet-specific word accessors can return stale initialisation
+// data (model name, binary blobs) when a segment has no real speech. A word is
+// considered valid only when:
+//   - the text is non-empty after trimming,
+//   - it contains no U+FFFD replacement characters (from binary data scrubbing),
+//   - both timestamps are non-negative,
+//   - the word has positive duration (end > start).
+func isValidWord(w *pb.TranscriptWord) bool {
+	txt := strings.TrimSpace(w.Text)
+	if txt == "" {
+		return false
+	}
+	if strings.ContainsRune(txt, '\uFFFD') {
+		return false
+	}
+	if w.Start < 0 || w.End < 0 || w.End <= w.Start {
+		return false
+	}
+	return true
 }
 
 func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
@@ -248,15 +324,54 @@ func (w *CrispASR) AudioTranscription(ctx context.Context, opts *pb.TranscriptRe
 		// IDs, so Tokens is left empty.
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
 
+		// Populate word-level timestamps. Try session-based functions first
+		// (per-segment); fall back to parakeet-specific functions (global word
+		// list with no segment index — only populated on the first segment to
+		// avoid duplication).
+		words := []*pb.TranscriptWord{}
+		wordCount := CppGetWordCount(i)
+		if wordCount == 0 && i == 0 {
+			wordCount = CppGetParakeetWordCount()
+			for j := 0; j < wordCount; j++ {
+				w := &pb.TranscriptWord{
+					Start: CppGetParakeetWordT0(j) * (10000000),
+					End:   CppGetParakeetWordT1(j) * (10000000),
+					Text:  strings.ToValidUTF8(strings.Clone(CppGetParakeetWordText(j)), "�"),
+				}
+				if isValidWord(w) {
+					words = append(words, w)
+				}
+			}
+		} else {
+			for j := 0; j < wordCount; j++ {
+				w := &pb.TranscriptWord{
+					Start: CppGetWordT0(i, j) * (10000000),
+					End:   CppGetWordT1(i, j) * (10000000),
+					Text:  strings.ToValidUTF8(strings.Clone(CppGetWordText(i, j)), "�"),
+				}
+				if isValidWord(w) {
+					words = append(words, w)
+				}
+			}
+		}
+
+		// Skip empty segments with no recognisable content (e.g. trailing
+		// silence segments that parakeet emits with stale init data).
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" && len(words) == 0 {
+			continue
+		}
+
 		segment := &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
+			Words: words,
 		}
 
 		segments = append(segments, segment)
 
-		text += " " + strings.TrimSpace(txt)
+		text += " " + trimmed
 	}
 
 	return pb.TranscriptResult{
@@ -348,13 +463,20 @@ func (w *CrispASR) AudioTranscriptionStream(ctx context.Context, opts *pb.Transc
 		s := CppGetSegmentStart(i) * 10000000
 		t := CppGetSegmentEnd(i) * 10000000
 		txt := strings.ToValidUTF8(strings.Clone(CppGetSegmentText(i)), "�")
+
+		// Skip empty segments (e.g. trailing silence that parakeet emits
+		// with stale init data).
+		trimmed := strings.TrimSpace(txt)
+		if trimmed == "" && s == t {
+			continue
+		}
+
 		segments = append(segments, &pb.TranscriptSegment{
 			Id:    int32(i),
 			Text:  txt,
 			Start: s, End: t,
 		})
 
-		trimmed := strings.TrimSpace(txt)
 		if trimmed == "" {
 			continue
 		}
@@ -390,7 +512,7 @@ func (w *CrispASR) synthesize(text string) ([]float32, error) {
 	}
 	defer CppTTSFree(ptr)
 	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // ptr addresses C-allocated PCM returned across the purego boundary; copied out immediately below, before tts_free.
-	out := make([]float32, int(n)) // copy out of C memory before free
+	out := make([]float32, int(n))                               // copy out of C memory before free
 	copy(out, src)
 	return out, nil
 }
@@ -408,16 +530,56 @@ func setVoice(voice string) {
 	}
 }
 
+// applyRequestVoice distinguishes named speakers from per-request reference
+// WAVs. The latter are used by F5-TTS and require the exact transcript under
+// the cross-backend params.ref_text contract.
+func applyRequestVoice(req *pb.TTSRequest) error {
+	voice := strings.TrimSpace(req.Voice)
+	if voice == "" {
+		return nil
+	}
+
+	info, statErr := os.Stat(voice)
+	looksLikeFile := filepath.IsAbs(voice) || strings.EqualFold(filepath.Ext(voice), ".wav")
+	if statErr == nil && info.Mode().IsRegular() {
+		refText := ""
+		if req.Params != nil {
+			refText = strings.TrimSpace(req.Params["ref_text"])
+			if refText == "" {
+				refText = strings.TrimSpace(req.Params["voice_text"])
+			}
+		}
+		if refText == "" {
+			return fmt.Errorf("crispasr: params.ref_text is required with a reference voice WAV")
+		}
+		if rc := CppTTSSetVoiceFile(voice, refText); rc < 0 {
+			return fmt.Errorf("crispasr: failed to apply reference voice %q (rc=%d)", voice, rc)
+		}
+		return nil
+	}
+	if looksLikeFile {
+		if statErr != nil {
+			return fmt.Errorf("crispasr: reference voice %q: %w", voice, statErr)
+		}
+		return fmt.Errorf("crispasr: reference voice %q is not a regular file", voice)
+	}
+
+	setVoice(voice)
+	return nil
+}
+
 func (w *CrispASR) TTS(req *pb.TTSRequest) error {
 	if req.Dst == "" {
 		return fmt.Errorf("crispasr: TTS requires a destination path")
 	}
-	setVoice(req.Voice)
+	if err := applyRequestVoice(req); err != nil {
+		return err
+	}
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err
 	}
-	return writeWAV24k(req.Dst, pcm)
+	return writeWAV(req.Dst, pcm, w.sampleRate)
 }
 
 // TTSStream is the streaming counterpart to TTS. CrispASR has no progressive
@@ -431,7 +593,9 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	if req.Text == "" {
 		return fmt.Errorf("crispasr: TTSStream requires text")
 	}
-	setVoice(req.Voice)
+	if err := applyRequestVoice(req); err != nil {
+		return err
+	}
 	pcm, err := w.synthesize(req.Text)
 	if err != nil {
 		return err
@@ -447,7 +611,7 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	}
 	defer func() { _ = os.Remove(dst) }()
 
-	if err := writeWAV24k(dst, pcm); err != nil {
+	if err := writeWAV(dst, pcm, w.sampleRate); err != nil {
 		return err
 	}
 
@@ -459,14 +623,14 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	return nil
 }
 
-// writeWAV24k writes pcm as a 24000 Hz, mono, 16-bit PCM WAV at dst.
-func writeWAV24k(dst string, pcm []float32) error {
+// writeWAV writes pcm as a sampleRate Hz, mono, 16-bit PCM WAV at dst.
+func writeWAV(dst string, pcm []float32, sampleRate int) error {
 	f, err := os.Create(dst)
 	if err != nil {
 		return fmt.Errorf("crispasr: create %q: %w", dst, err)
 	}
 
-	enc := wav.NewEncoder(f, 24000, 16, 1, 1)
+	enc := wav.NewEncoder(f, sampleRate, 16, 1, 1)
 	ints := make([]int, len(pcm))
 	for i, s := range pcm {
 		if s > 1 {
@@ -477,7 +641,7 @@ func writeWAV24k(dst string, pcm []float32) error {
 		ints[i] = int(s * 32767)
 	}
 	buf := &audio.IntBuffer{
-		Format:         &audio.Format{NumChannels: 1, SampleRate: 24000},
+		Format:         &audio.Format{NumChannels: 1, SampleRate: sampleRate},
 		Data:           ints,
 		SourceBitDepth: 16,
 	}

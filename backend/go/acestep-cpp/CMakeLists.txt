@@ -25,7 +25,7 @@ target_include_directories(goacestepcpp PRIVATE ${ACESTEP_DIR}/src ${ACESTEP_DIR
 target_include_directories(goacestepcpp SYSTEM PRIVATE ${ACESTEP_DIR}/ggml/include)
 
 # Link GPU backends if available (mirrors link_ggml_backends macro)
-foreach(backend blas cuda metal vulkan)
+foreach(backend blas cuda hip metal vulkan)
     if(TARGET ggml-${backend})
         target_link_libraries(goacestepcpp PRIVATE ggml-${backend})
         string(TOUPPER ${backend} BACKEND_UPPER)

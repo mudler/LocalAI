@@ -1,0 +1,17 @@
+{
+  "generic": "문제가 발생했습니다",
+  "network": "네트워크 오류입니다. 연결을 확인하고 다시 시도하세요.",
+  "unauthorized": "이 작업을 수행할 권한이 없습니다.",
+  "forbidden": "접근이 거부되었습니다.",
+  "notFound": "요청한 리소스를 찾을 수 없습니다.",
+  "serverError": "서버 오류입니다. 잠시 후 다시 시도하세요.",
+  "loadFailed": "불러오기 실패: {{message}}",
+  "saveFailed": "저장 실패: {{message}}",
+  "deleteFailed": "삭제 실패: {{message}}",
+  "updateFailed": "업데이트 실패: {{message}}",
+  "createFailed": "생성 실패: {{message}}",
+  "operationFailed": "작업 실패: {{message}}",
+  "invalidInput": "잘못된 입력입니다. 양식을 확인하고 다시 시도하세요.",
+  "tryAgain": "다시 시도해 주세요.",
+  "contactAdmin": "문제가 계속되면 관리자에게 문의하세요."
+}

@@ -93,6 +93,9 @@ func applyOverride(f *FieldMeta, o FieldMetaOverride) {
 	if o.Component != "" {
 		f.Component = o.Component
 	}
+	if o.Language != "" {
+		f.Language = o.Language
+	}
 	if o.Placeholder != "" {
 		f.Placeholder = o.Placeholder
 	}

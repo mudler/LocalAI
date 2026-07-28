@@ -4,36 +4,48 @@ import ImageGen from './ImageGen'
 import VideoGen from './VideoGen'
 import TTS from './TTS'
 import Sound from './Sound'
+import AudioTransform from './AudioTransform'
+import { useAuth } from '../context/AuthContext'
 
-const TABS = [
+const BASE_TABS = [
   { key: 'images', labelKey: 'studio.tabs.images', icon: 'fas fa-image' },
   { key: 'video', labelKey: 'studio.tabs.video', icon: 'fas fa-video' },
   { key: 'tts', labelKey: 'studio.tabs.tts', icon: 'fas fa-headphones' },
   { key: 'sound', labelKey: 'studio.tabs.sound', icon: 'fas fa-music' },
 ]
 
+const TRANSFORM_TAB = { key: 'transform', labelKey: 'studio.tabs.transform', icon: 'fas fa-wave-square' }
+
 const TAB_COMPONENTS = {
   images: ImageGen,
   video: VideoGen,
   tts: TTS,
   sound: Sound,
+  transform: AudioTransform,
 }
 
 export default function Studio() {
   const { t } = useTranslation('media')
+  const { hasFeature } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'images'
+
+  // Transform is a distinct capability; only show its tab when enabled.
+  const tabs = hasFeature('audio_transform') ? [...BASE_TABS, TRANSFORM_TAB] : BASE_TABS
 
   const setTab = (key) => {
     setSearchParams({ tab: key }, { replace: true })
   }
 
-  const ActiveComponent = TAB_COMPONENTS[activeTab] || ImageGen
+  const ActiveComponent =
+    (activeTab === 'transform' && !hasFeature('audio_transform'))
+      ? ImageGen
+      : (TAB_COMPONENTS[activeTab] || ImageGen)
 
   return (
     <div>
       <div className="studio-tabs">
-        {TABS.map(tab => (
+        {tabs.map(tab => (
           <button
             key={tab.key}
             className={`studio-tab${activeTab === tab.key ? ' studio-tab-active' : ''}`}

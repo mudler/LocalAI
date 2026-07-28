@@ -37,7 +37,7 @@ void  sherpa_shim_vad_config_set_provider(void *cfg, const char *v);
 void  sherpa_shim_vad_config_set_debug(void *cfg, int32_t v);
 void *sherpa_shim_create_vad(void *cfg, float buffer_size_seconds);
 
-// --- Offline TTS config (VITS path — the only TTS family the backend uses) ---
+// --- Offline TTS config (VITS/Piper and Kokoro model families) ---
 void *sherpa_shim_tts_config_new(void);
 void  sherpa_shim_tts_config_free(void *cfg);
 void  sherpa_shim_tts_config_set_vits_model(void *cfg, const char *v);
@@ -51,6 +51,14 @@ void  sherpa_shim_tts_config_set_num_threads(void *cfg, int32_t v);
 void  sherpa_shim_tts_config_set_debug(void *cfg, int32_t v);
 void  sherpa_shim_tts_config_set_provider(void *cfg, const char *v);
 void  sherpa_shim_tts_config_set_max_num_sentences(void *cfg, int32_t v);
+void  sherpa_shim_tts_config_set_kokoro_model(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_voices(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_tokens(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_data_dir(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_dict_dir(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_lexicon(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_lang(void *cfg, const char *v);
+void  sherpa_shim_tts_config_set_kokoro_length_scale(void *cfg, float v);
 void *sherpa_shim_create_offline_tts(void *cfg);
 
 // --- Offline recognizer config (Whisper / Paraformer / SenseVoice / Omnilingual) ---

@@ -1,0 +1,79 @@
+{
+  "title": "스킬",
+  "subtitle": "에이전트 스킬(재사용 가능한 지침 및 리소스)을 관리합니다",
+  "unavailable": {
+    "subtitle": "스킬 서비스를 사용할 수 없거나 인덱스를 다시 빌드하는 중입니다. 잠시 후 다시 시도하세요.",
+    "retry": "다시 시도"
+  },
+  "actions": {
+    "newSkill": "새 스킬",
+    "createSkill": "스킬 만들기",
+    "import": "가져오기",
+    "importing": "가져오는 중...",
+    "gitRepos": "Git 저장소",
+    "edit": "편집",
+    "delete": "삭제",
+    "export": "내보내기",
+    "sync": "동기화",
+    "addRepo": "저장소 추가",
+    "adding": "추가 중...",
+    "remove": "제거",
+    "enable": "사용",
+    "disable": "사용 안 함"
+  },
+  "search": {
+    "placeholder": "스킬 검색..."
+  },
+  "git": {
+    "title": "Git 저장소",
+    "description": "스킬을 가져올 Git 저장소를 추가합니다. 동기화 후 스킬이 목록에 표시됩니다.",
+    "urlPlaceholder": "https://github.com/user/repo 또는 git@github.com:user/repo.git",
+    "noRepos": "구성된 Git 저장소가 없습니다. 위에서 추가하세요.",
+    "disabled": "사용 안 함",
+    "removeRepo": "저장소 제거"
+  },
+  "card": {
+    "noDescription": "설명 없음",
+    "readOnly": "읽기 전용",
+    "editTitle": "스킬 편집",
+    "deleteTitle": "스킬 삭제",
+    "exportTitle": ".tar.gz로 내보내기"
+  },
+  "empty": {
+    "title": "스킬을 찾을 수 없습니다",
+    "text": "스킬을 만들거나 가져와서 시작하세요.",
+    "noPersonal": "아직 스킬이 없습니다."
+  },
+  "sections": {
+    "yourSkills": "내 스킬",
+    "otherUsersSkills": "다른 사용자의 스킬"
+  },
+  "deleteDialog": {
+    "title": "스킬 삭제",
+    "message": "스킬 \"{{name}}\"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "confirm": "삭제"
+  },
+  "removeRepoDialog": {
+    "title": "Git 저장소 제거",
+    "message": "이 Git 저장소를 제거하시겠습니까? 해당 저장소의 스킬을 더 이상 사용할 수 없게 됩니다.",
+    "confirm": "제거"
+  },
+  "toasts": {
+    "loadFailed": "스킬을 불러오지 못했습니다",
+    "deleted": "스킬 \"{{name}}\"이(가) 삭제되었습니다",
+    "deleteFailed": "스킬 삭제 실패",
+    "exported": "스킬 \"{{name}}\"이(가) 내보내졌습니다",
+    "exportFailed": "내보내기 실패",
+    "imported": "\"{{file}}\"에서 스킬을 가져왔습니다",
+    "importFailed": "가져오기 실패",
+    "loadReposFailed": "Git 저장소를 불러오지 못했습니다",
+    "repoAdded": "Git 저장소가 추가되고 동기화 중입니다",
+    "addRepoFailed": "저장소 추가 실패",
+    "synced": "저장소가 동기화되었습니다",
+    "syncFailed": "동기화 실패",
+    "toggled": "저장소가 전환되었습니다",
+    "toggleFailed": "전환 실패",
+    "removed": "저장소가 제거되었습니다",
+    "removeFailed": "제거 실패"
+  }
+}

@@ -1,24 +1,29 @@
 import { test, expect } from '@playwright/test'
 
-// Mocked fixture covering the three things the page renders:
-//   - PII pattern catalogue (action badges, action-change buttons)
-//   - Per-model resolved PII state (one with default off, one with proxy default on, one with explicit YAML)
+// Mocked fixture covering the things the page renders:
+//   - Per-model resolved PII state + the NER detectors each references
+//     (one with default off, one with proxy default on, one explicit YAML)
 //   - Recent events feed (the page must NEVER show the redacted content)
 const MOCK_STATUS = {
   pii: {
     enabled_globally: true,
     default_enabled_for_backends: ['cloud-proxy'],
-    patterns: [
-      { id: 'email', description: 'Email addresses', action: 'mask', max_match_length: 254 },
-      { id: 'ssn', description: 'US Social Security Numbers', action: 'mask', max_match_length: 11 },
-      { id: 'api_key_prefix', description: 'API key prefixes', action: 'block', max_match_length: 200 },
-    ],
     models: [
-      { name: 'qwen-7b', backend: 'llama-cpp', enabled: false, explicit: false, default_for_backend: false, overrides: null },
-      { name: 'claude-sonnet', backend: 'cloud-proxy', enabled: true, explicit: false, default_for_backend: true, overrides: null },
-      { name: 'claude-strict', backend: 'cloud-proxy', enabled: true, explicit: true, default_for_backend: true, overrides: { ssn: 'block' } },
+      { name: 'qwen-7b', backend: 'llama-cpp', enabled: false, explicit: false, default_for_backend: false, detectors: null },
+      { name: 'claude-sonnet', backend: 'cloud-proxy', enabled: true, explicit: false, default_for_backend: true, detectors: null },
+      { name: 'claude-strict', backend: 'cloud-proxy', enabled: true, explicit: true, default_for_backend: true, detectors: ['privacy-filter-multilingual'] },
     ],
     recent_event_count: 2,
+    // Instance-wide default detector set (managed by the Detector models
+    // table's per-row Default toggle).
+    default_detectors: ['global-ner-default'],
+    // The token_classify "filter" models themselves: one NER, one in-process
+    // pattern matcher, plus an orphan default that names a model not loaded.
+    detector_models: [
+      { name: 'privacy-filter-multilingual', backend: 'llama-cpp', type: 'ner', default: false },
+      { name: 'secret-filter', backend: 'pattern', type: 'pattern', default: false },
+      { name: 'global-ner-default', backend: '', type: 'unknown', default: true, missing: true },
+    ],
   },
   router: {
     configured: true,
@@ -114,21 +119,102 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     await page.route('**/api/router/decisions?**', (route) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(MOCK_DECISIONS) })
     )
+    // The Default PII policy detector picker is capability-filtered to
+    // token_classify via /api/models/capabilities.
+    await page.route('**/api/models/capabilities', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ models: [{ id: 'privacy-filter-multilingual', capabilities: ['FLAG_TOKEN_CLASSIFY'], backend: 'llama-cpp' }] }),
+      })
+    )
+    await page.route('**/api/settings', (route) =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    )
+    // The per-model PII toggle PATCHes the model config (pii.enabled).
+    await page.route('**/api/models/config-json/**', (route) =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    )
   })
 
-  test('Filtering tab renders pattern catalogue and per-model state', async ({ page }) => {
+  test('Filtering tab renders per-model state and referenced detectors', async ({ page }) => {
     await page.goto('/app/middleware')
-
-    // Pattern table — at least one pattern id visible.
-    await expect(page.getByText('email').first()).toBeVisible()
-    await expect(page.getByText('api_key_prefix').first()).toBeVisible()
 
     // Per-model state — each model's name is visible.
     await expect(page.getByText('qwen-7b').first()).toBeVisible()
     await expect(page.getByText('claude-strict').first()).toBeVisible()
 
+    // The detector a model references is shown in its row.
+    await expect(page.getByText('privacy-filter-multilingual').first()).toBeVisible()
+
     // Default-policy banner names the backends with PII on by default.
     await expect(page.getByText(/cloud-proxy/).first()).toBeVisible()
+  })
+
+  test('Filtering tab lists detector models with type badges and a default toggle', async ({ page }) => {
+    await page.goto('/app/middleware')
+
+    // The Detector models card renders every token_classify filter model.
+    await expect(page.getByText('Detector models')).toBeVisible()
+    const nerRow = page.locator('tr').filter({ hasText: 'privacy-filter-multilingual' }).first()
+    await expect(nerRow).toContainText(/NER/i)
+    const patternRow = page.locator('tr').filter({ hasText: 'secret-filter' }).first()
+    await expect(patternRow).toContainText(/pattern/i)
+
+    // The NER detector is not (yet) a default — its toggle is unchecked.
+    // (The underlying checkbox is 0×0 by design, so we click the label wrapper.)
+    const nerToggle = nerRow.locator('label.toggle')
+    await expect(nerToggle.locator('input[type="checkbox"]')).not.toBeChecked()
+
+    // Toggling it on persists the new default set via POST /api/settings.
+    const saved = page.waitForRequest(req =>
+      req.url().includes('/api/settings') && req.method() === 'POST')
+    await nerToggle.click()
+    const req = await saved
+    const body = JSON.parse(req.postData() || '{}')
+    expect(body.pii_default_detectors).toContain('privacy-filter-multilingual')
+  })
+
+  test('Filtering tab surfaces an orphan default detector that is not loaded', async ({ page }) => {
+    await page.goto('/app/middleware')
+
+    // global-ner-default names a model that is not loaded, but it is in the
+    // default set — it must still appear (toggled on) so admins can remove it.
+    const orphanRow = page.locator('tr').filter({ hasText: 'global-ner-default' }).first()
+    await expect(orphanRow).toContainText(/not loaded/i)
+    await expect(orphanRow.locator('label.toggle input[type="checkbox"]')).toBeChecked()
+  })
+
+  test('Filtering tab flags an enabled model with no detector as a no-op', async ({ page }) => {
+    await page.goto('/app/middleware')
+
+    // claude-sonnet is enabled by the cloud-proxy backend default but lists
+    // no detectors and there is no instance default detector — it scans
+    // nothing, so the row must warn rather than read as protected.
+    const noopRow = page.locator('tr').filter({ hasText: 'claude-sonnet' }).first()
+    await expect(noopRow).toContainText(/no-op/i)
+
+    // claude-strict has an explicit detector — it must NOT be flagged.
+    const okRow = page.locator('tr').filter({ hasText: 'claude-strict' }).first()
+    await expect(okRow).not.toContainText(/no-op/i)
+  })
+
+  test('Filtering tab PII column toggles a model\'s pii.enabled via PATCH', async ({ page }) => {
+    await page.goto('/app/middleware')
+
+    // qwen-7b is OFF (enabled:false) — its PII toggle reads unchecked.
+    const row = page.locator('tr').filter({ hasText: 'qwen-7b' }).first()
+    const toggle = row.locator('label.toggle')
+    await expect(toggle.locator('input[type="checkbox"]')).not.toBeChecked()
+
+    // Toggling on PATCHes the model config with an explicit pii.enabled:true,
+    // scoped to that model (no other field is sent — the server deep-merges).
+    const patched = page.waitForRequest(req =>
+      req.url().includes('/api/models/config-json/') && req.method() === 'PATCH')
+    await toggle.click()
+    const req = await patched
+    expect(decodeURIComponent(req.url())).toContain('qwen-7b')
+    const body = JSON.parse(req.postData() || '{}')
+    expect(body.pii.enabled).toBe(true)
   })
 
   test('Routing tab renders configured routers and recent decisions', async ({ page }) => {
@@ -265,25 +351,6 @@ test.describe('Middleware page — admin in no-auth mode', () => {
     await expect(page.getByText(/^proxy traffic$/i).first()).toBeVisible()
   })
 
-  test('PUT /api/pii/patterns/:id fires when an action button is clicked', async ({ page }) => {
-    let putHit = null
-    await page.route('**/api/pii/patterns/email', (route) => {
-      if (route.request().method() === 'PUT') {
-        putHit = JSON.parse(route.request().postData() || '{}')
-        route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'email', action: putHit.action, persisted: false }) })
-      } else {
-        route.continue()
-      }
-    })
-
-    await page.goto('/app/middleware')
-    // Click the email row's "block" button (currently mask, so block is
-    // enabled). Use a precise locator that matches the inner button.
-    const emailRow = page.locator('tr').filter({ hasText: 'email' }).first()
-    await emailRow.getByRole('button', { name: 'block' }).click()
-
-    await expect.poll(() => putHit).toEqual({ action: 'block' })
-  })
 })
 
 test.describe('Middleware page — non-admin under auth-on', () => {

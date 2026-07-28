@@ -1,6 +1,7 @@
 package model_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -8,11 +9,52 @@ import (
 	"sync/atomic"
 	"time"
 
+	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// lifecycleBackend embeds the full backend interface so these tests only need
+// to override the lifecycle methods they exercise. A nil embedded backend is
+// safe because no inference method is called.
+type lifecycleBackend struct {
+	grpcPkg.Backend
+	busy        atomic.Bool
+	freeOnce    sync.Once
+	freeStarted chan struct{}
+	freeRelease chan struct{}
+}
+
+type failingRemoteUnloader struct {
+	err error
+}
+
+func (u failingRemoteUnloader) UnloadRemoteModel(string) error {
+	return u.err
+}
+
+func newLifecycleBackend() *lifecycleBackend {
+	return &lifecycleBackend{
+		freeStarted: make(chan struct{}),
+		freeRelease: make(chan struct{}),
+	}
+}
+
+func (b *lifecycleBackend) IsBusy() bool {
+	return b.busy.Load()
+}
+
+func (b *lifecycleBackend) Free(ctx context.Context) error {
+	b.freeOnce.Do(func() { close(b.freeStarted) })
+	select {
+	case <-b.freeRelease:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 
 var _ = Describe("ModelLoader", func() {
 	var (
@@ -73,6 +115,22 @@ var _ = Describe("ModelLoader", func() {
 	})
 
 	Context("LoadModel", func() {
+		It("passes a logical model and managed model file independently", func() {
+			const relative = ".artifacts/huggingface/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/snapshot"
+			var receivedName, receivedFile string
+			mockModel = model.NewModel("managed", "test.model", nil)
+			mockModel.MarkHealthy()
+			mockLoader := func(_ string, modelName, modelFile string) (*model.Model, error) {
+				receivedName, receivedFile = modelName, modelFile
+				return mockModel, nil
+			}
+
+			_, err := modelLoader.LoadModelWithFile("managed", "owner/repo", relative, mockLoader)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receivedName).To(Equal("owner/repo"))
+			Expect(receivedFile).To(Equal(filepath.Join(modelPath, filepath.FromSlash(relative))))
+		})
+
 		It("should load a model and keep it in memory", func() {
 			mockModel = model.NewModel("foo", "test.model", nil)
 			mockModel.MarkHealthy() // skip gRPC health check (no real server)
@@ -144,6 +202,156 @@ var _ = Describe("ModelLoader", func() {
 			err = modelLoader.ShutdownModel("foo")
 			Expect(err).To(BeNil())
 			Expect(modelLoader.CheckIsLoaded("foo")).To(BeNil())
+		})
+
+		It("evicts the local remote-model entry when remote unload fails", func() {
+			remote := model.NewModel("remote", "worker.example:50051", nil)
+			remote.MarkHealthy()
+			_, err := modelLoader.LoadModel("remote", "remote", func(_, _, _ string) (*model.Model, error) {
+				return remote, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			unloadErr := errors.New("worker unreachable")
+			modelLoader.SetRemoteUnloader(failingRemoteUnloader{err: unloadErr})
+			Expect(modelLoader.ShutdownModel("remote")).To(MatchError(unloadErr))
+			Expect(modelLoader.ListLoadedModels()).To(BeEmpty())
+
+			replacement := model.NewModel("remote", "replacement.example:50051", nil)
+			replacement.MarkHealthy()
+			var reloads atomic.Int32
+			loaded, err := modelLoader.LoadModel("remote", "remote", func(_, _, _ string) (*model.Model, error) {
+				reloads.Add(1)
+				return replacement, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(loaded).To(BeIdenticalTo(replacement))
+			Expect(reloads.Load()).To(Equal(int32(1)))
+		})
+	})
+
+	Context("Shutdown lifecycle conformance", func() {
+		loadBackend := func(id string, backend grpcPkg.Backend) {
+			_, err := modelLoader.LoadModel(id, id, func(_, _, _ string) (*model.Model, error) {
+				return model.NewModelWithClient(id, id, backend), nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		It("force shutdown bypasses a permanently busy backend and leaves the loader available", func() {
+			stuck := newLifecycleBackend()
+			stuck.busy.Store(true)
+			loadBackend("stuck", stuck)
+
+			shutdownDone := make(chan error, 1)
+			go func() { shutdownDone <- modelLoader.ShutdownModelForce("stuck") }()
+
+			var shutdownErr error
+			Eventually(shutdownDone, "500ms").Should(Receive(&shutdownErr))
+			Expect(shutdownErr).NotTo(HaveOccurred())
+			Consistently(stuck.freeStarted, "50ms").ShouldNot(Receive(), "force shutdown must skip Free on a stuck backend")
+
+			other := newLifecycleBackend()
+			loadBackend("unrelated", other)
+			Expect(modelLoader.ListLoadedModels()).To(ConsistOf(HaveField("ID", "unrelated")))
+		})
+
+		It("keeps unrelated loads available while graceful Free is blocked", func() {
+			blocked := newLifecycleBackend()
+			loadBackend("blocked", blocked)
+
+			shutdownDone := make(chan error, 1)
+			go func() { shutdownDone <- modelLoader.ShutdownModel("blocked") }()
+			Eventually(blocked.freeStarted, "500ms").Should(BeClosed())
+
+			otherDone := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("unrelated", "unrelated", func(_, _, _ string) (*model.Model, error) {
+					return model.NewModelWithClient("unrelated", "unrelated", newLifecycleBackend()), nil
+				})
+				otherDone <- err
+			}()
+
+			var otherErr error
+			Eventually(otherDone, "500ms").Should(Receive(&otherErr))
+			Expect(otherErr).NotTo(HaveOccurred())
+			Consistently(shutdownDone, "50ms").ShouldNot(Receive(), "shutdown must still be waiting for Free")
+			close(blocked.freeRelease)
+
+			var shutdownErr error
+			Eventually(shutdownDone, "500ms").Should(Receive(&shutdownErr))
+			Expect(shutdownErr).NotTo(HaveOccurred())
+		})
+
+		It("serializes a same-model reload behind shutdown", func() {
+			blocked := newLifecycleBackend()
+			loadBackend("replace-me", blocked)
+
+			shutdownDone := make(chan error, 1)
+			go func() { shutdownDone <- modelLoader.ShutdownModel("replace-me") }()
+			Eventually(blocked.freeStarted, "500ms").Should(BeClosed())
+
+			reloadStarted := make(chan struct{})
+			reloadDone := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("replace-me", "replace-me", func(_, _, _ string) (*model.Model, error) {
+					close(reloadStarted)
+					return model.NewModelWithClient("replace-me", "replace-me", newLifecycleBackend()), nil
+				})
+				reloadDone <- err
+			}()
+
+			Consistently(reloadStarted, "50ms").ShouldNot(BeClosed())
+			close(blocked.freeRelease)
+
+			Eventually(shutdownDone, "500ms").Should(Receive(Succeed()))
+			Eventually(reloadStarted, "500ms").Should(BeClosed())
+			Eventually(reloadDone, "500ms").Should(Receive(Succeed()))
+		})
+
+		It("bounds a graceful wait for a permanently busy backend without blocking other models", func() {
+			stuck := newLifecycleBackend()
+			stuck.busy.Store(true)
+			loadBackend("stuck", stuck)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+			shutdownDone := make(chan error, 1)
+			go func() { shutdownDone <- modelLoader.ShutdownModelContext(ctx, "stuck", false) }()
+
+			other := newLifecycleBackend()
+			loadBackend("unrelated", other)
+
+			var shutdownErr error
+			Eventually(shutdownDone, "500ms").Should(Receive(&shutdownErr))
+			Expect(errors.Is(shutdownErr, model.ErrModelBusy)).To(BeTrue())
+			Expect(modelLoader.ListLoadedModels()).To(ConsistOf(
+				HaveField("ID", "stuck"),
+				HaveField("ID", "unrelated"),
+			))
+		})
+
+		It("honors cancellation while waiting for an in-progress load of the same model", func() {
+			loadStarted := make(chan struct{})
+			loadRelease := make(chan struct{})
+			loadDone := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("loading", "loading", func(_, _, _ string) (*model.Model, error) {
+					close(loadStarted)
+					<-loadRelease
+					return model.NewModelWithClient("loading", "loading", newLifecycleBackend()), nil
+				})
+				loadDone <- err
+			}()
+			Eventually(loadStarted, "500ms").Should(BeClosed())
+
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+			err := modelLoader.ShutdownModelContext(ctx, "loading", false)
+			Expect(errors.Is(err, context.DeadlineExceeded)).To(BeTrue())
+
+			close(loadRelease)
+			Eventually(loadDone, "500ms").Should(Receive(Succeed()))
 		})
 	})
 
@@ -255,6 +463,11 @@ var _ = Describe("ModelLoader", func() {
 			mockLoader := func(modelID, modelName, modelFile string) (*model.Model, error) {
 				count := atomic.AddInt32(&attemptCount, 1)
 				if count == 1 {
+					// Hold the loading slot so the second request coalesces as a
+					// follower before this leader fails. That follower then gets
+					// the one in-burst retry, which bypasses the failure cooldown
+					// (the cooldown only gates fresh, independent load triggers).
+					time.Sleep(50 * time.Millisecond)
 					return nil, errors.New("first attempt fails")
 				}
 				return model.NewModel(modelID, modelName, nil), nil
@@ -270,7 +483,7 @@ var _ = Describe("ModelLoader", func() {
 				m1, err1 = modelLoader.LoadModel("retry-model", "test.model", mockLoader)
 			})
 
-			// Give first goroutine a head start
+			// Give first goroutine a head start so it owns the loading slot.
 			time.Sleep(10 * time.Millisecond)
 
 			wg.Go(func() {
@@ -303,6 +516,92 @@ var _ = Describe("ModelLoader", func() {
 			// Settings are updated - we can verify through behavior if needed
 			// For now, just verify the call doesn't panic
 			Expect(modelLoader).ToNot(BeNil())
+		})
+	})
+
+	Context("Load failure cooldown", func() {
+		It("refuses a fresh load within the cooldown window without re-invoking the loader", func() {
+			modelLoader.SetLoadFailureCooldown(60*time.Millisecond, 240*time.Millisecond)
+
+			var loadCount int32
+			failing := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				atomic.AddInt32(&loadCount, 1)
+				return nil, errors.New("boom")
+			}
+
+			// First attempt runs the loader and fails (not a cooldown error).
+			_, err := modelLoader.LoadModel("broken", "test.model", failing)
+			Expect(err).To(HaveOccurred())
+			var coolErr *model.ModelLoadCooldownError
+			Expect(errors.As(err, &coolErr)).To(BeFalse())
+			Expect(atomic.LoadInt32(&loadCount)).To(Equal(int32(1)))
+
+			// An immediate retry is short-circuited: cooldown error, loader untouched.
+			_, err = modelLoader.LoadModel("broken", "test.model", failing)
+			Expect(errors.As(err, &coolErr)).To(BeTrue())
+			Expect(coolErr.ModelID).To(Equal("broken"))
+			Expect(coolErr.RetryAfter).To(BeNumerically(">", time.Duration(0)))
+			Expect(atomic.LoadInt32(&loadCount)).To(Equal(int32(1)))
+
+			// Once the window elapses the loader is attempted again.
+			Eventually(func() int32 {
+				_, _ = modelLoader.LoadModel("broken", "test.model", failing)
+				return atomic.LoadInt32(&loadCount)
+			}, "1s", "20ms").Should(BeNumerically(">=", 2))
+		})
+
+		It("clears the cooldown after a successful load", func() {
+			modelLoader.SetLoadFailureCooldown(60*time.Millisecond, 240*time.Millisecond)
+
+			var attempts int32
+			loader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				if atomic.AddInt32(&attempts, 1) == 1 {
+					return nil, errors.New("boom")
+				}
+				m := model.NewModel(modelID, modelName, nil)
+				m.MarkHealthy()
+				return m, nil
+			}
+
+			_, err := modelLoader.LoadModel("flaky", "test.model", loader)
+			Expect(err).To(HaveOccurred())
+
+			// After the window, the retry succeeds and resets the failure state.
+			var m *model.Model
+			Eventually(func() error {
+				m, err = modelLoader.LoadModel("flaky", "test.model", loader)
+				return err
+			}, "1s", "20ms").Should(Succeed())
+			Expect(m).ToNot(BeNil())
+
+			// A subsequent load returns the cached model, never a cooldown error.
+			m2, err := modelLoader.LoadModel("flaky", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(m2).To(Equal(m))
+		})
+
+		It("grows the cooldown on consecutive failures", func() {
+			modelLoader.SetLoadFailureCooldown(50*time.Millisecond, 10*time.Second)
+			failing := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("boom")
+			}
+
+			// Failure 1, then read its cooldown.
+			_, err := modelLoader.LoadModel("bad", "test.model", failing)
+			Expect(err).To(HaveOccurred())
+			_, err = modelLoader.LoadModel("bad", "test.model", failing)
+			var c1 *model.ModelLoadCooldownError
+			Expect(errors.As(err, &c1)).To(BeTrue())
+
+			// Wait out the first window, trigger failure 2, read its (larger) cooldown.
+			time.Sleep(70 * time.Millisecond)
+			_, err = modelLoader.LoadModel("bad", "test.model", failing)
+			Expect(err).To(HaveOccurred())
+			_, err = modelLoader.LoadModel("bad", "test.model", failing)
+			var c2 *model.ModelLoadCooldownError
+			Expect(errors.As(err, &c2)).To(BeTrue())
+
+			Expect(c2.RetryAfter).To(BeNumerically(">", c1.RetryAfter))
 		})
 	})
 })

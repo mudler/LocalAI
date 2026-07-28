@@ -22,6 +22,7 @@ import (
 func main() {
 	mockBackend := flag.String("mock-backend", "", "path to mock-backend binary")
 	port := flag.Int("port", 8089, "port to listen on")
+	host := flag.String("host", "127.0.0.1", "host/address to bind on (use 0.0.0.0 to expose on the network)")
 	// piiYAML lets a test inject a per-model `pii:` block into the
 	// auto-generated mock-model.yaml. Used by the middleware end-to-end
 	// verification (and any future test that wants to exercise per-model
@@ -153,7 +154,7 @@ func main() {
 	}
 
 	// Start server
-	addr := fmt.Sprintf("127.0.0.1:%d", *port)
+	addr := fmt.Sprintf("%s:%d", *host, *port)
 	go func() {
 		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
 			xlog.Error("server error", "error", err)

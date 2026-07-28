@@ -65,6 +65,7 @@ This is enforced by `forbidigo` (see `.golangci.yml`): `http.DefaultClient` and 
 
 The project documentation is located in `docs/content`. When adding new features or changing existing functionality, it is crucial to update the documentation to reflect these changes. This helps users understand how to use the new capabilities and ensures the documentation stays relevant.
 
+- **Docs-with-code rule**: When you change user-facing behavior (API endpoints, CLI flags, config keys, or features), update the corresponding page under `docs/content/` in the SAME change, not as a follow-up. A user-facing change without a matching docs update is incomplete. The PR template carries a checklist item for this.
 - **Feature Documentation**: If you add a new feature (like a new backend or API endpoint), create a new markdown file in `docs/content/features/` explaining what it is, how to configure it, and how to use it.
 - **Configuration**: If you modify configuration options, update the relevant sections in `docs/content/`.
 - **Examples**: providing concrete examples (like YAML configuration blocks) is highly encouraged to help users get started quickly.

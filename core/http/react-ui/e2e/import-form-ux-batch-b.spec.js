@@ -130,7 +130,7 @@ test.describe('Import form UX — Batch B3 (Power mode tabs)', () => {
     await page.locator('[data-testid="mode-power"]').click()
     await page.locator('[data-testid="power-tab-yaml"]').click()
     await expect(page.locator('input[placeholder*="q4_k_m"]')).toHaveCount(0)
-    await expect(page.locator('button', { hasText: /^\s*Create$/ })).toBeVisible()
+    await expect(page.locator('button.btn-primary', { hasText: /^\s*Create$/ })).toBeVisible()
   })
 
   test('B3 — powerTab persists across reload', async ({ page }) => {

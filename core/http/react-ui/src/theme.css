@@ -64,7 +64,8 @@
 
   --color-modal-backdrop: rgba(8, 11, 17, 0.68);
 
-  --color-focus-ring: rgba(136, 192, 208, 0.34);
+  --color-focus-ring: rgba(136, 192, 208, 0.7);  /* was 0.34 - AA-visible */
+  --color-eyebrow: #d8b48c;  /* muted Nord-aurora brass for editorial eyebrows */
 
   /* Data viz — full aurora + frost palette */
   --color-data-1: #88c0d0;   /* frost cyan */
@@ -99,6 +100,8 @@
   --duration-slow: 260ms;
   --ease-default: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring:  cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-reveal: 420ms;
+  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);  /* ease-out-expo-ish */
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -108,6 +111,7 @@
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
+  --space-section: clamp(2rem, 1.2rem + 3vw, 3.5rem);
 
   /* Radii — sharp, editorial */
   --radius-sm: 3px;
@@ -218,7 +222,8 @@
 
   --color-modal-backdrop: rgba(46, 52, 64, 0.38);
 
-  --color-focus-ring: rgba(94, 129, 172, 0.34);
+  --color-focus-ring: rgba(94, 129, 172, 0.6);  /* was 0.34 */
+  --color-eyebrow: #9a6b3f;  /* darker brass for contrast on snow storm */
 
   /* Data viz — muted aurora for light mode */
   --color-data-1: #5e81ac;

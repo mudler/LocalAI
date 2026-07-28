@@ -1,0 +1,43 @@
+{
+  "title": "지식 베이스",
+  "subtitle": "에이전트 RAG를 위한 문서 컬렉션을 관리합니다",
+  "newPlaceholder": "새 컬렉션 이름...",
+  "actions": {
+    "create": "만들기",
+    "creating": "생성 중...",
+    "details": "세부 정보",
+    "reset": "초기화",
+    "delete": "삭제",
+    "viewDetails": "세부 정보 보기",
+    "resetCollection": "컬렉션 초기화",
+    "deleteCollection": "컬렉션 삭제"
+  },
+  "sections": {
+    "yourCollections": "내 컬렉션",
+    "otherUsersCollections": "다른 사용자의 컬렉션"
+  },
+  "empty": {
+    "title": "아직 컬렉션이 없습니다",
+    "text": "컬렉션을 사용하면 문서를 지식 베이스로 정리하여 에이전트가 RAG(검색 증강 생성)로 검색할 수 있습니다. 위에서 컬렉션을 만들어 시작하세요.",
+    "noPersonal": "아직 컬렉션이 없습니다."
+  },
+  "deleteDialog": {
+    "title": "컬렉션 삭제",
+    "message": "컬렉션 \"{{name}}\"을(를) 삭제하시겠습니까? 모든 항목이 제거되며 되돌릴 수 없습니다.",
+    "confirm": "삭제"
+  },
+  "resetDialog": {
+    "title": "컬렉션 초기화",
+    "message": "컬렉션 \"{{name}}\"을(를) 초기화하시겠습니까? 모든 항목은 제거되지만 컬렉션은 유지됩니다.",
+    "confirm": "초기화"
+  },
+  "toasts": {
+    "loadFailed": "컬렉션을 불러오지 못했습니다: {{message}}",
+    "created": "컬렉션 \"{{name}}\"이(가) 생성되었습니다",
+    "createFailed": "컬렉션 생성 실패: {{message}}",
+    "deleted": "컬렉션 \"{{name}}\"이(가) 삭제되었습니다",
+    "deleteFailed": "컬렉션 삭제 실패: {{message}}",
+    "reset": "컬렉션 \"{{name}}\"이(가) 초기화되었습니다",
+    "resetFailed": "컬렉션 초기화 실패: {{message}}"
+  }
+}

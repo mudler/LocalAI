@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +14,20 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// capturingEmbedder records the text it was last asked to embed and returns a
+// fixed vector, so a test can assert what the cache fed the embedder.
+type capturingEmbedder struct {
+	mu       sync.Mutex
+	lastText string
+}
+
+func (e *capturingEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.lastText = text
+	return []float32{1, 2, 3}, nil
+}
 
 // fakeEmbedder returns a vector keyed by a lookup table; this lets the
 // test exercise hit/miss control without depending on a real model.
@@ -291,6 +307,45 @@ var _ = Describe("EmbeddingCache", func() {
 			Expect(d.Cached).To(BeFalse(), "corrupt payload should not surface as a hit")
 			Expect(inner.calls).To(Equal(1), "inner should have run via fallthrough")
 		})
+	})
+})
+
+var _ = Describe("EmbeddingCache WithTokenTrim", func() {
+	ctx := context.Background()
+	wordCount := func(s string) (int, error) { return len(strings.Fields(s)), nil }
+
+	It("embeds the most recent turns that fit the embedder context, not the full prompt", func() {
+		emb := &capturingEmbedder{}
+		store := &memVectorStore{}
+		inner := &stubInner{name: "score", decision: router.Decision{Labels: []string{"x"}, Score: 0.1}}
+		// context_size 50 → budget 50−16 margin ≈ 34 tokens, far under the
+		// ~120-word transcript below, so the oldest turns must be dropped.
+		cache := router.NewEmbeddingCacheClassifier(inner, emb, store, 0.92, 0.6).
+			WithTokenTrim(wordCount, 50)
+
+		msgs := make([]string, 0, 31)
+		for i := range 30 {
+			msgs = append(msgs, fmt.Sprintf("OLDturn%d filler filler filler", i))
+		}
+		msgs = append(msgs, "NEWESTTURN final words here")
+		full := strings.Join(msgs, "\n")
+
+		_, err := cache.Classify(ctx, router.Probe{Prompt: full, Messages: msgs})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(emb.lastText).To(ContainSubstring("NEWESTTURN"), "newest turn must survive")
+		Expect(emb.lastText).NotTo(ContainSubstring("OLDturn0 "), "oldest turns trimmed to fit context")
+		Expect(emb.lastText).NotTo(Equal(full), "must not embed the untrimmed prompt")
+	})
+
+	It("embeds Probe.Prompt unchanged when no trim is wired", func() {
+		emb := &capturingEmbedder{}
+		store := &memVectorStore{}
+		inner := &stubInner{name: "score", decision: router.Decision{Labels: []string{"x"}, Score: 0.1}}
+		cache := router.NewEmbeddingCacheClassifier(inner, emb, store, 0.92, 0.6)
+
+		_, err := cache.Classify(ctx, router.Probe{Prompt: "PROMPTASIS", Messages: []string{"ignored-no-tokenizer"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(emb.lastText).To(Equal("PROMPTASIS"))
 	})
 })
 

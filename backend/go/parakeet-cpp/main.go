@@ -2,15 +2,17 @@ package main
 
 // Started internally by LocalAI - one gRPC server per loaded model.
 //
-// Loads libparakeet.so via purego and registers the flat C-API entry
-// points declared in parakeet_capi.h. The library name can be overridden
-// with PARAKEET_LIBRARY (mirrors the WHISPER_LIBRARY / VIBEVOICECPP_LIBRARY
-// convention in the sibling backends); the default looks for the .so next
-// to this binary.
+// Loads the parakeet shared library via purego and registers the flat
+// C-API entry points declared in parakeet_capi.h. The library name can be
+// overridden with PARAKEET_LIBRARY (mirrors the WHISPER_LIBRARY /
+// VIBEVOICECPP_LIBRARY convention in the sibling backends); the default
+// looks next to this binary for libparakeet.so on Linux and
+// libparakeet.dylib on macOS.
 import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -28,7 +30,11 @@ type LibFuncs struct {
 func main() {
 	libName := os.Getenv("PARAKEET_LIBRARY")
 	if libName == "" {
-		libName = "libparakeet.so"
+		if runtime.GOOS == "darwin" {
+			libName = "libparakeet.dylib"
+		} else {
+			libName = "libparakeet.so"
+		}
 	}
 
 	lib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)
@@ -63,6 +69,25 @@ func main() {
 	// against an older library (it falls back to per-request transcription).
 	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_pcm_batch_json"); err == nil && sym != 0 {
 		purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
+	}
+
+	// Per-request language variants (multilingual nemotron). Same probe pattern:
+	// present only in libparakeet.so built with multilingual support, so the
+	// backend still loads against an older library and falls back to the
+	// non-lang batched + streaming entry points (model default / "auto").
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_pcm_batch_json_lang"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePcmBatchJSONLang, lib, "parakeet_capi_transcribe_pcm_batch_json_lang")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_begin_lang"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppStreamBeginLang, lib, "parakeet_capi_stream_begin_lang")
+	}
+
+	// Streaming JSON entry points (ABI v4): surface per-word timestamps on the
+	// streaming path. Same probe pattern; absent in older libparakeet.so, where
+	// the backend falls back to the text-only streaming feed.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_feed_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
+		purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 	}
 
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())

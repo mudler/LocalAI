@@ -3,14 +3,19 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/ebitengine/purego"
+	"github.com/go-audio/audio"
+	"github.com/go-audio/wav"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestParakeetCpp(t *testing.T) {
@@ -50,6 +55,10 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppStreamFeed, lib, "parakeet_capi_stream_feed")
 		purego.RegisterLibFunc(&CppStreamFinalize, lib, "parakeet_capi_stream_finalize")
 		purego.RegisterLibFunc(&CppStreamFree, lib, "parakeet_capi_stream_free")
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_feed_json"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
+			purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
+		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})
@@ -70,6 +79,24 @@ func fixturesOrSkip() (string, string) {
 	return modelPath, audioPath
 }
 
+// writeMono16kWav writes `samples` frames of 16 kHz mono 16-bit silence to
+// path. The result is already in AudioToWav's target format, so the conversion
+// helper copies it through without invoking ffmpeg.
+func writeMono16kWav(path string, samples int) {
+	GinkgoHelper()
+	f, err := os.Create(path)
+	Expect(err).ToNot(HaveOccurred())
+	enc := wav.NewEncoder(f, 16000, 16, 1, 1)
+	buf := &audio.IntBuffer{
+		Format:         &audio.Format{NumChannels: 1, SampleRate: 16000},
+		SourceBitDepth: 16,
+		Data:           make([]int, samples),
+	}
+	Expect(enc.Write(buf)).To(Succeed())
+	Expect(enc.Close()).To(Succeed())
+	Expect(f.Close()).To(Succeed())
+}
+
 var _ = Describe("ParakeetCpp", func() {
 	Context("AudioTranscription", func() {
 		It("transcribes a WAV via the parakeet C-API", func() {
@@ -86,13 +113,22 @@ var _ = Describe("ParakeetCpp", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.TrimSpace(res.Text)).ToNot(BeEmpty(),
 				"expected non-empty transcript for %s", audioPath)
-			Expect(res.Segments).To(HaveLen(1),
-				"synthesises a single whole-clip segment")
-			Expect(res.Segments[0].Text).To(Equal(res.Text),
-				"single segment text must equal the top-level text")
-			// Default (no granularities) is segment-level: no per-word timings.
-			Expect(res.Segments[0].Words).To(BeEmpty(),
-				"word timings are opt-in via timestamp_granularities")
+			// NeMo-faithful segmentation: one or more punctuation-delimited
+			// segments, each with text and a monotonically-advancing time span.
+			Expect(res.Segments).ToNot(BeEmpty(), "expected at least one segment")
+			var prevEnd int64
+			for i, seg := range res.Segments {
+				Expect(strings.TrimSpace(seg.Text)).ToNot(BeEmpty(),
+					"segment %d must have text", i)
+				Expect(seg.End).To(BeNumerically(">=", seg.Start),
+					"segment %d end must not precede its start", i)
+				Expect(seg.Start).To(BeNumerically(">=", prevEnd),
+					"segments must be in time order")
+				prevEnd = seg.End
+				// Default (no granularities) is segment-level: no per-word timings.
+				Expect(seg.Words).To(BeEmpty(),
+					"word timings are opt-in via timestamp_granularities")
+			}
 		})
 
 		It("emits word-level timestamps when granularity=word", func() {
@@ -108,19 +144,88 @@ var _ = Describe("ParakeetCpp", func() {
 				TimestampGranularities: []string{"word"},
 			})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Segments).To(HaveLen(1))
-			seg := res.Segments[0]
-			Expect(seg.Words).ToNot(BeEmpty(),
-				"expected per-word timestamps with granularity=word")
-			// Monotonic, non-negative timings spanning the segment.
-			Expect(seg.Words[0].Start).To(BeNumerically(">=", int64(0)))
-			Expect(seg.End).To(BeNumerically(">=", seg.Start))
-			Expect(seg.Words[len(seg.Words)-1].End).To(Equal(seg.End),
-				"segment end tracks the last word")
+			Expect(res.Segments).ToNot(BeEmpty())
+			// With word granularity every segment carries its own words, and each
+			// segment's span tracks its first/last word; word starts advance
+			// monotonically across the whole transcript.
+			totalWords := 0
+			var prevStart int64 = -1
+			for i, seg := range res.Segments {
+				Expect(seg.Words).ToNot(BeEmpty(),
+					"segment %d must carry per-word timestamps with granularity=word", i)
+				Expect(seg.Start).To(Equal(seg.Words[0].Start),
+					"segment %d start tracks its first word", i)
+				Expect(seg.End).To(Equal(seg.Words[len(seg.Words)-1].End),
+					"segment %d end tracks its last word", i)
+				for _, w := range seg.Words {
+					Expect(w.End).To(BeNumerically(">=", w.Start))
+					Expect(w.Start).To(BeNumerically(">=", prevStart))
+					prevStart = w.Start
+					totalWords++
+				}
+			}
+			Expect(totalWords).To(BeNumerically(">", 0))
+			Expect(res.Segments[0].Words[0].Start).To(BeNumerically(">=", int64(0)))
+		})
+	})
+
+	Context("convertToWavMono16k", func() {
+		// The non-batched transcription path hands a file path to the C
+		// library's WAV-only audio loader, so it must convert first.
+		// utils.AudioToWav passes an already-16kHz/mono/16-bit WAV through
+		// without ffmpeg, which lets us exercise the helper (and the
+		// regression: the direct path used to skip conversion entirely)
+		// without a model, the C library, or ffmpeg.
+		It("returns a decodable 16kHz mono WAV copy and cleans it up", func() {
+			dir := GinkgoT().TempDir()
+			src := filepath.Join(dir, "input.wav")
+			writeMono16kWav(src, 16000) // 1s of silence at 16 kHz
+
+			converted, cleanup, err := convertToWavMono16k(src)
+			Expect(err).ToNot(HaveOccurred())
+
+			// It must produce a fresh temp file, not return the original path.
+			Expect(converted).ToNot(Equal(src))
+			Expect(converted).To(BeAnExistingFile())
+
+			pcm, _, err := decodeWavMono16k(converted)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pcm).To(HaveLen(16000), "round-trips the sample count")
+
+			cleanup()
+			Expect(converted).ToNot(BeAnExistingFile(), "cleanup removes the temp dir")
+		})
+
+		It("errors on a non-existent input rather than passing the path through", func() {
+			_, _, err := convertToWavMono16k(filepath.Join(GinkgoT().TempDir(), "missing.mp3"))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Context("AudioTranscriptionStream", func() {
+		It("returns the typed Unimplemented signal for non-streaming models (no offline fallback)", func() {
+			// stream_begin == 0 means the loaded model is not a cache-aware
+			// streaming model. The backend must surface that, not silently
+			// decode offline and fake a one-shot "stream".
+			savedBegin, savedBeginLang := CppStreamBegin, CppStreamBeginLang
+			defer func() { CppStreamBegin, CppStreamBeginLang = savedBegin, savedBeginLang }()
+			CppStreamBeginLang = nil
+			CppStreamBegin = func(ctx uintptr) uintptr { return 0 }
+
+			p := &ParakeetCpp{ctxPtr: 1}
+			results := make(chan *pb.TranscriptStreamResponse, 8)
+			err := p.AudioTranscriptionStream(context.Background(),
+				&pb.TranscriptRequest{Dst: "ignored.wav"}, results)
+			Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+
+			// Honest signal: nothing was emitted — no faked batch result.
+			var emitted []*pb.TranscriptStreamResponse
+			for r := range results {
+				emitted = append(emitted, r)
+			}
+			Expect(emitted).To(BeEmpty())
+		})
+
 		It("streams deltas and a closing FinalResult from a cache-aware model", func() {
 			// Streaming needs a cache-aware streaming model (e.g.
 			// realtime_eou); the offline test model would fail stream_begin.

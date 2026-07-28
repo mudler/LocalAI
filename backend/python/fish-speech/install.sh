@@ -13,6 +13,17 @@ fi
 # fish-speech uses pyrootutils which requires a .project-root marker
 touch "${backend_dir}/.project-root"
 
+# On darwin arm64 the transitive `tokenizers` dep compiles its Rust extension
+# from source (Linux uses prebuilt manylinux wheels, so it never compiles
+# there). The pinned tokenizers crate that fish-speech's stack resolves to
+# contains a `&T` -> `&mut T` cast that trips the now-deny-by-default
+# `invalid_reference_casting` lint in the macOS runner's newer Rust toolchain,
+# breaking the build (seen in the v4.5.5 release CI fish-speech darwin/metal
+# job). Allow that lint so the unchanged third-party crate compiles as before.
+# Append rather than clobber any pre-existing RUSTFLAGS; harmless on Linux
+# where no Rust compile happens.
+export RUSTFLAGS="${RUSTFLAGS:-} -A invalid_reference_casting"
+
 installRequirements
 
 # Clone fish-speech source (the pip package doesn't include inference modules)
@@ -49,3 +60,9 @@ if [ "x${USE_PIP}" == "xtrue" ]; then
 else
     uv pip install "protobuf>=5.29.0"
 fi
+
+# Regenerate the stubs against the protobuf runtime settled on just above. The
+# pin exists because transitive deps drag protobuf down; generating before that
+# pin is applied is what stamps a gencode the runtime then rejects.
+# See mudler/LocalAI#10718.
+runProtogen

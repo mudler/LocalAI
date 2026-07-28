@@ -70,6 +70,7 @@ var _ = Describe("InstallExternalBackend", func() {
 				"test-backend", // gallery name
 				"custom-name",  // name should not be allowed
 				"",
+				false, // force
 				false,
 			)
 			Expect(err).To(HaveOccurred())
@@ -86,6 +87,7 @@ var _ = Describe("InstallExternalBackend", func() {
 				"non-existent-backend",
 				"",
 				"",
+				false, // force
 				false,
 			)
 			Expect(err).To(HaveOccurred())
@@ -103,6 +105,7 @@ var _ = Describe("InstallExternalBackend", func() {
 				"oci://quay.io/mudler/tests:localai-backend-test",
 				"", // name is required for OCI images
 				"",
+				false, // force
 				false,
 			)
 			Expect(err).To(HaveOccurred())
@@ -136,6 +139,7 @@ var _ = Describe("InstallExternalBackend", func() {
 				testBackendPath,
 				"", // name should be inferred as "source-backend"
 				"",
+				false, // force
 				false,
 			)
 			// The function should at least attempt to install with the inferred name
@@ -155,6 +159,7 @@ var _ = Describe("InstallExternalBackend", func() {
 				testBackendPath,
 				"custom-backend-name",
 				"",
+				false, // force
 				false,
 			)
 			// The function should use the provided name
@@ -173,6 +178,7 @@ var _ = Describe("InstallExternalBackend", func() {
 				testBackendPath,
 				"custom-backend-name",
 				"custom-alias",
+				false, // force
 				false,
 			)
 			// The function should accept alias for directory paths

@@ -21,46 +21,9 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		authDB = db[0]
 	}
 	return func(c echo.Context) error {
-		// If blank, no filter is applied.
-		filter := c.QueryParam("filter")
-
-		// By default, exclude any loose files that are already referenced by a configuration file.
-		var policy galleryop.LooseFilePolicy
-		excludeConfigured := c.QueryParam("excludeConfigured")
-		if excludeConfigured == "" || excludeConfigured == "true" {
-			policy = galleryop.SKIP_IF_CONFIGURED
-		} else {
-			policy = galleryop.ALWAYS_INCLUDE // This replicates current behavior. TODO: give more options to the user?
-		}
-
-		filterFn, err := config.BuildNameFilterFn(filter)
+		modelNames, err := listVisibleModelNames(c, bcl, ml, authDB)
 		if err != nil {
 			return err
-		}
-
-		modelNames, err := galleryop.ListModels(bcl, ml, filterFn, policy)
-		if err != nil {
-			return err
-		}
-
-		// Filter models by user's allowlist if auth is enabled
-		if authDB != nil {
-			if user := auth.GetUser(c); user != nil && user.Role != auth.RoleAdmin {
-				perm, err := auth.GetCachedUserPermissions(c, authDB, user.ID)
-				if err == nil && perm.AllowedModels.Enabled {
-					allowed := map[string]bool{}
-					for _, m := range perm.AllowedModels.Models {
-						allowed[m] = true
-					}
-					filtered := make([]string, 0, len(modelNames))
-					for _, m := range modelNames {
-						if allowed[m] {
-							filtered = append(filtered, m)
-						}
-					}
-					modelNames = filtered
-				}
-			}
 		}
 
 		// Map from a slice of names to a slice of OpenAIModel response objects
@@ -74,4 +37,54 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			Data:   dataModels,
 		})
 	}
+}
+
+// listVisibleModelNames resolves the model names visible to the caller, applying
+// the same query filters (filter, excludeConfigured) and per-user allowlist as
+// the OpenAI models listing. Shared by ListModelsEndpoint and
+// ListModelCapabilitiesEndpoint so both stay consistent.
+func listVisibleModelNames(c echo.Context, bcl *config.ModelConfigLoader, ml *model.ModelLoader, authDB *gorm.DB) ([]string, error) {
+	// If blank, no filter is applied.
+	filter := c.QueryParam("filter")
+
+	// By default, exclude any loose files that are already referenced by a configuration file.
+	var policy galleryop.LooseFilePolicy
+	excludeConfigured := c.QueryParam("excludeConfigured")
+	if excludeConfigured == "" || excludeConfigured == "true" {
+		policy = galleryop.SKIP_IF_CONFIGURED
+	} else {
+		policy = galleryop.ALWAYS_INCLUDE // This replicates current behavior. TODO: give more options to the user?
+	}
+
+	filterFn, err := config.BuildNameFilterFn(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	modelNames, err := galleryop.ListModels(bcl, ml, filterFn, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter models by user's allowlist if auth is enabled
+	if authDB != nil {
+		if user := auth.GetUser(c); user != nil && user.Role != auth.RoleAdmin {
+			perm, err := auth.GetCachedUserPermissions(c, authDB, user.ID)
+			if err == nil && perm.AllowedModels.Enabled {
+				allowed := map[string]bool{}
+				for _, m := range perm.AllowedModels.Models {
+					allowed[m] = true
+				}
+				filtered := make([]string, 0, len(modelNames))
+				for _, m := range modelNames {
+					if allowed[m] {
+						filtered = append(filtered, m)
+					}
+				}
+				modelNames = filtered
+			}
+		}
+	}
+
+	return modelNames, nil
 }

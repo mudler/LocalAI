@@ -19,6 +19,7 @@ type AIModel interface {
 	GenerateImage(*pb.GenerateImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
+	Depth(*pb.DepthRequest) (pb.DepthResponse, error)
 	FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error)
 	FaceAnalyze(*pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, error)
 	VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error)
@@ -26,6 +27,7 @@ type AIModel interface {
 	VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error)
 	AudioTranscription(context.Context, *pb.TranscriptRequest) (pb.TranscriptResult, error)
 	AudioTranscriptionStream(context.Context, *pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
+	AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest, out chan<- *pb.TranscriptLiveResponse) error
 	TTS(*pb.TTSRequest) error
 	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
@@ -39,6 +41,7 @@ type AIModel interface {
 
 	VAD(*pb.VADRequest) (pb.VADResponse, error)
 	Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error)
+	SoundDetection(context.Context, *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error)
 
 	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
 	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)

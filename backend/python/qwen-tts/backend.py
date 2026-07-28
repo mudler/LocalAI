@@ -26,6 +26,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 
 
@@ -45,6 +46,26 @@ def is_int(s):
         return True
     except ValueError:
         return False
+
+
+def coerce_param_value(value):
+    """Coerce a string param value (from the TTSRequest.params map, which is
+    string-typed on the wire) into the most specific Python type the model
+    generation kwargs expect: bool, int, float, else the original string."""
+    if not isinstance(value, str):
+        return value
+    lowered = value.strip().lower()
+    if lowered in ("true", "false"):
+        return lowered == "true"
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    return value
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -170,19 +191,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 )
                 print(traceback.format_exc(), file=sys.stderr)
 
-        # Get model path from request
-        model_path = request.Model
-        if not model_path:
-            model_path = "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+        model_path, _local_only = resolve_model_reference(
+            request, "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+        )
+        detection_ref = request.Model or model_path
 
         # Determine model type from model path or options
         self.model_type = self.options.get("model_type", None)
         if not self.model_type:
-            if "CustomVoice" in model_path:
+            if "CustomVoice" in detection_ref:
                 self.model_type = "CustomVoice"
-            elif "VoiceDesign" in model_path:
+            elif "VoiceDesign" in detection_ref:
                 self.model_type = "VoiceDesign"
-            elif "Base" in model_path or "0.6B" in model_path or "1.7B" in model_path:
+            elif (
+                "Base" in detection_ref
+                or "0.6B" in detection_ref
+                or "1.7B" in detection_ref
+            ):
                 self.model_type = "Base"  # VoiceClone model
             else:
                 # Default to CustomVoice
@@ -322,6 +347,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         return backend_pb2.Result(message="Model loaded successfully", success=True)
 
+    def _effective_instruct(self, request):
+        """Resolve the instruction/style string for this request, preferring the
+        per-request TTSRequest.instructions value and falling back to the static
+        YAML `instruct` option. Empty string means "no instruction"."""
+        req_instruct = (
+            request.instructions
+            if hasattr(request, "instructions") and request.instructions
+            else ""
+        )
+        if req_instruct:
+            return req_instruct
+        return self.options.get("instruct", "") or ""
+
     def _detect_mode(self, request):
         """Detect which mode to use based on request parameters."""
         # Priority: VoiceClone > VoiceDesign > CustomVoice
@@ -329,7 +367,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # model_type explicitly set
         if self.model_type == "CustomVoice":
             return "CustomVoice"
-        if self.model_type == "VoiceClone":
+        if self.model_type in ("VoiceClone", "Base"):
             return "VoiceClone"
         if self.model_type == "VoiceDesign":
             return "VoiceDesign"
@@ -338,8 +376,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if self.audio_path or self.voices:
             return "VoiceClone"
 
-        # VoiceDesign: instruct option is provided
-        if "instruct" in self.options and self.options["instruct"]:
+        # VoiceDesign: instruct provided per-request or via YAML option
+        if self._effective_instruct(request):
             return "VoiceDesign"
 
         # Default to CustomVoice
@@ -347,6 +385,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def _get_ref_audio_path(self, request, voice_name=None):
         """Get reference audio path from stored AudioPath or from voices dict."""
+        if hasattr(request, "voice") and request.voice and os.path.isfile(request.voice):
+            return request.voice
         # If voice_name is provided and exists in voices dict, use that
         if voice_name and voice_name in self.voices:
             audio_path = self.voices[voice_name]["audio"]
@@ -690,9 +730,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if do_sample is not None:
                 generation_kwargs["do_sample"] = do_sample
 
-            instruct = self.options.get("instruct", "")
+            # Prefer the per-request instruction (TTSRequest.instructions) over the
+            # static YAML `instruct` option. This lets clients set a different style
+            # (CustomVoice emotion) or designed voice (VoiceDesign) per request.
+            instruct = self._effective_instruct(request)
             if instruct is not None and instruct != "":
                 generation_kwargs["instruct"] = instruct
+
+            # Merge any per-request backend-specific params (TTSRequest.params).
+            # Values arrive as strings on the wire; coerce to int/float/bool so the
+            # model receives the types it expects. These override YAML-derived kwargs.
+            if hasattr(request, "params") and request.params:
+                for key, value in request.params.items():
+                    if key == "ref_text":
+                        continue
+                    generation_kwargs[key] = coerce_param_value(value)
 
             # Generate audio based on mode
             if mode == "VoiceClone":
@@ -700,7 +752,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 # Check if multi-voice mode is active (voices dict is populated)
                 voice_name = None
-                if self.voices:
+                request_voice_path = request.voice if request.voice and os.path.isfile(request.voice) else None
+                if self.voices and request_voice_path is None:
                     # Get voice from request (priority) or options
                     voice_name = request.voice if request.voice else None
                     if not voice_name:
@@ -732,11 +785,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if voice_name and voice_name in self.voices:
                     ref_text_source = self.voices[voice_name]["ref_text"]
                 else:
-                    ref_text_source = self.options.get("ref_text", None)
+                    ref_text_source = request.params.get("ref_text") if hasattr(request, "params") else None
                     if not ref_text_source:
-                        # Try to get from request if available
-                        if hasattr(request, "ref_text") and request.ref_text:
-                            ref_text_source = request.ref_text
+                        ref_text_source = self.options.get("ref_text", None)
 
                 if not ref_text_source:
                     # x_vector_only_mode doesn't require ref_text

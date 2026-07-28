@@ -585,6 +585,86 @@ var _ = Describe("ResponseStore", func() {
 			Expect(enabled2).To(BeFalse())
 		})
 
+		It("should bound the resume buffer and evict oldest events past the cap", func() {
+			// Lower the caps so the test stays fast; production defaults are
+			// large. Same-package access to the unexported fields is fine.
+			store.maxStreamEvents = 5
+			store.maxStreamBytes = 0 // count cap only for this test
+
+			responseID := "resp_buffer_cap"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusInProgress,
+			}
+
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			store.StoreBackground(responseID, request, response, cancel, true)
+
+			// Append well past the cap.
+			const total = 20
+			for i := range total {
+				err := store.AppendEvent(responseID, &schema.ORStreamEvent{
+					Type:           "response.output_text.delta",
+					SequenceNumber: i,
+				})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			stored, err := store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+
+			// (a) Buffer length stays bounded by the cap.
+			Expect(len(stored.StreamEvents)).To(Equal(5))
+
+			// (b) Oldest events were evicted: only the last 5 sequence numbers
+			// remain (15..19).
+			Expect(stored.StreamEvents[0].SequenceNumber).To(Equal(15))
+			Expect(stored.StreamEvents[len(stored.StreamEvents)-1].SequenceNumber).To(Equal(19))
+
+			// Asking for events after the last retained seq still works.
+			retained, err := store.GetEventsAfter(responseID, 14)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retained).To(HaveLen(5))
+
+			// (c) Asking below the dropped watermark returns ErrOffsetLost.
+			_, err = store.GetEventsAfter(responseID, 0)
+			Expect(err).To(MatchError(ErrOffsetLost))
+
+			_, err = store.GetEventsAfter(responseID, -1)
+			Expect(err).To(MatchError(ErrOffsetLost))
+		})
+
+		It("should record and enforce response ownership", func() {
+			responseID := "resp_owner_test"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{ID: responseID, Object: "response", Status: schema.ORStatusCompleted}
+
+			store.Store(responseID, request, response)
+			store.SetOwner(responseID, "userA")
+
+			stored, err := store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Owner).To(Equal("userA"))
+
+			// Owner matches -> allowed; different identity -> denied.
+			Expect(accessAllowed(stored, "userA")).To(BeTrue())
+			Expect(accessAllowed(stored, "userB")).To(BeFalse())
+
+			// Backward compatibility: a response with no owner is accessible
+			// by any caller (single-key / no-auth deployments).
+			noOwnerID := "resp_no_owner"
+			store.Store(noOwnerID, request, &schema.ORResponseResource{ID: noOwnerID, Object: "response"})
+			noOwner, err := store.Get(noOwnerID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(noOwner.Owner).To(BeEmpty())
+			Expect(accessAllowed(noOwner, "anyone")).To(BeTrue())
+			Expect(accessAllowed(noOwner, "")).To(BeTrue())
+		})
+
 		It("should notify subscribers of new events", func() {
 			responseID := "resp_events_chan"
 			request := &schema.OpenResponsesRequest{Model: "test"}

@@ -27,6 +27,7 @@ The Python backends use a unified build system based on `libbackend.sh` that pro
 
 ### Computer Vision
 - **diffusers** - Stable Diffusion and image generation
+- **longcat-video** - CUDA video and speech-driven avatar generation with LongCat-Video
 - **mlx-vlm** - Vision-language models for Apple Silicon
 - **rfdetr** - Object detection models
 

@@ -7,8 +7,22 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 )
+
+// tokenizeTokenCount returns the number of tokens in a backend response,
+// treating a nil response as zero. The gRPC client returns (nil, err) on
+// failure, and the tracing block below runs before that error is returned —
+// so the count must be read nil-safely here. Reading resp.Tokens on a nil
+// resp previously panicked the whole HTTP handler when tracing was enabled
+// (e.g. a transient tokenize failure during router probe-budget sizing).
+func tokenizeTokenCount(resp *pb.TokenizationResponse) int {
+	if resp == nil {
+		return 0
+	}
+	return len(resp.Tokens)
+}
 
 func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
 
@@ -40,10 +54,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 			errStr = err.Error()
 		}
 
-		tokenCount := 0
-		if resp.Tokens != nil {
-			tokenCount = len(resp.Tokens)
-		}
+		tokenCount := tokenizeTokenCount(resp)
 
 		trace.RecordBackendTrace(trace.BackendTrace{
 			Timestamp: startTime,
@@ -64,8 +75,8 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 		return schema.TokenizeResponse{}, err
 	}
 
-	if resp.Tokens == nil {
-		resp.Tokens = make([]int32, 0)
+	if resp == nil || resp.Tokens == nil {
+		return schema.TokenizeResponse{Tokens: make([]int32, 0)}, nil
 	}
 
 	return schema.TokenizeResponse{

@@ -74,6 +74,8 @@ linters:
     paths:
       # Upstream whisper.cpp source tree fetched by the whisper backend Makefile.
       - 'backend/go/whisper/sources'
+      # Vendored upstream supertonic pipeline (supertone-inc/supertonic go/helper.go).
+      - 'backend/go/supertonic/helper.go'
       - 'docs/'
     rules:
       # CLI entry points: kong's `env:"..."` tag is the legitimate env→struct

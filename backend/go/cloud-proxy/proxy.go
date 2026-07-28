@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
@@ -47,6 +48,7 @@ type proxyConfig struct {
 	upstreamModel string
 	localModel    string // ModelOptions.Model — fallback when upstream_model is unset
 	apiKey        string // resolved at Load time
+	cachePrompt   bool   // inject Anthropic prompt-cache breakpoints (translate+anthropic)
 }
 
 func NewCloudProxy() *CloudProxy {
@@ -105,6 +107,7 @@ func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
 		upstreamModel: po.GetUpstreamModel(),
 		localModel:    opts.GetModel(),
 		apiKey:        key,
+		cachePrompt:   po.GetCachePrompt(),
 	})
 	xlog.Info("cloud-proxy: ready",
 		"upstream", po.GetUpstreamUrl(),
@@ -145,7 +148,7 @@ func resolveAPIKey(envName, filePath string) (string, error) {
 func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err error) {
 	cfg := c.cfg.Load()
 	if cfg == nil {
-		return nil, errors.New("cloud-proxy: model not loaded")
+		return nil, grpcerrors.ModelNotLoaded("cloud-proxy")
 	}
 	if cfg.mode != modeTranslate {
 		return nil, fmt.Errorf("cloud-proxy: Predict only valid in translate mode (have %s)", cfg.mode)
@@ -175,7 +178,7 @@ func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err 
 func (c *CloudProxy) PredictStreamRich(opts *pb.PredictOptions, results chan<- *pb.Reply) (err error) {
 	cfg := c.cfg.Load()
 	if cfg == nil {
-		return errors.New("cloud-proxy: model not loaded")
+		return grpcerrors.ModelNotLoaded("cloud-proxy")
 	}
 	if cfg.mode != modeTranslate {
 		return fmt.Errorf("cloud-proxy: PredictStream only valid in translate mode (have %s)", cfg.mode)
@@ -269,7 +272,7 @@ func (c *CloudProxy) Forward(ctx context.Context, in <-chan *pb.ForwardRequest, 
 
 	cfg := c.cfg.Load()
 	if cfg == nil {
-		return errors.New("cloud-proxy: model not loaded")
+		return grpcerrors.ModelNotLoaded("cloud-proxy")
 	}
 	if cfg.mode != modePassthrough {
 		return fmt.Errorf("cloud-proxy: Forward only valid in passthrough mode (have %s)", cfg.mode)

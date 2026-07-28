@@ -30,6 +30,7 @@ type ModelRouter interface {
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
 	FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error)
+	NarrowByDiskHeadroom(ctx context.Context, candidateNodeIDs []string, required uint64) ([]string, error)
 	ReserveVRAM(ctx context.Context, nodeID string, bytes uint64) error
 	ReleaseVRAM(ctx context.Context, nodeID string, bytes uint64) error
 	FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error)
@@ -78,6 +79,9 @@ type ModelLookup interface {
 type InFlightTracker interface {
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	// RemoveNodeModel drops a stale replica row so the next request reloads the
+	// model instead of routing back to a node where it is no longer loaded.
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 }
 
 // NodeManager is used by HTTP endpoints for node registration and lifecycle.

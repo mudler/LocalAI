@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -25,6 +26,10 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	// Text LLM
 	// ds4: antirez/ds4 - single-model DeepSeek V4 Flash engine; auto-detected via DS4Importer
 	{Name: "ds4", Modality: "text", AutoDetect: false, Description: "antirez/ds4 DeepSeek V4 Flash engine (auto-detected; pref-only fallback)"},
+	// privacy-filter is now auto-detected via PrivacyFilterImporter (see
+	// core/gallery/importers/privacy-filter.go); the importer registry entry
+	// supersedes any pref-only line here, which the /backends/known merge would
+	// dedupe away.
 	{Name: "sglang", Modality: "text", AutoDetect: false, Description: "SGLang runtime (preference-only)"},
 	{Name: "tinygrad", Modality: "text", AutoDetect: false, Description: "tinygrad runtime (preference-only)"},
 	{Name: "trl", Modality: "text", AutoDetect: false, Description: "Transformers Reinforcement Learning (preference-only)"},
@@ -36,7 +41,10 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	{Name: "kokoros", Modality: "tts", AutoDetect: false, Description: "Kokoros TTS (preference-only)"},
 	{Name: "qwen-tts", Modality: "tts", AutoDetect: false, Description: "Qwen TTS (preference-only)"},
 	{Name: "qwen3-tts-cpp", Modality: "tts", AutoDetect: false, Description: "Qwen3 TTS C++ (preference-only)"},
+	{Name: "magpie-tts-cpp", Modality: "tts", AutoDetect: false, Description: "Magpie TTS Multilingual C++ (preference-only)"},
+	{Name: "omnivoice-cpp", Modality: "tts", AutoDetect: false, Description: "OmniVoice C++ TTS with voice cloning and voice design (preference-only)"},
 	{Name: "faster-qwen3-tts", Modality: "tts", AutoDetect: false, Description: "Faster Qwen3 TTS (preference-only)"},
+	{Name: "supertonic", Modality: "tts", AutoDetect: false, Description: "Supertonic multilingual ONNX TTS (preference-only)"},
 	// Detection
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
 	// Audio transform (audio-in / audio-out, optional reference signal)
@@ -59,6 +67,10 @@ type BackendEndpointService struct {
 
 type GalleryBackend struct {
 	ID string `json:"id"`
+	// Force reinstalls the backend even when it is already installed and
+	// runnable. Off by default so apply stays idempotent for supervising
+	// apps that ensure their backend on every boot.
+	Force bool `json:"force"`
 }
 
 func CreateBackendEndpointService(galleries []config.Gallery, systemState *system.SystemState, backendApplier *galleryop.GalleryService, upgradeChecker UpgradeInfoProvider) BackendEndpointService {
@@ -97,7 +109,9 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 	}
 }
 
-// ApplyBackendEndpoint installs a new backend to a LocalAI instance
+// ApplyBackendEndpoint installs a new backend to a LocalAI instance. The op is
+// idempotent: an already-installed, runnable backend is left alone unless the
+// request sets "force": true (explicit reinstall).
 // @Summary Install backends to LocalAI.
 // @Tags backends
 // @Param request body GalleryBackend true "query params"
@@ -127,11 +141,12 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint(systemState *system.Syst
 		if err != nil {
 			return err
 		}
-		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
+		mgs.backendApplier.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
-		}
+			Force:              input.Force,
+		})
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}
@@ -207,16 +222,20 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		backendName := c.Param("name")
 
-		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
-			Delete:             true,
-			GalleryElementName: backendName,
-			Galleries:          mgs.galleries,
-		}
-
 		uuid, err := uuid.NewUUID()
 		if err != nil {
 			return err
 		}
+
+		// The op carries the same ID the caller is handed back: without it the
+		// deletion ran under an empty ID and StatusURL pointed at a job that
+		// could never have a status.
+		mgs.backendApplier.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
+			ID:                 uuid.String(),
+			Delete:             true,
+			GalleryElementName: backendName,
+			Galleries:          mgs.galleries,
+		})
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}
@@ -237,7 +256,7 @@ func (mgs *BackendEndpointService) ListBackendsEndpoint() echo.HandlerFunc {
 	}
 }
 
-// ListModelGalleriesEndpoint list the available galleries configured in LocalAI
+// ListBackendGalleriesEndpoint lists the available backend galleries configured in LocalAI.
 // @Summary List all Galleries
 // @Tags backends
 // @Success 200 {object} []config.Gallery "Response"
@@ -299,15 +318,80 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 			return err
 		}
 
-		mgs.backendApplier.BackendGalleryChannel <- galleryop.ManagementOp[gallery.GalleryBackend, any]{
+		mgs.backendApplier.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uuid.String(),
 			GalleryElementName: backendName,
 			Galleries:          mgs.galleries,
 			Upgrade:            true,
-		}
+		})
 
 		return c.JSON(200, schema.BackendResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%sbackends/jobs/%s", middleware.BaseURL(c), uuid.String())})
 	}
+}
+
+// ClusterCapabilityProvider reports the meta-backend capabilities available
+// somewhere in the cluster. It is nil in single-node deployments, where the
+// local system state is the only thing worth filtering against.
+type ClusterCapabilityProvider func(ctx context.Context) ([]string, error)
+
+// resolveClusterCapabilities reads the capabilities present in the cluster,
+// degrading to the local-only listing on error.
+//
+// Every capability-filtered discovery endpoint shares this: on a distributed
+// controller the GPUs live on the workers, so filtering against the local
+// (usually GPU-less) host hides GPU-only backends the cluster can actually
+// run. A registry hiccup must never blank the catalog, so a failure falls back
+// to the pre-existing local-only behavior rather than erroring the request.
+func resolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityProvider) []string {
+	if provider == nil {
+		return nil
+	}
+	capabilities, err := provider(ctx)
+	if err != nil {
+		xlog.Warn("Could not read cluster capabilities, listing backends for the local system only", "error", err)
+		return nil
+	}
+	return capabilities
+}
+
+// ClusterInstalledProvider reports the backends installed somewhere in the
+// cluster. It is nil in single-node deployments, where the local filesystem is
+// the only install state that exists.
+type ClusterInstalledProvider func(ctx context.Context) ([]string, error)
+
+// resolveClusterInstalled reads the backends installed across the cluster,
+// degrading to the local-only view on error.
+//
+// Every discovery endpoint that filters on installed-state shares this: a
+// backend lives on the worker node that runs it, so the controller's own
+// filesystem reports it missing and the endpoint hides it. A nil set leaves
+// the local filesystem as the only source, so single-node listings are
+// untouched, and a registry hiccup degrades to that same listing rather than
+// erroring the request.
+func resolveClusterInstalled(ctx context.Context, provider ClusterInstalledProvider) map[string]struct{} {
+	if provider == nil {
+		return nil
+	}
+	names, err := provider(ctx)
+	if err != nil {
+		xlog.Warn("Could not read cluster backend install state, reporting the local system only", "error", err)
+		return nil
+	}
+	installed := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		installed[name] = struct{}{}
+	}
+	return installed
+}
+
+// installedInCluster reports whether a backend is installed on the host serving
+// the listing or on any node of the cluster.
+func installedInCluster(backend *gallery.GalleryBackend, clusterInstalled map[string]struct{}) bool {
+	if backend.Installed {
+		return true
+	}
+	_, ok := clusterInstalled[backend.Name]
+	return ok
 }
 
 // ListAvailableBackendsEndpoint list the available backends in the galleries configured in LocalAI
@@ -315,12 +399,20 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 // @Tags backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends/available [get]
-func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState) echo.HandlerFunc {
+func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		backends, err := gallery.AvailableBackends(mgs.galleries, systemState)
+		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
+
+		backends, err := gallery.AvailableBackendsForCapabilities(mgs.galleries, systemState, capabilities)
 		if err != nil {
 			return err
 		}
+
+		installed := resolveClusterInstalled(c.Request().Context(), clusterInstalled)
+		for _, b := range backends {
+			b.SetInstalled(installedInCluster(b, installed))
+		}
+
 		return c.JSON(200, backends)
 	}
 }

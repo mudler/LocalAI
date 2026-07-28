@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Constrained Grammars"
-weight = 15
+weight = 12
 url = "/features/constrained_grammars/"
 +++
 

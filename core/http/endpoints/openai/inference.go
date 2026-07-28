@@ -13,6 +13,14 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// reachedTokenBudget reports whether generation stopped because it reached the
+// configured max_tokens ceiling. A maxTokens of nil or <= 0 means "no limit".
+// Used to suppress regeneration retries (which would just hit the same ceiling
+// again) and to report finish_reason "length" instead of "stop" (issue #9716).
+func reachedTokenBudget(completion int, maxTokens *int) bool {
+	return maxTokens != nil && *maxTokens > 0 && completion >= *maxTokens
+}
+
 func ComputeChoices(
 	req *schema.OpenAIRequest,
 	predInput string,
@@ -113,11 +121,21 @@ func ComputeChoices(
 			}
 			prediction = p
 
+			// budgetExhausted is true when the model stopped because it reached
+			// the configured max_tokens ceiling. None of the retry paths below
+			// should fire in that case: regenerating would just hit the same
+			// ceiling again and multiply token consumption (issue #9716). A
+			// thinking model that spends its whole budget on the reasoning block
+			// produces an empty content / reasoning-only response, which would
+			// otherwise look like a failed generation worth retrying. This is a
+			// "length" finish, not an empty one.
+			budgetExhausted := reachedTokenBudget(prediction.Usage.Completion, config.Maxtokens)
+
 			// Built-in: retry on truly empty response (no tokens at all).
 			// However, when the C++ autoparser is active, it clears the raw
 			// message and delivers content via ChatDeltas instead. Do NOT
 			// retry if ChatDeltas contain tool calls or content.
-			if strings.TrimSpace(prediction.Response) == "" && attempt < maxRetries {
+			if strings.TrimSpace(prediction.Response) == "" && attempt < maxRetries && !budgetExhausted {
 				hasChatDeltaData := false
 				for _, d := range prediction.ChatDeltas {
 					if d.Content != "" || len(d.ToolCalls) > 0 {
@@ -159,7 +177,7 @@ func ComputeChoices(
 					}
 				}
 			}
-			if shouldRetryFn != nil && !skipCallerRetry && shouldRetryFn(attempt) && attempt < maxRetries {
+			if shouldRetryFn != nil && !skipCallerRetry && !budgetExhausted && shouldRetryFn(attempt) && attempt < maxRetries {
 				// Caller has already reset its state inside shouldRetry
 				result = result[:0]
 				allChatDeltas = nil

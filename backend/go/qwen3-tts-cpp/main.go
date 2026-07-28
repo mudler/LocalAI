@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"os"
+	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -19,24 +20,29 @@ type LibFuncs struct {
 }
 
 func main() {
-	// Get library name from environment variable, default to fallback
 	libName := os.Getenv("QWEN3TTS_LIBRARY")
 	if libName == "" {
-		libName = "./libgoqwen3ttscpp-fallback.so"
+		if runtime.GOOS == "darwin" {
+			libName = "./libgoqwen3ttscpp-fallback.dylib"
+		} else {
+			libName = "./libgoqwen3ttscpp-fallback.so"
+		}
 	}
 
-	gosd, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	lib, err := purego.Dlopen(libName, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	if err != nil {
 		panic(err)
 	}
 
 	libFuncs := []LibFuncs{
-		{&CppLoadModel, "load_model"},
-		{&CppSynthesize, "synthesize"},
+		{&CppLoad, "qt3_load"},
+		{&CppTTS, "qt3_tts"},
+		{&CppTTSStream, "qt3_tts_stream"},
+		{&CppPCMFree, "qt3_pcm_free"},
+		{&CppUnload, "qt3_unload"},
 	}
-
 	for _, lf := range libFuncs {
-		purego.RegisterLibFunc(lf.FuncPtr, gosd, lf.Name)
+		purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
 	}
 
 	flag.Parse()

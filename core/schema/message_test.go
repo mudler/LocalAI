@@ -68,6 +68,32 @@ var _ = Describe("LLM tests", func() {
 			Expect(protoMessages[0].Content).To(Equal("Hello World"))
 		})
 
+		// Regression for mudler/LocalAI#10524: a text part whose inner text is
+		// itself a JSON-array string (mealie sends an ingredient list) must
+		// flatten to that exact string verbatim. ToProto must NOT escape or
+		// restructure it - the C++ backend then treats it as opaque text. This
+		// pins the precise Go-side input that produced the "unsupported
+		// content[].type" gRPC error before the backend stopped re-parsing it.
+		It("flattens a JSON-array-looking text part to the verbatim string (#10524)", func() {
+			ingredients := `["1/4 cup brown sugar, packed","1 pound ground beef"]`
+			messages := Messages{
+				{
+					Role: "user",
+					Content: []any{
+						map[string]any{
+							"type": "text",
+							"text": ingredients,
+						},
+					},
+				},
+			}
+
+			protoMessages := messages.ToProto()
+
+			Expect(protoMessages).To(HaveLen(1))
+			Expect(protoMessages[0].Content).To(Equal(ingredients))
+		})
+
 		It("should convert message with tool_calls", func() {
 			messages := Messages{
 				{
@@ -367,6 +393,65 @@ var _ = Describe("LLM tests", func() {
 
 			Expect(protoMessages).To(HaveLen(1))
 			Expect(protoMessages[0].Content).To(Equal("Hello"))
+		})
+
+		// Interleaved thinking: an assistant turn can emit a thinking block and
+		// a tool call in the same message. ToProto sets ReasoningContent and
+		// ToolCalls in independent branches, so both must survive the round-trip.
+		It("carries reasoning AND tool_calls together on one assistant message", func() {
+			reasoning := "let me check the weather first"
+			messages := Messages{
+				{
+					Role:      "assistant",
+					Content:   "",
+					Reasoning: &reasoning,
+					ToolCalls: []ToolCall{
+						{Index: 0, ID: "call_1", Type: "function",
+							FunctionCall: FunctionCall{Name: "get_weather", Arguments: `{"city":"Rome"}`}},
+					},
+				},
+			}
+			proto := messages.ToProto()
+			Expect(proto).To(HaveLen(1))
+			Expect(proto[0].ReasoningContent).To(Equal("let me check the weather first"))
+			Expect(proto[0].ToolCalls).NotTo(BeEmpty())
+		})
+
+		// Multi-turn continuity: when the interleaved assistant turn is replayed
+		// after its tool result, reasoning_content and the tool linkage must both
+		// persist so the model sees a coherent conversation on the next round.
+		It("preserves reasoning on a replayed assistant turn across a tool result", func() {
+			r1 := "reason before call"
+			messages := Messages{
+				{Role: "user", Content: "weather in Rome?"},
+				{Role: "assistant", Content: "", Reasoning: &r1,
+					ToolCalls: []ToolCall{{Index: 0, ID: "call_1", Type: "function",
+						FunctionCall: FunctionCall{Name: "get_weather", Arguments: `{"city":"Rome"}`}}}},
+				{Role: "tool", Content: "22C sunny", ToolCallID: "call_1"},
+			}
+			proto := messages.ToProto()
+			Expect(proto).To(HaveLen(3))
+			Expect(proto[1].ReasoningContent).To(Equal("reason before call"))
+			Expect(proto[1].ToolCalls).NotTo(BeEmpty())
+			Expect(proto[2].ToolCallId).To(Equal("call_1"))
+		})
+	})
+
+	Context("reasoning_content inbound alias", func() {
+		It("decodes reasoning_content as an inbound alias for Reasoning", func() {
+			var m Message
+			err := json.Unmarshal([]byte(`{"role":"assistant","reasoning_content":"thinking..."}`), &m)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Reasoning).NotTo(BeNil())
+			Expect(*m.Reasoning).To(Equal("thinking..."))
+		})
+
+		It("prefers reasoning over reasoning_content when both are present", func() {
+			var m Message
+			err := json.Unmarshal([]byte(`{"role":"assistant","reasoning":"canonical","reasoning_content":"alias"}`), &m)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Reasoning).NotTo(BeNil())
+			Expect(*m.Reasoning).To(Equal("canonical"))
 		})
 	})
 })

@@ -222,6 +222,37 @@ var _ = Describe("E2E test", func() {
 				Expect(resp3.Data[1].Embedding).To(Equal(resp2.Data[0].Embedding))
 				Expect(resp3.Data[0].Embedding).ToNot(Equal(resp3.Data[1].Embedding))
 			})
+
+			// Regression guard for the auto-batch fix (core/backend/options.go
+			// EffectiveBatchSize). Embeddings pool over the whole sequence in a
+			// single physical batch (n_ubatch == n_batch), so an input longer
+			// than n_batch is rejected by the backend with "input is too large
+			// to process". Before the fix n_batch defaulted to 512 regardless of
+			// the model's context, so any prompt over ~512 tokens failed here.
+			// The embedding model is configured with a 2048 context (see
+			// models/embeddings.yaml); this input is comfortably over 512 tokens
+			// and under that context, so it must embed in one pass.
+			It("embeds an input larger than the default 512 batch", func() {
+				var b bytes.Buffer
+				// ~100 short sentences ≈ 1000+ tokens: well past the old 512
+				// batch ceiling, well within the 2048 context.
+				for i := range 100 {
+					fmt.Fprintf(&b, "This is sentence number %d discussing organic skincare and machine learning. ", i)
+				}
+				longInput := b.String()
+
+				resp, err := client.Embeddings.New(context.TODO(),
+					openai.EmbeddingNewParams{
+						Input: openai.EmbeddingNewParamsInputUnion{
+							OfArrayOfStrings: []string{longInput},
+						},
+						Model: openai.EmbeddingModelTextEmbeddingAda002,
+					},
+				)
+				Expect(err).ToNot(HaveOccurred(), "a >512-token input must embed in a single batch (auto-batch sizing)")
+				Expect(len(resp.Data)).To(Equal(1), fmt.Sprint(resp))
+				Expect(resp.Data[0].Embedding).ToNot(BeEmpty())
+			})
 		})
 
 		Context("vision", func() {

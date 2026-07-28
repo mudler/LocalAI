@@ -14,6 +14,26 @@ When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail
 
 LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI.
 
+## Running behind a reverse proxy (HTTPS / subpath)
+
+LocalAI does not terminate TLS itself, so HTTPS is provided by a reverse
+proxy in front of it. Self-referential links (generated image and video
+URLs, async job status URLs, OAuth callbacks) need the externally visible
+scheme, host and port.
+
+LocalAI determines these in this order:
+
+1. `LOCALAI_BASE_URL` - if set, it is authoritative for the origin. Set it to
+   the externally visible base URL, e.g. `LOCALAI_BASE_URL=https://localai.example.com`
+   or `https://192.168.0.13:34567`. Recommended whenever links come back with
+   the wrong scheme or host.
+2. Otherwise, the `X-Forwarded-Proto` and `X-Forwarded-Host` headers (or the
+   RFC 7239 `Forwarded` header) sent by the proxy. Ensure your proxy forwards
+   `X-Forwarded-Proto: https`.
+
+A reverse-proxy subpath mount is supported via `X-Forwarded-Prefix`; it is
+appended to `LOCALAI_BASE_URL` when both are present.
+
 ## Required Headers
 
 Your reverse proxy must forward these headers to LocalAI:

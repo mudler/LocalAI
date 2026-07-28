@@ -6,6 +6,19 @@
   },
   "resourceGpu": "GPU",
   "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
   "assistant": {
     "title": "Manage LocalAI by chatting",
     "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
@@ -30,6 +43,7 @@
     "documentation": "Documentation"
   },
   "loadedModels": {
+    "heading": "Active models",
     "count_one": "{{count}} model loaded",
     "count_other": "{{count}} models loaded",
     "stop": "Stop model",
@@ -62,5 +76,32 @@
     "docs": "Docs",
     "noModelsTitle": "No Models Available",
     "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting."
+  },
+  "starters": {
+    "title": "Recommended for your hardware",
+    "tier": {
+      "cpu": "CPU-only",
+      "gpu-small": "GPU",
+      "gpu-mid": "GPU",
+      "gpu-large": "GPU"
+    },
+    "cpuNote": "No GPU detected — these small models stay responsive on CPU.",
+    "gpuNote": "Picked to fit your available VRAM with room for context.",
+    "install": "Install",
+    "installing": "Installing",
+    "installStarted": "Installing {{model}}…",
+    "installFailed": "Install failed: {{message}}"
+  },
+  "connect": {
+    "title": "One endpoint, every API",
+    "subtitle": "LocalAI serves its own full API — image & video generation, depth, object detection, reranking, audio, face & voice recognition, and realtime voice over WebRTC and WebSocket. On top of that, a drop-in compatibility layer lets any app built for OpenAI, Anthropic, Ollama or OpenAI Responses talk to it unchanged.",
+    "nativeTitle": "Native API",
+    "compatTitle": "Drop-in compatibility",
+    "apiReference": "Full API reference",
+    "copy": "Copy",
+    "copied": "Copied",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss"
   }
 }

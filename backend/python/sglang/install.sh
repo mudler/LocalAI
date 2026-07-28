@@ -85,9 +85,15 @@ if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
     # The resulting binary still requires an AVX-512 capable CPU at runtime,
     # same constraint sglang upstream documents in docker/xeon.Dockerfile.
 
+    # Pin the source build to the same release the GPU path floors on
+    # (0.5.11, see requirements-cublas12-after.txt). An unpinned master clone
+    # pulls in newer CPU kernels (e.g. mamba/fla.cpp) that fail to compile
+    # (constexpr non-constant + kineto_LIBRARY-NOTFOUND). Bump deliberately.
+    SGLANG_VERSION="${SGLANG_VERSION:-v0.5.11}"
     _sgl_src=$(mktemp -d)
     trap 'rm -rf "${_sgl_src}"' EXIT
-    git clone --depth 1 https://github.com/sgl-project/sglang "${_sgl_src}/sglang"
+    git clone --depth 1 --branch "${SGLANG_VERSION}" \
+        https://github.com/sgl-project/sglang "${_sgl_src}/sglang"
 
     # Patch -march=native → -march=sapphirerapids in the CPU kernel CMakeLists
     sed -i 's/-march=native/-march=sapphirerapids/g' \

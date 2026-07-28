@@ -8,15 +8,18 @@ import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import ConfirmDialog from '../components/ConfirmDialog'
+import HomeConnect from '../components/HomeConnect'
 import { useResources } from '../hooks/useResources'
+import { usePolling } from '../hooks/usePolling'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { API_CONFIG } from '../utils/config'
-
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return null
-  const gb = bytes / (1024 * 1024 * 1024)
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
-}
+import { greetingKey } from '../utils/greeting'
+import StatusPill from '../components/StatusPill'
+import Skeleton from '../components/Skeleton'
+import SectionHeading from '../components/SectionHeading'
+import EmptyState from '../components/EmptyState'
+import StarterModels from '../components/StarterModels'
+import { staggerStyle } from '../hooks/useStagger'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -67,40 +70,36 @@ export default function Home() {
       .catch(() => {})
   }, [])
 
-  // Poll cluster node data in distributed mode
-  useEffect(() => {
-    if (!distributedMode) return
-    const fetchCluster = async () => {
-      try {
-        const data = await nodesApi.list()
-        const nodes = Array.isArray(data) ? data : []
-        const backendNodes = nodes.filter(n => !n.node_type || n.node_type === 'backend')
-        const totalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
-        const usedVRAM = backendNodes.reduce((sum, n) => {
-          if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
-          return sum
-        }, 0)
-        const totalRAM = backendNodes.reduce((sum, n) => sum + (n.total_ram || 0), 0)
-        const usedRAM = backendNodes.reduce((sum, n) => {
-          if (n.total_ram && n.available_ram != null) return sum + (n.total_ram - n.available_ram)
-          return sum
-        }, 0)
-        const isGPU = totalVRAM > 0
-        const healthyCount = backendNodes.filter(n => n.status === 'healthy').length
-        const totalCount = backendNodes.length
-        setClusterData({
-          totalMem: isGPU ? totalVRAM : totalRAM,
-          usedMem: isGPU ? usedVRAM : usedRAM,
-          isGPU,
-          healthyCount,
-          totalCount,
-        })
-      } catch { setClusterData(null) }
-    }
-    fetchCluster()
-    const interval = setInterval(fetchCluster, 5000)
-    return () => clearInterval(interval)
-  }, [distributedMode])
+  // Poll cluster node data in distributed mode. Visibility-aware + gated on
+  // distributedMode so a non-distributed or backgrounded tab makes no calls.
+  const fetchCluster = useCallback(async () => {
+    try {
+      const data = await nodesApi.list()
+      const nodes = Array.isArray(data) ? data : []
+      const backendNodes = nodes.filter(n => !n.node_type || n.node_type === 'backend')
+      const totalVRAM = backendNodes.reduce((sum, n) => sum + (n.total_vram || 0), 0)
+      const usedVRAM = backendNodes.reduce((sum, n) => {
+        if (n.total_vram && n.available_vram != null) return sum + (n.total_vram - n.available_vram)
+        return sum
+      }, 0)
+      const totalRAM = backendNodes.reduce((sum, n) => sum + (n.total_ram || 0), 0)
+      const usedRAM = backendNodes.reduce((sum, n) => {
+        if (n.total_ram && n.available_ram != null) return sum + (n.total_ram - n.available_ram)
+        return sum
+      }, 0)
+      const isGPU = totalVRAM > 0
+      const healthyCount = backendNodes.filter(n => n.status === 'healthy').length
+      const totalCount = backendNodes.length
+      setClusterData({
+        totalMem: isGPU ? totalVRAM : totalRAM,
+        usedMem: isGPU ? usedVRAM : usedRAM,
+        isGPU,
+        healthyCount,
+        totalCount,
+      })
+    } catch { setClusterData(null) }
+  }, [])
+  usePolling(fetchCluster, 5000, { enabled: distributedMode })
 
   // Fetch configured models (to know if any exist) and loaded models (currently running)
   const fetchSystemInfo = useCallback(async () => {
@@ -122,11 +121,7 @@ export default function Home() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchSystemInfo()
-    const interval = setInterval(fetchSystemInfo, 5000)
-    return () => clearInterval(interval)
-  }, [fetchSystemInfo])
+  usePolling(fetchSystemInfo, 5000)
 
   // Check MCP availability when selected model changes
   useEffect(() => {
@@ -286,62 +281,39 @@ export default function Home() {
   const hasModels = modelsLoading || configuredModels.length > 0
   const loadedCount = loadedModels.length
 
-  // Resource display
+  // Resource display - folded into the editorial status line.
   const resType = resources?.type
   const usagePct = resources?.aggregate?.usage_percent ?? resources?.ram?.usage_percent ?? 0
-  const pctColor = usagePct > 90 ? 'var(--color-error)' : usagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
-
-  // Cluster resource display (distributed mode)
-  const clusterUsagePct = clusterData?.totalMem > 0 ? ((clusterData.usedMem / clusterData.totalMem) * 100) : 0
-  const clusterPctColor = clusterUsagePct > 90 ? 'var(--color-error)' : clusterUsagePct > 70 ? 'var(--color-warning)' : 'var(--color-success)'
 
   return (
     <div className="home-page">
       {hasModels ? (
         <>
-          {/* Hero with logo */}
-          <div className="home-hero">
-            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
-          </div>
-
-          {/* Resource monitor - prominent placement */}
-          {distributedMode && clusterData && clusterData.totalMem > 0 ? (
-            <div className="home-resource-bar">
-              <div className="home-resource-bar-header">
-                <i className={`fas ${clusterData.isGPU ? 'fa-microchip' : 'fa-memory'}`} />
-                <span className="home-resource-label">{clusterData.isGPU ? t('cluster.vram') : t('cluster.ram')}</span>
-                <span className="home-resource-pct" style={{ color: clusterPctColor }}>
-                  {formatBytes(clusterData.usedMem)} / {formatBytes(clusterData.totalMem)}
-                </span>
-              </div>
-              <div className="home-resource-track">
-                <div
-                  className="home-resource-fill"
-                  style={{ width: `${clusterUsagePct}%`, background: clusterPctColor }}
-                />
-              </div>
-              <div className="home-cluster-status">
-                <span className="home-cluster-dot" style={clusterData.healthyCount === 0 ? { background: 'var(--color-error)' } : undefined} />
-                <span>{t('cluster.nodesOnline', { healthy: clusterData.healthyCount, total: clusterData.totalCount })}</span>
-              </div>
+          {/* Editorial header */}
+          <header className="home-header reveal-stagger">
+            <div style={staggerStyle(0)}>
+              <span className="home-eyebrow">{branding.instanceName}</span>
+              <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
             </div>
-          ) : !distributedMode && resources ? (
-            <div className="home-resource-bar">
-              <div className="home-resource-bar-header">
-                <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} />
-                <span className="home-resource-label">{resType === 'gpu' ? t('resourceGpu') : t('resourceRam')}</span>
-                <span className="home-resource-pct" style={{ color: pctColor }}>
-                  {usagePct.toFixed(0)}%
-                </span>
-              </div>
-              <div className="home-resource-track">
-                <div
-                  className="home-resource-fill"
-                  style={{ width: `${usagePct}%`, background: pctColor }}
+            <div className="home-status-line" style={staggerStyle(1)}>
+              <StatusPill
+                status={loadedCount > 0 ? 'healthy' : 'idle'}
+                label={loadedCount > 0 ? t('statusLine.modelsLoaded', { count: loadedCount }) : t('statusLine.noModelsLoaded')}
+              />
+              {distributedMode && clusterData && (
+                <StatusPill
+                  status={clusterData.healthyCount > 0 ? 'healthy' : 'error'}
+                  label={t('statusLine.nodes', { count: clusterData.totalCount })}
                 />
-              </div>
+              )}
+              {!distributedMode && resources && (
+                <span className="status-pill">
+                  <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} aria-hidden="true" />
+                  {(resType === 'gpu' ? t('resourceGpu') : t('resourceRam'))} {usagePct.toFixed(0)}%
+                </span>
+              )}
             </div>
-          ) : null}
+          </header>
 
           {/* LocalAI Assistant — prominent CTA on first run. Once the
               admin has used it, the big card collapses to a small entry in
@@ -462,53 +434,64 @@ export default function Home() {
                     <i className="fas fa-user-shield" /> {t('quickLinks.manageByChat')}
                   </button>
                 )}
-                <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
-                  <i className="fas fa-desktop" /> {t('quickLinks.installedModels')}
+                <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
+                  <i className="fas fa-download" aria-hidden="true" /> {t('quickLinks.browseGallery')}
                 </button>
-                <button className="home-link-btn" onClick={() => navigate('/app/models')}>
-                  <i className="fas fa-download" /> {t('quickLinks.browseGallery')}
+                <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
+                  <i className="fas fa-desktop" aria-hidden="true" /> {t('quickLinks.installedModels')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
-                  <i className="fas fa-upload" /> {t('quickLinks.importModel')}
+                  <i className="fas fa-upload" aria-hidden="true" /> {t('quickLinks.importModel')}
                 </button>
               </>
             )}
-            <a className="home-link-btn" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> {t('quickLinks.documentation')}
+            <a className="home-link-btn home-link-btn--quiet" href="https://localai.io" target="_blank" rel="noopener noreferrer">
+              <i className="fas fa-book" aria-hidden="true" /> {t('quickLinks.documentation')}
             </a>
           </div>
 
           {/* Loaded models status */}
-          {loadedCount > 0 && (
-            <div className="home-loaded-models">
-              <span className="home-loaded-dot" />
-              <span className="home-loaded-text">{t('loadedModels.count', { count: loadedCount })}</span>
-              <div className="home-loaded-list">
-                {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map(m => (
-                  <span key={m.id} className="home-loaded-item">
-                    {m.id}
-                    <button onClick={() => handleStopModel(m.id)} title={t('loadedModels.stop')}>
-                      <i className="fas fa-times" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              {loadedCount > 1 && (
-                <button className="home-stop-all" onClick={handleStopAll}>
-                  {t('loadedModels.stopAll')}
-                </button>
-              )}
-            </div>
-          )}
+          <section className="home-loaded">
+            <SectionHeading>{t('loadedModels.heading')}</SectionHeading>
+            {modelsLoading ? (
+              <Skeleton variant="line" count={2} />
+            ) : loadedCount > 0 ? (
+              <>
+                <ul className="home-loaded-list reveal-stagger">
+                  {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map((m, i) => (
+                    <li key={m.id} className="home-loaded-item" style={staggerStyle(i)}>
+                      <StatusPill status="healthy" label={m.id} />
+                      <button
+                        type="button"
+                        onClick={() => handleStopModel(m.id)}
+                        title={t('loadedModels.stop')}
+                        aria-label={t('loadedModels.stop')}
+                      >
+                        <i className="fas fa-times" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {loadedCount > 1 && (
+                  <button className="btn btn-secondary btn-sm home-stop-all" onClick={handleStopAll}>
+                    {t('loadedModels.stopAll')}
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="home-loaded-empty">{t('statusLine.noModelsLoaded')}</p>
+            )}
+          </section>
         </>
       ) : isAdmin ? (
         /* No models installed - compact getting started */
         <div className="home-wizard">
-          <div className="home-wizard-hero">
-            <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
-            <h1>{t('wizard.getStarted', { name: branding.instanceName })}</h1>
-            <p>{t('wizard.intro')}</p>
-          </div>
+          <EmptyState
+            eyebrow={branding.instanceName}
+            icon="fa-rocket"
+            title={t('wizard.getStarted', { name: branding.instanceName })}
+            body={t('wizard.intro')}
+          />
 
           <div className="home-wizard-steps card">
             <div className="home-wizard-step">
@@ -533,6 +516,8 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          <StarterModels addToast={addToast} onInstallStarted={fetchSystemInfo} />
 
           <div className="home-wizard-actions">
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
@@ -561,6 +546,8 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <HomeConnect />
 
       <ConfirmDialog
         open={!!confirmDialog}

@@ -2,6 +2,7 @@ export const API_CONFIG = {
   endpoints: {
     // Operations
     operations: '/api/operations',
+    operationsHistory: '/api/operations/history',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
     dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
@@ -10,6 +11,7 @@ export const API_CONFIG = {
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelEstimate: (id) => `/api/models/estimate/${id}`,
+    modelVariants: (id) => `/api/models/variants/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
     configMetadata: '/api/models/config-metadata',
@@ -36,8 +38,10 @@ export const API_CONFIG = {
 
     // Traces
     traces: '/api/traces',
+    trace: (id) => `/api/traces/${encodeURIComponent(id)}`,
     clearTraces: '/api/traces/clear',
     backendTraces: '/api/backend-traces',
+    backendTrace: (id) => `/api/backend-traces/${encodeURIComponent(id)}`,
     clearBackendTraces: '/api/backend-traces/clear',
 
     // Backend Logs
@@ -95,6 +99,7 @@ export const API_CONFIG = {
 
     modelsList: '/v1/models',
     modelsCapabilities: '/api/models/capabilities',
+    modelsAliases: '/api/aliases',
 
     // Realtime / WebRTC
     realtimeCalls: '/v1/realtime/calls',
@@ -105,6 +110,7 @@ export const API_CONFIG = {
     video: '/video',
     backendMonitor: '/backend/monitor',
     backendShutdown: '/backend/shutdown',
+    backendLoad: '/backend/load',
     modelsApply: '/models/apply',
     modelsDelete: (name) => `/models/delete/${name}`,
     modelsAvailable: '/models/available',
@@ -135,6 +141,7 @@ export const API_CONFIG = {
     nodeHeartbeat: (id) => `/api/nodes/${id}/heartbeat`,
     nodeBackends: (id) => `/api/nodes/${id}/backends`,
     nodeBackendsInstall: (id) => `/api/nodes/${id}/backends/install`,
+    nodeBackendsUpgrade: (id) => `/api/nodes/${id}/backends/upgrade`,
     nodeBackendsDelete: (id) => `/api/nodes/${id}/backends/delete`,
     nodeBackendLogs: (id) => `/api/nodes/${id}/backend-logs`,
     nodeBackendLogsModel: (id, modelId) => `/api/nodes/${id}/backend-logs/${encodeURIComponent(modelId)}`,
@@ -142,7 +149,9 @@ export const API_CONFIG = {
     nodeLabels: (id) => `/api/nodes/${id}/labels`,
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
+    nodeVramBudget: (id) => `/api/nodes/${id}/vram-budget`,
     nodesScheduling: '/api/nodes/scheduling',
+    nodesModels: '/api/nodes/models',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,
   },
 }

@@ -1,6 +1,8 @@
 package application
 
 import (
+	"sync"
+
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,5 +45,34 @@ var _ = Describe("extractModelGroupsFromConfigs", func() {
 		Expect(out).To(HaveLen(1))
 		Expect(out).To(HaveKey("b"))
 		Expect(out).ToNot(HaveKey("a"))
+	})
+})
+
+var _ = Describe("StopWatchdog", func() {
+	It("closes the stop channel exactly once under concurrent callers", func() {
+		// POST /api/settings routes to StopWatchdog whenever the new settings make
+		// WatchdogShouldRun() false, so concurrent requests land here in parallel.
+		// Before the mutex was taken, both could observe a non-nil watchdogStop and
+		// close it twice, panicking with "close of closed channel".
+		app := &Application{watchdogStop: make(chan bool, 1)}
+
+		var wg sync.WaitGroup
+		for i := 0; i < 64; i++ {
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				Expect(app.StopWatchdog()).To(Succeed())
+			}()
+		}
+		wg.Wait()
+
+		Expect(app.watchdogStop).To(BeNil())
+	})
+
+	It("is a no-op when the watchdog was never started", func() {
+		app := &Application{}
+		Expect(app.StopWatchdog()).To(Succeed())
+		Expect(app.watchdogStop).To(BeNil())
 	})
 })

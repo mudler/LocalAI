@@ -1,0 +1,109 @@
+ARG BASE_IMAGE=ubuntu:24.04
+# BUILDER_BASE_IMAGE defaults to BASE_IMAGE so the Dockerfile parses when no
+# prebuilt base is supplied; the builder-prebuilt stage is only entered when
+# BUILDER_TARGET=builder-prebuilt, so the fallback content is harmless
+# (BuildKit prunes the unreferenced builder).
+ARG BUILDER_BASE_IMAGE=${BASE_IMAGE}
+# BUILDER_TARGET selects which builder stage the scratch image copies from.
+# Declared before any FROM so it is usable in `FROM ${BUILDER_TARGET}`. The
+# backend_build workflow sets it to builder-prebuilt when the matrix entry
+# provides builder-base-image, else builder-fromsource (the local default).
+ARG BUILDER_TARGET=builder-fromsource
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+# privacy-filter: standalone GGML engine for the openai-privacy-filter PII/NER
+# token classifier, wrapped as a LocalAI gRPC backend.
+#
+# Mirrors backend/Dockerfile.llama-cpp: the build toolchain (gRPC + cmake +
+# protoc + conditional CUDA/Vulkan) comes from the shared
+# .docker/install-base-deps.sh (from-source path) or a prebuilt
+# quay.io/go-skynet/ci-cache:base-grpc-* image (CI path) — nothing GPU-specific
+# is hand-rolled here. BUILD_TYPE selects the engine backend in the Makefile:
+# "" = cpu, "cublas" -> -DPF_CUDA=ON, "vulkan" -> -DPF_VULKAN=ON.
+
+# ============================================================================
+# Stage: builder-fromsource — self-contained build. Runs the same install
+# script backend/Dockerfile.base-grpc-builder runs, so this path is
+# bit-equivalent to the prebuilt base. Used when BUILDER_TARGET=builder-fromsource
+# (the default; local `make backends/privacy-filter`).
+# ============================================================================
+FROM ${BASE_IMAGE} AS builder-fromsource
+ARG BUILD_TYPE
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG CMAKE_FROM_SOURCE=false
+# CUDA Toolkit 13.x needs CMake 3.31.9+ for correct toolchain/arch detection.
+ARG CMAKE_VERSION=3.31.10
+ARG GRPC_VERSION=v1.65.0
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
+ARG SKIP_DRIVERS=false
+ARG TARGETARCH
+ARG UBUNTU_VERSION=2404
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+    CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
+    CMAKE_FROM_SOURCE=${CMAKE_FROM_SOURCE} \
+    CMAKE_VERSION=${CMAKE_VERSION} \
+    GRPC_VERSION=${GRPC_VERSION} \
+    GRPC_MAKEFLAGS=${GRPC_MAKEFLAGS} \
+    SKIP_DRIVERS=${SKIP_DRIVERS} \
+    TARGETARCH=${TARGETARCH} \
+    UBUNTU_VERSION=${UBUNTU_VERSION} \
+    APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    DEBIAN_FRONTEND=noninteractive
+# CUDA on PATH (a no-op when CUDA is not installed, e.g. cpu/vulkan builds).
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+WORKDIR /build
+
+# apt deps + cmake + protoc + gRPC + conditional CUDA/Vulkan, all from the
+# shared script (the source of truth that base-grpc-builder also runs).
+RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
+    --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    bash /usr/local/sbin/install-base-deps
+
+# install-base-deps installs gRPC under /opt/grpc; copy it to /usr/local so the
+# backend's find_package(gRPC CONFIG) resolves it at the canonical prefix.
+RUN cp -a /opt/grpc/. /usr/local/
+
+COPY . /LocalAI
+
+RUN --mount=type=cache,target=/root/.ccache,id=privacy-filter-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    make -C /LocalAI/backend/cpp/privacy-filter BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+
+# ============================================================================
+# Stage: builder-prebuilt — FROM a prebuilt
+# quay.io/go-skynet/ci-cache:base-grpc-* image (gRPC at /opt/grpc + apt deps +
+# CUDA/Vulkan already installed). Used in CI when the matrix entry sets
+# builder-base-image.
+# ============================================================================
+FROM ${BUILDER_BASE_IMAGE} AS builder-prebuilt
+ARG BUILD_TYPE
+ARG TARGETARCH
+ENV BUILD_TYPE=${BUILD_TYPE}
+# CUDA on PATH (a no-op for the cpu/vulkan base images).
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# Mirror builder-fromsource: the base-grpc image installs gRPC to /opt/grpc but
+# does not copy it to /usr/local.
+RUN cp -a /opt/grpc/. /usr/local/
+
+COPY . /LocalAI
+
+RUN --mount=type=cache,target=/root/.ccache,id=privacy-filter-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    make -C /LocalAI/backend/cpp/privacy-filter BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+
+# ============================================================================
+# Final stage — copy the package output from the selected builder. BuildKit
+# does not expand variables in `COPY --from=`, so alias the chosen builder to a
+# fixed stage name first.
+# ============================================================================
+FROM ${BUILDER_TARGET} AS builder
+
+FROM scratch
+COPY --from=builder /LocalAI/backend/cpp/privacy-filter/package/. ./

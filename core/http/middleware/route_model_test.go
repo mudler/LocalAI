@@ -246,11 +246,12 @@ var _ = Describe("RouteModel rendered classifier prompt", func() {
 			"rendered prompt must end at assistant-open marker. got: %q", s.lastPrompt)
 	})
 
-	It("falls back to chatMLRenderer when the classifier model has no chat_message template", func() {
-		// Partial template config: only outer Chat, no per-role
-		// piece. The renderer must refuse rather than emit a prompt
-		// that drops the system turn, so the score classifier's
-		// built-in ChatML default takes over.
+	It("refuses to build the router when the classifier model has no chat_message template", func() {
+		// Partial template config: only the outer Chat, no per-role piece.
+		// The router renders the scoring prompt client-side from the
+		// classifier model's own template, so a missing template is a hard
+		// error rather than a silent fall back to a generic ChatML envelope
+		// the model may not have been trained on.
 		writePartialClassifierModel(modelDir, "arch-router")
 		routerCfg := newScoreRouterModel(modelDir, "smart-router")
 
@@ -266,19 +267,9 @@ var _ = Describe("RouteModel rendered classifier prompt", func() {
 				ModelLookup: loaderLookup(loader, appConfig),
 				Evaluator:   eval,
 			})
-		Expect(err).NotTo(HaveOccurred())
-
-		// chatMLRenderer fallback emits its own envelope and still
-		// embeds the routing system prompt. OpenAIProbeFromRequest
-		// appends "\n" after each message body, so the user content
-		// reaches the renderer as "hello world\n" — the substring
-		// match accounts for that.
-		Expect(s.lastPrompt).To(ContainSubstring("<routes>"),
-			"fallback renderer also dropped the system prompt")
-		Expect(s.lastPrompt).To(ContainSubstring("<|im_start|>system\n"))
-		Expect(s.lastPrompt).To(ContainSubstring("<|im_start|>user\nhello world\n<|im_end|>"))
-		Expect(strings.HasSuffix(s.lastPrompt, "<|im_start|>assistant\n")).To(BeTrue(),
-			"chatMLRenderer fallback must end at assistant-open marker. got: %q", s.lastPrompt)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("no chat template"),
+			"missing classifier template must surface as a clear config error. got: %v", err)
 	})
 
 	It("uses the classifier model's first stopword as the candidate suffix", func() {
@@ -533,8 +524,8 @@ template:
 
 // writePartialClassifierModel writes a classifier model that has the
 // outer Chat template but no ChatMessage — exercises the
-// newTemplateRenderer "refuse partial templating" branch that hands
-// off to chatMLRenderer.
+// newTemplateRenderer "refuse partial templating" branch, which makes
+// buildClassifier reject the router with a missing-template error.
 func writePartialClassifierModel(modelDir, name string) {
 	body := `name: ` + name + `
 backend: llama-cpp

@@ -34,6 +34,13 @@ func (f *fakeScheduler) ScheduleAndLoadModel(_ context.Context, modelName string
 	return f.scheduleNode, f.scheduleErr
 }
 
+func mustGetSched(r *NodeRegistry, model string) ModelSchedulingConfig {
+	cfg, err := r.GetModelScheduling(context.Background(), model)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+	return *cfg
+}
+
 var _ = Describe("ReplicaReconciler", func() {
 	var (
 		db       *gorm.DB
@@ -77,6 +84,45 @@ var _ = Describe("ReplicaReconciler", func() {
 		}
 		Expect(registry.SetModelScheduling(context.Background(), cfg)).To(Succeed())
 	}
+
+	Context("spread_all mode", func() {
+		It("targets one replica per matching node (empty selector = all nodes)", func() {
+			n1 := registerNode("s1", "10.1.0.1:50051")
+			registerNode("s2", "10.1.0.2:50051")
+			// spread config, no selector -> all healthy backend nodes (2)
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "spread-model", SpreadAll: true,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{scheduleNode: n1}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+			})
+
+			reconciler.reconcileModel(context.Background(), mustGetSched(registry, "spread-model"))
+
+			// With current==0 and a target of 2, the MinReplicas floor path
+			// schedules up to cluster capacity (2 nodes).
+			Expect(len(scheduler.scheduleCalls)).To(Equal(2))
+		})
+
+		It("is a no-op when no nodes match", func() {
+			Expect(registry.SetModelScheduling(context.Background(), &ModelSchedulingConfig{
+				ModelName: "spread-model", SpreadAll: true,
+				NodeSelector: `{"tier":"nope"}`,
+			})).To(Succeed())
+
+			scheduler := &fakeScheduler{}
+			reconciler := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: scheduler,
+			})
+
+			reconciler.reconcileModel(context.Background(), mustGetSched(registry, "spread-model"))
+			Expect(scheduler.scheduleCalls).To(BeEmpty())
+		})
+	})
 
 	Context("model below min_replicas", func() {
 		It("scales up to min_replicas", func() {
@@ -687,18 +733,19 @@ var _ = Describe("ReplicaReconciler", func() {
 	})
 })
 
-// fakeProber lets tests control whether a model's gRPC address "responds".
+// fakeProber lets tests control how a model's gRPC address "responds".
+// Addresses with no entry default to ProbeUnreachable.
 type fakeProber struct {
-	alive map[string]bool
-	calls int
+	outcomes map[string]ProbeOutcome
+	calls    int
 }
 
-func (f *fakeProber) IsAlive(_ context.Context, address string) bool {
+func (f *fakeProber) Probe(_ context.Context, address string) ProbeOutcome {
 	f.calls++
-	if f.alive == nil {
-		return false
+	if f.outcomes == nil {
+		return ProbeUnreachable
 	}
-	return f.alive[address]
+	return f.outcomes[address]
 }
 
 var _ = Describe("ReplicaReconciler — state reconciliation", func() {
@@ -741,7 +788,7 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			Expect(db.Create(stale).Error).To(Succeed())
 			Expect(db.Create(fresh).Error).To(Succeed())
 
-			prober := &fakeProber{alive: map[string]bool{"10.0.0.1:12345": false}}
+			prober := &fakeProber{outcomes: map[string]ProbeOutcome{"10.0.0.1:12345": ProbeUnreachable}}
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
 				Registry:        registry,
 				DB:              db,
@@ -749,15 +796,19 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 				ProbeStaleAfter: 2 * time.Minute,
 			})
 
-			rc.probeLoadedModels(context.Background())
+			// A replica is reaped only after probeFailuresBeforeReap consecutive
+			// misses, so a busy-but-alive backend is not mistaken for a dead one.
+			for range probeFailuresBeforeReap {
+				rc.probeLoadedModels(context.Background())
+			}
 
 			// Stale was unreachable — row removed.
 			var after []NodeModel
 			Expect(db.Find(&after).Error).To(Succeed())
 			Expect(after).To(HaveLen(1))
 			Expect(after[0].ModelName).To(Equal("fresh-model"))
-			// Prober was only called once (the fresh row was filtered out).
-			Expect(prober.calls).To(Equal(1))
+			// Only the stale row was ever probed (the fresh row was filtered out).
+			Expect(prober.calls).To(Equal(probeFailuresBeforeReap))
 		})
 
 		It("keeps reachable models and bumps their updated_at", func() {
@@ -773,7 +824,7 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			}
 			Expect(db.Create(stale).Error).To(Succeed())
 
-			prober := &fakeProber{alive: map[string]bool{"10.0.0.1:12345": true}}
+			prober := &fakeProber{outcomes: map[string]ProbeOutcome{"10.0.0.1:12345": ProbeAlive}}
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
 				Registry:        registry,
 				DB:              db,

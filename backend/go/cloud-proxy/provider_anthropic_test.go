@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,15 +74,16 @@ func TestPredict_Anthropic_BasicMessages(t *testing.T) {
 	g.Expect(captured.Messages).To(HaveLen(1))
 	g.Expect(captured.Messages[0].Role).To(Equal("user"))
 	g.Expect(captured.MaxTokens).To(Equal(int32(32)))
-	g.Expect(captured.Temperature).NotTo(BeNil())
-	g.Expect(*captured.Temperature).To(Equal(0.5))
-	// Anthropic 400s when both temperature and top_p are set; the
-	// translator must prefer temperature and drop top_p.
+	// Newer Anthropic reasoning models reject requests carrying temperature
+	// ("`temperature` is deprecated for this model"); clients typically send
+	// only default sampling values, so the translator forwards neither.
+	g.Expect(captured.Temperature).To(BeNil())
 	g.Expect(captured.TopP).To(BeNil())
 	g.Expect(captured.Stream).To(BeFalse())
 }
 
-// When only top_p is set, it should be forwarded.
+// Sampling parameters are not forwarded at all — the upstream applies its
+// own defaults (newest models reject explicit temperature/top_p).
 func TestPredict_Anthropic_TopPOnly(t *testing.T) {
 	g := NewWithT(t)
 	srv, captured := fakeAnthropicUpstream(t, func(_ anthropicRequest) (int, string, string) {
@@ -99,11 +99,7 @@ func TestPredict_Anthropic_TopPOnly(t *testing.T) {
 	})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(captured.Temperature).To(BeNil())
-	// PredictOptions.TopP is float32 on the wire; the translator widens
-	// to float64 so 0.9 round-trips as 0.8999999761581421… — compare
-	// with a small tolerance rather than exact equality.
-	g.Expect(captured.TopP).NotTo(BeNil())
-	g.Expect(math.Abs(*captured.TopP - 0.9)).To(BeNumerically("<=", 1e-6))
+	g.Expect(captured.TopP).To(BeNil())
 }
 
 func TestPredict_Anthropic_DefaultsMaxTokens(t *testing.T) {
@@ -331,4 +327,63 @@ func TestBuildAnthropic_RoundTripsAssistantToolCalls(t *testing.T) {
 	g.Expect(r0["type"]).To(Equal("tool_result"))
 	g.Expect(r0["tool_use_id"]).To(Equal("call_abc"))
 	g.Expect(r0["content"]).To(Equal(`{"models":["a","b"]}`))
+}
+
+// TestPredict_Anthropic_PromptCache verifies that cache_prompt injects
+// exactly the intended cache_control breakpoints (system, last tool, last
+// message) when on, and none when off — asserting on the raw upstream body
+// because System becomes a block list that the typed struct hides.
+func TestPredict_Anthropic_PromptCache(t *testing.T) {
+	g := NewWithT(t)
+
+	// run issues one translate Predict and returns the raw body the fake
+	// Anthropic upstream received.
+	run := func(cachePrompt bool) string {
+		var rawBody string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, _ := io.ReadAll(r.Body)
+			rawBody = string(b)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"id":"m","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}],"model":"claude-3-5-sonnet-20241022","usage":{"input_tokens":5,"output_tokens":2}}`)
+		}))
+		defer srv.Close()
+
+		t.Setenv("CLOUD_PROXY_ANTHROPIC_FAKE", "sk-ant-fake")
+		cp := NewCloudProxy()
+		err := cp.Load(&pb.ModelOptions{
+			Model: "claude-local",
+			Proxy: &pb.ProxyOptions{
+				UpstreamUrl:   srv.URL,
+				Mode:          modeTranslate,
+				Provider:      providerAnthropic,
+				ApiKeyEnv:     "CLOUD_PROXY_ANTHROPIC_FAKE",
+				UpstreamModel: "claude-3-5-sonnet-20241022",
+				CachePrompt:   cachePrompt,
+			},
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+
+		_, err = cp.Predict(&pb.PredictOptions{
+			Messages: []*pb.Message{
+				{Role: "system", Content: "be brief"},
+				{Role: "user", Content: "hello"},
+			},
+			Tools:  `[{"type":"function","function":{"name":"t","parameters":{"type":"object"}}}]`,
+			Tokens: 32,
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+		return rawBody
+	}
+
+	// cache_prompt ON: three ephemeral breakpoints (system + last tool +
+	// last message), and system is emitted in block form.
+	on := run(true)
+	g.Expect(strings.Count(on, `"cache_control":{"type":"ephemeral"}`)).To(Equal(3),
+		"expected 3 breakpoints (system, tool, last message); body=%s", on)
+	g.Expect(on).To(ContainSubstring(`"system":[{"type":"text","text":"be brief"`))
+
+	// cache_prompt OFF: no breakpoints, system stays a bare string.
+	off := run(false)
+	g.Expect(off).NotTo(ContainSubstring("cache_control"))
+	g.Expect(off).To(ContainSubstring(`"system":"be brief"`))
 }

@@ -1,0 +1,57 @@
+---
+# Authoritative formal design for realtime machine M4: conversation compaction.
+#
+# Companion to:
+#   - docs/design/realtime-state-machines.md  (the map + invariants)
+#   - core/http/endpoints/openai/compactcoord (the Go implementation)
+#
+# The Go MBT adapter maps each action below onto compactcoord.Coordinator.Apply
+# and the StateGetter onto compactcoord.Coordinator.State, so this spec is the
+# source of truth the implementation is checked against.
+#
+# The property: at most one background compaction runs per conversation at a time,
+# so two goroutines never summarize+evict the same overflow concurrently (Part 4,
+# invariant #9). The legacy guard is a `compacting atomic.Bool` CAS; here `active`
+# is the number of in-flight compactions, started only from Idle.
+#
+# NOTE: FizzBee is pre-1.0. Validate the exact syntax/CLI against the version
+# pinned in formal-verification/README.md before trusting the gate.
+deadlock_detection: false
+---
+
+role Compactor:
+    action Init:
+        self.active = 0   # compactions in flight -- MUST stay in {0,1}
+        self.torn = 0     # session torn down (Terminated) -- absorbing
+
+    # maybeCompact wants to start a compaction. THE FIX: it starts one only when
+    # none is running (single-flight) and not after teardown. To reproduce the
+    # legacy race where two goroutines could both compact the same overflow,
+    # delete the `self.active == 0` guard (always increment): the checker then
+    # reports SingleFlight violated.
+    atomic action Trigger:
+        if self.active == 0 and self.torn == 0:
+            self.active += 1   # StartCompaction
+
+    # The background compaction goroutine finished (success, error, or timeout).
+    atomic action Finished:
+        if self.active > 0:
+            self.active -= 1
+
+    # Teardown: the connection (M1) parent cancels + joins the in-flight
+    # compaction, then terminates the coordinator so none can start afterwards.
+    atomic action Shutdown:
+        self.active = 0    # cancelled + joined
+        self.torn = 1
+
+action Init:
+    c = Compactor()
+
+# SAFETY: at most one compaction is ever in flight (Part 4, invariant #9).
+always assertion SingleFlight:
+    return c.active >= 0 and c.active <= 1
+
+# SAFETY: no compaction is in flight once torn (it was cancelled + joined at
+# teardown), so none outlives the session.
+always assertion NoneAfterTeardown:
+    return c.torn == 0 or c.active == 0

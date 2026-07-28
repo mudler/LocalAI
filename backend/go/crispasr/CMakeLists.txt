@@ -14,10 +14,10 @@ target_include_directories(gocrispasr PRIVATE
 # whisper. crispasr is the referencer; the backend static libs supply the
 # per-architecture symbols; ggml is the math/runtime base.
 target_link_libraries(gocrispasr PRIVATE
-    crispasr
+    crispasr-lib
     parakeet canary canary_ctc cohere granite_speech granite_nle
     voxtral voxtral4b qwen3_asr qwen3_tts orpheus chatterbox indextts
-    kokoro voxcpm2_tts m2m100 t5_translate wav2vec2-ggml vibevoice
+    kokoro voxcpm2_tts m2m100 t5_translate wav2vec2-ggml vibevoice f5-tts
     silero-lid pyannote-seg funasr paraformer sensevoice
     crisp_audio
     ggml)

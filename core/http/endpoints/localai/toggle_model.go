@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/pkg/model"
 )
@@ -24,7 +25,7 @@ import (
 // @Failure      404  {object}  ModelResponse
 // @Failure      500  {object}  ModelResponse
 // @Router       /api/models/{name}/{action} [put]
-func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	svc := modeladmin.NewConfigService(cl, appConfig)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
@@ -36,6 +37,14 @@ func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoade
 		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
+
+		// Enabling/disabling rewrites the config on disk and reloads only the
+		// local loader; tell peers to refresh so the model's availability is
+		// consistent across replicas. No-op in standalone mode.
+		if gs != nil {
+			gs.BroadcastModelsChanged(modelName, "install")
+		}
+
 		msg := fmt.Sprintf("Model '%s' has been %sd successfully.", modelName, action)
 		if action == modeladmin.ActionDisable {
 			msg += " The model will not be loaded on demand until re-enabled."
