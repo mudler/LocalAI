@@ -255,7 +255,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 	if activatedListener != nil {
-		defer activatedListener.Close()
+		defer func() {
+			_ = activatedListener.Close()
+		}()
 	}
 
 	os.MkdirAll(r.BackendsPath, 0750)
