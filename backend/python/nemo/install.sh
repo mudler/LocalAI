@@ -26,6 +26,16 @@ fi
 # for the same package and have no reason to move.
 if [ "x${BUILD_PROFILE}" == "xmps" ] || [ "x${BUILD_PROFILE}" == "xmetal" ]; then
     PYTHON_VERSION="3.12"
+    # PYTHON_PATCH must move with it. libbackend builds the portable-Python URL
+    # as cpython-${PYTHON_VERSION}.${PYTHON_PATCH}+${PY_STANDALONE_TAG}-..., and
+    # the default patch is 18 for 3.10.18; leaving it alone asks for a 3.12.18
+    # that was never released and the download 404s.
+    #
+    # 11, not the 12 that sglang/install.sh uses for l4t13: at the 20250818 tag
+    # python-build-standalone published 3.12.12 for linux aarch64 but not for
+    # aarch64-apple-darwin, where 3.12.11 is the newest. Verified against the
+    # release assets rather than copied across.
+    PYTHON_PATCH="11"
 fi
 
 installRequirements
