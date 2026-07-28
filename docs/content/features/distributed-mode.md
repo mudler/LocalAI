@@ -203,9 +203,10 @@ The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_T
 ### Watching Backend Installs
 
 While a worker downloads a backend, the admin operations strip at the top
-of the UI shows real-time progress: downloaded/total bytes and percentage. This works the same as single-node mode. An install that
-targets several workers is rolled up on the strip into one phrase,
-`2 of 5 nodes done`.
+of the UI shows real-time progress: a percentage, and, when the install
+targets several workers, a roll-up of how far the fan-out has got,
+`2 of 5 nodes done`. Per-file byte counts are not on the strip; they are in
+the per-node detail below.
 
 The per-node detail is on the **Operate → Activity** page
 ([Activity]({{% relref "operations/activity" %}})). When an install targets

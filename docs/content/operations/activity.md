@@ -22,12 +22,13 @@ shows one operation at a time:
 - otherwise the least advanced running operation, which is the one everything
   else is waiting behind.
 
-The line names the operation and shows downloaded/total bytes with a
-percentage. For artifact-backed gallery models it also names the phase
+The line names the operation, says what is being done to it, and shows a
+percentage. Artifact-backed gallery models report more: the phase
 (`Resolving files`, `Downloading`, `Verifying`, `Finalizing`, `Saving
-configuration`); an ordinary GGUF install has no phase to report. A backend
-installing on several workers is rolled up into one phrase, `2 of 5 nodes
-done`; the per-node breakdown lives on the Activity page.
+configuration`) and downloaded/total bytes. An ordinary GGUF install, a removal
+and a backend install report neither, so they show the verb, the name and the
+percentage alone. A backend installing on several workers is rolled up into one
+phrase, `2 of 5 nodes done`; the per-node breakdown lives on the Activity page.
 
 When more than one operation is in flight, a **N more** counter on the right
 links to the Activity page.
@@ -48,13 +49,13 @@ each shown only when it has something in it.
 
 ### In progress
 
-One card per running or queued operation, with what it is doing, downloaded and
-total bytes, a percentage, and an estimate of the time left once enough of the
-transfer has been observed to work one out. An operation you have cancelled can
-stay here reading **Cancelling** rather than disappearing at once. That is
-expected: the card goes on its own once the installer has stopped.
+One card per running or queued operation, with what it is doing and a
+percentage. Artifact-backed gallery models also report downloaded and total
+bytes, plus an estimate of the time left once enough of the transfer has been
+observed to work one out.
 
-An install scoped to a worker shows a per-node list, with one row per worker:
+An install that involves workers shows a per-node list, with one row per
+worker:
 
 - a status pill: **Queued**, **Downloading**, **Worker busy**, **Done** or
   **Failed**;
@@ -72,8 +73,10 @@ worker finishes.
 
 ### Needs attention
 
-Operations that failed and have not been acknowledged yet, each card carrying
-the error returned by the installer.
+Model and backend operations that failed and have not been acknowledged yet,
+each card carrying the error returned by the installer. Cluster staging never
+appears here: a staging job reports no error to the page, so a staging failure
+has to be read from the logs.
 
 ### Record
 
@@ -86,8 +89,8 @@ staging run leaves nothing behind here once it finishes.
 ### Filters
 
 Four chips above the sections filter the whole page: **All**, **Models**,
-**Backends** and **Cluster**. Cluster covers anything scoped to a node, which
-means staged model files and node-scoped backend installs.
+**Backends** and **Cluster**. Cluster covers staged model files and any install
+that involves workers, whether it targets one node or fans out across several.
 
 ## Cancelling, retrying and dismissing
 
@@ -100,8 +103,8 @@ cancel button; the page is the only place work is stopped or restarted.
   partial files in place so a later install resumes rather than starting over.
 - **Retry** is offered on a failed model or backend install. It acknowledges
   the failure, which moves it into the record, and installs the same target
-  again. It is not offered for a failed removal or a failed staging job, since
-  neither is restarted by reinstalling.
+  again. It is not offered on a failed removal, which is not restarted by
+  reinstalling.
 - **Dismiss**, the **X** on a failed card, acknowledges the failure without
   retrying. The operation moves into the record with a `failed` outcome; it is
   not deleted. This is why the same failure can be found either under **Needs
@@ -166,8 +169,8 @@ curl http://localhost:8080/api/operations/history \
       "isBackend": false,
       "taskType": "installation",
       "outcome": "completed",
-      "startedAt": "2026-07-27T10:02:11Z",
-      "finishedAt": "2026-07-27T10:03:23Z"
+      "startedAt": "2026-07-27T10:02:11.482913574Z",
+      "finishedAt": "2026-07-27T10:03:23.117402881Z"
     }
   ]
 }
