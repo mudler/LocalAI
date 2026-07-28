@@ -13,6 +13,11 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* A flex item's automatic minimum is its content's minimum, so without this
+     any single wide descendant (a long install error in the operations strip,
+     a wide table on a phone) drags the whole column past the viewport and
+     every page gets a horizontal scrollbar. */
+  min-width: 0;
   transition: margin-left var(--duration-normal) var(--ease-default);
 }
 
@@ -675,11 +680,8 @@
   border-bottom: 1px solid var(--color-border-subtle);
   border-left: 2px solid var(--color-primary);
   font-size: 0.8125rem;
-  /* An install error is arbitrarily long text. Containment keeps the strip's
-     width from depending on it: without this the strip reports a 1600px
-     minimum, .main-content is sized to fit, and every page under the strip
-     gets a horizontal scrollbar for as long as the failure is on screen. */
-  contain: inline-size;
+  /* An install error is arbitrarily long text. This clips it; the shrinking
+     is done by min-width on .main-content above and on __detail below. */
   overflow: hidden;
 }
 .operations-strip--error { border-left-color: var(--color-error); background: var(--color-error-light); }

@@ -6,6 +6,7 @@
     "moveToHistory": "Move to history",
     "moreCount": "{{count}} more",
     "waitingForInstaller": "waiting for the installer",
+    "progressLabel": "Progress for {{name}}",
     "toNode": "to {{node}}",
     "nodesDone": "{{done}} of {{total}} nodes done",
     "timeLeft": "{{value}} left",

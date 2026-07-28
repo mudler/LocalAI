@@ -155,7 +155,16 @@ export default function OperationsBar() {
       {showProgress && (
         <>
           <span className="operations-strip__pct" aria-hidden="true">{Math.round(shown.progress)}%</span>
-          <span className="operations-strip__track" aria-hidden="true">
+          {/* A progressbar carries the value without a live region's chatter:
+              its updates are readable on demand rather than announced. */}
+          <span
+            className="operations-strip__track"
+            role="progressbar"
+            aria-valuenow={Math.round(shown.progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={t('activity.progressLabel', { name: shown.name || shown.id })}
+          >
             <span className="operations-strip__fill" style={{ width: `${shown.progress}%` }} />
           </span>
         </>

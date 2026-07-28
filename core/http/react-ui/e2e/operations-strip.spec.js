@@ -114,6 +114,21 @@ test('a long error message does not widen the page', async ({ page }) => {
   expect(widths.scroll).toBeLessThanOrEqual(widths.client)
 })
 
+test('progress is exposed to assistive tech as a named progressbar', async ({ page }) => {
+  // The percentage text is aria-hidden so the live region stops re-announcing
+  // the strip once a second; the value has to reach assistive tech some other
+  // way, and a progressbar is read on demand rather than announced.
+  await stubOperations(page, [op({ progress: 45 })])
+
+  await page.goto('/app/models')
+  const bar = page.locator('.operations-strip__track')
+  await expect(bar).toHaveAttribute('role', 'progressbar')
+  await expect(bar).toHaveAttribute('aria-valuenow', '45')
+  await expect(bar).toHaveAttribute('aria-valuemin', '0')
+  await expect(bar).toHaveAttribute('aria-valuemax', '100')
+  await expect(bar).toHaveAttribute('aria-label', /model-a/)
+})
+
 test('a cancelling operation says so instead of reporting an install', async ({ page }) => {
   await stubOperations(page, [op({ isCancelled: true, cancellable: false })])
 
