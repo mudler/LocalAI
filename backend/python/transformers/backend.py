@@ -19,6 +19,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
 
 import torch
 import torch.cuda
@@ -26,7 +27,7 @@ import torch.cuda
 
 XPU=os.environ.get("XPU", "0") == "1"
 import transformers as transformers_module
-from transformers import AutoTokenizer, AutoModel, AutoProcessor, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria
+from transformers import AutoTokenizer, AutoModel, AutoProcessor, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria, pipeline
 from scipy.io import wavfile
 from sentence_transformers import SentenceTransformer
 
@@ -61,11 +62,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
     def LoadModel(self, request, context):
-        model_name = request.Model
-
-        # Check to see if the Model exists in the filesystem already.
-        if os.path.exists(request.ModelFile):
-            model_name = request.ModelFile
+        model_name, local_only = resolve_model_reference(request)
 
         compute = torch.float16
         if request.F16Memory == True:
@@ -150,7 +147,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                   device_map=device_map,
                                                                   load_in_4bit=xpu_4bit,
                                                                   load_in_8bit=xpu_8bit,
-                                                                  torch_dtype=compute)
+                                                                  torch_dtype=compute,
+                                                                  local_files_only=local_only)
             elif request.Type == "OVModelForCausalLM":
                 from optimum.intel.openvino import OVModelForCausalLM
                 from openvino.runtime import Core
@@ -171,7 +169,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 compile=True,
                                                                 trust_remote_code=request.TrustRemoteCode,
                                                                 ov_config=ovconfig,
-                                                                device=device_map)
+                                                                device=device_map,
+                                                                local_files_only=local_only)
                 self.OV = True
             elif request.Type == "OVModelForFeatureExtraction":
                 from optimum.intel.openvino import OVModelForFeatureExtraction
@@ -194,12 +193,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                                                                 trust_remote_code=request.TrustRemoteCode,
                                                                 ov_config=ovconfig,
                                                                 export=True,
-                                                                device=device_map)
+                                                                device=device_map,
+                                                                local_files_only=local_only)
                 self.OV = True
             elif request.Type == "SentenceTransformer":
                 autoTokenizer = False
-                self.model = SentenceTransformer(model_name, trust_remote_code=request.TrustRemoteCode)
+                self.model = SentenceTransformer(
+                    model_name,
+                    trust_remote_code=request.TrustRemoteCode,
+                    local_files_only=local_only,
+                )
                 self.SentenceTransformer = True
+            elif request.Type == "TokenClassification":
+                # NER / PII tagging via HuggingFace's token-classification
+                # pipeline. aggregation_strategy="simple" merges B-/I- tags
+                # into single spans and gives byte offsets back. The
+                # tokenizer is bundled inside the pipeline, so we skip the
+                # AutoTokenizer load below.
+                autoTokenizer = False
+                self.tokenClassifier = pipeline(
+                    "token-classification",
+                    model=model_name,
+                    aggregation_strategy="simple",
+                    device=0 if self.CUDA else -1,
+                    trust_remote_code=request.TrustRemoteCode,
+                    model_kwargs={"local_files_only": local_only},
+                )
+                self.TokenClassification = True
             else:
                 # Generic: dynamically resolve model class from transformers
                 model_type = TYPE_ALIASES.get(request.Type, request.Type)
@@ -216,6 +236,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     quantization_config=quantization,
                     device_map=device_map,
                     torch_dtype=compute,
+                    local_files_only=local_only,
                 )
 
                 # Try to load a processor (needed for TTS/audio models)
@@ -223,6 +244,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     self.processor = AutoProcessor.from_pretrained(
                         model_name,
                         trust_remote_code=request.TrustRemoteCode,
+                        local_files_only=local_only,
                     )
                     self.GenericTTS = True
                     print(f"Loaded processor for {model_name}", file=sys.stderr)
@@ -237,7 +259,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.max_tokens = self.options.get("max_new_tokens", 512)
 
             if autoTokenizer:
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    local_files_only=local_only,
+                )
                 self.XPU = False
 
                 if XPU and self.OV == False:
@@ -252,6 +277,78 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print("Error:", err, file=sys.stderr)
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         return backend_pb2.Result(message="Model loaded successfully", success=True)
+
+    def TokenClassify(self, request, context):
+        # Runs HuggingFace's token-classification pipeline and returns
+        # the aggregated entity spans.
+        #
+        # OFFSET UNITS: the proto contract (TokenClassifyEntity.start/end)
+        # is UTF-8 BYTE offsets into request.text. HuggingFace's pipeline,
+        # however, reports start/end as CODEPOINT offsets into the Python
+        # str (derived from the fast tokenizer's offset_mapping). Those
+        # coincide only for ASCII; for any multi-byte character they
+        # diverge — and this entry point exists to serve the explicitly
+        # multilingual privacy-filter model, so the conversion is
+        # mandatory, not a nicety. We build one prefix table mapping each
+        # codepoint index to its byte offset and translate every span.
+        if not getattr(self, "TokenClassification", False):
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("model was not loaded as Type=TokenClassification")
+            return backend_pb2.TokenClassifyResponse()
+        try:
+            results = self.tokenClassifier(request.text)
+        except Exception as err:
+            print("TokenClassify error:", err, file=sys.stderr)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"token-classification failed: {err}")
+            return backend_pb2.TokenClassifyResponse()
+
+        text = request.text
+        # byte_at[i] = byte length of text[:i]; len == len(text)+1 so an
+        # exclusive end offset that points one past the last codepoint
+        # maps to len(text.encode("utf-8")). Built in a single O(n) pass.
+        byte_at = [0] * (len(text) + 1)
+        acc = 0
+        for i, ch in enumerate(text):
+            byte_at[i] = acc
+            acc += len(ch.encode("utf-8"))
+        byte_at[len(text)] = acc
+
+        def to_byte(cp_index, default):
+            # Clamp out-of-range codepoint indices into the table rather
+            # than throwing: a span we can't place is better dropped Go-side
+            # than crashing the RPC.
+            if cp_index is None:
+                cp_index = default
+            if cp_index < 0:
+                cp_index = 0
+            elif cp_index > len(text):
+                cp_index = len(text)
+            return byte_at[cp_index]
+
+        threshold = request.threshold if request.threshold > 0 else 0.0
+        entities = []
+        for r in results:
+            score = float(r.get("score", 0.0))
+            if score < threshold:
+                continue
+            cp_start = r.get("start")
+            cp_end = r.get("end")
+            start = to_byte(cp_start, 0)
+            end = to_byte(cp_end, 0)
+            entities.append(backend_pb2.TokenClassifyEntity(
+                entity_group=str(r.get("entity_group") or r.get("entity") or ""),
+                start=start,
+                end=end,
+                score=score,
+                # Slice the original text by the (codepoint) span so the
+                # echoed text matches start..end exactly, instead of the
+                # pipeline's reconstructed "word" which can carry wordpiece
+                # artifacts. Falls back to "word" when offsets are absent.
+                text=(text[cp_start:cp_end] if cp_start is not None and cp_end is not None
+                      else str(r.get("word", ""))),
+            ))
+        return backend_pb2.TokenClassifyResponse(entities=entities)
 
     def Embedding(self, request, context):
         set_seed(request.Seed)

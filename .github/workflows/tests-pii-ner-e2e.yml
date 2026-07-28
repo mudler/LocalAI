@@ -1,0 +1,97 @@
+---
+name: 'PII NER tier E2E (live GGUF, CPU)'
+
+# Runs the real privacy-filter GGUF NER tier end-to-end on CPU — the gap the
+# hermetic tests/e2e suite cannot cover (it only exercises the in-process
+# pattern tier). Heavy (builds the C++ backend image + downloads a ~2.7 GB
+# GGUF), so it is path-filtered on PRs and otherwise runs nightly / on demand.
+#
+# This drives the container-level harness (tests/e2e-backends) via
+# `make test-extra-backend-privacy-filter`: it builds the privacy-filter image,
+# downloads the model, loads it on CPU, and asserts byte-correct, UTF-8-aligned
+# TokenClassify spans. The complementary HTTP-path specs in tests/e2e
+# (e2e_pii_ner_test.go) Skip unless PII_NER_MODEL_GGUF is wired.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+  push:
+    branches:
+      - master
+    paths:
+      - 'backend/cpp/privacy-filter/**'
+      - 'backend/Dockerfile.privacy-filter'
+      - 'core/services/routing/pii/**'
+      - 'core/services/routing/piidetector/**'
+      - 'core/backend/token_classify.go'
+      - 'core/http/endpoints/localai/pii.go'
+      - 'core/schema/pii.go'
+      - 'tests/e2e-backends/**'
+      - 'tests/e2e/e2e_pii_ner_test.go'
+      - 'tests/e2e/e2e_suite_test.go'
+      - '.github/workflows/tests-pii-ner-e2e.yml'
+  pull_request:
+    paths:
+      - 'backend/cpp/privacy-filter/**'
+      - 'backend/Dockerfile.privacy-filter'
+      - 'core/services/routing/pii/**'
+      - 'core/services/routing/piidetector/**'
+      - 'core/backend/token_classify.go'
+      - 'core/http/endpoints/localai/pii.go'
+      - 'core/schema/pii.go'
+      - 'tests/e2e-backends/**'
+      - 'tests/e2e/e2e_pii_ner_test.go'
+      - 'tests/e2e/e2e_suite_test.go'
+      - '.github/workflows/tests-pii-ner-e2e.yml'
+
+concurrency:
+  group: ci-tests-pii-ner-e2e-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests-pii-ner-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.25.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune --all --force || true
+          df -h
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+      # Builds local-ai-backend:privacy-filter, downloads the GGUF, loads it on
+      # CPU and runs the token_classify capability spec (byte-offset contract).
+      - name: Run live PII NER backend E2E
+        run: PATH="$PATH:$HOME/go/bin" make test-extra-backend-privacy-filter
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

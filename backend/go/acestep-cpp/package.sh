@@ -13,6 +13,7 @@ mkdir -p $CURDIR/package/lib
 
 cp -avf $CURDIR/acestep-cpp $CURDIR/package/
 cp -fv $CURDIR/libgoacestepcpp-*.so $CURDIR/package/
+cp -fv $CURDIR/libgoacestepcpp-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries

@@ -3,7 +3,6 @@ package localaitools
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -33,18 +32,29 @@ type fakeClient struct {
 	importModelURI      func(ImportModelURIRequest) (*ImportModelURIResponse, error)
 	deleteModel         func(string) error
 	editModelConfig     func(string, map[string]any) error
+	setAlias            func(string, string) error
+	listAliases         func() ([]AliasInfo, error)
 	reloadModels        func() error
+	loadModel           func(string) ([]string, error)
 	listBackends        func() ([]Backend, error)
 	listKnownBackends   func() ([]schema.KnownBackend, error)
 	installBackend      func(InstallBackendRequest) (string, error)
 	upgradeBackend      func(string) (string, error)
 	systemInfo          func() (*SystemInfo, error)
 	listNodes           func() ([]Node, error)
+	setNodeVRAMBudget   func(string, string) error
 	vramEstimate        func(VRAMEstimateRequest) (*vram.EstimateResult, error)
 	toggleModelState    func(string, modeladmin.Action) error
 	toggleModelPinned   func(string, modeladmin.Action) error
 	getBranding         func() (*Branding, error)
 	setBranding         func(SetBrandingRequest) (*Branding, error)
+	listVoiceProfiles   func() ([]VoiceProfile, error)
+	createVoiceProfile  func(CreateVoiceProfileRequest) (*VoiceProfile, error)
+	deleteVoiceProfile  func(string) error
+	getUsageStats       func(UsageStatsQuery) (*UsageStats, error)
+	getPIIEvents        func(PIIEventsQuery) ([]PIIEvent, error)
+	getMiddlewareStatus func() (*MiddlewareStatus, error)
+	getRouterDecisions  func(RouterDecisionsQuery) ([]RouterDecision, error)
 }
 
 type fakeCall struct {
@@ -140,12 +150,36 @@ func (f *fakeClient) EditModelConfig(_ context.Context, name string, patch map[s
 	return nil
 }
 
+func (f *fakeClient) SetAlias(_ context.Context, name, target string) error {
+	f.record("SetAlias", []any{name, target})
+	if f.setAlias != nil {
+		return f.setAlias(name, target)
+	}
+	return nil
+}
+
+func (f *fakeClient) ListAliases(_ context.Context) ([]AliasInfo, error) {
+	f.record("ListAliases", nil)
+	if f.listAliases != nil {
+		return f.listAliases()
+	}
+	return []AliasInfo{}, nil
+}
+
 func (f *fakeClient) ReloadModels(_ context.Context) error {
 	f.record("ReloadModels", nil)
 	if f.reloadModels != nil {
 		return f.reloadModels()
 	}
 	return nil
+}
+
+func (f *fakeClient) LoadModel(_ context.Context, model string) ([]string, error) {
+	f.record("LoadModel", model)
+	if f.loadModel != nil {
+		return f.loadModel(model)
+	}
+	return []string{model}, nil
 }
 
 func (f *fakeClient) ListBackends(_ context.Context) ([]Backend, error) {
@@ -196,6 +230,14 @@ func (f *fakeClient) ListNodes(_ context.Context) ([]Node, error) {
 	return nil, nil
 }
 
+func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string) error {
+	f.record("SetNodeVRAMBudget", []any{nodeID, budget})
+	if f.setNodeVRAMBudget != nil {
+		return f.setNodeVRAMBudget(nodeID, budget)
+	}
+	return nil
+}
+
 func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {
 	f.record("VRAMEstimate", req)
 	if f.vramEstimate != nil {
@@ -236,5 +278,67 @@ func (f *fakeClient) SetBranding(_ context.Context, req SetBrandingRequest) (*Br
 	return &Branding{InstanceName: "LocalAI"}, nil
 }
 
-// boom is a sentinel error used by tests that want a deterministic error string.
-var boom = fmt.Errorf("boom")
+func (f *fakeClient) ListVoiceProfiles(_ context.Context) ([]VoiceProfile, error) {
+	f.record("ListVoiceProfiles", nil)
+	if f.listVoiceProfiles != nil {
+		return f.listVoiceProfiles()
+	}
+	return []VoiceProfile{}, nil
+}
+
+func (f *fakeClient) CreateVoiceProfile(_ context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error) {
+	f.record("CreateVoiceProfile", req)
+	if f.createVoiceProfile != nil {
+		return f.createVoiceProfile(req)
+	}
+	return &VoiceProfile{ID: "00000000-0000-0000-0000-000000000001", Name: req.Name}, nil
+}
+
+func (f *fakeClient) DeleteVoiceProfile(_ context.Context, id string) error {
+	f.record("DeleteVoiceProfile", id)
+	if f.deleteVoiceProfile != nil {
+		return f.deleteVoiceProfile(id)
+	}
+	return nil
+}
+
+func (f *fakeClient) GetUsageStats(_ context.Context, q UsageStatsQuery) (*UsageStats, error) {
+	f.record("GetUsageStats", q)
+	if f.getUsageStats != nil {
+		return f.getUsageStats(q)
+	}
+	return &UsageStats{
+		Viewer: UsageViewer{ID: "fake-user", Name: "fake", Role: "user"},
+		Period: "month",
+	}, nil
+}
+
+func (f *fakeClient) GetPIIEvents(_ context.Context, q PIIEventsQuery) ([]PIIEvent, error) {
+	f.record("GetPIIEvents", q)
+	if f.getPIIEvents != nil {
+		return f.getPIIEvents(q)
+	}
+	return []PIIEvent{}, nil
+}
+
+func (f *fakeClient) GetRouterDecisions(_ context.Context, q RouterDecisionsQuery) ([]RouterDecision, error) {
+	f.record("GetRouterDecisions", q)
+	if f.getRouterDecisions != nil {
+		return f.getRouterDecisions(q)
+	}
+	return []RouterDecision{}, nil
+}
+
+func (f *fakeClient) GetMiddlewareStatus(_ context.Context) (*MiddlewareStatus, error) {
+	f.record("GetMiddlewareStatus", nil)
+	if f.getMiddlewareStatus != nil {
+		return f.getMiddlewareStatus()
+	}
+	return &MiddlewareStatus{
+		PII: MiddlewarePIIStatus{
+			EnabledGlobally: true,
+			Models:          []MiddlewarePIIModel{},
+		},
+		Router: MiddlewareRouterStatus{Configured: false, Models: []string{}},
+	}, nil
+}

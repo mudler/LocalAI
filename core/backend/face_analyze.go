@@ -32,14 +32,15 @@ func FaceAnalyze(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
 	res, err := faceModel.FaceAnalyze(ctx, &proto.FaceAnalyzeRequest{
-		Img:          img,
-		Actions:      actions,
-		AntiSpoofing: antiSpoofing,
+		ModelIdentity: modelConfig.Model,
+		Img:           img,
+		Actions:       actions,
+		AntiSpoofing:  antiSpoofing,
 	})
 
 	if appConfig.EnableTracing {

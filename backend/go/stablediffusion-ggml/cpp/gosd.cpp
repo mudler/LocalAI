@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <regex>
 #include <errno.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -376,6 +377,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *clip_g_path  = "";
     const char *t5xxl_path  = "";
     const char *vae_path  = "";
+    const char *audio_vae_path = "";
+    const char *embeddings_connectors_path = "";
     const char *scheduler_str = "";
     const char *sampler = "";
     const char *clip_vision_path = "";
@@ -383,14 +386,23 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *llm_vision_path = "";
     const char *diffusion_model_path = stableDiffusionModel;
     const char *high_noise_diffusion_model_path = "";
+    const char *uncond_diffusion_model_path = "";
     const char *taesd_path  = "";
     const char *control_net_path = "";
     const char *embedding_dir = "";
     const char *photo_maker_path = "";
+    const char *pulid_weights_path = "";
     const char *tensor_type_rules = "";
     char *lora_dir = model_path;
 
-    bool vae_decode_only = true;
+    // Upstream backend/parameter placement specs (see docs/.../stablediffusion).
+    // Empty means "leave at upstream default" (nullptr).
+    const char *backend_arg = "";
+    const char *params_backend_arg = "";
+    const char *rpc_servers_arg = "";
+    const char *max_vram_arg = "";
+    bool stream_layers = false;
+
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
     enum rng_type_t rng_type = CUDA_RNG;
@@ -414,7 +426,9 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     // If options is not NULL, parse options
     for (int i = 0; options[i] != NULL; i++) {
         const char *optname = strtok(options[i], ":");
-        const char *optval = strtok(NULL, ":");
+        // Take everything after the first ':' as the value so values may
+        // themselves contain colons (e.g. rpc_servers host:port lists).
+        const char *optval = strtok(NULL, "");
         if (optval == NULL) {
             optval = "true";
         }
@@ -430,6 +444,12 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         }
         if (!strcmp(optname, "vae_path")) {
             vae_path = strdup(optval);
+        }
+        if (!strcmp(optname, "audio_vae_path")) {
+            audio_vae_path = strdup(optval);
+        }
+        if (!strcmp(optname, "embeddings_connectors_path")) {
+            embeddings_connectors_path = strdup(optval);
         }
         if (!strcmp(optname, "scheduler")) {
             scheduler_str = optval;
@@ -463,6 +483,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "llm_vision_path")) llm_vision_path = strdup(optval);
         if (!strcmp(optname, "diffusion_model_path")) diffusion_model_path = strdup(optval);
         if (!strcmp(optname, "high_noise_diffusion_model_path")) high_noise_diffusion_model_path = strdup(optval);
+        if (!strcmp(optname, "uncond_diffusion_model_path")) uncond_diffusion_model_path = strdup(optval);
         if (!strcmp(optname, "taesd_path")) taesd_path = strdup(optval);
         if (!strcmp(optname, "control_net_path")) control_net_path = strdup(optval);
         if (!strcmp(optname, "embedding_dir")) {
@@ -479,9 +500,21 @@ int load_model(const char *model, char *model_path, char* options[], int threads
             }
         }
         if (!strcmp(optname, "photo_maker_path")) photo_maker_path = strdup(optval);
+        if (!strcmp(optname, "pulid_weights_path")) pulid_weights_path = strdup(optval);
         if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = strdup(optval);
 
-        if (!strcmp(optname, "vae_decode_only")) vae_decode_only = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
+        // Backend / parameter placement specs (see prepare_backend_assignments
+        // in the upstream CLI). These compose with the legacy keep_*_on_cpu /
+        // offload_params_to_cpu booleans below.
+        if (!strcmp(optname, "backend")) backend_arg = strdup(optval);
+        if (!strcmp(optname, "params_backend")) params_backend_arg = strdup(optval);
+        if (!strcmp(optname, "rpc_servers")) rpc_servers_arg = strdup(optval);
+        if (!strcmp(optname, "max_vram")) max_vram_arg = strdup(optval);
+        if (!strcmp(optname, "stream_layers")) stream_layers = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
+
+        // vae_decode_only is still accepted for backwards compatibility with
+        // existing gallery configs, but upstream dropped the option (the model
+        // now decides), so it is parsed and ignored.
         if (!strcmp(optname, "offload_params_to_cpu")) offload_params_to_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_clip_on_cpu")) keep_clip_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_control_net_on_cpu")) keep_control_net_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
@@ -562,7 +595,10 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.llm_vision_path = llm_vision_path;
     ctx_params.diffusion_model_path = diffusion_model_path;
     ctx_params.high_noise_diffusion_model_path = high_noise_diffusion_model_path;
+    ctx_params.uncond_diffusion_model_path = uncond_diffusion_model_path;
     ctx_params.vae_path = vae_path;
+    ctx_params.audio_vae_path = audio_vae_path;
+    ctx_params.embeddings_connectors_path = embeddings_connectors_path;
     ctx_params.taesd_path = taesd_path;
     ctx_params.control_net_path = control_net_path;
     if (lora_dir && strlen(lora_dir) > 0) {
@@ -577,28 +613,63 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.embeddings = embedding_vec.empty() ? NULL : embedding_vec.data();
     ctx_params.embedding_count = static_cast<uint32_t>(embedding_vec.size());
     ctx_params.photo_maker_path = photo_maker_path;
+    if (strlen(pulid_weights_path) > 0) ctx_params.pulid_weights_path = pulid_weights_path;
     ctx_params.tensor_type_rules = tensor_type_rules;
-    ctx_params.vae_decode_only = vae_decode_only;
-    // XXX: Setting to true causes a segfault on the second run
-    ctx_params.free_params_immediately = false;
     ctx_params.n_threads = n_threads;
     ctx_params.rng_type = rng_type;
-    ctx_params.keep_clip_on_cpu = keep_clip_on_cpu;
     if (wtype != SD_TYPE_COUNT) ctx_params.wtype = wtype;
     if (sampler_rng_type != RNG_TYPE_COUNT) ctx_params.sampler_rng_type = sampler_rng_type;
     if (prediction != PREDICTION_COUNT) ctx_params.prediction = prediction;
     if (lora_apply_mode != LORA_APPLY_MODE_COUNT) ctx_params.lora_apply_mode = lora_apply_mode;
-    ctx_params.offload_params_to_cpu = offload_params_to_cpu;
-    ctx_params.keep_control_net_on_cpu = keep_control_net_on_cpu;
-    ctx_params.keep_vae_on_cpu = keep_vae_on_cpu;
+    // Backend / parameter placement specs. Upstream replaced the boolean
+    // CPU-offload knobs (offload_params_to_cpu, keep_clip_on_cpu, keep_vae_on_cpu,
+    // keep_control_net_on_cpu) with these specs. Seed from the explicit
+    // backend/params_backend options, then prepend the legacy boolean-derived
+    // assignments, mirroring prepare_backend_assignments() in the upstream CLI.
+    // These strings must outlive new_sd_ctx() below.
+    std::string backend_spec = backend_arg;
+    std::string params_backend_spec = params_backend_arg;
+    auto prepend_spec = [](std::string& spec, const char* assignment) {
+        spec = spec.empty() ? std::string(assignment) : std::string(assignment) + "," + spec;
+    };
+    if (offload_params_to_cpu) prepend_spec(params_backend_spec, "*=cpu");
+    if (keep_clip_on_cpu) prepend_spec(backend_spec, "te=cpu");
+    if (keep_vae_on_cpu) prepend_spec(backend_spec, "vae=cpu");
+    if (keep_control_net_on_cpu) prepend_spec(backend_spec, "controlnet=cpu");
+    if (!backend_spec.empty()) ctx_params.backend = backend_spec.c_str();
+    if (!params_backend_spec.empty()) ctx_params.params_backend = params_backend_spec.c_str();
+    // RPC servers: prefer the explicit option, otherwise fall back to the
+    // LLAMACPP_GRPC_SERVERS env var. LocalAI's p2p worker mode populates that
+    // var with discovered ggml rpc-server workers (shared with the llama.cpp
+    // backend), so distributed image generation works with no extra config.
+    if (strlen(rpc_servers_arg) > 0) {
+        ctx_params.rpc_servers = rpc_servers_arg;
+    } else {
+        const char* env_rpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
+        if (env_rpc_servers != NULL && strlen(env_rpc_servers) > 0) {
+            ctx_params.rpc_servers = env_rpc_servers;
+        }
+    }
+    // max_vram: GiB budget or per-backend spec for graph-cut segmented param
+    // offload ("0" = disabled, "-1" = auto). stream_layers only has effect when
+    // max_vram is set.
+    if (strlen(max_vram_arg) > 0) ctx_params.max_vram = max_vram_arg;
+    ctx_params.stream_layers = stream_layers;
     ctx_params.diffusion_flash_attn = diffusion_flash_attn;
     ctx_params.tae_preview_only = tae_preview_only;
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
     ctx_params.vae_conv_direct = vae_conv_direct;
     ctx_params.force_sdxl_vae_conv_scale = force_sdxl_vae_conv_scale;
-    ctx_params.chroma_use_dit_mask = chroma_use_dit_mask;
-    ctx_params.chroma_use_t5_mask = chroma_use_t5_mask;
-    ctx_params.chroma_t5_mask_pad = chroma_t5_mask_pad;
+    // Chroma knobs: upstream dropped the dedicated chroma_use_dit_mask /
+    // chroma_use_t5_mask / chroma_t5_mask_pad struct fields and now reads them
+    // from the generic model_args key=value spec (parse_key_value_args). Emit
+    // them there so the existing chroma options keep working. This string must
+    // outlive new_sd_ctx() below.
+    std::string model_args_spec =
+        "chroma_use_dit_mask=" + std::string(chroma_use_dit_mask ? "true" : "false") +
+        ",chroma_use_t5_mask=" + std::string(chroma_use_t5_mask ? "true" : "false") +
+        ",chroma_t5_mask_pad=" + std::to_string(chroma_t5_mask_pad);
+    ctx_params.model_args = model_args_spec.c_str();
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {
@@ -734,6 +805,7 @@ void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
 int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
 
     sd_image_t* results;
+    int num_results_out = 0;
 
     std::vector<int> skip_layers = {7, 8, 9};
 
@@ -930,9 +1002,13 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
             sd_ctx_params_to_str(&ctx_params),
             sd_img_gen_params_to_str(p));
 
-    results = generate_image(sd_c, p);
+    bool gen_ok = generate_image(sd_c, p, &results, &num_results_out);
 
     std::free(p);
+
+    if (!gen_ok || num_results_out == 0) {
+        results = NULL;
+    }
 
     if (results == NULL) {
         fprintf (stderr, "NO results\n");
@@ -1065,9 +1141,71 @@ static uint8_t* load_and_resize_image(const char* path, int target_width, int ta
     return buf;
 }
 
+// Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
+// sd_audio_t.data is planar (all channel 0 samples, then channel 1, etc.) — we
+// interleave on the fly so ffmpeg's standard wav demuxer can read it directly.
+// Returns 0 on success and fills wav_path (must be at least 64 bytes).
+static int write_planar_float_wav(const sd_audio_t* a, char* wav_path, size_t wav_path_sz) {
+    if (!a || !a->data || a->sample_count == 0 || a->channels == 0 || a->sample_rate == 0) {
+        return -1;
+    }
+
+    snprintf(wav_path, wav_path_sz, "/tmp/gosd-audio-XXXXXX.wav");
+    int fd = mkstemps(wav_path, 4);
+    if (fd < 0) { perror("mkstemps wav"); return -1; }
+    FILE* f = fdopen(fd, "wb");
+    if (!f) { perror("fdopen wav"); close(fd); return -1; }
+
+    uint64_t frames = a->sample_count;
+    uint32_t channels = a->channels;
+    uint32_t sample_rate = a->sample_rate;
+    uint64_t total_samples64 = frames * (uint64_t)channels;
+    uint64_t data_bytes64 = total_samples64 * sizeof(float);
+    if (data_bytes64 > 0xFFFFFFFFull - 44) {
+        fprintf(stderr, "audio too large for 32-bit WAV (%" PRIu64 " bytes)\n", data_bytes64);
+        fclose(f);
+        unlink(wav_path);
+        return -1;
+    }
+    uint32_t data_bytes = (uint32_t)data_bytes64;
+    uint32_t riff_size = 36 + data_bytes;
+    uint16_t fmt_code = 3;                // WAVE_FORMAT_IEEE_FLOAT
+    uint16_t bits_per_sample = 32;
+    uint16_t block_align = (uint16_t)(channels * sizeof(float));
+    uint32_t byte_rate = sample_rate * block_align;
+    uint16_t ch16 = (uint16_t)channels;
+    uint32_t fmt_size = 16;
+
+    fwrite("RIFF", 1, 4, f);
+    fwrite(&riff_size, 4, 1, f);
+    fwrite("WAVEfmt ", 1, 8, f);
+    fwrite(&fmt_size, 4, 1, f);
+    fwrite(&fmt_code, 2, 1, f);
+    fwrite(&ch16, 2, 1, f);
+    fwrite(&sample_rate, 4, 1, f);
+    fwrite(&byte_rate, 4, 1, f);
+    fwrite(&block_align, 2, 1, f);
+    fwrite(&bits_per_sample, 2, 1, f);
+    fwrite("data", 1, 4, f);
+    fwrite(&data_bytes, 4, 1, f);
+
+    // Interleave planar [ch0_samples..., ch1_samples...] → [ch0_s0, ch1_s0, ...]
+    for (uint64_t s = 0; s < frames; s++) {
+        for (uint32_t c = 0; c < channels; c++) {
+            float v = a->data[(size_t)c * frames + s];
+            fwrite(&v, sizeof(float), 1, f);
+        }
+    }
+    fclose(f);
+    return 0;
+}
+
 // Pipe raw RGB/RGBA frames to ffmpeg stdin and let it produce an MP4 at dst.
-// Uses fork+execvp to avoid shell interpretation of dst.
-static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, const char* dst) {
+// Uses fork+execvp to avoid shell interpretation of dst. When `audio` is
+// non-null, the audio waveform is staged to a temp WAV and added as a second
+// ffmpeg input so the final MP4 contains both video and AAC audio.
+static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
+                                  const sd_audio_t* audio, const char* dst) {
     if (num_frames <= 0 || !frames || !frames[0].data) {
         fprintf(stderr, "ffmpeg_mux: empty frames\n");
         return 1;
@@ -1082,38 +1220,87 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
     snprintf(size_str, sizeof(size_str), "%dx%d", width, height);
     snprintf(fps_str, sizeof(fps_str), "%d", fps);
 
+    // Optional audio: write a temp WAV file if the model produced audio.
+    char wav_path[64] = {0};
+    bool have_audio = false;
+    if (audio && audio->data && audio->sample_count > 0 && audio->channels > 0 && audio->sample_rate > 0) {
+        if (write_planar_float_wav(audio, wav_path, sizeof(wav_path)) == 0) {
+            have_audio = true;
+            fprintf(stderr, "ffmpeg_mux: audio %u Hz × %u ch × %" PRIu64 " frames → %s\n",
+                    audio->sample_rate, audio->channels, audio->sample_count, wav_path);
+        } else {
+            fprintf(stderr, "ffmpeg_mux: failed to stage audio; producing silent video\n");
+        }
+    }
+
     int pipefd[2];
-    if (pipe(pipefd) != 0) { perror("pipe"); return 1; }
+    if (pipe(pipefd) != 0) {
+        perror("pipe");
+        if (have_audio) unlink(wav_path);
+        return 1;
+    }
 
     pid_t pid = fork();
-    if (pid < 0) { perror("fork"); close(pipefd[0]); close(pipefd[1]); return 1; }
+    if (pid < 0) {
+        perror("fork");
+        close(pipefd[0]); close(pipefd[1]);
+        if (have_audio) unlink(wav_path);
+        return 1;
+    }
 
     if (pid == 0) {
         // child
         close(pipefd[1]);
         if (dup2(pipefd[0], STDIN_FILENO) < 0) { perror("dup2"); _exit(127); }
         close(pipefd[0]);
-        std::vector<char*> argv = {
-            const_cast<char*>("ffmpeg"),
-            const_cast<char*>("-y"),
-            const_cast<char*>("-hide_banner"),
-            const_cast<char*>("-loglevel"), const_cast<char*>("warning"),
-            const_cast<char*>("-f"), const_cast<char*>("rawvideo"),
-            const_cast<char*>("-pix_fmt"), const_cast<char*>(pix_fmt_in),
-            const_cast<char*>("-s"), size_str,
-            const_cast<char*>("-framerate"), fps_str,
-            const_cast<char*>("-i"), const_cast<char*>("-"),
-            const_cast<char*>("-c:v"), const_cast<char*>("libx264"),
-            const_cast<char*>("-pix_fmt"), const_cast<char*>("yuv420p"),
-            const_cast<char*>("-movflags"), const_cast<char*>("+faststart"),
-            // Force MP4 container. Distributed LocalAI hands us a staging
-            // path (e.g. /staging/localai-output-NNN.tmp) with a non-standard
-            // extension; relying on filename suffix makes ffmpeg bail with
-            // "Unable to choose an output format".
-            const_cast<char*>("-f"), const_cast<char*>("mp4"),
-            const_cast<char*>(dst),
-            nullptr
-        };
+        std::vector<char*> argv;
+        argv.push_back(const_cast<char*>("ffmpeg"));
+        argv.push_back(const_cast<char*>("-y"));
+        argv.push_back(const_cast<char*>("-hide_banner"));
+        argv.push_back(const_cast<char*>("-loglevel"));
+        argv.push_back(const_cast<char*>("warning"));
+        // Input 0: raw video from stdin
+        argv.push_back(const_cast<char*>("-f"));
+        argv.push_back(const_cast<char*>("rawvideo"));
+        argv.push_back(const_cast<char*>("-pix_fmt"));
+        argv.push_back(const_cast<char*>(pix_fmt_in));
+        argv.push_back(const_cast<char*>("-s"));
+        argv.push_back(size_str);
+        argv.push_back(const_cast<char*>("-framerate"));
+        argv.push_back(fps_str);
+        argv.push_back(const_cast<char*>("-i"));
+        argv.push_back(const_cast<char*>("-"));
+        // Input 1: optional audio WAV
+        if (have_audio) {
+            argv.push_back(const_cast<char*>("-i"));
+            argv.push_back(wav_path);
+            argv.push_back(const_cast<char*>("-map"));
+            argv.push_back(const_cast<char*>("0:v:0"));
+            argv.push_back(const_cast<char*>("-map"));
+            argv.push_back(const_cast<char*>("1:a:0"));
+            argv.push_back(const_cast<char*>("-c:a"));
+            argv.push_back(const_cast<char*>("aac"));
+            argv.push_back(const_cast<char*>("-b:a"));
+            argv.push_back(const_cast<char*>("192k"));
+            // -shortest so the final clip ends with the shorter of the two
+            // streams — guards against an audio buffer that overshoots the
+            // video duration (or vice versa) on certain LTX variants.
+            argv.push_back(const_cast<char*>("-shortest"));
+        }
+        argv.push_back(const_cast<char*>("-c:v"));
+        argv.push_back(const_cast<char*>("libx264"));
+        argv.push_back(const_cast<char*>("-pix_fmt"));
+        argv.push_back(const_cast<char*>("yuv420p"));
+        argv.push_back(const_cast<char*>("-movflags"));
+        argv.push_back(const_cast<char*>("+faststart"));
+        // Force MP4 container. Distributed LocalAI hands us a staging
+        // path (e.g. /staging/localai-output-NNN.tmp) with a non-standard
+        // extension; relying on filename suffix makes ffmpeg bail with
+        // "Unable to choose an output format".
+        argv.push_back(const_cast<char*>("-f"));
+        argv.push_back(const_cast<char*>("mp4"));
+        argv.push_back(const_cast<char*>(dst));
+        argv.push_back(nullptr);
         execvp(argv[0], argv.data());
         perror("execvp ffmpeg");
         _exit(127);
@@ -1138,6 +1325,7 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
                 close(pipefd[1]);
                 int status;
                 waitpid(pid, &status, 0);
+                if (have_audio) unlink(wav_path);
                 return 1;
             }
             p += n;
@@ -1148,8 +1336,13 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps, co
 
     int status = 0;
     while (waitpid(pid, &status, 0) < 0) {
-        if (errno != EINTR) { perror("waitpid"); return 1; }
+        if (errno != EINTR) {
+            perror("waitpid");
+            if (have_audio) unlink(wav_path);
+            return 1;
+        }
     }
+    if (have_audio) unlink(wav_path);
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         fprintf(stderr, "ffmpeg exited with status %d\n", status);
         return 1;
@@ -1188,6 +1381,9 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     p->high_noise_sample_params.scheduler                = scheduler;
     p->high_noise_sample_params.flow_shift               = flow_shift;
 
+    // Pin output fps in params; upstream uses it for audio sync (and we also mux at this rate).
+    p->fps = fps;
+
     // Load init/end reference images if provided (resized to output dims).
     uint8_t* init_buf = nullptr;
     uint8_t* end_buf  = nullptr;
@@ -1206,11 +1402,14 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     // Generate
     int num_frames_out = 0;
-    sd_image_t* frames = generate_video(sd_c, p, &num_frames_out);
+    sd_image_t* frames = nullptr;
+    sd_audio_t* audio = nullptr;
+    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio);
     std::free(p);
 
-    if (!frames || num_frames_out == 0) {
+    if (!ok || !frames || num_frames_out == 0) {
         fprintf(stderr, "generate_video produced no frames\n");
+        if (audio) free_sd_audio(audio);
         if (init_buf) free(init_buf);
         if (end_buf) free(end_buf);
         return 1;
@@ -1218,12 +1417,13 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", num_frames_out, dst);
 
-    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, dst);
+    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, audio, dst);
 
     for (int i = 0; i < num_frames_out; i++) {
         if (frames[i].data) free(frames[i].data);
     }
     free(frames);
+    if (audio) free_sd_audio(audio);
     if (init_buf) free(init_buf);
     if (end_buf) free(end_buf);
 

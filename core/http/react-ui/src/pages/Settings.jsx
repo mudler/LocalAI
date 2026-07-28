@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
@@ -24,6 +26,7 @@ const SECTIONS = [
   { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)' },
   { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)' },
   { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)' },
+  { id: 'distributed', icon: 'fa-server', color: 'var(--color-accent)' },
   { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)' },
 ]
 
@@ -158,18 +161,18 @@ export default function Settings() {
 
   return (
     <div className="page page--medium" style={{ padding: 0 }}>
+      <UnsavedChangesGuard when={isDirty} />
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
-      }}>
-        <div>
-          <h1 className="page-title">{t('settings.title')}</h1>
-          <p className="page-subtitle">{t('settings.subtitle')}</p>
-        </div>
-        <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
-          {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
-        </button>
+      <div style={{ padding: 'var(--spacing-lg) var(--spacing-lg) 0' }}>
+        <PageHeader
+          title={t('settings.title')}
+          supporting={t('settings.subtitle')}
+          actions={
+            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
+              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
+            </button>
+          }
+        />
       </div>
 
       {/* Two-column layout */}
@@ -294,7 +297,7 @@ export default function Settings() {
             </h3>
             <div className="card">
               <SettingRow label="Enable Watchdog" description="Automatically monitor and manage backend processes">
-                <Toggle checked={settings.watchdog_idle_enabled || settings.watchdog_busy_enabled} onChange={(v) => { update('watchdog_idle_enabled', v); update('watchdog_busy_enabled', v) }} />
+                <Toggle checked={settings.watchdog_idle_enabled || settings.watchdog_busy_enabled} onChange={(v) => { update('watchdog_idle_enabled', v); update('watchdog_busy_enabled', v); update('watchdog_enabled', v) }} />
               </SettingRow>
               <SettingRow label="Enable Idle Check" description="Automatically stop backends that have been idle too long">
                 <Toggle checked={settings.watchdog_idle_enabled} onChange={(v) => update('watchdog_idle_enabled', v)} disabled={!watchdogEnabled} />
@@ -313,6 +316,9 @@ export default function Settings() {
               </SettingRow>
               <SettingRow label="Force Eviction When Busy" description="Allow model eviction even during active API calls">
                 <Toggle checked={settings.force_eviction_when_busy} onChange={(v) => update('force_eviction_when_busy', v)} />
+              </SettingRow>
+              <SettingRow label="Size-Aware Eviction" description="Evict the largest loaded model first instead of the least-recently-used one">
+                <Toggle checked={settings.size_aware_eviction} onChange={(v) => update('size_aware_eviction', v)} />
               </SettingRow>
               <SettingRow label="LRU Eviction Max Retries" description="Maximum retries waiting for busy models before eviction">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.lru_eviction_max_retries ?? ''} onChange={(e) => update('lru_eviction_max_retries', parseInt(e.target.value) || 0)} placeholder="30" />
@@ -414,6 +420,9 @@ export default function Settings() {
               <SettingRow label="Default Context Size" description="Default context window size for models">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.context_size ?? ''} onChange={(e) => update('context_size', parseInt(e.target.value) || 0)} placeholder="2048" />
               </SettingRow>
+              <SettingRow label="VRAM Budget" description="Cap VRAM used for model allocation on this node. Percentage (e.g. 80%) or absolute (e.g. 12GB). Empty uses all detected VRAM.">
+                <input className="input" type="text" style={{ width: 120 }} value={settings.vram_budget ?? ''} onChange={(e) => update('vram_budget', e.target.value)} placeholder="e.g. 80% or 12GB" />
+              </SettingRow>
               <SettingRow label="F16 Precision" description="Use 16-bit floating point for reduced memory usage">
                 <Toggle checked={settings.f16} onChange={(v) => update('f16', v)} />
               </SettingRow>
@@ -434,6 +443,9 @@ export default function Settings() {
               </SettingRow>
               <SettingRow label="Max Items" description="Maximum number of trace items to retain (0 = unlimited)">
                 <input className="input" type="number" style={{ width: 120 }} value={settings.tracing_max_items ?? ''} onChange={(e) => update('tracing_max_items', parseInt(e.target.value) || 0)} placeholder="100" disabled={!settings.enable_tracing} />
+              </SettingRow>
+              <SettingRow label="Max Body Bytes" description="Per-field cap (bytes) for captured request/response bodies and backend trace Data fields. Prevents large LLM histories or TTS audio snippets from locking the Traces UI. 0 = uncapped.">
+                <input className="input" type="number" style={{ width: 120 }} value={settings.tracing_max_body_bytes ?? ''} onChange={(e) => update('tracing_max_body_bytes', parseInt(e.target.value) || 0)} placeholder="65536" disabled={!settings.enable_tracing} />
               </SettingRow>
               <SettingRow label="Enable Backend Logging" description="Capture backend process output per model (without requiring debug mode)">
                 <Toggle checked={settings.enable_backend_logging} onChange={(v) => update('enable_backend_logging', v)} />
@@ -625,6 +637,18 @@ export default function Settings() {
             <div className="card">
               <SettingRow label="Enabled" description="Allow admins to opt chat sessions into the in-process admin tool surface. Disabling refuses new requests with the localai_assistant flag; takes effect without restart.">
                 <Toggle checked={settings.localai_assistant_enabled ?? true} onChange={(v) => update('localai_assistant_enabled', v)} />
+              </SettingRow>
+            </div>
+          </div>
+
+          {/* Distributed mode */}
+          <div ref={el => sectionRefs.current.distributed = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <i className="fas fa-server" style={{ color: 'var(--color-accent)' }} /> {t('settings.sections.distributed')}
+            </h3>
+            <div className="card">
+              <SettingRow label="Disk headroom check" description="Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. Free space is measured on each worker's models filesystem and compared against the model's own size plus a small margin. Turning this off restores selection that ignores free disk; the check still runs and warns when it would have rejected every node. Takes effect without restart.">
+                <Toggle checked={settings.distributed_disk_headroom_check ?? true} onChange={(v) => update('distributed_disk_headroom_check', v)} />
               </SettingRow>
             </div>
           </div>

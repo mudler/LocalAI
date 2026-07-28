@@ -15,6 +15,16 @@ import (
 var _ = Describe("DiscoverModelConfig", func() {
 
 	Context("With only a repository URI", func() {
+		It("should discover LongCat Avatar before the generic Diffusers importer", func() {
+			uri := "https://huggingface.co/meituan-longcat/LongCat-Video-Avatar-1.5"
+
+			modelConfig, err := importers.DiscoverModelConfig(uri, json.RawMessage(`{}`))
+
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error: %v", err))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: longcat-video"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("known_usecases:\n    - video"))
+		})
+
 		It("should discover and import using LlamaCPPImporter", func() {
 			uri := "https://huggingface.co/mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF"
 			preferences := json.RawMessage(`{}`)
@@ -22,11 +32,13 @@ var _ = Describe("DiscoverModelConfig", func() {
 			modelConfig, err := importers.DiscoverModelConfig(uri, preferences)
 
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error: %v", err))
-			Expect(modelConfig.Name).To(Equal("LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF"), fmt.Sprintf("Model config: %+v", modelConfig))
+			// No name preference + repo-root URI: the name follows the selected
+			// GGUF file, not the repo (issue #10587).
+			Expect(modelConfig.Name).To(Equal("localai-functioncall-qwen2.5-7b-v0.5-q4_k_m"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Description).To(Equal("Imported from https://huggingface.co/mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: llama-cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(len(modelConfig.Files)).To(Equal(1), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[0].URI).To(Equal("https://huggingface.co/mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF/resolve/main/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[0].SHA256).To(Equal("4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4"), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
@@ -38,16 +50,17 @@ var _ = Describe("DiscoverModelConfig", func() {
 			modelConfig, err := importers.DiscoverModelConfig(uri, preferences)
 
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error: %v", err))
-			Expect(modelConfig.Name).To(Equal("Qwen3-VL-2B-Instruct-GGUF"), fmt.Sprintf("Model config: %+v", modelConfig))
+			// No name preference: name follows the selected model GGUF (issue #10587).
+			Expect(modelConfig.Name).To(Equal("Qwen3VL-2B-Instruct-Q4_K_M"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Description).To(Equal("Imported from https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: llama-cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/Qwen3-VL-2B-Instruct-GGUF/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: llama-cpp/models/Qwen3-VL-2B-Instruct-GGUF/Qwen3VL-2B-Instruct-Q4_K_M.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/Qwen3VL-2B-Instruct-Q4_K_M/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: llama-cpp/models/Qwen3VL-2B-Instruct-Q4_K_M/Qwen3VL-2B-Instruct-Q4_K_M.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(len(modelConfig.Files)).To(Equal(2), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/Qwen3-VL-2B-Instruct-GGUF/Qwen3VL-2B-Instruct-Q4_K_M.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/Qwen3VL-2B-Instruct-Q4_K_M/Qwen3VL-2B-Instruct-Q4_K_M.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[0].URI).To(Equal("https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF/resolve/main/Qwen3VL-2B-Instruct-Q4_K_M.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[0].SHA256).ToNot(BeEmpty(), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.Files[1].Filename).To(Equal("llama-cpp/mmproj/Qwen3-VL-2B-Instruct-GGUF/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[1].Filename).To(Equal("llama-cpp/mmproj/Qwen3VL-2B-Instruct-Q4_K_M/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[1].URI).To(Equal("https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[1].SHA256).ToNot(BeEmpty(), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
@@ -59,16 +72,17 @@ var _ = Describe("DiscoverModelConfig", func() {
 			modelConfig, err := importers.DiscoverModelConfig(uri, preferences)
 
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error: %v", err))
-			Expect(modelConfig.Name).To(Equal("Qwen3-VL-2B-Instruct-GGUF"), fmt.Sprintf("Model config: %+v", modelConfig))
+			// No name preference: name follows the selected Q8_0 model GGUF (issue #10587).
+			Expect(modelConfig.Name).To(Equal("Qwen3VL-2B-Instruct-Q8_0"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Description).To(Equal("Imported from https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: llama-cpp"), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/Qwen3-VL-2B-Instruct-GGUF/mmproj-Qwen3VL-2B-Instruct-F16.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: llama-cpp/models/Qwen3-VL-2B-Instruct-GGUF/Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("mmproj: llama-cpp/mmproj/Qwen3VL-2B-Instruct-Q8_0/mmproj-Qwen3VL-2B-Instruct-F16.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: llama-cpp/models/Qwen3VL-2B-Instruct-Q8_0/Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(len(modelConfig.Files)).To(Equal(2), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/Qwen3-VL-2B-Instruct-GGUF/Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal("llama-cpp/models/Qwen3VL-2B-Instruct-Q8_0/Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[0].URI).To(Equal("https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF/resolve/main/Qwen3VL-2B-Instruct-Q8_0.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[0].SHA256).ToNot(BeEmpty(), fmt.Sprintf("Model config: %+v", modelConfig))
-			Expect(modelConfig.Files[1].Filename).To(Equal("llama-cpp/mmproj/Qwen3-VL-2B-Instruct-GGUF/mmproj-Qwen3VL-2B-Instruct-F16.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[1].Filename).To(Equal("llama-cpp/mmproj/Qwen3VL-2B-Instruct-Q8_0/mmproj-Qwen3VL-2B-Instruct-F16.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[1].URI).To(Equal("https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-2B-Instruct-F16.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 			Expect(modelConfig.Files[1].SHA256).ToNot(BeEmpty(), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
@@ -238,7 +252,7 @@ var _ = Describe("DiscoverModelConfig", func() {
 			for _, imp := range registry {
 				names = append(names, imp.Name())
 			}
-			Expect(names).To(ContainElements("llama-cpp", "mlx", "vllm", "transformers", "diffusers"))
+			Expect(names).To(ContainElements("llama-cpp", "mlx", "vllm", "transformers", "diffusers", "longcat-video"))
 		})
 
 		It("LlamaCPPImporter exposes name/modality/autodetect", func() {

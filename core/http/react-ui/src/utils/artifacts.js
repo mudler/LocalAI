@@ -1,6 +1,6 @@
 import { Marked } from 'marked'
 import DOMPurify from 'dompurify'
-import hljs from 'highlight.js'
+import hljs from './hljs'
 import { apiUrl } from './basePath'
 
 const FENCE_REGEX = /```(\w*)\n([\s\S]*?)```/g
@@ -100,6 +100,18 @@ function guessTitle(lang, index) {
   return index > 0 && extMap[lang] ? base.replace('.', `-${index}.`) : base
 }
 
+const LANG_EXT = {
+  html: 'html', javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts',
+  jsx: 'jsx', tsx: 'tsx', python: 'py', py: 'py', css: 'css', svg: 'svg',
+  json: 'json', yaml: 'yaml', yml: 'yaml', go: 'go', rust: 'rs', java: 'java',
+  markdown: 'md', md: 'md', bash: 'sh', sh: 'sh', sql: 'sql',
+}
+
+// File extension for a code artifact's language, for download filenames.
+export function extensionForLanguage(lang) {
+  return LANG_EXT[(lang || '').toLowerCase()] || 'txt'
+}
+
 export function getArtifactIcon(type, language) {
   if (type === 'image') return 'fa-image'
   if (type === 'pdf') return 'fa-file-pdf'
@@ -119,12 +131,17 @@ export function getArtifactIcon(type, language) {
 const artifactMarked = new Marked({
   renderer: {
     code({ text, lang }) {
-      // Will be overridden per-call
+      // Match markdown.js's fallback: when the language is unknown (not in
+      // the curated hljs set, see utils/hljs.js), use highlightAuto so the
+      // block still picks up theme colors — otherwise the same fenced block
+      // would render differently in chat (auto-highlighted) vs artifact card
+      // (plain text).
       if (lang && hljs.getLanguage(lang)) {
         const highlighted = hljs.highlight(text, { language: lang }).value
         return `<pre><code class="hljs language-${lang}">${highlighted}</code></pre>`
       }
-      return `<pre><code>${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`
+      const highlighted = hljs.highlightAuto(text).value
+      return `<pre><code class="hljs">${highlighted}</code></pre>`
     },
   },
   breaks: true,

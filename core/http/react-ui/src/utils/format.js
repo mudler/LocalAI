@@ -12,10 +12,37 @@ export function percentColor(pct) {
   return 'var(--color-success)'
 }
 
+// normalizeTimestampMs converts a timestamp emitted by the backend into JS
+// milliseconds, regardless of its encoding. The agent SSE bridge emits the
+// json_message timestamp in three different shapes depending on deploy mode:
+// an RFC3339 string (standalone agent pool), Unix milliseconds (local
+// dispatcher), or Unix nanoseconds (older NATS path). A numeric value is
+// classified by magnitude (s / ms / us / ns) so any of them yields a sane
+// epoch. Falls back to Date.now() for null/empty/unparseable input.
+export function normalizeTimestampMs(ts) {
+  if (ts === null || ts === undefined || ts === '') return Date.now()
+  if (typeof ts === 'string') {
+    const parsed = Date.parse(ts)
+    return Number.isNaN(parsed) ? Date.now() : parsed
+  }
+  if (typeof ts !== 'number' || !Number.isFinite(ts)) return Date.now()
+  if (ts > 1e17) return Math.floor(ts / 1e6) // nanoseconds
+  if (ts > 1e14) return Math.floor(ts / 1e3) // microseconds
+  if (ts > 1e11) return ts                    // milliseconds
+  return ts * 1000                            // seconds
+}
+
 export function formatTimestamp(ts) {
   if (!ts) return '-'
   const d = new Date(ts)
   return d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0')
+}
+
+// Like formatTimestamp but prefixed with the localized date, for views where
+// traces/entries can span more than one day and the time alone is ambiguous.
+export function formatDateTime(ts) {
+  if (!ts) return '-'
+  return new Date(ts).toLocaleDateString() + ' ' + formatTimestamp(ts)
 }
 
 export function relativeTime(ts) {

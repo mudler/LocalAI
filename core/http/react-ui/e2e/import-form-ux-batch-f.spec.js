@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // Batch F3 — Enter-to-submit on the URI input in Simple mode. Wrapping the
 // URI input + ambiguity alert + Options disclosure in a <form> means pressing

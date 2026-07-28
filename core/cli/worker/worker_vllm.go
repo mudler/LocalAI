@@ -77,7 +77,7 @@ func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
 		return fmt.Errorf("getting system state: %w", err)
 	}
 
-	backendPath, err := findBackendPath("vllm", r.BackendGalleries, systemState)
+	backendPath, err := findBackendPath("vllm", r.BackendGalleries, systemState, r.RequireBackendIntegrity)
 	if err != nil {
 		return fmt.Errorf("cannot find vllm backend: %w", err)
 	}
@@ -96,7 +96,7 @@ func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
 			FrontendURL:       r.RegisterTo,
 			RegistrationToken: r.RegistrationToken,
 		}
-		nodeID, _, regErr := regClient.RegisterWithRetry(context.Background(), r.registrationBody(), 10)
+		nodeID, _, _, _, regErr := regClient.RegisterWithRetry(context.Background(), r.registrationBody(), 10)
 		if regErr != nil {
 			return fmt.Errorf("registering with frontend: %w", regErr)
 		}

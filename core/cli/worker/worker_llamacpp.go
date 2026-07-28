@@ -27,7 +27,7 @@ const (
 	llamaCPPGalleryName   = "llama-cpp"
 )
 
-func findLLamaCPPBackend(galleries string, systemState *system.SystemState) (string, error) {
+func findLLamaCPPBackend(galleries string, systemState *system.SystemState, requireIntegrity bool) (string, error) {
 	backends, err := gallery.ListSystemBackends(systemState)
 	if err != nil {
 		xlog.Warn("Failed listing system backends", "error", err)
@@ -43,7 +43,7 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState) (str
 			xlog.Error("failed loading galleries", "error", err)
 			return "", err
 		}
-		err := gallery.InstallBackendFromGallery(context.Background(), gals, systemState, ml, llamaCPPGalleryName, nil, true)
+		err := gallery.InstallBackendFromGallery(context.Background(), gals, systemState, ml, llamaCPPGalleryName, nil, true, requireIntegrity)
 		if err != nil {
 			xlog.Error("llama-cpp backend not found, failed to install it", "error", err)
 			return "", err
@@ -76,7 +76,7 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
-	grpcProcess, err := findLLamaCPPBackend(r.BackendGalleries, systemState)
+	grpcProcess, err := findLLamaCPPBackend(r.BackendGalleries, systemState, r.RequireBackendIntegrity)
 	if err != nil {
 		return err
 	}

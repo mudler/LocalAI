@@ -32,15 +32,16 @@ func FaceVerify(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
 	res, err := faceModel.FaceVerify(ctx, &proto.FaceVerifyRequest{
-		Img1:         img1,
-		Img2:         img2,
-		Threshold:    threshold,
-		AntiSpoofing: antiSpoofing,
+		ModelIdentity: modelConfig.Model,
+		Img1:          img1,
+		Img2:          img2,
+		Threshold:     threshold,
+		AntiSpoofing:  antiSpoofing,
 	})
 
 	if appConfig.EnableTracing {

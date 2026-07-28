@@ -1,5 +1,7 @@
 package localaitools
 
+import "github.com/mudler/LocalAI/core/services/voiceprofile"
+
 // DTOs for the LocalAIClient interface. Where the same shape already exists
 // elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
 // vram.EstimateResult) we surface that type directly via the interface
@@ -52,11 +54,20 @@ type ModelConfigView struct {
 	JSON map[string]any `json:"json,omitempty"  jsonschema:"Parsed JSON view of the same config (convenience for diffing)."`
 }
 
+// AliasInfo is one alias -> target pair, the shape list_aliases returns and
+// GET /api/aliases emits. Kept aligned with localai.AliasInfo so the
+// MCP wire output matches the REST endpoint by construction.
+type AliasInfo struct {
+	Name   string `json:"name"`
+	Target string `json:"target"`
+}
+
 // InstallModelRequest is the input for install_model.
 type InstallModelRequest struct {
 	GalleryName string         `json:"gallery_name,omitempty" jsonschema:"The gallery the model lives in (from gallery_search). Optional when ModelName is unique across galleries."`
 	ModelName   string         `json:"model_name"             jsonschema:"The canonical model name as returned by gallery_search."`
 	Overrides   map[string]any `json:"overrides,omitempty"    jsonschema:"Optional config overrides to merge into the installed model's YAML."`
+	Variant     string         `json:"variant,omitempty"      jsonschema:"Optional. Installs one specific build of an entry that offers several (different quantizations or engines), named exactly as it appears in that entry's variant list. Leave empty unless the user explicitly asked for a particular build: by default LocalAI drops builds this machine cannot run or cannot fit, prefers the engine this hardware is best served by, and uses size only to decide between equally preferred builds."`
 }
 
 // InstallBackendRequest is the input for install_backend.
@@ -77,11 +88,11 @@ type Backend struct {
 
 // SystemInfo summarises the LocalAI deployment.
 type SystemInfo struct {
-	Version          string   `json:"version"`
-	Distributed      bool     `json:"distributed"`
-	BackendsPath     string   `json:"backends_path,omitempty"`
-	ModelsPath       string   `json:"models_path,omitempty"`
-	LoadedModels     []string `json:"loaded_models,omitempty"`
+	Version           string   `json:"version"`
+	Distributed       bool     `json:"distributed"`
+	BackendsPath      string   `json:"backends_path,omitempty"`
+	ModelsPath        string   `json:"models_path,omitempty"`
+	LoadedModels      []string `json:"loaded_models,omitempty"`
 	InstalledBackends []string `json:"installed_backends,omitempty"`
 }
 
@@ -93,6 +104,15 @@ type Node struct {
 	TotalVRAM   uint64 `json:"total_vram,omitempty"`
 	Healthy     bool   `json:"healthy"`
 	LastSeen    string `json:"last_seen,omitempty"`
+}
+
+// SetNodeVRAMBudgetRequest is the input for set_node_vram_budget. It PUTs
+// the value to /api/nodes/{node_id}/vram-budget, where the server validates
+// and resolves the budget against the node's total VRAM. An empty Budget
+// clears the admin override so the worker's own default takes over again.
+type SetNodeVRAMBudgetRequest struct {
+	NodeID string `json:"node_id"          jsonschema:"The federated node id (from list_nodes) whose VRAM budget to set."`
+	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
 }
 
 // ImportModelURIRequest is the input for import_model_uri. It mirrors the
@@ -135,6 +155,161 @@ type Branding struct {
 type SetBrandingRequest struct {
 	InstanceName    *string `json:"instance_name,omitempty"    jsonschema:"New instance display name (replaces \"LocalAI\" in headers, footers, and the browser tab). Pass an empty string to reset to default."`
 	InstanceTagline *string `json:"instance_tagline,omitempty" jsonschema:"Optional short subtitle shown beneath the instance name. Pass an empty string to clear."`
+}
+
+// VoiceProfile is the same path-free shape returned by the REST library.
+// Keeping the service type avoids REST/MCP field drift.
+type VoiceProfile = voiceprofile.Profile
+
+// CreateVoiceProfileRequest is the MCP/JSON form of profile creation. Audio
+// must be a base64-encoded 16-bit PCM WAV (mono 24 kHz is recommended for
+// portability); the service enforces the same 50 MiB and duration limits as
+// the browser upload route.
+type CreateVoiceProfileRequest struct {
+	Name             string `json:"name"              jsonschema:"Display name for the reusable voice profile."`
+	Description      string `json:"description,omitempty" jsonschema:"Optional note describing tone, source, or intended use."`
+	Language         string `json:"language,omitempty" jsonschema:"Optional BCP-47-style language tag such as en-US."`
+	Transcript       string `json:"transcript"        jsonschema:"Exact transcript of the words spoken in the reference clip."`
+	AudioBase64      string `json:"audio_base64"      jsonschema:"Base64-encoded 16-bit PCM WAV reference, preferably mono 24 kHz, 1-120 seconds and at most 50 MiB decoded."`
+	ConsentConfirmed bool   `json:"consent_confirmed" jsonschema:"Must be true to confirm authorization to clone this voice."`
+}
+
+// DeleteVoiceProfileRequest identifies the profile to remove.
+type DeleteVoiceProfileRequest struct {
+	ID string `json:"id" jsonschema:"Opaque voice profile UUID returned by list_voice_profiles."`
+}
+
+// UsageStatsQuery is the input for get_usage_stats. UserID is optional;
+// when empty the tool returns the calling user's own usage in auth-on
+// mode, or the synthetic local user's usage in single-user no-auth
+// mode. Admins (or the local user) may pass UserID to inspect another
+// user; the LocalAIClient implementation enforces the role check.
+type UsageStatsQuery struct {
+	Period string `json:"period,omitempty" jsonschema:"Time window. One of: day, week, month, all. Defaults to month."`
+	UserID string `json:"user_id,omitempty" jsonschema:"Optional user id to query. Empty = caller's own usage. Querying another user requires admin role."`
+	All    bool   `json:"all,omitempty"     jsonschema:"When true, returns the cluster-wide /api/usage/all view (admin-only when auth is on)."`
+}
+
+// UsageStats is the response shape for get_usage_stats. Mirrors what
+// /api/usage and /api/usage/all return so the LLM can correlate
+// dashboard numbers with what it pulls via MCP.
+type UsageStats struct {
+	Viewer  UsageViewer   `json:"viewer"`
+	Period  string        `json:"period"`
+	Totals  UsageTotals   `json:"totals"`
+	Buckets []UsageBucket `json:"buckets"`
+}
+
+type UsageViewer struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role,omitempty"`
+}
+
+type UsageTotals struct {
+	PromptTokens     int64 `json:"prompt_tokens"`
+	CompletionTokens int64 `json:"completion_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+	RequestCount     int64 `json:"request_count"`
+}
+
+type UsageBucket struct {
+	Bucket           string `json:"bucket"`
+	Model            string `json:"model"`
+	UserID           string `json:"user_id,omitempty"`
+	UserName         string `json:"user_name,omitempty"`
+	PromptTokens     int64  `json:"prompt_tokens"`
+	CompletionTokens int64  `json:"completion_tokens"`
+	TotalTokens      int64  `json:"total_tokens"`
+	RequestCount     int64  `json:"request_count"`
+}
+
+// ---- PII / sensitive data tools ----
+
+// PIIEventsQuery filters get_pii_events.
+type PIIEventsQuery struct {
+	CorrelationID string `json:"correlation_id,omitempty" jsonschema:"Optional X-Correlation-ID join key (binds events to the request and usage record)."`
+	UserID        string `json:"user_id,omitempty"        jsonschema:"Optional user id to scope the query."`
+	PatternID     string `json:"pattern_id,omitempty"     jsonschema:"Optional detector group id (e.g. ner:EMAIL)."`
+	Limit         int    `json:"limit,omitempty"          jsonschema:"Maximum events. Defaults to 100."`
+}
+
+// PIIEvent is the LLM-facing view of one redaction record. The matched
+// value is never exposed; admins audit by hash_prefix.
+type PIIEvent struct {
+	ID            string `json:"id"`
+	CorrelationID string `json:"correlation_id"`
+	UserID        string `json:"user_id"`
+	Direction     string `json:"direction"`
+	PatternID     string `json:"pattern_id"`
+	ByteOffset    int    `json:"byte_offset"`
+	Length        int    `json:"length"`
+	HashPrefix    string `json:"hash_prefix"`
+	Action        string `json:"action"`
+	CreatedAt     string `json:"created_at"`
+}
+
+// MiddlewareStatus is the aggregated /api/middleware/status payload —
+// the React Middleware page renders this in one go. Routing is a
+// placeholder until subsystem 2 lands.
+type MiddlewareStatus struct {
+	PII    MiddlewarePIIStatus    `json:"pii"`
+	Router MiddlewareRouterStatus `json:"router"`
+}
+
+// MiddlewarePIIStatus shows which models opt in to PII redaction and the
+// NER detector models they reference. The detection policy itself lives
+// on each detector model's pii_detection block.
+type MiddlewarePIIStatus struct {
+	EnabledGlobally           bool                 `json:"enabled_globally"`
+	Reason                    string               `json:"reason,omitempty"`
+	DefaultEnabledForBackends []string             `json:"default_enabled_for_backends,omitempty"`
+	Models                    []MiddlewarePIIModel `json:"models"`
+	RecentEventCount          int                  `json:"recent_event_count"`
+}
+
+// MiddlewarePIIModel is one model row in the per-model PII table.
+type MiddlewarePIIModel struct {
+	Name              string   `json:"name"`
+	Backend           string   `json:"backend"`
+	Enabled           bool     `json:"enabled"`
+	Explicit          bool     `json:"explicit"`            // Did YAML set Enabled, or did the backend prefix decide?
+	DefaultForBackend bool     `json:"default_for_backend"` // Backend matches the auto-on rule (proxy-*).
+	Detectors         []string `json:"detectors,omitempty"` // NER detector model names this config references.
+}
+
+// MiddlewareRouterStatus is the placeholder shape the Routing tab
+// reads. Subsystem 2 fills in Models with real RouterDecision rows.
+type MiddlewareRouterStatus struct {
+	Configured bool     `json:"configured"`
+	Models     []string `json:"models"`
+	Note       string   `json:"note,omitempty"`
+}
+
+// RouterDecisionsQuery filters get_router_decisions.
+type RouterDecisionsQuery struct {
+	CorrelationID string `json:"correlation_id,omitempty" jsonschema:"Optional X-Correlation-ID join key (binds decisions to the request and usage record)."`
+	UserID        string `json:"user_id,omitempty"        jsonschema:"Optional user id to scope the query."`
+	RouterModel   string `json:"router_model,omitempty"   jsonschema:"Optional router model name to filter by (e.g. smart-router)."`
+	Limit         int    `json:"limit,omitempty"          jsonschema:"Maximum decisions. Defaults to 100."`
+}
+
+// RouterDecision is the LLM-facing view of one routing decision. The
+// prompt is NEVER stored; admins audit by hash if they need to dedupe
+// recurring routing patterns.
+type RouterDecision struct {
+	ID             string  `json:"id"`
+	CorrelationID  string  `json:"correlation_id"`
+	UserID         string  `json:"user_id"`
+	RouterModel    string  `json:"router_model"`
+	RequestedModel string  `json:"requested_model"`
+	ServedModel    string  `json:"served_model"`
+	Classifier     string  `json:"classifier"`
+	Label          string  `json:"label"`
+	Score          float64 `json:"score"`
+	LatencyMs      int64   `json:"latency_ms"`
+	Cached         bool    `json:"cached"`
+	CreatedAt      string  `json:"created_at"`
 }
 
 // VRAMEstimateRequest is the input for vram_estimate. The output type is

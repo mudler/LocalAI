@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // Batch D — progressive disclosure of preference fields. Power > Preferences
 // tab gates Quantizations, MMProj Quantizations, and Model Type so they only

@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "Kopieren",
-    "regenerate": "Neu generieren"
+    "regenerate": "Neu generieren",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "Modell wird übertragen...",
@@ -97,7 +98,8 @@
   },
   "toasts": {
     "selectModel": "Bitte wählen Sie ein Modell",
-    "copied": "In die Zwischenablage kopiert"
+    "copied": "In die Zwischenablage kopiert",
+    "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen"
   },
   "menu": {
     "trigger": "Chats",

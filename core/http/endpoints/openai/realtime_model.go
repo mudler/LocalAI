@@ -2,13 +2,19 @@ package openai
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -25,15 +31,25 @@ var (
 // This means that we will fake an Any-to-Any model by overriding some of the gRPC client methods
 // which are for Any-To-Any models, but instead we will call a pipeline (for e.g STT->LLM->TTS)
 type wrappedModel struct {
-	TTSConfig           *config.ModelConfig
-	TranscriptionConfig *config.ModelConfig
-	LLMConfig           *config.ModelConfig
-	VADConfig           *config.ModelConfig
+	TTSConfig            *config.ModelConfig
+	TranscriptionConfig  *config.ModelConfig
+	LLMConfig            *config.ModelConfig
+	VADConfig            *config.ModelConfig
+	SoundDetectionConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
 	evaluator   *templates.Evaluator
+
+	// Routing — populated by newModel when the application wires routing
+	// deps in. nil-safe: with classifierRegistry == nil the per-turn
+	// routing block in Predict is skipped, preserving today's "one LLM
+	// for the whole session" behaviour.
+	routerDeps      *middleware.ClassifierDeps
+	routerStore     router.DecisionStore
+	routerSessionID string
+	routerUserID    string
 }
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
@@ -49,8 +65,9 @@ type anyToAnyModel struct {
 }
 
 type transcriptOnlyModel struct {
-	TranscriptionConfig *config.ModelConfig
-	VADConfig           *config.ModelConfig
+	TranscriptionConfig  *config.ModelConfig
+	VADConfig            *config.ModelConfig
+	SoundDetectionConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
@@ -65,6 +82,10 @@ func (m *transcriptOnlyModel) Transcribe(ctx context.Context, audio, language st
 	return backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
 }
 
+func (m *transcriptOnlyModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
+	return modelSoundDetection(ctx, m.modelLoader, m.appConfig, m.SoundDetectionConfig, audio, topK, threshold)
+}
+
 func (m *transcriptOnlyModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
 	return nil, fmt.Errorf("predict operation not supported in transcript-only mode")
 }
@@ -73,8 +94,29 @@ func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language str
 	return "", nil, fmt.Errorf("TTS not supported in transcript-only mode")
 }
 
+func (m *transcriptOnlyModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
+	return fmt.Errorf("TTS not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	return transcribeStream(ctx, m.modelLoader, *m.TranscriptionConfig, m.appConfig, audio, language, translate, diarize, prompt, onDelta)
+}
+
+func (m *transcriptOnlyModel) TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
+	return backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *m.TranscriptionConfig, m.appConfig, onEvent)
+}
+
 func (m *transcriptOnlyModel) PredictConfig() *config.ModelConfig {
 	return nil
+}
+
+func (m *transcriptOnlyModel) Warmup(ctx context.Context) error {
+	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
+		{Role: "vad", Cfg: m.VADConfig},
+		{Role: "transcription", Cfg: m.TranscriptionConfig},
+		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
+	})
+	return err
 }
 
 func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
@@ -85,14 +127,38 @@ func (m *wrappedModel) Transcribe(ctx context.Context, audio, language string, t
 	return backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
 }
 
+func (m *wrappedModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
+	return modelSoundDetection(ctx, m.modelLoader, m.appConfig, m.SoundDetectionConfig, audio, topK, threshold)
+}
+
 func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
 	input := schema.OpenAIRequest{
 		Messages: messages,
 	}
 
+	// Per-turn routing: when the session's LLMConfig is a router, swap
+	// to the candidate the classifier picks for this turn's prompt.
+	// LLMConfig itself is held by value (we never mutate it) — turnCfg
+	// is the config we dispatch against.
+	turnCfg := m.LLMConfig
+	if m.LLMConfig.HasRouter() && m.routerDeps != nil {
+		chosen, err := m.routeTurn(ctx, &input)
+		if err != nil {
+			xlog.Warn("realtime routing failed; using session default LLM",
+				"router_model", m.LLMConfig.Name, "error", err)
+		} else if chosen != nil {
+			turnCfg = chosen
+		}
+	}
+
+	// Surface the resolved reasoning effort to the Go-side template path too
+	// (jinja models get it via backend metadata in gRPCPredictOpts; Go-templated
+	// models like gpt-oss read it from the template's .ReasoningEffort).
+	input.ReasoningEffort = turnCfg.ReasoningEffort
+
 	var predInput string
 	var funcs []functions.Function
-	if !m.LLMConfig.TemplateConfig.UseTokenizerTemplate {
+	if !turnCfg.TemplateConfig.UseTokenizerTemplate {
 		if len(tools) > 0 {
 			for _, t := range tools {
 				if t.Function != nil {
@@ -120,11 +186,11 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			noActionName := "answer"
 			noActionDescription := "use this action to answer without performing any action"
 
-			if m.LLMConfig.FunctionsConfig.NoActionFunctionName != "" {
-				noActionName = m.LLMConfig.FunctionsConfig.NoActionFunctionName
+			if turnCfg.FunctionsConfig.NoActionFunctionName != "" {
+				noActionName = turnCfg.FunctionsConfig.NoActionFunctionName
 			}
-			if m.LLMConfig.FunctionsConfig.NoActionDescriptionName != "" {
-				noActionDescription = m.LLMConfig.FunctionsConfig.NoActionDescriptionName
+			if turnCfg.FunctionsConfig.NoActionDescriptionName != "" {
+				noActionDescription = turnCfg.FunctionsConfig.NoActionDescriptionName
 			}
 
 			noActionGrammar := functions.Function{
@@ -140,16 +206,16 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 				},
 			}
 
-			if !m.LLMConfig.FunctionsConfig.DisableNoAction {
+			if !turnCfg.FunctionsConfig.DisableNoAction {
 				funcs = append(funcs, noActionGrammar)
 			}
 		}
 
-		predInput = m.evaluator.TemplateMessages(input, input.Messages, m.LLMConfig, funcs, len(funcs) > 0)
+		predInput = m.evaluator.TemplateMessages(input, input.Messages, turnCfg, funcs, len(funcs) > 0)
 
 		xlog.Debug("Prompt (after templating)", "prompt", predInput)
-		if m.LLMConfig.Grammar != "" {
-			xlog.Debug("Grammar", "grammar", m.LLMConfig.Grammar)
+		if turnCfg.Grammar != "" {
+			xlog.Debug("Grammar", "grammar", turnCfg.Grammar)
 		}
 	}
 
@@ -159,33 +225,33 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 			// String values: "auto", "required", "none"
 			switch toolChoice.Mode {
 			case types.ToolChoiceModeRequired:
-				m.LLMConfig.SetFunctionCallString("required")
+				turnCfg.SetFunctionCallString("required")
 			case types.ToolChoiceModeNone:
 				// Don't use tools
-				m.LLMConfig.SetFunctionCallString("none")
+				turnCfg.SetFunctionCallString("none")
 			case types.ToolChoiceModeAuto:
 				// Default behavior - let model decide
 			}
 		} else if toolChoice.Function != nil {
 			// Specific function specified
-			m.LLMConfig.SetFunctionCallNameString(toolChoice.Function.Name)
+			turnCfg.SetFunctionCallNameString(toolChoice.Function.Name)
 		}
 	}
 
 	// Generate grammar for function calling if tools are provided and grammar generation is enabled
-	shouldUseFn := len(tools) > 0 && m.LLMConfig.ShouldUseFunctions()
+	shouldUseFn := len(tools) > 0 && turnCfg.ShouldUseFunctions()
 
-	if !m.LLMConfig.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn {
+	if !turnCfg.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn {
 		// Force picking one of the functions by the request
-		if m.LLMConfig.FunctionToCall() != "" {
-			funcs = functions.Functions(funcs).Select(m.LLMConfig.FunctionToCall())
+		if turnCfg.FunctionToCall() != "" {
+			funcs = functions.Functions(funcs).Select(turnCfg.FunctionToCall())
 		}
 
 		// Generate grammar from function definitions
-		jsStruct := functions.Functions(funcs).ToJSONStructure(m.LLMConfig.FunctionsConfig.FunctionNameKey, m.LLMConfig.FunctionsConfig.FunctionNameKey)
-		g, err := jsStruct.Grammar(m.LLMConfig.FunctionsConfig.GrammarOptions()...)
+		jsStruct := functions.Functions(funcs).ToJSONStructure(turnCfg.FunctionsConfig.FunctionNameKey, turnCfg.FunctionsConfig.FunctionNameKey)
+		g, err := jsStruct.Grammar(turnCfg.FunctionsConfig.GrammarOptions()...)
 		if err == nil {
-			m.LLMConfig.Grammar = g
+			turnCfg.Grammar = g
 			xlog.Debug("Generated grammar for function calling", "grammar", g)
 		} else {
 			xlog.Error("Failed generating grammar", "error", err)
@@ -237,19 +303,175 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		toolChoiceJSON = string(b)
 	}
 
-	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, m.LLMConfig, m.confLoader, m.appConfig, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, nil)
+	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, turnCfg, m.confLoader, m.appConfig, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias, nil)
+}
+
+// routeTurn classifies this turn's prompt against the session's router
+// LLM config and returns the candidate ModelConfig to dispatch against.
+// Returns nil with no error when routing was attempted but the resolver
+// signalled "no decision" — the caller falls back to the session
+// default. Records the decision in the store using the realtime session
+// id as the correlation id so the admin UI can group turn-by-turn
+// decisions under one session row.
+func (m *wrappedModel) routeTurn(ctx context.Context, req *schema.OpenAIRequest) (*config.ModelConfig, error) {
+	if m.routerDeps == nil {
+		return nil, nil
+	}
+	registry := m.routerDeps.Registry
+	if registry == nil {
+		registry = router.NewRegistry()
+	}
+	classifier, classifierErr := middleware.GetOrBuildClassifier(registry, m.LLMConfig, *m.routerDeps)
+	if classifierErr != nil {
+		xlog.Warn("realtime router: classifier unavailable — using fallback",
+			"router_model", m.LLMConfig.Name, "error", classifierErr)
+		classifier = nil
+	}
+	loader := func(name string) (*config.ModelConfig, error) {
+		return m.confLoader.LoadModelConfigFileByNameDefaultOptions(name, m.appConfig)
+	}
+	probe := middleware.OpenAIProbeFromRequest(req)
+
+	result, err := router.Resolve(ctx, m.LLMConfig, classifier, loader, probe)
+	if err != nil {
+		return nil, err
+	}
+
+	if m.routerStore != nil {
+		_ = m.routerStore.Record(context.Background(), result.ToDecisionRecord(newRealtimeDecisionID(), m.routerSessionID, m.routerUserID, router.SourceRealtime))
+	}
+	return result.ChosenConfig, nil
+}
+
+func newRealtimeDecisionID() string {
+	var b [12]byte
+	_, _ = rand.Read(b[:])
+	return "rd_" + hex.EncodeToString(b[:])
 }
 
 func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
-	return backend.ModelTTS(ctx, text, voice, language, m.modelLoader, m.appConfig, *m.TTSConfig)
+	return backend.ModelTTS(ctx, text, voice, language, "", nil, m.modelLoader, m.appConfig, *m.TTSConfig)
+}
+
+func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
+	return ttsStream(ctx, m.modelLoader, m.appConfig, *m.TTSConfig, text, voice, language, onAudio)
+}
+
+func (m *wrappedModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	return transcribeStream(ctx, m.modelLoader, *m.TranscriptionConfig, m.appConfig, audio, language, translate, diarize, prompt, onDelta)
+}
+
+func (m *wrappedModel) TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
+	return backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *m.TranscriptionConfig, m.appConfig, onEvent)
 }
 
 func (m *wrappedModel) PredictConfig() *config.ModelConfig {
 	return m.LLMConfig
 }
 
+func (m *wrappedModel) Warmup(ctx context.Context) error {
+	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
+		{Role: "vad", Cfg: m.VADConfig},
+		{Role: "transcription", Cfg: m.TranscriptionConfig},
+		{Role: "llm", Cfg: m.LLMConfig},
+		{Role: "tts", Cfg: m.TTSConfig},
+		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
+	})
+	return err
+}
+
+// wavStreamHeaderBytes is the size of the WAV header that backend.ModelTTSStream
+// emits as its first audio callback; the sample rate lives at byte offset 24.
+const wavStreamHeaderBytes = 44
+
+// ttsStream adapts backend.ModelTTSStream (which emits a WAV stream: a 44-byte
+// header carrying the sample rate, then raw PCM) to the realtime onAudio
+// callback, which wants raw PCM plus the sample rate. The header is buffered
+// until complete, the sample rate is read from it, and subsequent bytes are
+// forwarded as PCM.
+func ttsStream(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, ttsConfig config.ModelConfig, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
+	var header []byte
+	headerDone := false
+	sampleRate := 0
+	return backend.ModelTTSStream(ctx, text, voice, language, "", nil, ml, appConfig, ttsConfig, func(b []byte) error {
+		if headerDone {
+			if len(b) == 0 {
+				return nil
+			}
+			return onAudio(b, sampleRate)
+		}
+		header = append(header, b...)
+		if len(header) < wavStreamHeaderBytes {
+			return nil
+		}
+		sampleRate = int(binary.LittleEndian.Uint32(header[24:28]))
+		headerDone = true
+		if len(header) > wavStreamHeaderBytes {
+			return onAudio(header[wavStreamHeaderBytes:], sampleRate)
+		}
+		return nil
+	})
+}
+
+// transcribeStream adapts backend.ModelTranscriptionStream to the realtime
+// onDelta callback, returning the final aggregated transcription result.
+func transcribeStream(ctx context.Context, ml *model.ModelLoader, transcriptionConfig config.ModelConfig, appConfig *config.ApplicationConfig, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	var final *schema.TranscriptionResult
+	err := backend.ModelTranscriptionStream(ctx, backend.TranscriptionRequest{
+		Audio:     audio,
+		Language:  language,
+		Translate: translate,
+		Diarize:   diarize,
+		Prompt:    prompt,
+	}, ml, transcriptionConfig, appConfig, func(chunk backend.TranscriptionStreamChunk) {
+		if chunk.Delta != "" {
+			onDelta(chunk.Delta)
+		}
+		if chunk.Final != nil {
+			final = chunk.Final
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return final, nil
+}
+
+// modelSoundDetection runs sound-event classification against the session's
+// sound-classification model config, mirroring how Transcribe dispatches to
+// the transcription backend. Returns an error when no sound-detection model is
+// configured for the session.
+func modelSoundDetection(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, soundConfig *config.ModelConfig, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
+	if soundConfig == nil {
+		return nil, fmt.Errorf("sound detection is not configured for this session")
+	}
+	return backend.ModelSoundDetection(ctx, backend.SoundDetectionRequest{
+		Audio:     audio,
+		TopK:      int32(topK),
+		Threshold: threshold,
+	}, ml, *soundConfig, appConfig)
+}
+
+// loadSoundDetectionConfig resolves the optional sound-classification model
+// config named by pipeline.sound_detection. Returns (nil, nil) when no model
+// is configured so sound detection stays additive and never blocks session
+// setup.
+func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader) (*config.ModelConfig, error) {
+	if pipeline.SoundDetection == "" {
+		return nil, nil
+	}
+	cfg, err := cl.LoadResolvedModelConfig(pipeline.SoundDetection, ml.ModelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load sound detection config: %w", err)
+	}
+	if valid, _ := cfg.Validate(); !valid {
+		return nil, fmt.Errorf("failed to validate sound detection config %q", pipeline.SoundDetection)
+	}
+	return cfg, nil
+}
+
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
-	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -259,7 +481,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -269,9 +491,15 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return &transcriptOnlyModel{
-		TranscriptionConfig: cfgSST,
-		VADConfig:           cfgVAD,
+		TranscriptionConfig:  cfgSST,
+		VADConfig:            cfgVAD,
+		SoundDetectionConfig: cfgSound,
 
 		confLoader:  cl,
 		modelLoader: ml,
@@ -279,11 +507,74 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 	}, cfgSST, nil
 }
 
+// newSoundDetectionOnlyModel builds a realtime model that only does sound-event
+// classification: no VAD, transcription, LLM or TTS stages are loaded. Used for
+// a sound-detection-only realtime session, which activates on sounds (not
+// speech) and is driven by client-side windowing (turn_detection none +
+// input_audio_buffer.commit) rather than the voice VAD loop.
+func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, err
+	}
+	if cfgSound == nil {
+		return nil, fmt.Errorf("a sound-only realtime session requires pipeline.sound_detection")
+	}
+	return &transcriptOnlyModel{
+		SoundDetectionConfig: cfgSound,
+		confLoader:           cl,
+		modelLoader:          ml,
+		appConfig:            appConfig,
+	}, nil
+}
+
+// RealtimeRoutingContext is the bundle of routing dependencies the
+// realtime pipeline needs to consult router.Resolve per turn. nil-safe:
+// passing nil skips routing entirely and preserves the historical "one
+// LLM for the whole session" behaviour.
+type RealtimeRoutingContext struct {
+	Deps      *middleware.ClassifierDeps
+	Store     router.DecisionStore
+	SessionID string
+	UserID    string
+}
+
+// buildRealtimeRoutingContext assembles the routing dependencies the
+// realtime pipeline needs from the application container. Returns nil
+// when no Application is wired (tests, stripped builds) — that path
+// leaves wrappedModel.Predict on the historical "no routing" path
+// instead of failing at session start.
+func buildRealtimeRoutingContext(a *application.Application, sessionID string) *RealtimeRoutingContext {
+	if a == nil {
+		return nil
+	}
+	deps := &middleware.ClassifierDeps{
+		Scorer:       a.Scorer,
+		TokenCounter: a.TokenCounter,
+		Embedder:     a.Embedder,
+		VectorStore:  a.VectorStore,
+		Reranker:     a.Reranker,
+		ModelLookup:  a.ModelConfigLookup(),
+		Registry:     a.RouterClassifierRegistry(),
+		Evaluator:    a.TemplatesEvaluator(),
+	}
+	userID := ""
+	if u := a.FallbackUser(); u != nil {
+		userID = u.ID
+	}
+	return &RealtimeRoutingContext{
+		Deps:      deps,
+		Store:     a.RouterDecisions(),
+		SessionID: sessionID,
+		UserID:    userID,
+	}
+}
+
 // returns and loads either a wrapped model or a model that support audio-to-audio
-func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator) (Model, error) {
+func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) (Model, error) {
 	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
-	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -294,7 +585,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -326,7 +617,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	xlog.Debug("Loading a wrapped model")
 
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
-	cfgLLM, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
+	cfgLLM, err := cl.LoadResolvedModelConfig(pipeline.LLM, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -336,7 +627,12 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
+	// Let the pipeline set the LLM's reasoning effort and force thinking off
+	// (cfgLLM is a per-session copy). disable_thinking applies after the effort.
+	applyPipelineReasoning(cfgLLM, *pipeline)
+	applyPipelineThinking(cfgLLM, *pipeline)
+
+	cfgTTS, err := cl.LoadResolvedModelConfig(pipeline.TTS, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -346,15 +642,28 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	return &wrappedModel{
-		TTSConfig:           cfgTTS,
-		TranscriptionConfig: cfgSST,
-		LLMConfig:           cfgLLM,
-		VADConfig:           cfgVAD,
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	if err != nil {
+		return nil, err
+	}
+
+	wm := &wrappedModel{
+		TTSConfig:            cfgTTS,
+		TranscriptionConfig:  cfgSST,
+		LLMConfig:            cfgLLM,
+		VADConfig:            cfgVAD,
+		SoundDetectionConfig: cfgSound,
 
 		confLoader:  cl,
 		modelLoader: ml,
 		appConfig:   appConfig,
 		evaluator:   evaluator,
-	}, nil
+	}
+	if routing != nil {
+		wm.routerDeps = routing.Deps
+		wm.routerStore = routing.Store
+		wm.routerSessionID = routing.SessionID
+		wm.routerUserID = routing.UserID
+	}
+	return wm, nil
 }

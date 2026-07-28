@@ -10,14 +10,18 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/ollama"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 )
 
 func RegisterOllamaRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
-	application *application.Application) {
-
+	application *application.Application,
+) {
 	traceMiddleware := middleware.TraceMiddleware(application)
-	usageMiddleware := middleware.UsageMiddleware(application.AuthDB())
+	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())
+	nodeHeaderMiddleware := middleware.ExposeNodeHeader(application.ApplicationConfig())
 
 	// Chat endpoint: POST /api/chat
 	chatHandler := ollama.ChatEndpoint(
@@ -27,11 +31,13 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		application.ApplicationConfig(),
 	)
 	chatMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OllamaChatRequest) }),
 		setOllamaChatRequestContext(application.ApplicationConfig()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OllamaChat(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/api/chat", chatHandler, chatMiddleware...)
 
@@ -43,11 +49,13 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		application.ApplicationConfig(),
 	)
 	generateMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OllamaGenerateRequest) }),
 		setOllamaGenerateRequestContext(application.ApplicationConfig()),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OllamaGenerate(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/api/generate", generateHandler, generateMiddleware...)
 
@@ -58,10 +66,12 @@ func RegisterOllamaRoutes(app *echo.Echo,
 		application.ApplicationConfig(),
 	)
 	embedMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OllamaEmbedRequest) }),
+		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OllamaEmbed(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/api/embed", embedHandler, embedMiddleware...)
 	app.POST("/api/embeddings", embedHandler, embedMiddleware...)
@@ -108,6 +118,7 @@ func setOllamaChatRequestContext(appConfig *config.ApplicationConfig) echo.Middl
 			}()
 
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
+			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Context = ctxWithCorrelationID
 			input.Cancel = cancel
 
@@ -149,6 +160,7 @@ func setOllamaGenerateRequestContext(appConfig *config.ApplicationConfig) echo.M
 			}()
 
 			ctxWithCorrelationID := context.WithValue(c1, middleware.CorrelationIDKey, correlationID)
+			ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
 			input.Ctx = ctxWithCorrelationID
 			input.Cancel = cancel
 

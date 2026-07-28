@@ -31,13 +31,14 @@ func VoiceAnalyze(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
 	res, err := voiceModel.VoiceAnalyze(ctx, &proto.VoiceAnalyzeRequest{
-		Audio:   audio,
-		Actions: actions,
+		ModelIdentity: modelConfig.Model,
+		Audio:         audio,
+		Actions:       actions,
 	})
 
 	if appConfig.EnableTracing {

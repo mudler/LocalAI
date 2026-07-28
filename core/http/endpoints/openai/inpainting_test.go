@@ -2,6 +2,7 @@ package openai
 
 import (
 	"bytes"
+	"context"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -56,7 +57,7 @@ var _ = Describe("Inpainting", func() {
 		appConf := config.NewApplicationConfig(config.WithGeneratedContentDir(tmpDir))
 
 		orig := backend.ImageGenerationFunc
-		backend.ImageGenerationFunc = func(height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
+		backend.ImageGenerationFunc = func(ctx context.Context, height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
 			fn := func() error {
 				return os.WriteFile(dst, []byte("PNGDATA"), 0644)
 			}

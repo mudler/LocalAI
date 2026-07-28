@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mudler/xlog"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
@@ -12,6 +13,7 @@ import (
 
 type LocalAIMetricsService struct {
 	Meter         metric.Meter
+	Provider      *metricApi.MeterProvider
 	ApiTimeMetric metric.Float64Histogram
 }
 
@@ -31,6 +33,13 @@ func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 		return nil, err
 	}
 	provider := metricApi.NewMeterProvider(metricApi.WithReader(exporter))
+	// Share the provider with the OTel global so packages outside this
+	// service (e.g., core/services/routing/billing) see the same Prom
+	// exporter when they call otel.Meter(...). Without this, the billing
+	// counters would route to the no-op global provider and never reach
+	// /metrics — which is exactly the silent-billing-loss class of bug
+	// the routing module is designed to surface.
+	otel.SetMeterProvider(provider)
 	meter := provider.Meter("github.com/mudler/LocalAI")
 
 	apiTimeMetric, err := meter.Float64Histogram("api_call", metric.WithDescription("api calls"))
@@ -40,6 +49,7 @@ func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 
 	return &LocalAIMetricsService{
 		Meter:         meter,
+		Provider:      provider,
 		ApiTimeMetric: apiTimeMetric,
 	}, nil
 }

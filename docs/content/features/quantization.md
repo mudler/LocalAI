@@ -1,9 +1,11 @@
 +++
 disableToc = false
 title = "Model Quantization"
-weight = 19
+weight = 83
 url = '/features/quantization/'
 +++
+
+![From an HF model to a quantized GGUF: convert to f16, then quantize, tracked as a job](/images/diagrams/quantization-flow.png)
 
 LocalAI supports model quantization directly through the API and Web UI. Quantization converts HuggingFace models to GGUF format and compresses them to smaller sizes for efficient inference with llama.cpp.
 
@@ -142,10 +144,10 @@ The UI also supports entering a custom quantization type string for any format s
 
 A "Quantize" page appears in the sidebar under the Tools section. The UI provides:
 
-1. **Job Configuration** — Select model, quantization type (dropdown with presets or custom input), backend, and HuggingFace token
-2. **Progress Monitor** — Real-time progress bar and log output via SSE
-3. **Jobs List** — View all quantization jobs with status, stop/delete actions
-4. **Output** — Download the quantized GGUF file or import it directly into LocalAI for immediate use
+1. **Job Configuration** - Select model, quantization type (dropdown with presets or custom input), backend, and HuggingFace token
+2. **Progress Monitor** - Real-time progress bar and log output via SSE
+3. **Jobs List** - View all quantization jobs with status, stop/delete actions
+4. **Output** - Download the quantized GGUF file or import it directly into LocalAI for immediate use
 
 ## Architecture
 

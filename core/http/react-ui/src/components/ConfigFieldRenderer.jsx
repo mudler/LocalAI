@@ -5,6 +5,12 @@ import SearchableSelect from './SearchableSelect'
 import SearchableModelSelect from './SearchableModelSelect'
 import AutocompleteInput from './AutocompleteInput'
 import CodeEditor from './CodeEditor'
+import StructuredCodeEditor from './StructuredCodeEditor'
+import EntityActionListEditor from './EntityActionListEditor'
+import PatternListEditor from './PatternListEditor'
+import ModelMultiSelect from './ModelMultiSelect'
+import RouterCandidatesEditor from './RouterCandidatesEditor'
+import RouterPoliciesEditor from './RouterPoliciesEditor'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -12,6 +18,8 @@ const PROVIDER_TO_CAPABILITY = {
   'models:tts': 'FLAG_TTS',
   'models:transcript': 'FLAG_TRANSCRIPT',
   'models:vad': 'FLAG_VAD',
+  'models:score': 'FLAG_SCORE',
+  'models:token_classify': 'FLAG_TOKEN_CLASSIFY',
 }
 
 function coerceValue(raw, uiType) {
@@ -300,8 +308,17 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     )
   }
 
-  // Code editor
+  // Code editor. Two flavours:
+  //   - Plain CodeEditor when the form value is a string (Go template
+  //     blobs etc. — what the original `code-editor` shipped for).
+  //   - StructuredCodeEditor when the form value is a structured
+  //     object/array (e.g. `router.candidates`, where the canonical
+  //     value is `[{label, model, rules}, ...]`). The wrapper keeps a
+  //     YAML representation in the textarea while publishing the
+  //     parsed structure back to form state, so the save flow can
+  //     unflatten it into the YAML file cleanly.
   if (component === 'code-editor') {
+    const isStructured = value !== null && value !== undefined && typeof value !== 'string'
     return (
       <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -310,7 +327,9 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
           </div>
         </div>
-        <CodeEditor value={value || ''} onChange={handleChange} minHeight="80px" />
+        {isStructured
+          ? <StructuredCodeEditor value={value} onChange={handleChange} minHeight="80px" />
+          : <CodeEditor value={value || ''} onChange={handleChange} minHeight="80px" language={field.language} />}
       </div>
     )
   }
@@ -341,6 +360,112 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           </div>
         </div>
         <JsonEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // Router candidates — routing table editor. Each row is
+  // {model, labels[]}; the labels picker reads from router.policies
+  // via FormContext so candidate labels match the declared vocabulary.
+  if (component === 'router-candidates') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <RouterCandidatesEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // Router policies — label vocabulary editor. Each row is
+  // {label, description}; the description ends up verbatim in the
+  // routing system prompt sent to the classifier model.
+  if (component === 'router-policies') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <RouterPoliciesEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // PII detectors — a capability-filtered multi-select of token_classify
+  // models (the consuming model's pii.detectors list).
+  if (component === 'model-multi-select') {
+    const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <ModelMultiSelect value={value} onChange={handleChange} capability={cap} placeholder={field.placeholder} />
+      </div>
+    )
+  }
+
+  // PII detection entity-action map — a detector model's
+  // pii_detection.entity_actions (entity group -> mask|block|allow).
+  if (component === 'entity-action-list') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+          </div>
+        </div>
+        <EntityActionListEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // PII built-in secret patterns — a checklist of named built-in patterns
+  // (pii_detection.builtins). value is an array of selected names.
+  if (component === 'pii-builtins-select') {
+    const selected = Array.isArray(value) ? value : []
+    const toggle = (name) => {
+      handleChange(selected.includes(name) ? selected.filter(n => n !== name) : [...selected, name])
+    }
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {(field.options || []).map(opt => (
+            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
+              {opt.label || opt.value}
+            </label>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // PII custom secret patterns — operator-defined restricted-regex rules
+  // (pii_detection.patterns). value is an array of {name, match, action, min_len}.
+  if (component === 'pii-pattern-list') {
+    return (
+      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+        </div>
+        <PatternListEditor value={value} onChange={handleChange} />
       </div>
     )
   }

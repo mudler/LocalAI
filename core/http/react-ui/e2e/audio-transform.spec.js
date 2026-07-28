@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 function mockCapabilities(page, capabilities) {
   return page.route('**/api/models/capabilities', (route) => {
@@ -63,6 +63,33 @@ function makeFakeWav(name) {
   buf.write('data', 36)
   buf.writeUInt32LE(dataLen, 40)
   // body left as zeros (silence)
+  return { name, mimeType: 'audio/wav', buffer: buf }
+}
+
+// Build a WAV carrying a real sine tone, long enough that the spectrogram
+// STFT produces several frames (a few thousand samples). Used to exercise the
+// FFT / heatmap path, which the 4-sample silent fixture can't.
+function makeToneWav(name, freq = 1000, seconds = 0.4, sampleRate = 16000) {
+  const samples = Math.floor(seconds * sampleRate)
+  const dataLen = samples * 2
+  const buf = Buffer.alloc(44 + dataLen)
+  buf.write('RIFF', 0)
+  buf.writeUInt32LE(36 + dataLen, 4)
+  buf.write('WAVE', 8)
+  buf.write('fmt ', 12)
+  buf.writeUInt32LE(16, 16)
+  buf.writeUInt16LE(1, 20)
+  buf.writeUInt16LE(1, 22)
+  buf.writeUInt32LE(sampleRate, 24)
+  buf.writeUInt32LE(sampleRate * 2, 28)
+  buf.writeUInt16LE(2, 32)
+  buf.writeUInt16LE(16, 34)
+  buf.write('data', 36)
+  buf.writeUInt32LE(dataLen, 40)
+  for (let i = 0; i < samples; i++) {
+    const v = Math.round(Math.sin((2 * Math.PI * freq * i) / sampleRate) * 16000)
+    buf.writeInt16LE(v, 44 + i * 2)
+  }
   return { name, mimeType: 'audio/wav', buffer: buf }
 }
 
@@ -167,6 +194,26 @@ test.describe('Audio Transform', () => {
     await page.waitForTimeout(600)
     await page.goto('/app/transform')
     await expect(page.getByTestId('media-history-item')).toHaveCount(1)
+  })
+
+  test('renders an input spectrogram on upload and an output one after transform', async ({ page }) => {
+    mockAudioTransform(page, 'enhanced.wav')
+
+    await page.goto('/app/transform')
+    await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
+
+    // Choosing a clip should render its input spectrogram immediately — no
+    // backend round-trip needed (it's computed client-side from the bytes).
+    await page.locator('input[type="file"]').first().setInputFiles(makeToneWav('tone.wav'))
+    await expect(page.getByTestId('spectrogram-input')).toBeVisible({ timeout: 10_000 })
+
+    // Until a transform runs the output side shows a "compare" placeholder.
+    await expect(page.getByText(/Transform to compare/)).toBeVisible()
+
+    await page.getByRole('button', { name: /Transform/ }).last().click()
+
+    // After processing, the output spectrum panel appears alongside the input.
+    await expect(page.getByText('Output spectrum')).toBeVisible({ timeout: 10_000 })
   })
 
   test('shows an error banner when the backend returns 4xx', async ({ page }) => {

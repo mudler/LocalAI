@@ -577,6 +577,21 @@ func trimPotentialPartialWord(content string, format *XMLToolCallFormat, startTh
 func removeHealingMarkerFromJSON(value map[string]any, marker string) map[string]any {
 	result := make(map[string]any)
 	for k, v := range value {
+		// Strip the healing marker from KEYS. parseJSONWithStack appends the
+		// marker to close a partial key (e.g. `{ "code` heals into
+		// `{"code<marker>":1}`); we want to preserve the prefix the model
+		// actually emitted. If the entire key was the marker (i.e. the input
+		// was just `{` heals into `{"<marker>":1}`), the truncated key is
+		// empty — drop the entry. Without this, downstream callers see a
+		// stub object with a random integer-looking key and treat it as a
+		// complete result, the shape that trips chat_stream_workers.go's
+		// streaming tool-call detector in issue #9988.
+		if idx := strings.Index(k, marker); idx != -1 {
+			k = k[:idx]
+			if k == "" {
+				continue
+			}
+		}
 		if str, ok := v.(string); ok {
 			if idx := strings.Index(str, marker); idx != -1 {
 				v = str[:idx]

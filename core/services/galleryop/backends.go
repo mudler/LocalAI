@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -47,7 +48,13 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		}
 	}
 
-	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
+	// Starting the operation NARROWS what can be cancelled, which is the reverse
+	// of the usual shape: markQueued reports every queued op as cancellable
+	// because abandoning it before the worker takes it leaves no trace. From
+	// here on that only holds for an install or an upgrade, both of which take
+	// ctx. DeleteBackend takes no context and cannot be interrupted, so a Cancel
+	// button on a running removal is one the server cannot honour.
+	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: !op.Delete})
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
@@ -70,7 +77,7 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 
 	var err error
 	if op.Upgrade {
-		err = g.backendManager.UpgradeBackend(ctx, op.GalleryElementName, progressCallback)
+		err = g.backendManager.UpgradeBackend(ctx, op, progressCallback)
 	} else if op.Delete {
 		err = g.backendManager.DeleteBackend(op.GalleryElementName)
 	} else {
@@ -91,6 +98,21 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 			})
 			return err
 		}
+		if errors.Is(err, ErrWorkerStillInstalling) {
+			// Soft failure: at least one worker timed out replying but is
+			// still running the install in the background. Mark the op as
+			// processed with a non-error message so the admin UI shows a
+			// yellow in-progress state rather than red. The reconciler's
+			// next pass will reconcile the actual outcome via backend.list.
+			xlog.Info("worker still installing in background", "backend", op.GalleryElementName, "error", err)
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed:          true,
+				GalleryElementName: op.GalleryElementName,
+				Message:            fmt.Sprintf("backend %s: worker still installing in background; reconciler will confirm completion (%v)", op.GalleryElementName, err),
+				Cancellable:        false,
+			})
+			return nil
+		}
 		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
 		if !op.Delete {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
@@ -98,6 +120,21 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		}
 		return err
 	}
+
+	// Tell peer replicas that the backend set has changed. UpgradeChecker
+	// caches upgrade-available bits for 6 hours, so without this peers would
+	// keep advertising an upgrade for a backend that already moved.
+	opName := "install"
+	switch {
+	case op.Delete:
+		opName = "delete"
+	case op.Upgrade:
+		opName = "upgrade"
+	}
+	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateBackends, messaging.CacheInvalidateEvent{
+		Element: op.GalleryElementName,
+		Op:      opName,
+	})
 
 	g.UpdateStatus(op.ID,
 		&OpStatus{
@@ -113,7 +150,12 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 // InstallExternalBackend installs a backend from an external source (OCI image, URL, or path).
 // This method contains the logic to detect the input type and call the appropriate installation function.
 // It can be used by both CLI and Web UI for installing backends from external sources.
-func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string) error {
+//
+// force applies only to the gallery-name fallback: a URI install (dir/OCI/file)
+// always writes, but a bare gallery name is an "ensure installed" — the
+// LOCALAI_EXTERNAL_BACKENDS boot loop runs it on every start and must not
+// re-download an installed, runnable backend.
+func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string, force, requireIntegrity bool) error {
 	uri := downloader.URI(backend)
 	switch {
 	case uri.LooksLikeDir():
@@ -127,7 +169,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus); err != nil {
+		}, downloadStatus, requireIntegrity); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	case uri.LooksLikeOCI() && !uri.LooksLikeOCIFile():
@@ -141,7 +183,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus); err != nil {
+		}, downloadStatus, requireIntegrity); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	case uri.LooksLikeOCIFile():
@@ -163,7 +205,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus); err != nil {
+		}, downloadStatus, requireIntegrity); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	default:
@@ -171,7 +213,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 		if name != "" || alias != "" {
 			return fmt.Errorf("specifying a name or alias is not supported for gallery backends")
 		}
-		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, true)
+		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, force, requireIntegrity)
 		if err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}

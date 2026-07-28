@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	"github.com/schollz/progressbar/v3"
@@ -24,6 +25,9 @@ type ModelsCMDFlags struct {
 	BackendGalleries string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	ModelsPath       string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	BackendsPath     string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
+	Color            string `env:"COLOR" hidden:""`
+	NoColor          string `env:"NO_COLOR" hidden:""`
+	HFToken          string `env:"HF_TOKEN" hidden:""`
 }
 
 type ModelsList struct {
@@ -32,8 +36,10 @@ type ModelsList struct {
 
 type ModelsInstall struct {
 	DisablePredownloadScan   bool     `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
+	RequireBackendIntegrity  bool     `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, reject backend installs without a configured signature verification policy (OCI URIs) or SHA256 (tarball/HTTP URIs)." group:"hardening" default:"false"`
 	AutoloadBackendGalleries bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES" help:"If true, automatically loads backend galleries" group:"backends" default:"true"`
 	ModelArgs                []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	Variant                  string   `name:"variant" help:"Install a specific variant of a gallery entry that declares them, by the variant's model name. Leave unset to let LocalAI auto-select: builds this hardware cannot run or cannot fit are dropped, the engine this hardware prefers wins, and size decides among equals." group:"models"`
 
 	ModelsCMDFlags `embed:""`
 }
@@ -71,7 +77,6 @@ func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 }
 
 func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
-
 	systemState, err := system.GetSystemState(
 		system.WithModelPath(mi.ModelsPath),
 		system.WithBackendPath(mi.BackendsPath),
@@ -80,10 +85,18 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	artifactMaterializer := modelartifacts.NewDefaultManager(
+		modelartifacts.WithHuggingFaceToken(mi.HFToken),
+	)
 	galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
-		SystemState: systemState,
+		SystemState:               systemState,
+		ModelArtifactMaterializer: artifactMaterializer,
+		ModelPreloadRenderMode:    mi.Color,
+		DisableModelPreloadColor:  mi.NoColor != "",
 	}, model.NewModelLoader(systemState))
-	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath), systemState)
+	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath,
+		config.WithArtifactMaterializer(artifactMaterializer),
+		config.WithPreloadDisplay(mi.Color, mi.NoColor != "")), systemState)
 	if err != nil {
 		return err
 	}
@@ -135,7 +148,11 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		}
 
 		modelLoader := model.NewModelLoader(systemState)
-		err = startup.InstallModels(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
+		var installOptions []gallery.InstallOption
+		if mi.Variant != "" {
+			installOptions = append(installOptions, gallery.WithVariant(mi.Variant))
+		}
+		err = startup.InstallModelsWithOptions(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, mi.RequireBackendIntegrity, progressCallback, installOptions, modelName)
 		if err != nil {
 			return err
 		}

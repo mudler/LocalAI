@@ -3,13 +3,16 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
@@ -17,9 +20,10 @@ import (
 
 // fakeModelLocator implements ModelLocator with configurable node lists.
 type fakeModelLocator struct {
-	nodes        []BackendNode
-	findErr      error
-	removedPairs []modelNodePair // records RemoveNodeModel calls
+	nodes           []BackendNode
+	findErr         error
+	removedPairs    []modelNodePair   // records RemoveNodeModel calls
+	removedReplicas []modelReplicaRef // records RemoveNodeModel calls including the replica index
 }
 
 type modelNodePair struct {
@@ -27,12 +31,24 @@ type modelNodePair struct {
 	modelName string
 }
 
+// modelReplicaRef records a row removal at full replica granularity.
+// modelNodePair drops the index because RemoveAllNodeModelReplicas has none;
+// the backend delete/upgrade paths address exactly one replica row, so an
+// assertion that ignored the index could not tell a correct removal from one
+// that wiped a sibling replica still serving traffic.
+type modelReplicaRef struct {
+	nodeID       string
+	modelName    string
+	replicaIndex int
+}
+
 func (f *fakeModelLocator) FindNodesWithModel(_ context.Context, _ string) ([]BackendNode, error) {
 	return f.nodes, f.findErr
 }
 
-func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, _ int) error {
+func (f *fakeModelLocator) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
 	f.removedPairs = append(f.removedPairs, modelNodePair{nodeID, modelName})
+	f.removedReplicas = append(f.removedReplicas, modelReplicaRef{nodeID, modelName, replicaIndex})
 	return nil
 }
 
@@ -60,6 +76,7 @@ type publishCall struct {
 type requestCall struct {
 	Subject string
 	Data    []byte
+	Timeout time.Duration
 }
 
 func (f *fakeMessagingClient) Publish(subject string, data any) error {
@@ -93,10 +110,10 @@ func (f *fakeMessagingClient) SubscribeReply(_ string, _ func(data []byte, reply
 	return &fakeSubscription{}, nil
 }
 
-func (f *fakeMessagingClient) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+func (f *fakeMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data})
+	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data, Timeout: timeout})
 	return f.requestReply, f.requestErr
 }
 
@@ -119,11 +136,47 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	BeforeEach(func() {
 		locator = &fakeModelLocator{}
 		mc = &fakeMessagingClient{}
-		adapter = NewRemoteUnloaderAdapter(locator, mc)
+		adapter = NewRemoteUnloaderAdapter(locator, mc, 3*time.Minute, 15*time.Minute)
+	})
+
+	// HasRemoteModel carries the distinction that UnloadRemoteModel
+	// deliberately does not, so ShutdownModel can answer 404 for a model that
+	// is loaded neither locally nor anywhere in the cluster without making the
+	// shared unload path fail for every idempotent cleanup caller.
+	Describe("HasRemoteModel", func() {
+		It("reports false when no node has the model", func() {
+			locator.nodes = nil
+			loaded, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loaded).To(BeFalse())
+		})
+
+		It("reports true when a node has the model", func() {
+			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
+			loaded, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loaded).To(BeTrue())
+		})
+
+		It("surfaces a registry failure instead of reporting absence", func() {
+			// An unreachable registry is not evidence that the model is gone;
+			// reporting false would let ShutdownModel answer a confident 404
+			// on the strength of a failed lookup.
+			locator.findErr = errors.New("registry unavailable")
+			_, err := adapter.HasRemoteModel(context.Background(), "my-model")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Describe("UnloadRemoteModel", func() {
 		It("with no nodes returns nil", func() {
+			// Unloading is idempotent: cleanup paths (model deletion, config
+			// edits, watchdog eviction) legitimately run against an already
+			// unloaded model, and turning that into an error wedges the
+			// watchdog's LRU reclaimer, which only untracks a model when
+			// shutdown reports success. The same contract is pinned end to end
+			// by "should be no-op for models not on any node" in
+			// tests/e2e/distributed/node_lifecycle_test.go — keep them in step.
 			locator.nodes = nil
 			Expect(adapter.UnloadRemoteModel("my-model")).To(Succeed())
 			Expect(mc.published).To(BeEmpty())
@@ -154,15 +207,24 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			}
 			// Use a messaging client that fails the first Publish call only.
 			failOnce := &failOnceMessagingClient{inner: mc, failOn: 0}
-			adapter = NewRemoteUnloaderAdapter(locator, failOnce)
+			adapter = NewRemoteUnloaderAdapter(locator, failOnce, 3*time.Minute, 15*time.Minute)
 
-			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
+			Expect(adapter.UnloadRemoteModel("llama")).To(HaveOccurred())
 
 			// The second node should still have been processed.
 			// The first node's StopBackend errored, so RemoveNodeModel was NOT called for it.
 			// The second node's StopBackend succeeded, so RemoveNodeModel WAS called.
 			Expect(locator.removedPairs).To(HaveLen(1))
 			Expect(locator.removedPairs[0].nodeID).To(Equal("node-ok"))
+		})
+
+		It("propagates forced shutdown to every worker", func() {
+			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
+			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", true)).To(Succeed())
+
+			var payload messaging.BackendStopRequest
+			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
+			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
 		})
 	})
 
@@ -178,11 +240,10 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
 			Expect(mc.published).To(HaveLen(1))
 
-			var payload struct {
-				Backend string `json:"backend"`
-			}
+			var payload messaging.BackendStopRequest
 			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
 			Expect(payload.Backend).To(Equal("llama-backend"))
+			Expect(payload.Force).To(BeFalse())
 		})
 	})
 
@@ -259,3 +320,96 @@ func (f *failOnceMessagingClient) Request(subject string, data []byte, timeout t
 
 func (f *failOnceMessagingClient) IsConnected() bool { return true }
 func (f *failOnceMessagingClient) Close()            {}
+
+var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
+	It("passes the configured install timeout to the messaging client", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
+
+		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.calls).To(HaveLen(1))
+		Expect(mc.calls[0].Timeout).To(Equal(7 * time.Minute))
+	})
+
+	It("passes the configured upgrade timeout to the messaging client", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), messaging.BackendUpgradeReply{Success: true})
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
+
+		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.calls).To(HaveLen(1))
+		Expect(mc.calls[0].Timeout).To(Equal(11 * time.Minute))
+	})
+})
+
+var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
+	It("wraps nats.ErrTimeout from InstallBackend in galleryop.ErrWorkerStillInstalling", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrTimeout)
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+			"expected wrapped ErrWorkerStillInstalling, got %v", err)
+	})
+
+	It("does NOT wrap non-timeout errors", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptErr(messaging.SubjectNodeBackendInstall("n1"), nats.ErrNoResponders)
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 100*time.Millisecond, 1*time.Second)
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
+		Expect(errors.Is(err, nats.ErrNoResponders)).To(BeTrue())
+	})
+})
+
+var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
+	It("forwards BackendInstallProgressEvent values into the onProgress callback when the worker publishes them", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scheduleProgressPublish("n1", "op-abc", []messaging.BackendInstallProgressEvent{
+			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "100 MB", Total: "1 GB", Percentage: 10},
+			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "500 MB", Total: "1 GB", Percentage: 50},
+		})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
+		var (
+			received []messaging.BackendInstallProgressEvent
+			mu       sync.Mutex
+		)
+		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+			mu.Lock()
+			defer mu.Unlock()
+			received = append(received, ev)
+		}
+
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "op-abc", onProgress)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() int {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(received)
+		}, "1s").Should(Equal(2))
+	})
+
+	It("does NOT subscribe when onProgress is nil (reconciler retry path)", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(mc.subscribeCalls()).To(BeEmpty(),
+			"reconciler-driven retries must not subscribe to the per-op progress subject")
+	})
+})

@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
-WHISPER_CPP_VERSION?=3e9b7d0fef3528ee2208da3cdb873a2c53d2ae2f
+WHISPER_CPP_VERSION?=080bbbe85230f624f0b52127f1ae1218247989f9
 SO_TARGET?=libgowhisper.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -117,6 +117,7 @@ libgowhisper-custom: CMakeLists.txt cpp/gowhisper.cpp cpp/gowhisper.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgowhisper.so ./$(SO_TARGET)
+	mv build-$(SO_TARGET)/libgowhisper.so ./$(SO_TARGET) 2>/dev/null || \
+		mv build-$(SO_TARGET)/libgowhisper.dylib ./$(SO_TARGET:.so=.dylib)
 
 all: whisper package

@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 // Minimal popover: positions itself below-right of the trigger's bounding box,
 // flips above when there isn't room below, closes on outside click or Escape,
 // returns focus to the trigger. Uses the existing .card surface so it picks
 // up theme/border/shadow automatically — no new theming work.
+//
+// Rendered through a portal on document.body: the popover is position:fixed and
+// positioned from the trigger's viewport rect, so it must escape any ancestor
+// that establishes a containing block (a row/card with a hover `transform`
+// would otherwise re-anchor `position:fixed` to itself, throwing the menu to
+// the wrong spot and making it unusable).
 //
 // Props:
 //   anchor:    ref to the trigger DOMElement (required)
@@ -30,7 +37,9 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel }) 
     setPos({ top, left: Math.max(8, left), flipped })
   }, [anchor])
 
-  useEffect(() => {
+  // useLayoutEffect so we measure + place the popover before the browser
+  // paints — otherwise it flashes at its initial {0,0} for a frame.
+  useLayoutEffect(() => {
     if (!open) return
     reposition()
     window.addEventListener('resize', reposition)
@@ -65,14 +74,15 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel }) 
     if (!open && anchor?.current) {
       // requestAnimationFrame so the close is painted before focus jumps;
       // otherwise screen readers announce the trigger mid-transition.
-      const raf = requestAnimationFrame(() => anchor.current?.focus?.())
+      // preventScroll: focusing the trigger must not yank the page scroll.
+      const raf = requestAnimationFrame(() => anchor.current?.focus?.({ preventScroll: true }))
       return () => cancelAnimationFrame(raf)
     }
   }, [open, anchor])
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
       ref={popoverRef}
       role="dialog"
@@ -81,6 +91,7 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel }) 
       style={{ top: pos.top, left: pos.left }}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   )
 }

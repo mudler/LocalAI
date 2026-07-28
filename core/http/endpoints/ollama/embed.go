@@ -36,7 +36,7 @@ func EmbedEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		promptEvalCount := 0
 
 		for _, s := range inputStrings {
-			embedFn, err := backend.ModelEmbedding(s, []int{}, ml, *cfg, appConfig)
+			embedFn, err := backend.ModelEmbedding(c.Request().Context(), s, []int{}, ml, *cfg, appConfig)
 			if err != nil {
 				xlog.Error("Ollama embed failed", "error", err)
 				return ollamaError(c, 500, fmt.Sprintf("embedding failed: %v", err))

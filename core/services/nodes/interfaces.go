@@ -9,7 +9,7 @@ import (
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {
-	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error)
+	FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error)
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
@@ -17,6 +17,7 @@ type ModelRouter interface {
 	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
 	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
 	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
+	UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
 	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
 	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
@@ -29,6 +30,7 @@ type ModelRouter interface {
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
 	FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error)
+	NarrowByDiskHeadroom(ctx context.Context, candidateNodeIDs []string, required uint64) ([]string, error)
 	ReserveVRAM(ctx context.Context, nodeID string, bytes uint64) error
 	ReleaseVRAM(ctx context.Context, nodeID string, bytes uint64) error
 	FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error)
@@ -36,6 +38,7 @@ type ModelRouter interface {
 	FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs []string) (*BackendNode, error)
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
+	LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error)
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that
@@ -76,6 +79,9 @@ type ModelLookup interface {
 type InFlightTracker interface {
 	IncrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 	DecrementInFlight(ctx context.Context, nodeID, modelName string, replicaIndex int) error
+	// RemoveNodeModel drops a stale replica row so the next request reloads the
+	// model instead of routing back to a node where it is no longer loaded.
+	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error
 }
 
 // NodeManager is used by HTTP endpoints for node registration and lifecycle.

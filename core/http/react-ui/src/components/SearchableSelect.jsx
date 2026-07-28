@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function SearchableSelect({
   value, onChange, options, placeholder = 'Select...',
   allOption, searchPlaceholder = 'Search...',
   disabled = false, style, className = '',
 }) {
+  const { t } = useTranslation('common')
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [focusIndex, setFocusIndex] = useState(-1)
@@ -226,7 +228,7 @@ export default function SearchableSelect({
             })}
             {filtered.length === 0 && !allOption && (
               <div style={{ padding: '6px 10px', fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                No matches
+                {t('forms.noMatch')}
               </div>
             )}
           </div>

@@ -1,6 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/xpu
-torch
-torchaudio
+# PyTorch 2.13 XPU requires oneAPI 2026, while the image uses oneAPI 2025.3.
+# Pin the matching torch/torchaudio pair that uses the 2025.3 runtime.
+torch==2.11.0+xpu
+torchaudio==2.11.0+xpu
 optimum[openvino]
 setuptools
 transformers==4.48.3

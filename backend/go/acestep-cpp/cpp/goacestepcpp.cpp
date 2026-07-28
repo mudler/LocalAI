@@ -22,12 +22,11 @@
 #include <vector>
 
 // Global model contexts (loaded once, reused across requests)
-static DiTGGML       g_dit       = {};
-static DiTGGMLConfig g_dit_cfg;
-static VAEGGML       g_vae       = {};
-static bool          g_dit_loaded = false;
-static bool          g_vae_loaded = false;
-static bool          g_is_turbo   = false;
+static DiTGGML g_dit        = {};
+static VAEGGML g_vae        = {};
+static bool    g_dit_loaded = false;
+static bool    g_vae_loaded = false;
+static bool    g_is_turbo   = false;
 
 // Silence latent [15000, 64] — read once from DiT GGUF
 static std::vector<float> g_silence_full;
@@ -72,10 +71,9 @@ int load_model(const char * lm_model_path, const char * text_encoder_path,
     g_text_enc_path = text_encoder_path;
     g_dit_path      = dit_model_path;
 
-    // Load DiT model
+    // Load DiT model (backend init + config are handled inside dit_ggml_load)
     fprintf(stderr, "[acestep-cpp] Loading DiT from %s\n", dit_model_path);
-    dit_ggml_init_backend(&g_dit);
-    if (!dit_ggml_load(&g_dit, dit_model_path, g_dit_cfg, nullptr, 0.0f)) {
+    if (!dit_ggml_load(&g_dit, dit_model_path)) {
         fprintf(stderr, "[acestep-cpp] FATAL: failed to load DiT from %s\n", dit_model_path);
         return 1;
     }
@@ -149,16 +147,16 @@ int generate_music(const char * caption, const char * lyrics, int bpm,
 
     // Compute T (latent frames at 25Hz)
     int T = (int)(duration * FRAMES_PER_SECOND);
-    T     = ((T + g_dit_cfg.patch_size - 1) / g_dit_cfg.patch_size) * g_dit_cfg.patch_size;
-    int S = T / g_dit_cfg.patch_size;
+    T     = ((T + g_dit.cfg.patch_size - 1) / g_dit.cfg.patch_size) * g_dit.cfg.patch_size;
+    int S = T / g_dit.cfg.patch_size;
 
     if (T > 15000) {
         fprintf(stderr, "[acestep-cpp] ERROR: T=%d exceeds max 15000\n", T);
         return 2;
     }
 
-    int Oc     = g_dit_cfg.out_channels;      // 64
-    int ctx_ch = g_dit_cfg.in_channels - Oc;  // 128
+    int Oc     = g_dit.cfg.out_channels;      // 64
+    int ctx_ch = g_dit.cfg.in_channels - Oc;  // 128
 
     fprintf(stderr, "[acestep-cpp] T=%d, S=%d, duration=%.1fs, seed=%d\n", T, S, duration, seed);
 
@@ -191,9 +189,8 @@ int generate_music(const char * caption, const char * lyrics, int bpm,
 
     fprintf(stderr, "[acestep-cpp] caption: %d tokens, lyrics: %d tokens\n", S_text, S_lyric);
 
-    // 4. Text encoder forward
+    // 4. Text encoder forward (backend init handled inside qwen3_load_text_encoder)
     Qwen3GGML text_enc = {};
-    qwen3_init_backend(&text_enc);
     if (!qwen3_load_text_encoder(&text_enc, g_text_enc_path.c_str())) {
         fprintf(stderr, "[acestep-cpp] FATAL: failed to load text encoder\n");
         return 4;
@@ -209,9 +206,8 @@ int generate_music(const char * caption, const char * lyrics, int bpm,
     std::vector<float> lyric_embed(H_text * S_lyric);
     qwen3_embed_lookup(&text_enc, lyric_ids.data(), S_lyric, lyric_embed.data());
 
-    // 6. Condition encoder
+    // 6. Condition encoder (backend init handled inside cond_ggml_load)
     CondGGML cond = {};
-    cond_ggml_init_backend(&cond);
     if (!cond_ggml_load(&cond, g_dit_path.c_str())) {
         fprintf(stderr, "[acestep-cpp] FATAL: failed to load condition encoder\n");
         qwen3_free(&text_enc);

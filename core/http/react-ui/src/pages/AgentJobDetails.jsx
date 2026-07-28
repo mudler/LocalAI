@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { agentJobsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageHeader from '../components/PageHeader'
 
 const traceColors = {
   reasoning: { bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.3)', icon: 'fa-brain', color: 'var(--color-primary)' },
@@ -178,22 +179,22 @@ export default function AgentJobDetails() {
 
   return (
     <div className="page page--narrow">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">Job Details</h1>
-          <p className="page-subtitle">Live status and reasoning traces</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-          {(job.status === 'running' || job.status === 'pending') && (
-            <button className="btn btn-danger" onClick={handleCancel}>
-              <i className="fas fa-stop" /> Cancel
+      <PageHeader
+        title="Job Details"
+        supporting="Live status and reasoning traces"
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+            {(job.status === 'running' || job.status === 'pending') && (
+              <button className="btn btn-danger" onClick={handleCancel}>
+                <i className="fas fa-stop" /> Cancel
+              </button>
+            )}
+            <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
+              <i className="fas fa-arrow-left" /> Back
             </button>
-          )}
-          <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
-            <i className="fas fa-arrow-left" /> Back
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Status Card */}
       <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>

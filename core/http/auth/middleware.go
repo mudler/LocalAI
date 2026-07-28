@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	contextKeyUser = "auth_user"
-	contextKeyRole = "auth_role"
+	contextKeyUser   = "auth_user"
+	contextKeyRole   = "auth_role"
+	contextKeyAPIKey = "auth_apikey"
+	contextKeySource = "auth_source"
 )
 
 // Middleware returns an Echo middleware that handles authentication.
@@ -75,6 +77,7 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 					}
 					c.Set(contextKeyUser, syntheticUser)
 					c.Set(contextKeyRole, RoleAdmin)
+					c.Set(contextKeySource, UsageSourceLegacy)
 					authenticated = true
 				}
 			}
@@ -211,6 +214,20 @@ func GetUser(c echo.Context) *User {
 func GetUserRole(c echo.Context) string {
 	role, _ := c.Get(contextKeyRole).(string)
 	return role
+}
+
+// GetAPIKey returns the resolved API key from the echo context, or nil.
+// Nil for session-cookie and legacy-env-key authentication.
+func GetAPIKey(c echo.Context) *UserAPIKey {
+	k, _ := c.Get(contextKeyAPIKey).(*UserAPIKey)
+	return k
+}
+
+// GetSource returns the request's authentication source: UsageSourceAPIKey,
+// UsageSourceWeb, UsageSourceLegacy, or empty if no authentication was performed.
+func GetSource(c echo.Context) string {
+	s, _ := c.Get(contextKeySource).(string)
+	return s
 }
 
 // RequireRouteFeature returns a global middleware that checks the user has access
@@ -421,47 +438,67 @@ func RequireQuota(db *gorm.DB) echo.MiddlewareFunc {
 }
 
 // tryAuthenticate attempts to authenticate the request using the database.
+//
+// On success it returns the user and, as a side effect, sets the following
+// values on the Echo context:
+//   - contextKeySource ("auth_source"): always set, one of UsageSourceWeb /
+//     UsageSourceAPIKey. UsageSourceLegacy is set elsewhere by the parent
+//     Middleware when a legacy env key matches.
+//   - contextKeyAPIKey ("auth_apikey"): set to the resolved *UserAPIKey for
+//     named-key branches (Bearer, x-api-key, xi-api-key, token cookie).
+//   - "_auth_session": session record, used by Middleware to drive cookie
+//     rotation. Only set on the session-cookie branch.
+//
+// contextKeyUser and contextKeyRole are populated by the parent Middleware
+// after this function returns.
 func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationConfig) *User {
 	hmacSecret := appConfig.Auth.APIKeyHMACSecret
 
-	// a. Session cookie
+	// a. Session cookie -> web UI
 	if cookie, err := c.Cookie(sessionCookie); err == nil && cookie.Value != "" {
 		if user, session := ValidateSession(db, cookie.Value, hmacSecret); user != nil {
 			// Store session for rotation check in middleware
 			c.Set("_auth_session", session)
+			c.Set(contextKeySource, UsageSourceWeb)
 			return user
 		}
 	}
 
-	// b. Authorization: Bearer token
+	// b. Authorization: Bearer
 	authHeader := c.Request().Header.Get("Authorization")
 	if strings.HasPrefix(authHeader, "Bearer ") {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Try as session ID first
+		// b1. Session token via Bearer -> still web UI
 		if user, _ := ValidateSession(db, token, hmacSecret); user != nil {
+			c.Set(contextKeySource, UsageSourceWeb)
 			return user
 		}
 
-		// Try as user API key
+		// b2. Named API key
 		if key, err := ValidateAPIKey(db, token, hmacSecret); err == nil {
+			c.Set(contextKeySource, UsageSourceAPIKey)
+			c.Set(contextKeyAPIKey, key)
 			return &key.User
 		}
 	}
 
-	// c. x-api-key / xi-api-key headers
+	// c. x-api-key / xi-api-key -> named API key
 	for _, header := range []string{"x-api-key", "xi-api-key"} {
-		if key := c.Request().Header.Get(header); key != "" {
-			if apiKey, err := ValidateAPIKey(db, key, hmacSecret); err == nil {
+		if k := c.Request().Header.Get(header); k != "" {
+			if apiKey, err := ValidateAPIKey(db, k, hmacSecret); err == nil {
+				c.Set(contextKeySource, UsageSourceAPIKey)
+				c.Set(contextKeyAPIKey, apiKey)
 				return &apiKey.User
 			}
 		}
 	}
 
-	// d. token cookie (legacy)
+	// d. token cookie -> named API key
 	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
-		// Try as user API key
 		if key, err := ValidateAPIKey(db, cookie.Value, hmacSecret); err == nil {
+			c.Set(contextKeySource, UsageSourceAPIKey)
+			c.Set(contextKeyAPIKey, key)
 			return &key.User
 		}
 	}

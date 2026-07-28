@@ -35,16 +35,17 @@ func Detection(
 
 	var startTime time.Time
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 	}
 
 	res, err := detectionModel.Detect(ctx, &proto.DetectOptions{
-		Src:       sourceFile,
-		Prompt:    prompt,
-		Points:    points,
-		Boxes:     boxes,
-		Threshold: threshold,
+		ModelIdentity: modelConfig.Model,
+		Src:           sourceFile,
+		Prompt:        prompt,
+		Points:        points,
+		Boxes:         boxes,
+		Threshold:     threshold,
 	})
 
 	if appConfig.EnableTracing {

@@ -20,7 +20,15 @@ def split_reasoning(text, think_start, think_end):
     Returns ``(reasoning_content, remaining_text)``. When ``think_start`` is
     empty or not found, returns ``("", text)`` unchanged.
     """
-    if not think_start or not text or think_start not in text:
+    if not think_start or not text:
+        return "", text
+    if think_start not in text:
+        # Models like Qwen3.5 open assistant turns already INSIDE thinking, so
+        # the generated text carries only the closing tag. Everything before it
+        # is reasoning that would otherwise leak into the content.
+        if think_end and think_end in text:
+            head, _, tail = text.partition(think_end)
+            return head.strip(), tail.strip()
         return "", text
     pattern = re.compile(
         re.escape(think_start) + r"(.*?)" + re.escape(think_end or ""),

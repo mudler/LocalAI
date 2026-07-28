@@ -70,6 +70,8 @@ var _ = Describe("InstallExternalBackend", func() {
 				"test-backend", // gallery name
 				"custom-name",  // name should not be allowed
 				"",
+				false, // force
+				false,
 			)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("specifying a name or alias is not supported for gallery backends"))
@@ -85,6 +87,8 @@ var _ = Describe("InstallExternalBackend", func() {
 				"non-existent-backend",
 				"",
 				"",
+				false, // force
+				false,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -101,6 +105,8 @@ var _ = Describe("InstallExternalBackend", func() {
 				"oci://quay.io/mudler/tests:localai-backend-test",
 				"", // name is required for OCI images
 				"",
+				false, // force
+				false,
 			)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("specifying a name is required for OCI images"))
@@ -133,6 +139,8 @@ var _ = Describe("InstallExternalBackend", func() {
 				testBackendPath,
 				"", // name should be inferred as "source-backend"
 				"",
+				false, // force
+				false,
 			)
 			// The function should at least attempt to install with the inferred name
 			// Even if it fails for other reasons, it shouldn't fail due to missing name
@@ -151,6 +159,8 @@ var _ = Describe("InstallExternalBackend", func() {
 				testBackendPath,
 				"custom-backend-name",
 				"",
+				false, // force
+				false,
 			)
 			// The function should use the provided name
 			if err != nil {
@@ -168,6 +178,8 @@ var _ = Describe("InstallExternalBackend", func() {
 				testBackendPath,
 				"custom-backend-name",
 				"custom-alias",
+				false, // force
+				false,
 			)
 			// The function should accept alias for directory paths
 			if err != nil {
@@ -189,5 +201,61 @@ var _ = Describe("ManagementOp with External Backend", func() {
 		Expect(op.ExternalURI).To(Equal("oci://example.com/backend:latest"))
 		Expect(op.ExternalName).To(Equal("test-backend"))
 		Expect(op.ExternalAlias).To(Equal("test-alias"))
+	})
+
+	Context("TargetNodeID field", func() {
+		It("defaults to empty string", func() {
+			op := galleryop.ManagementOp[string, string]{
+				ExternalURI: "oci://example.com/backend:latest",
+			}
+			Expect(op.TargetNodeID).To(BeEmpty())
+		})
+
+		It("preserves TargetNodeID across a channel send", func() {
+			ch := make(chan galleryop.ManagementOp[string, string], 1)
+			ch <- galleryop.ManagementOp[string, string]{
+				GalleryElementName: "llama-cpp",
+				TargetNodeID:       "node-abc-123",
+			}
+			received := <-ch
+			Expect(received.TargetNodeID).To(Equal("node-abc-123"))
+			Expect(received.GalleryElementName).To(Equal("llama-cpp"))
+		})
+	})
+
+	Describe("NodeScopedKey", func() {
+		It("builds a unique key per (nodeID, backend) pair", func() {
+			Expect(galleryop.NodeScopedKey("node-a", "llama-cpp")).To(Equal("node:node-a:llama-cpp"))
+			Expect(galleryop.NodeScopedKey("node-b", "llama-cpp")).To(Equal("node:node-b:llama-cpp"))
+			Expect(galleryop.NodeScopedKey("node-a", "vllm")).To(Equal("node:node-a:vllm"))
+		})
+
+		It("handles backend names containing colons", func() {
+			// Gallery IDs sometimes look like "official@llama-cpp"; nodeIDs are UUIDs
+			// without colons, but the backend slug may contain anything. Splitting on
+			// the first colon after the prefix MUST yield the full backend back.
+			key := galleryop.NodeScopedKey("node-1", "official@llama-cpp:v2")
+			node, backend, ok := galleryop.ParseNodeScopedKey(key)
+			Expect(ok).To(BeTrue())
+			Expect(node).To(Equal("node-1"))
+			Expect(backend).To(Equal("official@llama-cpp:v2"))
+		})
+
+		It("rejects keys without the node prefix", func() {
+			_, _, ok := galleryop.ParseNodeScopedKey("llama-cpp")
+			Expect(ok).To(BeFalse())
+			_, _, ok = galleryop.ParseNodeScopedKey("official@llama-cpp")
+			Expect(ok).To(BeFalse())
+		})
+
+		It("rejects malformed node-prefixed keys", func() {
+			_, _, ok := galleryop.ParseNodeScopedKey("node:only-one-segment")
+			Expect(ok).To(BeFalse())
+		})
+
+		It("rejects keys with an empty nodeID segment", func() {
+			_, _, ok := galleryop.ParseNodeScopedKey("node::llama-cpp")
+			Expect(ok).To(BeFalse())
+		})
 	})
 })

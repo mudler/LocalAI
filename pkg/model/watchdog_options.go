@@ -31,6 +31,9 @@ type WatchDogOptions struct {
 
 	// Eviction settings
 	forceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
+
+	// Size-aware eviction: sort candidates by model file size (largest first)
+	sizeAwareEviction bool
 }
 
 // WatchDogOption is a function that configures WatchDogOptions
@@ -57,10 +60,17 @@ func WithIdleTimeout(timeout time.Duration) WatchDogOption {
 	}
 }
 
-// WithWatchdogCheck sets the watchdog check duration
+// WithWatchdogInterval sets the watchdog check interval. A non-positive
+// interval is ignored so the DefaultWatchdogInterval set by
+// DefaultWatchDogOptions is preserved: callers pass the raw
+// ApplicationConfig value, which is 0 when neither an env var nor a
+// persisted setting configured it (#10601), and a 0 interval would otherwise
+// turn the watchdog loop into a busy spin.
 func WithWatchdogInterval(interval time.Duration) WatchDogOption {
 	return func(o *WatchDogOptions) {
-		o.watchdogInterval = interval
+		if interval > 0 {
+			o.watchdogInterval = interval
+		}
 	}
 }
 
@@ -113,6 +123,17 @@ func WithMemoryReclaimerThreshold(threshold float64) WatchDogOption {
 func WithForceEvictionWhenBusy(force bool) WatchDogOption {
 	return func(o *WatchDogOptions) {
 		o.forceEvictionWhenBusy = force
+	}
+}
+
+// WithSizeAwareEviction enables size-aware eviction ordering.
+// When true, eviction candidates are sorted by on-disk file size (largest first)
+// so that bigger models are freed before smaller ones, keeping small utility models
+// resident and maximizing the memory freed per eviction round.
+// Default: false (LRU time ordering).
+func WithSizeAwareEviction(enabled bool) WatchDogOption {
+	return func(o *WatchDogOptions) {
+		o.sizeAwareEviction = enabled
 	}
 }
 

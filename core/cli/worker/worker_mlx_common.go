@@ -9,8 +9,8 @@ import (
 
 const mlxDistributedGalleryName = "mlx-distributed"
 
-func findMLXDistributedBackendPath(galleries string, systemState *system.SystemState) (string, error) {
-	return findBackendPath(mlxDistributedGalleryName, galleries, systemState)
+func findMLXDistributedBackendPath(galleries string, systemState *system.SystemState, requireIntegrity bool) (string, error) {
+	return findBackendPath(mlxDistributedGalleryName, galleries, systemState, requireIntegrity)
 }
 
 // buildMLXCommand builds the exec.Cmd to launch the mlx-distributed backend.

@@ -9,7 +9,7 @@ JOBS?=$(shell nproc --ignore=1)
 # LocalVQE upstream version pin. Bump to a specific commit when picking up
 # a new release; `main` works for development but is not reproducible.
 LOCALVQE_REPO?=https://github.com/localai-org/LocalVQE
-LOCALVQE_VERSION?=72bfb4c6
+LOCALVQE_VERSION?=b0f0378a450e87c871b85689554801601ca56d98
 
 # LocalVQE handles CPU feature selection internally (it ships the multiple
 # libggml-cpu-*.so variants and its loader picks the best one at runtime
@@ -27,10 +27,13 @@ endif
 
 # LocalVQE upstream supports CPU + Vulkan only. Other BUILD_TYPE values
 # fall through to the default CPU build — Vulkan is already as fast as the
-# specialised GPU paths would be on this 1.3 M-parameter model.
+# specialised GPU paths would be on these small (1.3 M–4.8 M parameter)
+# models.
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON -DLOCALVQE_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# Apple Silicon: CPU-only (no Metal upstream); built + published as an arm64
+	# image by CI (includeDarwin in .github/backend-matrix.yml) for macOS install.
 	CMAKE_ARGS+=-DGGML_METAL=OFF
 endif
 
@@ -66,8 +69,9 @@ $(LIB_SENTINEL): sources/LocalVQE
 	# that the loader picks at runtime. We must build every target — the
 	# default `--target localvqe_shared` drops these. CMAKE_LIBRARY_OUTPUT_DIRECTORY
 	# routes all of them into build/bin; copy them out next to the binary.
-	cp -P build/bin/liblocalvqe.so* . 2>/dev/null || cp -P build/liblocalvqe.so* .
+	cp -P build/bin/liblocalvqe.so* . 2>/dev/null || cp -P build/bin/liblocalvqe.dylib . 2>/dev/null || cp -P build/liblocalvqe.so* . 2>/dev/null || cp -P build/liblocalvqe.dylib .
 	cp -P build/bin/libggml*.so* . 2>/dev/null || true
+	cp -P build/bin/libggml*.dylib . 2>/dev/null || true
 	touch $(LIB_SENTINEL)
 
 liblocalvqe.so: $(LIB_SENTINEL)

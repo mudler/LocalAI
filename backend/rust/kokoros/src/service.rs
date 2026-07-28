@@ -351,6 +351,16 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    type AudioTranscriptionLiveStream =
+        ReceiverStream<Result<backend::TranscriptLiveResponse, Status>>;
+
+    async fn audio_transcription_live(
+        &self,
+        _: Request<tonic::Streaming<backend::TranscriptLiveRequest>>,
+    ) -> Result<Response<Self::AudioTranscriptionLiveStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn diarize(
         &self,
         _: Request<backend::DiarizeRequest>,
@@ -372,6 +382,15 @@ impl Backend for KokorosService {
         &self,
         _: Request<tonic::Streaming<backend::AudioTransformFrameRequest>>,
     ) -> Result<Response<Self::AudioTransformStreamStream>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    type AudioToAudioStreamStream = ReceiverStream<Result<backend::AudioToAudioResponse, Status>>;
+
+    async fn audio_to_audio_stream(
+        &self,
+        _: Request<tonic::Streaming<backend::AudioToAudioRequest>>,
+    ) -> Result<Response<Self::AudioToAudioStreamStream>, Status> {
         Err(Status::unimplemented("Not supported"))
     }
 
@@ -559,6 +578,43 @@ impl Backend for KokorosService {
         &self,
         _: Request<backend::QuantizationStopRequest>,
     ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn sound_detection(
+        &self,
+        _: Request<backend::SoundDetectionRequest>,
+    ) -> Result<Response<backend::SoundDetectionResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn depth(
+        &self,
+        _: Request<backend::DepthRequest>,
+    ) -> Result<Response<backend::DepthResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn token_classify(
+        &self,
+        _: Request<backend::TokenClassifyRequest>,
+    ) -> Result<Response<backend::TokenClassifyResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn score(
+        &self,
+        _: Request<backend::ScoreRequest>,
+    ) -> Result<Response<backend::ScoreResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    type ForwardStream = ReceiverStream<Result<backend::ForwardReply, Status>>;
+
+    async fn forward(
+        &self,
+        _: Request<tonic::Streaming<backend::ForwardRequest>>,
+    ) -> Result<Response<Self::ForwardStream>, Status> {
         Err(Status::unimplemented("Not supported"))
     }
 }

@@ -9,7 +9,7 @@ LocalAI is an API written in Go that serves as an OpenAI shim, enabling software
 
 LocalAI uses a mixture of backends written in various languages (C++, Golang, Python, ...). You can check [the model compatibility table]({{%relref "reference/compatibility-table" %}}) to learn about all the components of LocalAI.
 
-![localai](https://github.com/go-skynet/localai-website/assets/2420543/6492e685-8282-4217-9daa-e229a31548bc)
+![How LocalAI works: clients speak one API to a small core, which routes each request over gRPC to separate backend processes pulled on demand](/images/diagrams/architecture-overview.png)
 
 
 ## Backstory
@@ -22,4 +22,4 @@ Now, why did I choose to go with C++ bindings, you ask? Well, I wanted to keep L
 
 As if that wasn't exciting enough, as the project gained traction, [mkellerman](https://github.com/mkellerman) and [Aisuko](https://github.com/Aisuko) jumped in to lend a hand. mkellerman helped set up some killer examples, while Aisuko is becoming our community maestro. The community now is growing even more with new contributors and users, and I couldn't be happier about it!
 
-Oh, and let's not forget the real MVP here—[llama.cpp](https://github.com/ggerganov/llama.cpp). Without this extraordinary piece of software, LocalAI wouldn't even exist. So, a big shoutout to the community for making this magic happen!
+Oh, and let's not forget the real MVP here-[llama.cpp](https://github.com/ggerganov/llama.cpp). Without this extraordinary piece of software, LocalAI wouldn't even exist. So, a big shoutout to the community for making this magic happen!

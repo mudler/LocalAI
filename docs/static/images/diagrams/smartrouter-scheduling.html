@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> SmartRouter</div>
+        <h1>How the router <em>places a request</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">IDLE</div>
+        <div class="s">first</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Idle-first placement with <b>preemptive least-recently-used eviction.</b></div>
+      <div class="url">localai.io<span>/features/distributed-mode</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+// straight arrow with explicit endpoint arrowhead (any direction)
+function lineArrow(x1,y1,x2,y2,color,dash){
+  svg.appendChild(el("line",{x1,y1,x2,y2,stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const ang=Math.atan2(y2-y1,x2-x1), a=8, sp=0.5;
+  const ax=x2-Math.cos(ang)*2, ay=y2-Math.sin(ang)*2;
+  svg.appendChild(el("path",{d:`M ${ax} ${ay} l ${-(a+5)*Math.cos(ang-sp)} ${-(a+5)*Math.sin(ang-sp)} M ${ax} ${ay} l ${-(a+5)*Math.cos(ang+sp)} ${-(a+5)*Math.sin(ang+sp)}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ---------- DIAMOND (decision) ----------
+function diamond(cx,cy,hw,hh,lines,o){
+  o=o||{};
+  const pts=`${cx},${cy-hh} ${cx+hw},${cy} ${cx},${cy+hh} ${cx-hw},${cy}`;
+  // hard offset shadow
+  svg.appendChild(el("polygon",{points:`${cx+7},${cy-hh+7} ${cx+hw+7},${cy+7} ${cx+7},${cy+hh+7} ${cx-hw+7},${cy+7}`,fill:INK}));
+  svg.appendChild(el("polygon",{points:pts,fill:o.fill||HI,stroke:INK,"stroke-width":o.sw||3.5}));
+  const n=lines.length, lh=o.lh||21, start=cy-((n-1)*lh)/2+6;
+  lines.forEach((ln,i)=>txt(cx,start+i*lh,ln,{f:"Bricolage Grotesque",w:700,sz:o.sz||17,a:"middle"}));
+}
+// ---------- OUTCOME RECT ----------
+function outcome(cx,cy,w,h,lines,o){
+  o=o||{};
+  shadowRect(cx-w/2,cy-h/2,w,h,o.fill||PAPER2,o.stroke,o.sw);
+  const n=lines.length, lh=o.lh||23, start=cy-((n-1)*lh)/2+7;
+  lines.forEach((ln,i)=>txt(cx,start+i*lh,ln,{f:"Bricolage Grotesque",w:o.w||800,sz:o.sz||19,a:"middle",fill:o.tfill||INK}));
+}
+// branch label pill
+function label(x,y,s,color){
+  const w=s.length*8.5+22, h=24;
+  svg.appendChild(el("rect",{x:x-w/2,y:y-h/2,width:w,height:h,fill:PAPER,stroke:color,"stroke-width":2.5}));
+  txt(x,y+6,s,{w:700,sz:13,ls:".06em",a:"middle",fill:color});
+}
+
+// ===== LAYOUT =====
+// Left column: the decision spine (diamonds). Right side at each level: the YES outcome.
+const DX=430;                 // diamond center x
+const DHW=178, DHH=58;        // diamond half-width / half-height
+const OX=1090;                // outcome center x
+const OW=300, OH=66;          // outcome size
+const rowY=[70,200,330,460];  // first 4 diamonds
+// vertical positions
+const dY=[68,196,324,452];
+
+// diamonds (decisions) - cold teal accent stroke fill
+const decisions=[
+  ["model already","loaded on a node?"],
+  ["node with","free VRAM?"],
+  ["idle node","available?"],
+  ["can evict an LRU node","with zero in-flight?"],
+];
+const dCX=DX, dHW=176, dHH=52;
+const dCY=[88,210,332,454];
+
+// YES outcomes (right)
+const yesOut=[
+  {l:["route there","(done)"],fill:"#EFE0BF"},
+  {l:["load there"],fill:"#EFE0BF"},
+  {l:["load there"],fill:"#EFE0BF"},
+  {l:["evict + load"],fill:"#EFE0BF"},
+];
+const oW=290, oH=60;
+
+// bottom row geometry (wait-then-evict + terminal action)
+const botY=556;
+const waitCX=dCX, waitCY=botY, waitW=330, waitH=58;
+const taW=360, taH=64, taCX=OX, taCY=botY;
+
+// ========== 1) CONNECTORS (drawn first, shapes sit on top) ==========
+// NO spine: diamond i bottom -> diamond i+1 top
+for(let i=0;i<3;i++) lineArrow(dCX, dCY[i]+dHH, dCX, dCY[i+1]-dHH, INK);
+// final NO: last diamond bottom -> wait-then-evict box
+lineArrow(dCX, dCY[3]+dHH, dCX, waitCY-waitH/2, RUST);
+// YES connectors: diamond right vertex -> yes outcome left edge
+for(let i=0;i<4;i++) lineArrow(dCX+dHW, dCY[i], OX-oW/2, dCY[i], i<3?COLD:RUST);
+// funnel the load/evict outcomes (idx 1,2,3) downward into the terminal action
+[1,2,3].forEach(i=>{
+  lineArrow(OX, dCY[i]+oH/2, OX, (i===3? taCY-taH/2 : dCY[i+1]-oH/2), COLD, "2 7");
+});
+// wait-then-evict -> terminal action
+lineArrow(waitCX+waitW/2, waitCY, taCX-taW/2, taCY, RUST);
+
+// ========== 2) SHAPES ==========
+decisions.forEach((d,i)=> diamond(dCX,dCY[i],dHW,dHH,d,{fill:i<3?HI:"#E9D2B0",sz:18}) );
+yesOut.forEach((o,i)=> outcome(OX,dCY[i],oW,oH,o.l,{fill:o.fill,sz:21}) );
+outcome(waitCX,waitCY,waitW,waitH,["wait, then evict"],{fill:PAPER,stroke:RUST,sw:3.5,sz:21,tfill:RUSTD});
+outcome(taCX,taCY,taW,taH,["backend.install","+ LoadModel"],{fill:RUST,sz:22,tfill:PAPER,lh:25});
+
+// ========== 3) BRANCH LABELS (on top) ==========
+for(let i=0;i<3;i++) label(dCX, (dCY[i]+dHH+dCY[i+1]-dHH)/2, "NO", RUSTD);
+label(dCX, (dCY[3]+dHH+waitCY-waitH/2)/2, "NO", RUST);
+for(let i=0;i<4;i++) label((dCX+dHW+OX-oW/2)/2, dCY[i]-16, "YES", i<3?COLD:RUST);
+
+// request tag (left of the first diamond, clear of the spine)
+txt(dCX-dHW-14, dCY[0]+5, "REQUEST", {w:700,sz:13,ls:".16em",a:"end",fill:SOFT});
+</script>
+</body>
+</html>

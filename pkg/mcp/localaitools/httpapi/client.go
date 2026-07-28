@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
@@ -35,11 +37,9 @@ type Client struct {
 // New returns a Client targeting baseURL with an optional bearer token.
 func New(baseURL, apiKey string) *Client {
 	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		APIKey:  apiKey,
-		HTTPClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
+		BaseURL:    strings.TrimRight(baseURL, "/"),
+		APIKey:     apiKey,
+		HTTPClient: httpclient.NewWithTimeout(60 * time.Second),
 	}
 }
 
@@ -106,7 +106,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -252,6 +252,9 @@ func (c *Client) InstallModel(ctx context.Context, req localaitools.InstallModel
 	if len(req.Overrides) > 0 {
 		body["overrides"] = req.Overrides
 	}
+	if req.Variant != "" {
+		body["variant"] = req.Variant
+	}
 	var resp struct {
 		ID        string `json:"uuid"`
 		StatusURL string `json:"status"`
@@ -290,7 +293,7 @@ func (c *Client) ImportModelURI(ctx context.Context, req localaitools.ImportMode
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 
 	// 400 with `error: "ambiguous import"` is not a transport error — it's the
@@ -336,6 +339,52 @@ func (c *Client) EditModelConfig(ctx context.Context, name string, patch map[str
 
 func (c *Client) ReloadModels(ctx context.Context) error {
 	return c.do(ctx, http.MethodPost, routeModelsReload, nil, nil)
+}
+
+func (c *Client) LoadModel(ctx context.Context, model string) ([]string, error) {
+	// On a load failure the endpoint returns a non-2xx whose body (carrying the
+	// per-sub-model failure detail) is folded into the HTTPError by c.do.
+	var resp schema.ModelLoadResponse
+	if err := c.do(ctx, http.MethodPost, routeBackendLoad, map[string]string{"model": model}, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Loaded, nil
+}
+
+// ---- Model aliases ----
+
+// SetAlias is swap-first: it PATCHes the alias config (a deep-merge that
+// validates the target and preserves any other fields), and only creates a
+// fresh config when the PATCH reports the model doesn't exist yet. We prefer
+// PATCH over POST /models/import for existing names because import rewrites
+// the whole file, whereas PATCH gives a reliable 404 not-found signal
+// (ErrHTTPNotFound) to branch on and never clobbers an existing config.
+func (c *Client) SetAlias(ctx context.Context, name, target string) error {
+	if name == "" {
+		return errors.New("name is required")
+	}
+	if target == "" {
+		return errors.New("target is required")
+	}
+	err := c.do(ctx, http.MethodPatch, routeModelConfigJSON(name), map[string]any{"alias": target}, nil)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, ErrHTTPNotFound) {
+		return err
+	}
+	// No such config yet: create it. The import endpoint validates the alias
+	// target server-side, same as the PATCH path.
+	return c.do(ctx, http.MethodPost, routeModelImport, map[string]any{"name": name, "alias": target}, nil)
+}
+
+func (c *Client) ListAliases(ctx context.Context) ([]localaitools.AliasInfo, error) {
+	// /api/aliases returns []{name,target} directly - pass it through.
+	var out []localaitools.AliasInfo
+	if err := c.do(ctx, http.MethodGet, routeAliases, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ---- Backends ----
@@ -393,8 +442,8 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
 	var welcome struct {
-		Version           string   `json:"Version"`
-		LoadedModels      []any    `json:"LoadedModels"`
+		Version           string          `json:"Version"`
+		LoadedModels      []any           `json:"LoadedModels"`
 		InstalledBackends map[string]bool `json:"InstalledBackends"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeWelcome, nil, &welcome); err != nil {
@@ -432,6 +481,13 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 		})
 	}
 	return out, nil
+}
+
+func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error {
+	// PUT with an empty value clears the override server-side (Task 9), so we
+	// use PUT uniformly rather than switching to DELETE for the clear case.
+	body := map[string]any{"value": budget}
+	return c.do(ctx, http.MethodPut, routeNodeVRAMBudget(nodeID), body, nil)
 }
 
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
@@ -504,6 +560,176 @@ func (c *Client) SetBranding(ctx context.Context, req localaitools.SetBrandingRe
 		return nil, err
 	}
 	return c.GetBranding(ctx)
+}
+
+// ---- Voice profile library ----
+
+func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoiceProfile, error) {
+	var response struct {
+		Data []localaitools.VoiceProfile `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeVoiceProfiles, nil, &response); err != nil {
+		return nil, err
+	}
+	return response.Data, nil
+}
+
+func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	var profile localaitools.VoiceProfile
+	if err := c.do(ctx, http.MethodPost, routeVoiceProfiles, req, &profile); err != nil {
+		return nil, err
+	}
+	return &profile, nil
+}
+
+func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("id is required")
+	}
+	return c.do(ctx, http.MethodDelete, routeVoiceProfileDelete(id), nil, nil)
+}
+
+// ---- Usage / billing ----
+
+func (c *Client) GetUsageStats(ctx context.Context, q localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
+	period := q.Period
+	if period == "" {
+		period = "month"
+	}
+	path := routeUsage
+	if q.All {
+		path = routeUsageAll
+	}
+	// Build query string. The /api/usage server expects these exact param
+	// names; any change there must update both sides.
+	qs := url.Values{}
+	qs.Set("period", period)
+	if q.UserID != "" && q.All {
+		qs.Set("user_id", q.UserID)
+	}
+	if enc := qs.Encode(); enc != "" {
+		path = path + "?" + enc
+	}
+
+	var raw struct {
+		Viewer struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			Role string `json:"role"`
+		} `json:"viewer"`
+		Totals struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+			TotalTokens      int64 `json:"total_tokens"`
+			RequestCount     int64 `json:"request_count"`
+		} `json:"totals"`
+		Usage []struct {
+			Bucket           string `json:"bucket"`
+			Model            string `json:"model"`
+			UserID           string `json:"user_id"`
+			UserName         string `json:"user_name"`
+			PromptTokens     int64  `json:"prompt_tokens"`
+			CompletionTokens int64  `json:"completion_tokens"`
+			TotalTokens      int64  `json:"total_tokens"`
+			RequestCount     int64  `json:"request_count"`
+		} `json:"usage"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	out := &localaitools.UsageStats{
+		Viewer: localaitools.UsageViewer{ID: raw.Viewer.ID, Name: raw.Viewer.Name, Role: raw.Viewer.Role},
+		Period: period,
+		Totals: localaitools.UsageTotals{
+			PromptTokens:     raw.Totals.PromptTokens,
+			CompletionTokens: raw.Totals.CompletionTokens,
+			TotalTokens:      raw.Totals.TotalTokens,
+			RequestCount:     raw.Totals.RequestCount,
+		},
+		Buckets: make([]localaitools.UsageBucket, 0, len(raw.Usage)),
+	}
+	for _, b := range raw.Usage {
+		out.Buckets = append(out.Buckets, localaitools.UsageBucket{
+			Bucket:           b.Bucket,
+			Model:            b.Model,
+			UserID:           b.UserID,
+			UserName:         b.UserName,
+			PromptTokens:     b.PromptTokens,
+			CompletionTokens: b.CompletionTokens,
+			TotalTokens:      b.TotalTokens,
+			RequestCount:     b.RequestCount,
+		})
+	}
+	return out, nil
+}
+
+// ---- PII filter ----
+
+func (c *Client) GetPIIEvents(ctx context.Context, q localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
+	qs := url.Values{}
+	if q.CorrelationID != "" {
+		qs.Set("correlation_id", q.CorrelationID)
+	}
+	if q.UserID != "" {
+		qs.Set("user_id", q.UserID)
+	}
+	if q.PatternID != "" {
+		qs.Set("pattern_id", q.PatternID)
+	}
+	// The MCP get_pii_events tool is PII-shaped; the events store is now
+	// shared with proxy events that have no pattern_id/action. Scope to
+	// kind=pii so the LLM-facing audit stays coherent.
+	qs.Set("kind", "pii")
+	if q.Limit > 0 {
+		qs.Set("limit", fmt.Sprintf("%d", q.Limit))
+	}
+	path := routePIIEvents
+	if enc := qs.Encode(); enc != "" {
+		path = path + "?" + enc
+	}
+
+	var raw struct {
+		Events []localaitools.PIIEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Events, nil
+}
+
+func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.MiddlewareStatus, error) {
+	var out localaitools.MiddlewareStatus
+	if err := c.do(ctx, http.MethodGet, routeMiddleware, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetRouterDecisions(ctx context.Context, q localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
+	qs := url.Values{}
+	if q.CorrelationID != "" {
+		qs.Set("correlation_id", q.CorrelationID)
+	}
+	if q.UserID != "" {
+		qs.Set("user_id", q.UserID)
+	}
+	if q.RouterModel != "" {
+		qs.Set("router_model", q.RouterModel)
+	}
+	if q.Limit > 0 {
+		qs.Set("limit", fmt.Sprintf("%d", q.Limit))
+	}
+	path := routeRouterDecisions
+	if enc := qs.Encode(); enc != "" {
+		path = path + "?" + enc
+	}
+	var raw struct {
+		Decisions []localaitools.RouterDecision `json:"decisions"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Decisions, nil
 }
 
 // ---- helpers ----

@@ -18,10 +18,14 @@ type Message struct {
 	// The message content
 	Content any `json:"content" yaml:"content"`
 
-	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
-	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
-	StringVideos  []string `json:"string_videos,omitempty" yaml:"string_videos,omitempty"`
-	StringAudios  []string `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
+	// Staging buffers populated by the request middleware while
+	// decoding multimodal Content. Never serialised — strict
+	// providers (Anthropic) 400 on unknown message fields when the
+	// cloud-proxy passthrough re-marshals Message verbatim.
+	StringContent string   `json:"-" yaml:"-"`
+	StringImages  []string `json:"-" yaml:"-"`
+	StringVideos  []string `json:"-" yaml:"-"`
+	StringAudios  []string `json:"-" yaml:"-"`
 
 	// A result of a function call
 	FunctionCall any `json:"function_call,omitempty" yaml:"function_call,omitempty"`
@@ -32,6 +36,25 @@ type Message struct {
 
 	// Reasoning content extracted from <thinking>...</thinking> tags
 	Reasoning *string `json:"reasoning,omitempty" yaml:"reasoning,omitempty"`
+}
+
+// UnmarshalJSON decodes Message, accepting reasoning_content as an inbound
+// alias for reasoning so vLLM/DeepSeek/OpenAI-SDK style clients that emit
+// reasoning_content on assistant turns round-trip through the interleaved
+// thinking loop. Canonical reasoning wins when both are present.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	type messageAlias Message
+	aux := struct {
+		*messageAlias
+		ReasoningContent *string `json:"reasoning_content,omitempty"`
+	}{messageAlias: (*messageAlias)(m)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if m.Reasoning == nil && aux.ReasoningContent != nil {
+		m.Reasoning = aux.ReasoningContent
+	}
+	return nil
 }
 
 type ToolCall struct {

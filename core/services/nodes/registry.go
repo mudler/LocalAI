@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -17,24 +20,48 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string    `gorm:"primaryKey;size:36" json:"id"`
-	Name          string    `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string    `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string    `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string    `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string    `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string    `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64    `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64    `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	ID            string `gorm:"primaryKey;size:36" json:"id"`
+	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
 	// reservation is only here to keep two scheduling decisions within the
 	// same heartbeat window from over-committing the same node.
-	ReservedVRAM        uint64    `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
-	TotalRAM            uint64    `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM        uint64    `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
-	GPUVendor           string    `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	ReservedVRAM uint64 `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
+	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	// TotalDisk / AvailableDisk describe the filesystem that BACKS THE WORKER'S
+	// MODELS DIRECTORY, not the root filesystem: staged weights are written
+	// there, so that is the only mount whose free space decides whether a
+	// staging request can succeed. Reported by the worker on registration and
+	// refreshed on every heartbeat.
+	//
+	// TotalDisk == 0 means "this worker does not report disk" (pre-upgrade
+	// worker, or a stat that failed) and is the ONLY value readers may treat as
+	// unknown. AvailableDisk == 0 is a real, actionable reading: it is exactly
+	// what a 100%-full node reports, and the case this pair exists to catch.
+	TotalDisk     uint64 `gorm:"column:total_disk;default:0" json:"total_disk"`
+	AvailableDisk uint64 `gorm:"column:available_disk;default:0" json:"available_disk"`
+	GPUVendor     string `gorm:"column:gpu_vendor;size:32" json:"gpu_vendor"` // nvidia, amd, intel, vulkan, unknown
+	// GPUComputeCapability is the worker GPU's compute capability as
+	// "major.minor" (e.g. "12.1" for GB10 / DGX Spark). Reported by the worker
+	// on registration; used by the router to pick per-arch options (e.g. a
+	// larger physical batch on Blackwell). Empty when unknown / non-NVIDIA.
+	GPUComputeCapability string `gorm:"column:gpu_compute_capability;size:16" json:"gpu_compute_capability"`
+	// Capability is the worker's own meta-backend capability string (e.g.
+	// "nvidia-cuda-13", "metal", "default"), reported at registration. The
+	// controller cannot derive it: OS-dependent capabilities (metal,
+	// darwin-x86, nvidia-l4t) and the CUDA-runtime refinements are only
+	// visible on the worker itself. Empty for workers registered before this
+	// field existed; readers fall back to system.CapabilityFromGPU.
+	Capability string `gorm:"column:capability;size:64" json:"capability,omitempty"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this node concurrently. Default 1 preserves the historical "one
 	// (node, model)" assumption; set higher (via worker --max-replicas-per-model)
@@ -45,11 +72,23 @@ type BackendNode struct {
 	// re-registration so the override survives worker restarts. Cleared
 	// by an explicit "reset to worker default" action.
 	MaxReplicasPerModelManuallySet bool `gorm:"column:max_replicas_per_model_manually_set;default:false" json:"max_replicas_per_model_manually_set"`
-	APIKeyID            string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID          string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat       time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	// VRAMBudget is the operator-set allocation cap for this node ("80%" or
+	// "12GB"; empty = no cap). VRAMBudgetBytes is that budget resolved to an
+	// absolute ceiling against the node's raw TotalVRAM (0 = none) and is the
+	// value actually enforced: available_vram is written as min(reported,
+	// ceiling) so the SQL scheduler places against budgeted capacity. TotalVRAM
+	// stays raw so a percentage budget can be recomputed if capacity changes.
+	VRAMBudget      string `gorm:"column:vram_budget;size:32" json:"vram_budget,omitempty"`
+	VRAMBudgetBytes uint64 `gorm:"column:vram_budget_bytes;default:0" json:"vram_budget_bytes,omitempty"`
+	// VRAMBudgetManuallySet marks the budget as a UI-set admin override so the
+	// worker's re-registration value does not clobber it (mirrors
+	// MaxReplicasPerModelManuallySet).
+	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 const (
@@ -67,9 +106,14 @@ const (
 	ColTotalVRAM           = "total_vram"
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
+	ColTotalDisk           = "total_disk"
+	ColAvailableDisk       = "available_disk"
 	ColGPUVendor           = "gpu_vendor"
+	ColGPUComputeCap       = "gpu_compute_capability"
 	ColLastHeartbeat       = "last_heartbeat"
 	ColMaxReplicasPerModel = "max_replicas_per_model"
+	ColVRAMBudget          = "vram_budget"
+	ColVRAMBudgetBytes     = "vram_budget_bytes"
 )
 
 // NodeModel tracks which models are loaded on which nodes.
@@ -79,17 +123,42 @@ const (
 // gRPC Address (each replica is a separate worker process on its own port),
 // and its own InFlight counter.
 type NodeModel struct {
-	ID           string `gorm:"primaryKey;size:36" json:"id"`
-	NodeID       string `gorm:"index;size:36" json:"node_id"`
-	ModelName    string `gorm:"index;size:255" json:"model_name"`
-	ReplicaIndex int    `gorm:"column:replica_index;default:0;index" json:"replica_index"`
-	Address      string `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
-	State        string `gorm:"size:32;default:idle" json:"state"` // loading, loaded, unloading, idle
-	InFlight     int    `json:"in_flight"`                         // number of active requests on this replica
-	LastUsed     time.Time `json:"last_used"`
-	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`     // frontend ID that triggered loading
-	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"`  // e.g. "llama-cpp"; used by reconciler to replicate loads
-	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                     // serialized pb.ModelOptions for replica scale-ups
+	ID            string    `gorm:"primaryKey;size:36" json:"id"`
+	NodeID        string    `gorm:"index;size:36" json:"node_id"`
+	ModelName     string    `gorm:"index;size:255" json:"model_name"`
+	ReplicaIndex  int       `gorm:"column:replica_index;default:0;index" json:"replica_index"`
+	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
+	State         string    `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
+	InFlight      int       `json:"in_flight"`                         // number of active requests on this replica
+	LastUsed      time.Time `json:"last_used"`
+	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`    // frontend ID that triggered loading
+	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"` // e.g. "llama-cpp"; used by reconciler to replicate loads
+	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                    // serialized pb.ModelOptions for replica scale-ups
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
+// so the Replica Reconciler can re-load a model after every replica row has
+// been removed (worker death, eviction, MarkOffline reaping, frontend restart
+// with stale heartbeats).
+//
+// Why a separate table when the same blob is also stamped on each NodeModel
+// row? NodeModel rows are tied to a live (node, replica) slot and get deleted
+// when a backend stops being healthy. Tying the only copy of load info to
+// that lifecycle is exactly what caused Bug-1: a frontend restart followed by
+// transient worker-row removal left no copy of ModelOptions, so the reconciler
+// could not bring `min_replicas` back without a fresh inference request.
+//
+// Keyed by ModelName (the tracking key used by the router); last-write-wins
+// on the opts blob because two concurrent frontends dispatching the same
+// model with slightly different opts converge on whichever finished last.
+// That is identical to the per-NodeModel-row semantics today; if a stronger
+// guarantee is needed in the future, the row carries UpdatedAt for ordering.
+type ModelLoadInfo struct {
+	ModelName     string    `gorm:"primaryKey;size:255" json:"model_name"`
+	BackendType   string    `gorm:"size:128" json:"backend_type"`
+	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
@@ -109,13 +178,25 @@ type NodeLabel struct {
 //   - Both → auto-scale on matching nodes
 //   - Neither → no-op (default behavior)
 //
-// Auto-scaling is enabled when MinReplicas > 0 or MaxReplicas > 0.
+// Auto-scaling is enabled when MinReplicas > 0, MaxReplicas > 0, or SpreadAll is set.
 type ModelSchedulingConfig struct {
 	ID           string `gorm:"primaryKey;size:36" json:"id"`
 	ModelName    string `gorm:"uniqueIndex;size:255" json:"model_name"`
 	NodeSelector string `gorm:"type:text" json:"node_selector,omitempty"` // JSON {"key":"value",...}
 	MinReplicas  int    `gorm:"default:0" json:"min_replicas"`
 	MaxReplicas  int    `gorm:"default:0" json:"max_replicas"`
+	// SpreadAll requests one replica on every node matching NodeSelector
+	// (every healthy backend node when the selector is empty), tracked as
+	// nodes join and leave. Mutually exclusive with MinReplicas/MaxReplicas.
+	// The reconciler turns this into a dynamic Min==Max target each tick.
+	SpreadAll bool `gorm:"column:spread_all;default:false" json:"spread_all,omitempty"`
+	// Prefix-cache-aware routing (epic #10063). RoutePolicy "" means inherit
+	// the cluster-wide default. Thresholds are per-model overrides; 0 means
+	// inherit the global default.
+	RoutePolicy         string  `gorm:"column:route_policy;size:32" json:"route_policy,omitempty"`
+	BalanceAbsThreshold int     `gorm:"column:balance_abs_threshold;default:0" json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64 `gorm:"column:balance_rel_threshold;default:0" json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64 `gorm:"column:min_prefix_match;default:0" json:"min_prefix_match,omitempty"`
 	// UnsatisfiableUntil is set by the reconciler when no candidate node has
 	// free capacity for this model; while in the future, the reconciler skips
 	// scale-up attempts for this model. Cleared on cluster events that could
@@ -171,6 +252,90 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
+	// is removed. This is the single chokepoint that lets dependent state be
+	// invalidated no matter which removal path (router eviction, reconciler
+	// scale-down, probe reaper, health-monitor reap, RemoteUnloaderAdapter) ran.
+	// The replicaIndex argument is the SPECIFIC replica removed, or negative to
+	// signal "all replicas of (modelName, nodeID)".
+	//
+	// A LIST, not a single slot: the prefix-cache index and the frontend's local
+	// model store are independent subsystems that both need invalidating, and
+	// they are wired from different places. With one slot the second registration
+	// silently displaced the first.
+	//
+	// Stored in an atomic.Pointer to an immutable slice so the startup wiring
+	// (append) and request / reconcile handling (fire) are race-free.
+	replicaRemovedHooks atomic.Pointer[[]func(modelName, nodeID string, replicaIndex int)]
+}
+
+// AddReplicaRemovedHook registers a callback invoked after a replica row for
+// (modelName, nodeID) is removed from the registry. replicaIndex is the
+// specific replica removed, or negative to mean "all replicas of the node".
+// Every registered hook fires; registering one never displaces another.
+// Called at startup before serving. Safe to leave unregistered (no-op).
+func (r *NodeRegistry) AddReplicaRemovedHook(fn func(modelName, nodeID string, replicaIndex int)) {
+	if fn == nil {
+		return
+	}
+	for {
+		current := r.replicaRemovedHooks.Load()
+		existing := r.loadReplicaRemovedHooks()
+		updated := make([]func(string, string, int), 0, len(existing)+1)
+		updated = append(updated, existing...)
+		updated = append(updated, fn)
+		if r.replicaRemovedHooks.CompareAndSwap(current, &updated) {
+			return
+		}
+	}
+}
+
+// loadReplicaRemovedHooks returns the currently registered hooks, or nil when
+// none are registered.
+func (r *NodeRegistry) loadReplicaRemovedHooks() []func(modelName, nodeID string, replicaIndex int) {
+	if p := r.replicaRemovedHooks.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
+// fireReplicaRemoved invokes every registered replica-removed hook. A negative
+// replicaIndex means all replicas of (modelName, nodeID). Nil-safe.
+func (r *NodeRegistry) fireReplicaRemoved(modelName, nodeID string, replicaIndex int) {
+	for _, fn := range r.loadReplicaRemovedHooks() {
+		fn(modelName, nodeID, replicaIndex)
+	}
+}
+
+// hasReplicaRemovedHook reports whether any hook is registered, so bulk delete
+// paths can skip the extra enumeration query when nothing is listening.
+func (r *NodeRegistry) hasReplicaRemovedHook() bool {
+	return len(r.loadReplicaRemovedHooks()) > 0
+}
+
+// nodeModelNames returns the DISTINCT model names that have node_models rows
+// for nodeID, using db (which may be a transaction handle). Used by the bulk
+// node-scoped delete paths (Register re-register cleanup, MarkOffline,
+// MarkDraining, Deregister) to capture what will be removed BEFORE the delete
+// so they can fire the replica-removed hook once per distinct model afterwards
+// and keep the prefix-cache index from pointing at a node that no longer hosts
+// the model. Skips the query entirely when no hook is set (these are lifecycle
+// ops, not the request hot path, but the query is pure overhead with no hook).
+func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID string) []string {
+	if !r.hasReplicaRemovedHook() {
+		return nil
+	}
+	var names []string
+	if err := db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ?", nodeID).
+		Distinct().
+		Pluck("model_name", &names).Error; err != nil {
+		// Non-fatal: proceed with the delete, just skip hook invalidation.
+		// A stale prefix-cache entry self-heals on the next routing miss.
+		xlog.Warn("Failed to enumerate node models before bulk delete; skipping prefix-cache invalidation", "node", nodeID, "error", err)
+		return nil
+	}
+	return names
 }
 
 // NewNodeRegistry creates a NodeRegistry and auto-migrates the schema.
@@ -178,7 +343,7 @@ type NodeRegistry struct {
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -207,6 +372,36 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	})
 
 	return &NodeRegistry{db: db}, nil
+}
+
+// resolveVRAMBudgetBytes turns a budget string into an absolute byte ceiling
+// against the node's raw total VRAM, clamped to that total. 0 means no cap or
+// unparseable (fail-open at this layer; the endpoint validates input).
+func (r *NodeRegistry) resolveVRAMBudgetBytes(budget string, totalVRAM uint64) uint64 {
+	if budget == "" {
+		return 0
+	}
+	b, err := vrambudget.Parse(budget)
+	if err != nil {
+		xlog.Warn("Ignoring invalid node VRAM budget", "budget", budget, "error", err)
+		return 0
+	}
+	return b.Ceiling(totalVRAM)
+}
+
+// ResolveVRAMBudgetBytesForTest exposes resolveVRAMBudgetBytes for tests.
+func (r *NodeRegistry) ResolveVRAMBudgetBytesForTest(budget string, totalVRAM uint64) uint64 {
+	return r.resolveVRAMBudgetBytes(budget, totalVRAM)
+}
+
+// capAvailable applies a node's resolved budget ceiling to a reported available
+// figure. ceilingBytes == 0 means no cap; otherwise the result is the smaller
+// of the two so the SQL scheduler never sees more free VRAM than the budget.
+func capAvailable(reported, ceilingBytes uint64) uint64 {
+	if ceilingBytes == 0 || reported <= ceilingBytes {
+		return reported
+	}
+	return ceilingBytes
 }
 
 // Register adds or updates a backend node.
@@ -242,8 +437,48 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			node.MaxReplicasPerModel = existing.MaxReplicasPerModel
 			node.MaxReplicasPerModelManuallySet = true
 		}
+		// Preserve an admin-set VRAM budget across worker re-registration;
+		// otherwise the worker-reported budget (wired in a later task) wins.
+		if existing.VRAMBudgetManuallySet {
+			node.VRAMBudget = existing.VRAMBudget
+			node.VRAMBudgetManuallySet = true
+		}
+		// Resolve the effective budget against the (possibly updated) raw total
+		// VRAM and cap the reported available so the SQL scheduler places against
+		// budgeted capacity. TotalVRAM is written raw.
+		node.VRAMBudgetBytes = r.resolveVRAMBudgetBytes(node.VRAMBudget, node.TotalVRAM)
+		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes)
 		if err := updateDB.Updates(node).Error; err != nil {
 			return fmt.Errorf("updating node %s: %w", node.Name, err)
+		}
+		// The struct Updates above zero-skips fields, so a worker that dropped
+		// LOCALAI_VRAM_BUDGET (now reporting an empty budget / 0 ceiling) would
+		// leave the previously-stored cap in place, so the operator's env removal
+		// would never take effect. For a node whose budget is NOT an admin
+		// override, force-write the worker-authoritative budget columns even
+		// when empty/zero so removing the budget actually clears the cap.
+		// Manual overrides are handled above and keep the admin value untouched.
+		if !existing.VRAMBudgetManuallySet {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Updates(map[string]any{
+					ColVRAMBudget:      node.VRAMBudget,
+					ColVRAMBudgetBytes: node.VRAMBudgetBytes,
+					ColAvailableVRAM:   node.AvailableVRAM,
+				}).Error; err != nil {
+				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
+			}
+		}
+		// Force-write the disk columns. Updates(struct) above zero-skips, and a
+		// worker whose models filesystem is 100% full re-registers with
+		// available_disk == 0 — the single most important reading there is.
+		// Zero-skipping it would leave the last healthy-looking value in place
+		// and put the full node straight back into rotation.
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+			Updates(map[string]any{
+				ColTotalDisk:     node.TotalDisk,
+				ColAvailableDisk: node.AvailableDisk,
+			}).Error; err != nil {
+			return fmt.Errorf("recording disk capacity for node %s: %w", node.Name, err)
 		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
@@ -255,9 +490,24 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		if node.APIKeyID == "" {
 			node.APIKeyID = existing.APIKeyID
 		}
-		// Clear stale model records — the node restarted and has nothing loaded
-		if err := r.db.WithContext(ctx).Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error; err != nil {
+		// Clear stale model records — the node restarted and has nothing loaded.
+		// Capture the distinct models and run the bulk delete inside a single
+		// transaction so the set of fired hooks equals exactly the set of rows
+		// deleted: a SetNodeModel landing between the capture and the delete can
+		// no longer be deleted without its hook firing (no interleaving gap).
+		// Fire the hooks only after the transaction commits so a rollback does
+		// not invalidate the prefix-cache index for a removal that did not
+		// persist (the single chokepoint must cover this path too).
+		var removedModels []string
+		if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			removedModels = r.nodeModelNames(ctx, tx, existing.ID)
+			return tx.Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error
+		}); err != nil {
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
+		} else {
+			for _, m := range removedModels {
+				r.fireReplicaRemoved(m, existing.ID, -1)
+			}
 		}
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new node
@@ -269,6 +519,10 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		} else {
 			node.Status = StatusPending
 		}
+		// Resolve a worker-reported budget (wired in a later task) against the
+		// node's raw total VRAM and cap the reported available accordingly.
+		node.VRAMBudgetBytes = r.resolveVRAMBudgetBytes(node.VRAMBudget, node.TotalVRAM)
+		node.AvailableVRAM = capAvailable(node.AvailableVRAM, node.VRAMBudgetBytes)
 		if err := r.db.WithContext(ctx).Create(node).Error; err != nil {
 			return fmt.Errorf("creating node %s: %w", node.Name, err)
 		}
@@ -334,9 +588,24 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 	if err := r.setStatus(ctx, nodeID, StatusOffline); err != nil {
 		return err
 	}
-	// Clear model records — node is shutting down
-	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+	// Clear model records — node is shutting down. Capture the distinct models
+	// and run the bulk delete inside a single transaction so the set of fired
+	// hooks equals exactly the set of rows deleted: a SetNodeModel landing
+	// between the capture and the delete can no longer be deleted without its
+	// hook firing (no interleaving gap). The status flip above is a separate,
+	// pre-existing operation and routing already filters non-healthy nodes, so
+	// it stays outside this transaction. Fire hooks only after commit so a
+	// rollback does not invalidate the index for a removal that did not persist.
+	var removedModels []string
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		removedModels = r.nodeModelNames(ctx, tx, nodeID)
+		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
+	}); err != nil {
 		xlog.Warn("Failed to clear model records on offline", "node", nodeID, "error", err)
+	} else {
+		for _, m := range removedModels {
+			r.fireReplicaRemoved(m, nodeID, -1)
+		}
 	}
 	return nil
 }
@@ -443,7 +712,11 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 		return fmt.Errorf("node %s not found: %w", nodeID, err)
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	// Capture the distinct models removed so the prefix-cache index can be
+	// invalidated once the transaction commits.
+	var removedModels []string
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		removedModels = r.nodeModelNames(ctx, tx, nodeID)
 		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 			return fmt.Errorf("deleting node models for %s: %w", nodeID, err)
 		}
@@ -458,7 +731,13 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	for _, m := range removedModels {
+		r.fireReplicaRemoved(m, nodeID, -1)
+	}
+	return nil
 }
 
 // HeartbeatUpdate contains optional fields to update on heartbeat.
@@ -466,6 +745,11 @@ type HeartbeatUpdate struct {
 	AvailableVRAM *uint64 `json:"available_vram,omitempty"`
 	TotalVRAM     *uint64 `json:"total_vram,omitempty"`
 	AvailableRAM  *uint64 `json:"available_ram,omitempty"`
+	// AvailableDisk / TotalDisk describe the worker's models filesystem.
+	// Pointers so a worker that cannot read them omits the fields rather than
+	// reporting a zero the scheduler would act on.
+	AvailableDisk *uint64 `json:"available_disk,omitempty"`
+	TotalDisk     *uint64 `json:"total_disk,omitempty"`
 	GPUVendor     string  `json:"gpu_vendor,omitempty"`
 }
 
@@ -481,7 +765,13 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 
 	if update != nil {
 		if update.AvailableVRAM != nil {
-			updates[ColAvailableVRAM] = *update.AvailableVRAM
+			// Cap the reported available against the node's resolved budget
+			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
+			// capacity. TotalVRAM stays raw (written below).
+			var ceiling uint64
+			db.Model(&BackendNode{}).
+				Select(ColVRAMBudgetBytes).Where("id = ?", nodeID).Scan(&ceiling)
+			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling)
 			// The worker is the source of truth for actual free VRAM.
 			// Whenever it sends us a fresh reading, the in-tick soft
 			// reservation is no longer needed — clear it. (See ReserveVRAM.)
@@ -492,6 +782,14 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 		if update.AvailableRAM != nil {
 			updates[ColAvailableRAM] = *update.AvailableRAM
+		}
+		// Written unconditionally when reported, INCLUDING zero: a full disk
+		// reports 0 free, and that is the reading the scheduler must act on.
+		if update.AvailableDisk != nil {
+			updates[ColAvailableDisk] = *update.AvailableDisk
+		}
+		if update.TotalDisk != nil {
+			updates[ColTotalDisk] = *update.TotalDisk
 		}
 		if update.GPUVendor != "" {
 			updates[ColGPUVendor] = update.GPUVendor
@@ -528,6 +826,38 @@ func (r *NodeRegistry) List(ctx context.Context) ([]BackendNode, error) {
 	return nodes, nil
 }
 
+// HealthyBackendCapabilities returns the deduplicated meta-backend capability
+// strings of every healthy backend node.
+//
+// Backend discovery on the controller unions these so a GPU-only backend that
+// no node can run today stays hidden, while one that any worker can run is
+// offered. Only healthy backend nodes count — the same predicate the scheduler
+// places against — so an offline worker does not keep advertising hardware the
+// cluster cannot currently use.
+func (r *NodeRegistry) HealthyBackendCapabilities(ctx context.Context) ([]string, error) {
+	var nodes []BackendNode
+	if err := r.db.WithContext(ctx).
+		Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend).
+		Find(&nodes).Error; err != nil {
+		return nil, fmt.Errorf("listing healthy backend node capabilities: %w", err)
+	}
+
+	seen := make(map[string]struct{}, len(nodes))
+	capabilities := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		capability := node.Capability
+		if capability == "" {
+			capability = system.CapabilityFromGPU(node.GPUVendor, node.TotalVRAM)
+		}
+		if _, dup := seen[capability]; dup {
+			continue
+		}
+		seen[capability] = struct{}{}
+		capabilities = append(capabilities, capability)
+	}
+	return capabilities, nil
+}
+
 // Get returns a single node by ID.
 func (r *NodeRegistry) Get(ctx context.Context, nodeID string) (*BackendNode, error) {
 	var node BackendNode
@@ -535,6 +865,49 @@ func (r *NodeRegistry) Get(ctx context.Context, nodeID string) (*BackendNode, er
 		return nil, fmt.Errorf("getting node %s: %w", nodeID, err)
 	}
 	return &node, nil
+}
+
+// GetWithExtras returns a single node enriched with the same computed fields as
+// ListWithExtras (labels, loaded-model count, in-flight total). The plain Get
+// returns a bare BackendNode whose Labels live in a separate table, so the node
+// detail view needs this to show a node's existing labels and live counts.
+func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeWithExtras, error) {
+	node, err := r.Get(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := make(map[string]string)
+	nodeLabels, err := r.GetNodeLabels(ctx, nodeID)
+	if err != nil {
+		xlog.Warn("GetWithExtras: failed to get labels", "node", nodeID, "error", err)
+	} else {
+		for _, l := range nodeLabels {
+			labels[l.Key] = l.Value
+		}
+	}
+
+	var modelCount int64
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_id = ? AND state = ?", nodeID, "loaded").
+		Count(&modelCount).Error; err != nil {
+		xlog.Warn("GetWithExtras: failed to get model count", "node", nodeID, "error", err)
+	}
+
+	var inFlight struct{ Total int }
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Select("COALESCE(SUM(in_flight), 0) as total").
+		Where("node_id = ? AND state IN ?", nodeID, []string{"loaded", "unloading"}).
+		Scan(&inFlight).Error; err != nil {
+		xlog.Warn("GetWithExtras: failed to get in-flight count", "node", nodeID, "error", err)
+	}
+
+	return &NodeWithExtras{
+		BackendNode:   *node,
+		ModelCount:    int(modelCount),
+		InFlightCount: inFlight.Total,
+		Labels:        labels,
+	}, nil
 }
 
 // GetByName returns a single node by name.
@@ -575,8 +948,23 @@ func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
 	if err := r.setStatus(ctx, nodeID, StatusDraining); err != nil {
 		return err
 	}
-	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+	// Capture the distinct models and run the bulk delete inside a single
+	// transaction so the set of fired hooks equals exactly the set of rows
+	// deleted: a SetNodeModel landing between the capture and the delete can no
+	// longer be deleted without its hook firing (no interleaving gap). The
+	// status flip above is a separate, pre-existing operation and stays outside
+	// this transaction. Fire hooks only after commit so a rollback does not
+	// invalidate the index for a removal that did not persist.
+	var removedModels []string
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		removedModels = r.nodeModelNames(ctx, tx, nodeID)
+		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
+	}); err != nil {
 		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
+	} else {
+		for _, m := range removedModels {
+			r.fireReplicaRemoved(m, nodeID, -1)
+		}
 	}
 	return nil
 }
@@ -622,10 +1010,54 @@ func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelNa
 		Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob}).Error
 }
 
+// UpsertModelLoadInfo records or replaces the per-model load info in the
+// dedicated ModelLoadInfo table. Unlike SetNodeModelLoadInfo (which writes the
+// blob onto a specific replica row and dies with it), this survives every
+// NodeModel row being removed and so lets the reconciler recover replicas
+// after worker death + frontend restart (Bug-1).
+//
+// ON CONFLICT updates backend_type, model_opts_blob, and updated_at. Two
+// frontends dispatching the same model concurrently with slightly different
+// opts converge on whichever transaction committed last; that matches the
+// existing per-replica blob semantics today.
+func (r *NodeRegistry) UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error {
+	if modelName == "" {
+		return fmt.Errorf("model name is required")
+	}
+	now := time.Now()
+	rec := ModelLoadInfo{
+		ModelName:     modelName,
+		BackendType:   backendType,
+		ModelOptsBlob: optsBlob,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "model_name"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"backend_type":    backendType,
+			"model_opts_blob": optsBlob,
+			"updated_at":      now,
+		}),
+	}).Create(&rec).Error
+}
+
 // GetModelLoadInfo retrieves the stored backend type and serialized model
-// options from any existing loaded replica. Returns gorm.ErrRecordNotFound
-// if no replica has stored options.
+// options. Reads from the dedicated ModelLoadInfo table first (survives every
+// NodeModel row being deleted); falls back to scanning loaded NodeModel rows
+// for the load info stamped before any frontend in this cluster ran an
+// UpsertModelLoadInfo (rolling-upgrade transition). Returns
+// gorm.ErrRecordNotFound when neither source has an entry.
 func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error) {
+	var info ModelLoadInfo
+	err = r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&info).Error
+	if err == nil {
+		return info.BackendType, info.ModelOptsBlob, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil, err
+	}
+
 	var nm NodeModel
 	err = r.db.WithContext(ctx).
 		Where("model_name = ? AND state = ? AND model_opts_blob IS NOT NULL", modelName, "loaded").
@@ -643,16 +1075,25 @@ func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (
 // to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
 // per-row and must not orphan healthy siblings).
 func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
-	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Delete(&NodeModel{}).Error
+	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+		Delete(&NodeModel{}).Error; err != nil {
+		return err
+	}
+	r.fireReplicaRemoved(modelName, nodeID, replicaIndex)
+	return nil
 }
 
 // RemoveAllNodeModelReplicas removes every replica of modelName on nodeID.
 // Used by callers (e.g. node deregistration, full backend stop) that genuinely
 // want to clear all replicas, not just one.
 func (r *NodeRegistry) RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error {
-	return r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
-		Delete(&NodeModel{}).Error
+	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Delete(&NodeModel{}).Error; err != nil {
+		return err
+	}
+	// Negative index signals "all replicas of (modelName, nodeID)".
+	r.fireReplicaRemoved(modelName, nodeID, -1)
+	return nil
 }
 
 // FindNodesWithModel returns nodes that have the given model loaded.
@@ -668,31 +1109,53 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	return nodes, nil
 }
 
-// FindAndLockNodeWithModel atomically finds the least-loaded node with the given
-// model loaded and increments its in-flight counter within a single transaction.
-// The SELECT FOR UPDATE row lock prevents concurrent eviction from removing the
-// NodeModel row between the find and increment operations.
+// RoutePreference biases FindAndLockNodeWithModel. PreferredNodeID +
+// PreferredReplica, when set and the exact (node, replica) row is still
+// loaded/healthy, is locked instead of the default ORDER BY pick. The caller
+// (the prefix-cache router) has already applied the load guard, so the lock
+// targets the EXACT replica it chose, not the least-loaded replica on the node.
+// Nil preference => unchanged behavior.
+type RoutePreference struct {
+	PreferredNodeID  string
+	PreferredReplica int
+}
+
+// FindAndLockNodeWithModel atomically finds the best loaded replica of the
+// given model and increments its in-flight counter within a single
+// transaction. The SELECT FOR UPDATE row lock prevents concurrent eviction
+// from removing the NodeModel row between the find and increment operations,
+// and serializes contending routers so concurrent picks distribute across
+// replicas instead of all landing on the same row.
+//
+// **Policy:** the SQL ORDER BY below MUST mirror PickBestReplica
+// (replicapicker.go). PickBestReplica is the canonical Go implementation of
+// the same rule — the per-frontend rotating-replica cache (TODO, see
+// pkg/model/loader.go) will eventually use it against in-memory snapshots so
+// hot inference requests don't pay this DB round-trip. If you change the
+// ordering here, change both sides; the TestFindAndLockNodeWithModelMirror
+// spec ("agrees with PickBestReplica on a seeded dataset") fails fast if they
+// drift.
 //
 // When candidateNodeIDs is non-empty, only nodes in that set are considered.
 // Pass nil (or empty) to consider any node. This lets callers pre-filter by
 // NodeSelector so a cached replica on a now-excluded node isn't picked over a
 // matching replica elsewhere — the selector-mismatch fall-through path used to
 // trigger an eviction-busy loop when both sides had the model loaded.
-func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, *NodeModel, error) {
+func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName string, candidateNodeIDs []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
 	var nm NodeModel
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Order by in_flight ASC (least busy replica), then by last_used ASC
-		// (round-robin between equally-loaded replicas — oldest used wins, and
-		// every successful pick refreshes last_used below, so the "oldest" naturally
-		// rotates through the candidate set). available_vram DESC is the final
-		// tiebreaker for cold starts where last_used is identical.
+		// Mirror of PickBestReplica's policy (see replicapicker.go):
+		//   1. in_flight ASC — least busy replica.
+		//   2. last_used ASC — round-robin between equally-loaded replicas.
+		//      Every successful pick refreshes last_used below, so the
+		//      "oldest" tier naturally rotates through the candidate set.
+		//      Without this tier, in_flight ties collapsed to "fattest GPU
+		//      wins every time" and one node took nearly all the load.
+		//   3. available_vram DESC — final tiebreaker for cold starts where
+		//      last_used is identical across replicas.
 		//
-		// Without the last_used tier, a tie on in_flight (the common case at low
-		// to moderate concurrency where requests don't overlap) collapses to
-		// "biggest GPU wins every time" and one node ends up taking nearly all
-		// the load while replicas on other nodes sit idle.
 		// Filter on backend_nodes.status = healthy in the inner JOIN itself,
 		// not only in the later node-fetch step. The previous version picked
 		// a (node_id, replica) pair purely on node_models state, then bailed
@@ -701,17 +1164,33 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		// stale row in the same window, and other helpers that mirror this
 		// JOIN need the same invariant. Belt-and-braces: status filter here
 		// AND the status-checked node fetch below.
-		q := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		base := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 			Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
 				modelName, "loaded", StatusHealthy)
 		if len(candidateNodeIDs) > 0 {
-			q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+			base = base.Where("node_models.node_id IN ?", candidateNodeIDs)
 		}
-		if err := q.
-			Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
-			First(&nm).Error; err != nil {
-			return err
+
+		picked := false
+		if pref != nil && pref.PreferredNodeID != "" {
+			// Lock the EXACT (node_id, replica_index) row the caller chose. The
+			// caller (prefix-cache router) has already applied the load guard
+			// per replica, so here we only require that exact replica still be
+			// loaded+healthy. Fall through to the default ORDER BY when that
+			// specific replica is not found/loaded.
+			q := base.Session(&gorm.Session{}).
+				Where("node_models.node_id = ? AND node_models.replica_index = ?", pref.PreferredNodeID, pref.PreferredReplica)
+			if err := q.First(&nm).Error; err == nil {
+				picked = true
+			}
+		}
+		if !picked {
+			if err := base.
+				Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
+				First(&nm).Error; err != nil {
+				return err
+			}
 		}
 
 		if err := tx.Model(&nm).Updates(map[string]any{
@@ -733,6 +1212,47 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		return nil, nil, err
 	}
 	return &node, &nm, nil
+}
+
+// LoadedReplicaStats returns one ReplicaCandidate per loaded+healthy replica of
+// modelName, carrying its current in-flight count. It is a read used by the
+// prefix-cache router to apply the load guard when choosing a preferred node.
+// When candidateNodeIDs is non-empty, only replicas on those nodes are
+// returned; pass nil to consider any healthy node. The result is never nil;
+// an empty slice means no loaded replica exists.
+func (r *NodeRegistry) LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error) {
+	type row struct {
+		NodeID        string
+		Address       string
+		ReplicaIndex  int
+		InFlight      int
+		LastUsed      time.Time
+		AvailableVRAM uint64
+	}
+	q := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
+			modelName, "loaded", StatusHealthy)
+	if len(candidateNodeIDs) > 0 {
+		q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+	}
+
+	// Narrow to only the columns the sole consumer (router buildPreference)
+	// reads: NodeID and InFlight. The other ReplicaCandidate fields stay at
+	// their zero value, which the consumer does not read. This avoids the
+	// JOIN-side available_vram fetch and the extra column transfer.
+	var rows []row
+	err := q.Select("node_models.node_id AS node_id, node_models.in_flight AS in_flight").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("loading replica stats for %s: %w", modelName, err)
+	}
+
+	out := make([]ReplicaCandidate, 0, len(rows))
+	for _, rw := range rows {
+		out = append(out, ReplicaCandidate(rw))
+	}
+	return out, nil
 }
 
 // TouchNodeModel updates the last_used timestamp for LRU tracking on a single
@@ -1118,10 +1638,28 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 	}
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "model_name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"node_selector", "min_replicas", "max_replicas", "updated_at"}),
+			Columns: []clause.Column{{Name: "model_name"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"node_selector", "min_replicas", "max_replicas", "spread_all",
+				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
+				"updated_at",
+			}),
 		}).
 		Create(config).Error
+}
+
+// SeedModelScheduling authoritatively applies a batch of scheduling configs at
+// startup. Each config is upserted (full-replace on model_name), overwriting any
+// prior row for that model. Models not present in configs are left untouched.
+func (r *NodeRegistry) SeedModelScheduling(ctx context.Context, configs []ModelSchedulingConfig) error {
+	for i := range configs {
+		if err := r.SetModelScheduling(ctx, &configs[i]); err != nil {
+			return fmt.Errorf("seeding scheduling config for model %q: %w", configs[i].ModelName, err)
+		}
+		xlog.Info("Seeded model scheduling config", "model", configs[i].ModelName,
+			"spread_all", configs[i].SpreadAll, "min", configs[i].MinReplicas, "max", configs[i].MaxReplicas)
+	}
+	return nil
 }
 
 // GetModelScheduling returns the scheduling config for a model, or nil if none exists.
@@ -1147,7 +1685,7 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
-	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0").Find(&configs).Error
+	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	return configs, err
 }
 
@@ -1287,7 +1825,7 @@ func (r *NodeRegistry) UpdateMaxReplicasPerModel(ctx context.Context, nodeID str
 	res := r.db.WithContext(ctx).Model(&BackendNode{}).
 		Where("id = ?", nodeID).
 		Updates(map[string]any{
-			ColMaxReplicasPerModel:    n,
+			ColMaxReplicasPerModel:                n,
 			"max_replicas_per_model_manually_set": true,
 		})
 	if res.Error != nil {
@@ -1319,6 +1857,57 @@ func (r *NodeRegistry) ResetMaxReplicasPerModel(ctx context.Context, nodeID stri
 		Update("max_replicas_per_model_manually_set", false)
 	if res.Error != nil {
 		return fmt.Errorf("clearing max_replicas_per_model override on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// UpdateVRAMBudget sets a node's VRAM allocation cap as a sticky admin override.
+// It resolves the budget against the node's raw TotalVRAM, stores the ceiling,
+// and immediately re-caps available_vram so the scheduler reflects the change
+// before the next heartbeat. Empty budget clears the cap. The override survives
+// worker re-registration (see Register); to hand control back to the worker,
+// call ResetVRAMBudget.
+func (r *NodeRegistry) UpdateVRAMBudget(ctx context.Context, nodeID, budget string) error {
+	node, err := r.Get(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	ceiling := r.resolveVRAMBudgetBytes(budget, node.TotalVRAM)
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{
+			ColVRAMBudget:              budget,
+			ColVRAMBudgetBytes:         ceiling,
+			"vram_budget_manually_set": true,
+			ColAvailableVRAM:           capAvailable(node.AvailableVRAM, ceiling),
+		})
+	if res.Error != nil {
+		return fmt.Errorf("updating vram_budget on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	// Capping available_vram may have freed or constrained capacity; wake any
+	// configs the reconciler put in cooldown so the next tick re-evaluates.
+	if err := r.ClearAllUnsatisfiable(ctx); err != nil {
+		xlog.Warn("Failed to clear unsatisfiable flags after vram budget change", "error", err)
+	}
+	return nil
+}
+
+// ResetVRAMBudget clears the admin override and the resolved ceiling, handing
+// budget control back to the worker's reported budget on next register.
+func (r *NodeRegistry) ResetVRAMBudget(ctx context.Context, nodeID string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{
+			ColVRAMBudget:              "",
+			ColVRAMBudgetBytes:         0,
+			"vram_budget_manually_set": false,
+		})
+	if res.Error != nil {
+		return fmt.Errorf("clearing vram_budget on %s: %w", nodeID, res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("node %s not found", nodeID)
@@ -1460,7 +2049,7 @@ func (r *NodeRegistry) UpsertPendingBackendOp(ctx context.Context, nodeID, backe
 		NextRetryAt: time.Now(),
 	}
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "node_id"}, {Name: "backend"}, {Name: "op"}},
+		Columns:   []clause.Column{{Name: "node_id"}, {Name: "backend"}, {Name: "op"}},
 		DoUpdates: clause.AssignmentColumns([]string{"galleries", "next_retry_at"}),
 	}).Create(&row).Error
 }
@@ -1500,6 +2089,38 @@ func (r *NodeRegistry) DeletePendingBackendOp(ctx context.Context, id uint) erro
 	return nil
 }
 
+// DeleteStalePendingBackendOps garbage-collects pending backend ops whose target
+// node can never drain them. ListDuePendingBackendOps only returns rows behind a
+// StatusHealthy node, so ops behind a node that went offline or draining are
+// otherwise never retried, aged out, or deleted — they leak forever and keep the
+// UI operation spinning. Draining nodes are cleared immediately (an explicit
+// admin action; their model rows are already purged). Offline nodes are cleared
+// only once their last heartbeat is older than `grace`, so a brief heartbeat blip
+// does not nuke an install that is still legitimately in flight. Returns the
+// number of rows deleted.
+func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-grace)
+	// Draining nodes are cleared immediately (admin action; model rows already
+	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
+	// is older than the grace window: a node marked unhealthy on a NATS
+	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// it), so without including unhealthy here its ops would leak exactly like
+	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
+	// is recovering and keeps its op for retry.
+	res := r.db.WithContext(ctx).
+		Where(`node_id IN (SELECT id FROM backend_nodes WHERE status = ?)
+			OR node_id IN (SELECT id FROM backend_nodes WHERE status IN ? AND last_heartbeat <= ?)`,
+			StatusDraining, []string{StatusOffline, StatusUnhealthy}, cutoff).
+		Delete(&PendingBackendOp{})
+	if res.Error != nil {
+		return 0, fmt.Errorf("deleting stale pending backend ops: %w", res.Error)
+	}
+	if res.RowsAffected > 0 {
+		xlog.Info("Cleared pending backend ops behind non-healthy nodes", "deleted", res.RowsAffected)
+	}
+	return res.RowsAffected, nil
+}
+
 // RecordPendingBackendOpFailure bumps Attempts, captures the error, and
 // pushes NextRetryAt out with exponential backoff capped at 15 minutes.
 func (r *NodeRegistry) RecordPendingBackendOpFailure(ctx context.Context, id uint, errMsg string) error {
@@ -1513,6 +2134,27 @@ func (r *NodeRegistry) RecordPendingBackendOpFailure(ctx context.Context, id uin
 		row.NextRetryAt = time.Now().Add(backoffForAttempt(row.Attempts))
 		return tx.Save(&row).Error
 	})
+}
+
+// RecordPendingBackendOpInFlight is the "soft failure" cousin of
+// RecordPendingBackendOpFailure. Used when a NATS install round-trip timed
+// out but the worker is still installing in the background. Stores the
+// message in LastError and pushes NextRetryAt out by `retryDelay` (typically
+// the install timeout) so the reconciler does not immediately re-fire
+// another install while the worker is still busy.
+//
+// Attempts is intentionally NOT incremented: an in-flight timeout is not a
+// failed attempt, it is a still-in-progress one. Incrementing it would let a
+// genuinely-progressing slow install (e.g. 30 GB CUDA image on Wi-Fi) trip
+// the maxPendingBackendOpAttempts cap in the reconciler and dead-letter the
+// row while the worker is still legitimately working.
+func (r *NodeRegistry) RecordPendingBackendOpInFlight(ctx context.Context, id uint, lastError string, retryDelay time.Duration) error {
+	return r.db.WithContext(ctx).Model(&PendingBackendOp{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"last_error":    lastError,
+			"next_retry_at": time.Now().Add(retryDelay),
+		}).Error
 }
 
 // backoffForAttempt is exponential from 30s doubling up to a 15m cap. The

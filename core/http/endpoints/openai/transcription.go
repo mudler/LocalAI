@@ -33,6 +33,29 @@ import (
 // @Param stream formData boolean false "stream partial results as SSE"
 // @Success 200 {object} map[string]string	 "Response"
 // @Router /v1/audio/transcriptions [post]
+// resolveTranscriptionLanguage picks the transcription language. The request
+// form field (OpenAI's `language` param) wins, then any language carried on the
+// parsed request, and finally the model config default (parameters.language).
+func resolveTranscriptionLanguage(formLanguage, requestLanguage, configLanguage string) string {
+	if formLanguage != "" {
+		return formLanguage
+	}
+	if requestLanguage != "" {
+		return requestLanguage
+	}
+	return configLanguage
+}
+
+// resolveTranscriptionTranslate picks the translate flag: the request form
+// field (`translate`, when a valid bool) wins over the model config default
+// (parameters.translate).
+func resolveTranscriptionTranslate(formTranslate string, configTranslate bool) bool {
+	if b, err := strconv.ParseBool(formTranslate); err == nil {
+		return b
+	}
+	return configTranslate
+}
+
 func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
@@ -112,10 +135,19 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		xlog.Debug("Audio file copied", "dst", dst)
 
+		// Language/translate resolve with the request form field taking
+		// precedence over the model config default (parameters.language /
+		// parameters.translate). Previously only the parsed request was read,
+		// which for a multipart upload never carries these, so config-level
+		// settings were silently ignored and multilingual models (e.g. canary)
+		// defaulted to English translation. (#10655)
+		language := resolveTranscriptionLanguage(c.FormValue("language"), input.Language, config.Language)
+		translate := resolveTranscriptionTranslate(c.FormValue("translate"), config.Translate)
+
 		req := backend.TranscriptionRequest{
 			Audio:                  dst,
-			Language:               input.Language,
-			Translate:              input.Translate,
+			Language:               language,
+			Translate:              translate,
 			Diarize:                diarize,
 			Prompt:                 prompt,
 			Temperature:            temperature,

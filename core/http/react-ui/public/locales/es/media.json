@@ -4,7 +4,8 @@
       "images": "Imágenes",
       "video": "Video",
       "tts": "TTS",
-      "sound": "Sonido"
+      "sound": "Sonido",
+      "transform": "Transform"
     }
   },
   "image": {
@@ -29,6 +30,7 @@
       "refImagesAdded_other": "{{count}} imágenes añadidas"
     },
     "actions": {
+      "view": "View",
       "generate": "Generar",
       "generating": "Generando..."
     },
@@ -50,7 +52,12 @@
       "size": "Tamaño",
       "advanced": "Configuración avanzada",
       "seed": "Seed",
-      "seedPlaceholder": "Aleatorio"
+      "seedPlaceholder": "Aleatorio",
+      "frames": "Fotogramas",
+      "referenceMedia": "Medios de referencia",
+      "startImage": "Imagen inicial",
+      "endImage": "Imagen final",
+      "avatarAudio": "Audio del avatar"
     },
     "actions": {
       "generate": "Generar video",

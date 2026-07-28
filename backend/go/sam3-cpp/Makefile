@@ -31,6 +31,8 @@ else ifeq ($(BUILD_TYPE),hipblas)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
+	# macOS/Metal: built + published as an OCI image by CI (includeDarwin in
+	# .github/backend-matrix.yml) so Apple Silicon users can install this backend.
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
@@ -66,7 +68,7 @@ ifeq ($(UNAME_S),Linux)
 	VARIANT_TARGETS = libgosam3-avx.so libgosam3-avx2.so libgosam3-avx512.so libgosam3-fallback.so
 else
 	# On non-Linux (e.g., Darwin), build only fallback variant
-	VARIANT_TARGETS = libgosam3-fallback.so
+	VARIANT_TARGETS = libgosam3-fallback.dylib
 endif
 
 sam3-cpp: main.go gosam3.go $(VARIANT_TARGETS)
@@ -78,7 +80,7 @@ package: sam3-cpp
 build: package
 
 clean: purge
-	rm -rf libgosam3*.so sam3-cpp package sources
+	rm -rf libgosam3*.so libgosam3*.dylib sam3-cpp package sources
 
 purge:
 	rm -rf build*
@@ -105,11 +107,19 @@ libgosam3-avx512.so: sources/sam3.cpp
 endif
 
 # Build fallback variant (all platforms)
+ifeq ($(UNAME_S),Darwin)
+libgosam3-fallback.dylib: sources/sam3.cpp
+	$(MAKE) purge
+	$(info ${GREEN}I sam3-cpp build info:fallback${RESET})
+	SO_TARGET=libgosam3-fallback.dylib CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosam3-custom
+	rm -rfv build*
+else
 libgosam3-fallback.so: sources/sam3.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I sam3-cpp build info:fallback${RESET})
 	SO_TARGET=libgosam3-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgosam3-custom
 	rm -rfv build*
+endif
 
 libgosam3-custom: CMakeLists.txt cpp/gosam3.cpp cpp/gosam3.h
 	mkdir -p build-$(SO_TARGET) && \
@@ -117,6 +127,7 @@ libgosam3-custom: CMakeLists.txt cpp/gosam3.cpp cpp/gosam3.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgosam3.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgosam3.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgosam3.dylib ./$(SO_TARGET) 2>/dev/null)
 
 all: sam3-cpp package

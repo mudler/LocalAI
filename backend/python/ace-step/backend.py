@@ -401,16 +401,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 "sample_query": request.text or "",
                 "sample_mode": True,
                 "thinking": True,
-                "vocal_language": request.language or request.GetLanguage() or "en",
+                "vocal_language": request.language or "en",
                 "instrumental": request.instrumental if request.HasField("instrumental") else False,
             }
         else:
-            caption = request.caption or request.GetCaption() or request.text
+            caption = request.caption or request.text
             payload = {
                 "prompt": caption,
                 "lyrics": request.lyrics or request.lyrics or "",
                 "thinking": request.think if request.HasField("think") else False,
-                "vocal_language": request.language or request.GetLanguage() or "en",
+                "vocal_language": request.language or "en",
             }
             if request.HasField("bpm"):
                 payload["bpm"] = request.bpm

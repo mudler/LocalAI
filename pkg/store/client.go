@@ -10,27 +10,21 @@ import (
 
 // Wrapper for the GRPC client so that simple use cases are handled without verbosity
 
+// NamespacePrefix marks a load request as a store namespace rather than a
+// model artefact. Core's StoreBackend prepends it to the namespace it sends
+// as the gRPC model name, and the local-store backend refuses loads without
+// it — otherwise the model loader's greedy autoload (which probes every
+// installed backend with LLM model names) would bind arbitrary models to
+// the vector store, since store loads have no artefact to validate.
+const NamespacePrefix = "store://"
+
 // SetCols sets multiple key-value pairs in the store
 // It's in columnar format so that keys[i] is associated with values[i]
 func SetCols(ctx context.Context, c grpc.Backend, keys [][]float32, values [][]byte) error {
-	protoKeys := make([]*proto.StoresKey, len(keys))
-	for i, k := range keys {
-		protoKeys[i] = &proto.StoresKey{
-			Floats: k,
-		}
-	}
-	protoValues := make([]*proto.StoresValue, len(values))
-	for i, v := range values {
-		protoValues[i] = &proto.StoresValue{
-			Bytes: v,
-		}
-	}
-	setOpts := &proto.StoresSetOptions{
-		Keys:   protoKeys,
-		Values: protoValues,
-	}
-
-	res, err := c.StoresSet(ctx, setOpts)
+	res, err := c.StoresSet(ctx, &proto.StoresSetOptions{
+		Keys:   WrapKeys(keys),
+		Values: WrapValues(values),
+	})
 	if err != nil {
 		return err
 	}
@@ -51,17 +45,7 @@ func SetSingle(ctx context.Context, c grpc.Backend, key []float32, value []byte)
 // DeleteCols deletes multiple key-value pairs from the store
 // It's in columnar format so that keys[i] is associated with values[i]
 func DeleteCols(ctx context.Context, c grpc.Backend, keys [][]float32) error {
-	protoKeys := make([]*proto.StoresKey, len(keys))
-	for i, k := range keys {
-		protoKeys[i] = &proto.StoresKey{
-			Floats: k,
-		}
-	}
-	deleteOpts := &proto.StoresDeleteOptions{
-		Keys: protoKeys,
-	}
-
-	res, err := c.StoresDelete(ctx, deleteOpts)
+	res, err := c.StoresDelete(ctx, &proto.StoresDeleteOptions{Keys: WrapKeys(keys)})
 	if err != nil {
 		return err
 	}
@@ -84,31 +68,11 @@ func DeleteSingle(ctx context.Context, c grpc.Backend, key []float32) error {
 // Be warned the keys are sorted and will be returned in a different order than they were input
 // There is no guarantee as to how the keys are sorted
 func GetCols(ctx context.Context, c grpc.Backend, keys [][]float32) ([][]float32, [][]byte, error) {
-	protoKeys := make([]*proto.StoresKey, len(keys))
-	for i, k := range keys {
-		protoKeys[i] = &proto.StoresKey{
-			Floats: k,
-		}
-	}
-	getOpts := &proto.StoresGetOptions{
-		Keys: protoKeys,
-	}
-
-	res, err := c.StoresGet(ctx, getOpts)
+	res, err := c.StoresGet(ctx, &proto.StoresGetOptions{Keys: WrapKeys(keys)})
 	if err != nil {
 		return nil, nil, err
 	}
-
-	ks := make([][]float32, len(res.Keys))
-	for i, k := range res.Keys {
-		ks[i] = k.Floats
-	}
-	vs := make([][]byte, len(res.Values))
-	for i, v := range res.Values {
-		vs[i] = v.Bytes
-	}
-
-	return ks, vs, nil
+	return UnwrapKeys(res.Keys), UnwrapValues(res.Values), nil
 }
 
 // GetSingle gets a single key-value pair from the store
@@ -128,28 +92,12 @@ func GetSingle(ctx context.Context, c grpc.Backend, key []float32) ([]byte, erro
 
 // Find similar keys to the given key. Returns the keys, values, and similarities
 func Find(ctx context.Context, c grpc.Backend, key []float32, topk int) ([][]float32, [][]byte, []float32, error) {
-	findOpts := &proto.StoresFindOptions{
-		Key: &proto.StoresKey{
-			Floats: key,
-		},
+	res, err := c.StoresFind(ctx, &proto.StoresFindOptions{
+		Key:  &proto.StoresKey{Floats: key},
 		TopK: int32(topk),
-	}
-
-	res, err := c.StoresFind(ctx, findOpts)
+	})
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
-	ks := make([][]float32, len(res.Keys))
-	vs := make([][]byte, len(res.Values))
-
-	for i, k := range res.Keys {
-		ks[i] = k.Floats
-	}
-
-	for i, v := range res.Values {
-		vs[i] = v.Bytes
-	}
-
-	return ks, vs, res.Similarities, nil
+	return UnwrapKeys(res.Keys), UnwrapValues(res.Values), res.Similarities, nil
 }

@@ -2,9 +2,11 @@
 +++
 disableToc = false
 title = "Reranker"
-weight = 11
+weight = 61
 url = "/features/reranker/"
 +++
+
+![Two-stage retrieval: a fast retriever finds candidates, a cross-encoder reorders them by relevance](/images/diagrams/reranker-pipeline.png)
 
 A **reranking** model, often referred to as a cross-encoder, is a core component in the two-stage retrieval systems used in information retrieval and natural language processing tasks.
 Given a query and a set of documents, it will output similarity scores.

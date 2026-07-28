@@ -5,32 +5,106 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
 
-// ModelProber checks whether a model's backend process is still reachable.
+// ProbeOutcome is the result of a model liveness probe. The distinction that
+// matters is between silence caused by a BUSY backend and silence caused by a
+// MISSING one: only the latter justifies deleting the registry row.
+type ProbeOutcome int
+
+const (
+	// ProbeAlive: the backend answered and reported healthy.
+	ProbeAlive ProbeOutcome = iota
+	// ProbeBusy: the backend was reachable but did not answer within the
+	// probe deadline. Single-threaded backends block here for the whole
+	// duration of a long generation, so this is evidence of life, not death.
+	ProbeBusy
+	// ProbeUnreachable: nothing is listening (connection refused), or the
+	// backend answered and affirmatively reported itself unhealthy.
+	ProbeUnreachable
+)
+
+// ModelProber checks the state of a model's backend process.
 // Defaulted to a gRPC health probe but overridable for tests so we don't
-// need to stand up a real server. Returning false without an error means the
-// process is reachable but unhealthy (same as a timeout for our purposes).
+// need to stand up a real server.
 type ModelProber interface {
-	IsAlive(ctx context.Context, address string) bool
+	Probe(ctx context.Context, address string) ProbeOutcome
 }
 
-// grpcModelProber does a 1s HealthCheck on the model's stored gRPC address.
+// NodeProcessLister asks a worker which model backend processes it currently
+// has running. Implemented by RemoteUnloaderAdapter over NATS.
+//
+// This is the sounder liveness signal: the worker owns the process table, so
+// its answer does not depend on whether a backend is busy. A health probe
+// against the backend's own serving port cannot make that distinction, which
+// is why it is only the fallback for workers that do not answer.
+type NodeProcessLister interface {
+	ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error)
+}
+
+// probeTimeout bounds a single liveness probe. Kept short because a healthy
+// idle backend answers immediately; a backend that needs longer is by
+// definition busy, which classifyProbeOutcome reports as ProbeBusy rather than
+// as death.
+const probeTimeout = 1 * time.Second
+
+// grpcModelProber does a short HealthCheck on the model's stored gRPC address.
 type grpcModelProber struct{ token string }
 
-func (g grpcModelProber) IsAlive(ctx context.Context, address string) bool {
+func (g grpcModelProber) Probe(ctx context.Context, address string) ProbeOutcome {
 	client := grpcclient.NewClientWithToken(address, false, nil, false, g.token)
-	probeCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	ok, _ := client.HealthCheck(probeCtx)
-	return ok
+	ok, err := client.HealthCheck(probeCtx)
+	return classifyProbeOutcome(ok, err)
+}
+
+// classifyProbeOutcome maps a HealthCheck result onto a ProbeOutcome.
+//
+// The gRPC client is lazy, so connection failures surface on the RPC rather
+// than at dial time, and the status code tells the two cases apart:
+//
+//   - DeadlineExceeded: the transport was fine but nothing serviced the RPC in
+//     time. That is a backend stuck inside a long synchronous request.
+//   - Unavailable: nothing is listening. The process is gone.
+//
+// A blackholed network also yields DeadlineExceeded and is therefore treated as
+// busy. That is deliberate: whole-node failures are the health monitor's job
+// (it marks the node offline and reaps its models), and mistaking a network
+// blip for a dead backend is the failure this classification exists to prevent.
+func classifyProbeOutcome(ok bool, err error) ProbeOutcome {
+	if err == nil {
+		if ok {
+			return ProbeAlive
+		}
+		// Answered, but reported unhealthy. An affirmative signal, unlike silence.
+		return ProbeUnreachable
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ProbeBusy
+	}
+	switch status.Code(err) {
+	case codes.DeadlineExceeded:
+		return ProbeBusy
+	case codes.Unavailable:
+		return ProbeUnreachable
+	default:
+		// Any other status means something on the other end produced a
+		// response, so the process exists. Not healthy, but not a ghost.
+		return ProbeBusy
+	}
 }
 
 // ReplicaReconciler periodically ensures model replica counts match their
@@ -56,6 +130,31 @@ type ReplicaReconciler struct {
 	// probeStaleAfter: only probe node_models rows older than this so we
 	// don't hammer every worker every tick for models we just heard from.
 	probeStaleAfter time.Duration
+	// pressure is the shared forced-disturb counter written by the router. When
+	// a model's count within the Pressure's rolling window reaches pressureThreshold the
+	// reconciler treats its cache-warm replica as saturated and scales up,
+	// subject to the same MaxReplicas/capacity/UnsatisfiableUntil machinery as
+	// the other scale-up paths. nil disables this signal (a true no-op).
+	pressure          *prefixcache.Pressure
+	pressureThreshold int
+	// processLister asks workers which model processes they are running. nil
+	// disables the worker-authoritative pass, leaving only the port probe.
+	processLister NodeProcessLister
+	// probeFailures counts CONSECUTIVE failed liveness probes per node_models
+	// row id, so a single miss against a busy-but-alive backend cannot delete
+	// its registry row. Reset on any successful probe and on reap.
+	probeFailuresMu sync.Mutex
+	probeFailures   map[string]int
+	// workerMisses counts CONSECUTIVE passes in which a worker did not report
+	// a row's model as running. Kept separate from probeFailures so the two
+	// independent signals never add into one another's budget.
+	workerMissesMu sync.Mutex
+	workerMisses   map[string]int
+	// inFlightIdle counts CONSECUTIVE passes in which a row with a positive
+	// in_flight counter was observed answering health probes promptly, which is
+	// what a backend inside a request cannot do.
+	inFlightIdleMu sync.Mutex
+	inFlightIdle   map[string]int
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -68,9 +167,9 @@ type ModelScheduler interface {
 
 // ReplicaReconcilerOptions holds configuration for creating a ReplicaReconciler.
 type ReplicaReconcilerOptions struct {
-	Registry *NodeRegistry
+	Registry  *NodeRegistry
 	Scheduler ModelScheduler
-	Unloader NodeCommandSender
+	Unloader  NodeCommandSender
 	// Adapter is the NATS sender used to retry pending backend ops. When nil,
 	// the state-reconciler pending-drain pass is a no-op (single-node mode).
 	Adapter *RemoteUnloaderAdapter
@@ -79,10 +178,20 @@ type ReplicaReconcilerOptions struct {
 	RegistrationToken string
 	// Prober overrides the default gRPC health probe (used by tests).
 	Prober ModelProber
+	// ProcessLister overrides the default worker process query. When nil and
+	// no Adapter is set, the worker-authoritative pass is skipped entirely and
+	// only the port probe runs.
+	ProcessLister   NodeProcessLister
 	DB              *gorm.DB
 	Interval        time.Duration // default 30s
 	ScaleDownDelay  time.Duration // default 5m
 	ProbeStaleAfter time.Duration // default 2m
+	// Pressure is the shared forced-disturb counter written by the router. nil
+	// disables the cache-saturation autoscale signal (a true no-op).
+	Pressure *prefixcache.Pressure
+	// PressureThreshold is the forced-disturb count within PressureWindow that
+	// triggers a scale-up. Default prefixcache.DefaultConfig().PressureScaleThreshold (1).
+	PressureThreshold int
 }
 
 // NewReplicaReconciler creates a new ReplicaReconciler.
@@ -103,16 +212,29 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	if prober == nil {
 		prober = grpcModelProber{token: opts.RegistrationToken}
 	}
+	pressureThreshold := opts.PressureThreshold
+	if pressureThreshold == 0 {
+		pressureThreshold = prefixcache.DefaultConfig().PressureScaleThreshold
+	}
+	// The adapter already speaks the models.running request, so it is the
+	// natural default; an explicit ProcessLister (tests) wins over it.
+	processLister := opts.ProcessLister
+	if processLister == nil && opts.Adapter != nil {
+		processLister = opts.Adapter
+	}
 	return &ReplicaReconciler{
-		registry:        opts.Registry,
-		scheduler:       opts.Scheduler,
-		unloader:        opts.Unloader,
-		adapter:         opts.Adapter,
-		prober:          prober,
-		db:              opts.DB,
-		interval:        interval,
-		scaleDownDelay:  scaleDownDelay,
-		probeStaleAfter: probeStaleAfter,
+		registry:          opts.Registry,
+		scheduler:         opts.Scheduler,
+		unloader:          opts.Unloader,
+		adapter:           opts.Adapter,
+		prober:            prober,
+		processLister:     processLister,
+		db:                opts.DB,
+		interval:          interval,
+		scaleDownDelay:    scaleDownDelay,
+		probeStaleAfter:   probeStaleAfter,
+		pressure:          opts.Pressure,
+		pressureThreshold: pressureThreshold,
 	}
 }
 
@@ -155,20 +277,34 @@ func (rc *ReplicaReconciler) reconcileOnce(ctx context.Context) {
 }
 
 // reconcileState runs the state-reconciliation passes: drain pending backend
-// ops for freshly-healthy nodes, then probe model gRPC addresses to orphan
-// ghosts. Both passes are best-effort: a failure on one node doesn't stop
-// the rest.
+// ops for freshly-healthy nodes, reconcile registry rows against what workers
+// report they are running, then port-probe whatever is left. All passes are
+// best-effort: a failure on one node doesn't stop the rest.
+//
+// Order matters. The worker pass runs first and refreshes updated_at for every
+// model a worker vouches for, which takes those rows out of the port prober's
+// stale set. The port probe is therefore only the fallback for nodes whose
+// worker did not answer.
 func (rc *ReplicaReconciler) reconcileState(ctx context.Context) {
 	if rc.adapter != nil {
 		rc.drainPendingBackendOps(ctx)
 	}
+	rc.reconcileNodeProcesses(ctx)
 	rc.probeLoadedModels(ctx)
+	rc.sweepLeakedInFlight(ctx)
 }
 
 // drainPendingBackendOps retries queued backend ops whose next_retry_at has
 // passed on nodes that are currently healthy. On success the row is deleted;
 // on failure attempts++ and next_retry_at moves out via exponential backoff.
 func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
+	// Garbage-collect ops behind nodes that went offline/draining. These are
+	// invisible to ListDuePendingBackendOps (which filters status=healthy), so
+	// without this sweep they leak forever and keep the UI operation spinning.
+	if _, err := rc.registry.DeleteStalePendingBackendOps(ctx, stalePendingBackendOpGrace); err != nil {
+		xlog.Warn("Reconciler: failed to clear stale pending backend ops", "error", err)
+	}
+
 	ops, err := rc.registry.ListDuePendingBackendOps(ctx)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list pending backend ops", "error", err)
@@ -191,7 +327,7 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			// Pending-op drain for admin install — not a per-replica load.
 			// Replica 0 is the conventional admin slot. Install is idempotent:
 			// the worker short-circuits if the backend is already running.
-			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0)
+			reply, err := rc.adapter.InstallBackend(op.NodeID, op.Backend, "", string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
 				applyErr = err
 			} else if !reply.Success {
@@ -203,10 +339,13 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			// the same worker. Falls back to the legacy backend.install
 			// Force=true path on nats.ErrNoResponders for old workers that
 			// don't subscribe to backend.upgrade yet (rolling-update window).
-			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0)
+			// Reconciler retries are background reconciliation with no live
+			// admin watching a progress bar, so opID/onProgress are empty —
+			// the adapter skips the progress subscription entirely.
+			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
 				if errors.Is(err, nats.ErrNoResponders) {
-					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0)
+					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 					if instErr != nil {
 						applyErr = instErr
 					} else if !instReply.Success {
@@ -273,11 +412,41 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 // amount of further retrying will help.
 const maxPendingBackendOpAttempts = 10
 
+// stalePendingBackendOpGrace is how long a node may be offline before its
+// pending backend ops are garbage-collected. Draining nodes are cleared
+// immediately regardless of this window (see DeleteStalePendingBackendOps).
+// ListDuePendingBackendOps never surfaces ops behind non-healthy nodes, so
+// without this sweep they would leak forever and keep the UI op spinning.
+const stalePendingBackendOpGrace = 15 * time.Minute
+
+// probeFailuresBeforeReap is how many CONSECUTIVE failed liveness probes a
+// replica must accumulate before its row is deleted. The probe is a 1s gRPC
+// HealthCheck, and a backend that is merely busy cannot answer it: single
+// threaded Python backends (video/avatar generation, long diffusion loops)
+// block for minutes at a time inside one request. Treating the first miss as
+// death deleted rows for backends that were alive and working, which made the
+// model vanish from the nodes page while it was still generating. Three misses
+// across three ticks is ~1.5 minutes of silence at the default interval, well
+// past any GC pause or scheduling hiccup, while a genuinely dead process is
+// still reaped promptly.
+const probeFailuresBeforeReap = 3
+
 // probeLoadedModels gRPC-health-checks model addresses that the DB says are
 // loaded. If a model's backend process is gone (OOM, crash, manual restart)
 // we remove the row so ghosts don't linger. Only probes rows older than
 // probeStaleAfter so we don't hammer every worker every tick for models we
 // just heard from.
+//
+// Two guards keep this from reaping healthy backends. A probe that times out is
+// classified as ProbeBusy rather than as death, because a backend blocked
+// inside a long generation cannot answer while it works. And a replica must
+// then look unreachable on probeFailuresBeforeReap CONSECUTIVE passes, so a
+// transient blip cannot orphan a live replica.
+//
+// Deliberately NOT gated on in_flight. That counter has no decrement guarantee
+// (a frontend that dies mid-request leaves the increment behind), so using it
+// to shield rows from reaping would make a leaked counter produce a replica
+// that can never be cleaned up.
 func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
@@ -290,22 +459,322 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 		xlog.Warn("Reconciler: failed to list loaded models for probe", "error", err)
 		return
 	}
+	seen := make(map[string]struct{}, len(stale))
 	for _, m := range stale {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		if rc.prober.IsAlive(ctx, m.Address) {
+		seen[m.ID] = struct{}{}
+		switch rc.prober.Probe(ctx, m.Address) {
+		case ProbeAlive:
+			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
 			_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
 				Where("id = ?", m.ID).Update("updated_at", time.Now()).Error
+			continue
+		case ProbeBusy:
+			// Reachable but mid-request. Proof of life, so clear the streak.
+			rc.clearProbeFailures(m.ID)
+			xlog.Debug("Reconciler: model busy, skipping liveness reap",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+			continue
+		}
+
+		failures := rc.recordProbeFailure(m.ID)
+		if failures < probeFailuresBeforeReap {
+			xlog.Debug("Reconciler: model unreachable, waiting for more misses before reaping",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+				"failures", failures, "threshold", probeFailuresBeforeReap)
 			continue
 		}
 		if err := rc.registry.RemoveNodeModel(ctx, m.NodeID, m.ModelName, m.ReplicaIndex); err != nil {
 			xlog.Warn("Reconciler: failed to remove unreachable model", "node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
 			continue
 		}
+		rc.clearProbeFailures(m.ID)
 		xlog.Warn("Reconciler: model unreachable, removed from registry",
-			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+			"failures", failures)
+	}
+	rc.pruneProbeFailures(seen)
+}
+
+// inFlightLeakIdleAfter is how long a positive in_flight counter must sit
+// without its last_used moving before the sweeper will even consider it a leak.
+// Generous on purpose: it only bounds how quickly a genuine leak is corrected,
+// whereas being too eager risks overruling a real request.
+const inFlightLeakIdleAfter = 30 * time.Minute
+
+// inFlightLeakConfirmations is how many CONSECUTIVE passes must observe the
+// backend answering promptly before the counter is overruled.
+const inFlightLeakConfirmations = 2
+
+// sweepLeakedInFlight corrects in_flight counters that no longer reflect any
+// real request.
+//
+// The counter has no decrement guarantee. `track()` balances its increment with
+// a defer, but that only holds while the process lives: a frontend killed
+// mid-request (rolling restart, OOM) never runs the defer, and the load-time
+// reservation is released only when the FIRST inference completes, so a request
+// that dies before reaching the backend strands it. The result is not cosmetic —
+// FindLRUModel, FindGlobalLRUModelWithZeroInFlight and the router's eviction
+// query all require in_flight = 0, so a leaked counter pins that replica's VRAM
+// forever.
+//
+// Elapsed time alone cannot identify a leak: IncrementInFlight stamps last_used
+// at request START and nothing moves it while the request runs, so a long
+// generation is indistinguishable from a leak by age. The probe supplies the
+// missing bit — a backend that answers a health check promptly is not inside a
+// request, because that is exactly what a busy backend cannot do. Requiring the
+// row to ALSO be idle for inFlightLeakIdleAfter covers backends that serve
+// requests in parallel and can answer while working: those keep last_used fresh
+// through each new request's increment.
+func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
+	var suspects []NodeModel
+	cutoff := time.Now().Add(-inFlightLeakIdleAfter)
+	err := rc.registry.db.WithContext(ctx).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.in_flight > 0 AND node_models.last_used < ? AND node_models.address != ''",
+			"loaded", StatusHealthy, cutoff).
+		Find(&suspects).Error
+	if err != nil {
+		xlog.Warn("Reconciler: failed to list rows for in-flight leak sweep", "error", err)
+		return
+	}
+
+	seen := make(map[string]struct{}, len(suspects))
+	for _, m := range suspects {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+		seen[m.ID] = struct{}{}
+		if rc.prober.Probe(ctx, m.Address) != ProbeAlive {
+			// Busy or unreachable. Busy means the counter may well be real;
+			// unreachable is the reaper's business, not the sweeper's.
+			rc.clearInFlightIdle(m.ID)
+			continue
+		}
+		confirmations := rc.recordInFlightIdle(m.ID)
+		if confirmations < inFlightLeakConfirmations {
+			continue
+		}
+		res := rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
+			Where("id = ? AND in_flight > 0", m.ID).
+			UpdateColumn("in_flight", 0)
+		if res.Error != nil {
+			xlog.Warn("Reconciler: failed to reset leaked in-flight counter",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", res.Error)
+			continue
+		}
+		rc.clearInFlightIdle(m.ID)
+		if res.RowsAffected > 0 {
+			xlog.Warn("Reconciler: reset leaked in-flight counter on an idle replica",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex,
+				"was", m.InFlight, "idleFor", time.Since(m.LastUsed).String())
+		}
+	}
+	rc.pruneInFlightIdle(seen)
+}
+
+func (rc *ReplicaReconciler) recordInFlightIdle(rowID string) int {
+	rc.inFlightIdleMu.Lock()
+	defer rc.inFlightIdleMu.Unlock()
+	if rc.inFlightIdle == nil {
+		rc.inFlightIdle = make(map[string]int)
+	}
+	rc.inFlightIdle[rowID]++
+	return rc.inFlightIdle[rowID]
+}
+
+func (rc *ReplicaReconciler) clearInFlightIdle(rowID string) {
+	rc.inFlightIdleMu.Lock()
+	defer rc.inFlightIdleMu.Unlock()
+	delete(rc.inFlightIdle, rowID)
+}
+
+// pruneInFlightIdle bounds the streak map. Dropping a streak only ever resets
+// it, so this can never cause a premature correction.
+func (rc *ReplicaReconciler) pruneInFlightIdle(seen map[string]struct{}) {
+	rc.inFlightIdleMu.Lock()
+	defer rc.inFlightIdleMu.Unlock()
+	for id := range rc.inFlightIdle {
+		if _, ok := seen[id]; !ok {
+			delete(rc.inFlightIdle, id)
+		}
+	}
+}
+
+// workerMissesBeforeReap is how many CONSECUTIVE passes a worker must fail to
+// report a model before its row is deleted. The worker's answer is
+// authoritative, so this only needs to absorb the narrow window where a row
+// exists but the process table has not caught up; two passes is ample given
+// rows are only considered once they are probeStaleAfter old.
+const workerMissesBeforeReap = 2
+
+// reconcileNodeProcesses reconciles registry rows against what each worker says
+// it is actually running.
+//
+// This is the primary liveness pass, and it is sounder than probing the
+// backend's own serving port: the worker owns the process table and answers
+// immediately whether or not the backend is mid-request. A model confirmed here
+// also gets its updated_at bumped, which keeps it out of the port prober's
+// stale set entirely — that is what stops a backend deep in a long generation
+// from ever being mistaken for a dead one.
+//
+// A worker that cannot be reached is skipped rather than treated as empty. A
+// messaging failure says nothing about the processes, and assuming the worst
+// would delete a whole node's rows on a transient NATS blip; the port probe
+// remains as the fallback for those nodes.
+func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
+	if rc.processLister == nil {
+		return
+	}
+
+	var stale []NodeModel
+	cutoff := time.Now().Add(-rc.probeStaleAfter)
+	err := rc.registry.db.WithContext(ctx).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+		Where("node_models.state = ? AND backend_nodes.status = ? AND backend_nodes.node_type = ? AND node_models.updated_at < ?",
+			"loaded", StatusHealthy, NodeTypeBackend, cutoff).
+		Find(&stale).Error
+	if err != nil {
+		xlog.Warn("Reconciler: failed to list loaded models for worker reconciliation", "error", err)
+		return
+	}
+	if len(stale) == 0 {
+		return
+	}
+
+	byNode := make(map[string][]NodeModel)
+	for _, m := range stale {
+		byNode[m.NodeID] = append(byNode[m.NodeID], m)
+	}
+
+	seen := make(map[string]struct{}, len(stale))
+	for nodeID, rows := range byNode {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+		reply, err := rc.processLister.ListRunningModels(nodeID)
+		if err != nil {
+			xlog.Debug("Reconciler: worker did not answer models.running, leaving its replicas to the port probe",
+				"node", nodeID, "error", err)
+			continue
+		}
+		if reply == nil || reply.Error != "" {
+			xlog.Debug("Reconciler: worker reported an error for models.running, skipping node",
+				"node", nodeID, "error", replyError(reply))
+			continue
+		}
+
+		running := make(map[replicaKey]struct{}, len(reply.Models))
+		for _, m := range reply.Models {
+			running[replicaKey{model: m.ModelID, replica: m.ReplicaIndex}] = struct{}{}
+		}
+
+		for _, row := range rows {
+			seen[row.ID] = struct{}{}
+			if _, ok := running[replicaKey{model: row.ModelName, replica: row.ReplicaIndex}]; ok {
+				rc.clearWorkerMisses(row.ID)
+				// Confirmed alive by the process owner. Bump updated_at so the
+				// port prober does not also go poking at a busy backend.
+				_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
+					Where("id = ?", row.ID).Update("updated_at", time.Now()).Error
+				continue
+			}
+
+			misses := rc.recordWorkerMiss(row.ID)
+			if misses < workerMissesBeforeReap {
+				xlog.Debug("Reconciler: worker does not report model as running, waiting for confirmation",
+					"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex,
+					"misses", misses, "threshold", workerMissesBeforeReap)
+				continue
+			}
+			if err := rc.registry.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
+				xlog.Warn("Reconciler: failed to remove model the worker is not running",
+					"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex, "error", err)
+				continue
+			}
+			rc.clearWorkerMisses(row.ID)
+			xlog.Warn("Reconciler: worker is not running this model, removed from registry",
+				"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex, "misses", misses)
+		}
+	}
+	rc.pruneWorkerMisses(seen)
+}
+
+// replicaKey identifies one replica of one model on a node.
+type replicaKey struct {
+	model   string
+	replica int
+}
+
+// replyError safely extracts the error text from a possibly-nil reply.
+func replyError(reply *messaging.ModelsRunningReply) string {
+	if reply == nil {
+		return "nil reply"
+	}
+	return reply.Error
+}
+
+func (rc *ReplicaReconciler) recordWorkerMiss(rowID string) int {
+	rc.workerMissesMu.Lock()
+	defer rc.workerMissesMu.Unlock()
+	if rc.workerMisses == nil {
+		rc.workerMisses = make(map[string]int)
+	}
+	rc.workerMisses[rowID]++
+	return rc.workerMisses[rowID]
+}
+
+func (rc *ReplicaReconciler) clearWorkerMisses(rowID string) {
+	rc.workerMissesMu.Lock()
+	defer rc.workerMissesMu.Unlock()
+	delete(rc.workerMisses, rowID)
+}
+
+// pruneWorkerMisses drops streaks for rows that were not candidates this pass,
+// bounding the map. Dropping a streak only ever resets it, so this can never
+// cause a premature reap.
+func (rc *ReplicaReconciler) pruneWorkerMisses(seen map[string]struct{}) {
+	rc.workerMissesMu.Lock()
+	defer rc.workerMissesMu.Unlock()
+	for id := range rc.workerMisses {
+		if _, ok := seen[id]; !ok {
+			delete(rc.workerMisses, id)
+		}
+	}
+}
+
+// recordProbeFailure increments and returns the consecutive-failure count for a
+// replica row.
+func (rc *ReplicaReconciler) recordProbeFailure(rowID string) int {
+	rc.probeFailuresMu.Lock()
+	defer rc.probeFailuresMu.Unlock()
+	if rc.probeFailures == nil {
+		rc.probeFailures = make(map[string]int)
+	}
+	rc.probeFailures[rowID]++
+	return rc.probeFailures[rowID]
+}
+
+// clearProbeFailures resets a replica's streak after it answers or is reaped.
+func (rc *ReplicaReconciler) clearProbeFailures(rowID string) {
+	rc.probeFailuresMu.Lock()
+	defer rc.probeFailuresMu.Unlock()
+	delete(rc.probeFailures, rowID)
+}
+
+// pruneProbeFailures drops streaks for rows that were not probe candidates this
+// pass, so the map cannot grow without bound as replicas come and go. Dropping
+// a streak only ever resets it, so this can never cause a premature reap.
+func (rc *ReplicaReconciler) pruneProbeFailures(seen map[string]struct{}) {
+	rc.probeFailuresMu.Lock()
+	defer rc.probeFailuresMu.Unlock()
+	for id := range rc.probeFailures {
+		if _, ok := seen[id]; !ok {
+			delete(rc.probeFailures, id)
+		}
 	}
 }
 
@@ -362,6 +831,28 @@ func (rc *ReplicaReconciler) candidateNodeIDsForSelector(ctx context.Context, cf
 }
 
 func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedulingConfig) {
+	// spread_all: derive a dynamic replica target equal to the number of nodes
+	// currently matching the selector (all healthy backend nodes when the
+	// selector is empty). Feeding it through Min==Max==target reuses every
+	// existing path: the floor scales up toward target (capped at capacity),
+	// Max==target stops busy-burst/pressure overshooting, and idle scale-down
+	// trims above target. The target re-tracks node join/leave each tick. cfg is
+	// a by-value copy, so mutating it here is local to this tick.
+	if cfg.SpreadAll {
+		matched, err := rc.registry.FindNodesBySelector(ctx, parseSelector(cfg.NodeSelector))
+		if err != nil {
+			xlog.Warn("Reconciler: spread_all failed to resolve matching nodes", "model", cfg.ModelName, "error", err)
+			return
+		}
+		if len(matched) == 0 {
+			xlog.Info("Reconciler: spread_all has no matching nodes; nothing to schedule",
+				"model", cfg.ModelName, "selector", cfg.NodeSelector)
+			return
+		}
+		cfg.MinReplicas = len(matched)
+		cfg.MaxReplicas = len(matched)
+	}
+
 	// Cooldown gate: if we previously decided this config is unsatisfiable,
 	// don't even bother checking until the cooldown expires. ClearAllUnsatisfiable
 	// (fired by node lifecycle events) bypasses this by zeroing the column.
@@ -409,12 +900,24 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		}
 		xlog.Info("Reconciler: scaling up to meet minimum", "model", cfg.ModelName,
 			"current", current, "min", cfg.MinReplicas, "adding", needed)
-		rc.scaleUp(ctx, cfg, needed)
-		// Successful (or partial) scale-up clears the hysteresis so a future
-		// dip starts fresh.
-		_ = rc.registry.ClearUnsatisfiable(ctx, cfg.ModelName)
+		if rc.scaleUp(ctx, cfg, needed) {
+			// A real (or partial) scale-up clears the hysteresis so a future
+			// dip starts fresh. If scaleUp added nothing (scheduler errored or
+			// no node could be loaded) we leave the hysteresis intact so the
+			// next tick retries from where it left off rather than resetting
+			// the unsatisfiable counter on a failed attempt.
+			_ = rc.registry.ClearUnsatisfiable(ctx, cfg.ModelName)
+		}
 		return
 	}
+
+	// scaledUp tracks whether a scale-up already fired in this tick. The two
+	// scale-up paths below (busy-burst and pressure) share the single `current`
+	// value read once above; scaleUp does not re-check it. So at most one of
+	// them may fire per tick, otherwise a model that is both busy AND over the
+	// pressure threshold would scale +2 and could overshoot MaxReplicas by one.
+	// Scale-down is also skipped in a tick that scaled up.
+	scaledUp := false
 
 	// 2. Auto-scale up if all replicas are busy
 	if current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
@@ -432,17 +935,63 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 			}
 			xlog.Info("Reconciler: all replicas busy, scaling up", "model", cfg.ModelName,
 				"current", current)
-			rc.scaleUp(ctx, cfg, 1)
+			// Only mark the tick as having scaled up if a replica was actually
+			// added. On a failed scaleUp, leave scaledUp false so the pressure
+			// path below and the scale-down logic still apply as they would
+			// have if the busy-burst path had not run.
+			scaledUp = rc.scaleUp(ctx, cfg, 1)
 		}
 	}
 
-	// 3. Scale down idle replicas above minimum
-	floor := cfg.MinReplicas
-	if floor < 1 {
-		floor = 1
+	// 2b. Auto-scale up on prefix-cache forced-disturb pressure. A forced-disturb
+	//     is recorded by the router when a request had a usable hot prefix match
+	//     but the load guard forced it off the warm node: the cache-warm replica
+	//     is saturated. We reuse the same MaxReplicas + capacity guards as the
+	//     busy-burst path, and the same UnsatisfiableUntil cooldown gates this
+	//     block at the top of reconcileModel, so a no-capacity model will not
+	//     spin. Pressure never overrides MaxReplicas or force-evicts.
+	//
+	//     Skipped when the busy-burst path already scaled up this tick: at most
+	//     one scaleUp(+1) per tick (see scaledUp above).
+	if !scaledUp && rc.pressure != nil && current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
+		if pressureCount := rc.pressure.Count(cfg.ModelName, time.Now()); pressureCount >= rc.pressureThreshold {
+			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
+			if selectorMatched {
+				capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+				if capErr == nil && capacity > 0 {
+					xlog.Info("Reconciler: prefix-cache forced-disturb pressure, scaling up",
+						"model", cfg.ModelName, "current", current,
+						"pressure", pressureCount,
+						"threshold", rc.pressureThreshold)
+					if rc.scaleUp(ctx, cfg, 1) {
+						scaledUp = true
+						// Consume the signal only on a real scale-up:
+						// Pressure.Count is non-draining (it prunes only by
+						// age), so a single burst stays in-window for the whole
+						// window and would re-fire scaleUp on every tick. Reset
+						// clears the model's events so a fresh scale-up needs
+						// fresh forced-disturbs to accumulate. If scaleUp added
+						// nothing (scheduler errored or no node could be loaded)
+						// we preserve the signal so the next tick retries off
+						// the same accumulated pressure instead of having to
+						// re-accumulate a full window from scratch.
+						rc.pressure.Reset(cfg.ModelName)
+					}
+				}
+				// No capacity: transient demand, not a misconfig - let the next
+				// tick retry naturally (mirrors the busy-burst path's choice not
+				// to enter cooldown for burst load).
+			}
+		}
 	}
-	if int(current) > floor {
-		rc.scaleDownIdle(ctx, cfg, int(current), floor)
+
+	// 3. Scale down idle replicas above minimum. Skipped in a tick that already
+	//    scaled up so we never scale up and down in the same pass.
+	if !scaledUp {
+		floor := max(cfg.MinReplicas, 1)
+		if int(current) > floor {
+			rc.scaleDownIdle(ctx, cfg, int(current), floor)
+		}
 	}
 }
 
@@ -470,10 +1019,17 @@ func (rc *ReplicaReconciler) markCapacityProblem(ctx context.Context, modelName,
 // scaleUp schedules additional replicas of the model. Callers in
 // reconcileModel are expected to have already capped `count` against
 // ClusterCapacityForModel so this function never tries to overshoot.
-func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingConfig, count int) {
+//
+// Returns true if at least one replica was actually scheduled. Callers use
+// this to gate signal-consuming side effects (Pressure.Reset,
+// ClearUnsatisfiable) on a real scale-up: a failed/no-op scaleUp must not
+// discard the accumulated forced-disturb pressure or clear the unsatisfiable
+// hysteresis, otherwise the signal has to re-accumulate from scratch and the
+// next tick can't simply retry.
+func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingConfig, count int) bool {
 	if rc.scheduler == nil {
 		xlog.Warn("Reconciler: no scheduler available, cannot scale up")
-		return
+		return false
 	}
 
 	// Resolve selector → candidate node IDs (nil when no selector → "any
@@ -481,18 +1037,21 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 	// reconcileModel, but defensively short-circuit here too.
 	candidateNodeIDs, ok := rc.candidateNodeIDsForSelector(ctx, cfg)
 	if !ok {
-		return
+		return false
 	}
 
+	scheduled := 0
 	for i := 0; i < count; i++ {
 		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, cfg.ModelName, candidateNodeIDs)
 		if err != nil {
 			xlog.Warn("Reconciler: failed to scale up replica", "model", cfg.ModelName,
 				"attempt", i+1, "error", err)
-			return // stop trying on first failure
+			break // stop trying on first failure
 		}
+		scheduled++
 		xlog.Info("Reconciler: scaled up replica", "model", cfg.ModelName, "node", node.Name)
 	}
+	return scheduled > 0
 }
 
 // scaleDownIdle removes idle replicas above the floor.

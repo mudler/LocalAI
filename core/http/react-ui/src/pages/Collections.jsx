@@ -5,6 +5,7 @@ import { agentCollectionsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Collections() {
@@ -119,10 +120,7 @@ export default function Collections() {
         }
       `}</style>
 
-      <div className="page-header">
-        <h1 className="page-title">{t('title')}</h1>
-        <p className="page-subtitle">{t('subtitle')}</p>
-      </div>
+      <PageHeader title={t('title')} supporting={t('subtitle')} />
 
       <div className="collections-create-bar">
         <input

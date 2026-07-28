@@ -48,7 +48,7 @@ func (r *P2PMLX) Run(ctx *cliContext.Context) error {
 	c, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	backendPath, err := findMLXDistributedBackendPath(r.BackendGalleries, systemState)
+	backendPath, err := findMLXDistributedBackendPath(r.BackendGalleries, systemState, r.RequireBackendIntegrity)
 	if err != nil {
 		xlog.Warn("Could not find mlx-distributed backend from gallery, will try backend.py directly", "error", err)
 	}

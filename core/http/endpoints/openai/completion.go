@@ -2,8 +2,8 @@ package openai
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -18,6 +18,18 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
+
+// validateStreamingPromptStrings enforces that a streaming completion request
+// resolves to exactly one prompt string. Malformed inputs — an omitted prompt,
+// an empty array, or an array whose elements do not reduce to a single string —
+// return a 400 error instead of panicking on PromptStrings[0] or opening a
+// half-written event stream (which Echo surfaces as a 500). See issue #11021.
+func validateStreamingPromptStrings(cfg *config.ModelConfig) error {
+	if len(cfg.PromptStrings) != 1 {
+		return echo.NewHTTPError(http.StatusBadRequest, "streaming completions require exactly one prompt string")
+	}
+	return nil
+}
 
 // CompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
 // @Summary Generate completions for a given prompt and model.
@@ -68,7 +80,6 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 	}
 
 	return func(c echo.Context) error {
-
 		created := int(time.Now().Unix())
 
 		// Handle Correlation
@@ -103,14 +114,20 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 		if input.Stream {
 			xlog.Debug("Stream request received")
+
+			// Validate before writing any SSE headers so a malformed request
+			// yields a 400 JSON error instead of a half-opened event stream
+			// (which Echo would otherwise surface as a 500). See issue #11021.
+			if err := validateStreamingPromptStrings(config); err != nil {
+				return err
+			}
+
 			c.Response().Header().Set("Content-Type", "text/event-stream")
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
 
-			if len(config.PromptStrings) > 1 {
-				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
-			}
-
+			// Response/output PII redaction is out of scope for now —
+			// redaction runs request-side via the NER middleware only.
 			predInput := config.PromptStrings[0]
 
 			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
@@ -143,6 +160,9 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					}
 					// Capture running cumulative usage for the optional trailer
 					// emitted after the final stop chunk when include_usage=true.
+					// Done before the PII filter so a fully-buffered chunk
+					// (which we drop from the wire) still contributes to the
+					// running total.
 					if ev.Usage != nil {
 						latestUsage = ev.Usage
 					}
@@ -208,6 +228,14 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				Object: "text_completion",
 			}
 			respData, _ := json.Marshal(resp)
+
+			pt, ct := 0, 0
+			if latestUsage != nil {
+				pt = latestUsage.PromptTokens
+				ct = latestUsage.CompletionTokens
+			}
+			middleware.StampUsage(c, input.Model, pt, ct)
+
 			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 
 			// Trailing usage chunk per OpenAI spec: emit only when the caller
@@ -273,6 +301,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 		jsonResult, _ := json.Marshal(resp)
 		xlog.Debug("Response", "response", string(jsonResult))
+
+		middleware.StampUsage(c, input.Model, totalTokenUsage.Prompt, totalTokenUsage.Completion)
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

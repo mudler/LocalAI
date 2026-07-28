@@ -3,26 +3,71 @@ package worker
 import (
 	"cmp"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	"github.com/mudler/xlog"
+)
+
+var (
+	totalAvailableVRAM  = xsysinfo.TotalAvailableVRAM
+	getGPUAggregateInfo = xsysinfo.GetGPUAggregateInfo
+	getSystemRAMInfo    = xsysinfo.GetSystemRAMInfo
 )
 
 // effectiveBasePort returns the port used as base for gRPC backend processes.
 // Priority: Addr port → ServeAddr port → 50051
 func (cfg *Config) effectiveBasePort() int {
 	for _, addr := range []string{cfg.Addr, cfg.ServeAddr} {
-		if addr != "" {
-			if _, portStr, ok := strings.Cut(addr, ":"); ok {
-				if p, _ := strconv.Atoi(portStr); p > 0 {
-					return p
-				}
-			}
+		if addr == "" {
+			continue
 		}
+		_, portStr, err := net.SplitHostPort(addr)
+		if err != nil {
+			xlog.Warn("Invalid worker address; trying the next base-port source", "addr", addr, "error", err)
+			continue
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			xlog.Warn("Invalid worker port; trying the next base-port source", "addr", addr, "port", portStr, "error", err)
+			continue
+		}
+		if port > 0 && port <= 65535 {
+			return port
+		}
+		xlog.Warn("Worker port is outside the valid range; trying the next base-port source", "addr", addr, "port", port)
 	}
 	return 50051
+}
+
+// effectiveMaxPort returns the last port the gRPC backend allocator may hand
+// out. The range is [basePort, maxPort]; its width is the number of backend
+// processes this worker can run concurrently, minus whatever the port
+// quarantine is holding at the time.
+//
+// An unset, non-positive, or out-of-order value falls back to 65535 — the
+// historical (unbounded) behaviour clamped to something bindable.
+// Misconfiguring this must not shrink the range to nothing and wedge every
+// backend start on the worker.
+func (cfg *Config) effectiveMaxPort(basePort int) int {
+	if cfg.GRPCMaxPort <= 0 {
+		return defaultMaxPort
+	}
+	if cfg.GRPCMaxPort > defaultMaxPort {
+		xlog.Warn("Configured gRPC max port is above the highest TCP port; clamping",
+			"configured", cfg.GRPCMaxPort, "max", defaultMaxPort)
+		return defaultMaxPort
+	}
+	if cfg.GRPCMaxPort < basePort {
+		xlog.Warn("Configured gRPC max port is below the base port; ignoring it and using the full range",
+			"configured", cfg.GRPCMaxPort, "basePort", basePort, "max", defaultMaxPort)
+		return defaultMaxPort
+	}
+	return cfg.GRPCMaxPort
 }
 
 // advertiseAddr returns the address the frontend should use to reach this node.
@@ -33,7 +78,10 @@ func (cfg *Config) advertiseAddr() string {
 	if cfg.Addr != "" {
 		return cfg.Addr
 	}
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		xlog.Warn("Failed to determine worker hostname; advertising localhost", "error", err)
+	}
 	return fmt.Sprintf("%s:%d", cmp.Or(hostname, "localhost"), cfg.effectiveBasePort())
 }
 
@@ -53,9 +101,14 @@ func (cfg *Config) advertiseHTTPAddr() string {
 	if cfg.AdvertiseHTTPAddr != "" {
 		return cfg.AdvertiseHTTPAddr
 	}
-	advHost, _, _ := strings.Cut(cfg.advertiseAddr(), ":")
+	advertiseAddr := cfg.advertiseAddr()
+	advHost, _, err := net.SplitHostPort(advertiseAddr)
+	if err != nil {
+		xlog.Warn("Invalid worker advertise address; advertising file transfer on localhost", "addr", advertiseAddr, "error", err)
+		advHost = "localhost"
+	}
 	httpPort := cfg.effectiveBasePort() - 1
-	return fmt.Sprintf("%s:%d", advHost, httpPort)
+	return net.JoinHostPort(advHost, strconv.Itoa(httpPort))
 }
 
 // registrationBody builds the JSON body for node registration.
@@ -71,8 +124,28 @@ func (cfg *Config) registrationBody() map[string]any {
 	}
 
 	// Detect GPU info for VRAM-aware scheduling
-	totalVRAM, _ := xsysinfo.TotalAvailableVRAM()
-	gpuVendor, _ := xsysinfo.DetectGPUVendor()
+	totalVRAM, err := totalAvailableVRAM()
+	if err != nil {
+		xlog.Debug("Failed to detect worker VRAM; registering without GPU capacity", "error", err)
+	}
+	gpuVendor, err := xsysinfo.DetectGPUVendor()
+	if err != nil {
+		xlog.Debug("Failed to detect worker GPU vendor; registering without vendor metadata", "error", err)
+	}
+	// Compute capability (e.g. "12.1" for GB10) lets the router pick per-arch
+	// options (e.g. larger physical batch on Blackwell). Detected on the worker
+	// because only the worker sees the GPU in distributed mode.
+	gpuComputeCap := xsysinfo.NVIDIAComputeCapability()
+	// Report our own meta-backend capability so the controller can list the
+	// backends this cluster can actually run. The controller cannot infer it
+	// from the GPU vendor alone: OS-dependent capabilities (metal, darwin-x86,
+	// nvidia-l4t) and the CUDA runtime refinements are only observable here.
+	capability := ""
+	if systemState, err := system.GetSystemState(); err != nil {
+		xlog.Warn("Could not detect system capability for node registration", "error", err)
+	} else {
+		capability = systemState.DetectedCapability()
+	}
 
 	maxReplicas := cfg.MaxReplicasPerModel
 	if maxReplicas < 1 {
@@ -85,15 +158,41 @@ func (cfg *Config) registrationBody() map[string]any {
 		"total_vram":             totalVRAM,
 		"available_vram":         totalVRAM, // initially all VRAM is available
 		"gpu_vendor":             gpuVendor,
+		"gpu_compute_capability": gpuComputeCap,
+		"capability":             capability,
 		"max_replicas_per_model": maxReplicas,
 	}
 
-	// If no GPU detected, report system RAM so the scheduler/UI has capacity info
-	if totalVRAM == 0 {
-		if ramInfo, err := xsysinfo.GetSystemRAMInfo(); err == nil {
-			body["total_ram"] = ramInfo.Total
-			body["available_ram"] = ramInfo.Available
-		}
+	// Report free space on the filesystem that backs the MODELS directory.
+	// That is where staged weights land, so it is the only mount whose free
+	// space decides whether this node can accept a model — the scheduler uses
+	// it to avoid picking a node that would fail with ENOSPC mid-transfer.
+	if diskInfo, err := xsysinfo.GetDiskInfo(cfg.ModelsPath); err != nil {
+		// Omitted, not zeroed: total_disk == 0 is how the frontend recognises
+		// "this worker does not report disk" and keeps it in rotation.
+		xlog.Warn("Failed to detect worker models-path disk capacity; registering without it",
+			"path", cfg.ModelsPath, "error", err)
+	} else {
+		body["total_disk"] = diskInfo.Total
+		body["available_disk"] = diskInfo.Available
+	}
+
+	// Report the operator-set budget as a STRING so the server resolves and
+	// enforces it against the raw VRAM above. The worker never caps its own
+	// total_vram/available_vram, and never touches the xsysinfo process-global
+	// budget (that is standalone-only). Omit when unset.
+	if cfg.VRAMBudget != "" {
+		body["vram_budget"] = cfg.VRAMBudget
+	}
+
+	// Report system RAM independently from VRAM so both discrete-GPU and
+	// unified-memory workers expose the capacity visible to the host.
+	ramInfo, err := getSystemRAMInfo()
+	if err != nil {
+		xlog.Debug("Failed to detect worker RAM for registration", "error", err)
+	} else {
+		body["total_ram"] = ramInfo.Total
+		body["available_ram"] = ramInfo.Available
 	}
 	if cfg.RegistrationToken != "" {
 		body["token"] = cfg.RegistrationToken
@@ -126,17 +225,29 @@ func (cfg *Config) registrationBody() map[string]any {
 // free capacity.
 func (cfg *Config) heartbeatBody() map[string]any {
 	body := map[string]any{}
-	aggregate := xsysinfo.GetGPUAggregateInfo()
+	aggregate := getGPUAggregateInfo()
 	if aggregate.TotalVRAM > 0 {
 		body["available_vram"] = aggregate.FreeVRAM
 	}
 
-	// CPU-only workers (or workers that lost GPU visibility momentarily):
-	// report system RAM so the scheduler still has capacity info.
-	if aggregate.TotalVRAM == 0 {
-		if ramInfo, err := xsysinfo.GetSystemRAMInfo(); err == nil {
-			body["available_ram"] = ramInfo.Available
-		}
+	// RAM availability changes independently from VRAM on discrete-GPU nodes.
+	ramInfo, err := getSystemRAMInfo()
+	if err != nil {
+		xlog.Debug("Failed to detect worker RAM for heartbeat", "error", err)
+	} else {
+		body["available_ram"] = ramInfo.Available
+	}
+
+	// Free disk changes far faster than VRAM under staging traffic (each
+	// accepted model permanently consumes space), so it has to be refreshed
+	// every heartbeat rather than only at registration — a node that filled up
+	// hours after registering is precisely the case that broke.
+	if diskInfo, err := xsysinfo.GetDiskInfo(cfg.ModelsPath); err != nil {
+		xlog.Debug("Failed to detect worker models-path disk capacity for heartbeat",
+			"path", cfg.ModelsPath, "error", err)
+	} else {
+		body["total_disk"] = diskInfo.Total
+		body["available_disk"] = diskInfo.Available
 	}
 	return body
 }

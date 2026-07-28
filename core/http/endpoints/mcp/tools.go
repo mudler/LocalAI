@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -136,6 +137,44 @@ func MCPServersFromMetadata(metadata map[string]string) []string {
 	return servers
 }
 
+// connectMCP performs the MCP initialize handshake with a bounded timeout.
+//
+// Without this bound, an unreachable remote server (capped only by the 360s
+// httpClient timeout) or a stdio server whose handshake never completes blocks
+// the caller indefinitely. Because the session cache mutex is held across
+// connection setup, one stalled server also wedges every other MCP request for
+// the same model, which surfaces in the UI as the server widget "spinning
+// forever" (mudler/LocalAI#10880) - most visibly for cloud-proxy models, whose
+// chat path never warms the session cache in the background.
+//
+// The session, once established, stays bound to the shared ctx (it is cancelled
+// later via the cached cancel func on eviction/shutdown), so we cannot pass a
+// WithTimeout context to Connect: firing the timeout would tear a healthy
+// session down. Instead we run Connect on the shared ctx in a goroutine and stop
+// waiting after the timeout. We deliberately do NOT cancel here - the ctx is
+// shared with sibling servers that may already have connected. A genuinely
+// stalled goroutine holds only that shared ctx and is reaped when the model's
+// sessions are cancelled on eviction/shutdown.
+func connectMCP(ctx context.Context, transport mcp.Transport, timeout time.Duration) (*mcp.ClientSession, error) {
+	type result struct {
+		session *mcp.ClientSession
+		err     error
+	}
+	// Buffered so the goroutine can always send and exit, even after we stop
+	// waiting on the timeout branch.
+	done := make(chan result, 1)
+	go func() {
+		s, err := client.Connect(ctx, transport, nil)
+		done <- result{session: s, err: err}
+	}()
+	select {
+	case r := <-done:
+		return r.session, r.err
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("timed out after %s establishing MCP session (server unreachable?)", timeout)
+	}
+}
+
 func SessionsFromMCPConfig(
 	name string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
@@ -180,13 +219,13 @@ func SessionsFromMCPConfig(
 	for _, server := range remote.Servers {
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
 		// Create HTTP client with custom roundtripper for bearer token injection
-		httpClient := &http.Client{
-			Timeout:   config.DefaultMCPToolTimeout,
-			Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
-		}
+		httpClient := httpclient.New(
+			httpclient.WithTimeout(config.DefaultMCPToolTimeout),
+			httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+		)
 
 		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-		mcpSession, err := client.Connect(ctx, transport, nil)
+		mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
 			xlog.Error("Failed to connect to MCP server", "error", err, "url", server.URL)
 			continue
@@ -204,7 +243,7 @@ func SessionsFromMCPConfig(
 			command.Env = append(command.Env, key+"="+value)
 		}
 		transport := &mcp.CommandTransport{Command: command}
-		mcpSession, err := client.Connect(ctx, transport, nil)
+		mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
 			xlog.Error("Failed to start MCP server", "error", err, "command", command)
 			continue
@@ -262,13 +301,13 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
-			httpClient := &http.Client{
-				Timeout:   config.DefaultMCPToolTimeout,
-				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
-			}
+			httpClient := httpclient.New(
+				httpclient.WithTimeout(config.DefaultMCPToolTimeout),
+				httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+			)
 
 			transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-			mcpSession, err := client.Connect(ctx, transport, nil)
+			mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
 			if err != nil {
 				xlog.Error("Failed to connect to MCP server", "error", err, "name", serverName, "url", server.URL)
 				continue
@@ -289,7 +328,7 @@ func NamedSessionsFromMCPConfig(
 				command.Env = append(command.Env, key+"="+value)
 			}
 			transport := &mcp.CommandTransport{Command: command}
-			mcpSession, err := client.Connect(ctx, transport, nil)
+			mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
 			if err != nil {
 				xlog.Error("Failed to start MCP server", "error", err, "name", serverName, "command", command)
 				continue

@@ -10,7 +10,9 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -31,6 +33,50 @@ import (
 type server struct {
 	pb.UnimplementedBackendServer
 	llm AIModel
+
+	// identityMu guards loadedIdentity: LoadModel writes it, the inference
+	// RPCs read it, and nothing serialises those against each other
+	// (llm.Locking() is the model's own lock, and it is optional).
+	identityMu     sync.RWMutex
+	loadedIdentity string
+}
+
+// identifiedRequest is satisfied by every request message that carries a
+// ModelIdentity field. protoc-gen-go generates GetModelIdentity with a
+// nil-receiver guard, so a typed-nil request is safe to pass here.
+type identifiedRequest interface {
+	GetModelIdentity() string
+}
+
+// checkModelIdentity reports an error when the request names a model other
+// than the one this process loaded. It is the point-of-use half of the fix for
+// #10952: in distributed mode a worker can recycle a stopped backend's gRPC
+// port for another model's backend, and the controller's liveness-only health
+// probe cannot tell a stale cached route from a valid one, so the backend has
+// to be the one to catch it.
+//
+// Either side being empty means "skip the check". The request side is empty
+// for a controller that predates the field and for internally synthesized
+// requests; the loaded side is empty when such a controller performed the
+// load. Neither can judge the other, and a false rejection is far worse than
+// the miss.
+//
+// One guard covers every modality because they all share one exposure: the
+// route is cached by address, the address can be recycled, and only the
+// backend can tell. Which RPCs call it is the whole enforcement surface — see
+// pkg/grpc/model_identity_modalities_test.go, which drives all of them.
+func (s *server) checkModelIdentity(in identifiedRequest) error {
+	if in == nil || in.GetModelIdentity() == "" {
+		return nil
+	}
+	s.identityMu.RLock()
+	loaded := s.loadedIdentity
+	s.identityMu.RUnlock()
+
+	if loaded == "" || loaded == in.GetModelIdentity() {
+		return nil
+	}
+	return grpcerrors.ModelMismatch("grpc-server", loaded, in.GetModelIdentity())
 }
 
 func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
@@ -38,6 +84,9 @@ func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, e
 }
 
 func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -60,19 +109,36 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 	if err != nil {
 		return &pb.Result{Message: fmt.Sprintf("Error loading model: %s", err.Error()), Success: false}, err
 	}
+
+	// Record what we loaded so the PredictOptions RPCs can reject requests
+	// meant for a different model. Only on success: a failed load leaves no
+	// model, which IsModelNotLoaded already covers.
+	s.identityMu.Lock()
+	s.loadedIdentity = in.Model
+	s.identityMu.Unlock()
+
 	return &pb.Result{Message: "Loading succeeded", Success: true}, nil
 }
 
 func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
+	}
+	if rich, ok := s.llm.(AIModelRich); ok {
+		return rich.PredictRich(in)
 	}
 	result, err := s.llm.Predict(in)
 	return newReply(result), err
 }
 
 func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -85,6 +151,9 @@ func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest)
 }
 
 func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -97,6 +166,9 @@ func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest)
 }
 
 func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -109,6 +181,9 @@ func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error)
 }
 
 func (s *server) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer) error {
+	if err := s.checkModelIdentity(in); err != nil {
+		return err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -130,6 +205,9 @@ func (s *server) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer)
 }
 
 func (s *server) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -142,6 +220,9 @@ func (s *server) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 }
 
 func (s *server) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -153,7 +234,25 @@ func (s *server) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectRe
 	return &res, nil
 }
 
+func (s *server) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Depth(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 func (s *server) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.FaceVerifyResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -166,6 +265,9 @@ func (s *server) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.
 }
 
 func (s *server) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*pb.FaceAnalyzeResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -178,6 +280,9 @@ func (s *server) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*p
 }
 
 func (s *server) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -190,6 +295,9 @@ func (s *server) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*p
 }
 
 func (s *server) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (*pb.VoiceAnalyzeResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -202,6 +310,9 @@ func (s *server) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (
 }
 
 func (s *server) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.VoiceEmbedResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -214,6 +325,9 @@ func (s *server) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) (*pb.
 }
 
 func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -228,6 +342,14 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 		for _, t := range s.Tokens {
 			tks = append(tks, int32(t))
 		}
+		words := make([]*pb.TranscriptWord, 0, len(s.Words))
+		for _, w := range s.Words {
+			words = append(words, &pb.TranscriptWord{
+				Start: int64(w.Start),
+				End:   int64(w.End),
+				Text:  w.Text,
+			})
+		}
 		tresult.Segments = append(tresult.Segments,
 			&pb.TranscriptSegment{
 				Text:    s.Text,
@@ -236,16 +358,21 @@ func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptReques
 				End:     int64(s.End),
 				Tokens:  tks,
 				Speaker: s.Speaker,
+				Words:   words,
 			})
 	}
 
 	tresult.Text = result.Text
 	tresult.Language = result.Language
 	tresult.Duration = result.Duration
+	tresult.Eou = result.Eou
 	return tresult, nil
 }
 
 func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Backend_AudioTranscriptionStreamServer) error {
+	if err := s.checkModelIdentity(in); err != nil {
+		return err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -266,13 +393,107 @@ func (s *server) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Ba
 	return err
 }
 
-func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
+// AudioTranscriptionLive is the bidirectional live ASR handler. The shape
+// mirrors AudioTransformStream exactly (recv → in chan, out chan → send) so
+// backends implement it with the same goroutine idiom.
+func (s *server) AudioTranscriptionLive(stream pb.Backend_AudioTranscriptionLiveServer) error {
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
-	resultChan := make(chan string)
 
+	in := make(chan *pb.TranscriptLiveRequest, 4)
+	out := make(chan *pb.TranscriptLiveResponse, 4)
+
+	// Pump incoming messages from the gRPC stream into `in`. EOF closes the
+	// channel, which signals the backend to finalize the decode session.
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	// Pump outgoing responses from `out` to the gRPC stream. The backend
+	// closes `out` on completion.
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				// Drain `out` so the backend can finish.
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.AudioTranscriptionLive(in, out)
+	sendErr := <-sendDone
+
+	// Unlike AudioTransformStream, do NOT wait for the recv pump when the
+	// backend failed: callers block on the first Recv for the ready ack, so
+	// an unsupported backend (Unimplemented) must surface immediately, not
+	// after the client gives up and closes its send side. Returning cancels
+	// the stream context, which unwinds the recv goroutine.
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return <-recvErrCh
+}
+
+func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
+	if err := s.checkModelIdentity(in); err != nil {
+		return err
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	if rich, ok := s.llm.(AIModelRich); ok {
+		replyChan := make(chan *pb.Reply)
+		done := make(chan bool)
+		go func() {
+			for reply := range replyChan {
+				// Send errors here mean the client disconnected;
+				// drain the rest of the channel so the producer
+				// (PredictStreamRich) doesn't block on the next
+				// reply forever.
+				_ = stream.Send(reply)
+			}
+			done <- true
+		}()
+		// Server-side close: PredictStreamRich implementations send into
+		// the channel and return when finished; closing is the host's
+		// concern so impls don't have to remember `defer close(...)`.
+		err := rich.PredictStreamRich(in, replyChan)
+		close(replyChan)
+		<-done
+		return err
+	}
+
+	resultChan := make(chan string)
 	done := make(chan bool)
 	go func() {
 		for result := range resultChan {
@@ -288,6 +509,9 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 }
 
 func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -366,6 +590,9 @@ func (s *server) StoresFind(ctx context.Context, in *pb.StoresFindOptions) (*pb.
 }
 
 func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -378,6 +605,9 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 }
 
 func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -387,6 +617,17 @@ func (s *server) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.Diariz
 		return nil, err
 	}
 	return &res, nil
+}
+
+func (s *server) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return s.llm.SoundDetection(ctx, in)
 }
 
 func (s *server) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {
@@ -414,6 +655,9 @@ func (s *server) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest) (*p
 }
 
 func (s *server) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -535,6 +779,69 @@ func (s *server) AudioToAudioStream(stream pb.Backend_AudioToAudioStreamServer) 
 	}()
 
 	backendErr := s.llm.AudioToAudioStream(in, out)
+	sendErr := <-sendDone
+	recvErr := <-recvErrCh
+
+	if backendErr != nil {
+		return backendErr
+	}
+	if sendErr != nil {
+		return sendErr
+	}
+	return recvErr
+}
+
+// Forward is the bidi-stream handler for the cloud-proxy backend's
+// passthrough mode. Same recv→in / out→send goroutine idiom as
+// AudioTransformStream / AudioToAudioStream above. Buffer size 8 to
+// keep SSE token streams flowing — at 4, a half-RTT slow gRPC client
+// makes the body-read goroutine in the backend block on out<- after
+// every few token frames.
+func (s *server) Forward(stream pb.Backend_ForwardServer) error {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+
+	in := make(chan *pb.ForwardRequest, 8)
+	out := make(chan *pb.ForwardReply, 8)
+
+	recvErrCh := make(chan error, 1)
+	go func() {
+		defer close(in)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					recvErrCh <- nil
+					return
+				}
+				recvErrCh <- err
+				return
+			}
+			select {
+			case in <- req:
+			case <-stream.Context().Done():
+				recvErrCh <- stream.Context().Err()
+				return
+			}
+		}
+	}()
+
+	sendDone := make(chan error, 1)
+	go func() {
+		for resp := range out {
+			if err := stream.Send(resp); err != nil {
+				sendDone <- err
+				for range out {
+				}
+				return
+			}
+		}
+		sendDone <- nil
+	}()
+
+	backendErr := s.llm.Forward(stream.Context(), in, out)
 	sendErr := <-sendDone
 	recvErr := <-recvErrCh
 
@@ -752,6 +1059,9 @@ func StartServer(address string, model AIModel) error {
 	s := grpc.NewServer(serverOpts()...)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
+	// Safety net: self-terminate if the LocalAI process that spawned this
+	// backend dies without running its graceful teardown (see parentwatch.go).
+	startParentDeathWatcher()
 	if err := s.Serve(lis); err != nil {
 		return err
 	}
@@ -767,6 +1077,9 @@ func RunServer(address string, model AIModel) (func() error, error) {
 	s := grpc.NewServer(serverOpts()...)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
+	// Safety net: self-terminate if the LocalAI process that spawned this
+	// backend dies without running its graceful teardown (see parentwatch.go).
+	startParentDeathWatcher()
 	if err = s.Serve(lis); err != nil {
 		return func() error {
 			return lis.Close()

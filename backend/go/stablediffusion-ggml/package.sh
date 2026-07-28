@@ -12,6 +12,7 @@ REPO_ROOT="${CURDIR}/../../.."
 mkdir -p $CURDIR/package/lib
 
 cp -avf $CURDIR/libgosd-*.so $CURDIR/package/
+cp -fv $CURDIR/libgosd-*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -avf $CURDIR/stablediffusion-ggml $CURDIR/package/
 cp -fv $CURDIR/run.sh $CURDIR/package/
 

@@ -11,6 +11,7 @@ import (
 type Stores struct {
 	Gallery  *GalleryStore
 	FineTune *FineTuneStore
+	Quant    *QuantStore
 	Skills   *SkillStore
 }
 
@@ -26,15 +27,21 @@ func InitStores(db *gorm.DB) (*Stores, error) {
 		return nil, fmt.Errorf("fine-tune store: %w", err)
 	}
 
+	quant, err := NewQuantStore(db)
+	if err != nil {
+		return nil, fmt.Errorf("quantization store: %w", err)
+	}
+
 	skills, err := NewSkillStore(db)
 	if err != nil {
 		return nil, fmt.Errorf("skills store: %w", err)
 	}
 
-	xlog.Info("Distributed stores initialized (Gallery, FineTune, Skills)")
+	xlog.Info("Distributed stores initialized (Gallery, FineTune, Quant, Skills)")
 	return &Stores{
 		Gallery:  gallery,
 		FineTune: ft,
+		Quant:    quant,
 		Skills:   skills,
 	}, nil
 }

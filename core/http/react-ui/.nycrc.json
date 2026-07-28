@@ -1,0 +1,8 @@
+{
+  "all": true,
+  "include": ["src/**"],
+  "extension": [".js", ".jsx"],
+  "reporter": ["text-summary", "json-summary", "html"],
+  "report-dir": "coverage",
+  "temp-dir": ".nyc_output"
+}

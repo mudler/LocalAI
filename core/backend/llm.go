@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -44,6 +45,28 @@ func needsThinkingProbe(c *config.ModelConfig) bool {
 	return c.TemplateConfig.UseTokenizerTemplate &&
 		(c.ReasoningConfig.DisableReasoning == nil ||
 			c.ReasoningConfig.DisableReasoningTagPrefill == nil)
+}
+
+// persistProbedReasoning writes the post-probe reasoning slots (and media
+// marker) from probed back into the loader's persisted config for modelName,
+// skipping any reasoning slot the probe was not actually allowed to fill.
+// persistDisableReasoning/persistDisableTagPrefill must be snapshotted from
+// probed's reasoning slots *before* the probe ran: a slot that already
+// carried a value at that point was populated by request-time
+// ApplyReasoningEffort, not by backend detection, and persisting it would
+// masquerade as an operator's explicit reasoning.disable (see #10622).
+func persistProbedReasoning(cl *config.ModelConfigLoader, modelName string, probed *config.ModelConfig, persistDisableReasoning, persistDisableTagPrefill bool) {
+	cl.UpdateModelConfig(modelName, func(cfg *config.ModelConfig) {
+		if persistDisableReasoning {
+			cfg.ReasoningConfig.DisableReasoning = probed.ReasoningConfig.DisableReasoning
+		}
+		if persistDisableTagPrefill {
+			cfg.ReasoningConfig.DisableReasoningTagPrefill = probed.ReasoningConfig.DisableReasoningTagPrefill
+		}
+		if probed.MediaMarker != "" {
+			cfg.MediaMarker = probed.MediaMarker
+		}
+	})
 }
 
 // HasChatDeltaContent returns true if any chat delta carries content or reasoning text.
@@ -86,7 +109,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		if !slices.Contains(modelNames, modelName) {
 			utils.ResetDownloadTimers()
 			// if we failed to load the model, we try to download it
-			err := gallery.InstallModelFromGallery(ctx, o.Galleries, o.BackendGalleries, o.SystemState, loader, modelName, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
+			err := gallery.InstallModelFromGallery(ctx, o.Galleries, o.BackendGalleries, o.SystemState, loader, modelName, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries, o.RequireBackendIntegrity, gallery.WithArtifactMaterializer(o.ModelArtifactMaterializer))
 			if err != nil {
 				xlog.Error("failed to install model from gallery", "error", err, "model", modelFile)
 				//return nil, err
@@ -94,7 +117,23 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		}
 	}
 
-	opts := ModelOptions(*c, o)
+	// Make the rendered prompt's prefix chain available to the distributed router
+	// for prefix-cache-aware node selection. No-op in single-process mode. The
+	// model id MUST match the id ModelOptions feeds to model.WithModelID, so both
+	// use the shared config.ModelConfig.ModelID() helper (Name with a fallback to
+	// Model) or the chain salt and the tracking key would diverge.
+	//
+	// s is empty for UseTokenizerTemplate models (the backend tokenizes the
+	// structured messages itself), so fall back to a prefix-stable serialization
+	// of the messages - otherwise prefix routing would silently degrade to
+	// round-robin for the bulk of modern chat models.
+	chainSource := s
+	if chainSource == "" {
+		chainSource = messagesPrefixSource(messages)
+	}
+	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), chainSource)
+
+	opts := ModelOptions(*c, o, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
@@ -110,15 +149,19 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	needsMarkerProbe := c.MediaMarker == ""
 	if shouldProbeThinking || needsMarkerProbe {
 		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
+		// DetectThinkingSupportFromBackend only fills reasoning slots that are
+		// still nil, so a slot that already carries a value here was populated by
+		// request-time ApplyReasoningEffort (e.g. a `reasoning_effort: none`
+		// default), not by backend detection. Persisting such a request-scoped
+		// value would masquerade as an operator's explicit reasoning.disable and
+		// permanently defeat future per-request reasoning_effort overrides
+		// (see #10622). Only persist the slots the probe is actually allowed to
+		// fill.
+		persistDisableReasoning := c.ReasoningConfig.DisableReasoning == nil
+		persistDisableTagPrefill := c.ReasoningConfig.DisableReasoningTagPrefill == nil
 		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
 		// Update the config in the loader so it persists for future requests
-		cl.UpdateModelConfig(c.Name, func(cfg *config.ModelConfig) {
-			cfg.ReasoningConfig.DisableReasoning = c.ReasoningConfig.DisableReasoning
-			cfg.ReasoningConfig.DisableReasoningTagPrefill = c.ReasoningConfig.DisableReasoningTagPrefill
-			if c.MediaMarker != "" {
-				cfg.MediaMarker = c.MediaMarker
-			}
-		})
+		persistProbedReasoning(cl, c.Name, c, persistDisableReasoning, persistDisableTagPrefill)
 	}
 
 	var protoMessages []*proto.Message
@@ -305,7 +348,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	}
 
 	if o.EnableTracing {
-		trace.InitBackendTracingIfEnabled(o.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(o.TracingMaxItems, o.TracingMaxBodyBytes)
 
 		traceData := map[string]any{
 			"chat_template":     c.TemplateConfig.Chat,
@@ -316,9 +359,13 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			"audios_count":      len(audios),
 		}
 
+		// Cap the captured fields up front: agent-pool LLM calls embed the
+		// full augmented chat history in messages and the full reply in
+		// response, so without a per-field cap a single trace can dwarf the
+		// rest of the buffer. The cap matches the API-trace body cap.
 		if len(messages) > 0 {
 			if msgJSON, err := json.Marshal(messages); err == nil {
-				traceData["messages"] = string(msgJSON)
+				traceData["messages"] = trace.TruncateToBytes(string(msgJSON), o.TracingMaxBodyBytes)
 			}
 		}
 		if reasoningJSON, err := json.Marshal(c.ReasoningConfig); err == nil {
@@ -337,7 +384,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			resp, err := originalFn()
 			duration := time.Since(startTime)
 
-			traceData["response"] = resp.Response
+			traceData["response"] = trace.TruncateToBytes(resp.Response, o.TracingMaxBodyBytes)
 			traceData["token_usage"] = map[string]any{
 				"prompt":     resp.Usage.Prompt,
 				"completion": resp.Usage.Completion,
@@ -359,10 +406,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 					toolCallCount += len(d.ToolCalls)
 				}
 				if len(contentParts) > 0 {
-					chatDeltasInfo["content"] = strings.Join(contentParts, "")
+					chatDeltasInfo["content"] = trace.TruncateToBytes(strings.Join(contentParts, ""), o.TracingMaxBodyBytes)
 				}
 				if len(reasoningParts) > 0 {
-					chatDeltasInfo["reasoning_content"] = strings.Join(reasoningParts, "")
+					chatDeltasInfo["reasoning_content"] = trace.TruncateToBytes(strings.Join(reasoningParts, ""), o.TracingMaxBodyBytes)
 				}
 				if toolCallCount > 0 {
 					chatDeltasInfo["tool_call_count"] = toolCallCount
@@ -416,7 +463,9 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			r, err := regexp.Compile(c)
 			if err != nil {
-				xlog.Fatal("failed to compile regex", "error", err)
+				mu.Unlock()
+				xlog.Error("failed to compile cutstrings regex, skipping", "error", err, "regex", c)
+				continue
 			}
 			cutstrings[c] = r
 			reg = cutstrings[c]
@@ -433,7 +482,9 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			regex, err := regexp.Compile(r)
 			if err != nil {
-				xlog.Fatal("failed to compile regex", "error", err)
+				mu.Unlock()
+				xlog.Error("failed to compile extract_regex regex, skipping", "error", err, "regex", r)
+				continue
 			}
 			cutstrings[r] = regex
 			reg = regex

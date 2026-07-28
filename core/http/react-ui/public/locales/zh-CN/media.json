@@ -4,7 +4,8 @@
       "images": "图像",
       "video": "视频",
       "tts": "TTS",
-      "sound": "声音"
+      "sound": "声音",
+      "transform": "Transform"
     }
   },
   "image": {
@@ -29,6 +30,7 @@
       "refImagesAdded_other": "已添加 {{count}} 张图像"
     },
     "actions": {
+      "view": "View",
       "generate": "生成",
       "generating": "生成中..."
     },
@@ -50,7 +52,12 @@
       "size": "尺寸",
       "advanced": "高级设置",
       "seed": "随机种子",
-      "seedPlaceholder": "随机"
+      "seedPlaceholder": "随机",
+      "frames": "帧数",
+      "referenceMedia": "参考媒体",
+      "startImage": "起始图像",
+      "endImage": "结束图像",
+      "avatarAudio": "虚拟形象音频"
     },
     "actions": {
       "generate": "生成视频",

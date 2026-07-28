@@ -28,8 +28,14 @@ type TranscriptionRequest struct {
 	TimestampGranularities []string
 }
 
-func (r *TranscriptionRequest) toProto(threads uint32) *proto.TranscriptRequest {
+// modelIdentity is ModelConfig.Model, the value the backend received as
+// ModelOptions.Model at LoadModel, so it can reject a request that reached it
+// through a stale distributed route (#10952). It is a parameter rather than a
+// TranscriptionRequest field because the request is built by HTTP handlers that
+// have no ModelConfig, while every caller of this method does.
+func (r *TranscriptionRequest) toProto(threads uint32, modelIdentity string) *proto.TranscriptRequest {
 	return &proto.TranscriptRequest{
+		ModelIdentity:          modelIdentity,
 		Dst:                    r.Audio,
 		Language:               r.Language,
 		Translate:              r.Translate,
@@ -41,11 +47,14 @@ func (r *TranscriptionRequest) toProto(threads uint32) *proto.TranscriptRequest 
 	}
 }
 
-func loadTranscriptionModel(ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (grpcPkg.Backend, error) {
+func loadTranscriptionModel(ctx context.Context, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (grpcPkg.Backend, error) {
 	if modelConfig.Backend == "" {
 		modelConfig.Backend = model.WhisperBackend
 	}
-	opts := ModelOptions(modelConfig, appConfig)
+	// model.WithContext(ctx) overrides the app-context default set in
+	// ModelOptions so distributed routing decisions reach the request's
+	// X-LocalAI-Node holder via distributedhdr.Stamp.
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	transcriptionModel, err := ml.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
@@ -68,7 +77,7 @@ func ModelTranscription(ctx context.Context, audio, language string, translate, 
 }
 
 func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
-	transcriptionModel, err := loadTranscriptionModel(ml, modelConfig, appConfig)
+	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -76,13 +85,13 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 	var startTime time.Time
 	var audioSnippet map[string]any
 	if appConfig.EnableTracing {
-		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems)
+		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
 		// Capture audio before the backend call — the backend may delete the file.
-		audioSnippet = trace.AudioSnippet(req.Audio)
+		audioSnippet = trace.AudioSnippet(req.Audio, appConfig.TracingMaxBodyBytes)
 	}
 
-	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads)))
+	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads), modelConfig.Model))
 	if err != nil {
 		if appConfig.EnableTracing {
 			errData := map[string]any{
@@ -150,12 +159,12 @@ type TranscriptionStreamChunk struct {
 // support real streaming should still emit one terminal event with Final set,
 // which the HTTP layer turns into a single delta + done SSE pair.
 func ModelTranscriptionStream(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, onChunk func(TranscriptionStreamChunk)) error {
-	transcriptionModel, err := loadTranscriptionModel(ml, modelConfig, appConfig)
+	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return err
 	}
 
-	pbReq := req.toProto(uint32(*modelConfig.Threads))
+	pbReq := req.toProto(uint32(*modelConfig.Threads), modelConfig.Model)
 	pbReq.Stream = true
 
 	return transcriptionModel.AudioTranscriptionStream(ctx, pbReq, func(chunk *proto.TranscriptStreamResponse) {
@@ -178,6 +187,7 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 		Text:     r.Text,
 		Language: r.Language,
 		Duration: float64(r.Duration),
+		Eou:      r.Eou,
 	}
 
 	for _, s := range r.Segments {

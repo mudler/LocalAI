@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Cloud Proxy</div>
+        <h1>Local API, <em>cloud model</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">PII</div>
+        <div class="s">filtered</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Proxy to a hosted model while <b>PII is redacted on the way out and on the way back.</b></div>
+      <div class="url">localai.io<span>/features/cloud-proxy</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+// left-pointing arrowhead variant for return path
+function arrowL(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2+11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2+11} ${y2} l ${a+4} -${a} M ${x2+11} ${y2} l ${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ===== node geometry =====
+const BW=232, BH=104;
+// row Y centers
+const rowReq=110;   // request row top
+const rowRet=350;   // return row top
+
+// helper: titled box
+function nodeBox(x,y,w,h,fill,title,sub,opt){
+  opt=opt||{};
+  if(opt.dash) svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:opt.stroke||INK,"stroke-width":3.5,"stroke-dasharray":opt.dash}));
+  else shadowRect(x,y,w,h,fill,opt.stroke,opt.sw);
+  txt(x+w/2,y+ (sub?44:h/2+9) ,title,{f:"Bricolage Grotesque",w:800,sz:opt.tsz||23,a:"middle",fill:opt.tfill||INK});
+  if(sub) txt(x+w/2,y+72,sub,{w:700,sz:14,a:"middle",fill:opt.sfill||SOFT});
+}
+
+// ===== REQUEST ROW (left -> right) =====
+// 4 boxes: client, auth/routing, PII redact (rust), cloud-proxy backend
+const reqXs=[24, 296, 590, 884];
+nodeBox(reqXs[0],rowReq,BW,BH,PAPER2,"Client","app · curl · SDK");
+nodeBox(reqXs[1],rowReq,BW,BH,HI,"Auth / routing","middleware");
+// PII redaction - emphasis (rust)
+shadowRect(reqXs[2],rowReq,BW,BH,RUST,INK,3.5);
+txt(reqXs[2]+BW/2,rowReq+44,"PII redaction",{f:"Bricolage Grotesque",w:800,sz:23,a:"middle",fill:PAPER});
+txt(reqXs[2]+BW/2,rowReq+72,"request-side",{w:700,sz:14,a:"middle",fill:"#F1D9C8"});
+// cloud-proxy gRPC backend
+nodeBox(reqXs[3],rowReq,BW,BH,"#EFE0BF","cloud-proxy","gRPC backend");
+
+// request row label
+txt(24,rowReq-22,"REQUEST",{w:700,sz:14,ls:".2em",fill:SOFT});
+
+// request arrows (rust = primary direction)
+arrow(reqXs[0]+BW,rowReq+BH/2,reqXs[1],rowReq+BH/2,INK);
+arrow(reqXs[1]+BW,rowReq+BH/2,reqXs[2],rowReq+BH/2,INK);
+arrow(reqXs[2]+BW,rowReq+BH/2,reqXs[3],rowReq+BH/2,RUSTD);
+
+// ===== UPSTREAM (top right) =====
+const upX=1224, upY=rowReq, upW=232, upH=104;
+nodeBox(upX,upY,upW,upH,PAPER,"Upstream","OpenAI · Anthropic",{stroke:COLD,tfill:COLD,sfill:COLD});
+// gRPC / network link (dashed) from backend to upstream
+arrow(reqXs[3]+BW,rowReq+BH/2,upX,upY+upH/2,RUSTD,"2 8");
+txt((reqXs[3]+BW+upX)/2, rowReq+BH/2-14,"HTTPS",{w:700,sz:12,ls:".08em",a:"middle",fill:RUSTD});
+
+// ===== RETURN ROW (right -> left) =====
+// upstream -> SSE stream -> streaming PII filter -> client
+const retXs=[1224, 884, 590];   // sse, filter ... client uses reqXs[0]
+// SSE stream node (under upstream)
+nodeBox(retXs[0],rowRet,upW,BH,PAPER,"SSE stream","tokens",{stroke:COLD,tfill:COLD,sfill:COLD});
+// streaming PII filter (rust emphasis)
+shadowRect(retXs[1],rowRet,BW,BH,RUST,INK,3.5);
+txt(retXs[1]+BW/2,rowRet+44,"PII filter",{f:"Bricolage Grotesque",w:800,sz:23,a:"middle",fill:PAPER});
+txt(retXs[1]+BW/2,rowRet+72,"streaming",{w:700,sz:14,a:"middle",fill:"#F1D9C8"});
+
+// return row label
+txt(1456,rowRet-22,"RETURN",{w:700,sz:14,ls:".2em",a:"end",fill:SOFT});
+
+// vertical link upstream(req) -> SSE(return)
+arrow(upX+upW/2,upY+upH,upX+upW/2,rowRet,COLD,"2 8");
+txt(upX+upW/2+14,(upY+upH+rowRet)/2+5,"stream",{w:700,sz:12,a:"start",fill:COLD});
+
+// return arrows (right -> left, cold teal secondary direction, rust at filter)
+arrowL(retXs[0],rowRet+BH/2,retXs[1]+BW,rowRet+BH/2,COLD);
+arrowL(retXs[1],rowRet+BH/2,reqXs[0]+BW,rowRet+BH/2,RUSTD);
+
+// client gets the cleaned response (re-label client zone on return)
+txt(reqXs[0]+BW/2,rowRet+BH/2+5,"to Client",{f:"Bricolage Grotesque",w:800,sz:20,a:"middle",fill:SOFT});
+
+// ===== dimmed bypass note =====
+const nY=502;
+svg.appendChild(el("line",{x1:24,y1:nY-26,x2:1456,y2:nY-26,stroke:DIM,"stroke-width":2,"stroke-dasharray":"4 8"}));
+txt(24,nY+4,"BYPASSED",{w:700,sz:13,ls:".18em",fill:DIM});
+txt(180,nY+4,"templating · MCP · model-loader are bypassed in proxy mode",{w:600,sz:18,fill:DIM});
+</script>
+</body>
+</html>

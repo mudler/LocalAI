@@ -36,6 +36,23 @@ var audioTransformWSUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// lockedConn wraps a WebSocket connection so the backend-forwarding goroutine
+// and the read loop can both emit frames without tripping Gorilla's
+// single-concurrent-writer rule. Without this the two writers race and can
+// panic with "concurrent write to websocket connection" (and a -race build
+// flags the data race directly). Reads stay on the single read loop, so only
+// writes need serialising. Mirrors the openresponses endpoint's lockedConn.
+type lockedConn struct {
+	*websocket.Conn
+	writeMu sync.Mutex
+}
+
+func (lc *lockedConn) WriteMessage(messageType int, data []byte) error {
+	lc.writeMu.Lock()
+	defer lc.writeMu.Unlock()
+	return lc.Conn.WriteMessage(messageType, data)
+}
+
 const (
 	// audioTransformWSReadLimit is the per-message ceiling on inbound WS
 	// frames. With 16 kHz / 256-sample / s16-stereo (1024 B/frame) the
@@ -158,10 +175,11 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 // @Router /audio/transformations/stream [get]
 func AudioTransformStreamEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		ws, err := audioTransformWSUpgrader.Upgrade(c.Response(), c.Request(), nil)
+		rawWS, err := audioTransformWSUpgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
 			return err
 		}
+		ws := &lockedConn{Conn: rawWS}
 		defer func() { _ = ws.Close() }()
 		ws.SetReadLimit(audioTransformWSReadLimit)
 
@@ -404,7 +422,7 @@ func splitStereoFrameInto(buf []byte, fmt_ proto.AudioTransformStreamConfig_Samp
 	return *audio, *ref
 }
 
-func sendWSError(ws *websocket.Conn, msg string) {
+func sendWSError(ws *lockedConn, msg string) {
 	payload, _ := json.Marshal(schema.AudioTransformStreamControl{
 		Type:  schema.AudioTransformCtrlError,
 		Error: msg,

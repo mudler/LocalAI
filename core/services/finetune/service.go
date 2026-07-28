@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/syncstate"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -32,42 +33,61 @@ type FineTuneService struct {
 	modelLoader  *model.ModelLoader
 	configLoader *config.ModelConfigLoader
 
-	mu   sync.Mutex
-	jobs map[string]*schema.FineTuneJob
+	// mu serializes the read-modify-write of job values. The SyncedMap guards its
+	// own map structure, but a job is a pointer mutated in place (e.g. the export
+	// goroutine), so the service still needs a lock to keep those field updates
+	// and the subsequent Set atomic with respect to readers.
+	mu sync.Mutex
 
-	// Distributed mode (nil when not in distributed mode)
-	natsClient    messaging.Publisher
-	fineTuneStore *distributed.FineTuneStore
+	// jobs is the cross-replica job store: an in-memory map kept consistent across
+	// replicas via NATS, optionally read-through to PostgreSQL in distributed mode.
+	jobs *syncstate.SyncedMap[string, *schema.FineTuneJob]
 }
 
-// SetNATSClient sets the NATS client for distributed progress publishing.
-func (s *FineTuneService) SetNATSClient(nc messaging.Publisher) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.natsClient = nc
-}
-
-// SetFineTuneStore sets the PostgreSQL fine-tune store for distributed persistence.
-func (s *FineTuneService) SetFineTuneStore(store *distributed.FineTuneStore) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.fineTuneStore = store
-}
-
-// NewFineTuneService creates a new FineTuneService.
+// NewFineTuneService creates a new FineTuneService. In distributed mode pass the
+// shared NATS client and PostgreSQL store so jobs stay consistent across
+// replicas; pass nil for both in standalone mode, where the disk Loader hydrates
+// the map and there is nothing to broadcast.
 func NewFineTuneService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,
 	configLoader *config.ModelConfigLoader,
+	nats messaging.MessagingClient,
+	store *distributed.FineTuneStore,
 ) *FineTuneService {
 	s := &FineTuneService{
 		appConfig:    appConfig,
 		modelLoader:  modelLoader,
 		configLoader: configLoader,
-		jobs:         make(map[string]*schema.FineTuneJob),
 	}
-	s.loadAllJobs()
+
+	// Only attach a Store interface when a concrete store exists, otherwise the
+	// SyncedMap would see a non-nil interface wrapping a nil pointer and try to
+	// hydrate/write through a nil DB.
+	var syncStore syncstate.Store[string, *schema.FineTuneJob]
+	if store != nil {
+		syncStore = &fineTuneStoreAdapter{store: store}
+	}
+
+	s.jobs = syncstate.New(syncstate.Config[string, *schema.FineTuneJob]{
+		Name:   "finetune.jobs",
+		Key:    func(j *schema.FineTuneJob) string { return j.ID },
+		Nats:   nats,
+		Store:  syncStore,
+		Loader: s.loadJobsFromDisk, // ignored when Store is set (distributed mode)
+	})
+
+	// Hydrate + subscribe. A hydrate failure must not take the server down: log
+	// and continue degraded (standalone), mirroring the OpCache wiring.
+	if err := s.jobs.Start(appConfig.Context); err != nil {
+		xlog.Warn("FineTune SyncedMap start failed; running degraded", "error", err)
+	}
 	return s
+}
+
+// Close releases the SyncedMap subscription and background workers.
+func (s *FineTuneService) Close() error {
+	return s.jobs.Close()
 }
 
 // fineTuneBaseDir returns the base directory for fine-tune job data.
@@ -100,15 +120,18 @@ func (s *FineTuneService) saveJobState(job *schema.FineTuneJob) {
 	}
 }
 
-// loadAllJobs scans the fine-tune directory for persisted jobs and loads them.
-func (s *FineTuneService) loadAllJobs() {
+// loadJobsFromDisk scans the fine-tune directory for persisted jobs and returns
+// them. It is the SyncedMap Loader used in standalone mode (no DB); the returned
+// slice hydrates the map on Start.
+func (s *FineTuneService) loadJobsFromDisk(_ context.Context) ([]*schema.FineTuneJob, error) {
 	baseDir := s.fineTuneBaseDir()
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
-		// Directory doesn't exist yet — that's fine
-		return
+		// Directory doesn't exist yet — that's fine, start empty.
+		return nil, nil
 	}
 
+	var jobs []*schema.FineTuneJob
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -137,12 +160,13 @@ func (s *FineTuneService) loadAllJobs() {
 			job.ExportMessage = "Server restarted while export was running"
 		}
 
-		s.jobs[job.ID] = &job
+		jobs = append(jobs, &job)
 	}
 
-	if len(s.jobs) > 0 {
-		xlog.Info("Loaded persisted fine-tune jobs", "count", len(s.jobs))
+	if len(jobs) > 0 {
+		xlog.Info("Loaded persisted fine-tune jobs", "count", len(jobs))
 	}
+	return jobs, nil
 }
 
 // StartJob starts a new fine-tuning job.
@@ -236,27 +260,13 @@ func (s *FineTuneService) StartJob(ctx context.Context, userID string, req schem
 		CreatedAt:      time.Now().UTC().Format(time.RFC3339),
 		Config:         &req,
 	}
-	s.jobs[jobID] = job
-	s.saveJobState(job)
-
-	// Persist to PostgreSQL in distributed mode
-	if s.fineTuneStore != nil {
-		configJSON, _ := json.Marshal(req)
-		extraJSON, _ := json.Marshal(req.ExtraOptions)
-		s.fineTuneStore.Create(&distributed.FineTuneJobRecord{
-			ID:             jobID,
-			UserID:         userID,
-			Model:          req.Model,
-			Backend:        backendName,
-			ModelID:        modelID,
-			TrainingType:   req.TrainingType,
-			TrainingMethod: req.TrainingMethod,
-			Status:         "queued",
-			OutputDir:      outputDir,
-			ConfigJSON:     string(configJSON),
-			ExtraOptsJSON:  string(extraJSON),
-		})
+	// Set write-through persists to PostgreSQL (distributed) and broadcasts to
+	// peer replicas; the disk state.json is written separately for restart
+	// recovery / standalone hydrate.
+	if err := s.jobs.Set(ctx, job); err != nil {
+		return nil, fmt.Errorf("failed to persist job: %w", err)
 	}
+	s.saveJobState(job)
 
 	return &schema.FineTuneJobResponse{
 		ID:      jobID,
@@ -270,7 +280,7 @@ func (s *FineTuneService) GetJob(userID, jobID string) (*schema.FineTuneJob, err
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		return nil, fmt.Errorf("job not found: %s", jobID)
 	}
@@ -286,7 +296,7 @@ func (s *FineTuneService) ListJobs(userID string) []*schema.FineTuneJob {
 	defer s.mu.Unlock()
 
 	var result []*schema.FineTuneJob
-	for _, job := range s.jobs {
+	for _, job := range s.jobs.List() {
 		if userID == "" || job.UserID == userID {
 			result = append(result, job)
 		}
@@ -302,7 +312,7 @@ func (s *FineTuneService) ListJobs(userID string) []*schema.FineTuneJob {
 // StopJob stops a running fine-tuning job.
 func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, saveCheckpoint bool) error {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return fmt.Errorf("job not found: %s", jobID)
@@ -323,10 +333,10 @@ func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, sav
 	s.mu.Lock()
 	job.Status = "stopped"
 	job.Message = "Training stopped by user"
-	s.saveJobState(job)
-	if s.fineTuneStore != nil {
-		s.fineTuneStore.UpdateStatus(jobID, "stopped", "Training stopped by user")
+	if err := s.jobs.Set(ctx, job); err != nil {
+		xlog.Warn("Failed to persist stopped job", "job_id", jobID, "error", err)
 	}
+	s.saveJobState(job)
 	s.mu.Unlock()
 
 	return nil
@@ -335,7 +345,7 @@ func (s *FineTuneService) StopJob(ctx context.Context, userID, jobID string, sav
 // DeleteJob removes a fine-tuning job and its associated data from disk.
 func (s *FineTuneService) DeleteJob(userID, jobID string) error {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return fmt.Errorf("job not found: %s", jobID)
@@ -360,9 +370,10 @@ func (s *FineTuneService) DeleteJob(userID, jobID string) error {
 	}
 
 	exportModelName := job.ExportModelName
-	delete(s.jobs, jobID)
-	if s.fineTuneStore != nil {
-		s.fineTuneStore.Delete(jobID)
+	// Delete write-through removes the DB row (distributed) and broadcasts the
+	// removal to peer replicas. DeleteJob has no ctx, so use Background.
+	if err := s.jobs.Delete(context.Background(), jobID); err != nil {
+		xlog.Warn("Failed to delete job from store", "job_id", jobID, "error", err)
 	}
 	s.mu.Unlock()
 
@@ -398,7 +409,7 @@ func (s *FineTuneService) DeleteJob(userID, jobID string) error {
 // StreamProgress opens a gRPC progress stream and calls the callback for each update.
 func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID string, callback func(event *schema.FineTuneProgressEvent)) error {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return fmt.Errorf("job not found: %s", jobID)
@@ -427,7 +438,7 @@ func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID stri
 	}, func(update *pb.FineTuneProgressUpdate) {
 		// Update job status and persist
 		s.mu.Lock()
-		if j, ok := s.jobs[jobID]; ok {
+		if j, ok := s.jobs.Get(jobID); ok {
 			// Don't let progress updates overwrite terminal states
 			isTerminal := j.Status == "stopped" || j.Status == "completed" || j.Status == "failed"
 			if !isTerminal {
@@ -436,10 +447,10 @@ func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID stri
 			if update.Message != "" {
 				j.Message = update.Message
 			}
-			s.saveJobState(j)
-			if s.fineTuneStore != nil {
-				s.fineTuneStore.UpdateStatus(jobID, j.Status, j.Message)
+			if err := s.jobs.Set(ctx, j); err != nil {
+				xlog.Warn("Failed to persist progress update", "job_id", jobID, "error", err)
 			}
+			s.saveJobState(j)
 		}
 		s.mu.Unlock()
 
@@ -474,7 +485,7 @@ func (s *FineTuneService) StreamProgress(ctx context.Context, userID, jobID stri
 // ListCheckpoints lists checkpoints for a job.
 func (s *FineTuneService) ListCheckpoints(ctx context.Context, userID, jobID string) ([]*pb.CheckpointInfo, error) {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("job not found: %s", jobID)
@@ -520,7 +531,7 @@ func sanitizeModelName(s string) string {
 // ExportModel starts an async model export from a checkpoint and returns the intended model name immediately.
 func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string, req schema.ExportRequest) (string, error) {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return "", fmt.Errorf("job not found: %s", jobID)
@@ -572,6 +583,9 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 	job.ExportStatus = "exporting"
 	job.ExportMessage = ""
 	job.ExportModelName = ""
+	if err := s.jobs.Set(ctx, job); err != nil {
+		xlog.Warn("Failed to persist export start", "job_id", jobID, "error", err)
+	}
 	s.saveJobState(job)
 	s.mu.Unlock()
 
@@ -662,24 +676,30 @@ func (s *FineTuneService) ExportModel(ctx context.Context, userID, jobID string,
 
 		xlog.Info("Model exported and registered", "job_id", jobID, "model_name", modelName, "format", req.ExportFormat)
 
+		// Runs after the HTTP request returns, so use Background rather than the
+		// (now likely cancelled) request ctx for the write-through.
 		s.mu.Lock()
 		job.ExportStatus = "completed"
 		job.ExportModelName = modelName
 		job.ExportMessage = ""
-		s.saveJobState(job)
-		if s.fineTuneStore != nil {
-			s.fineTuneStore.UpdateExportStatus(jobID, "completed", "", modelName)
+		if err := s.jobs.Set(context.Background(), job); err != nil {
+			xlog.Warn("Failed to persist export completion", "job_id", jobID, "error", err)
 		}
+		s.saveJobState(job)
 		s.mu.Unlock()
 	}()
 
 	return modelName, nil
 }
 
-// setExportMessage updates the export message and persists the job state.
+// setExportMessage updates the export message and persists the job state. Called
+// from the background export goroutine, so it uses Background for write-through.
 func (s *FineTuneService) setExportMessage(job *schema.FineTuneJob, msg string) {
 	s.mu.Lock()
 	job.ExportMessage = msg
+	if err := s.jobs.Set(context.Background(), job); err != nil {
+		xlog.Warn("Failed to persist export message", "job_id", job.ID, "error", err)
+	}
 	s.saveJobState(job)
 	s.mu.Unlock()
 }
@@ -687,7 +707,7 @@ func (s *FineTuneService) setExportMessage(job *schema.FineTuneJob, msg string) 
 // GetExportedModelPath returns the path to the exported model directory and its name.
 func (s *FineTuneService) GetExportedModelPath(userID, jobID string) (string, string, error) {
 	s.mu.Lock()
-	job, ok := s.jobs[jobID]
+	job, ok := s.jobs.Get(jobID)
 	if !ok {
 		s.mu.Unlock()
 		return "", "", fmt.Errorf("job not found: %s", jobID)
@@ -723,10 +743,10 @@ func (s *FineTuneService) setExportFailed(job *schema.FineTuneJob, message strin
 	s.mu.Lock()
 	job.ExportStatus = "failed"
 	job.ExportMessage = message
-	s.saveJobState(job)
-	if s.fineTuneStore != nil {
-		s.fineTuneStore.UpdateExportStatus(job.ID, "failed", message, "")
+	if err := s.jobs.Set(context.Background(), job); err != nil {
+		xlog.Warn("Failed to persist export failure", "job_id", job.ID, "error", err)
 	}
+	s.saveJobState(job)
 	s.mu.Unlock()
 }
 

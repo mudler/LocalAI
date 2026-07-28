@@ -45,7 +45,7 @@ var _ = Describe("Config Metadata Endpoints", func() {
 		app = echo.New()
 		app.GET("/api/models/config-metadata", ConfigMetadataEndpoint())
 		app.GET("/api/models/config-metadata/autocomplete/:provider", AutocompleteEndpoint(configLoader, modelLoader, appConfig))
-		app.PATCH("/api/models/config-json/:name", PatchConfigEndpoint(configLoader, modelLoader, appConfig))
+		app.PATCH("/api/models/config-json/:name", PatchConfigEndpoint(configLoader, modelLoader, nil, appConfig))
 	})
 
 	AfterEach(func() {

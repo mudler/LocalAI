@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"io"
+	"sync"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
@@ -72,6 +73,10 @@ func (e *embedBackend) Detect(ctx context.Context, in *pb.DetectOptions, opts ..
 	return e.s.Detect(ctx, in)
 }
 
+func (e *embedBackend) Depth(ctx context.Context, in *pb.DepthRequest, opts ...grpc.CallOption) (*pb.DepthResponse, error) {
+	return e.s.Depth(ctx, in)
+}
+
 func (e *embedBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest, opts ...grpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return e.s.FaceVerify(ctx, in)
 }
@@ -132,12 +137,24 @@ func (e *embedBackend) Rerank(ctx context.Context, in *pb.RerankRequest, opts ..
 	return e.s.Rerank(ctx, in)
 }
 
+func (e *embedBackend) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest, opts ...grpc.CallOption) (*pb.TokenClassifyResponse, error) {
+	return e.s.TokenClassify(ctx, in)
+}
+
+func (e *embedBackend) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.CallOption) (*pb.ScoreResponse, error) {
+	return e.s.Score(ctx, in)
+}
+
 func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
 	return e.s.VAD(ctx, in)
 }
 
 func (e *embedBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...grpc.CallOption) (*pb.DiarizeResponse, error) {
 	return e.s.Diarize(ctx, in)
+}
+
+func (e *embedBackend) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest, opts ...grpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	return e.s.SoundDetection(ctx, in)
 }
 
 func (e *embedBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest, opts ...grpc.CallOption) (*pb.AudioEncodeResult, error) {
@@ -174,6 +191,55 @@ func (e *embedBackend) AudioTransformStream(ctx context.Context, opts ...grpc.Ca
 	}()
 
 	return &embedBackendAudioTransformStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
+func (e *embedBackend) AudioTranscriptionLive(ctx context.Context, opts ...grpc.CallOption) (AudioTranscriptionLiveClient, error) {
+	reqs := make(chan *pb.TranscriptLiveRequest, 4)
+	resps := make(chan *pb.TranscriptLiveResponse, 4)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendAudioTranscriptionLiveStream{
+		ctx:   ctx,
+		reqs:  reqs,
+		resps: resps,
+	}
+
+	go func() {
+		err := e.s.AudioTranscriptionLive(server)
+		// Stash the terminal error BEFORE closing resps: a caller blocked in
+		// Recv wakes on the close and must find the error (the ready-ack
+		// contract surfaces Unimplemented through that first Recv).
+		srvDone <- err
+		close(resps)
+	}()
+
+	return &embedBackendAudioTranscriptionLiveStreamClient{
+		ctx:     ctx,
+		reqs:    reqs,
+		resps:   resps,
+		srvDone: srvDone,
+	}, nil
+}
+
+func (e *embedBackend) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardClient, error) {
+	reqs := make(chan *pb.ForwardRequest, 8)
+	resps := make(chan *pb.ForwardReply, 8)
+	srvDone := make(chan error, 1)
+
+	server := &embedBackendForwardStream{ctx: ctx, reqs: reqs, resps: resps}
+
+	go func() {
+		err := e.s.Forward(server)
+		close(resps)
+		srvDone <- err
+	}()
+
+	return &embedBackendForwardStreamClient{
 		ctx:     ctx,
 		reqs:    reqs,
 		resps:   resps,
@@ -263,6 +329,8 @@ var _ pb.Backend_AudioTransformStreamServer = new(embedBackendAudioTransformStre
 var _ AudioTransformStreamClient = new(embedBackendAudioTransformStreamClient)
 var _ pb.Backend_AudioToAudioStreamServer = new(embedBackendAudioToAudioStream)
 var _ AudioToAudioStreamClient = new(embedBackendAudioToAudioStreamClient)
+var _ pb.Backend_AudioTranscriptionLiveServer = new(embedBackendAudioTranscriptionLiveStream)
+var _ AudioTranscriptionLiveClient = new(embedBackendAudioTranscriptionLiveStreamClient)
 
 // embedBackendAudioTransformStream is the server side of an in-process bidi
 // stream. The hosted server reads requests from `reqs` (closed by client when
@@ -358,6 +426,102 @@ func (e *embedBackendAudioTransformStreamClient) CloseSend() error {
 }
 
 func (e *embedBackendAudioTransformStreamClient) Context() context.Context { return e.ctx }
+
+// embedBackendAudioTranscriptionLiveStream is the in-process server-side
+// handle for the bidirectional live ASR RPC. Mirrors
+// embedBackendAudioTransformStream — the hosted server reads requests from
+// `reqs` (closed by client when done sending) and writes responses to `resps`.
+type embedBackendAudioTranscriptionLiveStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.TranscriptLiveRequest
+	resps chan<- *pb.TranscriptLiveResponse
+}
+
+func (e *embedBackendAudioTranscriptionLiveStream) Send(resp *pb.TranscriptLiveResponse) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTranscriptionLiveStream) Recv() (*pb.TranscriptLiveRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTranscriptionLiveStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendAudioTranscriptionLiveStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendAudioTranscriptionLiveStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendAudioTranscriptionLiveStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendAudioTranscriptionLiveStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.TranscriptLiveResponse); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendAudioTranscriptionLiveStream) RecvMsg(m any) error {
+	// gRPC bidi streaming uses Recv() directly; RecvMsg is unused on this path.
+	return nil
+}
+
+// embedBackendAudioTranscriptionLiveStreamClient is the caller-facing side.
+// It mirrors the server-side stream over the same channels.
+type embedBackendAudioTranscriptionLiveStreamClient struct {
+	ctx       context.Context
+	reqs      chan<- *pb.TranscriptLiveRequest
+	resps     <-chan *pb.TranscriptLiveResponse
+	srvDone   <-chan error
+	closeOnce bool
+}
+
+func (e *embedBackendAudioTranscriptionLiveStreamClient) Send(req *pb.TranscriptLiveRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTranscriptionLiveStreamClient) Recv() (*pb.TranscriptLiveResponse, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			// Server-side finished. Surface its terminal error if any.
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			default:
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendAudioTranscriptionLiveStreamClient) CloseSend() error {
+	if e.closeOnce {
+		return nil
+	}
+	e.closeOnce = true
+	close(e.reqs)
+	return nil
+}
+
+func (e *embedBackendAudioTranscriptionLiveStreamClient) Context() context.Context { return e.ctx }
 
 // embedBackendAudioToAudioStream is the in-process server-side handle for
 // the bidirectional any-to-any audio RPC. Mirrors embedBackendAudioTransform
@@ -601,3 +765,94 @@ func (e *embedBackendServerStream) SendMsg(m any) error {
 func (e *embedBackendServerStream) RecvMsg(m any) error {
 	return nil
 }
+
+var _ pb.Backend_ForwardServer = new(embedBackendForwardStream)
+var _ ForwardClient = new(embedBackendForwardStreamClient)
+
+// embedBackendForwardStream is the server-side handle for an in-process
+// Forward bidi stream. The hosted backend reads requests from `reqs`
+// (closed by the client when done sending) and writes replies to
+// `resps`.
+type embedBackendForwardStream struct {
+	ctx   context.Context
+	reqs  <-chan *pb.ForwardRequest
+	resps chan<- *pb.ForwardReply
+}
+
+func (e *embedBackendForwardStream) Send(resp *pb.ForwardReply) error {
+	select {
+	case e.resps <- resp:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStream) Recv() (*pb.ForwardRequest, error) {
+	select {
+	case req, ok := <-e.reqs:
+		if !ok {
+			return nil, io.EOF
+		}
+		return req, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStream) SetHeader(md metadata.MD) error  { return nil }
+func (e *embedBackendForwardStream) SendHeader(md metadata.MD) error { return nil }
+func (e *embedBackendForwardStream) SetTrailer(md metadata.MD)       {}
+func (e *embedBackendForwardStream) Context() context.Context        { return e.ctx }
+func (e *embedBackendForwardStream) SendMsg(m any) error {
+	if x, ok := m.(*pb.ForwardReply); ok {
+		return e.Send(x)
+	}
+	return nil
+}
+func (e *embedBackendForwardStream) RecvMsg(m any) error { return nil }
+
+// embedBackendForwardStreamClient is the caller-facing side. Mirrors
+// the server-side stream over the same channels.
+type embedBackendForwardStreamClient struct {
+	ctx     context.Context
+	reqs    chan<- *pb.ForwardRequest
+	resps   <-chan *pb.ForwardReply
+	srvDone <-chan error
+	once    sync.Once
+}
+
+func (e *embedBackendForwardStreamClient) Send(req *pb.ForwardRequest) error {
+	select {
+	case e.reqs <- req:
+		return nil
+	case <-e.ctx.Done():
+		return e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStreamClient) Recv() (*pb.ForwardReply, error) {
+	select {
+	case resp, ok := <-e.resps:
+		if !ok {
+			select {
+			case err := <-e.srvDone:
+				if err != nil {
+					return nil, err
+				}
+			default:
+			}
+			return nil, io.EOF
+		}
+		return resp, nil
+	case <-e.ctx.Done():
+		return nil, e.ctx.Err()
+	}
+}
+
+func (e *embedBackendForwardStreamClient) CloseSend() error {
+	e.once.Do(func() { close(e.reqs) })
+	return nil
+}
+
+func (e *embedBackendForwardStreamClient) Context() context.Context { return e.ctx }

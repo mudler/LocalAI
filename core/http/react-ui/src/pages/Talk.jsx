@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { useOutletContext, useNavigate } from 'react-router-dom'
+import { useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { realtimeApi } from '../utils/api'
+import { fromState } from '../utils/editorNav'
 import ModelSelector from '../components/ModelSelector'
+import VoiceVisualizer from '../components/VoiceVisualizer'
 import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useMCPClient } from '../hooks/useMCPClient'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
@@ -17,9 +19,35 @@ const STATUS_STYLES = {
   error:        { icon: 'fa-solid fa-circle', color: 'var(--color-error)', bg: 'var(--color-error-light)' },
 }
 
+// upsertEntry merges a streamed transcript fragment into the entry identified
+// by the server's item_id, or appends a new entry (with the given role) if
+// none exists yet. Keying by item_id (not a mutable index tracked across
+// handler/updater boundaries) makes streamed deltas idempotent and
+// order-independent, so React's batching of non-React data-channel events
+// cannot produce a duplicate bubble. mode 'append' adds to the running text;
+// 'replace' sets the final transcript — the server sends a completed event
+// whose authoritative text supersedes any live captions (e.g. the
+// semantic_vad retranscribe gate's batch decode).
+function upsertEntry(prev, itemId, role, text, mode) {
+  // The streaming entry is almost always the newest — search from the tail
+  // so per-delta cost stays constant.
+  const i = prev.findLastIndex(e => e.id === itemId)
+  if (i === -1) {
+    return [...prev, { role, id: itemId, text }]
+  }
+  const next = [...prev]
+  next[i] = { ...next[i], text: mode === 'append' ? next[i].text + text : text }
+  return next
+}
+
+function upsertAssistant(prev, itemId, text, mode) {
+  return upsertEntry(prev, itemId, 'assistant', text, mode)
+}
+
 export default function Talk() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Pipeline models
   const [pipelineModels, setPipelineModels] = useState([])
@@ -34,7 +62,10 @@ export default function Talk() {
 
   // Transcript
   const [transcript, setTranscript] = useState([])
-  const streamingRef = useRef(null) // tracks the index of the in-progress assistant message
+  // item_id of the assistant message currently streaming — used only to remove
+  // its partial bubble when a response is cancelled (barge-in). The transcript
+  // itself is keyed by item_id via upsertAssistant, not by this ref.
+  const inProgressIdRef = useRef(null)
 
   // Session settings
   const [instructions, setInstructions] = useState(
@@ -104,9 +135,12 @@ export default function Talk() {
       .finally(() => setModelsLoading(false))
   }, [])
 
-  // Auto-scroll transcript
+  // Auto-scroll the transcript's own overflow container. scrollIntoView bubbles
+  // to every scrollable ancestor (incl. the window), which yanked the whole
+  // page down to the transcript box on mount; scoping to the box avoids it.
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const box = transcriptEndRef.current?.parentElement
+    box?.scrollTo({ top: box.scrollHeight, behavior: 'smooth' })
   }, [transcript])
 
   // Mirror Chat.jsx: connect / disconnect client MCP servers as the user toggles them.
@@ -225,41 +259,44 @@ export default function Talk() {
       case 'input_audio_buffer.speech_stopped':
         updateStatus('thinking', 'Processing...')
         break
+      case 'conversation.item.input_audio_transcription.delta':
+        // Live captions: semantic_vad streams the user's words while they
+        // are still speaking, keyed by the item id the commit will reuse.
+        if (event.delta && event.item_id) {
+          setTranscript(prev => upsertEntry(prev, event.item_id, 'user', event.delta, 'append'))
+        }
+        break
       case 'conversation.item.input_audio_transcription.completed':
         if (event.transcript) {
-          streamingRef.current = null
-          setTranscript(prev => [...prev, { role: 'user', text: event.transcript }])
+          if (event.item_id) {
+            // Replaces any live captions with the authoritative transcript
+            // (which may differ, e.g. the retranscribe gate's batch decode);
+            // creates the entry when there were none (server_vad).
+            setTranscript(prev => upsertEntry(prev, event.item_id, 'user', event.transcript, 'replace'))
+          } else {
+            setTranscript(prev => [...prev, { role: 'user', text: event.transcript }])
+          }
         }
         updateStatus('thinking', 'Generating response...')
         break
+      case 'conversation.item.input_audio_transcription.failed':
+        // The turn was discarded after captions were shown (e.g. the buffer
+        // was cleared as silence) — retract the partial entry.
+        if (event.item_id) {
+          setTranscript(prev => prev.filter(e => e.id !== event.item_id))
+        }
+        break
       case 'response.output_audio_transcript.delta':
         if (event.delta) {
-          setTranscript(prev => {
-            if (streamingRef.current !== null) {
-              const updated = [...prev]
-              updated[streamingRef.current] = {
-                ...updated[streamingRef.current],
-                text: updated[streamingRef.current].text + event.delta,
-              }
-              return updated
-            }
-            streamingRef.current = prev.length
-            return [...prev, { role: 'assistant', text: event.delta }]
-          })
+          inProgressIdRef.current = event.item_id
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.delta, 'append'))
         }
         break
       case 'response.output_audio_transcript.done':
         if (event.transcript) {
-          setTranscript(prev => {
-            if (streamingRef.current !== null) {
-              const updated = [...prev]
-              updated[streamingRef.current] = { ...updated[streamingRef.current], text: event.transcript }
-              return updated
-            }
-            return [...prev, { role: 'assistant', text: event.transcript }]
-          })
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.transcript, 'replace'))
         }
-        streamingRef.current = null
+        inProgressIdRef.current = null
         break
       case 'response.output_audio.delta':
         updateStatus('speaking', 'Speaking...')
@@ -281,7 +318,7 @@ export default function Talk() {
           // Pretty-print JSON for readability; fall back to raw string.
           try { preview = JSON.stringify(JSON.parse(preview), null, 2) } catch (_) { /* keep raw */ }
           setTranscript(prev => [...prev, { role: 'tool_result', text: preview }])
-          streamingRef.current = null  // tool result ends the current assistant text run
+          inProgressIdRef.current = null // tool result ends the current assistant text run
         }
         break
       }
@@ -290,9 +327,20 @@ export default function Talk() {
         // conversation.item.create + response.create when it's done.
         handleFunctionCall(event)
         break
-      case 'response.done':
+      case 'response.done': {
+        // A cancelled response (barge-in / interruption) leaves a partial,
+        // incrementally-streamed assistant bubble behind. The server discards
+        // the interrupted item from history; mirror that here (remove the
+        // in-progress assistant entry by item_id) so the regenerated reply
+        // doesn't show up as a second assistant message.
+        if (event.response?.status === 'cancelled' && inProgressIdRef.current) {
+          const id = inProgressIdRef.current
+          inProgressIdRef.current = null
+          setTranscript(prev => prev.filter(e => e.id !== id))
+        }
         updateStatus('listening', 'Listening...')
         break
+      }
       case 'error':
         hasErrorRef.current = true
         updateStatus('error', 'Error: ' + (event.error?.message || 'Unknown error'))
@@ -579,6 +627,9 @@ export default function Talk() {
         </div>
 
         <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+          {/* Voice visualizer (hero) */}
+          <VoiceVisualizer audioRef={audioRef} micStreamRef={localStreamRef} status={status} active={isConnected} />
+
           {/* Connection status */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
@@ -630,7 +681,7 @@ export default function Talk() {
               disabled={isConnected}
               searchPlaceholder="Search pipeline models..."
             />
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor?template=pipeline')}
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}
               style={{ marginTop: 'var(--spacing-xs)' }}>
               <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Create Pipeline Model
             </button>
@@ -689,7 +740,7 @@ export default function Talk() {
           )}
           {selectedModelInfo && !selectedModelInfo.self_contained && (
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)',
+              display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)',
               marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
             }}>
               {[
@@ -701,16 +752,19 @@ export default function Talk() {
                 <div key={item.label} style={{
                   background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
                   padding: 'var(--spacing-xs)', border: '1px solid var(--color-border)',
+                  display: 'flex', alignItems: 'baseline', gap: 'var(--spacing-sm)',
                 }}>
-                  <div style={{ color: 'var(--color-text-secondary)', marginBottom: 2 }}>{item.label}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</div>
+                  <div style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{item.label}</div>
+                  {/* full width for the value; wrap rather than overflow when the
+                      model name is long (minWidth:0 lets the flex item shrink) */}
+                  <div style={{ fontFamily: 'var(--font-mono)', minWidth: 0, marginLeft: 'auto', textAlign: 'right', overflowWrap: 'anywhere' }}>{item.value || '—'}</div>
                 </div>
               ))}
             </div>
           )}
           {selectedModelInfo && !isConnected && (
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`)}>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`, { state: fromState(location, 'Talk') })}>
                 <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} />
                 {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
               </button>
@@ -789,7 +843,7 @@ export default function Talk() {
               const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
                               : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
+                <div key={entry.id || i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
                   <i className={iconClass} style={{ color: iconColor, marginTop: 3, flexShrink: 0, fontSize: '0.75rem' }} />
                   <p style={{
                     margin: 0,

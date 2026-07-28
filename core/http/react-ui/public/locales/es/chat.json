@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "Copiar",
-    "regenerate": "Regenerar"
+    "regenerate": "Regenerar",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "Transfiriendo modelo...",
@@ -97,7 +98,8 @@
   },
   "toasts": {
     "selectModel": "Por favor selecciona un modelo",
-    "copied": "Copiado al portapapeles"
+    "copied": "Copiado al portapapeles",
+    "copyFailed": "No se pudo copiar al portapapeles"
   },
   "menu": {
     "trigger": "Chats",

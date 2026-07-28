@@ -141,6 +141,24 @@ export function useChat(initialModel = '') {
     return chat
   }, [])
 
+  const forkChat = useCallback((chatId, uptoIndex) => {
+    const src = chats.find(c => c.id === chatId)
+    if (!src) return null
+    const end = typeof uptoIndex === 'number' ? uptoIndex : src.history.length
+    const forked = {
+      ...src,
+      id: generateId(),
+      name: `${src.name} (fork)`,
+      history: structuredClone(src.history.slice(0, end)),
+      tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    setChats(prev => [forked, ...prev])
+    setActiveChatId(forked.id)
+    return forked
+  }, [chats])
+
   const switchChat = useCallback((chatId) => {
     setActiveChatId(chatId)
     setStreamingContent('')
@@ -197,12 +215,18 @@ export function useChat(initialModel = '') {
     const temperature = activeChat.temperature
     const topP = activeChat.topP
     const topK = activeChat.topK
-    const contextSize = activeChat.contextSize
 
     // Build user message content
     let messageContent
-    const userFiles = []
-    if (files.length > 0) {
+    let userFiles = []
+    if (options.prebuiltContent) {
+      // Caller (e.g. regenerate) already has the fully-assembled content from
+      // the original send — reuse it verbatim instead of rebuilding from
+      // display-only file metadata, which doesn't carry the base64/text
+      // payload needed to re-embed attachments.
+      messageContent = content
+      userFiles = files
+    } else if (files.length > 0) {
       messageContent = [{ type: 'text', text: content }]
       for (const file of files) {
         if (file.type?.startsWith('image/')) {
@@ -217,10 +241,22 @@ export function useChat(initialModel = '') {
             audio_url: { url: `data:${file.type};base64,${file.base64}` },
           })
           userFiles.push({ name: file.name, type: 'audio' })
+        } else if (file.type?.startsWith('video/')) {
+          messageContent.push({
+            type: 'video_url',
+            video_url: { url: `data:${file.type};base64,${file.base64}` },
+          })
+          userFiles.push({ name: file.name, type: 'video' })
         } else {
-          // Text/PDF files - append to content
-          userFiles.push({ name: file.name, type: 'file', content: file.textContent || '' })
-        }
+			// Text/PDF files - append to content
+			if (file.textContent) {
+				messageContent.push({
+					type: 'text',
+					text: `\n\n--- File: ${file.name} ---\n${file.textContent}\n--- End of ${file.name} ---`,
+				})
+			}
+			userFiles.push({ name: file.name, type: 'file', content: file.textContent || '' })
+		}
       }
     } else {
       messageContent = content
@@ -249,8 +285,12 @@ export function useChat(initialModel = '') {
     if (chat?.systemPrompt) {
       messages.push({ role: 'system', content: chat.systemPrompt })
     }
-    // Filter out thinking/reasoning/tool_call/tool_result messages
-    const historyForApi = (chat?.history || []).filter(m =>
+    // Filter out thinking/reasoning/tool_call/tool_result messages.
+    // options.baseHistory lets callers (e.g. mid-conversation retry) pass the
+    // intended truncated history synchronously; the closure `chat` still holds
+    // the stale pre-truncation state because setChats only schedules an update.
+    const baseHistory = options.baseHistory || chat?.history || []
+    const historyForApi = baseHistory.filter(m =>
       m.role !== 'thinking' && m.role !== 'reasoning' && m.role !== 'tool_call' && m.role !== 'tool_result'
     )
     messages.push(...historyForApi, { role: 'user', content: messageContent })
@@ -262,7 +302,10 @@ export function useChat(initialModel = '') {
     if (temperature !== null && temperature !== undefined) requestBody.temperature = temperature
     if (topP !== null && topP !== undefined) requestBody.top_p = topP
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
-    if (contextSize) requestBody.max_tokens = contextSize
+    // contextSize is the model's input+output window, not an
+    // output cap. Backends bound generation at remaining context
+    // automatically; Anthropic translate mode supplies its own
+    // default. So we deliberately do not send any output-token cap.
 
     // MCP: send selected servers via metadata so the backend activates them
     const hasMcpServers = activeChat.mcpServers && activeChat.mcpServers.length > 0
@@ -779,6 +822,7 @@ export function useChat(initialModel = '') {
     tokensPerSecond,
     maxTokensPerSecond,
     addChat,
+    forkChat,
     switchChat,
     deleteChat,
     deleteAllChats,

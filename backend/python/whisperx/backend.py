@@ -79,6 +79,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def AudioTranscription(self, request, context):
         import whisperx
+        from whisperx.diarize import DiarizationPipeline
 
         resultSegments = []
         text = ""
@@ -106,8 +107,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Diarize if requested and HF token is available
             if request.diarize and self.hf_token:
                 if self.diarize_pipeline is None:
-                    self.diarize_pipeline = whisperx.DiarizationPipeline(
-                        use_auth_token=self.hf_token,
+                    self.diarize_pipeline = DiarizationPipeline(
+                        token=self.hf_token,
                         device=self.device,
                     )
                 diarize_segments = self.diarize_pipeline(audio)

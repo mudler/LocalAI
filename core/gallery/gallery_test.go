@@ -619,4 +619,59 @@ var _ = Describe("Gallery", func() {
 			Expect(filtered[0].Name).To(Equal("sd-model"))
 		})
 	})
+
+	Describe("VoiceCloningCapability", func() {
+		It("derives support from an inline Base model configuration", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "qwen-base", Backend: "qwen3-tts-cpp"},
+				ConfigFile: map[string]any{
+					"parameters": map[string]any{"model": "Qwen3-TTS-12Hz-0.6B-Base"},
+				},
+			}
+
+			capability := m.VoiceCloningCapability(tempDir)
+			Expect(capability).NotTo(BeNil())
+			Expect(capability.AcceptedAudioFormats).To(Equal([]string{"audio/wav"}))
+		})
+
+		It("uses gallery overrides when deciding between model variants", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "qwen-custom", Backend: "qwen3-tts-cpp"},
+				ConfigFile: map[string]any{
+					"parameters": map[string]any{"model": "Qwen3-TTS-12Hz-0.6B-Base"},
+				},
+				Overrides: map[string]any{
+					"parameters": map[string]any{"model": "Qwen3-TTS-12Hz-0.6B-CustomVoice"},
+				},
+			}
+
+			Expect(m.VoiceCloningCapability(tempDir)).To(BeNil())
+		})
+
+		It("honors the typed capability override for custom gallery entries", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "private-voice-model", Backend: "qwen-tts"},
+				Overrides: map[string]any{
+					"parameters": map[string]any{"model": "private-checkpoint"},
+					"tts":        map[string]any{"voice_cloning": true},
+				},
+			}
+
+			Expect(m.VoiceCloningCapability(tempDir)).NotTo(BeNil())
+		})
+
+		It("honors an explicit gallery opt-out", func() {
+			m := &GalleryModel{
+				Metadata: Metadata{Name: "voxcpm-1.5", Backend: "voxcpm"},
+				ConfigFile: map[string]any{
+					"tts": map[string]any{"voice_cloning": true},
+				},
+				Overrides: map[string]any{
+					"tts": map[string]any{"voice_cloning": false},
+				},
+			}
+
+			Expect(m.VoiceCloningCapability(tempDir)).To(BeNil())
+		})
+	})
 })

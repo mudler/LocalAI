@@ -1,10 +1,13 @@
 package importers
 
 import (
+	"context"
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
@@ -22,8 +25,8 @@ var (
 
 type LlamaCPPImporter struct{}
 
-func (i *LlamaCPPImporter) Name() string     { return "llama-cpp" }
-func (i *LlamaCPPImporter) Modality() string { return "text" }
+func (i *LlamaCPPImporter) Name() string      { return "llama-cpp" }
+func (i *LlamaCPPImporter) Modality() string  { return "text" }
 func (i *LlamaCPPImporter) AutoDetects() bool { return true }
 
 // AdditionalBackends advertises drop-in replacements that share the
@@ -34,6 +37,7 @@ func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
 	return []KnownBackendEntry{
 		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
 		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
+		{Name: "vllm-cpp", Modality: "text", Description: "vLLM-style continuous-batching engine (vllm.cpp) consuming GGUF, by the LocalAI team"},
 	}
 }
 
@@ -95,8 +99,13 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		}
 	}
 
-	name, ok := preferencesMap["name"].(string)
-	if !ok {
+	// nameProvided tracks whether the user supplied an explicit model name.
+	// When they didn't, the URI base is only a fallback: for a HuggingFace
+	// repo-root URI (no file component) it would be the repo name, so the HF
+	// branch below re-derives the name from the selected GGUF file instead
+	// (issue #10587).
+	name, nameProvided := preferencesMap["name"].(string)
+	if !nameProvided {
 		name = filepath.Base(details.URI)
 	}
 
@@ -127,7 +136,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	backend := "llama-cpp"
 	if b, ok := preferencesMap["backend"].(string); ok {
 		switch b {
-		case "ik-llama-cpp", "turboquant":
+		case "ik-llama-cpp", "turboquant", "vllm-cpp":
 			backend = b
 		}
 	}
@@ -147,6 +156,16 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			},
 			AutomaticToolParsingFallback: true,
 		},
+	}
+
+	// vllm-cpp rides the same autoparser-style flow as llama-cpp: the ENGINE
+	// applies the model's chat template (GGUF tokenizer.chat_template) and
+	// decides when a tool call engages (lazy structural-tag constraint +
+	// engine-side parsing), so the tokenizer-template config carries over
+	// verbatim. Only `use_jinja` is dropped - that option is a llama-cpp
+	// backend knob with no meaning for vllm-cpp.
+	if backend == "vllm-cpp" {
+		modelConfig.Options = nil
 	}
 
 	if embeddings != "" && strings.ToLower(embeddings) == "true" || strings.ToLower(embeddings) == "yes" {
@@ -224,10 +243,23 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		mmprojGroups := hfapi.GroupShards(mmprojFiles)
 		ggufGroups := hfapi.GroupShards(ggufFiles)
 
+		modelGroup := pickPreferredGroup(ggufGroups, quants)
+
+		// A repo-root URI has no file component, so the URI-base fallback
+		// above produced the repo name. When the user left the name blank,
+		// derive it from the GGUF file actually selected from the listing so
+		// the gallery entry and `model:` directory reflect the model, not the
+		// repository (issue #10587). An explicit name preference always wins.
+		if !nameProvided && modelGroup != nil {
+			name = modelNameFromShardGroup(*modelGroup)
+			modelConfig.Name = name
+			cfg.Name = name
+		}
+
 		// Emit the model group first so cfg.Files[0] is the model — callers
 		// and tests rely on the model file preceding any mmproj companion.
-		if group := pickPreferredGroup(ggufGroups, quants); group != nil {
-			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "models", name))
+		if modelGroup != nil {
+			appendShardGroup(&cfg, *modelGroup, filepath.Join("llama-cpp", "models", name))
 		}
 		if group := pickPreferredGroup(mmprojGroups, mmprojQuantsList); group != nil {
 			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "mmproj", name))
@@ -261,6 +293,13 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	// Apply per-model-family inference parameter defaults
 	config.ApplyInferenceDefaults(&modelConfig, details.URI)
 
+	// Auto-detect Multi-Token Prediction heads (ggml-org/llama.cpp#22673) and
+	// enable speculative decoding. Mirrors the load-time hook so freshly
+	// imported configs already carry spec_type:draft-mtp before the model is
+	// ever loaded - users see it in the YAML preview rather than discovering
+	// it after the first start.
+	maybeApplyMTPDefaults(&modelConfig, details, &cfg)
+
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {
 		return gallery.ModelConfig{}, err
@@ -269,6 +308,20 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	cfg.ConfigFile = string(data)
 
 	return cfg, nil
+}
+
+// modelNameFromShardGroup derives a human-facing model name from the picked
+// GGUF group: the logical base filename with its .gguf extension stripped.
+// ShardGroup.Base is the common prefix for sharded sets (without the
+// -NNNNN-of-MMMMM suffix) and the sole basename for single-file models, so
+// this yields a clean name like "model-Q4_K_M" rather than an individual
+// shard filename or the repo-root URI base.
+func modelNameFromShardGroup(group hfapi.ShardGroup) string {
+	base := group.Base
+	if ext := filepath.Ext(base); strings.EqualFold(ext, ".gguf") {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return base
 }
 
 // pickPreferredGroup walks the preference list in priority order and returns
@@ -283,12 +336,124 @@ func pickPreferredGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardG
 	for _, pref := range prefs {
 		lower := strings.ToLower(pref)
 		for i := range groups {
-			if strings.Contains(strings.ToLower(groups[i].Base), lower) {
+			if quantTokenMatches(strings.ToLower(groups[i].Base), lower) {
 				return &groups[i]
 			}
 		}
 	}
 	return &groups[len(groups)-1]
+}
+
+// quantTokenMatches reports whether pref appears in base as a whole token
+// rather than as a substring of a larger alphanumeric run. Both arguments
+// must already be lowercased.
+//
+// A plain strings.Contains is wrong here: `f16` is a substring of `bf16`, so
+// asking for the `F16` quant used to wrongly select a `BF16` file (#10559).
+// Only the OUTER edges of the matched preference must hit a boundary — a
+// non-alphanumeric char (or the start/end of base). Separators inside the
+// preference itself (e.g. `ud-q4_k_xl`) are intentionally left untouched.
+func quantTokenMatches(base, pref string) bool {
+	if pref == "" {
+		return false
+	}
+	for start := strings.Index(base, pref); start != -1; {
+		end := start + len(pref)
+		leftOK := start == 0 || !isAlphaNum(base[start-1])
+		rightOK := end == len(base) || !isAlphaNum(base[end])
+		if leftOK && rightOK {
+			return true
+		}
+		next := strings.Index(base[start+1:], pref)
+		if next == -1 {
+			break
+		}
+		start += next + 1
+	}
+	return false
+}
+
+func isAlphaNum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
+}
+
+// maybeApplyMTPDefaults parses the picked GGUF header (range-fetched over
+// HTTP for HF/URL imports) and, if the file declares a Multi-Token Prediction
+// head, appends the auto-MTP option keys to modelConfig.Options. Failures
+// during the probe are non-fatal: the importer keeps the config without MTP
+// so an unrelated network blip or weird header doesn't break the import.
+//
+// OCI/Ollama URIs are skipped because the artifact isn't directly fetchable
+// as a GGUF byte stream - the load-time hook (core/config/gguf.go) covers
+// those once the model is materialised on disk.
+func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg *gallery.ModelConfig) {
+	probeURL := pickMTPProbeURL(details, cfg)
+	if probeURL == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Debug("[mtp-importer] panic while probing GGUF header", "uri", probeURL, "recover", r)
+		}
+	}()
+
+	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL)
+	if err != nil {
+		xlog.Debug("[mtp-importer] failed to read remote GGUF header for MTP detection", "uri", probeURL, "error", err)
+		return
+	}
+
+	n, ok := config.HasEmbeddedMTPHead(f)
+	if !ok {
+		return
+	}
+	config.ApplyMTPDefaults(modelConfig, n)
+}
+
+// pickMTPProbeURL returns an HTTP(S) URL pointing at the main (non-mmproj)
+// GGUF shard that should be inspected for an MTP head, or "" when no
+// suitable URL is available. Custom URI schemes (`huggingface://`,
+// `ollama://`, etc.) are run through `downloader.URI.ResolveURL` so the
+// resulting URL is something `gguf.ParseGGUFFileRemote` can actually open.
+// OCI/Ollama URIs are skipped because the artifact is not directly
+// streamable as a GGUF byte range.
+func pickMTPProbeURL(details Details, cfg *gallery.ModelConfig) string {
+	uri := downloader.URI(details.URI)
+
+	if uri.LooksLikeOCI() {
+		return ""
+	}
+
+	if strings.HasSuffix(strings.ToLower(details.URI), ".gguf") {
+		return resolveHTTPProbe(details.URI)
+	}
+
+	for _, f := range cfg.Files {
+		lower := strings.ToLower(f.Filename)
+		if strings.Contains(lower, "mmproj") {
+			continue
+		}
+		if !strings.HasSuffix(lower, ".gguf") {
+			continue
+		}
+		return resolveHTTPProbe(f.URI)
+	}
+	return ""
+}
+
+// resolveHTTPProbe resolves an importer-side URI to the HTTP(S) URL that
+// `gguf.ParseGGUFFileRemote` can range-fetch. Returns "" if the URI can't
+// be reduced to an HTTP(S) endpoint (e.g. local path, unsupported scheme).
+func resolveHTTPProbe(uri string) string {
+	resolved := downloader.URI(uri).ResolveURL()
+	if downloader.URI(resolved).LooksLikeHTTPURL() {
+		return resolved
+	}
+	return ""
 }
 
 // appendShardGroup copies every shard of group into cfg.Files under dest,

@@ -5,12 +5,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -559,9 +564,380 @@ var _ = Describe("FileTransferServer", func() {
 			Expect(uploaded).To(Equal(content))
 		})
 	})
+
+	// --- Resumable upload (Content-Range) tests ---
+
+	Describe("Resumable upload (Content-Range)", func() {
+		// doPut sends a PUT to ts with the given body, headers, and key.
+		doPut := func(ts *httptest.Server, token, key string, body []byte, headers map[string]string) (*http.Response, []byte) {
+			req, err := http.NewRequest(http.MethodPut, ts.URL+"/v1/files/"+key, bytes.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Authorization", "Bearer "+token)
+			for k, v := range headers {
+				req.Header.Set(k, v)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			respBody, _ := io.ReadAll(resp.Body)
+			return resp, respBody
+		}
+
+		It("accepts two consecutive Content-Range chunks and produces the full file", func() {
+			ts, stagingDir, _, _ := setupTestServer("tok", 0)
+
+			full := bytes.Repeat([]byte("abcdefghij"), 20) // 200 bytes
+			fullHash := sha256Hex(full)
+
+			// Chunk 1: bytes 0-99
+			resp1, _ := doPut(ts, "tok", "chunked.bin", full[:100], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 0-99/%d", len(full)),
+				HeaderContentSHA256: fullHash,
+			})
+			Expect(resp1.StatusCode).To(Equal(http.StatusPermanentRedirect))
+			Expect(resp1.Header.Get(HeaderFileSize)).To(Equal("100"))
+
+			// Chunk 2: bytes 100-199
+			resp2, _ := doPut(ts, "tok", "chunked.bin", full[100:], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 100-199/%d", len(full)),
+				HeaderContentSHA256: fullHash,
+			})
+			Expect(resp2.StatusCode).To(Equal(http.StatusOK))
+
+			// File matches the full content
+			got, err := os.ReadFile(filepath.Join(stagingDir, "chunked.bin"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(full))
+
+			// Sidecar holds the final hash
+			sidecar, err := os.ReadFile(filepath.Join(stagingDir, "chunked.bin.sha256"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(sidecar)).To(Equal(fullHash))
+
+			// Target sidecar (in-progress marker) is cleared once complete
+			_, err = os.Stat(filepath.Join(stagingDir, "chunked.bin.sha256.target"))
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+
+		It("returns 416 when Content-Range start does not match current file size", func() {
+			ts, _, _, _ := setupTestServer("tok", 0)
+
+			full := bytes.Repeat([]byte("x"), 200)
+			fullHash := sha256Hex(full)
+
+			// First chunk: bytes 0-49
+			resp1, _ := doPut(ts, "tok", "mismatch.bin", full[:50], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 0-49/%d", len(full)),
+				HeaderContentSHA256: fullHash,
+			})
+			Expect(resp1.StatusCode).To(Equal(http.StatusPermanentRedirect))
+
+			// Skip ahead: server has 50 bytes but client tries to send 100-199.
+			resp2, _ := doPut(ts, "tok", "mismatch.bin", full[100:200], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 100-199/%d", len(full)),
+				HeaderContentSHA256: fullHash,
+			})
+			Expect(resp2.StatusCode).To(Equal(http.StatusRequestedRangeNotSatisfiable))
+			Expect(resp2.Header.Get(HeaderFileSize)).To(Equal("50"))
+		})
+
+		It("returns 409 when X-Content-SHA256 changes between resumed chunks", func() {
+			ts, _, _, _ := setupTestServer("tok", 0)
+
+			a := bytes.Repeat([]byte("a"), 200)
+			b := bytes.Repeat([]byte("b"), 200)
+
+			// Chunk 1 (file A): bytes 0-49
+			resp1, _ := doPut(ts, "tok", "drifted.bin", a[:50], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 0-49/%d", len(a)),
+				HeaderContentSHA256: sha256Hex(a),
+			})
+			Expect(resp1.StatusCode).To(Equal(http.StatusPermanentRedirect))
+
+			// Chunk 2 claims file B's hash for the *same* key — should be rejected.
+			resp2, _ := doPut(ts, "tok", "drifted.bin", b[50:100], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 50-99/%d", len(b)),
+				HeaderContentSHA256: sha256Hex(b),
+			})
+			Expect(resp2.StatusCode).To(Equal(http.StatusConflict))
+		})
+
+		It("returns 400 when final SHA-256 does not match the declared target", func() {
+			ts, _, _, _ := setupTestServer("tok", 0)
+
+			full := bytes.Repeat([]byte("z"), 100)
+			wrongHash := sha256Hex([]byte("definitely-not-this"))
+
+			resp, _ := doPut(ts, "tok", "bad-hash.bin", full, map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 0-99/%d", len(full)),
+				HeaderContentSHA256: wrongHash,
+			})
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+
+		It("HEAD on a partial upload exposes X-Target-SHA256 and current size", func() {
+			ts, _, _, _ := setupTestServer("tok", 0)
+
+			full := bytes.Repeat([]byte("q"), 200)
+			fullHash := sha256Hex(full)
+
+			// One chunk uploaded, file is partial.
+			resp1, _ := doPut(ts, "tok", "partial.bin", full[:60], map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 0-59/%d", len(full)),
+				HeaderContentSHA256: fullHash,
+			})
+			Expect(resp1.StatusCode).To(Equal(http.StatusPermanentRedirect))
+
+			req, err := http.NewRequest(http.MethodHead, ts.URL+"/v1/files/partial.bin", nil)
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Authorization", "Bearer tok")
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			_ = resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(resp.Header.Get(HeaderFileSize)).To(Equal("60"))
+			Expect(resp.Header.Get("Accept-Ranges")).To(Equal("bytes"))
+			Expect(resp.Header.Get(HeaderTargetSHA256)).To(Equal(fullHash))
+			// While the upload is in progress we must NOT expose a misleading
+			// X-Content-SHA256 of the bytes-so-far — clients use HeaderContentSHA256
+			// only for completed files.
+			Expect(resp.Header.Get(HeaderContentSHA256)).To(BeEmpty())
+		})
+
+		It("transparently overwrites an existing finished file when client starts from byte 0 with a new hash", func() {
+			ts, stagingDir, _, _ := setupTestServer("tok", 0)
+
+			// Pre-place a finished file (sidecar present, no target sidecar).
+			oldContent := []byte("ancient version")
+			err := os.WriteFile(filepath.Join(stagingDir, "overwrite.bin"), oldContent, 0644)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(stagingDir, "overwrite.bin.sha256"), []byte(sha256Hex(oldContent)), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			// New upload with a different target hash, range 0-N/total.
+			newContent := bytes.Repeat([]byte("new"), 50) // 150 bytes
+			newHash := sha256Hex(newContent)
+
+			resp, _ := doPut(ts, "tok", "overwrite.bin", newContent, map[string]string{
+				"Content-Range":     fmt.Sprintf("bytes 0-%d/%d", len(newContent)-1, len(newContent)),
+				HeaderContentSHA256: newHash,
+			})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+			got, err := os.ReadFile(filepath.Join(stagingDir, "overwrite.bin"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(newContent))
+		})
+
+		It("HEAD advertises Accept-Ranges: bytes on completed files", func() {
+			ts, _, _, _ := setupTestServer("tok", 0)
+
+			content := "done"
+			doPut(ts, "tok", "ranges-advert.txt", []byte(content), nil)
+
+			req, err := http.NewRequest(http.MethodHead, ts.URL+"/v1/files/ranges-advert.txt", nil)
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Authorization", "Bearer tok")
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			_ = resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(resp.Header.Get("Accept-Ranges")).To(Equal("bytes"))
+			Expect(resp.Header.Get("Content-Length")).To(Equal(strconv.Itoa(len(content))))
+		})
+	})
+
+	// --- End-to-end client/server resume tests ---
+
+	Describe("HTTPFileStager resume via EnsureRemote", func() {
+		It("resumes from server's reported offset when a partial upload exists", func() {
+			ts, stagingDir, _, _ := setupTestServer("tok", 0)
+
+			// Create the local file (the master's source-of-truth).
+			localDir := GinkgoT().TempDir()
+			localPath := filepath.Join(localDir, "resume.bin")
+			content := bytes.Repeat([]byte("R"), 500)
+			Expect(os.WriteFile(localPath, content, 0644)).To(Succeed())
+			fullHash := sha256Hex(content)
+
+			// Pre-seed the "worker" with the first 200 bytes as if a prior
+			// attempt had transferred that much, plus a target-hash sidecar
+			// claiming the full file's hash.
+			dst := filepath.Join(stagingDir, "resume.bin")
+			Expect(os.WriteFile(dst, content[:200], 0644)).To(Succeed())
+			Expect(os.WriteFile(dst+".sha256.target", []byte(fullHash), 0644)).To(Succeed())
+
+			addr := strings.TrimPrefix(ts.URL, "http://")
+			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
+				return addr, nil
+			}, "tok")
+
+			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "resume.bin")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(remotePath).To(Equal(dst))
+
+			got, err := os.ReadFile(dst)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(content))
+
+			// Final sidecar should hold the full-file hash.
+			sidecar, err := os.ReadFile(dst + ".sha256")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.TrimSpace(string(sidecar))).To(Equal(fullHash))
+		})
+
+		It("survives a mid-stream connection drop and resumes on retry", func() {
+			// Server that drops the connection after writing the first N bytes
+			// on the FIRST PUT attempt, then behaves normally.
+			stagingDir := GinkgoT().TempDir()
+			modelsDir := GinkgoT().TempDir()
+			dataDir := GinkgoT().TempDir()
+
+			var (
+				attemptCount int
+				attemptMu    sync.Mutex
+			)
+			const dropAfter = 80 // bytes the server "accepts" before crashing
+
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
+				if !checkBearerToken(r, "tok") {
+					http.Error(w, "unauthorized", http.StatusUnauthorized)
+					return
+				}
+				key := strings.TrimPrefix(r.URL.Path, "/v1/files/")
+				if r.Method == http.MethodHead {
+					handleHead(w, r, stagingDir, modelsDir, dataDir, key)
+					return
+				}
+				if r.Method != http.MethodPut {
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+
+				attemptMu.Lock()
+				attemptCount++
+				thisAttempt := attemptCount
+				attemptMu.Unlock()
+
+				if thisAttempt == 1 {
+					// Read a bounded prefix into the partial file, then hijack
+					// the connection and close abruptly to simulate the drop.
+					cr, err := parseContentRange(r.Header.Get("Content-Range"))
+					if err != nil || cr == nil {
+						http.Error(w, "expected content-range", http.StatusBadRequest)
+						return
+					}
+					dst := filepath.Join(stagingDir, key)
+					f, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					target := r.Header.Get(HeaderContentSHA256)
+					if target != "" {
+						_ = os.WriteFile(dst+".sha256.target", []byte(target), 0640)
+					}
+					_, _ = io.CopyN(f, r.Body, dropAfter)
+					_ = f.Close()
+
+					hj, ok := w.(http.Hijacker)
+					if !ok {
+						http.Error(w, "hijack unsupported", http.StatusInternalServerError)
+						return
+					}
+					conn, _, err := hj.Hijack()
+					if err == nil {
+						_ = conn.Close() // abrupt close — client sees a transport error
+					}
+					return
+				}
+
+				// Subsequent attempts: behave normally.
+				handleUpload(w, r, stagingDir, modelsDir, dataDir, key, 0)
+			})
+			ts := httptest.NewServer(mux)
+			DeferCleanup(ts.Close)
+
+			// Build a small "model" file to upload (300 bytes for speed).
+			localDir := GinkgoT().TempDir()
+			localPath := filepath.Join(localDir, "flaky.bin")
+			content := bytes.Repeat([]byte("F"), 300)
+			Expect(os.WriteFile(localPath, content, 0644)).To(Succeed())
+
+			addr := strings.TrimPrefix(ts.URL, "http://")
+			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
+				return addr, nil
+			}, "tok")
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			remotePath, err := stager.EnsureRemote(ctx, "node-1", localPath, "flaky.bin")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(remotePath).To(Equal(filepath.Join(stagingDir, "flaky.bin")))
+
+			// Final file is correct
+			got, err := os.ReadFile(filepath.Join(stagingDir, "flaky.bin"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(content))
+
+			// At least one retry happened
+			attemptMu.Lock()
+			Expect(attemptCount).To(BeNumerically(">=", 2))
+			attemptMu.Unlock()
+		})
+	})
 })
 
 func sha256Hex(data []byte) string {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
 }
+
+var _ = Describe("StartFileTransferServerWithListener", func() {
+	start := func(token string) (string, func()) {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		staging := GinkgoT().TempDir()
+		models := GinkgoT().TempDir()
+		data := GinkgoT().TempDir()
+		srv, err := StartFileTransferServerWithListener(lis, staging, models, data, token, 0)
+		Expect(err).NotTo(HaveOccurred())
+		base := "http://" + lis.Addr().String()
+		return base, func() { ShutdownFileTransferServer(srv) }
+	}
+
+	// Exercises the empty-token fail-open warning branch: the server serves
+	// file requests with no Authorization header at all.
+	It("serves unauthenticated when started without a token", func() {
+		base, stop := start("")
+		defer stop()
+
+		resp, err := http.Get(base + "/v1/files/missing.bin")
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = resp.Body.Close() }()
+		// No 401 — the empty token fails open. The file is absent so we get 404.
+		Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+	})
+
+	It("rejects requests without the bearer token when a token is set", func() {
+		base, stop := start("s3cret")
+		defer stop()
+
+		resp, err := http.Get(base + "/v1/files/missing.bin")
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = resp.Body.Close() }()
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("serves the unauthenticated health endpoints regardless of token", func() {
+		base, stop := start("s3cret")
+		defer stop()
+
+		resp, err := http.Get(base + "/healthz")
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = resp.Body.Close() }()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+})

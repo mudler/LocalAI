@@ -31,6 +31,29 @@ func repoLooksLikeRFDetr(repo string) bool {
 	return strings.Contains(lower, "rf-detr") || strings.Contains(lower, "rfdetr")
 }
 
+// repoHasGGUF inspects the HuggingFace file list (when available) to decide
+// whether the repo ships RF-DETR weights in ggml/GGUF form — the native
+// rfdetr-cpp backend's input format. Mudler's rfdetr-cpp-* repos
+// (mudler/rfdetr-cpp-nano, mudler/rfdetr-cpp-base, ...) match.
+func repoHasGGUF(details Details) bool {
+	if details.HuggingFace == nil {
+		return false
+	}
+	for _, f := range details.HuggingFace.Files {
+		if strings.HasSuffix(strings.ToLower(f.Path), ".gguf") {
+			return true
+		}
+	}
+	return false
+}
+
+func repoLooksLikeRFDetrCpp(repo string) bool {
+	lower := strings.ToLower(repo)
+	return strings.Contains(lower, "rfdetr-cpp") || strings.Contains(lower, "rf-detr-cpp") ||
+		strings.Contains(lower, "rfdetr.cpp") || strings.Contains(lower, "rt-detr.cpp") ||
+		strings.Contains(lower, "rf-detr.cpp")
+}
+
 func (i *RFDetrImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
@@ -43,7 +66,7 @@ func (i *RFDetrImporter) Match(details Details) bool {
 		}
 	}
 
-	if b, ok := preferencesMap["backend"].(string); ok && b == "rfdetr" {
+	if b, ok := preferencesMap["backend"].(string); ok && (b == "rfdetr" || b == "rfdetr-cpp") {
 		return true
 	}
 
@@ -99,10 +122,28 @@ func (i *RFDetrImporter) Import(details Details) (gallery.ModelConfig, error) {
 		model = owner + "/" + repo
 	}
 
+	// Route GGUF-bearing repos (mudler/rfdetr-cpp-*) to the native
+	// rfdetr-cpp backend; HF transformer repos keep the Python rfdetr
+	// backend. Explicit preferences.backend overrides the heuristic.
+	backend := "rfdetr"
+	if b, ok := preferencesMap["backend"].(string); ok && b != "" {
+		backend = b
+	} else if repoHasGGUF(details) {
+		backend = "rfdetr-cpp"
+	} else if details.HuggingFace != nil {
+		repoName := details.HuggingFace.ModelID
+		if idx := strings.Index(repoName, "/"); idx >= 0 {
+			repoName = repoName[idx+1:]
+		}
+		if repoLooksLikeRFDetrCpp(repoName) {
+			backend = "rfdetr-cpp"
+		}
+	}
+
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
-		Backend:             "rfdetr",
+		Backend:             backend,
 		KnownUsecaseStrings: []string{"detection"},
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{Model: model},

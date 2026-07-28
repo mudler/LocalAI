@@ -1,3 +1,4 @@
+# MPS (Apple Silicon / Metal) build profile - installed by the darwin CI job.
 torch>=2.8.0
 torchaudio>=2.8.0
 torchcodec>=0.9.1

@@ -5,6 +5,7 @@ import { agentsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Agents() {
@@ -181,26 +182,26 @@ export default function Agents() {
         }
       `}</style>
 
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">{t('title')}</h1>
-          <p className="page-subtitle">{t('subtitle')}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-          {agentHubURL && (
-            <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-store" /> {t('actions.agentHub')}
-            </a>
-          )}
-          <label className="btn btn-secondary">
-            <i className="fas fa-file-import" /> {t('actions.import')}
-            <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
-          </label>
-          <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-            <i className="fas fa-plus" /> {t('actions.createAgent')}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={t('title')}
+        supporting={t('subtitle')}
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+            {agentHubURL && (
+              <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
+                <i className="fas fa-store" /> {t('actions.agentHub')}
+              </a>
+            )}
+            <label className="btn btn-secondary">
+              <i className="fas fa-file-import" /> {t('actions.import')}
+              <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
+            </label>
+            <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
+              <i className="fas fa-plus" /> {t('actions.createAgent')}
+            </button>
+          </div>
+        }
+      />
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>

@@ -41,7 +41,7 @@ function UnsupportedNotice({ mode }) {
   )
 }
 
-export default function MediaInput({ mode, label, value, onChange, idPrefix = 'media' }) {
+export default function MediaInput({ mode, label, value, onChange, onError, maxBytes, preferBlob = false, idPrefix = 'media' }) {
   const [tab, setTab] = useState('file') // 'file' | 'live'
   const fileRef = useRef(null)
   const cap = useMediaCapture(mode)
@@ -54,13 +54,30 @@ export default function MediaInput({ mode, label, value, onChange, idPrefix = 'm
   const handleFile = async (e) => {
     const f = e.target.files?.[0]
     if (!f) { onChange(null); return }
-    const base64 = await fileToBase64(f)
-    const dataUrl = await new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.readAsDataURL(f)
-    })
-    onChange({ base64, dataUrl, mime: f.type, source: 'file', name: f.name })
+    if (maxBytes && f.size > maxBytes) {
+      const error = new Error(`Selected file exceeds the ${Math.round(maxBytes / (1024 * 1024))} MiB limit`)
+      if (fileRef.current) fileRef.current.value = ''
+      onChange(null)
+      onError?.(error)
+      return
+    }
+    try {
+      if (preferBlob) {
+        onChange({ blob: f, mime: f.type, source: 'file', name: f.name })
+        return
+      }
+      const base64 = await fileToBase64(f)
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(reader.error)
+        reader.onload = () => resolve(reader.result)
+        reader.readAsDataURL(f)
+      })
+      onChange({ base64, blob: f, dataUrl, mime: f.type, source: 'file', name: f.name })
+    } catch (error) {
+      onChange(null)
+      onError?.(error)
+    }
   }
 
   const handleSnap = () => {
@@ -75,7 +92,9 @@ export default function MediaInput({ mode, label, value, onChange, idPrefix = 'm
       const pending = cap.startRecording()
       if (!pending) return
       const result = await pending
-      onChange({ ...result, source: 'live' })
+      onChange(preferBlob
+        ? { blob: result.blob, mime: result.mime, source: 'live', name: 'recording.wav' }
+        : { ...result, source: 'live' })
     }
   }
 

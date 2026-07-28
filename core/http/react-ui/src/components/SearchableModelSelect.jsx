@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useModels } from '../hooks/useModels'
 
-export default function SearchableModelSelect({ value, onChange, capability, placeholder = 'Type or select a model...', style }) {
+// commitOnly: when true, onChange fires only on an explicit commit (selecting an
+// item, or Enter) — never on each keystroke. Use it where each onChange is a
+// final selection (e.g. the ModelMultiSelect "add" picker), so a partial typed
+// query isn't treated as a chosen value. After a commit the field is cleared,
+// matching the add-and-clear flow. Default false keeps the as-you-type
+// behaviour single-value editors rely on.
+export default function SearchableModelSelect({ value, onChange, capability, placeholder = 'Type or select a model...', style, commitOnly = false }) {
   const { models, loading } = useModels(capability)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -33,11 +39,13 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
     : -1
 
   const commit = useCallback((val) => {
-    setQuery(val)
+    // In commitOnly mode the field is an "add" box — clear it after a pick so
+    // the next selection starts fresh; otherwise reflect the chosen value.
+    setQuery(commitOnly ? '' : val)
     onChange(val)
     setOpen(false)
     setFocusIndex(-1)
-  }, [onChange])
+  }, [onChange, commitOnly])
 
   const handleKeyDown = (e) => {
     if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -133,8 +141,10 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
           setQuery(e.target.value)
           setOpen(true)
           setFocusIndex(-1)
-          // Commit on every keystroke so the parent always has current value
-          onChange(e.target.value)
+          // Single-value editors want the parent updated as you type; an
+          // "add" picker (commitOnly) must wait for an explicit commit so a
+          // partial query is never mistaken for a chosen model.
+          if (!commitOnly) onChange(e.target.value)
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}

@@ -36,15 +36,11 @@ fi
 # flash-attn-4 4.0 stable lands.
 EXTRA_PIP_INSTALL_FLAGS+=" --prerelease=allow"
 
-# JetPack 7 / L4T arm64 wheels are built for cp312 and shipped via
-# pypi.jetson-ai-lab.io. Bump the venv Python so the prebuilt sglang
-# wheel resolves cleanly. The actual install on l4t13 goes through
-# pyproject.toml (see the elif branch below) so [tool.uv.sources] can
-# pin only torch/torchvision/torchaudio/sglang to the jetson-ai-lab
-# index — leaving PyPI as the path for transitive deps like
-# markdown-it-py / anthropic / propcache that the L4T mirror's proxy
-# 503s on. No --index-strategy flag here: the explicit index keeps the
-# scoping clean.
+# JetPack 7 / L4T arm64 sglang + torch wheels come straight from PyPI now
+# (torch 2.11+ ships aarch64 + cu130 manylinux wheels and sglang 0.5.11+
+# ships a cp312 aarch64 wheel pinned to that torch). They're cp312-only,
+# so bump the venv Python accordingly.
+# https://pytorch.org/blog/vllm-and-pytorch-work-together-to-improve-the-developer-experience-on-aarch64/
 if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
     PYTHON_VERSION="3.12"
     PYTHON_PATCH="12"
@@ -89,9 +85,15 @@ if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
     # The resulting binary still requires an AVX-512 capable CPU at runtime,
     # same constraint sglang upstream documents in docker/xeon.Dockerfile.
 
+    # Pin the source build to the same release the GPU path floors on
+    # (0.5.11, see requirements-cublas12-after.txt). An unpinned master clone
+    # pulls in newer CPU kernels (e.g. mamba/fla.cpp) that fail to compile
+    # (constexpr non-constant + kineto_LIBRARY-NOTFOUND). Bump deliberately.
+    SGLANG_VERSION="${SGLANG_VERSION:-v0.5.11}"
     _sgl_src=$(mktemp -d)
     trap 'rm -rf "${_sgl_src}"' EXIT
-    git clone --depth 1 https://github.com/sgl-project/sglang "${_sgl_src}/sglang"
+    git clone --depth 1 --branch "${SGLANG_VERSION}" \
+        https://github.com/sgl-project/sglang "${_sgl_src}/sglang"
 
     # Patch -march=native → -march=sapphirerapids in the CPU kernel CMakeLists
     sed -i 's/-march=native/-march=sapphirerapids/g' \
@@ -110,27 +112,6 @@ if [ "x${BUILD_TYPE}" == "x" ] || [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
         fi
         uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
     popd
-# L4T arm64 (JetPack 7): drive the install through pyproject.toml so that
-# [tool.uv.sources] can pin torch/torchvision/torchaudio/sglang to the
-# jetson-ai-lab index, while everything else (transitive deps and
-# PyPI-resolvable packages like transformers / accelerate) comes from
-# PyPI. Bypasses installRequirements because uv pip install -r
-# requirements.txt does not honor sources — see
-# backend/python/sglang/pyproject.toml for the rationale. Mirrors the
-# equivalent path in backend/python/vllm/install.sh.
-elif [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
-    ensureVenv
-    if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
-        export C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:$(_portable_dir)/include/python${PYTHON_VERSION}"
-    fi
-    pushd "${backend_dir}"
-        # Build deps first (matches installRequirements' requirements-install.txt
-        # pass — sglang/sgl-kernel sdists need packaging/setuptools-scm in the
-        # venv before they can build under --no-build-isolation).
-        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -r requirements-install.txt
-        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement pyproject.toml
-    popd
-    runProtogen
 else
     installRequirements
 fi

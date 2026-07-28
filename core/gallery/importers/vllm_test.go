@@ -133,6 +133,34 @@ var _ = Describe("VLLMImporter", func() {
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: vllm"))
 		})
 
+		It("swaps the emitted backend to vllm-cpp when preferred, keeping engine-side templating", func() {
+			preferences := json.RawMessage(`{"backend": "vllm-cpp"}`)
+			details := Details{
+				URI:         "https://huggingface.co/test/my-model",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: vllm-cpp"))
+			// vllm-cpp templates ENGINE-side (use_tokenizer_template carries
+			// over); the vllm-python parser options don't apply.
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("use_tokenizer_template: true"))
+			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("tool_parser"))
+			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("reasoning_parser"))
+		})
+
+		It("matches when backend preference is vllm-cpp", func() {
+			preferences := json.RawMessage(`{"backend": "vllm-cpp"}`)
+			details := Details{
+				URI:         "https://huggingface.co/test/my-model",
+				Preferences: preferences,
+			}
+
+			Expect(importer.Match(details)).To(BeTrue())
+		})
+
 		It("should handle invalid JSON preferences", func() {
 			preferences := json.RawMessage(`invalid json`)
 			details := Details{
@@ -176,6 +204,23 @@ var _ = Describe("VLLMImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("known_usecases:"))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("- chat"))
+		})
+
+		It("should emit a bare filesystem path for a file:// local import", func() {
+			// Regression for #7461: vLLM rejects a file:// model field as an
+			// invalid repo id, so a locally-imported model must carry the bare
+			// path instead.
+			preferences := json.RawMessage(`{"backend": "vllm"}`)
+			details := Details{
+				URI:         "file://my-models/nvidia/Qwen3-30B-A3B-FP4",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-models/nvidia/Qwen3-30B-A3B-FP4"))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("model: file://"))
 		})
 	})
 })

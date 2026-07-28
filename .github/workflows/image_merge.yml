@@ -36,7 +36,7 @@ jobs:
       # Sparse checkout: needed for .github/scripts/ (the keepalive cleanup
       # script). Skips the rest of the source tree.
       - name: Checkout (.github/scripts only)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             .github/scripts
@@ -80,6 +80,7 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{raw}}
             type=sha
+            type=raw,value={{branch}}-{{date 'X'}}-{{sha}},enable={{is_default_branch}}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }},onlatest=true

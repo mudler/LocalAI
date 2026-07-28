@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "复制",
-    "regenerate": "重新生成"
+    "regenerate": "重新生成",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "正在传输模型...",
@@ -97,7 +98,8 @@
   },
   "toasts": {
     "selectModel": "请选择一个模型",
-    "copied": "已复制到剪贴板"
+    "copied": "已复制到剪贴板",
+    "copyFailed": "无法复制到剪贴板"
   },
   "menu": {
     "trigger": "聊天",

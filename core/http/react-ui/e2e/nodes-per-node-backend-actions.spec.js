@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './coverage-fixtures.js'
 
 // These specs cover the per-node backend row in the Nodes page:
 //   - the upgrade affordance is self-explanatory (icon + tooltip)
@@ -12,28 +12,37 @@ const NODE_NAME = 'worker-test'
 const BACKEND_NAME = 'cuda12-vllm-development'
 
 async function mockDistributedNodes(page, { onDelete } = {}) {
+  const nodeRecord = {
+    id: NODE_ID,
+    name: NODE_NAME,
+    node_type: 'backend',
+    address: '10.0.0.1:50051',
+    http_address: '10.0.0.1:8090',
+    status: 'healthy',
+    total_vram: 0,
+    available_vram: 0,
+    total_ram: 8_000_000_000,
+    available_ram: 4_000_000_000,
+    gpu_vendor: '',
+    last_heartbeat: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
   await page.route('**/api/nodes', (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: NODE_ID,
-          name: NODE_NAME,
-          node_type: 'backend',
-          address: '10.0.0.1:50051',
-          http_address: '10.0.0.1:8090',
-          status: 'healthy',
-          total_vram: 0,
-          available_vram: 0,
-          total_ram: 8_000_000_000,
-          available_ram: 4_000_000_000,
-          gpu_vendor: '',
-          last_heartbeat: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ]),
+      body: JSON.stringify([nodeRecord]),
+    })
+  })
+
+  // The detail page fetches the single node via nodesApi.get(id).
+  await page.route(`**/api/nodes/${NODE_ID}`, (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(nodeRecord),
     })
   })
 
@@ -80,24 +89,21 @@ async function mockDistributedNodes(page, { onDelete } = {}) {
   })
 }
 
-async function expandNodeAndWaitForBackends(page) {
-  await page.goto('/app/nodes')
-  // Click the row to expand it. The chevron toggle and the row both work,
-  // but clicking the name cell is the most user-like.
-  await page.getByText(NODE_NAME).first().click()
-  // Backends, Capacity and Labels live behind a "Manage" <details>
-  // disclosure (the drawer was distilled to keep at-a-glance content
-  // lean — see distill refactor in the multi-replica branch). Open it
-  // by clicking the summary inside the .node-manage scope so the
-  // per-node backend table is in the DOM before assertions run.
-  await page.locator('.node-manage > summary').first().click()
+async function openNodeDetail(page) {
+  // The per-node backend table now lives on the deep-linkable detail page
+  // at /app/nodes/:id (the old expand-row + "Manage" disclosure was removed
+  // when the roster was restructured). Navigate straight there.
+  await page.goto(`/app/nodes/${NODE_ID}`)
   await expect(page.getByRole('cell', { name: BACKEND_NAME, exact: true })).toBeVisible({ timeout: 10_000 })
 }
 
 test.describe('Nodes page — per-node backend actions', () => {
   test('upgrade affordance is self-explanatory (not "Reinstall backend" with a sync icon)', async ({ page }) => {
     await mockDistributedNodes(page)
-    await expandNodeAndWaitForBackends(page)
+    await openNodeDetail(page)
+
+    await expect(page.locator('.node-detail__metrics')).toContainText('RAM')
+    await expect(page.locator('.node-detail__metrics')).toContainText('3.7 GB / 7.5 GB')
 
     // Negative: the old, ambiguous wording must not be used.
     await expect(page.locator('button[title="Reinstall backend"]')).toHaveCount(0)
@@ -114,7 +120,7 @@ test.describe('Nodes page — per-node backend actions', () => {
 
   test('per-node backend row shows a delete (trash) button next to upgrade', async ({ page }) => {
     await mockDistributedNodes(page)
-    await expandNodeAndWaitForBackends(page)
+    await openNodeDetail(page)
 
     const deleteBtn = page.locator('button[title="Delete backend from this node"]')
     await expect(deleteBtn).toBeVisible()
@@ -128,7 +134,7 @@ test.describe('Nodes page — per-node backend actions', () => {
         postedBody = route.request().postDataJSON()
       },
     })
-    await expandNodeAndWaitForBackends(page)
+    await openNodeDetail(page)
 
     await page.locator('button[title="Delete backend from this node"]').click()
 
@@ -150,7 +156,7 @@ test.describe('Nodes page — per-node backend actions', () => {
         deleteCalls += 1
       },
     })
-    await expandNodeAndWaitForBackends(page)
+    await openNodeDetail(page)
 
     await page.locator('button[title="Delete backend from this node"]').click()
 

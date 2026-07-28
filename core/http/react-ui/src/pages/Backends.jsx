@@ -7,7 +7,8 @@ import React from 'react'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { renderMarkdown } from '../utils/markdown'
+import PageHeader from '../components/PageHeader'
+import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
@@ -179,16 +180,19 @@ export default function Backends() {
 
   // Install a single gallery backend on a specific node, used in target-node
   // mode (the URL has ?target=<node-id> set from the Nodes page entry point).
+  // The handler is async - we dispatch and let the global Operations panel
+  // surface progress; no need to await completion here.
   const handleInstallOnTarget = async (id) => {
     if (!targetNode) return
     try {
       await nodesApi.installBackend(targetNode.id, id)
-      addToast(`Installing ${id} on ${targetNode.name}…`, 'info')
-      // Per-node install is request-reply, not part of the global jobs feed —
-      // refetch to reflect the new Nodes column state.
-      setTimeout(() => { fetchBackends(); refetchNodes() }, 600)
+      addToast(`Installing ${id} on ${targetNode.name}...`, 'info')
+      // The install runs async via the gallery job queue. Refetch shortly so
+      // the Nodes column reflects "installing" state; the Operations panel
+      // tracks the actual progress until completion.
+      setTimeout(() => { fetchBackends(); refetchNodes() }, 1200)
     } catch (err) {
-      addToast(`Install failed on ${targetNode.name}: ${err.message}`, 'error')
+      addToast(`Install dispatch failed on ${targetNode.name}: ${err.message}`, 'error')
     }
   }
 
@@ -345,11 +349,10 @@ export default function Backends() {
       )}
 
       {/* Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">{t('backends.title')}</h1>
-          <p className="page-subtitle">{t('backends.subtitle')}</p>
-        </div>
+      <PageHeader
+        title={t('backends.title')}
+        supporting={t('backends.subtitle')}
+        actions={
         <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
             <div style={{ textAlign: 'center' }}>
@@ -375,7 +378,8 @@ export default function Backends() {
             <i className="fas fa-book" /> Docs
           </a>
         </div>
-      </div>
+        }
+      />
 
       {/* Upgrade Banner */}
       {Object.keys(upgrades).length > 0 && (
@@ -503,7 +507,10 @@ export default function Backends() {
             <tbody>
               {backends.map((b, idx) => {
                 const op = getBackendOp(b)
-                const isProcessing = !!op
+                // A failed op is intentionally kept in the operations list so the
+                // OperationsBar can surface the error + Dismiss; it must NOT render
+                // as a perpetual "Installing..." spinner here (mirrors Models.jsx).
+                const isProcessing = !!op && !op.error
                 const isExpanded = expandedRow === idx
 
                 return (
@@ -543,13 +550,21 @@ export default function Backends() {
 
                     {/* Description */}
                     <td>
-                      <span style={{
-                        fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
-                        display: 'inline-block', maxWidth: 300, overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }} title={b.description}>
-                        {b.description || '-'}
-                      </span>
+                      {(() => {
+                        // Gallery descriptions are Markdown. This cell is a single
+                        // truncated line, so it gets the text without the syntax;
+                        // the full Markdown is rendered in the detail panel instead.
+                        const desc = stripMarkdown(b.description)
+                        return (
+                          <span style={{
+                            fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
+                            display: 'inline-block', maxWidth: 300, overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }} title={desc}>
+                            {desc || '-'}
+                          </span>
+                        )
+                      })()}
                     </td>
 
                     {/* Repository */}
@@ -833,7 +848,7 @@ function BackendDetail({ backend }) {
           <BackendDetailRow label="Description">
             {backend.description && (
               <div
-                style={{ color: 'var(--color-text-secondary)', lineHeight: 1.6 }}
+                className="markdown-body"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(backend.description) }}
               />
             )}
