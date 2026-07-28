@@ -14,27 +14,30 @@ Both are admin-only.
 
 ## The operations strip
 
-While something is running, a single line appears at the top of the app. It
-shows one operation at a time:
+While there is anything to report, a single line appears at the top of the app.
+It shows one operation at a time:
 
 - a failure, if there is one, because an error waiting for a decision outranks
   any progress;
 - otherwise the least advanced running operation, which is the one everything
   else is waiting behind.
 
-The line names the operation, says what is being done to it, and shows a
-percentage. Artifact-backed gallery models report more: the phase
+Every operation shows what is being done and to what, for example
+`Installing model qwen3-4b`. Everything else depends on what the operation can
+report. A percentage and its bar appear only once the operation is running and
+has reported progress, so a queued operation, a failed one and a removal show
+none. Artifact-backed gallery models report two things more: the phase
 (`Resolving files`, `Downloading`, `Verifying`, `Finalizing`, `Saving
-configuration`) and downloaded/total bytes. An ordinary GGUF install, a removal
-and a backend install report neither, so they show the verb, the name and the
-percentage alone. A backend installing on several workers is rolled up into one
-phrase, `2 of 5 nodes done`; the per-node breakdown lives on the Activity page.
+configuration`) and downloaded/total bytes. A backend installing on several
+workers is rolled up into one phrase, `2 of 5 nodes done`; the per-node
+breakdown lives on the Activity page.
 
 When more than one operation is in flight, a **N more** counter on the right
 links to the Activity page.
 
-A finished operation stays on the strip for about four seconds and then goes,
-so a fast install is not a flicker.
+When the last operation finishes, it stays on the strip for about four seconds
+and then goes, so a fast install is not a flicker. While others are still
+running, the strip moves straight on to the next one.
 
 The **X** on the right hides the strip. It does not cancel anything: the work
 carries on, the sidebar still counts it, and the Activity page still lists it.
@@ -49,10 +52,12 @@ each shown only when it has something in it.
 
 ### In progress
 
-One card per running or queued operation, with what it is doing and a
-percentage. Artifact-backed gallery models also report downloaded and total
-bytes, plus an estimate of the time left once enough of the transfer has been
-observed to work one out.
+One card per running or queued operation, each naming what is being done and to
+what. A percentage and progress bar appear only once the operation is running
+and has reported progress, so a queued operation and a removal show none.
+Artifact-backed gallery models also report downloaded and total bytes, plus an
+estimate of the time left once enough of the transfer has been observed to work
+one out.
 
 An install that involves workers shows a per-node list, with one row per
 worker:
@@ -89,8 +94,10 @@ staging run leaves nothing behind here once it finishes.
 ### Filters
 
 Four chips above the sections filter the whole page: **All**, **Models**,
-**Backends** and **Cluster**. Cluster covers staged model files and any install
-that involves workers, whether it targets one node or fans out across several.
+**Backends** and **Cluster**. In the live sections, Cluster covers staged model
+files and any install that involves workers, whether it targets one node or
+fans out across several. In the Record it covers only the node-targeted case: a
+finished fan-out install is filed under Models or Backends, not under Cluster.
 
 ## Cancelling, retrying and dismissing
 
