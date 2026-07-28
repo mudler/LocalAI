@@ -143,4 +143,31 @@ var _ = Describe("OpCache terminal recording", func() {
 		cache.DeleteUUID("job-never-existed")
 		Expect(cache.History()).To(BeEmpty())
 	})
+
+	It("records an operation that ended on a peer replica", func() {
+		// applyEnd is the NATS SubjectGalleryOpEnd handler: a peer replica
+		// finished the install and broadcast it. This replica must record it,
+		// or history would be empty on every node except the one that ran the job.
+		cache.SetBackend("vllm", "job-remote")
+		svc.UpdateStatus("job-remote", &galleryop.OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.ApplyEndForTest("job-remote")
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].Name).To(Equal("vllm"))
+		Expect(history[0].Outcome).To(Equal("completed"))
+	})
+
+	It("records once when the local delete and the broadcast both land", func() {
+		// The originating replica evicts locally AND receives its own broadcast.
+		// Without dedupe every distributed operation appears twice.
+		cache.SetBackend("whisper-cpp", "job-both")
+		svc.UpdateStatus("job-both", &galleryop.OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.DeleteUUID("job-both")
+		cache.ApplyEndForTest("job-both")
+
+		Expect(cache.History()).To(HaveLen(1))
+	})
 })

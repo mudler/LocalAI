@@ -2,12 +2,20 @@ package galleryop
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
 )
+
+// ApplyEndForTest drives the NATS end path without standing up a broker.
+// applyEnd is unexported and only ever reached from a subscription callback,
+// which an external test package cannot trigger.
+func (m *OpCache) ApplyEndForTest(jobID string) {
+	m.applyEnd(OpCacheEvent{JobID: jobID})
+}
 
 // The ring's dedupe and its bounded seen set are not reachable deterministically
 // through the exported API: a second DeleteUUID for the same job finds no cache
@@ -93,5 +101,45 @@ var _ = Describe("OpCache terminal recording (internal)", func() {
 		cache.DeleteUUID("job-done")
 
 		Expect(cache.started.Exists("job-done")).To(BeFalse())
+	})
+
+	It("drops the previous job's start stamp when a peer reuses the cache key", func() {
+		// A retry admitted on another replica reaches us as a start event for
+		// the same key with a fresh job ID. The stamp the key used to point at
+		// is now unreachable, so it has to go with it.
+		cache.Set("qwen3-8b", "job-local")
+
+		cache.applyStart(OpCacheEvent{CacheKey: "qwen3-8b", JobID: "job-peer"})
+
+		Expect(cache.started.Exists("job-local")).To(BeFalse())
+	})
+
+	It("drops the start stamp when the end event finds no cache key", func() {
+		// The end broadcast can land before the local Set has written its status
+		// key, and recordTerminal returns before its own stamp cleanup when no
+		// key maps to the job. The operation is over cluster-wide either way, so
+		// the stamp must not outlive it.
+		cache.started.Set("job-raced", time.Now())
+
+		cache.ApplyEndForTest("job-raced")
+
+		Expect(cache.started.Exists("job-raced")).To(BeFalse())
+	})
+
+	It("keeps the finish-time fallback when the start stamp reads as zero", func() {
+		// A concurrent recordTerminal for the same job deletes the stamp, and a
+		// missing key reads back as the zero time. Letting that zero win over the
+		// fallback serialises StartedAt as year one, which the Activity page
+		// renders as a two-millennia run.
+		cache.SetBackend("bark-cpp", "job-zero")
+		cache.started.Set("job-zero", time.Time{})
+		svc.UpdateStatus("job-zero", &OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.DeleteUUID("job-zero")
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].StartedAt).NotTo(BeZero())
+		Expect(history[0].StartedAt).To(Equal(history[0].FinishedAt))
 	})
 })

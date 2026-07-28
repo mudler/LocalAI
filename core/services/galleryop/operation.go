@@ -351,6 +351,11 @@ func (m *OpCache) applyStart(evt OpCacheEvent) {
 	if evt.CacheKey == "" || evt.JobID == "" {
 		return
 	}
+	// A retry admitted on a peer arrives as a start event reusing the key, which
+	// strands the stamp of whichever job the key pointed at here. No stamp is
+	// taken for the inbound job: it started on another replica against another
+	// clock, so recordTerminal's finish-time fallback is the honest reading.
+	m.dropReplacedStamp(evt.CacheKey, evt.JobID)
 	m.status.Set(evt.CacheKey, evt.JobID)
 	if evt.IsBackend {
 		m.backendOps.Set(evt.CacheKey, true)
@@ -362,12 +367,20 @@ func (m *OpCache) applyEnd(evt OpCacheEvent) {
 	if evt.JobID == "" {
 		return
 	}
+	// Record before the keys go. The history ring dedupes by job ID, so the
+	// originating replica recording locally and then receiving its own
+	// broadcast still produces one entry.
+	m.recordTerminal(evt.JobID)
 	for _, k := range m.status.Keys() {
 		if m.status.Get(k) == evt.JobID {
 			m.status.Delete(k)
 			m.backendOps.Delete(k)
 		}
 	}
+	// recordTerminal only drops the stamp on the path where it found a cache
+	// key; an end event that overtakes the local Set finds none. The operation
+	// is over cluster-wide either way, so the stamp goes unconditionally.
+	m.started.Delete(evt.JobID)
 }
 
 func (m *OpCache) Set(key string, value string) {
@@ -385,16 +398,21 @@ func (m *OpCache) SetBackend(key string, value string) {
 }
 
 // stampStart records when jobID started, so the history record can report a
-// duration. Retrying an operation reuses the cache key with a fresh job ID, so
-// the stamp the key previously pointed at is dropped: the callers in ui_api.go
-// are not uniformly guarded by Exists, and without this the map would grow for
-// the lifetime of the process. Must run before status.Set, which is what the
-// previous job ID is read from.
+// duration.
 func (m *OpCache) stampStart(key, jobID string) {
+	m.dropReplacedStamp(key, jobID)
+	m.started.Set(jobID, time.Now())
+}
+
+// dropReplacedStamp forgets the start time of the job a cache key is about to
+// stop pointing at. Retrying an operation reuses the key with a fresh job ID,
+// so without this the map would grow for the lifetime of the process: the
+// callers in ui_api.go are not uniformly guarded by Exists. Must run before
+// status.Set, which is what the previous job ID is read from.
+func (m *OpCache) dropReplacedStamp(key, jobID string) {
 	if prev := m.status.Get(key); prev != "" && prev != jobID {
 		m.started.Delete(prev)
 	}
-	m.started.Set(jobID, time.Now())
 }
 
 func (m *OpCache) persistAndBroadcastStart(key, value string, isBackend bool) {
@@ -463,9 +481,14 @@ func (m *OpCache) recordTerminal(jobID string) {
 	// recovered from PostgreSQL or replicated from a peer has no start time.
 	// Reporting the finish time makes such a record a zero-length operation
 	// rather than one that appears to have run since year one.
+	//
+	// Read the stamp once and reject a zero value rather than testing Exists and
+	// then reading: a concurrent recordTerminal for the same job can delete the
+	// stamp between the two, and the read that follows returns the zero time,
+	// which would overwrite the fallback with year one.
 	rec.StartedAt = rec.FinishedAt
-	if m.started.Exists(jobID) {
-		rec.StartedAt = m.started.Get(jobID)
+	if started := m.started.Get(jobID); !started.IsZero() {
+		rec.StartedAt = started
 	}
 
 	// Node-scoped backend installs carry the node inside the key as
