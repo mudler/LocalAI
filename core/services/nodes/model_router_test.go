@@ -197,19 +197,22 @@ var _ = Describe("ModelRouterAdapter", func() {
 			adapter.mu.Unlock()
 			Expect(hasRelease).To(BeTrue())
 
-			// The initial in-flight reservation is released via OnFirstComplete after
-			// the first inference call, not during ReleaseModel. ReleaseModel only
-			// closes the client.
+			// The initial in-flight reservation is released by whichever comes
+			// first: the first inference completing, or the route being released.
+			// Nothing has happened yet, so it is still held.
 			fakeReg.mu.Lock()
 			countBeforeRelease := fakeReg.decrementCalled["node-1:test-model"]
 			fakeReg.mu.Unlock()
 			Expect(countBeforeRelease).To(Equal(0))
 
+			// Releasing the route without any inference must give it back, or the
+			// counter leaks and pins the replica against every eviction query.
 			adapter.ReleaseModel("test-model")
-			fakeReg.mu.Lock()
-			countAfterRelease := fakeReg.decrementCalled["node-1:test-model"]
-			fakeReg.mu.Unlock()
-			Expect(countAfterRelease).To(Equal(0))
+			Eventually(func() int {
+				fakeReg.mu.Lock()
+				defer fakeReg.mu.Unlock()
+				return fakeReg.decrementCalled["node-1:test-model"]
+			}).Should(Equal(1))
 		})
 	})
 })

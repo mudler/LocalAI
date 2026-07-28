@@ -23,7 +23,8 @@
     "cluster": "Cluster",
     "observability": "Observability",
     "access": "Access",
-    "system": "System"
+    "system": "System",
+    "activity": "Activity"
   },
   "items": {
     "home": "홈",
@@ -55,7 +56,8 @@
     "swarm": "Swarm",
     "system": "시스템",
     "settings": "설정",
-    "api": "API"
+    "api": "API",
+    "activity": "활동"
   },
   "footer": {
     "github": "GitHub",

@@ -96,6 +96,12 @@ var _ = Describe("Backend traces payload bounding", func() {
 	// 3.4 MB: every entry carries the full input text.
 	const heavyText = 8192
 
+	// totalTraces overfills the 100-slot trace channel on purpose (the specs
+	// assert on paging and on X-Total-Count), so it has to be fed in chunks -
+	// see the BeforeEach. traceChunk stays below that channel capacity.
+	const totalTraces = 200
+	const traceChunk = 50
+
 	BeforeEach(func() {
 		app = echo.New()
 		app.GET("/api/backend-traces", GetBackendTracesEndpoint())
@@ -104,7 +110,7 @@ var _ = Describe("Backend traces payload bounding", func() {
 		trace.ClearBackendTraces()
 		trace.InitBackendTracingIfEnabled(500, 0)
 		base := time.Now()
-		for i := range 200 {
+		for i := range totalTraces {
 			trace.RecordBackendTrace(trace.BackendTrace{
 				// Distinct timestamps keep the newest-first ordering (and
 				// therefore the offset paging) deterministic.
@@ -115,9 +121,20 @@ var _ = Describe("Backend traces payload bounding", func() {
 				Body:      strings.Repeat("b", heavyText),
 				Data:      map[string]any{"input_text": strings.Repeat("x", heavyText)},
 			})
+			// RecordBackendTrace is deliberately lossy: it does a non-blocking
+			// send and drops when the channel is full, so tracing never stalls
+			// inference. Pushing all 200 in one tight loop therefore overruns
+			// the 100-slot channel on a loaded machine and the buffer settles
+			// below 200 permanently - no amount of waiting recovers a dropped
+			// trace. Drain in chunks well under the channel capacity instead,
+			// which keeps the count exact regardless of scheduling.
+			if (i+1)%traceChunk == 0 {
+				Eventually(func() int { return len(trace.GetBackendTraces()) }, 30*time.Second, 10*time.Millisecond).
+					Should(Equal(i + 1))
+			}
 		}
-		// Recording is asynchronous through a channel; wait for the buffer.
-		Eventually(func() int { return len(trace.GetBackendTraces()) }).Should(Equal(200))
+		Eventually(func() int { return len(trace.GetBackendTraces()) }, 30*time.Second, 10*time.Millisecond).
+			Should(Equal(totalTraces))
 	})
 
 	AfterEach(func() {
@@ -138,7 +155,7 @@ var _ = Describe("Backend traces payload bounding", func() {
 		var out []map[string]any
 		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
 		Expect(out).To(HaveLen(DefaultTraceListLimit))
-		Expect(rec.Header().Get("X-Total-Count")).To(Equal("200"))
+		Expect(rec.Header().Get("X-Total-Count")).To(Equal(strconv.Itoa(totalTraces)))
 	})
 
 	It("omits the heavy body and data fields from list entries", func() {
@@ -156,7 +173,7 @@ var _ = Describe("Backend traces payload bounding", func() {
 		bounded := get("/api/backend-traces").Body.Len()
 		unbounded := get("/api/backend-traces?limit=0&full=true").Body.Len()
 
-		Expect(unbounded).To(BeNumerically(">", 200*heavyText))
+		Expect(unbounded).To(BeNumerically(">", totalTraces*heavyText))
 		Expect(bounded).To(BeNumerically("<", unbounded/100))
 	})
 
