@@ -2,6 +2,7 @@ export const API_CONFIG = {
   endpoints: {
     // Operations
     operations: '/api/operations',
+    operationsHistory: '/api/operations/history',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
     dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 

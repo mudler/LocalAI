@@ -57,6 +57,12 @@ export const operateConsole = {
       ],
     },
     {
+      titleKey: 'operate.activity',
+      items: [
+        { path: '/app/activity', icon: 'fas fa-download', labelKey: 'items.activity', adminOnly: true, badge: 'operations' },
+      ],
+    },
+    {
       titleKey: 'operate.cluster',
       items: [
         { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },

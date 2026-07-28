@@ -70,6 +70,34 @@ include:
     cuda-major-version: ""
     cuda-minor-version: ""
     platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-kokoro'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "kokoro"
+    dockerfile: "./backend/Dockerfile.python"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-kokoro'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "kokoro"
+    dockerfile: "./backend/Dockerfile.python"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-diffusers'
     runs-on: 'ubuntu-latest'
@@ -868,6 +896,19 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "moss-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-magpie-tts-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -1940,6 +1981,32 @@ include:
     cuda-minor-version: "0"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-magpie-tts-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-vllm-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "vllm-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-omnivoice-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -1998,6 +2065,32 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "moss-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-vllm-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "vllm-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-magpie-tts-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "magpie-tts-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -2961,6 +3054,19 @@ include:
     skip-drivers: 'true'
     backend: "privacy-filter"
     dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-vllm-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "vllm-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
   # Vulkan: base-grpc-vulkan-amd64 carries the SDK. arm64 vulkan is a one-line
@@ -4586,6 +4692,20 @@ include:
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-magpie-tts-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
     platforms: 'linux/arm64'
     platform-tag: 'arm64'
     tag-latest: 'auto'
@@ -4597,7 +4717,50 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # vllm-cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-vllm-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "vllm-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-vllm-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "vllm-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   # omnivoice-cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-magpie-tts-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -4657,6 +4820,19 @@ include:
     cuda-minor-version: ""
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f32-magpie-tts-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f32'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-intel-sycl-f32-omnivoice-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
@@ -4688,6 +4864,19 @@ include:
     base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
     skip-drivers: 'false'
     backend: "moss-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'sycl_f16'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-intel-sycl-f16-magpie-tts-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -4738,6 +4927,20 @@ include:
     platforms: 'linux/amd64'
     platform-tag: 'amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-magpie-tts-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-vulkan-omnivoice-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -4771,6 +4974,20 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "moss-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-magpie-tts-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -4820,6 +5037,19 @@ include:
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-magpie-tts-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "magpie-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-arm64-omnivoice-cpp'
     base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
     runs-on: 'ubuntu-24.04-arm'
@@ -4850,6 +5080,19 @@ include:
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "moss-tts-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-magpie-tts-cpp'
+    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    runs-on: 'ubuntu-latest'
+    skip-drivers: 'false'
+    backend: "magpie-tts-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -5772,6 +6015,14 @@ includeDarwin:
     lang: "go"
   - backend: "moss-tts-cpp"
     tag-suffix: "-metal-darwin-arm64-moss-tts-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "magpie-tts-cpp"
+    tag-suffix: "-metal-darwin-arm64-magpie-tts-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "vllm-cpp"
+    tag-suffix: "-metal-darwin-arm64-vllm-cpp"
     build-type: "metal"
     lang: "go"
   - backend: "omnivoice-cpp"

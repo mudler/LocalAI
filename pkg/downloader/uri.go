@@ -674,6 +674,32 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		return fmt.Errorf("failed to check partial download file %q: %w", tmpFilePath, statErr)
 	}
 
+	// Create parent directory
+	err = os.MkdirAll(filepath.Dir(filePath), 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
+	}
+
+	// Open the partial and hash its existing bytes BEFORE issuing the request.
+	// The stall watchdog arms the moment the response body exists, and nothing
+	// reads that body while the partial is hashed; on slow storage a multi-GB
+	// partial takes longer to hash than the stall window, so hashing after the
+	// request aborts every resume, and each retry re-pays the same hash and
+	// fails identically, wedging the install permanently. Hashing first also
+	// keeps the origin from idling out the connection during the hash.
+	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
+	}
+	defer func() { _ = outFile.Close() }()
+	if err := outFile.Chmod(0600); err != nil {
+		return fmt.Errorf("failed to restrict partial file %q permissions: %v", tmpFilePath, err)
+	}
+	hash, err := calculateHashForPartialFile(outFile)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash for partial file")
+	}
+
 	var source io.ReadCloser
 	var contentLength int64
 	if _, e := os.Stat(uri.ResolveURL()); strings.HasPrefix(string(uri), LocalPrefix) || e == nil {
@@ -743,25 +769,6 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	}
 	defer source.Close()
 
-	// Create parent directory
-	err = os.MkdirAll(filepath.Dir(filePath), 0750)
-	if err != nil {
-		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
-	}
-
-	// Create and write file
-	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
-	}
-	defer outFile.Close()
-	if err := outFile.Chmod(0600); err != nil {
-		return fmt.Errorf("failed to restrict partial file %q permissions: %v", tmpFilePath, err)
-	}
-	hash, err := calculateHashForPartialFile(outFile)
-	if err != nil {
-		return fmt.Errorf("failed to calculate hash for partial file")
-	}
 	progress := &progressWriter{
 		fileName:       tmpFilePath,
 		total:          contentLength,

@@ -107,7 +107,7 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	// attempt — the server uses it to detect mid-flight content drift and
 	// reject (409) if a partial upload claims a new identity, forcing a clean
 	// restart.
-	localHash, err := hashFileWithActivity(ctx, localPath)
+	localHash, err := hashLocalCached(ctx, localPath)
 	if err != nil {
 		if ctx.Err() != nil {
 			// The cold load was cancelled or expired while hashing. Uploading
@@ -473,7 +473,7 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 	// legitimately skipped shards accrues no activity at all.
 	observeLoadProgress(ctx)
 
-	localHash, err := hashFileWithActivity(ctx, localPath)
+	localHash, err := hashLocalCached(ctx, localPath)
 	if err != nil {
 		return "", false
 	}
@@ -536,6 +536,39 @@ func hashFileWithActivity(ctx context.Context, path string) (string, error) {
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// hashLocalCached returns the SHA-256 of path, consulting the same .sha256
+// sidecar the worker-side transfer server maintains (computeAndCacheHash).
+// The stager re-hashes every staged artifact on every load request; for a
+// large multi-file model on slow storage (a NAS-mounted models dir) that is
+// minutes of pure re-reading per request even when nothing changed. The
+// sidecar is trusted only when it is not older than the file itself, so a
+// rewritten file invalidates it.
+func hashLocalCached(ctx context.Context, path string) (string, error) {
+	sidecar := path + hashSidecarSuffix
+
+	fileStat, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
+		if data, err := os.ReadFile(sidecar); err == nil {
+			cached := strings.TrimSpace(string(data))
+			if len(cached) == 64 {
+				return cached, nil
+			}
+		}
+	}
+
+	hashHex, err := hashFileWithActivity(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
+	}
+	return hashHex, nil
 }
 
 // progressReader wraps an io.Reader and logs upload progress periodically.
