@@ -352,9 +352,9 @@ func (m *OpCache) applyStart(evt OpCacheEvent) {
 		return
 	}
 	// A retry admitted on a peer arrives as a start event reusing the key, which
-	// strands the stamp of whichever job the key pointed at here. No stamp is
-	// taken for the inbound job: it started on another replica against another
-	// clock, so recordTerminal's finish-time fallback is the honest reading.
+	// strands the stamp of whichever job the key pointed at here. Only the drop
+	// half of stampStart runs: a replicated op deliberately carries no stamp and
+	// reports as zero-length through recordTerminal's finish-time fallback.
 	m.dropReplacedStamp(evt.CacheKey, evt.JobID)
 	m.status.Set(evt.CacheKey, evt.JobID)
 	if evt.IsBackend {
@@ -370,7 +370,7 @@ func (m *OpCache) applyEnd(evt OpCacheEvent) {
 	// Record before the keys go. The history ring dedupes by job ID, so the
 	// originating replica recording locally and then receiving its own
 	// broadcast still produces one entry.
-	m.recordTerminal(evt.JobID)
+	m.recordTerminal(evt.JobID, terminalPeer)
 	for _, k := range m.status.Keys() {
 		if m.status.Get(k) == evt.JobID {
 			m.status.Delete(k)
@@ -446,6 +446,18 @@ func (m *OpCache) Get(key string) string {
 	return m.status.Get(key)
 }
 
+// terminalSource is the path that retired an operation. It exists for one
+// decision: what a missing gallery status means. Locally it means the op was
+// queued and removed before anything ran; on the peer path it means this
+// replica never held the outcome, which is a different thing wearing the same
+// signal.
+type terminalSource int
+
+const (
+	terminalLocal terminalSource = iota
+	terminalPeer
+)
+
 // recordTerminal appends a finished operation to the history ring. It must run
 // BEFORE the cache entry is deleted: the gallery key is the only place the
 // display name, the backend flag and the node scoping live.
@@ -453,7 +465,7 @@ func (m *OpCache) Get(key string) string {
 // Safe to call for an unknown job ID (no key, no record) and safe to call
 // twice for the same job (the ring dedupes), which is what makes it usable
 // from both the local delete path and the NATS end event.
-func (m *OpCache) recordTerminal(jobID string) {
+func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 	if jobID == "" {
 		return
 	}
@@ -466,6 +478,17 @@ func (m *OpCache) recordTerminal(jobID string) {
 		}
 	}
 	if key == "" {
+		return
+	}
+
+	// A replica that restarted mid-operation hydrates its cache keys from
+	// PostgreSQL, but gallery statuses are in-memory only and come back empty.
+	// The end broadcast then arrives with nothing to read the outcome from, and
+	// guessing would file a successful install as cancelled. Record nothing:
+	// absence beats wrong data in a "what just happened" view, and it is exactly
+	// what this replica produced before the end event started recording.
+	status := m.galleryService.GetStatus(jobID)
+	if status == nil && src == terminalPeer {
 		return
 	}
 
@@ -513,7 +536,7 @@ func (m *OpCache) recordTerminal(jobID string) {
 	// that exists but never started looks like. The cancel endpoint is already
 	// covered by status.Cancelled, which CancelOperation sets synchronously
 	// before the handler removes the entry.
-	if status := m.galleryService.GetStatus(jobID); status != nil {
+	if status != nil {
 		if status.Deletion {
 			rec.TaskType = "deletion"
 		}
@@ -545,7 +568,7 @@ func (m *OpCache) ClearHistory() {
 
 func (m *OpCache) DeleteUUID(uuid string) {
 	// Before the keys go: they carry the name and the backend flag.
-	m.recordTerminal(uuid)
+	m.recordTerminal(uuid, terminalLocal)
 
 	deleted := false
 	for _, k := range m.status.Keys() {

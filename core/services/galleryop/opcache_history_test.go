@@ -161,7 +161,10 @@ var _ = Describe("OpCache terminal recording", func() {
 
 	It("records once when the local delete and the broadcast both land", func() {
 		// The originating replica evicts locally AND receives its own broadcast.
-		// Without dedupe every distributed operation appears twice.
+		// This covers the sequence end to end: one record for one operation. It
+		// is not what pins the ring's dedupe, because the local delete removes
+		// the status keys and the broadcast then returns before reaching it;
+		// the in-package spec that calls recordTerminal twice does that.
 		cache.SetBackend("whisper-cpp", "job-both")
 		svc.UpdateStatus("job-both", &galleryop.OpStatus{Processed: true, Progress: 100, Message: "completed"})
 

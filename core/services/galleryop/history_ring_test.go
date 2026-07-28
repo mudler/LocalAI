@@ -10,13 +10,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 )
 
-// ApplyEndForTest drives the NATS end path without standing up a broker.
-// applyEnd is unexported and only ever reached from a subscription callback,
-// which an external test package cannot trigger.
-func (m *OpCache) ApplyEndForTest(jobID string) {
-	m.applyEnd(OpCacheEvent{JobID: jobID})
-}
-
 // The ring's dedupe and its bounded seen set are not reachable deterministically
 // through the exported API: a second DeleteUUID for the same job finds no cache
 // key and returns before add is ever called. They are driven directly here so
@@ -124,6 +117,45 @@ var _ = Describe("OpCache terminal recording (internal)", func() {
 		cache.ApplyEndForTest("job-raced")
 
 		Expect(cache.started.Exists("job-raced")).To(BeFalse())
+	})
+
+	It("records nothing for an end event whose gallery status is gone", func() {
+		// A replica that restarted mid-operation hydrates its cache keys from
+		// PostgreSQL, but gallery statuses live in memory only and come back
+		// empty. A missing status on this path means the outcome was lost, not
+		// that the op never started, so reading it as cancelled would file a
+		// successful install as a failure.
+		cache.applyStart(OpCacheEvent{CacheKey: "vllm", JobID: "job-restarted", IsBackend: true})
+
+		cache.ApplyEndForTest("job-restarted")
+
+		Expect(cache.History()).To(BeEmpty())
+	})
+
+	It("still records a locally dismissed op with no status as cancelled", func() {
+		// The local reading of a missing status is unchanged: nothing ever set
+		// one, so the op was queued, never started, then removed.
+		cache.Set("qwen3-4b", "job-queued")
+
+		cache.DeleteUUID("job-queued")
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].Outcome).To(Equal(OutcomeCancelled))
+	})
+
+	It("records one entry when both terminal paths reach the ring", func() {
+		// The external spec that fires DeleteUUID then the broadcast does not
+		// reach the ring twice: the first call removes the status keys, so the
+		// second returns before add. recordTerminal leaves the keys alone, so
+		// calling it twice is what actually exercises the dedupe.
+		cache.SetBackend("whisper-cpp", "job-twice")
+		svc.UpdateStatus("job-twice", &OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.recordTerminal("job-twice", terminalLocal)
+		cache.recordTerminal("job-twice", terminalPeer)
+
+		Expect(cache.History()).To(HaveLen(1))
 	})
 
 	It("keeps the finish-time fallback when the start stamp reads as zero", func() {
