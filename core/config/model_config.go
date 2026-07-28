@@ -232,6 +232,15 @@ type ProxyConfig struct {
 	// means no per-request timeout (only the request context, which
 	// is bound to the client connection, applies).
 	RequestTimeoutSeconds int `yaml:"request_timeout_seconds,omitempty" json:"request_timeout_seconds,omitempty"`
+
+	// CachePrompt enables automatic Anthropic prompt-cache breakpoints
+	// (cache_control: ephemeral) on the stable prefix — system prompt,
+	// tools, and the last message block — when mode=translate and
+	// provider=anthropic. Anthropic then serves the repeated prefix at
+	// the cache-read rate (0.1x input), which sharply cuts cost on
+	// agentic/multi-turn workloads that re-send a large stable prefix.
+	// No effect for passthrough mode or non-Anthropic providers.
+	CachePrompt bool `yaml:"cache_prompt,omitempty" json:"cache_prompt,omitempty"`
 }
 
 // Proxy mode names. Validate() normalises an empty Mode to

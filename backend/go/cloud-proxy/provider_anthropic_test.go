@@ -328,3 +328,62 @@ func TestBuildAnthropic_RoundTripsAssistantToolCalls(t *testing.T) {
 	g.Expect(r0["tool_use_id"]).To(Equal("call_abc"))
 	g.Expect(r0["content"]).To(Equal(`{"models":["a","b"]}`))
 }
+
+// TestPredict_Anthropic_PromptCache verifies that cache_prompt injects
+// exactly the intended cache_control breakpoints (system, last tool, last
+// message) when on, and none when off — asserting on the raw upstream body
+// because System becomes a block list that the typed struct hides.
+func TestPredict_Anthropic_PromptCache(t *testing.T) {
+	g := NewWithT(t)
+
+	// run issues one translate Predict and returns the raw body the fake
+	// Anthropic upstream received.
+	run := func(cachePrompt bool) string {
+		var rawBody string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, _ := io.ReadAll(r.Body)
+			rawBody = string(b)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"id":"m","type":"message","role":"assistant","content":[{"type":"text","text":"ok"}],"model":"claude-3-5-sonnet-20241022","usage":{"input_tokens":5,"output_tokens":2}}`)
+		}))
+		defer srv.Close()
+
+		t.Setenv("CLOUD_PROXY_ANTHROPIC_FAKE", "sk-ant-fake")
+		cp := NewCloudProxy()
+		err := cp.Load(&pb.ModelOptions{
+			Model: "claude-local",
+			Proxy: &pb.ProxyOptions{
+				UpstreamUrl:   srv.URL,
+				Mode:          modeTranslate,
+				Provider:      providerAnthropic,
+				ApiKeyEnv:     "CLOUD_PROXY_ANTHROPIC_FAKE",
+				UpstreamModel: "claude-3-5-sonnet-20241022",
+				CachePrompt:   cachePrompt,
+			},
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+
+		_, err = cp.Predict(&pb.PredictOptions{
+			Messages: []*pb.Message{
+				{Role: "system", Content: "be brief"},
+				{Role: "user", Content: "hello"},
+			},
+			Tools:  `[{"type":"function","function":{"name":"t","parameters":{"type":"object"}}}]`,
+			Tokens: 32,
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+		return rawBody
+	}
+
+	// cache_prompt ON: three ephemeral breakpoints (system + last tool +
+	// last message), and system is emitted in block form.
+	on := run(true)
+	g.Expect(strings.Count(on, `"cache_control":{"type":"ephemeral"}`)).To(Equal(3),
+		"expected 3 breakpoints (system, tool, last message); body=%s", on)
+	g.Expect(on).To(ContainSubstring(`"system":[{"type":"text","text":"be brief"`))
+
+	// cache_prompt OFF: no breakpoints, system stays a bare string.
+	off := run(false)
+	g.Expect(off).NotTo(ContainSubstring("cache_control"))
+	g.Expect(off).To(ContainSubstring(`"system":"be brief"`))
+}
