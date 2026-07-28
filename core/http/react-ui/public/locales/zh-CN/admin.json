@@ -10,6 +10,18 @@
     "toNode": "to {{node}}",
     "nodesDone": "{{done}} of {{total}} nodes done",
     "timeLeft": "{{value}} left",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "nodeCount": "{{count}} nodes",
+    "showNodes": "Show {{count}} nodes",
+    "hideNodes": "Hide per-node detail",
+    "node": {
+      "done": "Done",
+      "failed": "Failed",
+      "queued": "Queued",
+      "workerBusy": "Worker busy",
+      "downloading": "Downloading"
+    },
     "kind": {
       "model": "model",
       "backend": "backend"

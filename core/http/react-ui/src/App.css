@@ -9700,3 +9700,82 @@ button.collapsible-header:focus-visible {
   .variant-row__info,
   .variant-row__action { transition: none; }
 }
+
+/* Live operation card on /app/activity. Status is carried by the icon and the
+   tag rather than a coloured rail, so a page of cards does not read as stripes. */
+.operation-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.operation-card--error { border-color: var(--color-error-border); background: var(--color-error-light); }
+.operation-card__main { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); }
+.operation-card__icon { flex: none; }
+.operation-card__icon--error { color: var(--color-error); }
+.operation-card__icon--cancelling { color: var(--color-warning); }
+.operation-card__spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary-light);
+  border-top-color: var(--color-primary);
+  animation: operationsStripSpin 0.9s linear infinite;
+}
+.operation-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.operation-card__title { display: flex; align-items: center; gap: var(--spacing-xs); flex-wrap: wrap; }
+.operation-card__name { font-family: var(--font-mono); font-weight: 500; }
+.operation-card__tag {
+  font-size: 0.625rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 1px var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-muted);
+}
+.operation-card__tag--model { color: var(--color-primary); border-color: var(--color-primary-border); background: var(--color-primary-light); }
+.operation-card__tag--backend { color: var(--color-info); border-color: var(--color-info-border); background: var(--color-info-light); }
+.operation-card__tag--cluster { color: var(--color-warning); border-color: var(--color-warning-border); background: var(--color-warning-light); }
+.operation-card__sub { display: flex; align-items: center; gap: var(--spacing-xs); flex-wrap: wrap; font-size: 0.75rem; color: var(--color-text-muted); }
+.operation-card__bytes { font-variant-numeric: tabular-nums; }
+.operation-card__cancelling { color: var(--color-warning); }
+.operation-card__error { color: var(--color-error); font-family: var(--font-mono); }
+.operation-card__track { height: 4px; border-radius: var(--radius-full); background: var(--color-surface-sunken); overflow: hidden; }
+.operation-card__fill { display: block; height: 100%; border-radius: var(--radius-full); background: var(--color-primary); transition: width var(--duration-slow) var(--ease-spring); }
+.operation-card__actions { display: flex; align-items: center; gap: var(--spacing-xs); flex: none; }
+.operation-card__pct { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--color-primary); }
+.operation-card__hide {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.operation-card__hide:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+.operation-card__nodes-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  min-height: 28px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+.operation-card__nodes-toggle:hover { color: var(--color-text-secondary); background: var(--color-bg-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+  .operation-card__spinner { animation: none; }
+  .operation-card__fill { transition: none; }
+}
