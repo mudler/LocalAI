@@ -123,14 +123,14 @@ var _ = Describe("X-LocalAI-Node ctx propagation contract", func() {
 	})
 
 	It("ModelTTS forwards the request context to the SmartRouter", func() {
-		_, _, err := backend.ModelTTS(reqCtx, "hello", "", "", loader, appCfg, modelCfg)
+		_, _, err := backend.ModelTTS(reqCtx, "hello", "", "", "", nil, loader, appCfg, modelCfg)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("router short-circuit (test)"))
 		stampViaRouterCtx()
 	})
 
 	It("ModelTTSStream forwards the request context to the SmartRouter", func() {
-		err := backend.ModelTTSStream(reqCtx, "hello", "", "", loader, appCfg, modelCfg, func([]byte) error { return nil })
+		err := backend.ModelTTSStream(reqCtx, "hello", "", "", "", nil, loader, appCfg, modelCfg, func([]byte) error { return nil })
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("router short-circuit (test)"))
 		stampViaRouterCtx()

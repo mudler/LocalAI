@@ -95,9 +95,11 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
           className="action-menu"
           onKeyDown={handleMenuKeyDown}
           // Capture focus when the menu opens so arrow keys work without the
-          // user clicking inside first.
+          // user clicking inside first. preventScroll: the popover is portaled
+          // and positioned by the trigger rect, so focusing it must not scroll
+          // the page (that yanked the view to the top before it was placed).
           tabIndex={-1}
-          ref={el => { if (el && open) el.focus() }}
+          ref={el => { if (el && open) el.focus({ preventScroll: true }) }}
         >
           {visible.map((item, i) => {
             if (item.divider) {

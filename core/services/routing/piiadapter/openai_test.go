@@ -54,6 +54,55 @@ var _ = Describe("OpenAI adapter", func() {
 		Expect(req.Messages[1].Content.(string)).To(Equal("REDACTED-1"))
 	})
 
+	It("Apply keeps StringContent in sync for string content", func() {
+		// Regression: the request middleware fills StringContent from Content
+		// at parse time, and the rendered-template path (TemplateMessages)
+		// reads StringContent, not Content. Apply must redact both or the
+		// original leaks to the backend/upstream (e.g. cloud-proxy translate).
+		req := &schema.OpenAIRequest{
+			Messages: []schema.Message{
+				{Role: "user", Content: "my key is sk-secret", StringContent: "my key is sk-secret"},
+			},
+		}
+		adapter := OpenAI()
+		scans := adapter.Scan(req)
+		Expect(scans).To(HaveLen(1))
+		scans[0].Text = "my key is [REDACTED]"
+		adapter.Apply(req, scans)
+
+		Expect(req.Messages[0].Content.(string)).To(Equal("my key is [REDACTED]"))
+		Expect(req.Messages[0].StringContent).To(Equal("my key is [REDACTED]"),
+			"StringContent (what TemplateMessages renders) must be redacted too")
+	})
+
+	It("Apply keeps StringContent in sync for content blocks, preserving media markers", func() {
+		// For multimodal content StringContent is the flattened text with
+		// media markers injected (request.go), so Apply must redact the text
+		// run in place rather than clobber the whole buffer.
+		req := &schema.OpenAIRequest{
+			Messages: []schema.Message{
+				{
+					Role: "user",
+					Content: []any{
+						map[string]any{"type": "text", "text": "leak sk-secret here"},
+						map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:image/png;base64,xyz"}},
+					},
+					StringContent: "leak sk-secret here<__media__>",
+				},
+			},
+		}
+		adapter := OpenAI()
+		scans := adapter.Scan(req)
+		Expect(scans).To(HaveLen(1))
+		scans[0].Text = "leak [REDACTED] here"
+		adapter.Apply(req, scans)
+
+		blocks := req.Messages[0].Content.([]any)
+		Expect(blocks[0].(map[string]any)["text"]).To(Equal("leak [REDACTED] here"))
+		Expect(req.Messages[0].StringContent).To(Equal("leak [REDACTED] here<__media__>"),
+			"StringContent must be redacted in place, keeping the media marker")
+	})
+
 	It("Apply mutates content block selectively", func() {
 		req := &schema.OpenAIRequest{
 			Messages: []schema.Message{

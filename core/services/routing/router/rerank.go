@@ -23,6 +23,11 @@ type RerankClassifier struct {
 	labels    []string
 	documents []string
 	cache     *labelSetCache
+
+	// budget trims the query to the reranker model's context minus the
+	// longest policy description (paired with the query per rerank call);
+	// nil reranks Probe.Prompt as built by the caller.
+	budget *lazyBudget
 }
 
 // defaultRerankActivationThreshold is the relevance floor a label
@@ -64,16 +69,26 @@ func NewRerankClassifier(policies []ScorePolicy, reranker backend.Reranker, cach
 	}
 }
 
+// WithTokenTrim wires the reranker model's own tokenizer and context so the
+// query is trimmed to the most recent turns that fit alongside the longest
+// policy description. nil tokenizer / non-positive context leaves trimming
+// off. Returns the receiver for chaining at construction.
+func (c *RerankClassifier) WithTokenTrim(tokenize func(string) (int, error), maxContextTokens int) *RerankClassifier {
+	c.budget = &lazyBudget{tokenize: tokenize, maxContext: maxContextTokens, extras: c.documents}
+	return c
+}
+
 func (c *RerankClassifier) Name() string { return ClassifierColbert }
 
 func (c *RerankClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
 	start := time.Now()
-	key := cacheKey(p.Prompt)
+	query := trimmedProbeText(p, c.budget, identityRender)
+	key := cacheKey(query)
 	if hit, ok := c.cache.get(key); ok {
 		return Decision{Labels: hit, Score: 1.0, Latency: time.Since(start)}, nil
 	}
 
-	results, err := c.reranker.Rerank(ctx, p.Prompt, c.documents)
+	results, err := c.reranker.Rerank(ctx, query, c.documents)
 	if err != nil {
 		return errDecision(start, fmt.Errorf("rerank classify: %w", err))
 	}

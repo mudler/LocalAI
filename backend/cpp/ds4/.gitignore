@@ -2,6 +2,7 @@ ds4/
 build/
 package/
 grpc-server
+ds4-worker
 *.o
 backend.pb.cc
 backend.pb.h

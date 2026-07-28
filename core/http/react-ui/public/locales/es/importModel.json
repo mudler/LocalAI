@@ -72,6 +72,7 @@
     "asr": "Reconocimiento de voz",
     "tts": "Texto a voz",
     "image": "Imagen / Video",
+    "video": "Generación de video",
     "embeddings": "Embeddings",
     "reranker": "Rerankers",
     "detection": "Detección de objetos",

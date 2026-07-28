@@ -13,6 +13,7 @@ import { useCodeMirror } from '../hooks/useCodeMirror'
 import { useTheme } from '../contexts/ThemeContext'
 import { getThemeExtension } from '../utils/cmTheme'
 import { createYamlCompletionSource } from '../utils/cmYamlComplete'
+import { goTemplate } from '../utils/cmGoTemplate'
 
 function yamlIssueToDiagnostic(issue, cmDoc, severity) {
   const len = cmDoc.length
@@ -43,14 +44,17 @@ const yamlLinter = linter(view => {
   return diagnostics
 })
 
-export default function CodeEditor({ value, onChange, disabled, minHeight = '500px', fields }) {
+export default function CodeEditor({ value, onChange, disabled, minHeight = '500px', fields, language = 'yaml' }) {
   const containerRef = useRef(null)
   const { theme } = useTheme()
+  const isGoTemplate = language === 'gotemplate'
 
-  // Static extensions — only recreate when fields change
+  // Static extensions — only recreate when fields/language change
   const extensions = useMemo(() => {
     const exts = [
-      yaml(),
+      // Go templates aren't YAML — skip the YAML mode/linter so valid
+      // `{{ ... }}` syntax isn't flagged as a YAML parse error.
+      isGoTemplate ? goTemplate : yaml(),
       lineNumbers(),
       highlightActiveLineGutter(),
       highlightActiveLine(),
@@ -59,8 +63,6 @@ export default function CodeEditor({ value, onChange, disabled, minHeight = '500
       indentOnInput(),
       bracketMatching(),
       highlightSelectionMatches(),
-      yamlLinter,
-      lintGutter(),
       history(),
       indentUnit.of('  '),
       EditorState.tabSize.of(2),
@@ -77,15 +79,18 @@ export default function CodeEditor({ value, onChange, disabled, minHeight = '500
       }),
     ]
 
-    if (fields && fields.length > 0) {
-      exts.push(autocompletion({
-        override: [createYamlCompletionSource(fields)],
-        activateOnTyping: true,
-      }))
+    if (!isGoTemplate) {
+      exts.push(yamlLinter, lintGutter())
+      if (fields && fields.length > 0) {
+        exts.push(autocompletion({
+          override: [createYamlCompletionSource(fields)],
+          activateOnTyping: true,
+        }))
+      }
     }
 
     return exts
-  }, [minHeight, fields])
+  }, [minHeight, fields, isGoTemplate])
 
   // Dynamic extensions — reconfigured via Compartments (preserves undo/cursor/scroll)
   const dynamicExtensions = useMemo(() => ({

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/application"
+	localaiapp "github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	httpapi "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -41,11 +41,21 @@ var (
 	cloudProxyPath    string
 	mcpServerURL      string
 	mcpServerShutdown func()
+	localAIApp        *localaiapp.Application
 
 	// Cloud-proxy fake upstreams. Live for the whole suite so the four
 	// cloud-proxy model YAMLs can point at their URLs at startup time.
 	cpOpenAIUpstream    *fakeOpenAIUpstreamServer
 	cpAnthropicUpstream *fakeAnthropicUpstreamServer
+
+	// Live PII NER tier. Set only when PII_NER_MODEL_GGUF points at a
+	// privacy-filter GGUF and the privacy-filter backend is discoverable
+	// (REALTIME_BACKENDS_PATH). Empty => the NER specs Skip, exactly like the
+	// cloud-proxy specs Skip without their binary. This is what the hermetic
+	// suite cannot do (e2e_suite_test.go comment at the cp-translate detector):
+	// run the real GGUF NER tier instead of only the in-process pattern tier.
+	piiNERModel      string
+	piiNERBlockModel string
 )
 
 var _ = BeforeSuite(func() {
@@ -235,6 +245,138 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
 
+	// Speaker-recognition model (mock-backend) + a voice-recognition-gated
+	// pipeline for the realtime gate e2e. The reference WAV carries a positive
+	// DC bias so the mock embeds it to one orthogonal "speaker"; the test then
+	// drives matching (authorized) and opposite-bias (unauthorized) audio.
+	speakerCfg := map[string]any{
+		"name":       "mock-speaker",
+		"backend":    "mock-backend",
+		"parameters": map[string]any{"model": "mock-speaker.bin"},
+	}
+	speakerData, err := yaml.Marshal(speakerCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-speaker.yaml"), speakerData, 0644)).To(Succeed())
+
+	voiceRefPath := filepath.Join(modelsPath, "e2e-voice-ref.wav")
+	Expect(os.WriteFile(voiceRefPath, wavFromPCM(pcmWithDC(300, 16000, 1000, 8000), 16000), 0644)).To(Succeed())
+
+	gatedCfg := map[string]any{
+		"name": "realtime-pipeline-gated",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+			"voice_recognition": map[string]any{
+				"model":     "mock-speaker",
+				"mode":      "verify",
+				"threshold": 0.25,
+				"when":      "every",
+				"on_reject": "drop_event",
+				"references": []map[string]any{
+					{"name": "e2e-speaker", "audio": voiceRefPath},
+				},
+			},
+		},
+	}
+	gatedData, err := yaml.Marshal(gatedCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-gated.yaml"), gatedData, 0644)).To(Succeed())
+
+	// Identity-surfacing pipeline: the same speaker backend, but enforce:false
+	// (never drop a turn) plus an identity block so the server emits the
+	// conversation.item.speaker event and personalizes the LLM turn. Used by the
+	// speaker-identity e2e specs.
+	identityCfg := map[string]any{
+		"name": "realtime-pipeline-identity",
+		"pipeline": map[string]any{
+			"vad":           "mock-vad",
+			"transcription": "mock-stt",
+			"llm":           "mock-llm",
+			"tts":           "mock-tts",
+			"voice_recognition": map[string]any{
+				"model":     "mock-speaker",
+				"mode":      "verify",
+				"threshold": 0.25,
+				"when":      "every",
+				"enforce":   false,
+				"references": []map[string]any{
+					{"name": "e2e-speaker", "audio": voiceRefPath},
+				},
+				"identity": map[string]any{
+					"announce":           true,
+					"announce_unknown":   true,
+					"personalize":        true,
+					"inject_name":        true,
+					"inject_system_note": true,
+				},
+			},
+		},
+	}
+	identityData, err := yaml.Marshal(identityCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline-identity.yaml"), identityData, 0644)).To(Succeed())
+
+	// Router model setup: a score classifier (mock-backend Score) selects
+	// between two candidate chat models based on keyword matches against the
+	// candidate label fragments. Exercises the full RouteModel middleware path
+	// — probe extraction, ScoreClassifier.fitMessages (with the classifier's
+	// real TokenizeString and ContextSize wired), Score RPC, and fanout to
+	// the chosen candidate. The classifier MUST carry a chat template, since
+	// buildClassifier now rejects routers whose classifier model has none.
+	chatMLTpl := map[string]any{
+		"chat":         "{{.Input -}}\n<|im_start|>assistant\n",
+		"chat_message": "<|im_start|>{{ .RoleName }}\n{{ if .Content }}{{ .Content }}{{ end }}<|im_end|>",
+	}
+	classifierCfg := map[string]any{
+		"name":           "mock-classifier",
+		"backend":        "mock-backend",
+		"known_usecases": []string{"score"},
+		"context_size":   4096,
+		"stopwords":      []string{"<|im_end|>"},
+		"parameters":     map[string]any{"model": "mock-classifier.bin"},
+		"template":       chatMLTpl,
+	}
+	classifierData, err := yaml.Marshal(classifierCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "mock-classifier.yaml"), classifierData, 0644)).To(Succeed())
+
+	for _, name := range []string{"mock-cand-casual", "mock-cand-code"} {
+		candCfg := map[string]any{
+			"name":           name,
+			"backend":        "mock-backend",
+			"known_usecases": []string{"chat"},
+			"parameters":     map[string]any{"model": name + ".bin"},
+		}
+		candData, err := yaml.Marshal(candCfg)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(modelsPath, name+".yaml"), candData, 0644)).To(Succeed())
+	}
+
+	routerCfg := map[string]any{
+		"name":           "smart-router",
+		"known_usecases": []string{"chat"},
+		"router": map[string]any{
+			"classifier":           "score",
+			"classifier_model":     "mock-classifier",
+			"activation_threshold": 0.40,
+			"fallback":             "mock-cand-casual",
+			"policies": []map[string]any{
+				{"label": "casual-chat", "description": "small talk and general conversation"},
+				{"label": "code-generation", "description": "writing or debugging code"},
+				{"label": "math-reasoning", "description": "arithmetic and word problems"},
+			},
+			"candidates": []map[string]any{
+				{"model": "mock-cand-casual", "labels": []string{"casual-chat"}},
+				{"model": "mock-cand-code", "labels": []string{"code-generation", "math-reasoning"}},
+			},
+		},
+	}
+	routerData, err := yaml.Marshal(routerCfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(modelsPath, "smart-router.yaml"), routerData, 0644)).To(Succeed())
+
 	// If REALTIME_TEST_MODEL=realtime-test-pipeline, auto-create a pipeline
 	// config from the REALTIME_VAD/STT/LLM/TTS env vars so real-model tests
 	// can run without the user having to write a YAML file manually.
@@ -359,6 +501,27 @@ var _ = BeforeSuite(func() {
 					"upstream_url": cpOpenAIUpstream.URL() + "/v1/chat/completions",
 					"api_key_env":  "CLOUD_PROXY_E2E_OPENAI_KEY",
 				},
+				// Wire the in-process pattern detector so the streaming PII
+				// filter has something to redact in translate mode. The NER
+				// tier needs the privacy-filter model (unavailable in this
+				// hermetic suite); the pattern tier runs in-process with no
+				// backend load, so it's what exercises the streaming plumbing.
+				"pii": map[string]any{
+					"detectors": []string{"e2e-secret-filter"},
+				},
+			},
+			{
+				// In-process pattern detector: backend "pattern" is resolved by
+				// the PII NER resolver directly from this config (no backend is
+				// ever loaded). It matches high-entropy anchored secrets;
+				// cp-translate-openai references it above via pii.detectors.
+				"name":           "e2e-secret-filter",
+				"backend":        "pattern",
+				"known_usecases": []string{"token_classify"},
+				"pii_detection": map[string]any{
+					"default_action": "block",
+					"builtins":       []string{"anthropic_api_key", "openai_api_key"},
+				},
 			},
 			{
 				"name":    "cp-translate-anthropic",
@@ -381,6 +544,40 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
+	// Live PII NER tier. When PII_NER_MODEL_GGUF points at a downloaded
+	// privacy-filter GGUF, register two detector models that drive the real
+	// gRPC TokenClassify path on the privacy-filter backend (discovered via
+	// REALTIME_BACKENDS_PATH). Two models so we can exercise both policy
+	// outcomes against the same weights: mask (redact) and block (reject).
+	// NOTE: no pii_detection.builtins/patterns here — that would flip the
+	// detector to the in-process regex tier instead of the GGUF NER tier.
+	if gguf := os.Getenv("PII_NER_MODEL_GGUF"); gguf != "" {
+		piiNERModel = "privacy-filter-ner"
+		piiNERBlockModel = "privacy-filter-ner-block"
+		nerModelConfig := func(name, defaultAction string) map[string]any {
+			return map[string]any{
+				"name":           name,
+				"backend":        "privacy-filter",
+				"embeddings":     true, // required: TOKEN_CLS pooling loads via the embeddings flag
+				"known_usecases": []string{"token_classify"},
+				"parameters":     map[string]any{"model": gguf},
+				"pii_detection": map[string]any{
+					"min_score":      0.5,
+					"default_action": defaultAction,
+				},
+			}
+		}
+		for _, cfg := range []map[string]any{
+			nerModelConfig(piiNERModel, "mask"),
+			nerModelConfig(piiNERBlockModel, "block"),
+		} {
+			data, err := yaml.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
+		}
+		xlog.Info("wired live PII NER models", "gguf", gguf, "models", []string{piiNERModel, piiNERBlockModel})
+	}
+
 	systemState, err := system.GetSystemState(systemOpts...)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -390,7 +587,7 @@ var _ = BeforeSuite(func() {
 	// Create application instance (GeneratedContentDir so sound-generation/TTS can write files the handler sends)
 	generatedDir := filepath.Join(tmpDir, "generated")
 	Expect(os.MkdirAll(generatedDir, 0750)).To(Succeed())
-	application, err := application.New(
+	localAIApp, err = localaiapp.New(
 		config.WithContext(appCtx),
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
@@ -399,14 +596,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Register mock backend (always available for non-realtime tests).
-	application.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
-	application.ModelLoader().SetExternalBackend("opus", mockBackendPath)
+	localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
 	if cloudProxyPath != "" {
-		application.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
+		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
 	}
 
 	// Create HTTP app
-	app, err = httpapi.API(application)
+	app, err = httpapi.API(localAIApp)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Get free port
@@ -436,6 +633,14 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	// Synchronous shutdown — the context-cancel goroutine in application.New
+	// runs the same cleanup asynchronously, which races test-binary exit and
+	// orphans spawned mock-backend children to init.
+	if localAIApp != nil {
+		if err := localAIApp.Shutdown(); err != nil {
+			xlog.Error("error shutting down application", "error", err)
+		}
+	}
 	if appCancel != nil {
 		appCancel()
 	}

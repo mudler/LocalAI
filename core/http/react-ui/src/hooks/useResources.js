@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { resourcesApi } from '../utils/api'
+import { usePolling } from './usePolling'
 
 export function useResources(pollInterval = 5000) {
   const [resources, setResources] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const intervalRef = useRef(null)
 
   const fetchResources = useCallback(async () => {
     try {
@@ -19,13 +19,10 @@ export function useResources(pollInterval = 5000) {
     }
   }, [])
 
-  useEffect(() => {
-    fetchResources()
-    intervalRef.current = setInterval(fetchResources, pollInterval)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [fetchResources, pollInterval])
+  // Visibility-aware polling: pauses while the tab is hidden and catches up on
+  // return (see usePolling). Resource stats are pure dashboard data, so there's
+  // no reason to keep fetching them for a backgrounded tab.
+  const { refetch } = usePolling(fetchResources, pollInterval)
 
-  return { resources, loading, error, refetch: fetchResources }
+  return { resources, loading, error, refetch }
 }

@@ -45,6 +45,16 @@ updates:
     directory: "/backend/python/diffusers"
     schedule:
       interval: "weekly"
+    # torch and transformers are deliberately pinned in this backend (see
+    # backend/python/diffusers/requirements-*.txt and issue #9979), and the
+    # l4t12 variant resolves them from the Jetson pip index
+    # (https://pypi.jetson-ai-lab.io/jp6/cu129/). dependabot cannot authenticate
+    # against that index and fails the whole weekly update with a
+    # private_source_authentication_failure. Ignore the two pinned deps we don't
+    # want bumped anyway so the job stays green.
+    ignore:
+    - dependency-name: "torch"
+    - dependency-name: "transformers"
   - package-ecosystem: "pip"
     directory: "/backend/python/exllama"
     schedule:

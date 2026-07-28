@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Function calling</div>
+        <h1>Same request, <em>any backend</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">TOOLS</div>
+        <div class="s">native</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">One tool-call request shape; <b>each backend's native parser extracts the calls.</b></div>
+      <div class="url">localai.io<span>/features/openai-functions</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ---------- REQUEST (far left) ----------
+txt(20,40,"REQUEST",{w:700,sz:14,ls:".2em",fill:SOFT});
+const RQX=20, RQY=185, RQW=222, RQH=180;
+shadowRect(RQX,RQY,RQW,RQH,PAPER2);
+txt(RQX+RQW/2,RQY+44,"OpenAI-shaped",{f:"Bricolage Grotesque",w:800,sz:23,a:"middle"});
+txt(RQX+RQW/2,RQY+70,"chat request",{f:"Bricolage Grotesque",w:800,sz:23,a:"middle"});
+// tools chip
+const tcW=148,tcH=30,tcx=RQX+(RQW-tcW)/2,tcy=RQY+96;
+svg.appendChild(el("rect",{x:tcx,y:tcy,width:tcW,height:tcH,fill:HI,stroke:INK,"stroke-width":2.5}));
+txt(tcx+tcW/2,tcy+21,"tools: [ ... ]",{f:"Bricolage Grotesque",w:800,sz:16,a:"middle"});
+txt(RQX+RQW/2,RQY+154,"tool_choice: auto",{w:700,sz:14,a:"middle",fill:SOFT});
+
+// ---------- LocalAI extraction (center) ----------
+const EXX=312, EXY=175, EXW=250, EXH=200;
+shadowRect(EXX,EXY,EXW,EXH,PAPER,INK,4);
+svg.appendChild(el("rect",{x:EXX,y:EXY,width:EXW,height:60,fill:RUST}));
+svg.appendChild(el("line",{x1:EXX,y1:EXY+60,x2:EXX+EXW,y2:EXY+60,stroke:INK,"stroke-width":4}));
+txt(EXX+EXW/2,EXY+38,"LocalAI",{f:"Bricolage Grotesque",w:800,sz:28,a:"middle",fill:PAPER});
+txt(EXX+EXW/2,EXY+98,"tool-call",{f:"Bricolage Grotesque",w:800,sz:24,a:"middle"});
+txt(EXX+EXW/2,EXY+126,"extraction",{f:"Bricolage Grotesque",w:800,sz:24,a:"middle"});
+txt(EXX+EXW/2,EXY+162,"picks the right parser",{w:700,sz:14,a:"middle",fill:SOFT});
+
+// ---------- PARSERS (per backend, 3 stacked) ----------
+txt(640,40,"NATIVE PARSERS",{w:700,sz:14,ls:".2em",fill:SOFT});
+const PX=628, PW=290, PH=120, pRows=[70,222,374];
+const parsers=[
+  {n:"llama.cpp",   s:"C++ autoparser"},
+  {n:"vLLM",        s:"ToolParserManager"},
+  {n:"MLX",         s:"template auto-detect"},
+];
+parsers.forEach((p,i)=>{
+  const y=pRows[i];
+  shadowRect(PX,y,PW,PH,"#EFE0BF");
+  txt(PX+22,y+50,p.n,{f:"Bricolage Grotesque",w:800,sz:26});
+  txt(PX+22,y+82,p.s,{w:700,sz:16,fill:SOFT});
+});
+
+// ---------- RESPONSE (far right) ----------
+txt(1460,40,"RESPONSE",{w:700,sz:14,ls:".2em",a:"end",fill:SOFT});
+const RSX=1058, RSY=185, RSW=222, RSH=180;
+shadowRect(RSX,RSY,RSW,RSH,PAPER,RUST,4);
+txt(RSX+RSW/2,RSY+44,"Uniform",{f:"Bricolage Grotesque",w:800,sz:23,a:"middle"});
+txt(RSX+RSW/2,RSY+70,"response",{f:"Bricolage Grotesque",w:800,sz:23,a:"middle"});
+const rcW=170,rcH=30,rcx=RSX+(RSW-rcW)/2,rcy=RSY+96;
+svg.appendChild(el("rect",{x:rcx,y:rcy,width:rcW,height:rcH,fill:HI,stroke:INK,"stroke-width":2.5}));
+txt(rcx+rcW/2,rcy+21,"tool_calls: [ ... ]",{f:"Bricolage Grotesque",w:800,sz:15,a:"middle"});
+txt(RSX+RSW/2,RSY+154,"identical for every backend",{w:700,sz:12.5,a:"middle",fill:SOFT});
+
+// ---------- ARROWS ----------
+// request -> extraction
+arrow(RQX+RQW, RQY+RQH/2, EXX, EXY+EXH/2, INK);
+// extraction -> parsers (fan out)
+const exMid=EXY+EXH/2;
+parsers.forEach((p,i)=>{
+  const y=pRows[i]+PH/2;
+  arrow(EXX+EXW, exMid+(i-1)*46, PX, y, RUSTD);
+});
+// parsers -> response (converge)
+const rsMid=RSY+RSH/2;
+parsers.forEach((p,i)=>{
+  const y=pRows[i]+PH/2;
+  arrow(PX+PW, y, RSX, rsMid+(i-1)*46, RUSTD);
+});
+</script>
+</body>
+</html>

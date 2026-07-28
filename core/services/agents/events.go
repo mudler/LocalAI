@@ -27,7 +27,7 @@ type AgentEvent struct {
 	Content        string `json:"content,omitempty"`
 	MessageID      string `json:"message_id,omitempty"`
 	Metadata       string `json:"metadata,omitempty"` // JSON metadata
-	Timestamp      int64  `json:"timestamp"`
+	Timestamp      int64  `json:"timestamp"`                 // Unix milliseconds (set by PublishEvent)
 }
 
 // AgentCancelEvent is the NATS message payload for cancelling agent execution.
@@ -61,8 +61,14 @@ func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID 
 }
 
 // PublishEvent publishes an agent event to NATS for SSE bridging.
+//
+// Timestamp is emitted in Unix milliseconds to match the local dispatcher's
+// json_message events (see dispatcher.go) and the React UI, which feeds the
+// value straight into `new Date(ts)`. Milliseconds also stay within JS's
+// safe-integer range, whereas nanoseconds (~1.7e18) do not and lose precision
+// when parsed as a JSON number.
 func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) error {
-	evt.Timestamp = time.Now().UnixNano()
+	evt.Timestamp = time.Now().UnixMilli()
 	subject := messaging.SubjectAgentEvents(agentName, userID)
 	return b.nats.Publish(subject, evt)
 }

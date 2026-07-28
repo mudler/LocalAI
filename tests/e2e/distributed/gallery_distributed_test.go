@@ -53,12 +53,13 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 			Expect(retrieved.Status).To(Equal("downloading"))
 			Expect(retrieved.FrontendID).To(Equal("f1"))
 
-			// Update progress
-			Expect(galleryStore.UpdateProgress(op.ID, 0.75, "75% complete", "6GB")).To(Succeed())
+			// Update progress (cancellable: a downloading install can be cancelled)
+			Expect(galleryStore.UpdateProgress(op.ID, 0.75, "75% complete", "6GB", true)).To(Succeed())
 
 			updated, _ := galleryStore.Get(op.ID)
 			Expect(updated.Progress).To(BeNumerically("~", 0.75, 0.01))
 			Expect(updated.Message).To(Equal("75% complete"))
+			Expect(updated.Cancellable).To(BeTrue())
 
 			// Complete
 			Expect(galleryStore.UpdateStatus(op.ID, "completed", "")).To(Succeed())

@@ -10,6 +10,14 @@ import (
 
 // Wrapper for the GRPC client so that simple use cases are handled without verbosity
 
+// NamespacePrefix marks a load request as a store namespace rather than a
+// model artefact. Core's StoreBackend prepends it to the namespace it sends
+// as the gRPC model name, and the local-store backend refuses loads without
+// it — otherwise the model loader's greedy autoload (which probes every
+// installed backend with LLM model names) would bind arbitrary models to
+// the vector store, since store loads have no artefact to validate.
+const NamespacePrefix = "store://"
+
 // SetCols sets multiple key-value pairs in the store
 // It's in columnar format so that keys[i] is associated with values[i]
 func SetCols(ctx context.Context, c grpc.Backend, keys [][]float32, values [][]byte) error {

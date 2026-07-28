@@ -13,14 +13,18 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/xio"
-	"github.com/mudler/xlog"
 )
 
 const (
@@ -50,8 +54,21 @@ type ImageVerifier interface {
 	VerifyImage(ctx context.Context, imageRef string) error
 }
 
+// TransferProgress reports the raw byte counts for an HTTP download.
+// Total is negative when the server does not advertise a response length.
+type TransferProgress struct {
+	FileName string
+	Written  int64
+	Total    int64
+}
+
+// TransferProgressSink receives raw byte progress updates for an HTTP download.
+type TransferProgressSink func(TransferProgress)
+
 type downloadOptions struct {
-	verifier ImageVerifier
+	verifier         ImageVerifier
+	bearerToken      string
+	transferProgress TransferProgressSink
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -66,6 +83,17 @@ type DownloadOption func(*downloadOptions)
 // those paths use SHA256 integrity instead.
 func WithImageVerifier(v ImageVerifier) DownloadOption {
 	return func(o *downloadOptions) { o.verifier = v }
+}
+
+// WithBearerToken authenticates HTTP download requests with a bearer token.
+// The token is stripped if a request redirects to a different origin.
+func WithBearerToken(token string) DownloadOption {
+	return func(o *downloadOptions) { o.bearerToken = token }
+}
+
+// WithTransferProgress attaches a sink for raw HTTP download byte progress.
+func WithTransferProgress(sink TransferProgressSink) DownloadOption {
+	return func(o *downloadOptions) { o.transferProgress = sink }
 }
 
 func applyDownloadOptions(opts []DownloadOption) downloadOptions {
@@ -171,7 +199,7 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 		req.Header.Add("Authorization", authorization)
 	}
 
-	response, err := http.DefaultClient.Do(req)
+	response, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return err
 	}
@@ -328,6 +356,18 @@ func (s URI) ResolveURL() string {
 	return string(s)
 }
 
+// ErrUserCancelled distinguishes a deliberate user abort from an incidental
+// context cancellation (process shutdown, pod restart). Pass it as the cause
+// when cancelling the download context:
+//
+//	ctx, cancel := context.WithCancelCause(parent)
+//	cancel(downloader.ErrUserCancelled) // discards the .partial
+//
+// On a deliberate cancel the downloader removes the .partial (the user does not
+// want a half-download lingering). On a plain cancellation it keeps the .partial
+// so the next run resumes via Range instead of restarting from zero.
+var ErrUserCancelled = errors.New("download cancelled by user")
+
 func removePartialFile(tmpFilePath string) error {
 	xlog.Debug("Removing temporary file", "file", tmpFilePath)
 	if err := os.Remove(tmpFilePath); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -347,9 +387,58 @@ func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
 	return hash, nil
 }
 
-func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
-	url := uri.ResolveURL()
-	resp, err := http.Head(url)
+// downloadClient is the shared client for HTTP(S) downloads and size
+// probes. It follows redirects (model hosts and CDNs rely on them) but
+// strips credential headers on any cross-host hop, and sets no body
+// deadline so large downloads are not truncated. It does bound the wait for
+// response *headers*, which is a different window entirely and the one an
+// unresponsive origin wedges on.
+//
+// The client is cached rather than rebuilt per request so connection pooling
+// survives; it is rebuilt only when DownloadResponseHeaderTimeout changes, so
+// the knob stays live the way DownloadStallTimeout is.
+var (
+	downloadClientMu      sync.Mutex
+	downloadClientCached  *http.Client
+	downloadClientTimeout time.Duration
+)
+
+func downloadHTTPClient() *http.Client {
+	downloadClientMu.Lock()
+	defer downloadClientMu.Unlock()
+	if downloadClientCached == nil || downloadClientTimeout != DownloadResponseHeaderTimeout {
+		downloadClientTimeout = DownloadResponseHeaderTimeout
+		opts := []httpclient.Option{httpclient.WithFollowRedirects()}
+		if downloadClientTimeout > 0 {
+			opts = append(opts, httpclient.WithResponseHeaderTimeout(downloadClientTimeout))
+		}
+		downloadClientCached = httpclient.New(opts...)
+	}
+	return downloadClientCached
+}
+
+func newDownloadRequest(
+	ctx context.Context,
+	method string,
+	rawURL string,
+	bearerToken string,
+) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+bearerToken)
+	}
+	return req, nil
+}
+
+func (uri URI) checkServerSupportsRangeHeader(ctx context.Context, bearerToken string) (bool, error) {
+	req, err := newDownloadRequest(ctx, http.MethodHead, uri.ResolveURL(), bearerToken)
+	if err != nil {
+		return false, err
+	}
+	resp, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -376,7 +465,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -395,7 +484,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	req2.Header.Set("Range", "bytes=0-0")
-	resp2, err := http.DefaultClient.Do(req2)
+	resp2, err := downloadHTTPClient().Do(req2)
 	if err != nil {
 		return 0, err
 	}
@@ -543,30 +632,72 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	xlog.Info("Downloading", "url", url)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := newDownloadRequest(ctx, http.MethodGet, url, dopts.bearerToken)
 	if err != nil {
 		return fmt.Errorf("failed to create request for %q: %v", filePath, err)
 	}
 
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
-	tmpFileInfo, err := os.Stat(tmpFilePath)
-	if err == nil && uri.LooksLikeHTTPURL() {
-		support, err := uri.checkSeverSupportsRangeHeader()
-		if err != nil {
-			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
-		}
-		if support {
-			startPos := tmpFileInfo.Size()
-			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
-		} else {
-			err := removePartialFile(tmpFilePath)
+	var startPos int64
+	tmpFileInfo, statErr := os.Stat(tmpFilePath)
+	switch {
+	case statErr == nil:
+		// A leftover partial is only usable when we can ask the server to
+		// continue from where it stopped. Resume is probed only for raw
+		// http(s) URIs; every other transport (local files, and schemes we do
+		// not probe) has to restart, because the writer opens the partial with
+		// O_APPEND and would otherwise concatenate a fresh full body onto the
+		// stale bytes. Discarding here is what makes a retry after an
+		// interrupted download recover on its own instead of failing forever.
+		resumable := false
+		if uri.LooksLikeHTTPURL() {
+			support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
 			if err != nil {
-				return err
+				// The probe only ever fails on transport trouble (the status is
+				// not consulted), so it says nothing permanent about the URL. It
+				// must stay retryable, or a momentarily wedged origin turns a
+				// resumable download into a hard install failure.
+				return asTransient(fmt.Errorf("failed to check if uri server supports range header: %w", err))
 			}
+			resumable = support
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
+		if resumable {
+			startPos = tmpFileInfo.Size()
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
+		} else if err := removePartialFile(tmpFilePath); err != nil {
+			return err
+		}
+	case errors.Is(statErr, os.ErrNotExist):
+		// Nothing to resume or discard: this is a fresh download.
+	default:
+		return fmt.Errorf("failed to check partial download file %q: %w", tmpFilePath, statErr)
+	}
+
+	// Create parent directory
+	err = os.MkdirAll(filepath.Dir(filePath), 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
+	}
+
+	// Open the partial and hash its existing bytes BEFORE issuing the request.
+	// The stall watchdog arms the moment the response body exists, and nothing
+	// reads that body while the partial is hashed; on slow storage a multi-GB
+	// partial takes longer to hash than the stall window, so hashing after the
+	// request aborts every resume, and each retry re-pays the same hash and
+	// fails identically, wedging the install permanently. Hashing first also
+	// keeps the origin from idling out the connection during the hash.
+	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
+	}
+	defer func() { _ = outFile.Close() }()
+	if err := outFile.Chmod(0600); err != nil {
+		return fmt.Errorf("failed to restrict partial file %q permissions: %v", tmpFilePath, err)
+	}
+	hash, err := calculateHashForPartialFile(outFile)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash for partial file")
 	}
 
 	var source io.ReadCloser
@@ -584,67 +715,111 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		contentLength = l.Size()
 	} else {
 		// Start the request
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := downloadHTTPClient().Do(req)
 		if err != nil {
-			// Check if error is due to context cancellation
-			if errors.Is(err, context.Canceled) {
-				// Clean up partial file on cancellation
-				removePartialFile(tmpFilePath)
-				return err
+			// Detect cancellation via the context, not the returned error: a
+			// request cancelled *with a cause* surfaces the cause error (not
+			// context.Canceled) from the HTTP client. Keep the .partial for
+			// resume on an incidental cancel (shutdown, restart) — large GGUFs
+			// take long enough that deleting progress means they never finish —
+			// but discard it on a deliberate user abort (ErrUserCancelled).
+			if ctx.Err() != nil {
+				if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+					_ = removePartialFile(tmpFilePath)
+				}
+				return ctx.Err()
 			}
-			return fmt.Errorf("failed to download file %q: %v", filePath, err)
+			// The transport failed before the response was established (reset
+			// connection, refused dial, TLS hiccup). Nothing about it is
+			// specific to this URL, so another attempt may well succeed.
+			return asTransient(fmt.Errorf("failed to download file %q: %v", filePath, err))
 		}
 		//defer resp.Body.Close()
 
+		if startPos > 0 && resp.StatusCode != http.StatusPartialContent {
+			_ = resp.Body.Close()
+			_ = removePartialFile(tmpFilePath)
+			// The partial has just been discarded, so a further attempt starts
+			// clean and no longer needs the server to honour the range.
+			return asTransient(fmt.Errorf(
+				"resume request for %q returned status %d instead of 206",
+				filePath,
+				resp.StatusCode,
+			))
+		}
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+			err := fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+			// 5xx and 429 describe the server's current state, not the request;
+			// every other 4xx (missing file, bad auth) is settled and retrying
+			// it only delays the real error.
+			if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+				return asTransient(err)
+			}
+			return err
 		}
 		source = resp.Body
-		contentLength = resp.ContentLength
+		// Guard against a silently-stalled stream: a dropped TCP connection
+		// that never sends FIN/RST would otherwise block the body Read (and
+		// thus the whole install) forever. The watchdog aborts after a window
+		// of zero progress; the .partial is kept for a later resume.
+		if DownloadStallTimeout > 0 {
+			source = newIdleTimeoutReader(resp.Body, DownloadStallTimeout)
+		}
+		contentLength = resp.ContentLength + startPos
 	}
 	defer source.Close()
 
-	// Create parent directory
-	err = os.MkdirAll(filepath.Dir(filePath), 0750)
-	if err != nil {
-		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
-	}
-
-	// Create and write file
-	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
-	}
-	defer outFile.Close()
-	hash, err := calculateHashForPartialFile(outFile)
-	if err != nil {
-		return fmt.Errorf("failed to calculate hash for partial file")
-	}
 	progress := &progressWriter{
 		fileName:       tmpFilePath,
 		total:          contentLength,
 		hash:           hash,
 		fileNo:         fileN,
 		totalFiles:     total,
+		written:        startPos,
 		downloadStatus: downloadStatus,
+		transferSink:   dopts.transferProgress,
 		ctx:            ctx,
 	}
 
-	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
+	// io.Copy reports read and write failures indistinguishably, so the source
+	// is wrapped to record which side actually broke. Labelling a peer-cancelled
+	// HTTP/2 stream "failed to write file" once sent an incident investigation
+	// after filesystem permissions while the disk was perfectly healthy.
+	tracked := &readErrorRecorder{r: source}
+	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), tracked)
 	if err != nil {
-		// Check if error is due to context cancellation
-		if errors.Is(err, context.Canceled) {
-			// Clean up partial file on cancellation
-			removePartialFile(tmpFilePath)
-			return err
+		// Detect cancellation via the context (a cause-cancelled read surfaces
+		// the cause, not context.Canceled). Keep the .partial for resume,
+		// except on a deliberate user abort (ErrUserCancelled), which discards
+		// it. A stall-guard abort leaves ctx uncancelled, so it falls through
+		// to the error path below and likewise preserves the partial.
+		if ctx.Err() != nil {
+			if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+				_ = removePartialFile(tmpFilePath)
+			}
+			return ctx.Err()
 		}
-		return fmt.Errorf("failed to write file %q: %v", filePath, err)
+		if readErr := tracked.err; readErr != nil && errors.Is(err, readErr) {
+			// The source died mid-transfer (peer cancelled the stream, the
+			// connection dropped, the stall guard fired). The bytes already on
+			// disk are valid, so the .partial is kept and the failure is
+			// retryable from where it stopped.
+			return asTransient(fmt.Errorf("failed to read %q while downloading to %q: %v", url, tmpFilePath, readErr))
+		}
+		// A genuine local write failure: no space, bad permissions, a broken
+		// mount. Retrying writes the same bytes to the same broken target, so
+		// this stays permanent. Name the partial, which is the file actually
+		// being written, rather than the final blob path.
+		return fmt.Errorf("failed to write file %q: %v", tmpFilePath, err)
 	}
 
-	// Check for cancellation before finalizing
+	// Check for cancellation before finalizing. Keep the .partial for resume
+	// unless the user deliberately aborted.
 	select {
 	case <-ctx.Done():
-		removePartialFile(tmpFilePath)
+		if errors.Is(context.Cause(ctx), ErrUserCancelled) {
+			_ = removePartialFile(tmpFilePath)
+		}
 		return ctx.Err()
 	default:
 	}

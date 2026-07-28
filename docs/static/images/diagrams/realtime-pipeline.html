@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2; --paper2:#ECDFC2; --ink:#211C14; --ink-soft:#5A5142;
+    --rust:#B43A2C; --rust-deep:#8F2C20; --cold:#3F6E73; --hi:#E7D6AE; --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);color:var(--ink);font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:30px 56px 26px;display:flex;flex-direction:column}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:17px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:50px;line-height:.98;letter-spacing:-.015em;margin-top:6px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:10px 16px 8px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:21px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+  .stage{flex:1;margin-top:8px}
+  svg{width:100%;height:100%;overflow:visible}
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:18px;color:var(--ink-soft);line-height:1.3;max-width:1080px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Realtime API</div>
+        <h1>The realtime <em>voice loop</em></h1>
+      </div>
+      <div class="stamp">
+        <div class="k">WS</div>
+        <div class="s">/ WebRTC</div>
+      </div>
+    </header>
+    <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
+    <footer>
+      <div class="note">Voice in, voice out: <b>VAD &rarr; STT &rarr; LLM &rarr; TTS</b>, over WebSocket or WebRTC.</div>
+      <div class="url">localai.io<span>/features/openai-realtime</span></div>
+    </footer>
+  </div>
+<script>
+const INK="#211C14", PAPER="#F3E8D2", PAPER2="#ECDFC2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(t,a,x){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(x!=null)e.textContent=x;return e;}
+const svg=document.getElementById("svg");
+function shadowRect(x,y,w,h,fill,stroke,sw,dash){
+  svg.appendChild(el("rect",{x:x+7,y:y+7,width:w,height:h,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:w,height:h,fill,stroke:stroke||INK,"stroke-width":sw||3.5,"stroke-dasharray":dash||"none"}));
+}
+function txt(x,y,s,o){o=o||{};svg.appendChild(el("text",{x,y,"font-family":o.f||"Archivo","font-weight":o.w||700,"font-size":o.sz||15,"letter-spacing":o.ls||"0","text-anchor":o.a||"start",fill:o.fill||INK},s));}
+function arrow(x1,y1,x2,y2,color,dash){
+  const mx=(x1+x2)/2;
+  svg.appendChild(el("path",{d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2-11} ${y2}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round","stroke-dasharray":dash||"none"}));
+  const a=7;
+  svg.appendChild(el("path",{d:`M ${x2-11} ${y2} l -${a+4} -${a} M ${x2-11} ${y2} l -${a+4} ${a}`,fill:"none",stroke:color,"stroke-width":3.5,"stroke-linecap":"round"}));
+}
+
+// ============ PIPELINE ROW ============
+// Six stages: mic -> VAD -> STT -> LLM -> TTS -> audio out
+const PY=120, PH=110;        // pipeline box top + height
+const PMID=PY+PH/2;
+const stages=[
+  {x:24,   w:170, n:"Mic audio",  s:"caller speaks", fill:PAPER2, edge:false},
+  {x:248,  w:170, n:"VAD",        s:"speech detect", fill:HI,     edge:false},
+  {x:472,  w:170, n:"STT",        s:"speech to text",fill:HI,     edge:false},
+  {x:696,  w:170, n:"LLM",        s:"reasoning",     fill:RUST,   edge:true},
+  {x:920,  w:170, n:"TTS",        s:"text to speech",fill:HI,     edge:false},
+  {x:1144, w:170, n:"Audio out",  s:"voice reply",   fill:PAPER2, edge:false},
+];
+txt(24,80,"PIPELINE",{w:700,sz:14,ls:".2em",fill:SOFT});
+stages.forEach(st=>{
+  shadowRect(st.x,PY,st.w,PH,st.fill);
+  const tc = st.edge?PAPER:INK;
+  const sc = st.edge?"#F1D9C8":SOFT;
+  txt(st.x+st.w/2,PY+52,st.n,{f:"Bricolage Grotesque",w:800,sz:30,a:"middle",fill:tc});
+  txt(st.x+st.w/2,PY+82,st.s,{w:700,sz:14,a:"middle",fill:sc});
+});
+// forward arrows between stages
+for(let i=0;i<stages.length-1;i++){
+  const a=stages[i], b=stages[i+1];
+  arrow(a.x+a.w, PMID, b.x, PMID, INK);
+}
+
+// ============ RETURN LOOP (audio out -> mic, loops back to listener) ============
+const lastX = stages[5].x+stages[5].w/2;
+const firstX = stages[0].x+stages[0].w/2;
+const loopY = PY-58;
+// path from audio-out top, up, across, down into mic top
+const lp = `M ${lastX} ${PY} L ${lastX} ${loopY} L ${firstX} ${loopY} L ${firstX} ${PY-11}`;
+svg.appendChild(el("path",{d:lp,fill:"none",stroke:COLD,"stroke-width":3.5,"stroke-linecap":"round","stroke-linejoin":"round","stroke-dasharray":"2 8"}));
+// arrowhead pointing down into mic
+svg.appendChild(el("path",{d:`M ${firstX} ${PY-11} l -7 -11 M ${firstX} ${PY-11} l 7 -11`,fill:"none",stroke:COLD,"stroke-width":3.5,"stroke-linecap":"round"}));
+// loop label
+const llw=216, llx=(lastX+firstX)/2-llw/2;
+svg.appendChild(el("rect",{x:llx,y:loopY-19,width:llw,height:30,fill:PAPER,stroke:COLD,"stroke-width":2.5}));
+txt(llx+llw/2,loopY+2,"streamed back to listener",{w:700,sz:14,a:"middle",fill:COLD});
+
+// ============ TRANSPORT BAND ============
+const TY=370, TH=120;
+txt(24,346,"TRANSPORT",{w:700,sz:14,ls:".2em",fill:SOFT});
+const trans=[
+  {x:248, w:300, n:"WebSocket", s:"raw PCM frames"},
+  {x:592, w:300, n:"WebRTC",    s:"Opus · SDP handshake"},
+];
+trans.forEach(t=>{
+  shadowRect(t.x,TY,t.w,TH,PAPER,RUSTD,3.5);
+  txt(t.x+24,TY+52,t.n,{f:"Bricolage Grotesque",w:800,sz:30,fill:RUSTD});
+  txt(t.x+24,TY+84,t.s,{w:700,sz:16,fill:SOFT});
+});
+// transport feeds the pipeline entry (VAD box, the entry into processing)
+const entry = stages[1]; // VAD
+const entryBottomX = entry.x + entry.w/2;
+trans.forEach(t=>{
+  arrow(t.x+t.w/2, TY, entryBottomX, PY+PH, RUSTD, "2 8");
+});
+// label on the feed
+txt(entryBottomX+18,(TY+PY+PH)/2+6,"audio in",{w:700,sz:14,fill:RUSTD});
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext, useLocation } from 'react-rou
 import { agentJobsApi } from '../utils/api'
 import { basePath } from '../utils/basePath'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_CHAT } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -165,20 +166,20 @@ export default function AgentTaskDetails() {
   if (!isNew && !isEdit) {
     return (
       <div className="page page--narrow">
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 className="page-title">{task.name || 'Task Details'}</h1>
-            {task.description && <p className="page-subtitle">{task.description}</p>}
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
-              <i className="fas fa-edit" /> Edit
-            </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
-              <i className="fas fa-arrow-left" /> Back
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={task.name || 'Task Details'}
+          supporting={task.description || undefined}
+          actions={
+            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
+                <i className="fas fa-edit" /> Edit
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
+                <i className="fas fa-arrow-left" /> Back
+              </button>
+            </div>
+          }
+        />
 
         {/* Task Info */}
         <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -307,12 +308,14 @@ export default function AgentTaskDetails() {
   // Edit/Create form
   return (
     <div className="page page--narrow">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title">{isNew ? 'Create Task' : 'Edit Task'}</h1>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
-          <i className="fas fa-arrow-left" /> Back
-        </button>
-      </div>
+      <PageHeader
+        title={isNew ? 'Create Task' : 'Edit Task'}
+        actions={
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
+            <i className="fas fa-arrow-left" /> Back
+          </button>
+        }
+      />
 
       <form onSubmit={handleSave}>
         {/* Basic Info */}

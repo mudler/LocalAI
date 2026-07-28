@@ -20,28 +20,26 @@ var _ = Describe("JobPersister", func() {
 	Context("fileJobPersister", func() {
 		var (
 			p       *fileJobPersister
-			tasks   *xsync.SyncedMap[string, schema.Task]
 			jobsMap *xsync.SyncedMap[string, schema.Job]
 			tmpDir  string
 		)
 
 		BeforeEach(func() {
 			tmpDir = GinkgoT().TempDir()
-			tasks = xsync.NewSyncedMap[string, schema.Task]()
 			jobsMap = xsync.NewSyncedMap[string, schema.Job]()
 			p = &fileJobPersister{
-				tasks:     tasks,
 				jobs:      jobsMap,
 				tasksFile: filepath.Join(tmpDir, "tasks.json"),
 				jobsFile:  filepath.Join(tmpDir, "jobs.json"),
+				// taskSet is the persister's own task view (decoupled from the tasks
+				// SyncedMap to avoid re-entering its lock during write-through).
+				taskSet: make(map[string]schema.Task),
 			}
 		})
 
 		It("SaveTask writes all tasks to file", func() {
-			tasks.Set("t1", schema.Task{ID: "t1", Name: "Task One", Model: "m", Prompt: "p"})
-			tasks.Set("t2", schema.Task{ID: "t2", Name: "Task Two", Model: "m", Prompt: "p"})
-
-			Expect(p.SaveTask("", schema.Task{})).To(Succeed())
+			Expect(p.SaveTask("", schema.Task{ID: "t1", Name: "Task One", Model: "m", Prompt: "p"})).To(Succeed())
+			Expect(p.SaveTask("", schema.Task{ID: "t2", Name: "Task Two", Model: "m", Prompt: "p"})).To(Succeed())
 
 			// Verify file contents
 			data, err := os.ReadFile(p.tasksFile)
@@ -52,11 +50,9 @@ var _ = Describe("JobPersister", func() {
 		})
 
 		It("DeleteTask writes updated tasks to file", func() {
-			tasks.Set("t1", schema.Task{ID: "t1", Name: "Keep"})
-			tasks.Set("t2", schema.Task{ID: "t2", Name: "Delete"})
+			Expect(p.SaveTask("", schema.Task{ID: "t1", Name: "Keep"})).To(Succeed())
+			Expect(p.SaveTask("", schema.Task{ID: "t2", Name: "Delete"})).To(Succeed())
 
-			// Simulate deletion from memory (caller does this before calling persister)
-			tasks.Delete("t2")
 			Expect(p.DeleteTask("t2")).To(Succeed())
 
 			data, err := os.ReadFile(p.tasksFile)

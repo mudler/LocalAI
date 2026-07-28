@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
@@ -46,24 +46,24 @@ const (
 // through the options builder (CppOptionsNew + setters + CppNewWithOptions)
 // — the bare localvqe_new path doesn't expose backend / device selection.
 var (
-	CppOptionsNew           func() uintptr
-	CppOptionsFree          func(opts uintptr)
-	CppOptionsSetModelPath  func(opts uintptr, modelPath string) int32
-	CppOptionsSetBackend    func(opts uintptr, backend string) int32
-	CppOptionsSetDevice     func(opts uintptr, device int32) int32
-	CppNewWithOptions       func(opts uintptr) uintptr
-	CppFree                 func(ctx uintptr)
-	CppProcessF32           func(ctx uintptr, mic, ref uintptr, nSamples int32, out uintptr) int32
-	CppProcessS16           func(ctx uintptr, mic, ref uintptr, nSamples int32, out uintptr) int32
-	CppProcessFrameF32      func(ctx uintptr, mic, ref uintptr, hopSamples int32, out uintptr) int32
-	CppProcessFrameS16      func(ctx uintptr, mic, ref uintptr, hopSamples int32, out uintptr) int32
-	CppReset                func(ctx uintptr)
-	CppLastError            func(ctx uintptr) string
-	CppSampleRate           func(ctx uintptr) int32
-	CppHopLength            func(ctx uintptr) int32
-	CppFFTSize              func(ctx uintptr) int32
-	CppSetNoiseGate         func(ctx uintptr, enabled int32, thresholdDBFS float32) int32
-	CppGetNoiseGate         func(ctx uintptr, enabledOut, thresholdDBFSOut uintptr) int32
+	CppOptionsNew          func() uintptr
+	CppOptionsFree         func(opts uintptr)
+	CppOptionsSetModelPath func(opts uintptr, modelPath string) int32
+	CppOptionsSetBackend   func(opts uintptr, backend string) int32
+	CppOptionsSetDevice    func(opts uintptr, device int32) int32
+	CppNewWithOptions      func(opts uintptr) uintptr
+	CppFree                func(ctx uintptr)
+	CppProcessF32          func(ctx uintptr, mic, ref uintptr, nSamples int32, out uintptr) int32
+	CppProcessS16          func(ctx uintptr, mic, ref uintptr, nSamples int32, out uintptr) int32
+	CppProcessFrameF32     func(ctx uintptr, mic, ref uintptr, hopSamples int32, out uintptr) int32
+	CppProcessFrameS16     func(ctx uintptr, mic, ref uintptr, hopSamples int32, out uintptr) int32
+	CppReset               func(ctx uintptr)
+	CppLastError           func(ctx uintptr) string
+	CppSampleRate          func(ctx uintptr) int32
+	CppHopLength           func(ctx uintptr) int32
+	CppFFTSize             func(ctx uintptr) int32
+	CppSetNoiseGate        func(ctx uintptr, enabled int32, thresholdDBFS float32) int32
+	CppGetNoiseGate        func(ctx uintptr, enabledOut, thresholdDBFSOut uintptr) int32
 )
 
 // LocalVQE speaks gRPC against LocalVQE's flat C ABI. The streaming
@@ -490,11 +490,14 @@ func (v *LocalVQE) applyStreamConfig(cfg *pb.AudioTransformStreamConfig) error {
 
 // ---- WAV I/O ----------------------------------------------------------
 //
-// Minimal mono PCM WAV reader/writer. Only handles the subset LocalVQE
-// cares about (mono, 16-bit signed, no extensible chunks). For broader
-// audio support the HTTP layer's `audio.NormalizeAudioFile` already
-// converts arbitrary input to a canonical WAV before we see it; this
-// reader just decodes the canonical shape.
+// Reader/writer for the mono 16-bit PCM shape LocalVQE works with. Decoding
+// goes through the shared go-audio/wav decoder (as the whisper and parakeet
+// backends do) so RIFF chunk walking is handled robustly — an 18/40-byte
+// extensible `fmt ` chunk, or JUNK/bext/LIST metadata before or after `data`
+// (e.g. ffmpeg's trailing "Lavf" tag), is skipped rather than spliced into
+// the PCM stream as an audible click. The HTTP layer normalises arbitrary
+// input to WAV before we see it, but that WAV is ffmpeg output and is not
+// guaranteed to be the canonical 44-byte layout.
 
 func readMonoWAVf32(path string) ([]float32, int, error) {
 	f, err := os.Open(path)
@@ -502,35 +505,26 @@ func readMonoWAVf32(path string) ([]float32, int, error) {
 		return nil, 0, err
 	}
 	defer func() { _ = f.Close() }()
-	header := make([]byte, 44)
-	if _, err := io.ReadFull(f, header); err != nil {
-		return nil, 0, err
+
+	buf, err := wav.NewDecoder(f).FullPCMBuffer()
+	if err != nil {
+		return nil, 0, fmt.Errorf("decode WAV: %w", err)
 	}
-	if string(header[0:4]) != "RIFF" || string(header[8:12]) != "WAVE" {
+	if buf == nil || buf.Format == nil {
 		return nil, 0, fmt.Errorf("not a WAV file")
 	}
-	channels := binary.LittleEndian.Uint16(header[22:24])
-	sampleRate := binary.LittleEndian.Uint32(header[24:28])
-	bitsPerSample := binary.LittleEndian.Uint16(header[34:36])
-
-	if channels != 1 {
-		return nil, 0, fmt.Errorf("only mono WAV supported (got %d channels)", channels)
+	if buf.Format.NumChannels != 1 {
+		return nil, 0, fmt.Errorf("only mono WAV supported (got %d channels)", buf.Format.NumChannels)
 	}
-	if bitsPerSample != 16 {
-		return nil, 0, fmt.Errorf("only 16-bit PCM supported (got %d bits)", bitsPerSample)
+	if buf.SourceBitDepth != 16 {
+		return nil, 0, fmt.Errorf("only 16-bit PCM supported (got %d bits)", buf.SourceBitDepth)
 	}
-
-	rest, err := io.ReadAll(f)
-	if err != nil {
-		return nil, 0, err
+	if len(buf.Data) == 0 {
+		return nil, 0, fmt.Errorf("WAV has no audio data")
 	}
-	n := len(rest) / 2
-	out := make([]float32, n)
-	for i := 0; i < n; i++ {
-		s := int16(binary.LittleEndian.Uint16(rest[i*2 : i*2+2]))
-		out[i] = float32(s) / 32768.0
-	}
-	return out, int(sampleRate), nil
+	// AsFloat32Buffer normalises by 2^(bitDepth-1) == /32768 for 16-bit,
+	// matching the model's expected [-1, 1) input range.
+	return buf.AsFloat32Buffer().Data, buf.Format.SampleRate, nil
 }
 
 func writeMonoWAVf32(path string, samples []float32, sampleRate int) error {
@@ -546,13 +540,13 @@ func writeMonoWAVf32(path string, samples []float32, sampleRate int) error {
 	binary.LittleEndian.PutUint32(header[4:8], 36+dataLen)
 	copy(header[8:12], []byte("WAVE"))
 	copy(header[12:16], []byte("fmt "))
-	binary.LittleEndian.PutUint32(header[16:20], 16)        // fmt chunk size
-	binary.LittleEndian.PutUint16(header[20:22], 1)         // PCM
-	binary.LittleEndian.PutUint16(header[22:24], 1)         // mono
+	binary.LittleEndian.PutUint32(header[16:20], 16) // fmt chunk size
+	binary.LittleEndian.PutUint16(header[20:22], 1)  // PCM
+	binary.LittleEndian.PutUint16(header[22:24], 1)  // mono
 	binary.LittleEndian.PutUint32(header[24:28], uint32(sampleRate))
 	binary.LittleEndian.PutUint32(header[28:32], uint32(sampleRate*2)) // byte rate
-	binary.LittleEndian.PutUint16(header[32:34], 2)         // block align
-	binary.LittleEndian.PutUint16(header[34:36], 16)        // bits per sample
+	binary.LittleEndian.PutUint16(header[32:34], 2)                    // block align
+	binary.LittleEndian.PutUint16(header[34:36], 16)                   // bits per sample
 	copy(header[36:40], []byte("data"))
 	binary.LittleEndian.PutUint32(header[40:44], dataLen)
 	if _, err := f.Write(header); err != nil {

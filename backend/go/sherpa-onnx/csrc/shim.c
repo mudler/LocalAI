@@ -79,6 +79,13 @@ void sherpa_shim_tts_config_free(void *h) {
     free((char *)c->model.vits.tokens);
     free((char *)c->model.vits.lexicon);
     free((char *)c->model.vits.data_dir);
+    free((char *)c->model.kokoro.model);
+    free((char *)c->model.kokoro.voices);
+    free((char *)c->model.kokoro.tokens);
+    free((char *)c->model.kokoro.data_dir);
+    free((char *)c->model.kokoro.dict_dir);
+    free((char *)c->model.kokoro.lexicon);
+    free((char *)c->model.kokoro.lang);
     free((char *)c->model.provider);
     free(c);
 }
@@ -115,6 +122,34 @@ void sherpa_shim_tts_config_set_provider(void *h, const char *v) {
 }
 void sherpa_shim_tts_config_set_max_num_sentences(void *h, int32_t v) {
     ((SherpaOnnxOfflineTtsConfig *)h)->max_num_sentences = v;
+}
+
+// Kokoro multi-speaker / multi-lingual TTS. Distinct ONNX + a voices style
+// file (voices.bin) instead of VITS' single-speaker graph; espeak-ng-data,
+// lexicon and a language hint are optional refinements.
+void sherpa_shim_tts_config_set_kokoro_model(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.model, v);
+}
+void sherpa_shim_tts_config_set_kokoro_voices(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.voices, v);
+}
+void sherpa_shim_tts_config_set_kokoro_tokens(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.tokens, v);
+}
+void sherpa_shim_tts_config_set_kokoro_data_dir(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.data_dir, v);
+}
+void sherpa_shim_tts_config_set_kokoro_dict_dir(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.dict_dir, v);
+}
+void sherpa_shim_tts_config_set_kokoro_lexicon(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.lexicon, v);
+}
+void sherpa_shim_tts_config_set_kokoro_lang(void *h, const char *v) {
+    shim_set_str(&((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.lang, v);
+}
+void sherpa_shim_tts_config_set_kokoro_length_scale(void *h, float v) {
+    ((SherpaOnnxOfflineTtsConfig *)h)->model.kokoro.length_scale = v;
 }
 
 void *sherpa_shim_create_offline_tts(void *h) {

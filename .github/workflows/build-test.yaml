@@ -6,12 +6,20 @@ on:
       - master
   pull_request:
 
+# Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
+# so every push to the same PR shares a group; on a master push the key falls
+# back to github.sha (unique per commit) and cancel-in-progress is false, so
+# master runs never cancel each other -- each commit is built on its own.
+concurrency:
+  group: ci-build-test-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Set up Go
@@ -25,7 +33,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Set up Go
@@ -47,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Configure apt mirror on runner

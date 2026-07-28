@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "Kopieren",
-    "regenerate": "Neu generieren"
+    "regenerate": "Neu generieren",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "Modell wird übertragen...",

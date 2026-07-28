@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Archivo:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3E8D2;
+    --paper2:#ECDFC2;
+    --ink:#211C14;
+    --ink-soft:#5A5142;
+    --rust:#B43A2C;
+    --rust-deep:#8F2C20;
+    --cold:#3F6E73;
+    --hi:#E7D6AE;
+    --dim:#A99F88;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1600px;height:900px}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Archivo",sans-serif;
+    position:relative;overflow:hidden;
+    background-image:
+      linear-gradient(var(--paper2) 1px,transparent 1px),
+      linear-gradient(90deg,var(--paper2) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .frame{position:absolute;inset:26px;border:3px solid var(--ink);}
+  .wrap{position:absolute;inset:26px;padding:34px 60px 30px;display:flex;flex-direction:column}
+
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+  .eyebrow{font-weight:700;letter-spacing:.22em;text-transform:uppercase;font-size:18px;color:var(--rust-deep)}
+  .eyebrow b{color:var(--ink)}
+  h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:54px;line-height:.98;letter-spacing:-.015em;margin-top:8px}
+  h1 em{font-style:normal;color:var(--rust)}
+  .stamp{border:3px solid var(--ink);padding:11px 17px 9px;transform:rotate(3deg);text-align:center;background:var(--paper);box-shadow:6px 6px 0 var(--ink);flex:none}
+  .stamp .k{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;letter-spacing:.04em;line-height:1.05}
+  .stamp .s{font-weight:700;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px}
+
+  .stage{flex:1;margin-top:6px}
+  svg{width:100%;height:100%;overflow:visible}
+
+  footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:24px}
+  .note{font-weight:600;font-size:19px;color:var(--ink-soft);line-height:1.3;max-width:1050px}
+  .note b{color:var(--ink)}
+  .url{font-family:"Bricolage Grotesque";font-weight:800;font-size:23px;color:var(--rust-deep);letter-spacing:.01em;flex:none}
+  .url span{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow">LocalAI <b>&middot;</b> Architecture</div>
+        <h1>One small core.<br>Backends you <em>plug in</em>.</h1>
+      </div>
+      <div class="stamp">
+        <div class="k">ONLY&nbsp;WHAT</div>
+        <div class="s">you&nbsp;actually&nbsp;run</div>
+      </div>
+    </header>
+
+    <div class="stage"><svg viewBox="0 0 1480 540" id="svg"></svg></div>
+
+    <footer>
+      <div class="note">Run a model and the right engine is <b>pulled automatically</b>.<br>Each backend is its own image, optimized for one job. <b>Install nothing you don't use.</b></div>
+      <div class="url">localai.io</div>
+    </footer>
+  </div>
+
+<script>
+const INK="#211C14", PAPER="#F3E8D2", HI="#E7D6AE", SOFT="#5A5142", RUST="#B43A2C", RUSTD="#8F2C20", COLD="#3F6E73", DIM="#A99F88";
+function el(tag, attrs, txt){
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  if(txt!=null) e.textContent = txt;
+  return e;
+}
+const svg = document.getElementById("svg");
+
+// ---- geometry ----
+const CORE = {x:560, y:150, w:360, h:200};
+const coreCx = CORE.x + CORE.w/2, coreCy = CORE.y + CORE.h/2;
+const TW=320, TH=92;
+const LX=40, RX=1120;
+const rows=[4, 136, 268, 400];
+
+const left = [
+  {n:"llama.cpp",   s:"LLMs · GGUF"},
+  {n:"vLLM",        s:"high-throughput"},
+  {n:"MLX",         s:"Apple Silicon"},
+  {n:"whisper.cpp", s:"speech to text"},
+];
+const right = [
+  {n:"stable-diffusion", s:"image & video"},
+  {n:"kokoro",           s:"text to speech"},
+  {n:"parakeet.cpp",     s:"fast ASR"},
+  {n:"+ 30 more",        s:"in the gallery", more:true},
+];
+
+// ---- connectors (drawn first, under cards) ----
+function socket(x,y){ svg.appendChild(el("rect",{x:x-6,y:y-6,width:12,height:12,fill:INK})); }
+function connector(x1,y1,x2,y2,more){
+  svg.appendChild(el("line",{x1,y1,x2,y2,stroke:more?DIM:INK,"stroke-width":4,"stroke-dasharray":"6 5","stroke-linecap":"round"}));
+  socket(x1,y1); socket(x2,y2);
+}
+left.forEach((t,i)=>{
+  const ty=rows[i]+TH/2;
+  connector(CORE.x, coreCy + (i-1.5)*42, LX+TW, ty, t.more);
+});
+right.forEach((t,i)=>{
+  const ty=rows[i]+TH/2;
+  connector(CORE.x+CORE.w, coreCy + (i-1.5)*42, RX, ty, t.more);
+});
+
+// ---- backend tiles ----
+function tile(x,row,t){
+  const y=row;
+  if(!t.more) svg.appendChild(el("rect",{x:x+6,y:y+6,width:TW,height:TH,fill:INK}));
+  svg.appendChild(el("rect",{x,y,width:TW,height:TH,fill:t.more?PAPER:"#EFE0BF",
+    stroke:t.more?DIM:INK,"stroke-width":3.5,"stroke-dasharray":t.more?"4 7":"none"}));
+  svg.appendChild(el("text",{x:x+22,y:y+40,"font-family":"Bricolage Grotesque","font-weight":800,"font-size":26,fill:t.more?SOFT:INK},t.n));
+  svg.appendChild(el("text",{x:x+22,y:y+66,"font-family":"Archivo","font-weight":700,"font-size":15,"letter-spacing":".02em",fill:t.more?DIM:SOFT},t.s));
+  if(!t.more){
+    const bw=134,bh=24,bx=x+TW-bw-16,by=y+TH-bh-14;
+    svg.appendChild(el("rect",{x:bx,y:by,width:bw,height:bh,fill:PAPER,stroke:INK,"stroke-width":2}));
+    svg.appendChild(el("text",{x:bx+bw/2,y:by+17,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":11,"letter-spacing":".05em",fill:RUSTD},"SEPARATE IMAGE"));
+  }
+}
+left.forEach((t,i)=> tile(LX, rows[i], t));
+right.forEach((t,i)=> tile(RX, rows[i], t));
+
+// ---- core (drawn last, on top) ----
+svg.appendChild(el("rect",{x:CORE.x+9,y:CORE.y+9,width:CORE.w,height:CORE.h,fill:INK}));
+svg.appendChild(el("rect",{x:CORE.x,y:CORE.y,width:CORE.w,height:CORE.h,fill:RUST,stroke:INK,"stroke-width":4}));
+svg.appendChild(el("text",{x:coreCx,y:CORE.y+52,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":15,"letter-spacing":".22em",fill:HI},"THE CORE"));
+svg.appendChild(el("text",{x:coreCx,y:CORE.y+104,"text-anchor":"middle","font-family":"Bricolage Grotesque","font-weight":800,"font-size":48,fill:PAPER},"LocalAI"));
+svg.appendChild(el("text",{x:coreCx,y:CORE.y+140,"text-anchor":"middle","font-family":"Archivo","font-weight":700,"font-size":17,fill:"#F1D9C8"},"one API · routing · agents · gallery · WebUI"));
+const tagW=190,tagH=30,tagX=coreCx-tagW/2,tagY=CORE.y+CORE.h-40;
+svg.appendChild(el("rect",{x:tagX,y:tagY,width:tagW,height:tagH,fill:HI,stroke:INK,"stroke-width":2.5}));
+svg.appendChild(el("text",{x:coreCx,y:tagY+21,"text-anchor":"middle","font-family":"Bricolage Grotesque","font-weight":800,"font-size":16,"letter-spacing":".04em",fill:INK},"ONE SMALL BINARY"));
+</script>
+</body>
+</html>

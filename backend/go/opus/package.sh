@@ -8,13 +8,23 @@ mkdir -p $CURDIR/package/lib
 cp -avf $CURDIR/opus $CURDIR/package/
 cp -avf $CURDIR/run.sh $CURDIR/package/
 
-# Copy the opus shim library
-cp -avf $CURDIR/libopusshim.so $CURDIR/package/lib/
+# The shim extension is OS-specific (.so on Linux, .dylib on macOS).
+SHIM_EXT=so
+if [ "$(uname)" = "Darwin" ]; then
+    SHIM_EXT=dylib
+fi
 
-# Copy system libopus
+# Copy the opus shim library
+cp -avf $CURDIR/libopusshim.$SHIM_EXT $CURDIR/package/lib/
+
+# Copy system libopus so the backend is self-contained: the runtime base
+# image has neither libopus-dev (Linux) nor Homebrew (macOS), so codec.go's
+# dlopen would otherwise fail. Both name patterns are attempted; only the
+# host's matching one exists.
 if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists opus; then
     LIBOPUS_DIR=$(pkg-config --variable=libdir opus)
-    cp -avfL $LIBOPUS_DIR/libopus.so* $CURDIR/package/lib/ 2>/dev/null || true
+    cp -avf $LIBOPUS_DIR/libopus.so* $CURDIR/package/lib/ 2>/dev/null || true
+    cp -avf $LIBOPUS_DIR/libopus*.dylib $CURDIR/package/lib/ 2>/dev/null || true
 fi
 
 # Detect architecture and copy appropriate libraries
@@ -38,6 +48,8 @@ elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
     cp -arfLv /lib/aarch64-linux-gnu/libdl.so.2 $CURDIR/package/lib/libdl.so.2
     cp -arfLv /lib/aarch64-linux-gnu/librt.so.1 $CURDIR/package/lib/librt.so.1
     cp -arfLv /lib/aarch64-linux-gnu/libpthread.so.0 $CURDIR/package/lib/libpthread.so.0
+elif [ "$(uname -s)" = "Darwin" ]; then
+    echo "Detected Darwin — system libraries linked dynamically, no bundled loader needed"
 else
     echo "Warning: Could not detect architecture for system library bundling"
 fi

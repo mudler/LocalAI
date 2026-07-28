@@ -2,10 +2,13 @@ import { useState, useRef } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
+import PageHeader from '../components/PageHeader'
 import { CAP_IMAGE } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
 import MediaHistory from '../components/MediaHistory'
+import Lightbox from '../components/Lightbox'
+import GenerationProgress from '../components/GenerationProgress'
 import { imageApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 
@@ -32,6 +35,12 @@ export default function ImageGen() {
   const sourceRef = useRef(null)
   const refRef = useRef(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('image')
+  const [lightboxIdx, setLightboxIdx] = useState(null)
+
+  // The images currently on screen (a picked history entry, else the latest run).
+  const displayImages = selectedEntry
+    ? selectedEntry.results.map(r => ({ url: r.url, alt: selectedEntry.prompt }))
+    : images.map(img => ({ url: img.url || `data:image/png;base64,${img.b64_json}`, alt: prompt }))
 
   const handleGenerate = async (e) => {
     e.preventDefault()
@@ -84,9 +93,7 @@ export default function ImageGen() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <div className="page-header">
-          <h1 className="page-title"><i className="fas fa-image" /> {t('image.title')}</h1>
-        </div>
+        <PageHeader title={<><i className="fas fa-image" /> {t('image.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -149,23 +156,16 @@ export default function ImageGen() {
       <div className="media-preview">
         <div className="media-result">
           {loading ? (
-            <LoadingSpinner size="lg" />
+            <GenerationProgress count={count} label={t('image.actions.generating')} />
           ) : error ? (
             <ErrorWithTraceLink message={error} />
-          ) : selectedEntry ? (
+          ) : displayImages.length > 0 ? (
             <div className="media-result-grid">
-              {selectedEntry.results.map((r, i) => (
-                <div key={i}>
-                  <img src={r.url} alt={selectedEntry.prompt} style={{ width: '100%', borderRadius: 'var(--radius-md)' }} />
-                </div>
-              ))}
-            </div>
-          ) : images.length > 0 ? (
-            <div className="media-result-grid">
-              {images.map((img, i) => (
-                <div key={i}>
-                  <img src={img.url || `data:image/png;base64,${img.b64_json}`} alt={prompt} style={{ width: '100%', borderRadius: 'var(--radius-md)' }} />
-                </div>
+              {displayImages.map((im, i) => (
+                <button type="button" key={i} className="media-result-thumb" onClick={() => setLightboxIdx(i)} title={t('image.actions.view')} aria-label={t('image.actions.view')}>
+                  <img src={im.url} alt={im.alt} />
+                  <span className="media-result-thumb__zoom" aria-hidden="true"><i className="fas fa-expand" /></span>
+                </button>
               ))}
             </div>
           ) : (
@@ -175,6 +175,9 @@ export default function ImageGen() {
             </div>
           )}
         </div>
+        {lightboxIdx !== null && (
+          <Lightbox images={displayImages} index={lightboxIdx} onIndex={setLightboxIdx} onClose={() => setLightboxIdx(null)} />
+        )}
       </div>
     </div>
   )

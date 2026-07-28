@@ -91,7 +91,7 @@ page in the frontend shows the node as fully used, check two things:
    to your `docker run`, or `capabilities: [gpu, utility]` in compose /
    Kubernetes device reservations.
 2. Pass `--init` to `docker run` (or `init: true` in compose) so the
-   container has a proper PID 1 reaper — otherwise short-lived child
+   container has a proper PID 1 reaper - otherwise short-lived child
    processes like `nvidia-smi` can intermittently fail with
    `waitid: no child processes`.
 

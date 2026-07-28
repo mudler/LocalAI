@@ -70,7 +70,7 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		name := c.Param("name")
+		name := decodedParam(c, "name")
 		file, err := c.FormFile("file")
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "file required"})
@@ -116,7 +116,7 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		entries, err := svc.ListCollectionEntriesForUser(userID, c.Param("name"))
+		entries, err := svc.ListCollectionEntriesForUser(userID, decodedParam(c, "name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -139,7 +139,7 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 		if err != nil {
 			entry = entryParam
 		}
-		content, chunkCount, err := svc.GetCollectionEntryContentForUser(userID, c.Param("name"), entry)
+		content, chunkCount, err := svc.GetCollectionEntryContentForUser(userID, decodedParam(c, "name"), entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -164,7 +164,7 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		results, err := svc.SearchCollectionForUser(userID, c.Param("name"), payload.Query, payload.MaxResults)
+		results, err := svc.SearchCollectionForUser(userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -182,7 +182,7 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		if err := svc.ResetCollectionForUser(userID, c.Param("name")); err != nil {
+		if err := svc.ResetCollectionForUser(userID, decodedParam(c, "name")); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
@@ -202,7 +202,7 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		remaining, err := svc.DeleteCollectionEntryForUser(userID, c.Param("name"), payload.Entry)
+		remaining, err := svc.DeleteCollectionEntryForUser(userID, decodedParam(c, "name"), payload.Entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -230,7 +230,7 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 		if payload.UpdateInterval < 1 {
 			payload.UpdateInterval = 60
 		}
-		if err := svc.AddCollectionSourceForUser(userID, c.Param("name"), payload.URL, payload.UpdateInterval); err != nil {
+		if err := svc.AddCollectionSourceForUser(userID, decodedParam(c, "name"), payload.URL, payload.UpdateInterval); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
@@ -250,7 +250,7 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := svc.RemoveCollectionSourceForUser(userID, c.Param("name"), payload.URL); err != nil {
+		if err := svc.RemoveCollectionSourceForUser(userID, decodedParam(c, "name"), payload.URL); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -267,7 +267,7 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 		if err != nil {
 			entry = entryParam
 		}
-		fpath, err := svc.GetCollectionEntryFilePathForUser(userID, c.Param("name"), entry)
+		fpath, err := svc.GetCollectionEntryFilePathForUser(userID, decodedParam(c, "name"), entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -282,7 +282,7 @@ func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFun
 	return func(c echo.Context) error {
 		svc := app.AgentPoolService()
 		userID := effectiveUserID(c)
-		sources, err := svc.ListCollectionSourcesForUser(userID, c.Param("name"))
+		sources, err := svc.ListCollectionSourcesForUser(userID, decodedParam(c, "name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})

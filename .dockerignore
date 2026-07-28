@@ -31,6 +31,15 @@ backend/python/**/source
 backend/cpp/llama-cpp/llama.cpp
 backend/cpp/llama-cpp-*-build
 
+# privacy-filter: same in-place pattern. The Makefile fetches privacy-filter.cpp
+# at the pinned commit (or symlinks a PRIVACY_FILTER_SRC checkout for local dev).
+# A stale dir/symlink COPY'd into the image makes the clone step fail (dangling
+# symlink) or compile against the wrong commit, so keep host build state out.
+backend/cpp/privacy-filter/privacy-filter.cpp
+backend/cpp/privacy-filter/build
+backend/cpp/privacy-filter/grpc-server
+backend/cpp/privacy-filter/package
+
 # Rust backend build output (sources are tracked; target/ is generated)
 backend/rust/*/target
 

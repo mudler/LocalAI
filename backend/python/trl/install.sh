@@ -8,7 +8,13 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
-EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
+EXTRA_PIP_INSTALL_FLAGS+=" --upgrade"
+# --index-strategy is a uv-only flag. The darwin/MPS build installs with pip
+# (USE_PIP=true in scripts/build/python-darwin.sh), which rejects it. Only add
+# it when uv is the installer, keeping the Linux/CUDA resolution unchanged.
+if [ "x${USE_PIP:-}" != "xtrue" ]; then
+    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-first-match"
+fi
 installRequirements
 
 # Fetch convert_hf_to_gguf.py and gguf package from the same llama.cpp version
@@ -35,3 +41,11 @@ else
         uv pip install "gguf>=0.16.0"
     }
 fi
+
+# The stubs generated at the end of installRequirements were built against the
+# protobuf runtime as it stood before the installs above, which resolve their own
+# dependencies and can move that runtime. Regenerate now that the dependency set
+# is final, so the gencode stamped into backend_pb2.py cannot be newer than the
+# runtime that ships. Same failure mode as mudler/LocalAI#10718; runProtogen
+# clears the previous stubs first, so this is idempotent.
+runProtogen

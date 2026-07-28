@@ -65,7 +65,12 @@ RUN <<EOT bash
             libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
             git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
             ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
-            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils
+            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils && \
+        apt-get install -y mesa-vulkan-drivers libdrm2
+        # Mesa Vulkan ICD drivers (ANV/RADV/lavapipe) + their manifests. The
+        # LunarG SDK below only provides the loader and shader tooling, not
+        # hardware drivers — without Mesa, package-gpu-libs.sh has no ICD to
+        # bundle and the packaged backend finds no GPU at runtime.
         if [ "amd64" = "$TARGETARCH" ]; then
             wget "https://sdk.lunarg.com/sdk/download/1.4.335.0/linux/vulkansdk-linux-x86_64-1.4.335.0.tar.xz" && \
             tar -xf vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
@@ -132,7 +137,7 @@ RUN <<EOT bash
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
             apt-get install -y --no-install-recommends \
-            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} libcudnn9-dev-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         fi
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
@@ -205,6 +210,43 @@ RUN if [ "${BACKEND}" = "opus" ]; then \
     apt-get update && apt-get install -y --no-install-recommends libopus-dev pkg-config && \
     apt-get clean && rm -rf /var/lib/apt/lists/*; \
 fi
+
+# CrispASR's piper TTS backend dlopens libespeak-ng at runtime to phonemize
+# non-English text (the MIT-clean path; English uses a built-in G2P). Install
+# the espeak-ng runtime + its libpcaudio/libsonic deps + voice data so
+# package.sh can bundle them into the FROM scratch image.
+RUN if [ "${BACKEND}" = "crispasr" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends \
+        espeak-ng-data libespeak-ng1 libpcaudio0 libsonic0 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*; \
+fi
+
+# sherpa-onnx links onnxruntime's CUDA execution provider, and
+# libonnxruntime_providers_cuda.so has cuDNN as a hard DT_NEEDED. The
+# onnxruntime GPU tarball does not ship cuDNN itself, so without this the
+# builder has none (the arm64 + CUDA 13 branch above is the only other place
+# that installs it) and package-gpu-libs.sh correctly refuses to produce a
+# package that references cuDNN with no cuDNN available to it.
+#
+# Installed per-backend rather than for every cublas build: the auto-detection
+# in package-gpu-libs.sh bundles only what a package actually references, so
+# the ggml backends would not grow either way, but they would all pay ~1.1 GB
+# of builder layer and registry cache for a library they never call.
+#
+# Runtime package only, no -dev: sherpa-onnx consumes onnxruntime's prebuilt
+# CUDA provider and never compiles against cuDNN headers. libcudnn9-cuda-N
+# carries the dispatcher plus all seven dlopen()ed sublibraries, which is what
+# complete_cudnn_family needs to assemble a whole bundle.
+RUN <<EOT bash
+    if [ "${BACKEND}" = "sherpa-onnx" ] && [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            libcudnn9-cuda-${CUDA_MAJOR_VERSION} && \
+        ldconfig && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
 
 COPY . /LocalAI
 

@@ -72,6 +72,7 @@
     "asr": "语音识别",
     "tts": "文字转语音",
     "image": "图像 / 视频",
+    "video": "视频生成",
     "embeddings": "嵌入",
     "reranker": "重排器",
     "detection": "对象检测",

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
 
-CURDIR=$(dirname "$(realpath $0)")
+CURDIR=$(dirname "$(realpath "$0")")
 
-exec $CURDIR/local-store "$@"
+exec "$CURDIR"/local-store "$@"

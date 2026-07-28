@@ -26,6 +26,10 @@ type SystemState struct {
 	BackendImagesReleaseTag string
 	BackendImagesBranchTag  string
 	BackendDevSuffix        string
+	// PreferDevelopmentBackends installs the development image as the primary
+	// backend URI (the released image becomes a fallback) rather than only using
+	// development as a download fallback when the released image is missing.
+	PreferDevelopmentBackends bool
 }
 
 type SystemStateOptions func(*SystemState)
@@ -63,6 +67,12 @@ func WithBackendImagesBranchTag(tag string) SystemStateOptions {
 func WithBackendDevSuffix(suffix string) SystemStateOptions {
 	return func(s *SystemState) {
 		s.BackendDevSuffix = suffix
+	}
+}
+
+func WithPreferDevelopmentBackends(prefer bool) SystemStateOptions {
+	return func(s *SystemState) {
+		s.PreferDevelopmentBackends = prefer
 	}
 }
 

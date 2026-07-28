@@ -12,6 +12,9 @@ const MOCK_METADATA = {
     { path: 'cuda', yaml_key: 'cuda', go_type: 'bool', ui_type: 'bool', section: 'general', label: 'CUDA', description: 'Enable CUDA GPU acceleration', component: 'toggle', order: 30 },
     { path: 'parameters.temperature', yaml_key: 'temperature', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Temperature', description: 'Sampling temperature', component: 'slider', min: 0, max: 2, step: 0.1, order: 0 },
     { path: 'parameters.top_p', yaml_key: 'top_p', go_type: '*float64', ui_type: 'float', section: 'parameters', label: 'Top P', description: 'Nucleus sampling threshold', component: 'slider', min: 0, max: 1, step: 0.05, order: 10 },
+    { path: 'pii_detection.builtins', yaml_key: 'builtins', go_type: '[]string', ui_type: '[]string', section: 'general', label: 'Built-in Secret Patterns', description: 'Built-in credential patterns', component: 'pii-builtins-select', options: [{ value: 'anthropic_api_key', label: 'anthropic_api_key — Anthropic API key' }, { value: 'github_token', label: 'github_token — GitHub token' }], order: 213 },
+    { path: 'pii_detection.patterns', yaml_key: 'patterns', go_type: '[]config.PIIPattern', ui_type: 'object', section: 'general', label: 'Custom Secret Patterns', description: 'Operator-defined restricted-regex patterns', component: 'pii-pattern-list', order: 214 },
+    { path: 'pii_detection.entity_actions', yaml_key: 'entity_actions', go_type: 'map[string]string', ui_type: 'map', section: 'general', label: 'Detector Entity Actions', description: 'Per-entity-group action policy', component: 'entity-action-list', order: 212 },
   ],
 }
 
@@ -222,6 +225,156 @@ test.describe('Model Editor - Interactive Tab', () => {
 
     await expect(page.getByText(/~\s*5\.2 GiB VRAM/)).toBeVisible({ timeout: 10_000 })
     expect(estimateCalled).toBe(true)
+  })
+
+  test('interactive tab scrolls at body height (no inner overflow pane) and tracks the active section', async ({ page }) => {
+    // Regression: the form sections used to live inside an overflow:auto pane
+    // with maxHeight: calc(100vh - 340px), which kept the global footer in
+    // view on every screen and ate ~50px of editing room on short windows.
+    // Pin two pieces of the fix:
+    //  1. The two-column container (sticky nav + content) has no scrollable
+    //     inner element on its content side — body-scroll handles overflow.
+    //  2. The active-section tracker now listens to window scroll. Scrolling
+    //     the window should run the tracker without throwing, and the
+    //     `<nav>` sidebar must still render.
+    const contentOverflowY = await page.evaluate(() => {
+      const sidebar = document.querySelector('nav')
+      // The content column is the next sibling of the sticky sidebar.
+      const content = sidebar?.nextElementSibling
+      return content ? getComputedStyle(content).overflowY : 'no-content'
+    })
+    expect(['visible', 'normal', 'auto', 'scroll', 'no-content']).toContain(contentOverflowY)
+    expect(contentOverflowY).not.toBe('scroll')
+    // 'auto' could exist on some browsers but should NOT — the fix removes it.
+    // We assert the strong invariant separately.
+    expect(['auto']).not.toContain(contentOverflowY)
+
+    // Add a couple of fields to give the page a touch more height, then
+    // force a window scroll. The tracker should run; the sidebar should
+    // remain visible.
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Temperature')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Temperature' }).first().click()
+    await page.evaluate(() => window.scrollTo(0, 200))
+    await page.waitForTimeout(50)
+    await expect(page.locator('nav').first()).toBeVisible()
+  })
+
+  test('built-in secret patterns render as a checklist from field options', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Built-in Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Built-in Secret Patterns' }).first().click()
+
+    // One checkbox per catalogue option; toggling one enables Save.
+    const anthropic = page.locator('label', { hasText: 'Anthropic API key' }).locator('input[type="checkbox"]')
+    await expect(anthropic).toHaveCount(1)
+    await anthropic.check()
+    await expect(anthropic).toBeChecked()
+  })
+
+  test('custom secret patterns render the pattern-list editor', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Custom Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Custom Secret Patterns' }).first().click()
+
+    // Empty state + an Add button; adding a row shows the name + match inputs.
+    const addBtn = page.locator('button', { hasText: 'Add pattern' })
+    await expect(addBtn).toBeVisible()
+    await addBtn.click()
+    await expect(page.locator('input[placeholder^="Name (group)"]')).toBeVisible()
+    await expect(page.locator('input[placeholder^="match,"]')).toBeVisible()
+  })
+
+  test('pattern min_len clamps a directly-typed negative to 0', async ({ page }) => {
+    const searchInput = page.locator('input[placeholder="Search fields to add..."]')
+    await searchInput.fill('Custom Secret Patterns')
+    const dropdown = searchInput.locator('..').locator('..')
+    await dropdown.locator('div', { hasText: 'Custom Secret Patterns' }).first().click()
+
+    await page.locator('button', { hasText: 'Add pattern' }).click()
+    // The number input's min={0} only limits the spinner arrows, not keyboard
+    // entry; the editor must sanitise a typed negative so a meaningless
+    // negative length floor never reaches the saved config.
+    const minLen = page.locator('input[aria-label="Minimum length"]')
+    await minLen.fill('-5')
+    await expect(minLen).toHaveValue('0')
+  })
+
+  // Regression: a map-typed field (entity_actions) present in the loaded YAML
+  // must render WITH its values. flattenConfig used to recurse into the map,
+  // scattering it across pii_detection.entity_actions.<GROUP> paths that match
+  // no registered field, so the editor showed neither the field nor the
+  // per-entity policy (e.g. SSN -> block) the operator had configured.
+  test('entity_actions map field present in YAML renders with its values', async ({ page }) => {
+    // Override the edit endpoint for this test: YAML that carries a populated
+    // entity_actions map alongside a scalar sibling (default_action).
+    await page.route('**/api/models/edit/ner-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'ner-model',
+          config: [
+            'name: ner-model',
+            'backend: llama-cpp',
+            'pii_detection:',
+            '    default_action: mask',
+            '    entity_actions:',
+            '        SSN: block',
+            '        EMAIL: mask',
+            '',
+          ].join('\n'),
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/ner-model')
+
+    // The entity-action-list editor is rendered (field label visible)…
+    await expect(page.getByText('Detector Entity Actions').first()).toBeVisible()
+    // …and bound to the existing map: one row per configured group, in order.
+    const groupInputs = page.locator('input[aria-label="Entity group"]')
+    await expect(groupInputs).toHaveCount(2)
+    await expect(groupInputs.nth(0)).toHaveValue('SSN')
+    await expect(groupInputs.nth(1)).toHaveValue('EMAIL')
+    // The action select shows the bound action label (block), proving the map
+    // values bound, not just an empty editor.
+    await expect(page.getByText(/block —/i).first()).toBeVisible()
+  })
+
+  // A map cannot hold two values for one key, so renaming a row to an existing
+  // group must collapse to a single row (Object.fromEntries, last write wins)
+  // rather than rendering two conflicting rows that silently lose one on save.
+  test('entity_actions collapses a duplicate group to a single row', async ({ page }) => {
+    await page.route('**/api/models/edit/ner-model', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          name: 'ner-model',
+          config: [
+            'name: ner-model',
+            'backend: llama-cpp',
+            'pii_detection:',
+            '    entity_actions:',
+            '        SSN: block',
+            '        EMAIL: mask',
+            '',
+          ].join('\n'),
+        }),
+      })
+    })
+
+    await page.goto('/app/model-editor/ner-model')
+
+    const groupInputs = page.locator('input[aria-label="Entity group"]')
+    await expect(groupInputs).toHaveCount(2)
+
+    // Rename the EMAIL row to duplicate SSN; the editor collapses to one SSN row.
+    await groupInputs.nth(1).fill('SSN')
+    await expect(groupInputs).toHaveCount(1)
+    await expect(groupInputs.nth(0)).toHaveValue('SSN')
   })
 
 })

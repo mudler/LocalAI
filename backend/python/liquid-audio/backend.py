@@ -23,6 +23,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors  # noqa: E402
+from model_utils import resolve_model_reference  # noqa: E402
 from python_utils import parse_options  # noqa: E402
 
 import backend_pb2  # noqa: E402
@@ -172,19 +173,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 "fp32":     torch.float32,
             }.get(dtype_name, torch.bfloat16)
 
-            # request.Model holds the raw `parameters.model` value (an HF
-            # repo id like "LiquidAI/LFM2.5-Audio-1.5B"); request.ModelFile
-            # is LocalAI's ModelPath-prefixed local copy that exists only
-            # when the gallery supplied a `files:` list. Mirror the
-            # transformers/vibevoice convention: prefer the repo id and
-            # only switch to the local path if it's been staged on disk.
-            model_id = request.Model
-            if not model_id:
-                model_id = request.ModelFile
+            # `_local_only` distinguishes a staged snapshot from the legacy
+            # repository fallback. liquid_audio has no matching Hub keyword,
+            # so the compatibility shim below enforces local loading instead.
+            model_id, _local_only = resolve_model_reference(
+                request, "LiquidAI/LFM2.5-Audio-1.5B"
+            )
             if not model_id:
                 return backend_pb2.Result(success=False, message="No model identifier provided")
-            if request.ModelFile and os.path.isdir(request.ModelFile):
-                model_id = request.ModelFile
             self.model_id = model_id
 
             # Pure fine-tune jobs don't need an in-memory inference model — the

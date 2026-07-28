@@ -24,6 +24,11 @@ type TranscriptionResult struct {
 	Text     string                 `json:"text"`
 	Language string                 `json:"language,omitempty"`
 	Duration float64                `json:"duration,omitempty"`
+	// Eou reports that the decode ended on the model's end-of-utterance
+	// special token (emitted by streaming-EOU models such as
+	// parakeet_realtime_eou_120m-v1; always false elsewhere). The marker
+	// itself never appears in Text.
+	Eou bool `json:"eou,omitempty"`
 }
 
 type TranscriptionSegmentSeconds struct {

@@ -15,7 +15,9 @@ cp -avf $CURDIR/localvqe $CURDIR/package/
 # liblocalvqe.so* (with SOVERSION symlinks) and the libggml-*.so runtime
 # variants — LocalVQE picks the matching CPU variant at load time.
 cp -P $CURDIR/liblocalvqe.so* $CURDIR/package/ 2>/dev/null || true
+cp -P $CURDIR/liblocalvqe.dylib $CURDIR/package/ 2>/dev/null || true
 cp -P $CURDIR/libggml*.so* $CURDIR/package/ 2>/dev/null || true
+cp -P $CURDIR/libggml*.dylib $CURDIR/package/ 2>/dev/null || true
 cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries

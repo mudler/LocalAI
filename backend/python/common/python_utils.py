@@ -58,7 +58,18 @@ def messages_to_dicts(proto_messages):
             d["reasoning_content"] = msg.reasoning_content
         if msg.tool_calls:
             try:
-                d["tool_calls"] = json.loads(msg.tool_calls)
+                tool_calls = json.loads(msg.tool_calls)
+                # Chat templates (e.g. Qwen) iterate function.arguments as a
+                # mapping, but the OpenAI wire format carries it as a JSON
+                # string — decode it back so the template's .items() works.
+                for tc in tool_calls:
+                    fn = tc.get("function") if isinstance(tc, dict) else None
+                    if isinstance(fn, dict) and isinstance(fn.get("arguments"), str):
+                        try:
+                            fn["arguments"] = json.loads(fn["arguments"])
+                        except json.JSONDecodeError:
+                            pass
+                d["tool_calls"] = tool_calls
             except json.JSONDecodeError:
                 pass
         result.append(d)

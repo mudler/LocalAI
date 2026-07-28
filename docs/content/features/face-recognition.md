@@ -1,26 +1,105 @@
 +++
 disableToc = false
 title = "Face Recognition"
-weight = 14
+weight = 42
 url = "/features/face-recognition/"
 +++
 
-LocalAI supports face recognition through the `insightface` backend:
-face verification (1:1), face identification (1:N) against a built-in
-vector store, face embedding, face detection, demographic analysis
-(age / gender), and antispoofing / liveness detection.
+![Face recognition: 1:N match against a vector store, with an anti-spoofing liveness gate that can veto a verification](/images/diagrams/face-recognition-flow.png)
 
-The backend ships **two interchangeable engines** under one image, each
-paired with a distinct gallery entry so users can pick by license and
-accuracy needs.
+LocalAI supports face recognition: face verification (1:1), face
+identification (1:N) against a built-in vector store, face embedding,
+face detection, demographic analysis (age / gender), and antispoofing /
+liveness detection.
 
-## Licensing — read this first
+The same `/v1/face/*` HTTP API is served by two backends:
+
+- **`face-detect` (recommended, default).** A standalone C++/ggml
+  engine ([face-detect.cpp](https://github.com/mudler/face-detect.cpp)):
+  no Python, no onnxruntime, no torch runtime. Each gallery entry is a
+  single self-describing GGUF. This is the recommended option for new
+  deployments.
+- **`insightface` (Python).** The original ONNX Runtime backend. Still
+  supported; see [the Python backend](#insightface-python-backend) below.
+
+Both backends expose the identical wire format, so the API examples in
+this page work with either - only the gallery entry name (the `model`
+field) changes.
+
+## face-detect (ggml) backend
+
+The `face-detect` backend reads the detector and recognizer architecture
+(`facedetect.arch`) directly from the GGUF metadata, so installing a
+gallery entry is all that is needed to select an engine. It drives the
+Embeddings / Detect / FaceVerify / FaceAnalyze gRPC rpcs behind the
+`/v1/face/{embed,verify,analyze,detect,register,identify,forget}`
+endpoints.
+
+### Licensing - read this first
+
+| Gallery entry | Detector + recognizer | Embedding dim | License |
+|---|---|---|---|
+| `face-detect-buffalo-l` | SCRFD-10GF + ArcFace R50 + GenderAge | 512 | **Non-commercial research only** (upstream insightface weights) |
+| `face-detect-buffalo-m` | SCRFD-2.5GF + ArcFace R50 + GenderAge | 512 | **Non-commercial research only** |
+| `face-detect-buffalo-s` | SCRFD-500MF + MBF + GenderAge | 512 | **Non-commercial research only** |
+| `face-detect-yunet-sface` | YuNet + SFace (OpenCV Zoo) | 128 | **Apache 2.0 - commercial-safe** |
+
+The insightface buffalo packs (buffalo_l / buffalo_m / buffalo_s) are
+released by the upstream maintainers for **non-commercial research use
+only**. Pick the `face-detect-yunet-sface` entry for production /
+commercial deployments.
+
+### Quickstart
+
+Install the commercial-safe entry (recommended for copy-paste):
+
+```bash
+local-ai models install face-detect-yunet-sface
+```
+
+Verify that two images depict the same person:
+
+```bash
+curl -sX POST http://localhost:8080/v1/face/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "face-detect-yunet-sface",
+    "img1": "https://example.com/alice_1.jpg",
+    "img2": "https://example.com/alice_2.jpg"
+  }'
+```
+
+Detect faces and analyze demographics (buffalo entries populate
+age / gender; YuNet + SFace returns regions only):
+
+```bash
+curl -sX POST http://localhost:8080/v1/face/detect \
+  -H "Content-Type: application/json" \
+  -d '{"model": "face-detect-buffalo-l", "img": "https://example.com/group.jpg"}'
+
+curl -sX POST http://localhost:8080/v1/face/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"model": "face-detect-buffalo-l", "img": "https://example.com/alice.jpg"}'
+```
+
+The 1:N register / identify / forget workflow and the rest of the API
+are identical to the [API reference](#api-reference) below - just pass a
+`face-detect-*` model name. The per-engine verify thresholds are ~0.35
+for the buffalo ArcFace/MBF recognizers and ~0.363 for SFace.
+
+## insightface (Python) backend
+
+The `insightface` backend ships **two interchangeable engines** under
+one image, each paired with a distinct gallery entry so users can pick
+by license and accuracy needs.
+
+### Licensing - read this first
 
 | Gallery entry | Detector + recognizer | Size | License |
 |---|---|---|---|
 | `insightface-buffalo-l` | SCRFD-10GF + ArcFace R50 + GenderAge | ~326 MB | **Non-commercial research only** (upstream insightface weights) |
 | `insightface-buffalo-s` | SCRFD-500MF + MBF + GenderAge | ~159 MB | **Non-commercial research only** |
-| `insightface-opencv` | YuNet + SFace | ~40 MB | **Apache 2.0 — commercial-safe** |
+| `insightface-opencv` | YuNet + SFace | ~40 MB | **Apache 2.0 - commercial-safe** |
 
 The `insightface` Python library itself is MIT, but the pretrained model
 packs (buffalo_l, buffalo_s, antelopev2) are released by the upstream
@@ -65,7 +144,7 @@ Response:
 ## 1:N identification workflow (register → identify → forget)
 
 This is the primary "face recognition" flow. Under the hood it uses
-LocalAI's built-in in-memory vector store — no external database to
+LocalAI's built-in in-memory vector store - no external database to
 stand up.
 
 1. Register known faces:
@@ -105,7 +184,7 @@ stand up.
 {{% notice warning %}}
 **Storage caveat.** The default vector store is in-memory. All
 registered faces are lost when LocalAI restarts. Persistent storage
-(pgvector) is a tracked future enhancement — the face-recognition HTTP
+(pgvector) is a tracked future enhancement - the face-recognition HTTP
 API is designed to swap the backing store without changing the wire
 format.
 {{% /notice %}}
@@ -119,7 +198,7 @@ format.
 | `model` | string | gallery entry name (e.g. `insightface-buffalo-l`) |
 | `img1`, `img2` | string | URL, base64, or data-URI |
 | `threshold` | float, optional | cosine-distance cutoff; default depends on engine |
-| `anti_spoofing` | bool, optional | also run MiniFASNet liveness on each image — see [Antispoofing](#antispoofing-liveness-detection) |
+| `anti_spoofing` | bool, optional | also run MiniFASNet liveness on each image - see [Antispoofing](#antispoofing-liveness-detection) |
 
 Returns `verified`, `distance`, `threshold`, `confidence`, `model`,
 `img1_area`, `img2_area`, and `processing_time_ms`. When
@@ -140,7 +219,7 @@ Returns demographic attributes for every detected face:
 
 Only `insightface-buffalo-l` / `insightface-buffalo-s` populate age and
 gender (genderage head). `insightface-opencv` returns face regions with
-empty attributes — SFace has no demographic classifier. Emotion and
+empty attributes - SFace has no demographic classifier. Emotion and
 race are always empty in the current release.
 
 ### `POST /v1/face/register` (1:N enrollment)
@@ -194,12 +273,12 @@ SFace.
 
 > **Note:** the OpenAI-compatible `/v1/embeddings` endpoint is
 > intentionally text-only by contract (`input` is a string or list of
-> strings of TEXT to embed) — passing an image data-URI there does
+> strings of TEXT to embed) - passing an image data-URI there does
 > nothing useful. Use `/v1/face/embed` for image inputs.
 
 ### Reused endpoint
 
-- `POST /v1/detection` — returns face bounding boxes with
+- `POST /v1/detection` - returns face bounding boxes with
   `class_name: "face"`; works for both engines.
 
 ## Antispoofing (liveness detection)
@@ -209,7 +288,7 @@ MiniFASNetV2 + MiniFASNetV1SE ensemble (Apache 2.0, ~4 MB total, CPU-only)
 alongside the face recognition weights. Set `anti_spoofing: true` on
 `/v1/face/verify` or `/v1/face/analyze` to run liveness on each detected
 face. The two models look at different crop scales and their softmax
-outputs are averaged before argmax — the upstream-recommended setup.
+outputs are averaged before argmax - the upstream-recommended setup.
 
 `/v1/face/verify` with liveness gating:
 
@@ -244,7 +323,7 @@ Response (fields added when `anti_spoofing` is enabled):
 ```
 
 If either image fails liveness (`is_real=false`), `verified` is forced
-to `false` — similarity alone is not enough.
+to `false` - similarity alone is not enough.
 
 `/v1/face/analyze` reports per-face `is_real` and `antispoof_score`
 when the flag is set.
@@ -252,14 +331,14 @@ when the flag is set.
 **Fail-loud semantics.** If `anti_spoofing: true` is sent against a
 model installed without the MiniFASNet files (e.g. a custom entry that
 only listed the face recognition weights), the request returns a gRPC
-`FAILED_PRECONDITION` error — the endpoint will never silently return
+`FAILED_PRECONDITION` error - the endpoint will never silently return
 `is_real=false`. Re-install the gallery entry or point the backend at a
 model that bundles the MiniFASNet ONNX files.
 
 {{% notice info %}}
 The MiniFASNet score is best at catching **printed photos and screen
 replays**. Deepfake videos and high-quality prosthetics are out of
-scope — liveness here is a low-cost first line of defence, not a
+scope - liveness here is a low-cost first line of defence, not a
 guarantee. For higher assurance, combine with challenge-response (e.g.
 ask the user to turn their head).
 {{% /notice %}}
@@ -281,14 +360,14 @@ The recommended default `threshold` for `/v1/face/verify` and
 | MBF (`buffalo_s`) | ~0.40 |
 | SFace (`opencv`) | ~0.50 |
 
-Pass `threshold` explicitly when switching engines — the per-engine
+Pass `threshold` explicitly when switching engines - the per-engine
 default only fires when the field is omitted.
 
 ## Related features
 
-- [Object Detection](/features/object-detection/) — generic bounding-box
+- [Object Detection](/features/object-detection/) - generic bounding-box
   detection; `/v1/detection` works with the insightface backend too.
-- [Embeddings](/features/embeddings/) — raw vector extraction; face
+- [Embeddings](/features/embeddings/) - raw vector extraction; face
   embeddings live in the same endpoint under the hood.
-- [Stores](/features/stores/) — the generic vector store powering the
+- [Stores](/features/stores/) - the generic vector store powering the
   1:N recognition pipeline.

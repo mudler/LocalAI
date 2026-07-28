@@ -1,4 +1,9 @@
 {
+  "unsaved": {
+    "title": "Scartare le modifiche non salvate?",
+    "message": "Hai modifiche non salvate che andranno perse se esci da questa pagina.",
+    "leave": "Esci"
+  },
   "actions": {
     "save": "Salva",
     "saving": "Salvataggio...",

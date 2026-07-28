@@ -19,6 +19,7 @@ type Model struct {
 	client          grpc.Backend
 	process         *process.Process
 	lastHealthCheck time.Time
+	healthMu        sync.Mutex
 	sync.Mutex
 }
 

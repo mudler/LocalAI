@@ -210,6 +210,13 @@ definitions:
           $ref: '#/definitions/gallery.NodeDriftInfo'
         type: array
     type: object
+  gallery.Variant:
+    properties:
+      model:
+        description: Model is the name of a gallery entry that declares no variants
+          of its own.
+        type: string
+    type: object
   galleryop.NodeProgress:
     properties:
       current:
@@ -239,6 +246,8 @@ definitions:
       cancelled:
         description: Cancelled is true if the operation was cancelled
         type: boolean
+      current_bytes:
+        type: integer
       deletion:
         description: Deletion is true if the operation is a deletion
         type: boolean
@@ -262,10 +271,14 @@ definitions:
         items:
           $ref: '#/definitions/galleryop.NodeProgress'
         type: array
+      phase:
+        type: string
       processed:
         type: boolean
       progress:
         type: number
+      total_bytes:
+        type: integer
     type: object
   localai.APIInstructionResponse:
     properties:
@@ -280,6 +293,13 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  localai.AliasInfo:
+    properties:
+      name:
+        type: string
+      target:
+        type: string
     type: object
   localai.BrandingResponse:
     properties:
@@ -296,6 +316,12 @@ definitions:
     type: object
   localai.GalleryBackend:
     properties:
+      force:
+        description: |-
+          Force reinstalls the backend even when it is already installed and
+          runnable. Off by default so apply stays idempotent for supervising
+          apps that ensure their backend on every boot.
+        type: boolean
       id:
         type: string
     type: object
@@ -353,6 +379,27 @@ definitions:
         items:
           type: string
         type: array
+      variant:
+        description: |-
+          Variant installs one specific build of an entry that declares variants,
+          named as it appears in the entry's `variants` list (see the `variants`
+          and `auto_variant` fields of the gallery listing). Leave it empty to let
+          LocalAI auto-select the largest build this host can actually run.
+        type: string
+      variants:
+        description: |-
+          Variants is an optional, UNORDERED list of alternative builds of the same
+          model (other backends such as MLX or vLLM, other quantizations) that the
+          installer may pick instead of this entry's own payload. Authoring is
+          deliberately dumb: name the models, and the selector works out which one
+          this host should get.
+
+          The entry itself is always the last resort, so an entry carrying variants
+          stays a complete, installable entry and older LocalAI releases, which drop
+          this key, install it exactly as before.
+        items:
+          $ref: '#/definitions/gallery.Variant'
+        type: array
     type: object
   localai.ModelResponse:
     properties:
@@ -376,6 +423,20 @@ definitions:
         description: Value is the new per-model replica cap on this node. Must be
           >= 1.
         type: integer
+    type: object
+  localai.UpdateVRAMBudgetRequest:
+    properties:
+      value:
+        description: Value is the VRAM cap ("80%" or "12GB"). Empty string clears
+          the cap.
+        type: string
+    type: object
+  localai.VoiceProfileListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/voiceprofile.Profile'
+        type: array
     type: object
   model.BackendLogLine:
     properties:
@@ -413,6 +474,38 @@ definitions:
       vram_bytes:
         type: integer
       vram_display:
+        type: string
+    type: object
+  nodes.NodeModel:
+    properties:
+      address:
+        description: gRPC address for this replica's backend process
+        type: string
+      backend_type:
+        description: e.g. "llama-cpp"; used by reconciler to replicate loads
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      in_flight:
+        description: number of active requests on this replica
+        type: integer
+      last_used:
+        type: string
+      loading_by:
+        description: frontend ID that triggered loading
+        type: string
+      model_name:
+        type: string
+      node_id:
+        type: string
+      replica_index:
+        type: integer
+      state:
+        description: staging, loading, loaded, unloading, idle
+        type: string
+      updated_at:
         type: string
     type: object
   proto.MemoryUsageData:
@@ -459,6 +552,16 @@ definitions:
       start:
         type: number
     type: object
+  schema.APIError:
+    properties:
+      code: {}
+      message:
+        type: string
+      param:
+        type: string
+      type:
+        type: string
+    type: object
   schema.AnthropicContentBlock:
     properties:
       content: {}
@@ -471,9 +574,13 @@ definitions:
         type: boolean
       name:
         type: string
+      signature:
+        type: string
       source:
         $ref: '#/definitions/schema.AnthropicImageSource'
       text:
+        type: string
+      thinking:
         type: string
       tool_use_id:
         type: string
@@ -519,6 +626,13 @@ definitions:
         type: string
       temperature:
         type: number
+      thinking:
+        allOf:
+        - $ref: '#/definitions/schema.AnthropicThinkingParam'
+        description: |-
+          Thinking gates extended-thinking output. We only surface thinking
+          content blocks when the client explicitly opts in, matching Anthropic's
+          API where thinking is off unless requested.
       tool_choice: {}
       tools:
         items:
@@ -549,6 +663,14 @@ definitions:
         type: string
       usage:
         $ref: '#/definitions/schema.AnthropicUsage'
+    type: object
+  schema.AnthropicThinkingParam:
+    properties:
+      budget_tokens:
+        type: integer
+      type:
+        description: '"enabled" | "disabled"'
+        type: string
     type: object
   schema.AnthropicTool:
     properties:
@@ -593,6 +715,91 @@ definitions:
         $ref: '#/definitions/schema.Message'
       text:
         type: string
+    type: object
+  schema.DepthRequest:
+    properties:
+      dst:
+        description: optional output directory for exports (glb/colmap)
+        type: string
+      exports:
+        description: 'requested exports: "glb", "colmap"'
+        items:
+          type: string
+        type: array
+      image:
+        description: URL or base64-encoded image to analyze
+        type: string
+      include_confidence:
+        description: return the per-pixel confidence map (DualDPT)
+        type: boolean
+      include_depth:
+        description: return the per-pixel depth map
+        type: boolean
+      include_points:
+        description: back-project to a 3D point cloud (DualDPT)
+        type: boolean
+      include_pose:
+        description: return camera extrinsics/intrinsics (DualDPT)
+        type: boolean
+      include_sky:
+        description: return the per-pixel sky map (mono models)
+        type: boolean
+      model:
+        type: string
+      points_conf_thresh:
+        description: keep points with confidence >= this threshold
+        type: number
+    type: object
+  schema.DepthResponse:
+    properties:
+      confidence:
+        description: width*height row-major confidence (DualDPT)
+        items:
+          type: number
+        type: array
+      depth:
+        description: width*height row-major metric depth
+        items:
+          type: number
+        type: array
+      export_paths:
+        description: paths written for the requested exports
+        items:
+          type: string
+        type: array
+      extrinsics:
+        description: 12 floats, 3x4 row-major (world-to-camera)
+        items:
+          type: number
+        type: array
+      height:
+        type: integer
+      intrinsics:
+        description: 9 floats, 3x3 row-major
+        items:
+          type: number
+        type: array
+      is_metric:
+        description: depth is in metric units
+        type: boolean
+      num_points:
+        description: number of 3D points
+        type: integer
+      point_colors:
+        description: base64-encoded num_points*3 uint8 rgb
+        type: string
+      points:
+        description: num_points*3 xyz, world space
+        items:
+          type: number
+        type: array
+      sky:
+        description: width*height row-major sky map (mono)
+        items:
+          type: number
+        type: array
+      width:
+        type: integer
     type: object
   schema.Detection:
     properties:
@@ -722,6 +929,11 @@ definitions:
         type: string
       vocal_language:
         type: string
+    type: object
+  schema.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/schema.APIError'
     type: object
   schema.FaceAnalysis:
     properties:
@@ -1231,6 +1443,60 @@ definitions:
         items:
           $ref: '#/definitions/schema.ToolCall'
         type: array
+    type: object
+  schema.ModelCapabilities:
+    properties:
+      capabilities:
+        description: |-
+          Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
+          tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      input_modalities:
+        description: InputModalities is the subset of {text,image,audio,video} the
+          model accepts.
+        items:
+          type: string
+        type: array
+      object:
+        type: string
+      output_modalities:
+        description: OutputModalities is the subset of {text,image,audio,video} the
+          model produces.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelCapabilitiesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.ModelCapabilities'
+        type: array
+      object:
+        type: string
+    type: object
+  schema.ModelLoadRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  schema.ModelLoadResponse:
+    properties:
+      loaded:
+        description: |-
+          Loaded lists the model names actually resident in memory after the call.
+          For a pipeline model these are its sub-models, not the pipeline name.
+        items:
+          type: string
+        type: array
+      message:
+        description: Message is a short human-readable status ("model loaded", or
+          an error).
+        type: string
     type: object
   schema.ModelsDataResponse:
     properties:
@@ -1865,44 +2131,75 @@ definitions:
           $ref: '#/definitions/schema.NodeData'
         type: array
     type: object
-  schema.PIIDecideRequest:
+  schema.PIIAnalyzeRequest:
     properties:
-      text:
-        description: Text is the user-visible content to inspect. Required.
-        type: string
-    type: object
-  schema.PIIDecideResponse:
-    properties:
-      findings:
+      detectors:
         description: |-
-          Findings is one entry per matched span — pattern id, byte
-          range, and audit-safe hash prefix (never the matched value).
+          Detectors names the detector models to run (NER and/or pattern). Takes
+          precedence over Model.
         items:
-          $ref: '#/definitions/schema.PIIFinding'
+          type: string
         type: array
-      redacted_preview:
+      model:
         description: |-
-          RedactedPreview is the input with mask-action spans replaced
-          by their placeholders. Identical to Text when no findings or
-          when the strongest action is block/route_local (which don't
-          rewrite content).
+          Model is a consuming model whose effective PII policy (own
+          pii.detectors, else the instance default detectors; PII must be
+          enabled) is used when Detectors is empty.
         type: string
-      suggested_action:
+      reveal:
         description: |-
-          SuggestedAction is the strongest action across all findings:
-          "block", "route_local", "mask", or "allow" (no findings).
+          Reveal includes the per-entity hash_prefix in the response. Honoured
+          only for admin callers; ignored otherwise. The raw matched value is
+          never returned regardless.
+        type: boolean
+      text:
+        description: |-
+          Text is the string to scan. Bounded only by the server's global HTTP
+          body limit.
         type: string
     type: object
-  schema.PIIFinding:
+  schema.PIIAnalyzeResponse:
     properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+    type: object
+  schema.PIIEntity:
+    properties:
+      action:
+        type: string
       end:
         type: integer
+      entity_type:
+        type: string
       hash_prefix:
         type: string
-      pattern:
+      score:
+        type: number
+      source:
         type: string
       start:
         type: integer
+    type: object
+  schema.PIIRedactResponse:
+    properties:
+      blocked:
+        type: boolean
+      correlation_id:
+        type: string
+      entities:
+        items:
+          $ref: '#/definitions/schema.PIIEntity'
+        type: array
+      masked:
+        type: boolean
+      redacted_text:
+        type: string
     type: object
   schema.RouterDecideRequest:
     properties:
@@ -1964,6 +2261,24 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SoundClassification:
+    properties:
+      index:
+        type: integer
+      label:
+        type: string
+      score:
+        type: number
+    type: object
+  schema.SoundClassificationResult:
+    properties:
+      detections:
+        items:
+          $ref: '#/definitions/schema.SoundClassification'
+        type: array
+      model:
+        type: string
+    type: object
   schema.StreamOptions:
     properties:
       include_usage:
@@ -1996,17 +2311,39 @@ definitions:
       input:
         description: text input
         type: string
+      instructions:
+        description: |-
+          Instructions is a free-form, per-request style/voice description. It maps to
+          the OpenAI `instructions` field and is forwarded to the backend so expressive
+          TTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed
+          voice per request instead of only via the static YAML option.
+        type: string
       language:
         description: (optional) language to use with TTS model
         type: string
       model:
         type: string
+      params:
+        additionalProperties:
+          type: string
+        description: |-
+          Params carries optional, backend-specific per-request generation parameters
+          (LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).
+        type: object
       response_format:
         description: (optional) output format
         type: string
       sample_rate:
         description: (optional) desired output sample rate
         type: integer
+      speed:
+        description: |-
+          Speed is the OpenAI `speed` field (0.25-4.0). It is a pointer so an
+          explicit `"speed": 0` (invalid, rejected with 400) is distinguishable
+          from an omitted field (left at the backend default). It is normalised
+          into Params["speed"] so it reaches the backend over the same channel as
+          the other per-request generation parameters.
+        type: number
       stream:
         description: (optional) enable streaming TTS
         type: boolean
@@ -2105,6 +2442,9 @@ definitions:
     type: object
   schema.VideoRequest:
     properties:
+      audio:
+        description: URL or base64 audio for audio-conditioned generation
+        type: string
       cfg_scale:
         description: classifier-free guidance scale
         type: number
@@ -2128,6 +2468,11 @@ definitions:
       num_frames:
         description: total number of frames to generate
         type: integer
+      params:
+        additionalProperties:
+          type: string
+        description: backend-specific generation parameters
+        type: object
       prompt:
         description: text description of the video to generate
         type: string
@@ -2326,6 +2671,44 @@ definitions:
         type: string
       url:
         description: Webhook endpoint URL
+        type: string
+    type: object
+  voiceprofile.AudioMetadata:
+    properties:
+      bit_depth:
+        type: integer
+      channels:
+        type: integer
+      duration_ms:
+        type: integer
+      mime_type:
+        type: string
+      sample_rate:
+        type: integer
+      size_bytes:
+        type: integer
+    type: object
+  voiceprofile.Profile:
+    properties:
+      audio:
+        $ref: '#/definitions/voiceprofile.AudioMetadata'
+      consent_confirmed_at:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      language:
+        type: string
+      name:
+        type: string
+      transcript:
+        type: string
+      updated_at:
+        type: string
+      voice:
         type: string
     type: object
 info:
@@ -2650,6 +3033,18 @@ paths:
       summary: Execute an agent task by name
       tags:
       - agent-jobs
+  /api/aliases:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/localai.AliasInfo'
+            type: array
+      summary: List model aliases
+      tags:
+      - models
   /api/backend-logs:
     get:
       description: Returns a sorted list of model IDs that have captured backend process
@@ -2706,8 +3101,24 @@ paths:
       - monitoring
   /api/backend-traces:
     get:
-      description: Returns captured backend traces (LLM calls, embeddings, TTS, etc.)
-        in reverse chronological order
+      description: Returns a bounded, newest-first page of captured backend traces
+        (LLM calls, embeddings, TTS, etc). The heavy body and data fields are omitted
+        unless full=true; fetch them per-trace from /api/backend-traces/{id}. Paging
+        metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit
+        headers.
+      parameters:
+      - description: Maximum entries to return (default 50, max 1000, 0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of entries to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include the body and data payloads (default false)
+        in: query
+        name: full
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2717,6 +3128,31 @@ paths:
             additionalProperties: true
             type: object
       summary: List backend operation traces
+      tags:
+      - monitoring
+  /api/backend-traces/{id}:
+    get:
+      description: Returns a single captured backend trace, including the body and
+        data payloads omitted from the list response
+      parameters:
+      - description: Trace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Backend operation trace
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one backend operation trace
       tags:
       - monitoring
   /api/backend-traces/clear:
@@ -3054,6 +3490,74 @@ paths:
       summary: Update a node's max replicas per model
       tags:
       - Nodes
+  /api/nodes/{id}/vram-budget:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset a node's VRAM budget to the worker default
+      tags:
+      - Nodes
+    put:
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New value (\
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.UpdateVRAMBudgetRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: invalid budget
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update a node's VRAM allocation budget
+      tags:
+      - Nodes
+  /api/nodes/models:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/nodes.NodeModel'
+            type: array
+      summary: List all loaded models cluster-wide
+      tags:
+      - Nodes
   /api/p2p:
     get:
       responses:
@@ -3076,32 +3580,54 @@ paths:
       summary: Show the P2P token
       tags:
       - p2p
-  /api/pii/decide:
+  /api/pii/analyze:
     post:
-      consumes:
-      - application/json
+      description: 'Runs the configured PII detectors (NER and/or pattern tiers) over
+        the supplied text and returns the matched entity spans with the policy action
+        that would fire. Detection only — the text is not modified and no block is
+        enforced. Select detectors explicitly via `detectors`, or pass a consuming
+        `model` to use its effective policy: the model''s own `pii.detectors`, else
+        the instance-wide `pii_default_detectors`. A model with PII disabled, or enabled
+        with nothing to scan with, is a 400. The raw matched value is never returned;
+        admins may set `reveal:true` for the audit hash prefix.'
       parameters:
-      - description: decide params
+      - description: text + detector selection
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/schema.PIIDecideRequest'
-      produces:
-      - application/json
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
       responses:
         "200":
-          description: OK
+          description: Detected entities
           schema:
-            $ref: '#/definitions/schema.PIIDecideResponse'
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/schema.PIIAnalyzeResponse'
+      summary: Detect PII entities in a string (no mutation).
+      tags:
+      - pii
+  /api/pii/redact:
+    post:
+      description: 'Runs the configured PII detectors over the text and applies each
+        detector model''s policy: masked spans are replaced with `[REDACTED:<id>]`,
+        allow spans pass through, and a single block action causes a 400 (type `pii_blocked`)
+        carrying the offending entities — the text is never returned in that case.
+        Select detectors via `detectors`, or a consuming `model`''s effective policy
+        (its own `pii.detectors`, else the instance-wide `pii_default_detectors`;
+        PII must be enabled on the model). Records audit events (origin `pii_redact`)
+        visible at /api/pii/events.'
+      parameters:
+      - description: text + detector selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PIIAnalyzeRequest'
+      responses:
+        "200":
+          description: Redacted text + entities
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Scan text for PII and return findings + suggested action (decision
-        oracle)
+            $ref: '#/definitions/schema.PIIRedactResponse'
+      summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
   /api/router/decide:
@@ -3151,8 +3677,23 @@ paths:
       - router
   /api/traces:
     get:
-      description: Returns captured API exchange traces (request/response pairs) in
-        reverse chronological order
+      description: Returns a bounded, newest-first page of captured API exchange traces.
+        Request and response bodies plus headers are omitted unless full=true; fetch
+        them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count,
+        X-Trace-Offset and X-Trace-Limit headers.
+      parameters:
+      - description: Maximum entries to return (default 50, max 1000, 0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of entries to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include request/response bodies and headers (default false)
+        in: query
+        name: full
+        type: boolean
       produces:
       - application/json
       responses:
@@ -3164,6 +3705,31 @@ paths:
       summary: List API request/response traces
       tags:
       - monitoring
+  /api/traces/{id}:
+    get:
+      description: Returns a single captured API exchange, including the request and
+        response bodies omitted from the list response
+      parameters:
+      - description: Trace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Traced API exchange
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Trace not found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one API trace
+      tags:
+      - monitoring
   /api/traces/clear:
     post:
       description: Removes all captured API request/response traces from the buffer
@@ -3173,6 +3739,124 @@ paths:
       summary: Clear API traces
       tags:
       - monitoring
+  /api/voice-profiles:
+    get:
+      description: List saved voice-cloning references without exposing filesystem
+        paths.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.VoiceProfileListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List voice profiles
+      tags:
+      - audio
+      - voice-profiles
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Save a consent-confirmed PCM WAV reference clip and exact transcript
+        for voice cloning. Admin-only.
+      parameters:
+      - description: Display name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Optional description
+        in: formData
+        name: description
+        type: string
+      - description: Optional language tag
+        in: formData
+        name: language
+        type: string
+      - description: Exact transcript of the reference clip
+        in: formData
+        name: transcript
+        required: true
+        type: string
+      - description: Confirms authorization to clone the voice
+        in: formData
+        name: consent_confirmed
+        required: true
+        type: boolean
+      - description: 16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to
+          50 MiB
+        in: formData
+        name: audio
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/voiceprofile.Profile'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a voice profile
+      tags:
+      - audio
+      - voice-profiles
+  /api/voice-profiles/{id}:
+    delete:
+      description: Permanently remove a saved voice-cloning profile. Admin-only.
+      parameters:
+      - description: Voice profile UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a voice profile
+      tags:
+      - audio
+      - voice-profiles
+  /api/voice-profiles/{id}/audio:
+    get:
+      description: Stream the saved reference WAV for an authenticated TTS user.
+      parameters:
+      - description: Voice profile UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview voice profile audio
+      tags:
+      - audio
+      - voice-profiles
   /audio/transform:
     post:
       consumes:
@@ -3271,6 +3955,38 @@ paths:
       summary: Bidirectional realtime audio transform over WebSocket.
       tags:
       - audio
+  /backend/load:
+    post:
+      consumes:
+      - application/json
+      description: Loads the named model (or, for a realtime pipeline, all of its
+        sub-models) into memory so subsequent requests pay no cold-start cost. The
+        inverse of /backend/shutdown.
+      parameters:
+      - description: Model to load
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Model loaded
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "400":
+          description: Missing model name
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+        "500":
+          description: Load failed (Loaded lists any sub-models that did load)
+          schema:
+            $ref: '#/definitions/schema.ModelLoadResponse'
+      summary: Pre-load a model into memory
+      tags:
+      - monitoring
   /backend/monitor:
     get:
       parameters:
@@ -3599,6 +4315,37 @@ paths:
       summary: Generates audio from the input text.
       tags:
       - audio
+  /v1/audio/classification:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: number of top tags to return (0 = backend default)
+        in: formData
+        name: top_k
+        type: integer
+      - description: drop tags scoring below this value
+        in: formData
+        name: threshold
+        type: number
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SoundClassificationResult'
+      summary: Classify sound events in audio (audio tagging).
+      tags:
+      - audio
   /v1/audio/diarization:
     post:
       consumes:
@@ -3754,6 +4501,23 @@ paths:
       summary: Generate completions for a given prompt and model.
       tags:
       - inference
+  /v1/depth:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DepthRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DepthResponse'
+      summary: Estimates per-pixel depth (and optionally pose/points) from an image.
+      tags:
+      - depth
   /v1/detection:
     post:
       parameters:
@@ -4018,6 +4782,16 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelsDataResponse'
       summary: List and describe the various models available in the API.
+      tags:
+      - models
+  /v1/models/capabilities:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelCapabilitiesResponse'
+      summary: List available models enriched with capabilities and input/output modalities.
       tags:
       - models
   /v1/rerank:
@@ -4321,7 +5095,7 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
-      summary: Creates a video given a prompt.
+      summary: Creates a video from a prompt and optional image or audio conditioning.
       tags:
       - video
   /ws/backend-logs/{modelId}:

@@ -670,7 +670,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             arr = img_tensor.numpy()
             image = Image.fromarray(arr)
             dst = request.dst or os.path.join(tempfile.gettempdir(), "tinygrad_image.png")
-            image.save(dst)
+            # Force PNG rather than letting Pillow guess from the extension: the
+            # core passes a staging path ending in .tmp, which Pillow can't map
+            # to a format ("unknown file extension: .tmp").
+            image.save(dst, format="PNG")
             return backend_pb2.Result(success=True, message=dst)
         except Exception as exc:
             import traceback

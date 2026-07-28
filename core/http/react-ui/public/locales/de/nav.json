@@ -13,11 +13,18 @@
   "account": "Konto",
   "accountFor": "Konto: {{name}}",
   "sections": {
-    "tools": "Werkzeuge",
-    "enhance": "Verbessern",
-    "biometrics": "Biometrie",
-    "agents": "Agenten",
-    "system": "System"
+    "create": "Erstellen",
+    "recognition": "Erkennung",
+    "build": "Entwickeln",
+    "operate": "Betrieb"
+  },
+  "operate": {
+    "inference": "Inference",
+    "cluster": "Cluster",
+    "observability": "Observability",
+    "access": "Access",
+    "system": "System",
+    "activity": "Activity"
   },
   "items": {
     "home": "Start",
@@ -27,6 +34,11 @@
     "talk": "Sprechen",
     "fineTune": "Fine-Tuning (Experimentell)",
     "quantize": "Quantisierung (Experimentell)",
+    "faces": "Gesichter",
+    "voices": "Stimmen",
+    "jobs": "Aufgaben",
+    "operate": "Verwaltung",
+    "host": "Host",
     "audioTransform": "Audio transformieren",
     "faceRecognition": "Gesichtserkennung",
     "voiceRecognition": "Spracherkennung",
@@ -39,15 +51,22 @@
     "backends": "Backends",
     "traces": "Traces",
     "nodes": "Knoten",
+    "scheduling": "Planung",
     "swarm": "Swarm",
     "system": "System",
     "settings": "Einstellungen",
-    "api": "API"
+    "api": "API",
+    "middleware": "Middleware",
+    "activity": "Aktivität"
   },
   "footer": {
     "github": "GitHub",
     "documentation": "Dokumentation",
     "author": "Autor",
     "copyright": "© 2023-{{year}} {{author}}"
+  },
+  "console": {
+    "automation": "Automatisierung",
+    "training": "Training"
   }
 }

@@ -1,15 +1,6 @@
-## Clip/LLaVA library for multimodal support — built locally from copied sources
-set(TARGET myclip)
-add_library(${TARGET} clip.cpp clip.h llava.cpp llava.h)
-install(TARGETS ${TARGET} LIBRARY)
-target_include_directories(myclip PUBLIC .)
-target_include_directories(myclip PUBLIC ../..)
-target_include_directories(myclip PUBLIC ../../common)
-target_link_libraries(${TARGET} PRIVATE common ggml llama ${CMAKE_THREAD_LIBS_INIT})
-target_compile_features(${TARGET} PRIVATE cxx_std_11)
-if (NOT MSVC)
-    target_compile_options(${TARGET} PRIVATE -Wno-cast-qual)
-endif()
+## Multimodal support is provided by the in-tree `mtmd` library target
+## (examples/mtmd/), which the grpc-server links and includes below. clip/llava
+## were pruned upstream; the high-level mtmd_* / mtmd_helper_* API is used instead.
 
 set(TARGET grpc-server)
 set(CMAKE_CXX_STANDARD 17)
@@ -67,12 +58,16 @@ add_library(hw_grpc_proto
   ${hw_proto_hdrs} )
 
 add_executable(${TARGET} grpc-server.cpp json.hpp)
-target_link_libraries(${TARGET} PRIVATE common llama myclip ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
+# mtmd public headers (mtmd.h / mtmd-helper.h) live in examples/mtmd/.
+# Linking the mtmd target also propagates this include dir, but we add it
+# explicitly for clarity.
+target_include_directories(${TARGET} PRIVATE ../mtmd)
+target_link_libraries(${TARGET} PRIVATE common llama mtmd ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
   absl::flags_parse
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}
   protobuf::${_PROTOBUF_LIBPROTOBUF})
-target_compile_features(${TARGET} PRIVATE cxx_std_11)
+target_compile_features(${TARGET} PRIVATE cxx_std_17)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)
 endif()

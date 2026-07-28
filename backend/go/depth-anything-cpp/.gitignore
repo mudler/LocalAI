@@ -1,0 +1,7 @@
+sources/
+build*/
+package/
+libdepthanythingcpp*.so
+depth-anything-cpp
+test-models/
+test-data/

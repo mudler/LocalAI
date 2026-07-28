@@ -8,7 +8,7 @@ jobs:
     if: github.repository == 'mudler/LocalAI'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure apt mirror on runner
         uses: ./.github/actions/configure-apt-mirror
       - name: Install dependencies

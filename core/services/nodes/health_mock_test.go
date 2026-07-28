@@ -169,6 +169,12 @@ func (c *fakeBackendClient) SoundGeneration(_ context.Context, _ *pb.SoundGenera
 func (c *fakeBackendClient) Detect(_ context.Context, _ *pb.DetectOptions, _ ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) SoundDetection(_ context.Context, _ *pb.SoundDetectionRequest, _ ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) FaceVerify(_ context.Context, _ *pb.FaceVerifyRequest, _ ...ggrpc.CallOption) (*pb.FaceVerifyResponse, error) {
 	return nil, nil
 }
@@ -233,6 +239,9 @@ func (c *fakeBackendClient) AudioTransformStream(_ context.Context, _ ...ggrpc.C
 	return nil, nil
 }
 func (c *fakeBackendClient) AudioToAudioStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioToAudioStreamClient, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
 }
 func (c *fakeBackendClient) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {

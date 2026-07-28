@@ -500,6 +500,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aliases": {
+            "get": {
+                "tags": [
+                    "models"
+                ],
+                "summary": "List model aliases",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/localai.AliasInfo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/backend-logs": {
             "get": {
                 "description": "Returns a sorted list of model IDs that have captured backend process output",
@@ -580,7 +599,7 @@ const docTemplate = `{
         },
         "/api/backend-traces": {
             "get": {
-                "description": "Returns captured backend traces (LLM calls, embeddings, TTS, etc.) in reverse chronological order",
+                "description": "Returns a bounded, newest-first page of captured backend traces (LLM calls, embeddings, TTS, etc). The heavy body and data fields are omitted unless full=true; fetch them per-trace from /api/backend-traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
                 "produces": [
                     "application/json"
                 ],
@@ -588,6 +607,26 @@ const docTemplate = `{
                     "monitoring"
                 ],
                 "summary": "List backend operation traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default 50, max 1000, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include the body and data payloads (default false)",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Backend operation traces",
@@ -609,6 +648,42 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/backend-traces/{id}": {
+            "get": {
+                "description": "Returns a single captured backend trace, including the body and data payloads omitted from the list response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get one backend operation trace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Backend operation trace",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1002,6 +1077,25 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/nodes/models": {
+            "get": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List all loaded models cluster-wide",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/nodes.NodeModel"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/max-replicas-per-model": {
             "put": {
                 "tags": [
@@ -1086,6 +1180,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/nodes/{id}/vram-budget": {
+            "put": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Update a node's VRAM allocation budget",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New value (\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpdateVRAMBudgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "invalid budget",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Reset a node's VRAM budget to the worker default",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
                 "tags": [
@@ -1121,43 +1299,57 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/pii/decide": {
+        "/api/pii/analyze": {
             "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "Runs the configured PII detectors (NER and/or pattern tiers) over the supplied text and returns the matched entity spans with the policy action that would fire. Detection only — the text is not modified and no block is enforced. Select detectors explicitly via ` + "`" + `detectors` + "`" + `, or pass a consuming ` + "`" + `model` + "`" + ` to use its effective policy: the model's own ` + "`" + `pii.detectors` + "`" + `, else the instance-wide ` + "`" + `pii_default_detectors` + "`" + `. A model with PII disabled, or enabled with nothing to scan with, is a 400. The raw matched value is never returned; admins may set ` + "`" + `reveal:true` + "`" + ` for the audit hash prefix.",
                 "tags": [
                     "pii"
                 ],
-                "summary": "Scan text for PII and return findings + suggested action (decision oracle)",
+                "summary": "Detect PII entities in a string (no mutation).",
                 "parameters": [
                     {
-                        "description": "decide params",
+                        "description": "text + detector selection",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/schema.PIIDecideRequest"
+                            "$ref": "#/definitions/schema.PIIAnalyzeRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Detected entities",
                         "schema": {
-                            "$ref": "#/definitions/schema.PIIDecideResponse"
+                            "$ref": "#/definitions/schema.PIIAnalyzeResponse"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
+                    }
+                }
+            }
+        },
+        "/api/pii/redact": {
+            "post": {
+                "description": "Runs the configured PII detectors over the text and applies each detector model's policy: masked spans are replaced with ` + "`" + `[REDACTED:\u003cid\u003e]` + "`" + `, allow spans pass through, and a single block action causes a 400 (type ` + "`" + `pii_blocked` + "`" + `) carrying the offending entities — the text is never returned in that case. Select detectors via ` + "`" + `detectors` + "`" + `, or a consuming ` + "`" + `model` + "`" + `'s effective policy (its own ` + "`" + `pii.detectors` + "`" + `, else the instance-wide ` + "`" + `pii_default_detectors` + "`" + `; PII must be enabled on the model). Records audit events (origin ` + "`" + `pii_redact` + "`" + `) visible at /api/pii/events.",
+                "tags": [
+                    "pii"
+                ],
+                "summary": "Redact PII in a string by applying the configured policy.",
+                "parameters": [
+                    {
+                        "description": "text + detector selection",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/schema.PIIAnalyzeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Redacted text + entities",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PIIRedactResponse"
                         }
                     }
                 }
@@ -1234,7 +1426,7 @@ const docTemplate = `{
         },
         "/api/traces": {
             "get": {
-                "description": "Returns captured API exchange traces (request/response pairs) in reverse chronological order",
+                "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
                 "produces": [
                     "application/json"
                 ],
@@ -1242,6 +1434,26 @@ const docTemplate = `{
                     "monitoring"
                 ],
                 "summary": "List API request/response traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default 50, max 1000, 0 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of entries to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include request/response bodies and headers (default false)",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Traced API exchanges",
@@ -1263,6 +1475,212 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/traces/{id}": {
+            "get": {
+                "description": "Returns a single captured API exchange, including the request and response bodies omitted from the list response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get one API trace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Trace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Traced API exchange",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Trace not found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles": {
+            "get": {
+                "description": "List saved voice-cloning references without exposing filesystem paths.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "List voice profiles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.VoiceProfileListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Save a consent-confirmed PCM WAV reference clip and exact transcript for voice cloning. Admin-only.",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Create a voice profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Display name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional language tag",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact transcript of the reference clip",
+                        "name": "transcript",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Confirms authorization to clone the voice",
+                        "name": "consent_confirmed",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "16-bit PCM WAV, preferably mono 24 kHz, 1-120 seconds, up to 50 MiB",
+                        "name": "audio",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/voiceprofile.Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles/{id}": {
+            "delete": {
+                "description": "Permanently remove a saved voice-cloning profile. Admin-only.",
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Delete a voice profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Voice profile UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/voice-profiles/{id}/audio": {
+            "get": {
+                "description": "Stream the saved reference WAV for an authenticated TTS user.",
+                "produces": [
+                    "audio/x-wav"
+                ],
+                "tags": [
+                    "audio",
+                    "voice-profiles"
+                ],
+                "summary": "Preview voice profile audio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Voice profile UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -1389,6 +1807,52 @@ const docTemplate = `{
                 ],
                 "summary": "Bidirectional realtime audio transform over WebSocket.",
                 "responses": {}
+            }
+        },
+        "/backend/load": {
+            "post": {
+                "description": "Loads the named model (or, for a realtime pipeline, all of its sub-models) into memory so subsequent requests pay no cold-start cost. The inverse of /backend/shutdown.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Pre-load a model into memory",
+                "parameters": [
+                    {
+                        "description": "Model to load",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Model loaded",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing model name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Load failed (Loaded lists any sub-models that did load)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadResponse"
+                        }
+                    }
+                }
             }
         },
         "/backend/monitor": {
@@ -1906,6 +2370,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/audio/classification": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Classify sound events in audio (audio tagging).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "audio file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "number of top tags to return (0 = backend default)",
+                        "name": "top_k",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "drop tags scoring below this value",
+                        "name": "threshold",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SoundClassificationResult"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/audio/diarization": {
             "post": {
                 "consumes": [
@@ -2137,6 +2648,33 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/depth": {
+            "post": {
+                "tags": [
+                    "depth"
+                ],
+                "summary": "Estimates per-pixel depth (and optionally pose/points) from an image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DepthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DepthResponse"
                         }
                     }
                 }
@@ -2551,6 +3089,22 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelsDataResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/models/capabilities": {
+            "get": {
+                "tags": [
+                    "models"
+                ],
+                "summary": "List available models enriched with capabilities and input/output modalities.",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelCapabilitiesResponse"
                         }
                     }
                 }
@@ -3006,7 +3560,7 @@ const docTemplate = `{
                 "tags": [
                     "video"
                 ],
-                "summary": "Creates a video given a prompt.",
+                "summary": "Creates a video from a prompt and optional image or audio conditioning.",
                 "parameters": [
                     {
                         "description": "query params",
@@ -3347,6 +3901,15 @@ const docTemplate = `{
                 }
             }
         },
+        "gallery.Variant": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model is the name of a gallery entry that declares no variants of its own.",
+                    "type": "string"
+                }
+            }
+        },
         "galleryop.NodeProgress": {
             "type": "object",
             "properties": {
@@ -3390,6 +3953,9 @@ const docTemplate = `{
                     "description": "Cancelled is true if the operation was cancelled",
                     "type": "boolean"
                 },
+                "current_bytes": {
+                    "type": "integer"
+                },
                 "deletion": {
                     "description": "Deletion is true if the operation is a deletion",
                     "type": "boolean"
@@ -3416,11 +3982,17 @@ const docTemplate = `{
                         "$ref": "#/definitions/galleryop.NodeProgress"
                     }
                 },
+                "phase": {
+                    "type": "string"
+                },
                 "processed": {
                     "type": "boolean"
                 },
                 "progress": {
                     "type": "number"
+                },
+                "total_bytes": {
+                    "type": "integer"
                 }
             }
         },
@@ -3442,6 +4014,17 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "localai.AliasInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
                 }
             }
         },
@@ -3468,6 +4051,10 @@ const docTemplate = `{
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
+                "force": {
+                    "description": "Force reinstalls the backend even when it is already installed and\nrunnable. Off by default so apply stays idempotent for supervising\napps that ensure their backend on every boot.",
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 }
@@ -3542,6 +4129,17 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "variant": {
+                    "description": "Variant installs one specific build of an entry that declares variants,\nnamed as it appears in the entry's ` + "`" + `variants` + "`" + ` list (see the ` + "`" + `variants` + "`" + `\nand ` + "`" + `auto_variant` + "`" + ` fields of the gallery listing). Leave it empty to let\nLocalAI auto-select the largest build this host can actually run.",
+                    "type": "string"
+                },
+                "variants": {
+                    "description": "Variants is an optional, UNORDERED list of alternative builds of the same\nmodel (other backends such as MLX or vLLM, other quantizations) that the\ninstaller may pick instead of this entry's own payload. Authoring is\ndeliberately dumb: name the models, and the selector works out which one\nthis host should get.\n\nThe entry itself is always the last resort, so an entry carrying variants\nstays a complete, installable entry and older LocalAI releases, which drop\nthis key, install it exactly as before.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.Variant"
+                    }
                 }
             }
         },
@@ -3575,6 +4173,26 @@ const docTemplate = `{
                 "value": {
                     "description": "Value is the new per-model replica cap on this node. Must be \u003e= 1.",
                     "type": "integer"
+                }
+            }
+        },
+        "localai.UpdateVRAMBudgetRequest": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "Value is the VRAM cap (\"80%\" or \"12GB\"). Empty string clears the cap.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.VoiceProfileListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/voiceprofile.Profile"
+                    }
                 }
             }
         },
@@ -3632,6 +4250,52 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vram_display": {
+                    "type": "string"
+                }
+            }
+        },
+        "nodes.NodeModel": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "gRPC address for this replica's backend process",
+                    "type": "string"
+                },
+                "backend_type": {
+                    "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "in_flight": {
+                    "description": "number of active requests on this replica",
+                    "type": "integer"
+                },
+                "last_used": {
+                    "type": "string"
+                },
+                "loading_by": {
+                    "description": "frontend ID that triggered loading",
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "replica_index": {
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "staging, loading, loaded, unloading, idle",
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -3700,6 +4364,21 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.APIError": {
+            "type": "object",
+            "properties": {
+                "code": {},
+                "message": {
+                    "type": "string"
+                },
+                "param": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.AnthropicContentBlock": {
             "type": "object",
             "properties": {
@@ -3717,10 +4396,16 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "signature": {
+                    "type": "string"
+                },
                 "source": {
                     "$ref": "#/definitions/schema.AnthropicImageSource"
                 },
                 "text": {
+                    "type": "string"
+                },
+                "thinking": {
                     "type": "string"
                 },
                 "tool_use_id": {
@@ -3790,6 +4475,14 @@ const docTemplate = `{
                 "temperature": {
                     "type": "number"
                 },
+                "thinking": {
+                    "description": "Thinking gates extended-thinking output. We only surface thinking\ncontent blocks when the client explicitly opts in, matching Anthropic's\nAPI where thinking is off unless requested.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.AnthropicThinkingParam"
+                        }
+                    ]
+                },
                 "tool_choice": {},
                 "tools": {
                     "type": "array",
@@ -3834,6 +4527,18 @@ const docTemplate = `{
                 },
                 "usage": {
                     "$ref": "#/definitions/schema.AnthropicUsage"
+                }
+            }
+        },
+        "schema.AnthropicThinkingParam": {
+            "type": "object",
+            "properties": {
+                "budget_tokens": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "\"enabled\" | \"disabled\"",
+                    "type": "string"
                 }
             }
         },
@@ -3902,6 +4607,125 @@ const docTemplate = `{
                 },
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.DepthRequest": {
+            "type": "object",
+            "properties": {
+                "dst": {
+                    "description": "optional output directory for exports (glb/colmap)",
+                    "type": "string"
+                },
+                "exports": {
+                    "description": "requested exports: \"glb\", \"colmap\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "image": {
+                    "description": "URL or base64-encoded image to analyze",
+                    "type": "string"
+                },
+                "include_confidence": {
+                    "description": "return the per-pixel confidence map (DualDPT)",
+                    "type": "boolean"
+                },
+                "include_depth": {
+                    "description": "return the per-pixel depth map",
+                    "type": "boolean"
+                },
+                "include_points": {
+                    "description": "back-project to a 3D point cloud (DualDPT)",
+                    "type": "boolean"
+                },
+                "include_pose": {
+                    "description": "return camera extrinsics/intrinsics (DualDPT)",
+                    "type": "boolean"
+                },
+                "include_sky": {
+                    "description": "return the per-pixel sky map (mono models)",
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "points_conf_thresh": {
+                    "description": "keep points with confidence \u003e= this threshold",
+                    "type": "number"
+                }
+            }
+        },
+        "schema.DepthResponse": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "description": "width*height row-major confidence (DualDPT)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "depth": {
+                    "description": "width*height row-major metric depth",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "export_paths": {
+                    "description": "paths written for the requested exports",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "extrinsics": {
+                    "description": "12 floats, 3x4 row-major (world-to-camera)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "intrinsics": {
+                    "description": "9 floats, 3x3 row-major",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "is_metric": {
+                    "description": "depth is in metric units",
+                    "type": "boolean"
+                },
+                "num_points": {
+                    "description": "number of 3D points",
+                    "type": "integer"
+                },
+                "point_colors": {
+                    "description": "base64-encoded num_points*3 uint8 rgb",
+                    "type": "string"
+                },
+                "points": {
+                    "description": "num_points*3 xyz, world space",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "sky": {
+                    "description": "width*height row-major sky map (mono)",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         },
@@ -4092,6 +4916,14 @@ const docTemplate = `{
                 },
                 "vocal_language": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schema.APIError"
                 }
             }
         },
@@ -4827,6 +5659,76 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ToolCall"
                     }
+                }
+            }
+        },
+        "schema.ModelCapabilities": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "description": "Capabilities are canonical usecase strings (e.g. chat, vision, transcript,\ntts, embeddings, image, video) plus the modifiers \"tools\" and \"thinking\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_modalities": {
+                    "description": "InputModalities is the subset of {text,image,audio,video} the model accepts.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "object": {
+                    "type": "string"
+                },
+                "output_modalities": {
+                    "description": "OutputModalities is the subset of {text,image,audio,video} the model produces.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ModelCapabilitiesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModelCapabilities"
+                    }
+                },
+                "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadResponse": {
+            "type": "object",
+            "properties": {
+                "loaded": {
+                    "description": "Loaded lists the model names actually resident in memory after the call.\nFor a pipeline model these are its sub-models, not the pipeline name.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "message": {
+                    "description": "Message is a short human-readable status (\"model loaded\", or an error).",
+                    "type": "string"
                 }
             }
         },
@@ -5747,49 +6649,93 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.PIIDecideRequest": {
+        "schema.PIIAnalyzeRequest": {
             "type": "object",
             "properties": {
-                "text": {
-                    "description": "Text is the user-visible content to inspect. Required.",
-                    "type": "string"
-                }
-            }
-        },
-        "schema.PIIDecideResponse": {
-            "type": "object",
-            "properties": {
-                "findings": {
-                    "description": "Findings is one entry per matched span — pattern id, byte\nrange, and audit-safe hash prefix (never the matched value).",
+                "detectors": {
+                    "description": "Detectors names the detector models to run (NER and/or pattern). Takes\nprecedence over Model.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/schema.PIIFinding"
+                        "type": "string"
                     }
                 },
-                "redacted_preview": {
-                    "description": "RedactedPreview is the input with mask-action spans replaced\nby their placeholders. Identical to Text when no findings or\nwhen the strongest action is block/route_local (which don't\nrewrite content).",
+                "model": {
+                    "description": "Model is a consuming model whose effective PII policy (own\npii.detectors, else the instance default detectors; PII must be\nenabled) is used when Detectors is empty.",
                     "type": "string"
                 },
-                "suggested_action": {
-                    "description": "SuggestedAction is the strongest action across all findings:\n\"block\", \"route_local\", \"mask\", or \"allow\" (no findings).",
+                "reveal": {
+                    "description": "Reveal includes the per-entity hash_prefix in the response. Honoured\nonly for admin callers; ignored otherwise. The raw matched value is\nnever returned regardless.",
+                    "type": "boolean"
+                },
+                "text": {
+                    "description": "Text is the string to scan. Bounded only by the server's global HTTP\nbody limit.",
                     "type": "string"
                 }
             }
         },
-        "schema.PIIFinding": {
+        "schema.PIIAnalyzeResponse": {
             "type": "object",
             "properties": {
+                "blocked": {
+                    "type": "boolean"
+                },
+                "correlation_id": {
+                    "type": "string"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PIIEntity"
+                    }
+                }
+            }
+        },
+        "schema.PIIEntity": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
                 "end": {
                     "type": "integer"
+                },
+                "entity_type": {
+                    "type": "string"
                 },
                 "hash_prefix": {
                     "type": "string"
                 },
-                "pattern": {
+                "score": {
+                    "type": "number"
+                },
+                "source": {
                     "type": "string"
                 },
                 "start": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.PIIRedactResponse": {
+            "type": "object",
+            "properties": {
+                "blocked": {
+                    "type": "boolean"
+                },
+                "correlation_id": {
+                    "type": "string"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PIIEntity"
+                    }
+                },
+                "masked": {
+                    "type": "boolean"
+                },
+                "redacted_text": {
+                    "type": "string"
                 }
             }
         },
@@ -5850,6 +6796,34 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.SoundClassification": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SoundClassificationResult": {
+            "type": "object",
+            "properties": {
+                "detections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SoundClassification"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.StreamOptions": {
             "type": "object",
             "properties": {
@@ -5897,12 +6871,23 @@ const docTemplate = `{
                     "description": "text input",
                     "type": "string"
                 },
+                "instructions": {
+                    "description": "Instructions is a free-form, per-request style/voice description. It maps to\nthe OpenAI ` + "`" + `instructions` + "`" + ` field and is forwarded to the backend so expressive\nTTS models (e.g. Qwen3-TTS CustomVoice/VoiceDesign) can vary tone or designed\nvoice per request instead of only via the static YAML option.",
+                    "type": "string"
+                },
                 "language": {
                     "description": "(optional) language to use with TTS model",
                     "type": "string"
                 },
                 "model": {
                     "type": "string"
+                },
+                "params": {
+                    "description": "Params carries optional, backend-specific per-request generation parameters\n(LocalAI extension, e.g. Chatterbox exaggeration/cfg_weight/temperature).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "response_format": {
                     "description": "(optional) output format",
@@ -5911,6 +6896,10 @@ const docTemplate = `{
                 "sample_rate": {
                     "description": "(optional) desired output sample rate",
                     "type": "integer"
+                },
+                "speed": {
+                    "description": "Speed is the OpenAI ` + "`" + `speed` + "`" + ` field (0.25-4.0). It is a pointer so an\nexplicit ` + "`" + `\"speed\": 0` + "`" + ` (invalid, rejected with 400) is distinguishable\nfrom an omitted field (left at the backend default). It is normalised\ninto Params[\"speed\"] so it reaches the backend over the same channel as\nthe other per-request generation parameters.",
+                    "type": "number"
                 },
                 "stream": {
                     "description": "(optional) enable streaming TTS",
@@ -6042,6 +7031,10 @@ const docTemplate = `{
         "schema.VideoRequest": {
             "type": "object",
             "properties": {
+                "audio": {
+                    "description": "URL or base64 audio for audio-conditioned generation",
+                    "type": "string"
+                },
                 "cfg_scale": {
                     "description": "classifier-free guidance scale",
                     "type": "number"
@@ -6072,6 +7065,13 @@ const docTemplate = `{
                 "num_frames": {
                     "description": "total number of frames to generate",
                     "type": "integer"
+                },
+                "params": {
+                    "description": "backend-specific generation parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "prompt": {
                     "description": "text description of the video to generate",
@@ -6369,6 +7369,64 @@ const docTemplate = `{
                 },
                 "url": {
                     "description": "Webhook endpoint URL",
+                    "type": "string"
+                }
+            }
+        },
+        "voiceprofile.AudioMetadata": {
+            "type": "object",
+            "properties": {
+                "bit_depth": {
+                    "type": "integer"
+                },
+                "channels": {
+                    "type": "integer"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "sample_rate": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "voiceprofile.Profile": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "consent_confirmed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "transcript": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "voice": {
                     "type": "string"
                 }
             }

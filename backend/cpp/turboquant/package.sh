@@ -14,6 +14,15 @@ mkdir -p $CURDIR/package/lib
 cp -avrf $CURDIR/turboquant-* $CURDIR/package/
 cp -rfv $CURDIR/run.sh $CURDIR/package/
 
+# Bundle the ggml shared backends from the CPU_ALL_VARIANTS build into package/lib. ggml
+# discovers the per-microarch libggml-cpu-*.so by scanning the executable directory, which
+# (via the bundled lib/ld.so that run.sh launches through) resolves to lib/. See the
+# matching comment in backend/cpp/llama-cpp/package.sh. No-op on the fallback/ROCm builds.
+if [ -d "$CURDIR/ggml-shared-libs" ]; then
+    echo "Bundling ggml shared backends (CPU_ALL_VARIANTS)..."
+    cp -avf $CURDIR/ggml-shared-libs/*.so* $CURDIR/package/lib/
+fi
+
 # Detect architecture and copy appropriate libraries
 if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
     # x86_64 architecture

@@ -101,7 +101,8 @@ export default function SourceTimeChart({ buckets = [], selectedKey, totals }) {
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
         style={{ width: '100%', height: 160, display: 'block' }}
-        aria-hidden
+        role="img"
+        aria-label={t('usage.sources.topSources')}
       >
         {series.map((row, i) => {
           let y = height

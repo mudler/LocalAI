@@ -91,6 +91,108 @@ To add a variant (e.g., different quantization), use YAML merge:
       uri: huggingface://<gguf-org>/<gguf-repo>/<filename>-Q8_0.gguf
 ```
 
+## Offering several builds of one model (`variants`)
+
+When the same model is published in more than one quantization, or is also
+servable by another engine, add each build as its own ordinary gallery entry and
+then point one of them at the others with `variants`:
+
+```yaml
+- !!merge <<: *chatml
+  name: "nanbeige4.1-3b-q4"
+  # ... the usual urls / overrides / files for the Q4 build ...
+  variants:
+    - model: nanbeige4.1-3b-q8
+```
+
+Rules:
+
+- The declaring entry is a **complete, normal entry**. It keeps its own
+  `files`/`overrides` and stays installable on every host and by every older
+  LocalAI release, which simply ignore `variants`.
+- A variant references another gallery entry **by name**. That entry must exist
+  and must not declare `variants` of its own.
+- **A referenced entry keeps its own gallery row by default.** It is hidden only
+  in the collapsed listing (`collapse_variants=true`, which the web UI requests
+  by default), where the declaring entry stands in for it. Searching there still
+  matches the referenced entry and answers with the entry declaring it, so
+  referencing an entry never makes it unfindable; turning the collapse off
+  returns it under its own name.
+- **Order carries no meaning.** Do not try to encode a preference; write the
+  list in whatever order reads best.
+- **A variant may be smaller than the declaring entry.** Offering a downgrade
+  for small hosts is a normal shape: the declaring entry's own build competes
+  like every other candidate, so a large host keeps the large build.
+- **Do not describe hardware.** At install time LocalAI drops variants whose
+  backend cannot run on the host, then drops those that do not fit available
+  memory. The declaring entry's own build is exempt from both filters, so
+  selection always terminates on something installable. Sizes are measured live
+  from the weights and cached, so nothing has to be written down.
+- **Engine preference outranks size.** Among the builds that survive the
+  filters, the host's preferred engine wins first and only then does the larger
+  footprint win. On NVIDIA a vLLM build beats a larger llama.cpp one; on Apple
+  silicon an MLX build beats a larger GGUF one; on a host with no preference for
+  either engine the larger build wins, since a bigger footprint is a higher
+  quality quantization of the same weights. Predict what a user gets by asking
+  which engine the host prefers before asking which build is biggest. The
+  per-capability order lives in `engineNamePreferenceRules`
+  (`pkg/system/capabilities.go`); see
+  [adding-backends.md](adding-backends.md) for how a backend gets into it.
+- **Serving feature preference sits between engine and size.** Among builds on
+  an equally preferred engine, one that speculates or predicts several tokens
+  per step beats the plain build of the same weights, because it answers faster
+  for the same output: a `dflash` build beats an `mtp` one, and either beats a
+  plain build. The order lives in `servingFeaturePreferenceTokens`
+  (`pkg/system/capabilities.go`) and is matched against the entry's `tags:` and
+  **nothing else**: not the entry name, not `overrides.options`. See
+  [the tagging rule](#the-dflash--mtp-tagging-rule) below. Engine deliberately
+  outranks it: a serving feature makes the right engine faster, it does not make
+  a wrong engine right. Fit still outranks both, so a drafter pairing (strictly
+  larger than the plain build, since it ships a drafter alongside it) is dropped
+  on a host too small for it before this order is ever consulted.
+- A variant is nothing but a name; there is no per-variant memory field. When
+  the measured size for a build is wrong, correct it on the referenced entry by
+  setting that entry's own `size:` (e.g. `size: "20GiB"`). The estimator prefers
+  a declared size over its own guesswork, so the fix applies everywhere the size
+  is shown or compared rather than only to variant selection.
+
+Users can override the automatic choice with `variant` on `POST /models/apply`,
+`local-ai models install --variant`, or the `install_model` MCP tool. See
+`docs/content/features/model-gallery.md`.
+
+The gallery lint specs live in `core/gallery`, so run that suite after adding a
+`variants` list.
+
+### The `dflash` / `mtp` tagging rule
+
+**Tag an entry `dflash` or `mtp` when the entry actually configures that
+feature. Variant ranking reads the tag and nothing else.**
+
+Decide by looking at what the entry configures, in whatever vocabulary its
+backend uses:
+
+| Backend | Configures the feature when it declares |
+|---------|------------------------------------------|
+| `llama-cpp` | `overrides.options` contains `spec_type:draft-dflash` or `spec_type:draft-mtp` |
+| `ds4` | `overrides.options` contains `mtp_path:` / `mtp_draft:` |
+| `sglang` | the referenced `gallery/*.yaml` sets `speculative_algorithm:` |
+
+That check is curation-time only. `spec_type` is llama.cpp's config vocabulary,
+and a cross-backend ranking decision must not depend on one backend's option
+syntax, which is precisely why the ranker reads the tag instead of the options.
+
+Two mistakes the rule exists to prevent:
+
+- **Weights that carry the heads are not an entry that enables them.** The
+  NVFP4 GGUF entries ship MTP-bearing weights but set only `use_jinja:true`, so
+  they enable no speculative decoding and must NOT be tagged. Tagging them wins
+  them the feature axis without being any faster.
+- **A name is not a declaration.** An entry whose name spells `-mtp` while
+  configuring nothing gets no tag, and an entry that configures the feature is
+  tagged even when its name says nothing (`hy3`, `glm-5.2`). Ranking never reads
+  the name, so an untagged build that does enable the feature is simply ranked
+  as plain rather than promoted on a marker nobody meant.
+
 ## Available template configs
 
 Look at existing `.yaml` files in `gallery/` to find the right prompt template for your model architecture:

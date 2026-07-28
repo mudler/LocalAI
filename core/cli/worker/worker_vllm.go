@@ -96,7 +96,7 @@ func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
 			FrontendURL:       r.RegisterTo,
 			RegistrationToken: r.RegistrationToken,
 		}
-		nodeID, _, regErr := regClient.RegisterWithRetry(context.Background(), r.registrationBody(), 10)
+		nodeID, _, _, _, regErr := regClient.RegisterWithRetry(context.Background(), r.registrationBody(), 10)
 		if regErr != nil {
 			return fmt.Errorf("registering with frontend: %w", regErr)
 		}

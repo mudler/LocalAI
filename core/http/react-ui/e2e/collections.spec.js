@@ -10,7 +10,7 @@ test.describe('Collections page', () => {
     await expect(page).toHaveURL(/\/app\/collections$/)
     await expect(page.getByRole('heading', { name: 'Knowledge Base' })).toBeVisible()
     await expect(page.getByText(/No collections yet/i)).toBeVisible()
-    await expect(page.getByRole('button').filter({ hasText: 'Create' })).toBeVisible()
+    await expect(page.locator('button.btn-primary').filter({ hasText: 'Create' })).toBeVisible()
   })
 
   test('new-collection name field accepts input', async ({ page }) => {

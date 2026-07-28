@@ -19,34 +19,58 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// startPIITestRig is the same shape as startMITMTestRig but plugs
-// in the production PII handler instead of the passthrough fixture.
-// The "host" the client thinks it's reaching is forced to
-// api.anthropic.com so the request shape classifier matches.
+// substringDetector is a deterministic pii.NERDetector for tests: it
+// reports an entity for every occurrence of each configured substring,
+// with byte offsets into the scanned text. Lets the MITM tests drive
+// request redaction without a real token-classification backend.
+type substringDetector struct{ groups map[string]string } // substring -> entity group
+
+func (d substringDetector) Detect(_ context.Context, text string) ([]pii.NEREntity, error) {
+	var out []pii.NEREntity
+	for sub, group := range d.groups {
+		for idx := 0; ; {
+			i := strings.Index(text[idx:], sub)
+			if i < 0 {
+				break
+			}
+			start := idx + i
+			out = append(out, pii.NEREntity{Group: group, Start: start, End: start + len(sub), Score: 1})
+			idx = start + len(sub)
+		}
+	}
+	return out, nil
+}
+
+// testDetectorCfg flags emails (mask) and a known secret token (block).
+func testDetectorCfg() pii.NERConfig {
+	return pii.NERConfig{
+		Detector: substringDetector{groups: map[string]string{
+			"alice@example.com":                 "EMAIL",
+			"bob@example.org":                   "EMAIL",
+			"sk-abcdefghijklmnopqrstuvwxyz1234": "PASSWORD",
+		}},
+		EntityActions: map[string]pii.Action{"EMAIL": pii.ActionMask, "PASSWORD": pii.ActionBlock},
+	}
+}
+
+// startPIITestRig plugs the production PII handler into a CONNECT proxy,
+// with the upstream playing the role of api.anthropic.com. Request
+// bodies bound for api.anthropic.com run through the NER detector above.
 func startPIITestRig(upstream http.Handler) (*http.Client, string, *fakeStore, func()) {
-	// Upstream fake — plays the role of api.anthropic.com.
 	ts := httptest.NewTLSServer(upstream)
 	upstreamCertPool := x509.NewCertPool()
 	upstreamCertPool.AddCert(ts.Certificate())
 	upstreamURL, _ := url.Parse(ts.URL)
-
-	// Compiled patterns required for the redactor to actually fire
-	// (DefaultPatterns alone returns Pattern structs without regex).
-	patterns, err := pii.Compile(pii.DefaultPatterns())
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	redactor := pii.NewRedactor(patterns)
 	store := &fakeStore{}
 
 	ca, err := NewInMemoryCA()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
-	// DialHost remaps the upstream dial target to the httptest
-	// fake while leaving the classifier-facing host
-	// ("api.anthropic.com") untouched. ServerName=example.com is
-	// what httptest.NewTLSServer issues its cert for.
 	upstreamHost := upstreamURL.Host
 	prodHandler := NewPIIHandler(PIIHandlerOptions{
-		Redactor:   redactor,
+		DetectorsByHost: map[string][]pii.NERConfig{
+			"api.anthropic.com": {testDetectorCfg()},
+		},
 		EventStore: store,
 		UpstreamTLS: &tls.Config{
 			RootCAs:    upstreamCertPool,
@@ -79,8 +103,6 @@ func startPIITestRig(upstream http.Handler) (*http.Client, string, *fakeStore, f
 		srv.Stop()
 		ts.Close()
 	}
-	// We point requests at api.anthropic.com so classifyRequestShape
-	// matches; the wrappedHandler retargets to the upstream fake.
 	return client, "https://api.anthropic.com", store, cleanup
 }
 
@@ -101,7 +123,7 @@ func (s *fakeStore) Close() error                         { return nil }
 func (s *fakeStore) recorded() int { return len(s.events) }
 
 var _ = Describe("PIIHandler", func() {
-	It("redacts request email", func() {
+	It("redacts request email via NER", func() {
 		var receivedBody []byte
 		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedBody, _ = io.ReadAll(r.Body)
@@ -119,11 +141,26 @@ var _ = Describe("PIIHandler", func() {
 		Expect(resp.StatusCode).To(Equal(200))
 
 		Expect(string(receivedBody)).NotTo(ContainSubstring("alice@example.com"), "upstream received unredacted body")
-		Expect(string(receivedBody)).To(ContainSubstring("[REDACTED:email]"), "upstream did not see redaction marker")
+		Expect(string(receivedBody)).To(ContainSubstring("[REDACTED:ner:EMAIL]"), "upstream did not see redaction marker")
 		Expect(store.recorded()).NotTo(BeZero(), "no PIIEvent recorded for the email match")
 	})
 
-	It("blocks api key in request", func() {
+	It("refuses to follow an upstream redirect", func() {
+		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://evil.example.com/steal", http.StatusFound)
+		})
+
+		client, base, _, cleanup := startPIITestRig(upstream)
+		defer cleanup()
+
+		body := `{"model":"claude-3-5-sonnet","max_tokens":100,"messages":[{"role":"user","content":"hello"}]}`
+		resp, err := client.Post(base+"/v1/messages", "application/json", strings.NewReader(body))
+		Expect(err).NotTo(HaveOccurred(), "client.Post")
+		defer func() { _ = resp.Body.Close() }()
+		Expect(resp.StatusCode).To(Equal(http.StatusBadGateway), "refused redirect must surface as 502, not be followed")
+	})
+
+	It("blocks a detected secret in the request", func() {
 		upstreamCalled := false
 		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			upstreamCalled = true
@@ -137,46 +174,13 @@ var _ = Describe("PIIHandler", func() {
 		resp, err := client.Post(base+"/v1/messages", "application/json", strings.NewReader(body))
 		Expect(err).NotTo(HaveOccurred(), "client.Post")
 		defer func() { _ = resp.Body.Close() }()
-		Expect(resp.StatusCode).To(Equal(400), "api_key_prefix has Block default")
+		Expect(resp.StatusCode).To(Equal(400), "PASSWORD entity action is block")
 		Expect(upstreamCalled).To(BeFalse(), "upstream was called despite block — proxy should short-circuit")
 		body2, _ := io.ReadAll(resp.Body)
 		Expect(string(body2)).To(ContainSubstring("pii_blocked"))
 	})
 
-	It("streaming redaction", func() {
-		// Anthropic-shape SSE; "alice@" + "example.com" splits the
-		// email across chunks so the StreamFilter has to buffer.
-		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.WriteHeader(200)
-			flusher := w.(http.Flusher)
-			chunks := []string{
-				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"contact me at alice@"}}`,
-				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"example.com any time"}}`,
-				`{"type":"message_stop"}`,
-			}
-			for _, c := range chunks {
-				_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", "content_block_delta", c)
-				flusher.Flush()
-			}
-		})
-
-		client, base, _, cleanup := startPIITestRig(upstream)
-		defer cleanup()
-
-		body := `{"model":"claude-3-5-sonnet","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"hi"}]}`
-		resp, err := client.Post(base+"/v1/messages", "application/json", strings.NewReader(body))
-		Expect(err).NotTo(HaveOccurred(), "Post")
-		defer func() { _ = resp.Body.Close() }()
-		out, _ := io.ReadAll(resp.Body)
-		outStr := string(out)
-		Expect(outStr).NotTo(ContainSubstring("alice@example.com"), "email leaked through MITM stream")
-		Expect(outStr).To(ContainSubstring("[REDACTED:email]"), "redaction marker missing from MITM stream")
-	})
-
 	It("non-chat path passes through", func() {
-		// A path the classifier doesn't recognise (e.g. an OAuth
-		// callback) must forward the body verbatim, no PII parsing.
 		var receivedBody []byte
 		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedBody, _ = io.ReadAll(r.Body)
@@ -197,14 +201,12 @@ var _ = Describe("PIIHandler", func() {
 
 var _ = Describe("redactRequest", func() {
 	It("handles anthropic shape", func() {
-		patterns, _ := pii.Compile(pii.DefaultPatterns())
-		r := pii.NewRedactor(patterns)
 		body := []byte(`{"model":"claude","max_tokens":10,"messages":[{"role":"user","content":"reach me at bob@example.org"}]}`)
 
-		d := &piiDispatcher{redactor: r, patternAction: map[string]pii.Action{}}
-		out, blocked, err := d.redactRequest(body, shapeAnthropicMessages, "corr-1")
+		d := &piiDispatcher{}
+		out, blocked, err := d.redactRequest(context.Background(), body, shapeAnthropicMessages, []pii.NERConfig{testDetectorCfg()}, "corr-1")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(blocked).To(BeFalse(), "email is mask, not block — blocked should be false")
+		Expect(blocked).To(BeFalse(), "EMAIL is mask, not block — blocked should be false")
 		var parsed map[string]any
 		Expect(json.Unmarshal(out, &parsed)).To(Succeed())
 		msgs := parsed["messages"].([]any)
@@ -254,9 +256,6 @@ var _ = Describe("Proxy events", func() {
 	})
 
 	It("tunneled host emits connect event only", func() {
-		// A non-allowlisted CONNECT must record a proxy_connect with
-		// Intercepted=false and NOT a proxy_traffic event (tunneled
-		// bytes never reach the dispatcher).
 		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = fmt.Fprint(w, "passthrough")
 		})

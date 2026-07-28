@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 // and most browsers cap concurrent AudioContexts at ~6. Keep one alive for
 // the lifetime of the tab and reuse it across decodes.
 let sharedCtx = null
-function getSharedAudioContext() {
+export function getSharedAudioContext() {
   if (sharedCtx) return sharedCtx
   const Ctx = window.AudioContext || window.webkitAudioContext
   if (!Ctx) return null

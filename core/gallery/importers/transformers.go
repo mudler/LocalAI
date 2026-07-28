@@ -91,7 +91,7 @@ func (i *TransformersImporter) Import(details Details) (gallery.ModelConfig, err
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
-				Model: details.URI,
+				Model: LocalModelPath(details.URI),
 			},
 		},
 		TemplateConfig: config.TemplateConfig{

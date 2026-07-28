@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
@@ -22,7 +24,9 @@ import (
 // decoding on the leading `data:` bytes.
 var audioDataURIPattern = regexp.MustCompile(`^data:[^,]+?;base64,`)
 
-var audioDownloadClient = http.Client{Timeout: 30 * time.Second}
+// Downloading user-supplied media URLs legitimately follows redirects (CDNs);
+// WithFollowRedirects still strips any credential header on a cross-host hop.
+var audioDownloadClient = httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
 
 // decodeAudioInput materialises a URL / data-URI / raw-base64 audio
 // payload to a temporary file and returns its path plus a cleanup

@@ -304,6 +304,17 @@ func computeTHD(samples []int16, fundamentalHz float64, sampleRate, numHarmonics
 
 // --- Opus specs ---
 
+var _ = Describe("Opus Load", func() {
+	It("accepts its own name (the realtime WebRTC path)", func() {
+		Expect((&Opus{}).Load(&pb.ModelOptions{Model: "opus"})).To(Succeed())
+	})
+
+	It("refuses foreign model names from the greedy autoload", func() {
+		err := (&Opus{}).Load(&pb.ModelOptions{Model: "some-llm.gguf"})
+		Expect(err).To(MatchError(ContainSubstring("audio codec")))
+	})
+})
+
 var _ = Describe("Opus", func() {
 	var o *Opus
 

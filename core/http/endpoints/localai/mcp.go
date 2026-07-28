@@ -65,7 +65,7 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 	// the per-model PII config and is kept for backward compatibility.
 	// The request-side middleware on the main chat route handles
 	// filtering for the standard /v1/chat/completions path.
-	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, natsClient, nil, nil, nil)
+	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, natsClient, nil)
 
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)

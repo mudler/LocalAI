@@ -155,12 +155,22 @@ func (sc *JSONSchemaConverter) visit(schema map[string]any, name string, rootSch
 			propName   string
 			propSchema map[string]any
 		}) int {
-			aOrder := propOrder[a.propName]
-			bOrder := propOrder[b.propName]
-			if aOrder != 0 && bOrder != 0 {
+			// Use presence in the order map (not a non-zero sentinel) so that
+			// the first listed key — index 0 — is honored. Keys present in
+			// properties_order sort by their index and ahead of any key that
+			// isn't listed; unlisted keys keep a stable alphabetical order.
+			aOrder, aOK := propOrder[a.propName]
+			bOrder, bOK := propOrder[b.propName]
+			switch {
+			case aOK && bOK:
 				return cmp.Compare(aOrder, bOrder)
+			case aOK:
+				return -1
+			case bOK:
+				return 1
+			default:
+				return cmp.Compare(a.propName, b.propName)
 			}
-			return cmp.Compare(a.propName, b.propName)
 		})
 
 		var rule strings.Builder

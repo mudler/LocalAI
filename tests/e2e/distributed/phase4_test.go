@@ -104,11 +104,12 @@ var _ = Describe("Phase 4: MCP, Skills, Gallery, Fine-Tuning", Label("Distribute
 			}
 			stores.Gallery.Create(op)
 
-			Expect(stores.Gallery.UpdateProgress(op.ID, 0.5, "50% complete", "2GB")).To(Succeed())
+			Expect(stores.Gallery.UpdateProgress(op.ID, 0.5, "50% complete", "2GB", true)).To(Succeed())
 
 			updated, _ := stores.Gallery.Get(op.ID)
 			Expect(updated.Progress).To(BeNumerically("~", 0.5, 0.01))
 			Expect(updated.Message).To(Equal("50% complete"))
+			Expect(updated.Cancellable).To(BeTrue())
 		})
 
 		It("should deduplicate concurrent downloads", func() {

@@ -1175,6 +1175,55 @@ var _ = Describe("Custom Tokens and Tag Pairs Integration", func() {
 	})
 })
 
+var _ = Describe("ClosingTokenForStart", func() {
+	It("returns the default closing tag for a known start token", func() {
+		Expect(ClosingTokenForStart("<think>", nil)).To(Equal("</think>"))
+		Expect(ClosingTokenForStart("<thinking>", nil)).To(Equal("</thinking>"))
+		Expect(ClosingTokenForStart("[THINK]", nil)).To(Equal("[/THINK]"))
+	})
+
+	It("returns empty for an empty or unknown start token", func() {
+		Expect(ClosingTokenForStart("", nil)).To(BeEmpty())
+		Expect(ClosingTokenForStart("<nope>", nil)).To(BeEmpty())
+	})
+
+	It("prefers custom config tag pairs over the defaults", func() {
+		cfg := &Config{TagPairs: []TagPair{{Start: "<think>", End: "<<END>>"}}}
+		Expect(ClosingTokenForStart("<think>", cfg)).To(Equal("<<END>>"))
+	})
+})
+
+var _ = Describe("ExtractReasoningComplete", func() {
+	const startToken = "<think>"
+
+	It("keeps a tag-less answer as content when a start token is prefilled but no close tag is present", func() {
+		// The bug guard: prompt-prefilled <think>, model answered directly with
+		// no reasoning. The synthetic prefill must not swallow it as reasoning.
+		reasoning, content := ExtractReasoningComplete("hello", startToken, Config{})
+		Expect(reasoning).To(BeEmpty())
+		Expect(content).To(Equal("hello"))
+	})
+
+	It("extracts reasoning when the model emits only the closing tag (legitimate prefill)", func() {
+		reasoning, content := ExtractReasoningComplete("the rationale\n</think>\n\nthe answer", startToken, Config{})
+		Expect(reasoning).To(ContainSubstring("the rationale"))
+		Expect(content).To(ContainSubstring("the answer"))
+		Expect(content).ToNot(ContainSubstring("</think>"))
+	})
+
+	It("extracts a fully-tagged block regardless of the prefill token", func() {
+		reasoning, content := ExtractReasoningComplete("<think>r</think>answer", startToken, Config{})
+		Expect(reasoning).To(Equal("r"))
+		Expect(content).To(Equal("answer"))
+	})
+
+	It("behaves like ExtractReasoningWithConfig when no start token is prefilled", func() {
+		reasoning, content := ExtractReasoningComplete("<think>r</think>answer", "", Config{})
+		Expect(reasoning).To(Equal("r"))
+		Expect(content).To(Equal("answer"))
+	})
+})
+
 // Helper function to create bool pointers for test configs
 func boolPtr(b bool) *bool {
 	return &b

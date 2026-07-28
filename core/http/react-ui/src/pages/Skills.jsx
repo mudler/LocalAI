@@ -5,6 +5,7 @@ import { skillsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
+import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Skills() {
@@ -207,10 +208,7 @@ export default function Skills() {
   if (unavailable) {
     return (
       <div className="page page--wide">
-        <div className="page-header">
-          <h1 className="page-title">{t('title')}</h1>
-          <p className="page-subtitle">{t('unavailable.subtitle')}</p>
-        </div>
+        <PageHeader title={t('title')} supporting={t('unavailable.subtitle')} />
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
           <button className="btn btn-primary" onClick={() => { setUnavailable(false); fetchSkills() }}>
             <i className="fas fa-redo" /> {t('unavailable.retry')}
@@ -312,41 +310,41 @@ export default function Skills() {
         }
       `}</style>
 
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">{t('title')}</h1>
-          <p className="page-subtitle">{t('subtitle')}</p>
-        </div>
-        <div className="skills-header-actions">
-          <input
-            type="text"
-            className="input"
-            placeholder={t('search.placeholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '200px' }}
-          />
-          <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
-            <i className="fas fa-plus" /> {t('actions.newSkill')}
-          </button>
-          <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-            <i className="fas fa-file-import" /> {importing ? t('actions.importing') : t('actions.import')}
+      <PageHeader
+        title={t('title')}
+        supporting={t('subtitle')}
+        actions={
+          <div className="skills-header-actions">
             <input
-              type="file"
-              accept=".tar.gz"
-              className="skills-import-input"
-              onChange={handleImport}
-              disabled={importing}
+              type="text"
+              className="input"
+              placeholder={t('search.placeholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: '200px' }}
             />
-          </label>
-          <button
-            className={`btn ${showGitRepos ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setShowGitRepos((v) => !v)}
-          >
-            <i className="fas fa-code-branch" /> {t('actions.gitRepos')}
-          </button>
-        </div>
-      </div>
+            <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
+              <i className="fas fa-plus" /> {t('actions.newSkill')}
+            </button>
+            <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+              <i className="fas fa-file-import" /> {importing ? t('actions.importing') : t('actions.import')}
+              <input
+                type="file"
+                accept=".tar.gz"
+                className="skills-import-input"
+                onChange={handleImport}
+                disabled={importing}
+              />
+            </label>
+            <button
+              className={`btn ${showGitRepos ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setShowGitRepos((v) => !v)}
+            >
+              <i className="fas fa-code-branch" /> {t('actions.gitRepos')}
+            </button>
+          </div>
+        }
+      />
 
       {showGitRepos && (
         <div className="skills-git-section">

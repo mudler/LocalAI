@@ -252,8 +252,25 @@ func (g FunctionsConfig) GrammarOptions() []func(o *grammars.GrammarOption) {
 	return opts
 }
 
+// truncForLog returns a length+head-truncated view of s for debug logging.
+//
+// CleanupLLMResult / ParseFunctionCall are invoked once per streaming chunk
+// with the *full accumulated* LLM result so far (see
+// core/http/endpoints/openai/chat_stream_workers.go). Logging the full
+// argument on every call gives O(N^2) total log volume across a single
+// generation, which under LOG_LEVEL=debug has been observed to fill disks
+// and stall the host during long streaming sessions. Logging only the
+// length plus a fixed-size head bounds per-call output to a constant.
+func truncForLog(s string) string {
+	const maxHead = 200
+	if len(s) <= maxHead {
+		return s
+	}
+	return s[:maxHead] + "...(truncated)"
+}
+
 func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
-	xlog.Debug("LLM result", "result", llmresult)
+	xlog.Debug("LLM result", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	for _, item := range functionConfig.ReplaceLLMResult {
 		k, v := item.Key, item.Value
@@ -261,7 +278,7 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	xlog.Debug("LLM result(processed)", "result", llmresult)
+	xlog.Debug("LLM result(processed)", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	return llmresult
 }
@@ -628,6 +645,36 @@ func buildContent(before string, parser *ChatMsgParser) string {
 // This provides better streaming and partial parsing support.
 // When format is nil or when format is set, tries "find scope/tool start, split, parse suffix"
 // first (llama.cpp PEG order) so that content before the tool block does not cause parse failure.
+// validToolNameRe matches a plausible function name. OpenAI tool names are
+// limited to letters, digits, underscores and hyphens; dots appear in some
+// providers' namespaced names. Anything else (whitespace, braces, brackets,
+// quotes, colons) signals the XML auto-detector grabbed a JSON blob or prose
+// rather than a real name.
+var validToolNameRe = regexp.MustCompile(`^[A-Za-z0-9_.\-]+$`)
+
+// plausibleToolName reports whether name looks like a real function name.
+func plausibleToolName(name string) bool {
+	return validToolNameRe.MatchString(strings.TrimSpace(name))
+}
+
+// filterPlausibleToolCalls drops auto-detected tool calls whose name is not a
+// plausible function name. This guards against a format (notably glm-4.5, whose
+// tool block is <tool_call>name...</tool_call>) mis-claiming a Hermes-style
+// <tool_call>JSON</tool_call> block and returning the whole JSON object — or
+// any leading prose / array — as the function name. Dropping the misparse lets
+// auto-detection fall through to the next format and ultimately to JSON
+// parsing, which handles Hermes correctly. Replaces the narrower leading-"{"
+// check (PR #9940); see issue #9722.
+func filterPlausibleToolCalls(calls []FuncCallResults) []FuncCallResults {
+	out := calls[:0:0]
+	for _, c := range calls {
+		if plausibleToolName(c.Name) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, error) {
 	// Try split-on-scope first so reasoning/content before tool block is skipped
 	if format != nil {
@@ -639,7 +686,12 @@ func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]F
 		for _, fmtPreset := range formats {
 			if fmtPreset.format != nil {
 				if pr, ok := tryParseXMLFromScopeStart(s, fmtPreset.format, isPartial); ok {
-					return pr.ToolCalls, nil
+					// Auto-detect: discard misparsed (non-name) results so a
+					// format that grabbed a JSON blob doesn't win; fall through
+					// to the next format.
+					if valid := filterPlausibleToolCalls(pr.ToolCalls); len(valid) > 0 {
+						return valid, nil
+					}
 				}
 			}
 		}
@@ -659,14 +711,19 @@ func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]F
 				if err != nil {
 					// Check if it's a partial exception (recoverable)
 					if _, ok := err.(*ChatMsgPartialException); ok {
-						// Partial parse, return what we have
-						return parser.ToolCalls(), nil
+						// Partial parse, return what we have — unless every
+						// result is a misparse, in which case try the next format.
+						if valid := filterPlausibleToolCalls(parser.ToolCalls()); len(valid) > 0 {
+							return valid, nil
+						}
 					}
 					// Try next format
 					continue
 				}
 				if success && len(parser.ToolCalls()) > 0 {
-					return parser.ToolCalls(), nil
+					if valid := filterPlausibleToolCalls(parser.ToolCalls()); len(valid) > 0 {
+						return valid, nil
+					}
 				}
 			}
 		}
@@ -873,7 +930,7 @@ func parseParameterValue(paramValue string, format *XMLToolCallFormat) any {
 
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 
-	xlog.Debug("LLM result", "result", llmresult)
+	xlog.Debug("LLM result", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	for _, item := range functionConfig.ReplaceFunctionResults {
 		k, v := item.Key, item.Value
@@ -881,7 +938,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	xlog.Debug("LLM result(function cleanup)", "result", llmresult)
+	xlog.Debug("LLM result(function cleanup)", "len", len(llmresult), "head", truncForLog(llmresult))
 
 	functionNameKey := defaultFunctionNameKey
 	functionArgumentsKey := defaultFunctionArgumentsKey

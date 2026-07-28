@@ -58,7 +58,15 @@ func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, syste
 // row is flagged upgradeable regardless of whether any node matches the gallery
 // — next Upgrade All realigns the cluster. NodeDrift lists the outliers.
 func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, installedBackends SystemBackends) (map[string]UpgradeInfo, error) {
-	galleryBackends, err := AvailableBackends(galleries, systemState)
+	// Unfiltered on purpose. AvailableBackends drops every gallery entry the
+	// *local* host cannot run, and in distributed mode the host running this
+	// check is a CPU-only controller while the GPU backends live on worker
+	// nodes. Filtering there made FindGalleryElement return nil for every
+	// cuda/rocm/l4t entry, so those backends were silently skipped and never
+	// reported an upgrade. Every name we look up here is already installed
+	// somewhere in the cluster, so hardware compatibility has been decided at
+	// install time and re-deciding it against the controller is wrong.
+	galleryBackends, err := AvailableBackendsUnfiltered(galleries, systemState)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list available backends: %w", err)
 	}
@@ -254,8 +262,10 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
 	}
 
-	// Find the gallery entry
-	galleryBackends, err := AvailableBackends(galleries, systemState)
+	// Find the gallery entry. Unfiltered for the same reason as the check
+	// above: backendName is already installed here, so the capability filter
+	// can only reject an entry we must be able to resolve.
+	galleryBackends, err := AvailableBackendsUnfiltered(galleries, systemState)
 	if err != nil {
 		return fmt.Errorf("failed to list available backends: %w", err)
 	}

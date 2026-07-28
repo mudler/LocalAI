@@ -24,7 +24,14 @@ else ifeq ($(BUILD_TYPE),openblas)
 else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DGGML_HIPBLAS=ON
+	# This ggml only understands GGML_HIP (GGML_HIPBLAS was removed upstream),
+	# so passing GGML_HIPBLAS silently produced a CPU-only build (see #10666).
+	ROCM_HOME ?= /opt/rocm
+	ROCM_PATH ?= /opt/rocm
+	export CXX=$(ROCM_HOME)/llvm/bin/clang++
+	export CC=$(ROCM_HOME)/llvm/bin/clang
+	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
@@ -117,7 +124,8 @@ libgoacestepcpp-custom: CMakeLists.txt cpp/goacestepcpp.cpp cpp/goacestepcpp.h
 	cmake .. $(CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) --target goacestepcpp && \
 	cd .. && \
-	mv build-$(SO_TARGET)/libgoacestepcpp.so ./$(SO_TARGET)
+	(mv build-$(SO_TARGET)/libgoacestepcpp.so ./$(SO_TARGET) 2>/dev/null || \
+	 mv build-$(SO_TARGET)/libgoacestepcpp.dylib ./$(SO_TARGET) 2>/dev/null)
 
 test: acestep-cpp
 	@echo "Running acestep-cpp tests..."

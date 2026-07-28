@@ -1,0 +1,7 @@
+---
+name: "ced-sound-classification"
+
+config_file: |
+  backend: ced
+  known_usecases:
+    - sound_classification

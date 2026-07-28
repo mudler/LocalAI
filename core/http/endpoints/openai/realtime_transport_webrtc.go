@@ -113,8 +113,13 @@ func (t *WebRTCTransport) sendLoop() {
 				return
 			}
 			if err := t.dc.SendText(string(data)); err != nil {
-				xlog.Error("data channel send failed", "error", err)
-				return
+				// Drop just this event and keep the loop alive: a single
+				// failed send (e.g. an event over the negotiated SCTP
+				// max-message-size) must not tear down the session and
+				// silently drop every subsequent event. A genuinely dead
+				// transport is handled by the <-t.closed case.
+				xlog.Error("data channel send failed, dropping event", "error", err)
+				continue
 			}
 		case <-t.closed:
 			// Drain any remaining queued events before exiting
@@ -122,7 +127,8 @@ func (t *WebRTCTransport) sendLoop() {
 				select {
 				case data := <-t.outEvents:
 					if err := t.dc.SendText(string(data)); err != nil {
-						return
+						xlog.Error("data channel send failed while draining, dropping event", "error", err)
+						continue
 					}
 				default:
 					return

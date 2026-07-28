@@ -1,0 +1,92 @@
+{
+  "cluster": {
+    "vram": "VRAM Kluster",
+    "ram": "RAM Kluster",
+    "nodesOnline": "{{healthy}}/{{total}} node online"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Selamat pagi",
+    "afternoon": "Selamat siang",
+    "evening": "Selamat malam",
+    "night": "Selamat lembur"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model dimuat",
+    "modelsLoaded_other": "{{count}} model dimuat",
+    "noModelsLoaded": "Tidak ada model yang dimuat",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes"
+  },
+  "assistant": {
+    "title": "Kelola LocalAI melalui obrolan",
+    "description": "Instal model, ganti backend, edit konfigurasi dan periksa status dengan berbicara pada LocalAI.",
+    "open": "Buka asisten",
+    "tooltip": "Kelola LocalAI melalui obrolan"
+  },
+  "input": {
+    "placeholder": "Pesan...",
+    "attachImage": "Lampirkan gambar",
+    "attachAudio": "Lampirkan audio",
+    "attachFile": "Lampirkan file",
+    "enterToSend": "Enter untuk mengirim",
+    "selectModelFirst": "Pilih model terlebih dahulu",
+    "sendMessage": "Kirim pesan",
+    "selectModelToast": "Silahkan pilih model terlebih dahulu"
+  },
+  "quickLinks": {
+    "manageByChat": "Kelola melalui obrolan",
+    "installedModels": "Model Terinstal",
+    "browseGallery": "Jelajahi Galeri",
+    "importModel": "Impor Model",
+    "documentation": "Dokumentasi"
+  },
+  "loadedModels": {
+    "heading": "Model aktif",
+    "count_one": "{{count}} model dimuat",
+    "count_other": "{{count}} model dimuat",
+    "stop": "Hentikan model",
+    "stopAll": "Hentikan semua"
+  },
+  "stopDialog": {
+    "title": "Hentikan Model",
+    "message": "Hentikan model {{model}}?",
+    "confirm": "Hentikan {{model}}",
+    "stopAllTitle": "Hentikan Semua model",
+    "stopAllMessage": "Hentikan semua {{count}} model yang dimuat?",
+    "stopAllConfirm": "Hentikan semua",
+    "stoppedToast": "{{model}} berhasil dihentikan",
+    "allStoppedToast": "Semua model berhasil dihentikan",
+    "stopFailed": "Gagal menghentikan: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Memulai dengan {{name}}",
+    "intro": "Instal model pertama Anda untuk memulai. Jelajahi galeri atau impor punya Anda sendiri.",
+    "steps": {
+      "step1Title": "Jelajahi Galeri Model",
+      "step1Body": "Temukan model yang tepat untuk kebutuhan Anda dari koleksi pilihan kami.",
+      "step2Title": "Instal Model",
+      "step2Body": "Klik instal untuk mengunduh dan mengonfigurasinya secara otomatis.",
+      "step3Title": "Mulai Mengobrol",
+      "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API."
+    },
+    "browseGallery": "Jelajahi Galeri Model",
+    "importModel": "Impor Model",
+    "docs": "Dokumentasi",
+    "noModelsTitle": "Tidak Ada Model yang Tersedia",
+    "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol."
+  },
+  "connect": {
+    "title": "Satu endpoint, semua API",
+    "subtitle": "LocalAI menyediakan API miliknya sendiri yang lengkap — pembuatan gambar & video, depth, deteksi objek, reranking, audio, pengenalan wajah & suara, serta suara realtime melalui WebRTC dan WebSocket. Selain itu, lapisan kompatibilitas drop-in membuat aplikasi apa pun yang dibuat untuk OpenAI, Anthropic, Ollama, atau OpenAI Responses bekerja tanpa perubahan.",
+    "nativeTitle": "API native",
+    "compatTitle": "Kompatibilitas drop-in",
+    "apiReference": "Referensi API lengkap",
+    "copy": "Salin",
+    "copied": "Disalin",
+    "browse": "Jelajahi API",
+    "hide": "Sembunyikan endpoint",
+    "dismiss": "Abaikan"
+  }
+}

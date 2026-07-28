@@ -129,6 +129,39 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal("job-123"))
 		})
+
+		It("forwards a chosen variant to the apply endpoint", func() {
+			// The assistant's whole ability to honor "install the Q8 one"
+			// rests on this field surviving the hop to REST.
+			var body map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				_ = json.NewEncoder(w).Encode(map[string]any{"uuid": "job-123"})
+			}))
+			DeferCleanup(srv.Close)
+
+			_, err := New(srv.URL, "").InstallModel(context.Background(), localaitools.InstallModelRequest{
+				ModelName: "qwen2.5-7b-instruct",
+				Variant:   "qwen2.5-7b-instruct-q8",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).To(HaveKeyWithValue("variant", "qwen2.5-7b-instruct-q8"))
+		})
+
+		It("omits the variant when none was chosen, so the server auto-selects", func() {
+			var body map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				_ = json.NewEncoder(w).Encode(map[string]any{"uuid": "job-123"})
+			}))
+			DeferCleanup(srv.Close)
+
+			_, err := New(srv.URL, "").InstallModel(context.Background(), localaitools.InstallModelRequest{
+				ModelName: "qwen2.5-7b-instruct",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).ToNot(HaveKey("variant"))
+		})
 	})
 
 	Describe("GetJobStatus", func() {
@@ -162,6 +195,92 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(bs).To(HaveLen(1))
 			Expect(bs[0].Name).To(Equal("llama-cpp"))
 			Expect(bs[0].Installed).To(BeTrue())
+		})
+	})
+})
+
+var _ = Describe("Model aliases", func() {
+	Describe("ListAliases", func() {
+		It("passes the GET /api/aliases payload through unchanged", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodGet))
+				Expect(r.URL.Path).To(Equal("/api/aliases"))
+				_ = json.NewEncoder(w).Encode([]map[string]any{
+					{"name": "gpt-4", "target": "qwen"},
+				})
+			}))
+			DeferCleanup(srv.Close)
+
+			out, err := New(srv.URL, "").ListAliases(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Name).To(Equal("gpt-4"))
+			Expect(out[0].Target).To(Equal("qwen"))
+		})
+	})
+
+	Describe("SetAlias", func() {
+		It("swaps an existing alias via PATCH without falling back to import", func() {
+			var patched, imported bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodPatch && r.URL.Path == "/api/models/config-json/gpt-4":
+					patched = true
+					var body map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					Expect(body).To(HaveKeyWithValue("alias", "qwen"))
+					_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+				case r.URL.Path == "/models/import":
+					imported = true
+					w.WriteHeader(http.StatusOK)
+				default:
+					http.Error(w, "unexpected", http.StatusTeapot)
+				}
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").SetAlias(context.Background(), "gpt-4", "qwen")).To(Succeed())
+			Expect(patched).To(BeTrue(), "PATCH should be attempted first")
+			Expect(imported).To(BeFalse(), "import must not run when PATCH succeeds")
+		})
+
+		It("creates a fresh alias via import when PATCH reports the model is missing", func() {
+			var imported bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodPatch:
+					http.Error(w, "model configuration not found", http.StatusNotFound)
+				case r.Method == http.MethodPost && r.URL.Path == "/models/import":
+					imported = true
+					var body map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					Expect(body).To(HaveKeyWithValue("name", "gpt-4"))
+					Expect(body).To(HaveKeyWithValue("alias", "qwen"))
+					_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+				default:
+					http.Error(w, "unexpected", http.StatusTeapot)
+				}
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").SetAlias(context.Background(), "gpt-4", "qwen")).To(Succeed())
+			Expect(imported).To(BeTrue(), "import should create the alias on a 404")
+		})
+
+		It("surfaces a non-404 PATCH error without attempting import", func() {
+			var imported bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/models/import" {
+					imported = true
+				}
+				http.Error(w, "target is an alias", http.StatusBadRequest)
+			}))
+			DeferCleanup(srv.Close)
+
+			err := New(srv.URL, "").SetAlias(context.Background(), "gpt-4", "bad")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("target is an alias"))
+			Expect(imported).To(BeFalse(), "a 400 swap error must not trigger create")
 		})
 	})
 })

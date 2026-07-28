@@ -10,8 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/trace"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -19,41 +17,14 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// BuildStreamFilter constructs the per-request streaming PII filter
-// for a cloud-proxy forward. Returns nil when the request isn't
-// streaming, PII is disabled for this model, or no redactor is wired
-// up — callers pass the result through unchanged. correlationID is
-// caller-supplied because the OpenAI and Anthropic endpoints read it
-// from different headers.
-func BuildStreamFilter(c echo.Context, cfg *config.ModelConfig, isStream bool, piiRedactor *pii.Redactor, piiEvents pii.EventStore, correlationID string) *pii.StreamFilter {
-	if !isStream || piiRedactor == nil || !cfg.PIIIsEnabled() {
-		return nil
-	}
-	userID := ""
-	if u := auth.GetUser(c); u != nil {
-		userID = u.ID
-	}
-	var overrides map[string]pii.Action
-	if raw := cfg.PIIPatternOverrides(); len(raw) > 0 {
-		overrides = make(map[string]pii.Action, len(raw))
-		for ovid, action := range raw {
-			switch pii.Action(action) {
-			case pii.ActionMask, pii.ActionBlock, pii.ActionRouteLocal:
-				overrides[ovid] = pii.Action(action)
-			}
-		}
-	}
-	return pii.NewStreamFilter(piiRedactor, overrides, piiEvents, correlationID, userID)
-}
-
 // ForwardViaBackend loads the cloud-proxy gRPC backend, ships the
 // request via the Forward RPC, and pumps the response back to the
-// client through the SSE-aware PII pipeline.
+// client. PII redaction runs request-side (the NER middleware + MITM
+// input path); the response is forwarded unmodified.
 func ForwardViaBackend(
 	c echo.Context,
 	cfg *config.ModelConfig,
 	body []byte,
-	filter *pii.StreamFilter,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 ) (resultErr error) {
@@ -176,7 +147,7 @@ func ForwardViaBackend(
 		return passthroughError(c, statusCode, contentType, bodyReader)
 	}
 	if isStream {
-		return forwardStream(c, bodyReader, cfg.Proxy.Provider, filter)
+		return forwardStream(c, bodyReader)
 	}
 	return forwardBuffered(c, statusCode, contentType, bodyReader)
 }

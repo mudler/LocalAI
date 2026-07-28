@@ -33,6 +33,18 @@ var _ = Describe("DistributedConfig backend NATS timeouts", func() {
 			Expect(c.BackendUpgradeTimeoutOrDefault()).To(Equal(30 * time.Minute))
 		})
 	})
+
+	Context("ModelLoadTimeoutOrDefault", func() {
+		It("returns 5 minutes when unset so existing clusters keep today's behaviour", func() {
+			c := config.DistributedConfig{}
+			Expect(c.ModelLoadTimeoutOrDefault()).To(Equal(5 * time.Minute))
+		})
+
+		It("returns the configured value when set", func() {
+			c := config.DistributedConfig{ModelLoadTimeout: 45 * time.Minute}
+			Expect(c.ModelLoadTimeoutOrDefault()).To(Equal(45 * time.Minute))
+		})
+	})
 })
 
 var _ = Describe("DistributedConfig flag-name constants", func() {
@@ -53,6 +65,7 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("MCP CI job timeout", config.FlagMCPCIJobTimeout, "mcp-ci-job-timeout"),
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),
+		Entry("model load timeout", config.FlagModelLoadTimeout, "model-load-timeout"),
 	)
 })
 
@@ -80,11 +93,86 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		Expect(err.Error()).To(ContainSubstring(config.FlagBackendUpgradeTimeout))
 	})
 
+	It("rejects a negative ModelLoadTimeout with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:          true,
+			NatsURL:          "nats://localhost:4222",
+			ModelLoadTimeout: -1 * time.Second,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagModelLoadTimeout))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
 	It("accepts all-zero durations as valid (defaults apply)", func() {
 		c := config.DistributedConfig{
 			Enabled: true,
 			NatsURL: "nats://localhost:4222",
 		}
 		Expect(c.Validate()).To(Succeed())
+	})
+})
+
+var _ = Describe("DistributedConfig.Validate registration auth", func() {
+	It("rejects an empty registration token when RequireAuth is set", func() {
+		c := config.DistributedConfig{
+			Enabled:                 true,
+			NatsURL:                 "nats://localhost:4222",
+			RegistrationRequireAuth: true,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_REQUIRE_AUTH"))
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_TOKEN"))
+	})
+
+	It("accepts a set registration token when RequireAuth is set", func() {
+		c := config.DistributedConfig{
+			Enabled:                 true,
+			NatsURL:                 "nats://localhost:4222",
+			RegistrationToken:       "s3cret",
+			RegistrationRequireAuth: true,
+		}
+		Expect(c.Validate()).To(Succeed())
+	})
+
+	It("warns but succeeds with an empty token when RequireAuth is unset", func() {
+		c := config.DistributedConfig{
+			Enabled: true,
+			NatsURL: "nats://localhost:4222",
+		}
+		Expect(c.Validate()).To(Succeed())
+	})
+
+	It("rejects an empty token when the umbrella RequireAuth is set", func() {
+		c := config.DistributedConfig{
+			Enabled:     true,
+			NatsURL:     "nats://localhost:4222",
+			RequireAuth: true,
+			// Provide NATS creds so only the registration-token gap remains.
+			NatsServiceJWT:  "jwt",
+			NatsServiceSeed: "seed",
+			NatsAccountSeed: "acct",
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_DISTRIBUTED_REQUIRE_AUTH"))
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_TOKEN"))
+	})
+
+	It("the umbrella implies NATS auth is required", func() {
+		c := config.DistributedConfig{
+			Enabled:           true,
+			NatsURL:           "nats://localhost:4222",
+			RegistrationToken: "tok", // registration layer satisfied
+			RequireAuth:       true,  // umbrella → NATS creds now required
+		}
+		Expect(c.NatsAuthRequired()).To(BeTrue())
+		Expect(c.RegistrationAuthRequired()).To(BeTrue())
+		// Missing NATS service JWT/seed must now be fatal.
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_NATS_REQUIRE_AUTH"))
 	})
 })

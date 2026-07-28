@@ -102,6 +102,10 @@ type MessageItemUser struct {
 
 	// The status of the item. Has no effect on the conversation.
 	Status ItemStatus `json:"status,omitempty"`
+
+	// Speaker is the recognized speaker for this audio turn (LocalAI extension).
+	// Used to attribute past turns when rebuilding the LLM message history.
+	Speaker *Speaker `json:"speaker,omitempty"`
 }
 
 func (m MessageItemUser) MessageItemType() MessageItemType {

@@ -71,7 +71,8 @@
   },
   "actions": {
     "copy": "Copiar",
-    "regenerate": "Regenerar"
+    "regenerate": "Regenerar",
+    "jumpToLatest": "Jump to latest"
   },
   "streaming": {
     "transferring": "Transfiriendo modelo...",

@@ -48,11 +48,17 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/audio/diarization", FeatureAudioDiarization},
 	{"POST", "/audio/diarization", FeatureAudioDiarization},
 
+	// Audio classification (sound-event tagging)
+	{"POST", "/v1/audio/classification", FeatureAudioClassification},
+	{"POST", "/audio/classification", FeatureAudioClassification},
+
 	// Audio speech / TTS
 	{"POST", "/v1/audio/speech", FeatureAudioSpeech},
 	{"POST", "/audio/speech", FeatureAudioSpeech},
 	{"POST", "/tts", FeatureAudioSpeech},
 	{"POST", "/v1/text-to-speech/:voice-id", FeatureAudioSpeech},
+	{"GET", "/api/voice-profiles", FeatureAudioSpeech},
+	{"GET", "/api/voice-profiles/:id/audio", FeatureAudioSpeech},
 
 	// VAD
 	{"POST", "/vad", FeatureVAD},
@@ -123,6 +129,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/fine-tuning/jobs/:id/download", FeatureFineTuning},
 	{"POST", "/api/fine-tuning/datasets", FeatureFineTuning},
 
+	// PII analyze/redact service (the events log stays admin-gated in-handler)
+	{"POST", "/api/pii/analyze", FeaturePIIFilter},
+	{"POST", "/api/pii/redact", FeaturePIIFilter},
+
 	// Quantization
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
 	{"GET", "/api/quantization/jobs", FeatureQuantization},
@@ -168,6 +178,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureAudioSpeech, "Audio Speech / TTS", true},
 		{FeatureAudioTranscription, "Audio Transcription", true},
 		{FeatureAudioDiarization, "Audio Diarization", true},
+		{FeatureAudioClassification, "Audio Classification", true},
 		{FeatureVAD, "Voice Activity Detection", true},
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
@@ -181,5 +192,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureFaceRecognition, "Face Recognition", true},
 		{FeatureVoiceRecognition, "Voice Recognition", true},
 		{FeatureAudioTransform, "Audio Transform", true},
+		{FeaturePIIFilter, "PII Analyze / Redact", true},
 	}
 }

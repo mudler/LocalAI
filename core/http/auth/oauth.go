@@ -19,7 +19,30 @@ import (
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
+
+// oidcSupportedSigningAlgs is the set of ID-token signature algorithms the OIDC
+// verifier accepts. go-oidc defaults to RS256 only, which rejects identity
+// providers that sign tokens with EC keys (ES*) or other algorithms — e.g.
+// Authentik configured with an EC signing key fails the callback with
+// "unexpected signature algorithm ... expected [RS256]" (#10677). All entries
+// are asymmetric algorithms verified against the provider's published JWKS;
+// HS256 is intentionally excluded (it is symmetric and would validate against
+// the client secret, a different and security-sensitive trust model).
+var oidcSupportedSigningAlgs = []string{
+	oidc.RS256, oidc.RS384, oidc.RS512,
+	oidc.ES256, oidc.ES384, oidc.ES512,
+	oidc.PS256, oidc.PS384, oidc.PS512,
+	oidc.EdDSA,
+}
+
+// OIDCSupportedSigningAlgs returns a copy of the ID-token signature algorithms
+// the OIDC verifier accepts. Exposed for tests.
+func OIDCSupportedSigningAlgs() []string {
+	return append([]string(nil), oidcSupportedSigningAlgs...)
+}
 
 // providerEntry holds the OAuth2/OIDC config for a single provider.
 type providerEntry struct {
@@ -83,7 +106,10 @@ func NewOAuthManager(baseURL string, params OAuthParams) (*OAuthManager, error) 
 			return nil, fmt.Errorf("OIDC discovery failed for %s: %w", params.OIDCIssuer, err)
 		}
 
-		verifier := provider.Verifier(&oidc.Config{ClientID: params.OIDCClientID})
+		verifier := provider.Verifier(&oidc.Config{
+			ClientID:             params.OIDCClientID,
+			SupportedSigningAlgs: oidcSupportedSigningAlgs,
+		})
 
 		m.providers[ProviderOIDC] = &providerEntry{
 			name: ProviderOIDC,
@@ -200,6 +226,11 @@ func (m *OAuthManager) CallbackHandler(providerName string, db *gorm.DB, adminEm
 			userInfo, err = fetchGitHubUserInfoAsOAuth(ctx, token.AccessToken)
 		}
 		if err != nil {
+			// Surface the real cause server-side: ID-token verify failures (issuer/
+			// audience mismatch behind a reverse proxy), a missing id_token, claim
+			// parse errors, or the GitHub userinfo HTTP status/body. The client still
+			// gets the generic message below; details go to logs only. See #10677.
+			xlog.Error("OAuth callback: failed to resolve user info", "provider", providerName, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch user info"})
 		}
 
@@ -389,7 +420,7 @@ func fetchGitHubUserInfoAsOAuth(ctx context.Context, accessToken string) (*oauth
 }
 
 func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*githubUserInfo, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := httpclient.NewWithTimeout(10 * time.Second)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -420,7 +451,7 @@ func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*githubUserIn
 }
 
 func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := httpclient.NewWithTimeout(10 * time.Second)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user/emails", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -457,7 +488,6 @@ func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, e
 
 	return "", fmt.Errorf("no verified email found")
 }
-
 
 func generateState() (string, error) {
 	b := make([]byte, 16)
