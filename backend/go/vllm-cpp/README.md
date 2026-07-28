@@ -55,9 +55,14 @@ Apple M4, Qwen3-1.7B-bf16 warm at p=512 g=128:
 
 | configuration | prefill TTFT | warm throughput |
 |---|--:|--:|
-| MLX **gated to prefill** (pin >= 89c46aeb) | **524.5 ms** | **24.40 tok/s — 99.1% of MLX-LM** |
+| MLX **gated to prefill** (pin >= 89c46aeb) | **524.5 ms** | **24.37 tok/s, 97.6% of MLX-LM** |
 | MLX ungated (older pins) | 537 ms | 12.7 tok/s |
-| MLX off | 602 ms | 23.9 tok/s |
+| MLX off | 602 ms | 23.9 tok/s, 95.9% |
+
+Ratios are against an MLX-LM baseline measured INTERLEAVED with ours over four
+ABBA blocks (its spread 0.34%, ours 0.12%). An earlier revision of this file
+claimed 99.1%; that used a two-run MLX-LM baseline containing an outlier and
+overstated us by about 1.5 points.
 
 **`VLLM_CPP_VERSION` and this flag are coupled.** Moving the pin back before
 `89c46aeb` while leaving `VLLM_CPP_MLX=on` would take the middle row — roughly
