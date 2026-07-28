@@ -663,41 +663,138 @@
   to { transform: rotate(360deg); }
 }
 
-/* Operations bar */
-.operations-bar {
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-subtle);
-  padding: var(--spacing-xs) var(--spacing-md);
-}
-
-.operation-text {
-  font-family: var(--font-mono);
-}
-.operation-progress {
-  font-variant-numeric: tabular-nums;
-}
-
-.operation-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-xs) 0;
-  flex-wrap: wrap;
-}
-
-.operation-info {
+/* Operations strip: always exactly one line. Anything that does not fit here
+   belongs on /app/activity. */
+.operations-strip {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  flex: 2 1 0;
-  min-width: 0;
+  min-height: 40px;
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-left: 2px solid var(--color-primary);
+  font-size: 0.8125rem;
+}
+.operations-strip--error { border-left-color: var(--color-error); background: var(--color-error-light); }
+.operations-strip--queued { border-left-color: var(--color-text-disabled); }
+.operations-strip--staging { border-left-color: var(--color-info); }
+.operations-strip--removing { border-left-color: var(--color-warning); }
+.operations-strip--done { border-left-color: var(--color-success); }
+
+.operations-strip__icon { flex: none; font-size: 0.8125rem; }
+.operations-strip--error .operations-strip__icon { color: var(--color-error); }
+.operations-strip--queued .operations-strip__icon { color: var(--color-text-muted); }
+.operations-strip--staging .operations-strip__icon { color: var(--color-info); }
+.operations-strip--removing .operations-strip__icon { color: var(--color-warning); }
+.operations-strip--done .operations-strip__icon { color: var(--color-success); }
+
+.operations-strip__spinner {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary-light);
+  border-top-color: var(--color-primary);
+  animation: operationsStripSpin 0.9s linear infinite;
+}
+@keyframes operationsStripSpin { to { transform: rotate(360deg); } }
+
+.operations-strip__verb { color: var(--color-text-secondary); white-space: nowrap; }
+.operations-strip__name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.operations-strip__sep { color: var(--color-border-strong); }
+.operations-strip__detail,
+.operations-strip__bytes {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.operations-strip__bytes { font-variant-numeric: tabular-nums; }
+.operations-strip__spacer { flex: 1 1 auto; min-width: var(--spacing-xs); }
+.operations-strip__pct {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+.operations-strip__track {
+  flex: 0 0 132px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+.operations-strip__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transition: width var(--duration-slow) var(--ease-spring);
+}
+.operations-strip--staging .operations-strip__fill { background: var(--color-info); }
+
+.operations-strip__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-height: 28px;
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-primary-border);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.operations-strip__more:hover { background: var(--color-primary); color: var(--color-primary-text); }
+.operations-strip__more--neutral {
+  background: transparent;
+  border-color: var(--color-border-default);
+  color: var(--color-text-secondary);
 }
 
-.operation-info > .operation-text {
-  flex: 1 1 auto;
-  min-width: 0;
+.operations-strip__hide {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.operations-strip__hide:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+/* Narrow screens drop the prose, never the name, the percentage or the
+   counter. */
+@media (max-width: 640px) {
+  .operations-strip__verb,
+  .operations-strip__detail,
+  .operations-strip__bytes,
+  .operations-strip__sep,
+  .operations-strip__track { display: none; }
+  .operations-strip__name { max-width: 45vw; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .operations-strip__spinner { animation: none; }
+  .operations-strip__fill { transition: none; }
+}
+
+/* Row-level install indicator, used by the Models and Backends tables. */
 .operation-spinner {
   width: 16px;
   height: 16px;
@@ -708,19 +805,6 @@
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
-}
-
-.operation-text {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.operation-progress {
-  font-size: 0.75rem;
-  color: var(--color-primary);
-  font-weight: 500;
 }
 
 .operation-bar-container {
@@ -760,38 +844,7 @@
   white-space: nowrap;
 }
 
-.operation-cancel {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px 6px;
-  font-size: 0.875rem;
-}
-.operation-cancel:hover {
-  color: var(--color-error);
-}
-
-/* Operations bar: per-node breakdown (multi-worker installs) */
-.operation-expand {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0 var(--spacing-xs);
-  font-size: var(--text-xs);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.operation-expand:hover {
-  color: var(--color-text-primary);
-}
-.operation-expand-label {
-  font-size: var(--text-xs);
-}
-
+/* Per-node breakdown of a multi-worker install. */
 .operation-nodes-list {
   list-style: none;
   margin: var(--spacing-xs) 0 0;
@@ -5564,14 +5617,7 @@ button.collapsible-header:focus-visible {
     margin-inline: calc(-1 * var(--spacing-md));
   }
 
-  /* Operations toasts: scroll horizontally instead of wrapping */
-  .operations-bar {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-  }
-  .operation-item { flex-shrink: 0; }
-  .operation-text {
+  .operations-strip__name {
     max-width: 60vw;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -5584,7 +5630,7 @@ button.collapsible-header:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
   .page-transition,
-  .operations-bar,
+  .operations-strip,
   .page,
   .main-content {
     transition: none !important;

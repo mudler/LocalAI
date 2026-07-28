@@ -1,4 +1,34 @@
 {
+  "activity": {
+    "title": "Activity",
+    "supporting": "Installs, downloads and removals on this instance.",
+    "hide": "Hide",
+    "moveToHistory": "Move to history",
+    "moreCount": "{{count}} more",
+    "waitingForInstaller": "waiting for the installer",
+    "toNode": "to {{node}}",
+    "nodesDone": "{{done}} of {{total}} nodes done",
+    "timeLeft": "{{value}} left",
+    "kind": {
+      "model": "model",
+      "backend": "backend"
+    },
+    "verb": {
+      "installing": "Installing {{kind}}",
+      "installed": "Installed {{kind}}",
+      "failed": "Couldn't install {{kind}}",
+      "queued": "Queued",
+      "staging": "Staging model",
+      "removing": "Removing {{kind}}"
+    },
+    "phase": {
+      "resolving": "Resolving files",
+      "downloading": "Downloading",
+      "verifying": "Verifying",
+      "committing": "Finalizing",
+      "persisting": "Saving configuration"
+    }
+  },
   "manage": {
     "title": "系统",
     "subtitle": "管理已安装的模型和后端"

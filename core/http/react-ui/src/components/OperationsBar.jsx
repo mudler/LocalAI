@@ -1,176 +1,166 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+// eslint-plugin-react is not configured here, so eslint cannot see that a
+// JSX-only import is used.
+// eslint-disable-next-line no-unused-vars
+import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useOperations } from '../hooks/useOperations'
 import { formatBytes } from '../utils/format'
 
-const artifactPhaseLabels = {
-  resolving: 'Resolving model files',
-  downloading: 'Downloading model files',
-  verifying: 'Verifying model files',
-  committing: 'Finalizing model installation',
-  persisting: 'Saving model configuration',
+const artifactPhaseKeys = {
+  resolving: 'activity.phase.resolving',
+  downloading: 'activity.phase.downloading',
+  verifying: 'activity.phase.verifying',
+  committing: 'activity.phase.committing',
+  persisting: 'activity.phase.persisting',
 }
 
-const nodeStatusLabels = {
-  success: 'Done',
-  error: 'Failed',
-  queued: 'Queued',
-  running_on_worker: 'Worker busy',
-  downloading: 'Downloading',
-}
+// How long a finished operation stays on screen. The API drops an operation
+// the instant it succeeds, so without this a fast install is a flicker.
+const SUCCESS_HOLD_MS = 4000
 
-const runningOnWorkerTooltip = 'NATS round-trip timed out, but the worker is still installing in the background. The reconciler will confirm completion.'
+// An unacknowledged failure outranks any progress; otherwise the API's own
+// sort (progress ascending) already puts the operation that gates the batch
+// first, and it is the most stable choice across polls.
+//
+// Exported alongside the component on purpose: the Activity page selects the
+// same operation, and a second copy of the rule would drift.
+// eslint-disable-next-line react-refresh/only-export-components
+export function primaryOperation(operations) {
+  if (!operations || operations.length === 0) return null
+  return operations.find((op) => op.error) || operations[0]
+}
 
 export default function OperationsBar() {
-  const { operations, cancelOperation, dismissFailedOp } = useOperations()
-  const [expanded, setExpanded] = useState({})
+  const { t } = useTranslation('admin')
+  const { operations, dismissFailedOp } = useOperations()
+  // Which operation the user hid. Keyed by job so a different operation
+  // becoming primary brings the strip back: hiding must never be able to
+  // silence a later failure.
+  const [hiddenJobID, setHiddenJobID] = useState(null)
+  const [finished, setFinished] = useState(null)
+  const previousRef = useRef(null)
 
-  if (operations.length === 0) return null
+  const primary = primaryOperation(operations)
 
-  const toggle = (key) => setExpanded((m) => ({ ...m, [key]: !m[key] }))
+  useEffect(() => {
+    const previous = previousRef.current
+    previousRef.current = primary
+
+    // The previous primary is gone from the live list and it was not failing:
+    // it completed. Hold it on screen briefly, then drop it.
+    if (previous && !primary && !previous.error && !previous.isCancelled) {
+      setFinished(previous)
+      const timer = setTimeout(() => setFinished(null), SUCCESS_HOLD_MS)
+      return () => clearTimeout(timer)
+    }
+    if (primary) setFinished(null)
+    return undefined
+  }, [primary])
+
+  const shown = primary || finished
+  if (!shown) return null
+  if (primary && hiddenJobID === primary.jobID) return null
+
+  const extra = Math.max(0, operations.length - 1)
+  const isFinished = !primary
+  const phaseKey = artifactPhaseKeys[shown.phase]
+  const byteLabel = Number.isFinite(shown.currentBytes) && Number.isFinite(shown.totalBytes) && shown.totalBytes > 0
+    ? `${formatBytes(shown.currentBytes)} / ${formatBytes(shown.totalBytes)}`
+    : ''
+  const kind = shown.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
+
+  let modifier = ''
+  let icon = null
+  let verb = ''
+  if (isFinished) {
+    modifier = 'operations-strip--done'
+    icon = <i className="fas fa-check operations-strip__icon" aria-hidden="true" />
+    verb = t('activity.verb.installed', { kind })
+  } else if (shown.error) {
+    modifier = 'operations-strip--error'
+    icon = <i className="fas fa-circle-exclamation operations-strip__icon" aria-hidden="true" />
+    verb = t('activity.verb.failed', { kind })
+  } else if (shown.isQueued) {
+    modifier = 'operations-strip--queued'
+    icon = <i className="fas fa-clock operations-strip__icon" aria-hidden="true" />
+    verb = t('activity.verb.queued')
+  } else if (shown.taskType === 'staging') {
+    modifier = 'operations-strip--staging'
+    icon = <i className="fas fa-cloud-arrow-up operations-strip__icon" aria-hidden="true" />
+    verb = t('activity.verb.staging')
+  } else if (shown.isDeletion) {
+    modifier = 'operations-strip--removing'
+    icon = <i className="fas fa-trash operations-strip__icon" aria-hidden="true" />
+    verb = t('activity.verb.removing', { kind })
+  } else {
+    icon = <span className="operations-strip__spinner" aria-hidden="true" />
+    verb = t('activity.verb.installing', { kind })
+  }
+
+  // A fanned-out backend install rolls its nodes up into one phrase. Without
+  // this the strip would report one node's phase as if it were the whole job,
+  // and the per-node list is what the Activity page is for.
+  const nodes = Array.isArray(shown.nodes) ? shown.nodes : []
+  const nodesDone = nodes.filter((node) => node.status === 'success').length
+  const nodeRollup = nodes.length > 1
+    ? t('activity.nodesDone', { done: nodesDone, total: nodes.length })
+    : ''
+
+  const detail = shown.error
+    || nodeRollup
+    || (shown.taskType === 'staging' && shown.nodeName ? t('activity.toNode', { node: shown.nodeName }) : '')
+    || (phaseKey ? t(phaseKey) : '')
+    || (shown.isQueued ? t('activity.waitingForInstaller') : '')
+
+  const showProgress = !isFinished && !shown.error && !shown.isQueued && shown.progress > 0
+
+  const onHide = () => {
+    // A failure is dismissed server side, which moves it into the record.
+    // Anything else is hidden locally: the work carries on and the sidebar
+    // count still shows it.
+    if (shown.error) {
+      dismissFailedOp(shown.id)
+      return
+    }
+    if (primary) setHiddenJobID(primary.jobID)
+    setFinished(null)
+  }
 
   return (
-    <div className="operations-bar">
-      {operations.map(op => {
-        const key = op.jobID || op.id
-        const nodes = Array.isArray(op.nodes) ? op.nodes : []
-        const canExpand = nodes.length > 1
-        const isOpen = !!expanded[key]
-        const phaseLabel = artifactPhaseLabels[op.phase]
-        const byteLabel = Number.isFinite(op.currentBytes) && Number.isFinite(op.totalBytes) && op.totalBytes > 0
-          ? `${formatBytes(op.currentBytes)} / ${formatBytes(op.totalBytes)}`
-          : ''
-        return (
-        <div key={key} className="operation-item">
-          <div className="operation-info">
-            {op.error ? (
-              <i className="fas fa-circle-exclamation" style={{ color: 'var(--color-error)', marginRight: 'var(--spacing-xs)' }} />
-            ) : op.isCancelled ? (
-              <i className="fas fa-ban" style={{ color: 'var(--color-warning)', marginRight: 'var(--spacing-xs)' }} />
-            ) : op.isDeletion ? (
-              <i className="fas fa-trash" style={{ color: 'var(--color-error)', marginRight: 'var(--spacing-xs)' }} />
-            ) : (
-              <div className="operation-spinner" />
-            )}
-            <span className="operation-text">
-              {op.error ? (
-                <>
-                  Failed to install {op.isBackend ? 'backend' : 'model'}: {op.name || op.id}
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
-                    ({op.error})
-                  </span>
-                </>
-              ) : op.taskType === 'staging' ? (
-                <>
-                  <i className="fas fa-cloud-arrow-up" style={{ marginRight: 'var(--spacing-xs)' }} />
-                  Staging model: {op.name}{op.nodeName ? ` → ${op.nodeName}` : ''}
-                </>
-              ) : (
-                <>
-                  {op.isDeletion ? 'Removing' : 'Installing'}{' '}
-                  {op.isBackend ? 'backend' : 'model'}: {op.name || op.id}
-                </>
-              )}
-            </span>
-            {!op.error && op.isQueued && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
-                (Queued)
-              </span>
-            )}
-            {!op.error && op.isCancelled && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-warning)', marginLeft: 'var(--spacing-xs)' }}>
-                Cancelling...
-              </span>
-            )}
-            {!op.error && phaseLabel && !op.isCancelled && (
-              <span className="operation-phase" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
-                {phaseLabel}
-              </span>
-            )}
-            {!op.error && byteLabel && !op.isCancelled && (
-              <span className="operation-bytes" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
-                {byteLabel}
-              </span>
-            )}
-            {!op.error && op.message && !phaseLabel && !op.isQueued && !op.isCancelled && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-xs)' }}>
-                {op.message}
-              </span>
-            )}
-            {!op.error && op.progress !== undefined && op.progress > 0 && (
-              <span className="operation-progress">{Math.round(op.progress)}%</span>
-            )}
-          </div>
-          {!op.error && op.progress !== undefined && op.progress > 0 && (
-            <div className="operation-bar-container">
-              <div className="operation-bar" style={{ width: `${op.progress}%` }} />
-            </div>
-          )}
-          {op.error ? (
-            <button
-              className="operation-cancel"
-              onClick={() => dismissFailedOp(op.id)}
-              title="Dismiss"
-            >
-              <i className="fas fa-xmark" />
-            </button>
-          ) : op.cancellable && !op.isCancelled ? (
-            <button
-              className="operation-cancel"
-              onClick={() => cancelOperation(op.jobID)}
-              title="Cancel"
-            >
-              <i className="fas fa-xmark" />
-            </button>
-          ) : null}
-          {canExpand && (
-            <button
-              type="button"
-              className="operation-expand"
-              onClick={() => toggle(key)}
-              aria-expanded={isOpen}
-              title={isOpen ? 'Hide per-node detail' : `Show ${nodes.length} nodes`}
-            >
-              <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} />
-              <span className="operation-expand-label">{nodes.length} nodes</span>
-            </button>
-          )}
-          {canExpand && isOpen && (
-            <ul className="operation-nodes-list">
-              {nodes.map((n) => (
-                <li key={n.node_id} className={`operation-node operation-node-${n.status}`}>
-                  <span
-                    className={`operation-node-status operation-node-status-${n.status}`}
-                    title={n.status === 'running_on_worker' ? runningOnWorkerTooltip : undefined}
-                  >
-                    {nodeStatusLabels[n.status] || n.status}
-                  </span>
-                  <span className="operation-node-name">{n.node_name || n.node_id}</span>
-                  {n.file_name && <span className="operation-node-file">{n.file_name}</span>}
-                  {(n.current || n.total) && (
-                    <span className="operation-node-bytes">
-                      {n.current || '?'} / {n.total || '?'}
-                    </span>
-                  )}
-                  {n.percentage > 0 && (
-                    <span className="operation-node-pct">{Math.round(n.percentage)}%</span>
-                  )}
-                  {n.error && (
-                    <span className="operation-node-error" title={n.error}>
-                      {n.error.length > 80 ? n.error.slice(0, 80) + '...' : n.error}
-                    </span>
-                  )}
-                  {n.percentage > 0 && n.percentage < 100 && (
-                    <div className="operation-node-bar-container">
-                      <div className="operation-node-bar" style={{ width: `${n.percentage}%` }} />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        )
-      })}
+    <div className={`operations-strip ${modifier}`.trim()} role="status" aria-live="polite">
+      {icon}
+      <span className="operations-strip__verb">{verb}</span>
+      <span className="operations-strip__name">{shown.name || shown.id}</span>
+      {detail && <span className="operations-strip__sep" aria-hidden="true">·</span>}
+      {detail && <span className="operations-strip__detail">{detail}</span>}
+      {byteLabel && !shown.error && <span className="operations-strip__bytes">{byteLabel}</span>}
+      <span className="operations-strip__spacer" />
+      {showProgress && (
+        <>
+          <span className="operations-strip__pct">{Math.round(shown.progress)}%</span>
+          <span className="operations-strip__track">
+            <span className="operations-strip__fill" style={{ width: `${shown.progress}%` }} />
+          </span>
+        </>
+      )}
+      {extra > 0 && (
+        <Link
+          className={`operations-strip__more${shown.error ? ' operations-strip__more--neutral' : ''}`}
+          to="/app/activity"
+        >
+          {t('activity.moreCount', { count: extra })}
+        </Link>
+      )}
+      <button
+        type="button"
+        className="operations-strip__hide"
+        onClick={onHide}
+        title={shown.error ? t('activity.moveToHistory') : t('activity.hide')}
+        aria-label={shown.error ? t('activity.moveToHistory') : t('activity.hide')}
+      >
+        <i className="fas fa-xmark" aria-hidden="true" />
+      </button>
     </div>
   )
 }
