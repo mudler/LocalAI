@@ -33,7 +33,6 @@
       "installed": "Installed {{kind}}",
       "removed": "Removed {{kind}}",
       "staged": "Staged model",
-      "cancelling": "Cancelling",
       "failed": "Couldn't install {{kind}}",
       "queued": "Queued",
       "staging": "Staging model",

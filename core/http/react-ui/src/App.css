@@ -688,7 +688,6 @@
 .operations-strip--queued { border-left-color: var(--color-text-disabled); }
 .operations-strip--staging { border-left-color: var(--color-info); }
 .operations-strip--removing { border-left-color: var(--color-warning); }
-.operations-strip--cancelling { border-left-color: var(--color-warning); }
 .operations-strip--done { border-left-color: var(--color-success); }
 
 .operations-strip__icon { flex: none; font-size: 0.8125rem; }
@@ -696,7 +695,6 @@
 .operations-strip--queued .operations-strip__icon { color: var(--color-text-muted); }
 .operations-strip--staging .operations-strip__icon { color: var(--color-info); }
 .operations-strip--removing .operations-strip__icon { color: var(--color-warning); }
-.operations-strip--cancelling .operations-strip__icon { color: var(--color-warning); }
 .operations-strip--done .operations-strip__icon { color: var(--color-success); }
 
 .operations-strip__spinner {
@@ -9713,7 +9711,6 @@ button.collapsible-header:focus-visible {
 .operation-card__main { display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-sm); }
 .operation-card__icon { flex: none; }
 .operation-card__icon--error { color: var(--color-error); }
-.operation-card__icon--cancelling { color: var(--color-warning); }
 .operation-card__icon--staging { color: var(--color-info); }
 .operation-card__icon--removing { color: var(--color-warning); }
 .operation-card__spinner {

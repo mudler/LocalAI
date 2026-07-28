@@ -12,6 +12,11 @@ function serializeOps(ops) {
 
 const OperationsContext = createContext(null)
 
+// How long a cancelled job is remembered. It only has to outlive the poll that
+// notices the operation left the list; a session that cancels all day must not
+// accumulate job IDs.
+const CANCELLED_MEMORY_MS = 60_000
+
 // Single shared poller for /api/operations. Before this provider existed,
 // each useOperations() call ran its own setInterval; with OperationsBar
 // always mounted plus the per-page consumers (Models, Backends, Chat), the
@@ -27,6 +32,13 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
   const intervalRef = useRef(null)
   const lastSerializedRef = useRef('[]')
   const liveIDsRef = useRef(new Set())
+  // Jobs cancelled from this tab, by job ID. The cancel endpoint removes the
+  // operation immediately, so on the next poll the only thing the UI can
+  // observe is that the operation is gone, which is exactly what finishing
+  // looks like. Nothing in the payload distinguishes them (a cancelled
+  // operation is never listed), so the side that issued the cancel is the only
+  // one that can remember it.
+  const cancelledRef = useRef(new Map())
 
   // History is fetched on demand, never on the poll interval: it only changes
   // when an operation finishes, and the Activity page is the only consumer.
@@ -87,6 +99,11 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
         fetchHistory()
       }
 
+      const cutoff = Date.now() - CANCELLED_MEMORY_MS
+      for (const [id, at] of cancelledRef.current) {
+        if (at < cutoff) cancelledRef.current.delete(id)
+      }
+
       setError((prev) => (prev === null ? prev : null))
     } catch (err) {
       setError((prev) => (prev === err.message ? prev : err.message))
@@ -110,11 +127,20 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
   const cancelOperation = useCallback(async (jobID) => {
     try {
       await operationsApi.cancel(jobID)
+      // Recorded before the refetch: that refetch is the one that sees the
+      // operation gone, and a consumer reacting to the disappearance has to
+      // find the cancel already remembered or it will call it a success.
+      cancelledRef.current.set(jobID, Date.now())
       await fetchOperations()
     } catch (err) {
       setError(err.message)
     }
   }, [fetchOperations])
+
+  // Whether this tab cancelled the job. Read by the strip to tell "the last
+  // operation finished" from "the user called it off": both look identical in
+  // /api/operations, which lists neither.
+  const wasCancelled = useCallback((jobID) => cancelledRef.current.has(jobID), [])
 
   // Takes the jobID, never the display id. /api/operations strips the
   // "node:<nodeID>:" prefix before emitting, so a local install and a
@@ -200,6 +226,7 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     fetchHistory,
     clearHistory,
     cancelOperation,
+    wasCancelled,
     dismissFailedOp,
     refetch: fetchOperations,
   }

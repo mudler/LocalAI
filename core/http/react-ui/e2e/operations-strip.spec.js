@@ -10,7 +10,6 @@ const op = (over = {}) => ({
   isDeletion: false,
   isBackend: false,
   isQueued: false,
-  isCancelled: false,
   cancellable: true,
   ...over,
 })
@@ -129,13 +128,56 @@ test('progress is exposed to assistive tech as a named progressbar', async ({ pa
   await expect(bar).toHaveAttribute('aria-label', /model-a/)
 })
 
-test('a cancelling operation says so instead of reporting an install', async ({ page }) => {
-  await stubOperations(page, [op({ isCancelled: true, cancellable: false })])
+test('an operation waiting for the worker says queued, not installing', async ({ page }) => {
+  // The real payload for an admitted-but-unstarted op: phase "queued", no
+  // progress. It used to arrive with isQueued false, so the one state the
+  // strip has a clock icon for never appeared and a queued install claimed to
+  // be running.
+  await stubOperations(page, [op({ isQueued: true, phase: 'queued', progress: 0 })])
 
   await page.goto('/app/models')
-  await expect(page.locator('.operations-strip')).toContainText('Cancelling')
+  await expect(page.locator('.operations-strip')).toContainText('Queued')
   await expect(page.locator('.operations-strip')).not.toContainText('Installing')
   await expect(page.locator('.operations-strip__pct')).toHaveCount(0)
+})
+
+test('cancelling the last operation does not announce it as installed', async ({ page }) => {
+  // Cancelling deletes the operation server side, so the strip sees exactly
+  // what it sees when an install finishes: the operation stops being listed.
+  // The completion hold used to take that for success and put a green
+  // "Installed model model-a" on screen for four seconds after the user
+  // called it off.
+  let cancelled = false
+  await page.route('**/api/operations', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ operations: cancelled ? [] : [op()] }),
+  }))
+  await page.route('**/api/operations/history', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ operations: [] }),
+  }))
+  await page.route('**/api/operations/job-a/cancel', (route) => {
+    cancelled = true
+    return route.fulfill({ contentType: 'application/json', body: '{"success":true}' })
+  })
+
+  // Cancel is on the card, never on the strip, so the page is where the user
+  // does this. The strip sits above it the whole time.
+  await page.goto('/app/activity')
+  await expect(page.locator('.operations-strip')).toContainText('Installing model')
+
+  await page.locator('.operation-card__cancel').click()
+
+  // The poll that empties the page is the same render that would raise the
+  // completion hold, so the strip has to be counted the instant the card
+  // goes. A retrying assertion would simply wait the four-second hold out and
+  // pass on the regression it is here to catch.
+  await expect(page.locator('.operation-card')).toHaveCount(0)
+  expect(await page.locator('.operations-strip').count()).toBe(0)
+
+  // And it must not turn up a moment later either.
+  await page.waitForTimeout(1500)
+  expect(await page.locator('.operations-strip').count()).toBe(0)
 })
 
 test('a completed removal does not announce an install', async ({ page }) => {

@@ -40,7 +40,6 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
   const listId = useId()
 
   const failed = Boolean(operation.error)
-  const cancelling = !failed && Boolean(operation.isCancelled)
   const name = operation.name || operation.id
   const kind = operation.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
 
@@ -57,9 +56,6 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
     if (operation.isDeletion) verb = t('activity.verb.failedRemoval', { kind })
     else if (operation.taskType === 'staging') verb = t('activity.verb.failedStaging')
     else verb = t('activity.verb.failed', { kind })
-  } else if (cancelling) {
-    icon = <i className="fas fa-ban operation-card__icon operation-card__icon--cancelling" aria-hidden="true" />
-    verb = t('activity.verb.cancelling')
   } else if (operation.isQueued) {
     icon = <i className="fas fa-clock operation-card__icon" aria-hidden="true" />
     verb = t('activity.verb.queued')
@@ -79,11 +75,11 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
     : ''
   const phaseKey = phaseKeys[operation.phase]
   const etaLabel = formatEta(operation.etaSeconds)
-  // A cancelling operation keeps reporting progress it will never finish, so
-  // the bar and the estimate are dropped rather than left creeping forward.
-  // Same call the strip makes, for the same reason.
-  const showProgress = !failed && !cancelling && !operation.isQueued && operation.progress > 0
-  const canCancel = operation.cancellable && !operation.isCancelled && !failed
+  // Same call the strip makes, for the same reason: a failed operation
+  // stopped where it broke and a queued one has not moved, so neither has a
+  // bar worth drawing.
+  const showProgress = !failed && !operation.isQueued && operation.progress > 0
+  const canCancel = operation.cancellable && !failed
   // Retrying means reconstructing an install call out of the operation, which
   // is page knowledge. The card offers the button only when the page handed it
   // a handler, so the control can never be present with nothing behind it.
@@ -117,10 +113,10 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
             <span className="operation-card__verb">{verb}</span>
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
             {failed && <span className="operation-card__error" title={operation.error}>{operation.error}</span>}
-            {!failed && !cancelling && phaseKey && <span>{t(phaseKey)}</span>}
-            {!failed && !cancelling && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
+            {!failed && phaseKey && <span>{t(phaseKey)}</span>}
+            {!failed && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
             {!failed && byteLabel && <span className="operation-card__bytes">{byteLabel}</span>}
-            {!failed && !cancelling && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}
+            {!failed && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}
           </div>
 
           {showProgress && (

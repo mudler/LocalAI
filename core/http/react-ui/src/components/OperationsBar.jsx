@@ -33,7 +33,7 @@ export function primaryOperation(operations) {
 
 export default function OperationsBar() {
   const { t } = useTranslation('admin')
-  const { operations, dismissFailedOp } = useOperations()
+  const { operations, dismissFailedOp, wasCancelled } = useOperations()
   // Which operation the user hid. Keyed by job so a different operation
   // becoming primary brings the strip back: hiding must never be able to
   // silence a later failure.
@@ -49,14 +49,21 @@ export default function OperationsBar() {
 
     // The previous primary is gone from the live list and it was not failing:
     // it completed. Hold it on screen briefly, then drop it.
-    if (previous && !primary && !previous.error && !previous.isCancelled) {
+    //
+    // Unless the user cancelled it. Cancelling deletes the operation server
+    // side, so a cancel and a completion are the same event here: the
+    // operation simply stops being listed. Nothing in the payload separates
+    // them, which is why this asks the page whether it issued the cancel.
+    // Without that, cancelling the last running install put a green
+    // "Installed model X" on screen for four seconds.
+    if (previous && !primary && !previous.error && !wasCancelled(previous.jobID)) {
       setFinished(previous)
       const timer = setTimeout(() => setFinished(null), SUCCESS_HOLD_MS)
       return () => clearTimeout(timer)
     }
     if (primary) setFinished(null)
     return undefined
-  }, [primary])
+  }, [primary, wasCancelled])
 
   const shown = primary || finished
   if (!shown) return null
@@ -93,10 +100,6 @@ export default function OperationsBar() {
     if (shown.isDeletion) verb = t('activity.verb.failedRemoval', { kind })
     else if (shown.taskType === 'staging') verb = t('activity.verb.failedStaging')
     else verb = t('activity.verb.failed', { kind })
-  } else if (shown.isCancelled) {
-    modifier = 'operations-strip--cancelling'
-    icon = <i className="fas fa-ban operations-strip__icon" aria-hidden="true" />
-    verb = t('activity.verb.cancelling')
   } else if (shown.isQueued) {
     modifier = 'operations-strip--queued'
     icon = <i className="fas fa-clock operations-strip__icon" aria-hidden="true" />
@@ -129,9 +132,10 @@ export default function OperationsBar() {
     || (phaseKey ? t(phaseKey) : '')
     || (shown.isQueued ? t('activity.waitingForInstaller') : '')
 
-  // A cancelling operation keeps reporting progress it will never finish, so
-  // the bar is dropped rather than left creeping forward.
-  const showProgress = !isFinished && !shown.error && !shown.isQueued && !shown.isCancelled && shown.progress > 0
+  // A finished, failed or not-yet-started operation has no progress worth a
+  // bar: the first is over, the second stopped where it broke and the third
+  // has not moved.
+  const showProgress = !isFinished && !shown.error && !shown.isQueued && shown.progress > 0
 
   const onHide = () => {
     // A failure is dismissed server side, which moves it into the record.

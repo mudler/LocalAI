@@ -37,7 +37,8 @@ links to the Activity page.
 
 When the last operation finishes, it stays on the strip for about four seconds
 and then goes, so a fast install is not a flicker. While others are still
-running, the strip moves straight on to the next one.
+running, the strip moves straight on to the next one. An operation you cancel
+is not held: it goes as soon as it stops.
 
 The **X** on the right hides the strip. It does not cancel anything: the work
 carries on, the sidebar still counts it, and the Activity page still lists it.
@@ -108,6 +109,9 @@ cancel button; the page is the only place work is stopped or restarted.
 - **Cancel** is offered while an operation can still be stopped. For
   artifact-backed gallery models, cancelling an active download leaves its
   partial files in place so a later install resumes rather than starting over.
+  A cancelled operation leaves the live sections immediately and is not held on
+  the strip the way a completed one is; it appears in the record as
+  `cancelled`.
 - **Retry** is offered on a failed model or backend install. It acknowledges
   the failure, which moves it into the record, and installs the same target
   again. It is not offered on a failed removal, which is not restarted by

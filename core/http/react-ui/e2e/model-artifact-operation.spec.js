@@ -14,7 +14,6 @@ test('operations strip shows managed model acquisition phase and bytes', async (
         isDeletion: false,
         isBackend: false,
         isQueued: false,
-        isCancelled: false,
         cancellable: true,
         phase: 'downloading',
         currentBytes: 1073741824,

@@ -8,9 +8,21 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// queuedMessage is the status message an operation carries between admission
-// (the HTTP handler minting the job ID) and the moment the worker starts it.
-const queuedMessage = "queued"
+// PhaseQueued is the phase (and the status message) an operation carries
+// between admission (the HTTP handler minting the job ID) and the moment the
+// worker starts it.
+//
+// It is the ONLY signal for "this op has not started yet". A missing status is
+// not one: markQueued publishes a status at admission, so an op that is queued
+// behind a running install has a status for its whole queued life.
+const PhaseQueued = "queued"
+
+// IsQueued reports whether the operation is still waiting for the gallery
+// worker to pick it up. Nil-safe so callers holding a status that may not
+// exist can ask without a guard of their own.
+func (o *OpStatus) IsQueued() bool {
+	return o != nil && !o.Processed && o.Phase == PhaseQueued
+}
 
 // EnqueueModelOp admits a model operation: it registers a queryable "queued"
 // status for op.ID and then hands the op to the gallery worker.
@@ -70,8 +82,8 @@ func (g *GalleryService) markQueued(id, elementName string, deletion bool) {
 		return
 	}
 	g.UpdateStatus(id, &OpStatus{
-		Message:            queuedMessage,
-		Phase:              queuedMessage,
+		Message:            PhaseQueued,
+		Phase:              PhaseQueued,
 		GalleryElementName: elementName,
 		Deletion:           deletion,
 		Cancellable:        !deletion,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -152,6 +153,81 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		// Critical: bare ops must NOT gain a misleading empty nodeID field.
 		Expect(found).ToNot(HaveKey("nodeID"), "non-node-scoped ops must NOT carry a nodeID field")
 		Expect(found["name"]).To(Equal("llama-cpp"))
+	})
+
+	It("reports an admitted operation the worker has not started as queued", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+
+		// Nothing consumes ModelGalleryChannel here, which is exactly the state
+		// of an op admitted while the serial worker is mid-install. The op is
+		// admitted the way the install handlers admit it, so the spec fails if
+		// the queued signal and the admission path ever disagree again.
+		jobID := "job-queued-op"
+		opcache.Set("localai@qwen3-4b", jobID)
+		galleryService.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 jobID,
+			GalleryElementName: "localai@qwen3-4b",
+		})
+		Eventually(func() *galleryop.OpStatus {
+			return galleryService.GetStatus(jobID)
+		}, "2s", "10ms").ShouldNot(BeNil())
+
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, &application.Application{}, noopMw)
+		req := httptest.NewRequest(http.MethodGet, "/api/operations", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+		var found map[string]any
+		for _, op := range envelope.Operations {
+			if op["jobID"] == jobID {
+				found = op
+				break
+			}
+		}
+		Expect(found).ToNot(BeNil(), "an admitted op must be listed while it waits")
+		Expect(found["isQueued"]).To(BeTrue(), "an op the worker has not started must report as queued")
+		// Cancelling is what the queued state exists for: an op waiting behind
+		// a long install is the one a user most wants to call off.
+		Expect(found["cancellable"]).To(BeTrue())
+	})
+
+	It("does not emit isCancelled, which no live operation can ever be", func() {
+		// CancelOperation marks the status processed and the cancel handler
+		// deletes the op, so a cancelled operation is gone from this endpoint
+		// by the next poll. A field that is structurally always false is a
+		// state the UI would branch on and never reach.
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+		jobID := "job-no-cancel-field"
+		opcache.Set("qwen-asr", jobID)
+		galleryService.UpdateStatus(jobID, &galleryop.OpStatus{Progress: 10, Cancellable: true})
+
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, &application.Application{}, noopMw)
+		req := httptest.NewRequest(http.MethodGet, "/api/operations", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+		Expect(envelope.Operations).To(HaveLen(1))
+		Expect(envelope.Operations[0]).ToNot(HaveKey("isCancelled"))
 	})
 
 	It("surfaces managed model artifact phase and byte counters", func() {
