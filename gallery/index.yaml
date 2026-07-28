@@ -4954,6 +4954,68 @@
     - filename: nanbeige4.1-3b-q4_k_m.gguf
       sha256: 043246350c952877b38958a9e35c480419008b6b2d52bedaf2b805ed2447b4df
       uri: huggingface://Edge-Quant/Nanbeige4.1-3B-Q4_K_M-GGUF/nanbeige4.1-3b-q4_k_m.gguf
+- name: nanbeige4.2-3b-q8
+  url: github:mudler/LocalAI/gallery/nanbeige4.2.yaml@master
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.2-3B
+    - https://huggingface.co/owao/Nanbeige4.2-3B-GGUF
+  description: |
+    Nanbeige4.2-3B is a compact agentic and reasoning model with 3B non-embedding parameters. Its Looped Transformer architecture reuses transformer layers to increase model capacity without adding parameters. It targets tool use, coding, mathematics, scientific reasoning, office workflows, and deep research, with English and Chinese support and a context length of up to 262K tokens. This entry uses the Q8_0 GGUF quantization.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/646f0d118ff94af23bc44aab/GXHCollpMRgvYqUXQ2BQ7.png
+  tags:
+    - nanbeige
+    - 3b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - reasoning
+    - agent
+    - multilingual
+    - instruction-tuned
+    - code
+    - math
+  last_checked: "2026-07-28"
+  overrides:
+    parameters:
+      model: nanbeige4.2-3b-Q8_0.gguf
+  files:
+    - filename: nanbeige4.2-3b-Q8_0.gguf
+      sha256: 44707bb25e7ba3f2b0b5f3c2311da95ee3676986dd2014ce2aaeb14113590e33
+      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q8_0.gguf
+- name: nanbeige4.2-3b-q4
+  url: github:mudler/LocalAI/gallery/nanbeige4.2.yaml@master
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.2-3B
+    - https://huggingface.co/owao/Nanbeige4.2-3B-GGUF
+  description: |
+    Nanbeige4.2-3B is a compact agentic and reasoning model with 3B non-embedding parameters. Its Looped Transformer architecture reuses transformer layers to increase model capacity without adding parameters. It targets tool use, coding, mathematics, scientific reasoning, office workflows, and deep research, with English and Chinese support and a context length of up to 262K tokens. This entry uses the Q4_K_M GGUF quantization.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/646f0d118ff94af23bc44aab/GXHCollpMRgvYqUXQ2BQ7.png
+  tags:
+    - nanbeige
+    - 3b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - reasoning
+    - agent
+    - multilingual
+    - instruction-tuned
+    - code
+    - math
+  last_checked: "2026-07-28"
+  variants:
+    - model: nanbeige4.2-3b-q8
+  overrides:
+    parameters:
+      model: nanbeige4.2-3b-Q4_K_M.gguf
+  files:
+    - filename: nanbeige4.2-3b-Q4_K_M.gguf
+      sha256: 9ffd17d14472ff208409b3f51a6d87a5e5ec1b878b9a6f4dfe15c2a883366104
+      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q4_K_M.gguf
 - name: nemo-parakeet-tdt-0.6b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
