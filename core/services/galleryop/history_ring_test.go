@@ -1,0 +1,97 @@
+package galleryop
+
+import (
+	"fmt"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/config"
+)
+
+// The ring's dedupe and its bounded seen set are not reachable deterministically
+// through the exported API: a second DeleteUUID for the same job finds no cache
+// key and returns before add is ever called. They are driven directly here so
+// the guards are pinned rather than incidentally uncovered.
+var _ = Describe("opHistory", func() {
+	It("refuses a job ID it already recorded", func() {
+		h := newOpHistory(DefaultHistorySize)
+
+		Expect(h.add(OpRecord{JobID: "job-1", Name: "llama-cpp"})).To(BeTrue())
+		Expect(h.add(OpRecord{JobID: "job-1", Name: "llama-cpp"})).To(BeFalse())
+		Expect(h.list()).To(HaveLen(1))
+	})
+
+	It("forgets a job ID once its record is evicted, so seen stays bounded", func() {
+		h := newOpHistory(3)
+
+		for i := 1; i <= 4; i++ {
+			Expect(h.add(OpRecord{JobID: fmt.Sprintf("job-%d", i)})).To(BeTrue())
+		}
+		Expect(h.list()).To(HaveLen(3))
+
+		// job-1 fell off the back, so its ID is free again. If seen kept every
+		// ID ever added it would grow for the lifetime of the process.
+		Expect(h.add(OpRecord{JobID: "job-1"})).To(BeTrue())
+		Expect(h.list()).To(HaveLen(3))
+	})
+
+	It("clears the seen set alongside the records", func() {
+		h := newOpHistory(DefaultHistorySize)
+
+		Expect(h.add(OpRecord{JobID: "job-1"})).To(BeTrue())
+		h.clear()
+
+		Expect(h.list()).To(BeEmpty())
+		Expect(h.add(OpRecord{JobID: "job-1"})).To(BeTrue())
+	})
+})
+
+// Recording paths that only the in-package tests can reach, because they start
+// from an OpCache entry that Set/SetBackend never created.
+var _ = Describe("OpCache terminal recording (internal)", func() {
+	var (
+		svc   *GalleryService
+		cache *OpCache
+	)
+
+	BeforeEach(func() {
+		svc = NewGalleryService(&config.ApplicationConfig{}, nil)
+		cache = NewOpCache(svc)
+	})
+
+	It("falls back to the finish time when the start was never stamped", func() {
+		// hydrateFromStore and applyStart write status directly, so an op
+		// recovered from PostgreSQL or replicated from a peer has no stamp. A
+		// zero StartedAt would render as a two-millennia duration on the
+		// Activity page, so the record reports a zero-length op instead.
+		cache.applyStart(OpCacheEvent{CacheKey: "vllm", JobID: "job-hydrated", IsBackend: true})
+		svc.UpdateStatus("job-hydrated", &OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.DeleteUUID("job-hydrated")
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].StartedAt).NotTo(BeZero())
+		Expect(history[0].StartedAt).To(Equal(history[0].FinishedAt))
+	})
+
+	It("drops the previous job's start stamp when a key is reused", func() {
+		// Reinstalling the same backend reuses the cache key with a fresh job
+		// ID. Without the drop, every retry would orphan a timestamp.
+		cache.Set("qwen3-8b", "job-old")
+		cache.Set("qwen3-8b", "job-new")
+
+		Expect(cache.started.Exists("job-old")).To(BeFalse())
+		Expect(cache.started.Exists("job-new")).To(BeTrue())
+	})
+
+	It("drops the start stamp once the operation is recorded", func() {
+		cache.SetBackend("piper", "job-done")
+		svc.UpdateStatus("job-done", &OpStatus{Processed: true, Progress: 100, Message: "completed"})
+
+		cache.DeleteUUID("job-done")
+
+		Expect(cache.started.Exists("job-done")).To(BeFalse())
+	})
+})

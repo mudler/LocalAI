@@ -371,17 +371,30 @@ func (m *OpCache) applyEnd(evt OpCacheEvent) {
 }
 
 func (m *OpCache) Set(key string, value string) {
+	m.stampStart(key, value)
 	m.status.Set(key, value)
-	m.started.Set(value, time.Now())
 	m.persistAndBroadcastStart(key, value, false)
 }
 
 // SetBackend sets a key-value pair and marks it as a backend operation
 func (m *OpCache) SetBackend(key string, value string) {
+	m.stampStart(key, value)
 	m.status.Set(key, value)
 	m.backendOps.Set(key, true)
-	m.started.Set(value, time.Now())
 	m.persistAndBroadcastStart(key, value, true)
+}
+
+// stampStart records when jobID started, so the history record can report a
+// duration. Retrying an operation reuses the cache key with a fresh job ID, so
+// the stamp the key previously pointed at is dropped: the callers in ui_api.go
+// are not uniformly guarded by Exists, and without this the map would grow for
+// the lifetime of the process. Must run before status.Set, which is what the
+// previous job ID is read from.
+func (m *OpCache) stampStart(key, jobID string) {
+	if prev := m.status.Get(key); prev != "" && prev != jobID {
+		m.started.Delete(prev)
+	}
+	m.started.Set(jobID, time.Now())
 }
 
 func (m *OpCache) persistAndBroadcastStart(key, value string, isBackend bool) {
@@ -446,6 +459,11 @@ func (m *OpCache) recordTerminal(jobID string) {
 		Outcome:    OutcomeCompleted,
 		FinishedAt: time.Now(),
 	}
+	// hydrateFromStore and applyStart populate status without a stamp, so an op
+	// recovered from PostgreSQL or replicated from a peer has no start time.
+	// Reporting the finish time makes such a record a zero-length operation
+	// rather than one that appears to have run since year one.
+	rec.StartedAt = rec.FinishedAt
 	if m.started.Exists(jobID) {
 		rec.StartedAt = m.started.Get(jobID)
 	}
@@ -462,11 +480,16 @@ func (m *OpCache) recordTerminal(jobID string) {
 	}
 	rec.Name = name
 
-	// Outcome order matters. An operation that left the cache while it was
-	// still unprocessed did not get to finish: the cancel endpoint calls
-	// DeleteUUID the instant CancelOperation returns, long before the status
-	// flips to Cancelled, so !Processed is what identifies a cancellation
-	// there. Without it every cancelled install would be recorded as a success.
+	// Outcome order matters: an error outweighs everything else, because an op
+	// can carry both an error and an unfinished status and the failure is what
+	// the user needs to see.
+	//
+	// An operation that left the cache while it was still unprocessed never got
+	// to finish, so it is not a success. That is what the dismiss endpoint
+	// produces when it fires on an op that is still in flight, and what a status
+	// that exists but never started looks like. The cancel endpoint is already
+	// covered by status.Cancelled, which CancelOperation sets synchronously
+	// before the handler removes the entry.
 	if status := m.galleryService.GetStatus(jobID); status != nil {
 		if status.Deletion {
 			rec.TaskType = "deletion"

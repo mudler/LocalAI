@@ -61,10 +61,11 @@ var _ = Describe("OpCache terminal recording", func() {
 	})
 
 	It("records an op removed before it was processed as cancelled, not completed", func() {
-		// POST /api/operations/:jobID/cancel calls DeleteUUID immediately after
-		// CancelOperation, while cancellation is still propagating, so the status
-		// at this instant has Cancelled=false and Processed=false. Without the
-		// !Processed clause this would be recorded as a successful install.
+		// An operation that left the cache while it was still unprocessed never
+		// got to finish, so it is not a success. This is what POST
+		// /api/operations/:jobID/dismiss produces when it fires on an op that is
+		// still in flight. Without the !Processed clause it would be recorded as
+		// a successful install.
 		cache.Set("deepseek-r1-70b", "job-3")
 		svc.UpdateStatus("job-3", &galleryop.OpStatus{Progress: 8, Cancellable: true})
 
@@ -73,6 +74,21 @@ var _ = Describe("OpCache terminal recording", func() {
 		history := cache.History()
 		Expect(history).To(HaveLen(1))
 		Expect(history[0].Outcome).To(Equal("cancelled"))
+	})
+
+	It("records an errored op as failed even when it never reached Processed", func() {
+		// Pins the order of the outcome arms: an error outweighs the
+		// "left while unprocessed" reading, so this is a failure to surface,
+		// not a cancellation to ignore.
+		cache.Set("stable-diffusion-3.5", "job-8")
+		svc.UpdateStatus("job-8", &galleryop.OpStatus{Error: errors.New("download interrupted")})
+
+		cache.DeleteUUID("job-8")
+
+		history := cache.History()
+		Expect(history).To(HaveLen(1))
+		Expect(history[0].Outcome).To(Equal("failed"))
+		Expect(history[0].Error).To(Equal("download interrupted"))
 	})
 
 	It("records an explicitly cancelled op as cancelled", func() {
