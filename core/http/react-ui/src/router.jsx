@@ -43,6 +43,11 @@ const Sound = page('sound', () => import('./pages/Sound'))
 const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
 const Talk = page('talk', () => import('./pages/Talk'))
 const Backends = page('backends', () => import('./pages/Backends'))
+// Only referenced from JSX below, which eslint cannot see without
+// eslint-plugin-react. Suppressed here rather than left to widen the file's
+// warning count; the surrounding page consts predate the lint baseline.
+// eslint-disable-next-line no-unused-vars
+const Activity = page('activity', () => import('./pages/Activity'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
 const P2P = page('p2p', () => import('./pages/P2P'))
@@ -151,6 +156,7 @@ const appChildren = [
     element: <ConsoleLayout config={operateConsole} />,
     children: [
       { path: 'backends', element: <Admin><Backends /></Admin> },
+      { path: 'activity', element: <Admin><Activity /></Admin> },
       { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },

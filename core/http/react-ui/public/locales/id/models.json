@@ -2,6 +2,17 @@
   "title": "Instal Model",
   "subtitle": "Telusuri dan instal model AI dari galeri",
   "models": "Model",
+  "recommended": {
+    "title": "Direkomendasikan untuk perangkat keras Anda",
+    "cpuNote": "GPU tidak terdeteksi - model kecil yang tetap responsif di CPU.",
+    "gpuNote": "Disesuaikan dengan VRAM yang tersedia, menyisakan ruang untuk konteks.",
+    "install": "Instal",
+    "installing": "Menginstal",
+    "installStarted": "Menginstal {{model}}…",
+    "installFailed": "Instalasi gagal: {{message}}",
+    "dismiss": "Tutup rekomendasi",
+    "summary": "{{n}} model disarankan"
+  },
   "stats": {
     "available": "Tersedia",
     "installed": "Terinstal"
@@ -31,8 +42,12 @@
     "detection": "Deteksi",
     "vad": "VAD",
     "fitsGpu": "Muat di GPU",
+    "collapseVariants": "Satu baris per model",
     "allBackends": "Semua Backend",
-    "searchBackends": "Cari backends..."
+    "searchBackends": "Cari backends...",
+    "contextSize": "Konteks:",
+    "useCaseLabel": "Filter berdasarkan kasus penggunaan",
+    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih"
   },
   "search": {
     "placeholder": "Cari model...",
@@ -78,6 +93,7 @@
   "empty": {
     "title": "Model tidak ditemukan",
     "withFilters": "Tidak ada model yang cocok dengan pencarian atau filter Anda.",
+    "collapsedVariantsHint": "Build alternatif yang sudah ditawarkan entri lain disembunyikan. Matikan \"Satu baris per model\" untuk menyertakannya.",
     "noFilters": "Galeri model kosong."
   },
   "deleteDialog": {
@@ -96,5 +112,27 @@
     "selectModel": "Pilih model...",
     "searchPlaceholder": "Cari model...",
     "noModels": "Model tidak tersedia"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "Format bobot",
+    "unknownQuantization": "Format tidak diketahui",
+    "showDetails": "Tampilkan detail lengkap {{variant}}",
+    "hideDetails": "Sembunyikan detail lengkap {{variant}}",
+    "detailsLoading": "Memuat detail...",
+    "detailsUnavailable": "Detail untuk {{variant}} tidak dapat dimuat.",
+    "features": {
+      "dflash": "Lebih cepat: DFlash",
+      "mtp": "Lebih cepat: MTP"
+    }
   }
 }

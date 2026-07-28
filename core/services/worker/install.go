@@ -74,12 +74,16 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		if addr := s.getAddr(processKey); addr != "" {
 			switch {
 			case !s.processMatchesBackend(processKey, req.Backend):
-				// The slot is held by a process started from a DIFFERENT
-				// backend — typically this model's previous backend was
-				// deleted (or superseded by a -development variant) while its
-				// process stayed up. Reusing that address would serve the load
-				// from a backend directory that may no longer exist on disk.
-				xlog.Warn("Process for this model replica belongs to another backend; restarting it",
+				// The slot is held by a process that must not serve this
+				// backend: either it was started from a DIFFERENT backend
+				// (this model's previous backend was deleted, or superseded by
+				// a -development variant, while its process stayed up), or a
+				// reinstall replaced the directory it is running out of, which
+				// leaves its working directory a deleted inode. Either way,
+				// reusing that address serves the load from a backend
+				// directory that no longer exists. processMatchesBackend
+				// reports the specific reason.
+				xlog.Warn("Process for this model replica must not be reused; restarting it",
 					"backend", req.Backend, "model", req.ModelID, "replica", req.ReplicaIndex, "addr", addr)
 				if err := s.stopBackendExact(processKey, false); err != nil {
 					return "", fmt.Errorf("stopping mismatched backend process before reinstall: %w", err)

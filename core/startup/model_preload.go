@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,9 +23,17 @@ import (
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
 func InstallModels(ctx context.Context, galleryService *galleryop.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries, requireBackendIntegrity bool, downloadStatus func(string, string, string, float64), models ...string) error {
+	return InstallModelsWithOptions(ctx, galleryService, galleries, backendGalleries, systemState, modelLoader, enforceScan, autoloadBackendGalleries, requireBackendIntegrity, downloadStatus, nil, models...)
+}
+
+// InstallModelsWithOptions is InstallModels with extra install options, which
+// is how the CLI passes a variant pin. It is a separate entry point rather than
+// a variadic tail on InstallModels because that signature already ends in a
+// variadic model list.
+func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries, requireBackendIntegrity bool, downloadStatus func(string, string, string, float64), extraOptions []gallery.InstallOption, models ...string) error {
 	// create an error that groups all errors
 	var err error
-	var installOptions []gallery.InstallOption
+	installOptions := slices.Clone(extraOptions)
 	if galleryService != nil {
 		installOptions = append(installOptions, gallery.WithArtifactMaterializer(galleryService.ModelArtifactMaterializer()))
 	}

@@ -7,7 +7,7 @@ url = "/features/audio-classification/"
 
 Sound-event classification (audio tagging) answers the question **"what am I hearing?"** - given an audio clip, it returns a list of scored [AudioSet](https://research.google.com/audioset/) labels (e.g. *Baby cry, infant cry*, *Glass breaking*, *Dog bark*, *Alarm*).
 
-LocalAI exposes this through the `/v1/audio/classification` endpoint, modelled after `/v1/audio/transcriptions`. The reference backend is **[ced.cpp](https://github.com/mudler/ced.cpp)** (CED, a 527-class AudioSet tagger), a small ViT over a log-mel spectrogram ported to ggml with full PyTorch parity. Apache-2.0 weights are redistributable as GGUF.
+LocalAI exposes this through the `/v1/audio/classification` endpoint, modelled after `/v1/audio/transcriptions`. The reference backend is **[ced.cpp](https://github.com/localai-org/ced.cpp)** (CED, a 527-class AudioSet tagger), a small ViT over a log-mel spectrogram ported to ggml with full PyTorch parity. Apache-2.0 weights are redistributable as GGUF.
 
 Because classification is exposed as a regular OpenAI-style endpoint, any HTTP client works - there is no Python dependency on the consumer side.
 

@@ -67,6 +67,7 @@ type InstallModelRequest struct {
 	GalleryName string         `json:"gallery_name,omitempty" jsonschema:"The gallery the model lives in (from gallery_search). Optional when ModelName is unique across galleries."`
 	ModelName   string         `json:"model_name"             jsonschema:"The canonical model name as returned by gallery_search."`
 	Overrides   map[string]any `json:"overrides,omitempty"    jsonschema:"Optional config overrides to merge into the installed model's YAML."`
+	Variant     string         `json:"variant,omitempty"      jsonschema:"Optional. Installs one specific build of an entry that offers several (different quantizations or engines), named exactly as it appears in that entry's variant list. Leave empty unless the user explicitly asked for a particular build: by default LocalAI drops builds this machine cannot run or cannot fit, prefers the engine this hardware is best served by, and uses size only to decide between equally preferred builds."`
 }
 
 // InstallBackendRequest is the input for install_backend.

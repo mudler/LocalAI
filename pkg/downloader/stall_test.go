@@ -2,6 +2,7 @@ package downloader_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -97,6 +98,54 @@ var _ = Describe("Download stall timeout", func() {
 		info, statErr := os.Stat(filePath + ".partial")
 		Expect(statErr).ToNot(HaveOccurred(), "the .partial must survive a stall so the next attempt can resume")
 		Expect(info.Size()).To(BeNumerically(">", 0))
+	})
+
+	It("does not count partial-file hashing time against the stall window when resuming", func() {
+		// A resumed download re-hashes the existing .partial before the copy
+		// loop starts. On slow storage a multi-GB partial takes longer to hash
+		// than the stall window, and since no network read happens while
+		// hashing, a watchdog armed before the hash aborts a healthy resume.
+		// Every retry then re-pays the same hash and fails identically, so the
+		// install wedges permanently (observed with a 7.9GB partial on a CIFS
+		// models share). The sparse file keeps disk usage at zero while still
+		// forcing the hash to churn through every byte.
+		const partialSize = int64(2) << 30
+		tail := []byte("remaining-bytes")
+		total := partialSize + int64(len(tail))
+
+		partial, err := os.OpenFile(filePath+".partial", os.O_CREATE|os.O_WRONLY, 0600)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(partial.Truncate(partialSize)).To(Succeed())
+		Expect(partial.Close()).To(Succeed())
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "HEAD" {
+				w.Header().Set("Accept-Ranges", "bytes")
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			if r.Header.Get("Range") == "" {
+				// A resume must ask for a range; anything else would re-download
+				// (and here, concatenate) the whole body.
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", partialSize, total-1, total))
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(tail)
+		}))
+		defer server.Close()
+
+		DownloadStallTimeout = 150 * time.Millisecond
+
+		err = URI(server.URL).DownloadFileWithContext(
+			context.Background(), filePath, "", 1, 1,
+			func(s1, s2, s3 string, f float64) {})
+		Expect(err).ToNot(HaveOccurred(), "a promptly-answered resume must not be aborted by hash time")
+
+		info, statErr := os.Stat(filePath)
+		Expect(statErr).ToNot(HaveOccurred())
+		Expect(info.Size()).To(Equal(total))
 	})
 
 	It("does not abort a slow-but-steady download", func() {

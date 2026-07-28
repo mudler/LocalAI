@@ -157,13 +157,14 @@ When authentication is enabled, the following endpoints require admin role:
 **Model & Backend Management:**
 - `GET /api/models`, `POST /api/models/install/*`, `POST /api/models/delete/*`
 - `GET /api/backends`, `POST /api/backends/install/*`, `POST /api/backends/delete/*`
-- `GET /api/operations`, `POST /api/operations/*/cancel`
+- `GET /api/operations`, `POST /api/operations/*/cancel`, `POST /api/operations/*/dismiss`
+- `GET /api/operations/history`, `DELETE /api/operations/history`
 - `GET /models/available`, `GET /models/galleries`, `GET /models/jobs/*`
 - `GET /backends`, `GET /backends/available`, `GET /backends/galleries`
 
 **System & Monitoring:**
-- `GET /api/traces`, `POST /api/traces/clear`
-- `GET /api/backend-traces`, `POST /api/backend-traces/clear`
+- `GET /api/traces`, `GET /api/traces/{id}`, `POST /api/traces/clear`
+- `GET /api/backend-traces`, `GET /api/backend-traces/{id}`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
 - `GET /system`, `GET /backend/monitor`, `POST /backend/shutdown`, `POST /backend/load`

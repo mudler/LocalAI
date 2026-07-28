@@ -475,6 +475,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			ApiKeyFile:            c.Proxy.APIKeyFile,
 			UpstreamModel:         c.Proxy.UpstreamModel,
 			RequestTimeoutSeconds: int32(c.Proxy.RequestTimeoutSeconds),
+			CachePrompt:           c.Proxy.CachePrompt,
 		}
 	}
 

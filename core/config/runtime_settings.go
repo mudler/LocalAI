@@ -80,6 +80,12 @@ type RuntimeSettings struct {
 	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
 	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"` // override the agenthub.localai.io endpoint
 
+	// Distributed-mode settings. Read LIVE by the SmartRouter on each
+	// scheduling decision, so toggling takes effect on the next placement
+	// without a restart. Stored as the negation of
+	// DistributedConfig.DiskHeadroomDisabled for UI clarity.
+	DistributedDiskHeadroomCheck *bool `json:"distributed_disk_headroom_check,omitempty"` // Reject nodes without room to store the model (default: true)
+
 	// LocalAI Assistant settings — read live by the chat handler at request
 	// entry, so flipping the toggle takes effect on the next request.
 	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity

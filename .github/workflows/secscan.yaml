@@ -7,6 +7,19 @@ on:
   schedule:
   - cron: '0 0 * * 0'
 
+# `push:` is deliberately unfiltered, so this fires on every push to every
+# branch and there is no pull_request event to key on -- the usual
+# `github.event.pull_request.number || github.sha` idiom used elsewhere would
+# key on the unique-per-commit sha and dedup nothing. Group on the ref instead
+# so successive pushes to the same feature branch supersede one another.
+#
+# Cancelling is safe here: the only output is a SARIF upload, and code scanning
+# tracks the latest result per ref, so a superseded scan has nothing to lose.
+# master is excluded anyway -- every commit on master gets its own scan.
+concurrency:
+  group: ci-secscan-${{ github.ref }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   tests:
     runs-on: ubuntu-latest

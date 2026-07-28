@@ -76,12 +76,13 @@ elseif(DS4_GPU STREQUAL "cpu")
     set(DS4_OBJS "${DS4_DIR}/ds4_cpu.o")
 endif()
 
-# ds4.c now references ds4_distributed.c (distributed inference) and ds4_ssd.c
-# (SSD expert-cache), each split into its own translation unit upstream. Both
-# are GPU-agnostic objects shared by every GPU mode, so link them in regardless
-# of DS4_GPU.
+# Upstream splits distributed inference, tensor-parallel transport, the SSD
+# expert cache, and layer placement into GPU-agnostic translation units. Link
+# them regardless of DS4_GPU.
 list(APPEND DS4_OBJS "${DS4_DIR}/ds4_distributed.o")
+list(APPEND DS4_OBJS "${DS4_DIR}/ds4_tp.o")
 list(APPEND DS4_OBJS "${DS4_DIR}/ds4_ssd.o")
+list(APPEND DS4_OBJS "${DS4_DIR}/ds4_layer_pack.o")
 
 add_executable(${TARGET}
     grpc-server.cpp

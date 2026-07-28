@@ -41,6 +41,9 @@ func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, 
 		_, err := inferenceModel.GenerateVideo(
 			appConfig.Context,
 			&proto.GenerateVideoRequest{
+				// See the ModelIdentity note in image.go: this is the value
+				// ModelOptions passed to LoadModel a few lines above.
+				ModelIdentity:  modelConfig.Model,
 				Height:         options.Height,
 				Width:          options.Width,
 				Prompt:         options.Prompt,

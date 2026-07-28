@@ -6,7 +6,7 @@ import { test, expect } from './coverage-fixtures.js'
 // can tell who/what issued each request.
 test.describe('Traces - API request metadata', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/traces', (route) => {
+    await page.route('**/api/traces?*', (route) => {
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([
@@ -21,7 +21,7 @@ test.describe('Traces - API request metadata', () => {
         ]),
       })
     })
-    await page.route('**/api/backend-traces', (route) => {
+    await page.route('**/api/backend-traces?*', (route) => {
       route.fulfill({ contentType: 'application/json', body: '[]' })
     })
     await page.goto('/app/traces')

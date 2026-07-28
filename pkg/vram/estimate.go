@@ -169,8 +169,9 @@ func EstimateMultiContext(ctx context.Context, files []FileInput, contextSizes [
 }
 
 // ParseSizeString parses a human-readable size string (e.g. "500MB", "14.5 GB", "2tb")
-// into bytes. Supports B, KB, MB, GB, TB, PB (case-insensitive, space optional).
-// Uses SI units (1 KB = 1000 B).
+// into bytes. Supports B, KB, MB, GB, TB, PB (case-insensitive, space optional)
+// as SI units (1 KB = 1000 B), and the IEC suffixes KiB, MiB, GiB, TiB, PiB as
+// binary units (1 KiB = 1024 B).
 func ParseSizeString(s string) (uint64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -212,6 +213,18 @@ func ParseSizeString(s string) (uint64, error) {
 		multiplier = 1000 * 1000 * 1000 * 1000
 	case "P", "PB":
 		multiplier = 1000 * 1000 * 1000 * 1000 * 1000
+	// IEC binary suffixes. Model and VRAM sizes are conventionally quoted in
+	// these, so treating "GiB" as "GB" would understate a floor by 7%.
+	case "KIB":
+		multiplier = 1024
+	case "MIB":
+		multiplier = 1024 * 1024
+	case "GIB":
+		multiplier = 1024 * 1024 * 1024
+	case "TIB":
+		multiplier = 1024 * 1024 * 1024 * 1024
+	case "PIB":
+		multiplier = 1024 * 1024 * 1024 * 1024 * 1024
 	default:
 		return 0, fmt.Errorf("unknown size suffix: %q", suffix)
 	}

@@ -331,6 +331,22 @@ Cancel a background response that's still in progress:
 curl -X POST http://localhost:8080/v1/responses/resp_abc123/cancel
 ```
 
+#### Multiple Replicas (Distributed Mode)
+
+In distributed mode LocalAI replicates response metadata across frontend
+replicas, so retrieval, `previous_response_id` chaining and cancellation work
+regardless of which replica the load balancer picks:
+
+- `GET /v1/responses/{id}` returns the response from any replica.
+- `POST /v1/responses/{id}/cancel` is delegated over NATS to the replica that is
+  actually generating, so generation really stops. If that replica is gone, the
+  response is reported as `cancelled` without blocking.
+- **Streaming resume (`?stream=true`) is served only by the replica that created
+  the response.** The event buffer lives in that process's memory and is not
+  replicated. A resume request that reaches another replica returns HTTP 409
+  naming the owning replica instead of silently returning a truncated stream.
+  Poll the response instead, or route resume requests with session affinity.
+
 #### Tool Calling
 
 Open Responses API supports function calling with tools:

@@ -334,6 +334,27 @@ var (
 // invalidate entries when the gallery data changes.
 func GalleryGeneration() uint64 { return galleryGeneration.Load() }
 
+// ResetGalleryModelCache drops the cached model list, once any background
+// refresh already in flight has finished writing to it.
+//
+// It exists for tests. The cache is a package global keyed by nothing, which is
+// right for a process serving one gallery configuration and wrong for a suite
+// where each spec stands up its own: a refresh one spec triggered can land in
+// the middle of the next and answer it with the previous spec's entries, so
+// whichever assertion happens to straddle it fails at random.
+//
+// Waiting for the in-flight refresh rather than only clearing is the point. The
+// refresh publishes its result after this call would otherwise have returned,
+// so clearing without waiting just narrows the window.
+func ResetGalleryModelCache() {
+	for refreshing.Load() {
+		time.Sleep(time.Millisecond)
+	}
+	availableModelsMu.Lock()
+	availableModelsCache = nil
+	availableModelsMu.Unlock()
+}
+
 // AvailableGalleryModelsCached returns gallery models from an in-memory cache.
 // Local-only fields (installed status) are refreshed on every call. A background
 // goroutine is triggered to re-fetch the full model list (including network
