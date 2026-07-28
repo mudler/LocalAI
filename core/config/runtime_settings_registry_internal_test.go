@@ -71,6 +71,7 @@ var _ = Describe("runtime settings registry", func() {
 		src.LRUEvictionRetryInterval = 3 * time.Second
 		src.Threads = 7
 		src.ContextSize = 8192
+		src.ArtifactDownloadConcurrency = 6
 		src.VRAMBudget = "12GiB"
 		src.F16 = true
 		src.Debug = true

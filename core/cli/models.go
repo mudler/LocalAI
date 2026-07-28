@@ -29,7 +29,7 @@ type ModelsCMDFlags struct {
 	NoColor          string `env:"NO_COLOR" hidden:""`
 	HFToken          string `env:"HF_TOKEN" hidden:""`
 
-	ArtifactDownloadConcurrency int `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a Hugging Face model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps repositories split into many shards on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+	ArtifactDownloadConcurrency int `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
 }
 
 type ModelsList struct {

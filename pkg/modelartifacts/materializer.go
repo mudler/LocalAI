@@ -74,7 +74,7 @@ type Manager struct {
 	writerID string
 	// downloadConcurrency bounds how many of a snapshot's files transfer at
 	// once. One means the sequential behaviour this package shipped with.
-	downloadConcurrency int
+	downloadConcurrency atomic.Int64
 }
 
 type ManagerOption func(*Manager)
@@ -116,20 +116,27 @@ func WithLockWait(wait time.Duration) ManagerOption {
 // deployment decision rather than something to assume.
 func WithDownloadConcurrency(concurrency int) ManagerOption {
 	return func(manager *Manager) {
-		if concurrency > 0 {
-			manager.downloadConcurrency = concurrency
-		}
+		manager.SetDownloadConcurrency(concurrency)
 	}
+}
+
+// SetDownloadConcurrency updates the limit used by future file download
+// batches. Values below one select the safe sequential default.
+func (m *Manager) SetDownloadConcurrency(concurrency int) {
+	if concurrency < 1 {
+		concurrency = DefaultDownloadConcurrency
+	}
+	m.downloadConcurrency.Store(int64(concurrency))
 }
 
 func NewManager(resolver SnapshotResolver, options ...ManagerOption) *Manager {
 	manager := &Manager{
-		resolver:            resolver,
-		newLocker:           func(path string) Locker { return flock.New(path) },
-		lockWait:            DefaultLockWait,
-		writerID:            newWriterID(),
-		downloadConcurrency: DefaultDownloadConcurrency,
+		resolver:  resolver,
+		newLocker: func(path string) Locker { return flock.New(path) },
+		lockWait:  DefaultLockWait,
+		writerID:  newWriterID(),
 	}
+	manager.SetDownloadConcurrency(DefaultDownloadConcurrency)
 	for _, option := range options {
 		option(manager)
 	}
@@ -498,7 +505,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 			"remaining_files", len(tasks),
 			"total_files", len(snapshot.Files))
 	}
-	if err := downloader.DownloadFilesWithConcurrency(ctx, tasks, nil, m.downloadConcurrency); err != nil {
+	if err := downloader.DownloadFilesWithConcurrency(ctx, tasks, nil, int(m.downloadConcurrency.Load())); err != nil {
 		return Result{}, err
 	}
 	if err := root.RemoveAll(".downloads"); err != nil {

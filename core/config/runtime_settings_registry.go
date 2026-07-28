@@ -227,6 +227,15 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **int { return &s.ContextSize },
 		func(o *ApplicationConfig) int { return o.ContextSize },
 		func(o *ApplicationConfig, v int) { o.ContextSize = v }),
+	field("artifact_download_concurrency",
+		func(s *RuntimeSettings) **int { return &s.ArtifactDownloadConcurrency },
+		func(o *ApplicationConfig) int { return o.ArtifactDownloadConcurrency },
+		func(o *ApplicationConfig, v int) {
+			if v < 1 {
+				v = 1
+			}
+			o.ArtifactDownloadConcurrency = v
+		}),
 	// VRAM budget: the cap string ("80%"/"12GB"/"" = uncapped). The live
 	// side effect (xsysinfo.SetDefaultVRAMBudget) is post-processing in the
 	// apply loop, not here - the row only owns the config member, matching

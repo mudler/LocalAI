@@ -112,6 +112,19 @@ var _ = Describe("artifact materialization with bounded download concurrency", f
 		Expect(concurrent.Manifest.Files).To(Equal(sequential.Manifest.Files))
 	})
 
+	It("applies live concurrency updates to subsequent materializations", func() {
+		snapshot, server, peak := shardedSnapshot(8, 40*time.Millisecond)
+		DeferCleanup(server.Close)
+		manager := modelartifacts.NewManager(&fakeSnapshotResolver{snapshot: snapshot})
+		manager.SetDownloadConcurrency(4)
+
+		_, err := manager.Ensure(context.Background(), GinkgoT().TempDir(), spec)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(*peak).To(BeNumerically(">", 1))
+		Expect(*peak).To(BeNumerically("<=", 4))
+	})
+
 	It("still resumes past files an interrupted pass already completed", func() {
 		snapshot, server, _ := shardedSnapshot(6, 0)
 		DeferCleanup(server.Close)
