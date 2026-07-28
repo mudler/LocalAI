@@ -10,7 +10,7 @@ JOBS?=$(shell nproc --ignore=1)
 # this on `master` always picks up the latest C-API surface (incl. the
 # per-detection accessor functions used by golocateanythingcpp.go).
 LOCATEANYTHING_REPO?=https://github.com/mudler/locate-anything.cpp.git
-LOCATEANYTHING_VERSION?=ade2634f7f79b56121125e5885628744795a478f
+LOCATEANYTHING_VERSION?=77376ab332de918220f7a7e391542eefb5407c9f
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF

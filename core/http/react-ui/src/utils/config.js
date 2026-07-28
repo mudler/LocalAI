@@ -2,6 +2,7 @@ export const API_CONFIG = {
   endpoints: {
     // Operations
     operations: '/api/operations',
+    operationsHistory: '/api/operations/history',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
     dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
@@ -10,6 +11,7 @@ export const API_CONFIG = {
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
     modelEstimate: (id) => `/api/models/estimate/${id}`,
+    modelVariants: (id) => `/api/models/variants/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
     configMetadata: '/api/models/config-metadata',
@@ -36,8 +38,10 @@ export const API_CONFIG = {
 
     // Traces
     traces: '/api/traces',
+    trace: (id) => `/api/traces/${encodeURIComponent(id)}`,
     clearTraces: '/api/traces/clear',
     backendTraces: '/api/backend-traces',
+    backendTrace: (id) => `/api/backend-traces/${encodeURIComponent(id)}`,
     clearBackendTraces: '/api/backend-traces/clear',
 
     // Backend Logs

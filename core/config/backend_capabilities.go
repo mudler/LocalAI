@@ -466,6 +466,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		VoiceCloning:     referenceVoiceCloning(),
 		Description:      "Qwen3 TTS C++ - text-to-speech with streaming, named speakers, voice design and cloning (qwentts.cpp / GGML)",
 	},
+	"magpie-tts-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodTTS, MethodTTSStream},
+		PossibleUsecases: []string{UsecaseTTS},
+		DefaultUsecases:  []string{UsecaseTTS},
+		Description:      "Magpie TTS C++ - NVIDIA Magpie TTS Multilingual 357M with 5 baked voices and 9+ languages (magpie-tts.cpp / GGML)",
+	},
 	"faster-qwen3-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
 		PossibleUsecases: []string{UsecaseTTS},

@@ -1,4 +1,84 @@
 {
+  "activity": {
+    "title": "Activity",
+    "supporting": "Installs, downloads and removals on this instance.",
+    "hide": "Hide",
+    "moveToHistory": "Move to history",
+    "moreCount": "{{count}} more",
+    "waitingForInstaller": "waiting for the installer",
+    "progressLabel": "Progress for {{name}}",
+    "toNode": "to {{node}}",
+    "nodesDone": "{{done}} of {{total}} nodes done",
+    "timeLeft": "{{value}} left",
+    "cancel": "Cancel",
+    "cancelLabel": "Cancel {{name}}",
+    "retry": "Retry",
+    "retryLabel": "Retry {{name}}",
+    "nodeCount": "{{count}} nodes",
+    "showNodes": "Show {{count}} nodes",
+    "hideNodes": "Hide per-node detail",
+    "node": {
+      "done": "Done",
+      "failed": "Failed",
+      "queued": "Queued",
+      "workerBusy": "Worker busy",
+      "downloading": "Downloading"
+    },
+    "kind": {
+      "model": "model",
+      "backend": "backend"
+    },
+    "verb": {
+      "installing": "Installing {{kind}}",
+      "installed": "Installed {{kind}}",
+      "removed": "Removed {{kind}}",
+      "staged": "Staged model",
+      "failed": "Couldn't install {{kind}}",
+      "queued": "Queued",
+      "staging": "Staging model",
+      "removing": "Removing {{kind}}",
+      "failedRemoval": "Couldn't remove {{kind}}",
+      "failedStaging": "Couldn't stage model"
+    },
+    "phase": {
+      "resolving": "Resolving files",
+      "downloading": "Downloading",
+      "verifying": "Verifying",
+      "committing": "Finalizing",
+      "persisting": "Saving configuration"
+    },
+    "clearHistory": "Clear history",
+    "inProgress": "In progress",
+    "needsAttention": "Needs attention",
+    "record": "Record",
+    "historyNote": "Keeps the last 50 operations. History is in memory and resets when LocalAI restarts.",
+    "emptyTitle": "No operations since startup",
+    "emptyBody": "Model and backend installs appear here while they run and stay as a record afterwards. History is kept in memory, so it resets when LocalAI restarts.",
+    "browseModels": "Browse models",
+    "viewInModels": "View in Models",
+    "viewInBackends": "View in Backends",
+    "rowInstalled": "installed in {{duration}}",
+    "rowFailed": "failed: {{error}}",
+    "rowCancelled": "cancelled",
+    "rowRemoved": "removed",
+    "retryFailed": "Retry failed: {{message}}",
+    "filter": {
+      "all": "All",
+      "models": "Models",
+      "backends": "Backends",
+      "cluster": "Cluster"
+    },
+    "summaryRunning_one": "{{count}} operation running.",
+    "summaryRunning_other": "{{count}} operations running.",
+    "summaryFailed_one": "{{count}} operation needs attention.",
+    "summaryFailed_other": "{{count}} operations need attention.",
+    "summaryQuiet_one": "Nothing running. {{count}} operation since startup.",
+    "summaryQuiet_other": "Nothing running. {{count}} operations since startup.",
+    "summaryIdle": "Nothing running.",
+    "emptyFiltered": "No operations match this filter.",
+    "showAll": "Show all",
+    "rowInstalledPlain": "installed"
+  },
   "manage": {
     "title": "Sistema",
     "subtitle": "Administra modelos y backends instalados"
@@ -23,6 +103,7 @@
       "agents": "Trabajos de agentes",
       "agentpool": "Pool de agentes",
       "assistant": "LocalAI Assistant",
+      "distributed": "Distribuido",
       "responses": "Respuestas"
     }
   },

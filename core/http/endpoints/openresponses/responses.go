@@ -3047,11 +3047,26 @@ func GetResponseEndpoint() func(c echo.Context) error {
 
 // handleStreamResume handles resuming a streaming response from a specific sequence number
 func handleStreamResume(c echo.Context, store *ResponseStore, responseID string, stored *StoredResponse, startingAfter int) error {
+	// The resume buffer is process-local by design (see ErrResponseNotLocal), so
+	// a resume that the load balancer routed to a replica which is not
+	// generating this response cannot be served here. Say that plainly: a
+	// truthful error lets the caller retry against the right replica, whereas
+	// replaying an empty buffer would look like a stream that simply ended.
+	if stored.Remote {
+		return sendOpenResponsesError(c, 409, "invalid_request_error",
+			fmt.Sprintf("response %s is being generated on another replica (%s) and its stream cannot be resumed here; poll GET /v1/responses/%s instead, or route the resume with session affinity", responseID, stored.OwnerReplica, responseID),
+			"stream")
+	}
+
 	// Fetch buffered events before committing to an SSE response so an
 	// offset-lost gap can be reported as a clean HTTP status rather than a
 	// silently truncated event stream.
 	events, err := store.GetEventsAfter(responseID, startingAfter)
 	if err != nil {
+		if errors.Is(err, ErrResponseNotLocal) {
+			return sendOpenResponsesError(c, 409, "invalid_request_error",
+				fmt.Sprintf("response %s is being generated on another replica and its stream cannot be resumed here", responseID), "stream")
+		}
 		if errors.Is(err, ErrOffsetLost) {
 			return sendOpenResponsesError(c, 409, "invalid_request_error", fmt.Sprintf("starting_after=%d is older than the oldest retained event; the resume buffer evicted those events and the stream cannot be resumed from that point", startingAfter), "starting_after")
 		}

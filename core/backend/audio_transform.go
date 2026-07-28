@@ -83,6 +83,7 @@ func ModelAudioTransform(
 	}
 
 	res, err := transformModel.AudioTransform(ctx, &proto.AudioTransformRequest{
+		ModelIdentity: modelConfig.Model,
 		AudioPath:     audioPath,
 		ReferencePath: referencePath,
 		Dst:           dst,

@@ -192,10 +192,18 @@ The response contains the SDP answer to complete the WebRTC handshake.
 
 #### Opus backend requirement
 
-WebRTC uses the Opus audio codec for encoding and decoding audio on RTP tracks. The **opus** backend must be installed for WebRTC to work. Install it from the model gallery:
+WebRTC uses the Opus audio codec for encoding and decoding audio on RTP tracks. The **opus** backend must be installed for WebRTC to work. Install it from the **Backends** page in the web UI, or from the backend gallery with the API:
 
 ```bash
-curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '{"id": "opus"}'
+curl -X POST http://localhost:8080/backends/apply \
+  -H "Content-Type: application/json" \
+  -d '{"id": "opus"}'
+```
+
+For a local binary installation, you can instead use the CLI:
+
+```bash
+local-ai backends install opus
 ```
 
 Or set the `EXTERNAL_GRPC_BACKENDS` environment variable if running a local build:
@@ -231,6 +239,26 @@ most reliable fix for WebRTC connections that establish and then drop.
 ## Protocol
 
 The API follows the OpenAI Realtime API protocol for handling sessions, audio buffers, and conversation items.
+
+### Response modalities (text-only sessions)
+
+By default a realtime session responds with audio plus a transcript. To make the model respond with **text only**, set the output modalities on either the session or an individual response:
+
+```json
+{"type": "session.update", "session": {"output_modalities": ["text"]}}
+```
+
+```json
+{"type": "response.create", "response": {"output_modalities": ["text"]}}
+```
+
+`output_modalities` is the GA field name. For compatibility, LocalAI also accepts the legacy Realtime *beta* field name `modalities` as an alias (a lot of community sample code still sends `modalities: ["text"]`):
+
+```json
+{"type": "session.update", "session": {"modalities": ["text"]}}
+```
+
+The GA `output_modalities` wins when both are present. A response-level value overrides the session-level one, and when neither is set the session falls back to `["audio"]`.
 
 ## Gating a realtime pipeline with voice recognition
 

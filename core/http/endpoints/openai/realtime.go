@@ -72,6 +72,19 @@ func resolveOutputModalities(session, response []types.Modality) []types.Modalit
 	return []types.Modality{types.ModalityAudio}
 }
 
+// modalitiesWithAlias returns output_modalities, falling back to the legacy
+// beta `modalities` field when only the alias was supplied. OpenAI's Realtime
+// beta named this field `modalities`; the GA field is `output_modalities`.
+// Accepting the alias keeps beta clients (and the large amount of community
+// sample code that still sends `modalities`) from silently receiving audio
+// when they asked for text-only. The GA field wins when both are present.
+func modalitiesWithAlias(output, alias []types.Modality) []types.Modality {
+	if len(output) > 0 {
+		return output
+	}
+	return alias
+}
+
 // modalitiesContainAudio reports whether the resolved modalities include audio
 // output.
 func modalitiesContainAudio(m []types.Modality) bool {
@@ -1232,8 +1245,8 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		session.MaxOutputTokens = rt.MaxOutputTokens
 	}
 
-	if len(rt.OutputModalities) > 0 {
-		session.OutputModalities = rt.OutputModalities
+	if mods := modalitiesWithAlias(rt.OutputModalities, rt.Modalities); len(mods) > 0 {
+		session.OutputModalities = mods
 	}
 
 	return nil
@@ -2218,7 +2231,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		canStream := len(tools) == 0 || config.TemplateConfig.UseTokenizerTemplate
 		var respMods []types.Modality
 		if overrides != nil {
-			respMods = overrides.OutputModalities
+			respMods = modalitiesWithAlias(overrides.OutputModalities, overrides.Modalities)
 		}
 		if canStream && modalitiesContainAudio(resolveOutputModalities(session.OutputModalities, respMods)) {
 			if streamLLMResponse(ctx, session, conv, t, r, conversationHistory, images, config, tools, toolChoice, toolTurn) {
@@ -2417,7 +2430,7 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		_, isWebRTC := t.(*WebRTCTransport)
 		var respMods []types.Modality
 		if overrides != nil {
-			respMods = overrides.OutputModalities
+			respMods = modalitiesWithAlias(overrides.OutputModalities, overrides.Modalities)
 		}
 		modalities := resolveOutputModalities(session.OutputModalities, respMods)
 		if modalitiesContainAudio(modalities) {

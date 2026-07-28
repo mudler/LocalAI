@@ -68,3 +68,11 @@ if [ ! -x "${QUANTIZE_BIN}" ] && ! command -v llama-quantize &>/dev/null; then
         echo "Warning: cmake not found — llama-quantize will not be available. Install cmake or provide llama-quantize on PATH."
     fi
 fi
+
+# The stubs generated at the end of installRequirements were built against the
+# protobuf runtime as it stood before the installs above, which resolve their own
+# dependencies and can move that runtime. Regenerate now that the dependency set
+# is final, so the gencode stamped into backend_pb2.py cannot be newer than the
+# runtime that ships. Same failure mode as mudler/LocalAI#10718; runProtogen
+# clears the previous stubs first, so this is idempotent.
+runProtogen

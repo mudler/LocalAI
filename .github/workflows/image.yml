@@ -113,7 +113,7 @@
               tag-latest: 'auto'
               tag-suffix: '-gpu-nvidia-cuda-13'
               runs-on: 'ubuntu-latest'
-              base-image: "ubuntu:22.04"
+              base-image: "ubuntu:24.04"
               skip-drivers: 'false'
               makeflags: "--jobs=4 --output-sync=target"
               ubuntu-version: '2404'

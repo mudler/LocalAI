@@ -27,7 +27,7 @@ fi
 # synthetic image would trivially yield zero detections.
 TEST_IMAGE_DIR="$CURDIR/test-data"
 TEST_IMAGE_FILE="$TEST_IMAGE_DIR/test.jpg"
-TEST_IMAGE_URL="${TEST_IMAGE_URL:-https://raw.githubusercontent.com/mudler/rf-detr.cpp/main/tests/fixtures/ci/test_image.jpg}"
+TEST_IMAGE_URL="${TEST_IMAGE_URL:-https://raw.githubusercontent.com/localai-org/rf-detr.cpp/main/tests/fixtures/ci/test_image.jpg}"
 
 mkdir -p "$TEST_IMAGE_DIR"
 if [ ! -f "$TEST_IMAGE_FILE" ]; then

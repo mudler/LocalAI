@@ -17,7 +17,7 @@ import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
 import { backendControlApi, modelsApi, backendsApi, systemApi, nodesApi } from '../utils/api'
-import { renderMarkdown } from '../utils/markdown'
+import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import {
   CAP_CHAT, CAP_COMPLETION, CAP_IMAGE, CAP_VIDEO, CAP_TTS,
@@ -119,6 +119,15 @@ function formatBackendVersion(metadata) {
     return { label: tag, full: uri }
   }
   return { label: '—', full: '' }
+}
+
+// Gallery descriptions are Markdown. The row preview is a single truncated
+// line, so it shows the text without the syntax; the full Markdown is rendered
+// in the expanded detail panel instead.
+function ResourceRowDesc({ description }) {
+  const text = stripMarkdown(description)
+  if (!text) return null
+  return <span className="resource-row__desc" title={text}>{text}</span>
 }
 
 export default function Manage() {
@@ -640,9 +649,7 @@ export default function Manage() {
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                           <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{model.id}</span>
                           {enriched?.description && (
-                            <span className="resource-row__desc" title={enriched.description}>
-                              {enriched.description}
-                            </span>
+                            <ResourceRowDesc description={enriched.description} />
                           )}
                         </div>
                       </td>
@@ -957,9 +964,7 @@ export default function Manage() {
                             )}
                           </div>
                           {(enriched?.description) && (
-                            <span className="resource-row__desc" title={enriched.description}>
-                              {enriched.description}
-                            </span>
+                            <ResourceRowDesc description={enriched.description} />
                           )}
                         </div>
                       </td>
@@ -1074,7 +1079,7 @@ function ModelDetail({ model, enriched, matchedCaps, distributedMode, onNavigate
         <dd>
           {description ? (
             <div
-              className="resource-row__detail-md"
+              className="resource-row__detail-md markdown-body"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
             />
           ) : (
@@ -1184,7 +1189,7 @@ function BackendDetail({ backend, enriched, upgradeInfo, nodes, distributedMode 
         <dd>
           {description ? (
             <div
-              className="resource-row__detail-md"
+              className="resource-row__detail-md markdown-body"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
             />
           ) : (

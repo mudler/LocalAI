@@ -87,3 +87,9 @@ else
 fi
 
 cd ..
+
+# vllm-omni lands after installRequirements has already generated the protobuf
+# stubs, and it re-resolves the protobuf runtime as it installs. Regenerate now
+# that the dependency set is final, so the stubs cannot be newer than the runtime
+# that ships. Same failure mode as mudler/LocalAI#10718.
+runProtogen

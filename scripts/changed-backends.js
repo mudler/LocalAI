@@ -5,13 +5,14 @@ import { Octokit } from "@octokit/core";
 import {
   getAllBackendPaths,
   filterMatrix,
+  BACKEND_MATRIX_FILE,
 } from "./lib/backend-filter.mjs";
 
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
 // and backend_pr.yml (pull_request) can use a dynamic `matrix: ${{ fromJson(...) }}`
 // for the live job, while this script remains the single source of truth for
 // "what backends does the project know about".
-const matrixYml = yaml.load(fs.readFileSync(".github/backend-matrix.yml", "utf8"));
+const matrixYml = yaml.load(fs.readFileSync(BACKEND_MATRIX_FILE, "utf8"));
 const includes = matrixYml.include;
 const includesDarwin = matrixYml.includeDarwin;
 
@@ -74,6 +75,45 @@ async function getChangedFilesForPush(event) {
     return null;
   }
   return res.data.files.map(f => f.filename);
+}
+
+// The matrix file's contents at the base revision, so filterMatrix can rebuild
+// only the entries whose fields actually changed instead of all 417 (or, as
+// before, none of them). Returns null when the previous revision cannot be
+// resolved, which filterMatrix treats as "rebuild everything".
+//
+// Only called when the changed-file list actually names the matrix file, so the
+// common path costs no extra API request.
+async function getPreviousMatrix(event) {
+  const ref = event.pull_request ? event.pull_request.base.sha : event.before;
+  if (!ref || /^0+$/.test(ref)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  try {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: BACKEND_MATRIX_FILE,
+      ref,
+      mediaType: { format: 'raw' },
+    });
+    // `format: raw` yields a string; fall back to the JSON representation in
+    // case a proxy or a future Octokit version ignores the media type.
+    const raw = typeof res.data === 'string'
+      ? res.data
+      : Buffer.from(res.data.content, 'base64').toString('utf8');
+    const previous = yaml.load(raw);
+    return {
+      include: previous.include || [],
+      includeDarwin: previous.includeDarwin || [],
+    };
+  } catch (err) {
+    console.log(
+      `could not read ${BACKEND_MATRIX_FILE} at ${ref}, falling back to run-all:`,
+      err.message
+    );
+    return null;
+  }
 }
 
 // Group matrix entries by tag-suffix and emit a merge-matrix entry per group.
@@ -200,13 +240,14 @@ function emitFullMatrix() {
   }
 }
 
-function emitFilteredMatrix(changedFiles) {
+function emitFilteredMatrix(changedFiles, previousMatrix) {
   console.log("Changed files:", changedFiles);
 
   const { filtered, filteredDarwin, changedBackends } = filterMatrix({
     includes,
     includesDarwin,
     changedFiles,
+    previousMatrix,
   });
 
   console.log("Filtered files:", filtered);
@@ -260,5 +301,10 @@ function emitFilteredMatrix(changedFiles) {
     emitFullMatrix();
     return;
   }
-  emitFilteredMatrix(changedFiles);
+
+  const previousMatrix = changedFiles.includes(BACKEND_MATRIX_FILE)
+    ? await getPreviousMatrix(event)
+    : null;
+
+  emitFilteredMatrix(changedFiles, previousMatrix);
 })();
