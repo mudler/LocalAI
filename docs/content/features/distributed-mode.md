@@ -203,8 +203,7 @@ The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_T
 ### Watching Backend Installs
 
 While a worker downloads a backend, the admin operations strip at the top
-of the UI shows real-time progress: current file, downloaded/total bytes,
-and percentage. This works the same as single-node mode. An install that
+of the UI shows real-time progress: downloaded/total bytes and percentage. This works the same as single-node mode. An install that
 targets several workers is rolled up on the strip into one phrase,
 `2 of 5 nodes done`.
 

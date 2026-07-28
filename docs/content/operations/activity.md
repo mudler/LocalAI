@@ -22,11 +22,12 @@ shows one operation at a time:
 - otherwise the least advanced running operation, which is the one everything
   else is waiting behind.
 
-The line names the operation, says what it is doing (`Resolving files`,
-`Downloading`, `Verifying`, `Finalizing`, `Saving configuration`), and shows
-downloaded/total bytes with a percentage. A backend installing on several
-workers is rolled up into one phrase, `2 of 5 nodes done`; the per-node
-breakdown lives on the Activity page.
+The line names the operation and shows downloaded/total bytes with a
+percentage. For artifact-backed gallery models it also names the phase
+(`Resolving files`, `Downloading`, `Verifying`, `Finalizing`, `Saving
+configuration`); an ordinary GGUF install has no phase to report. A backend
+installing on several workers is rolled up into one phrase, `2 of 5 nodes
+done`; the per-node breakdown lives on the Activity page.
 
 When more than one operation is in flight, a **N more** counter on the right
 links to the Activity page.
@@ -49,18 +50,21 @@ each shown only when it has something in it.
 
 One card per running or queued operation, with what it is doing, downloaded and
 total bytes, a percentage, and an estimate of the time left once enough of the
-transfer has been observed to work one out.
+transfer has been observed to work one out. An operation you have cancelled can
+stay here reading **Cancelling** rather than disappearing at once. That is
+expected: the card goes on its own once the installer has stopped.
 
-An install that fans out to workers carries an **N nodes** tag and a per-node
-list showing, for each worker:
+An install scoped to a worker shows a per-node list, with one row per worker:
 
 - a status pill: **Queued**, **Downloading**, **Worker busy**, **Done** or
   **Failed**;
 - the file being transferred, with current/total bytes and a percentage;
 - any error the worker returned.
 
-Lists of up to four nodes are expanded by default; longer ones start collapsed
-behind a **Show N nodes** toggle.
+An install that fans out to more than one worker also carries an **N nodes**
+tag and a toggle over the list. Lists of up to four nodes start expanded, longer
+ones start collapsed behind **Show N nodes**, and the toggle reads **Hide
+per-node detail** while the list is open.
 
 **Worker busy** means the worker took longer than `--backend-install-timeout`
 to acknowledge but is most likely still working. It clears on its own when the
@@ -75,7 +79,9 @@ the error returned by the installer.
 
 What finished, newest first, one row each: the name, what happened
 (`installed in 1m 12s`, `removed`, `cancelled`, or `failed:` with the error),
-the time of day it finished, and a link into Models or Backends.
+the time of day it finished, and a link into Models or Backends. Model and
+backend installs and removals are recorded; cluster staging is not, so a
+staging run leaves nothing behind here once it finishes.
 
 ### Filters
 
@@ -85,7 +91,8 @@ means staged model files and node-scoped backend installs.
 
 ## Cancelling, retrying and dismissing
 
-These are on the operation cards, behind labelled buttons. The strip has no
+These are on the operation cards. **Cancel** and **Retry** are labelled
+buttons; dismissing is the **X** at the end of a failed card. The strip has no
 cancel button; the page is the only place work is stopped or restarted.
 
 - **Cancel** is offered while an operation can still be stopped. For
@@ -117,8 +124,8 @@ keeps its own: what you see is the record of the replica serving the page. For
 durable per-model install state, use the model and backend listings rather than
 this page.
 
-**Clear history** beside the page title empties the record. Running operations
-and unacknowledged failures are untouched.
+**Clear history**, beside the page title whenever the record has anything in
+it, empties it. Running operations and unacknowledged failures are untouched.
 
 ## The sidebar count
 
@@ -140,17 +147,38 @@ Both surfaces are backed by these endpoints. All of them are admin-only when
 | `GET`    | `/api/operations/history`        | List finished operations, newest first.                                   |
 | `DELETE` | `/api/operations/history`        | Clear the record. Live operations are untouched.                          |
 
+Both `GET` endpoints wrap their list in an `operations` key rather than
+returning a bare array:
+
 ```bash
 # What has finished on this instance
 curl http://localhost:8080/api/operations/history \
   -H "Authorization: Bearer <admin-key>"
+```
 
-# Forget it
+```json
+{
+  "operations": [
+    {
+      "id": "localai@qwen3-4b",
+      "name": "qwen3-4b",
+      "jobID": "6f1b0c2e-...",
+      "isBackend": false,
+      "taskType": "installation",
+      "outcome": "completed",
+      "startedAt": "2026-07-27T10:02:11Z",
+      "finishedAt": "2026-07-27T10:03:23Z"
+    }
+  ]
+}
+```
+
+`nodeID` is present when the operation was scoped to a worker, and `error`
+when the `outcome` is `failed`. The `outcome` is one of `completed`, `failed`
+or `cancelled`.
+
+```bash
+# Forget the record
 curl -X DELETE http://localhost:8080/api/operations/history \
   -H "Authorization: Bearer <admin-key>"
 ```
-
-A history entry reports the operation `id` and `name`, its `jobID`, whether it
-was a backend (`isBackend`), the `nodeID` when it was scoped to a worker, the
-`taskType`, an `outcome` of `completed`, `failed` or `cancelled`, the `error`
-when it failed, and `startedAt` / `finishedAt` timestamps.
