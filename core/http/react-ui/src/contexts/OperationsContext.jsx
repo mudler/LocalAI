@@ -164,18 +164,23 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     // All or nothing: if any operation still transferring has no estimate yet,
     // nobody shows one this tick.
     //
-    // Only operations still moving bytes get a vote. One that has finished
-    // downloading and is committing or installing sits pinned at
-    // currentBytes == totalBytes while remaining live, and it can never
-    // produce an estimate; counting it would blank the whole row for as long
-    // as it lasts. A transient stall would do the same for a single tick,
-    // which reads as flicker.
+    // Only operations actually downloading get a vote. Every other phase
+    // reports bytes but stops advancing them: verifying hashes a finished file
+    // while the counter sits below the multi-file total, and committing sits
+    // pinned at the total. Both can last minutes, and counting them would
+    // blank every other operation's estimate for that whole window.
+    //
+    // The byte clauses are not redundant with the phase clause: a producer can
+    // report downloading with bytes already at the total. The undefined-phase
+    // arm keeps today's behaviour for producers that do not report a phase,
+    // which in practice do not report totalBytes either.
     const tracked = withEta.filter(
       (op) =>
         Number.isFinite(op.totalBytes) &&
         op.totalBytes > 0 &&
         Number.isFinite(op.currentBytes) &&
-        op.currentBytes < op.totalBytes
+        op.currentBytes < op.totalBytes &&
+        (op.phase === undefined || op.phase === 'downloading')
     )
     if (tracked.length > 0 && tracked.some((op) => op.etaSeconds === undefined)) {
       return withEta.map(({ etaSeconds: _etaSeconds, ...op }) => op)
