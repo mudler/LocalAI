@@ -202,13 +202,16 @@ The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_T
 
 ### Watching Backend Installs
 
-While a worker downloads a backend, the admin **Operations Bar** at the top
+While a worker downloads a backend, the admin operations strip at the top
 of the UI shows real-time progress: current file, downloaded/total bytes,
-and percentage. This works the same as single-node mode.
+and percentage. This works the same as single-node mode. An install that
+targets several workers is rolled up on the strip into one phrase,
+`2 of 5 nodes done`.
 
-When an install targets more than one worker, an **N nodes** chevron
-appears on the operation row. Click it to expand a per-node breakdown,
-with one row per worker showing:
+The per-node detail is on the **Operate → Activity** page
+([Activity]({{% relref "operations/activity" %}})). When an install targets
+more than one worker, an **N nodes** tag appears on the operation card, with
+one row per worker showing:
 
 - A status pill: **Queued** (gray), **Downloading** (blue), **Worker busy**
   (yellow), **Done** (green), or **Failed** (red).
