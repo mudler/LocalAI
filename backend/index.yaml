@@ -29497,3 +29497,181 @@
   uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-timestral-cpp
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-timestral-cpp
+- name: cachyllama
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+- name: cachyllama-development
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama-development
+    metal: metal-cachyllama-development
+    vulkan: vulkan-cachyllama-development
+- name: cpu-cachyllama
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  uri: quay.io/go-skynet/local-ai-backends:latest-cpu-cachyllama
+  mirrors:
+    - localai/localai-backends:latest-cpu-cachyllama
+- name: cpu-cachyllama-development
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  uri: quay.io/go-skynet/local-ai-backends:master-cpu-cachyllama
+  mirrors:
+    - localai/localai-backends:master-cpu-cachyllama
+- name: vulkan-cachyllama
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  uri: quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-cachyllama
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-cachyllama
+- name: vulkan-cachyllama-development
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  uri: quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-cachyllama
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-cachyllama
+- name: metal-cachyllama
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  uri: quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-cachyllama
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-cachyllama
+- name: metal-cachyllama-development
+  alias: cachyllama
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: cpu-cachyllama
+    metal: metal-cachyllama
+    vulkan: vulkan-cachyllama
+  uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-cachyllama
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-cachyllama
