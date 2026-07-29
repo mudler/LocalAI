@@ -70,10 +70,11 @@ type SeedSchedulingEntry struct {
 	Replicas     *ReplicasSpec     `json:"replicas,omitempty" yaml:"replicas,omitempty"`
 	SpreadAll    bool              `json:"spread_all,omitempty" yaml:"spread_all,omitempty"`
 
-	RoutePolicy         string  `json:"route_policy,omitempty" yaml:"route_policy,omitempty"`
-	BalanceAbsThreshold int     `json:"balance_abs_threshold,omitempty" yaml:"balance_abs_threshold,omitempty"`
-	BalanceRelThreshold float64 `json:"balance_rel_threshold,omitempty" yaml:"balance_rel_threshold,omitempty"`
-	MinPrefixMatch      float64 `json:"min_prefix_match,omitempty" yaml:"min_prefix_match,omitempty"`
+	RoutePolicy         string             `json:"route_policy,omitempty" yaml:"route_policy,omitempty"`
+	BalanceAbsThreshold int                `json:"balance_abs_threshold,omitempty" yaml:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64            `json:"balance_rel_threshold,omitempty" yaml:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64            `json:"min_prefix_match,omitempty" yaml:"min_prefix_match,omitempty"`
+	ScorerWeights       map[string]float64 `json:"scorer_weights,omitempty" yaml:"scorer_weights,omitempty"`
 }
 
 // spread reports whether this entry requests spread-to-all-matching-nodes mode,
@@ -104,6 +105,9 @@ func ValidateSeedEntry(e SeedSchedulingEntry) error {
 	if err := prefixcache.ValidateThresholds(e.RoutePolicy, e.BalanceAbsThreshold, e.BalanceRelThreshold, e.MinPrefixMatch); err != nil {
 		return fmt.Errorf("%w (model %q)", err, e.ModelName)
 	}
+	if err := prefixcache.ValidateScorerWeights(e.ScorerWeights); err != nil {
+		return fmt.Errorf("%w (model %q)", err, e.ModelName)
+	}
 	return nil
 }
 
@@ -126,6 +130,7 @@ func (e SeedSchedulingEntry) toConfig() (ModelSchedulingConfig, error) {
 		BalanceAbsThreshold: e.BalanceAbsThreshold,
 		BalanceRelThreshold: e.BalanceRelThreshold,
 		MinPrefixMatch:      e.MinPrefixMatch,
+		ScorerWeights:       e.ScorerWeights,
 	}, nil
 }
 

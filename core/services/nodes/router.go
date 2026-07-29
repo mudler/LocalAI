@@ -852,6 +852,9 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 		if sched.MinPrefixMatch > 0 {
 			cfg.MinPrefixMatch = sched.MinPrefixMatch
 		}
+		if sched.ScorerWeights != nil {
+			cfg.ScorerWeights = sched.ScorerWeights
+		}
 	}
 	if policy != prefixcache.RoutePolicyPrefixCache {
 		return nil, nil
