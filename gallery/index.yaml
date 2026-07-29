@@ -97,6 +97,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+      sha256: e1cf7f33e13ee787a8557effee41eef5261b24696e283ef9d320830ba39f6784
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
 - !!merge <<: *kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev-apex-i-balanced"
@@ -117,6 +118,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+      sha256: ee6e0ec15964c42ba91831d13e9709239f1b74da3dc49dd3edec4ad6aed8029f
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
 - !!merge <<: *kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev-apex-i-compact"
@@ -137,6 +139,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+      sha256: 5235ac39e7989d9fcf08078acfa755611d42a1f80060d226e4aba04a3595d0d8
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
 - !!merge <<: *kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev-apex-i-mini"
@@ -157,6 +160,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+      sha256: 9d901bf1c44946840e15e6f73a66782f56ae2f1a41d6508995ddcd976e9af878
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
 - !!merge <<: *kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev-apex-quality"
@@ -177,6 +181,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+      sha256: 849737baf59183ed518d34f2460f0dcd86190953ccc3213072bdcb1d7f8d2882
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
 - !!merge <<: *kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev-apex-balanced"
@@ -197,6 +202,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+      sha256: 9a5d31b110a95bc085d9851c420dd7a1ffeaec7c9263073c8850d8fb81c4f8ba
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
 - !!merge <<: *kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev-apex-compact"
@@ -217,6 +223,7 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
+      sha256: 98dfee53102bbf01e67a768066543a707b40f365ff71e35132ac432c58ad99fd
       uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
