@@ -7,6 +7,9 @@ url = '/reference/cli-reference'
 
 Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.
 
+These options configure the LocalAI server process. To configure an individual
+model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
+
 > **Note:** All CLI flags can also be set via environment variables. Environment variables take precedence over CLI flags. See [.env files]({{%relref "advanced/advanced-usage#env-files" %}}) for configuration file support.
 
 ## Global Flags

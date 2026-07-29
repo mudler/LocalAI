@@ -7,6 +7,20 @@ url = '/advanced/model-configuration'
 
 LocalAI uses YAML configuration files to define model parameters, templates, and behavior. This page provides a complete reference for all available configuration options.
 
+## Configuration scopes and precedence
+
+[CLI flags and environment variables]({{% relref "reference/cli-reference" %}})
+configure the LocalAI server process. Model YAML files configure one model,
+while supported fields in an API request can override that model's defaults
+for that request. For example, a request containing `temperature` overrides
+the model YAML `parameters.temperature` only for that request.
+
+Precedence is setting-specific rather than one universal ordering. For the
+overlapping `threads` setting, an explicit nonzero server `--threads` value is
+applied after model YAML and therefore wins over the YAML `threads` value.
+Most server flags have no model YAML equivalent, so consult the relevant
+reference for the scope of each setting.
+
 ## Overview
 
 Model configuration files allow you to:
