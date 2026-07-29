@@ -684,6 +684,53 @@ The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` fl
 - [llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant)
 - [Tracked branch: `feature/turboquant-kv-cache`](https://github.com/TheTom/llama-cpp-turboquant/tree/feature/turboquant-kv-cache)
 
+### CachyLLaMA (persistent prompt cache for lower-spec hardware)
+
+[CachyLLaMA](https://github.com/fewtarius/CachyLLaMA) is a llama.cpp fork aimed at
+APUs, integrated GPUs, handhelds, and other shared-memory or lower-throughput
+systems. Its main addition is an SSD-backed KV cache that restores stable prompt
+prefixes across requests and process restarts.
+
+Install the alias and select it in model YAML like any other GGUF backend:
+
+```bash
+local-ai backends install cachyllama
+```
+
+```yaml
+name: cached-agent-model
+backend: cachyllama
+parameters:
+  model: model.gguf
+options:
+  - --cache-ssd:/models/.cachyllama-cache
+  - --cache-ssd-checkpoints:64
+  - --cache-ssd-hot-window:16384
+  - --cache-ssd-warm-window:32768
+  - --cache-ssd-page-size:1024
+  - --cache-ssd-system-prompts:8
+  - --cache-ssd-system-max-days:30
+```
+
+The cache directory must be on persistent storage and writable by LocalAI.
+Inside a container, put it below a mounted models or data volume.
+
+| Option | Meaning |
+|--------|---------|
+| `--cache-ssd` | Directory for SSD-backed KV checkpoints; enables the feature. |
+| `--cache-ssd-checkpoints` | Maximum checkpoints kept per slot. |
+| `--cache-ssd-hot-window` | Token window always retained in the hot tier. |
+| `--cache-ssd-warm-window` | Token window retained in RAM when possible. |
+| `--cache-ssd-max-cold` | Maximum cold checkpoints; `0` means unlimited. |
+| `--cache-ssd-page-size` | Tokens per cache page: `512`, `1024`, or `2048`. |
+| `--cache-ssd-max-conversations` | Maximum conversation directories; `0` means unlimited. |
+| `--cache-ssd-system-prompts` | Number of cross-conversation system prompts to cache. |
+| `--cache-ssd-system-max-days` | Expire unused system-prompt entries after this many days. |
+
+LocalAI publishes CPU and Vulkan images for Linux on amd64 and arm64, plus a
+Metal image for Apple silicon. The Vulkan build is intended for AMD APUs and
+other supported integrated GPUs.
+
 
 ### vLLM
 
