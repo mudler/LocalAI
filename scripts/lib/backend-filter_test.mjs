@@ -71,6 +71,12 @@ const includes = [
     "tag-suffix": "-cpu-audio-cpp",
     "base-image": "ubuntu:24.04",
   },
+  {
+    backend: "cachyllama",
+    dockerfile: "./backend/Dockerfile.cachyllama",
+    "tag-suffix": "-cachyllama",
+    "base-image": "ubuntu:24.04",
+  },
 ];
 
 const includesDarwin = [
@@ -78,6 +84,7 @@ const includesDarwin = [
   { backend: "mlx", "tag-suffix": "-metal-darwin-arm64-mlx", "build-type": "mps" },
   { backend: "whisper", lang: "go", "tag-suffix": "-metal-darwin-arm64-whisper", "build-type": "metal" },
   { backend: "llama-cpp", lang: "go", "tag-suffix": "-metal-darwin-arm64-llama-cpp", "build-type": "metal" },
+  { backend: "cachyllama", lang: "go", "tag-suffix": "-metal-darwin-arm64-cachyllama", "build-type": "metal" },
   { backend: "ds4", lang: "go", "tag-suffix": "-metal-darwin-arm64-ds4", "build-type": "metal" },
 ];
 
@@ -195,6 +202,19 @@ test("a bespoke Darwin build script rebuilds only its own backend", () => {
   assert.deepEqual(names(filteredDarwin), ["ds4"]);
 });
 
+test("the CachyLLaMA Darwin build script rebuilds only CachyLLaMA", () => {
+  const { filteredDarwin } = run(["scripts/build/cachyllama-darwin.sh"]);
+
+  assert.deepEqual(names(filteredDarwin), ["cachyllama"]);
+});
+
+test("the CachyLLaMA compile helper rebuilds only Linux CachyLLaMA", () => {
+  const { filtered, filteredDarwin } = run([".docker/cachyllama-compile.sh"]);
+
+  assert.deepEqual(names(filtered), ["cachyllama"]);
+  assert.deepEqual(filteredDarwin, []);
+});
+
 test("an unclassified scripts/build/ file conservatively rebuilds everything", () => {
   const { filtered, filteredDarwin } = run([
     "scripts/build/package-something-new.sh",
@@ -216,7 +236,17 @@ test("tests for the packaging scripts do not rebuild anything", () => {
 test("turboquant still retriggers on llama-cpp source changes", () => {
   const { filtered } = run(["backend/cpp/llama-cpp/grpc-server.cpp"]);
 
-  assert.deepEqual(names(filtered), ["llama-cpp", "turboquant"]);
+  assert.deepEqual(names(filtered), ["cachyllama", "llama-cpp", "turboquant"]);
+});
+
+test("cachyllama maps to its wrapper source directory", () => {
+  assert.equal(
+    inferBackendPath({
+      backend: "cachyllama",
+      dockerfile: "./backend/Dockerfile.cachyllama",
+    }),
+    "backend/cpp/cachyllama/"
+  );
 });
 
 // ---------------------------------------------------------------------------
