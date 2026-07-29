@@ -1129,6 +1129,29 @@ Notes:
 - Verify the backend gallery configuration is correct
 - The worker needs network access to download backends from the gallery
 
+## Routing pipeline
+
+Loaded replicas are selected through a filter, scorer, and picker pipeline.
+The initial pipeline applies the load guard as an eligibility filter, scores
+eligible replicas using prefix-cache affinity and cold-placement order, then
+picks the highest score with a deterministic node/replica tie-break.
+
+Per-model scheduling fields configure the initial pipeline:
+
+- `route_policy` enables `prefix_cache` scoring or selects the
+  `round_robin` floor.
+- `balance_abs_threshold` and `balance_rel_threshold` configure the load
+  eligibility filter.
+- `min_prefix_match` controls when prefix affinity contributes the highest
+  score.
+- `scorer_weights` enables or weights named scorers. The initial scorer is
+  `prefix_cache`; set `scorer_weights: {prefix_cache: 0}` to disable its
+  contribution while retaining the load filter and deterministic picker.
+
+The pipeline accepts additional independently weighted scorers and alternate
+pickers without coupling them to `SmartRouter`. This is the extension point for
+queue depth, precise KV utilization, latency, and fairness signals.
+
 ## Roadmap: Routing and Caching Enhancements
 
 The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
@@ -1137,7 +1160,6 @@ Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, R
 
 - **Reported/precise KV-event mode** ([#10064](https://github.com/mudler/LocalAI/issues/10064)): subscribe to actual backend KV-cache events for exact residency instead of inferring it from routing history.
 - **Multi-tier cache-overlap scoring** ([#10065](https://github.com/mudler/LocalAI/issues/10065)): credit GPU/CPU/disk cache tiers separately.
-- **Pluggable scorer/filter/picker pipeline** ([#10066](https://github.com/mudler/LocalAI/issues/10066)): composable multi-signal routing (cache, queue depth, KV utilization, latency).
 - **Load-shaping** ([#10067](https://github.com/mudler/LocalAI/issues/10067)): anti-herding (softmax/temperature) and dispatch-time freshness.
 - **Prefill/decode disaggregation routing** ([#10068](https://github.com/mudler/LocalAI/issues/10068)): route prefill and decode to separate pools with KV transfer.
 - **Per-user fairness (VTC)** ([#10069](https://github.com/mudler/LocalAI/issues/10069)): balance per-user token usage against pod load.

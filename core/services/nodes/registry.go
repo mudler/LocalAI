@@ -209,10 +209,11 @@ type ModelSchedulingConfig struct {
 	// Prefix-cache-aware routing (epic #10063). RoutePolicy "" means inherit
 	// the cluster-wide default. Thresholds are per-model overrides; 0 means
 	// inherit the global default.
-	RoutePolicy         string  `gorm:"column:route_policy;size:32" json:"route_policy,omitempty"`
-	BalanceAbsThreshold int     `gorm:"column:balance_abs_threshold;default:0" json:"balance_abs_threshold,omitempty"`
-	BalanceRelThreshold float64 `gorm:"column:balance_rel_threshold;default:0" json:"balance_rel_threshold,omitempty"`
-	MinPrefixMatch      float64 `gorm:"column:min_prefix_match;default:0" json:"min_prefix_match,omitempty"`
+	RoutePolicy         string             `gorm:"column:route_policy;size:32" json:"route_policy,omitempty"`
+	BalanceAbsThreshold int                `gorm:"column:balance_abs_threshold;default:0" json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64            `gorm:"column:balance_rel_threshold;default:0" json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64            `gorm:"column:min_prefix_match;default:0" json:"min_prefix_match,omitempty"`
+	ScorerWeights       map[string]float64 `gorm:"column:routing_scorer_weights;serializer:json" json:"scorer_weights,omitempty"`
 	// UnsatisfiableUntil is set by the reconciler when no candidate node has
 	// free capacity for this model; while in the future, the reconciler skips
 	// scale-up attempts for this model. Cleared on cluster events that could
@@ -2026,7 +2027,7 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 			DoUpdates: clause.AssignmentColumns([]string{
 				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
-				"target_model", "updated_at",
+				"routing_scorer_weights", "target_model", "updated_at",
 			}),
 		}).
 		Create(config).Error
