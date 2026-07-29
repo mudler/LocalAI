@@ -854,6 +854,118 @@
     - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
       sha256: 217dc0ed177ecc733f801a851c3e3854cf1b17a1f86cd5430c0a7f82d93027bc
       uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M-mtp.gguf
+- &laguna-s-2-1-q8
+  name: "laguna-s-2.1-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/poolside/Laguna-S-2.1
+    - https://huggingface.co/poolside/Laguna-S-2.1-GGUF
+  description: |
+    Laguna S 2.1 is Poolside's 118B-parameter, 8B-active Mixture-of-Experts model for agentic software engineering. It supports tool use and a native one-million-token context window; the official GGUF recommends 256K context for best output quality. This entry uses the 129 GB Q8_0 build, with routed experts quantized to Q8_0 and the signal path kept in BF16.
+
+    License: OpenMDW 1.1.
+  license: "other"
+  icon: https://poolside.ai/assets/laguna/laguna-s-2-1-banner.svg
+  tags:
+    - llm
+    - gguf
+    - moe
+    - reasoning
+    - code
+    - agent
+    - tools
+    - long-context
+  last_checked: "2026-07-29"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q8_0.gguf
+      sha256: d946b221d69f2c5f87a986952bcd3cfb75831e5a6a2184e626e361663e1bfe2b
+      uri: https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-Q8_0.gguf
+- !!merge <<: *laguna-s-2-1-q8
+  name: "laguna-s-2.1"
+  variants:
+    - model: laguna-s-2.1-q8
+    - model: laguna-s-2.1-dflash
+  description: |
+    Laguna S 2.1 is Poolside's 118B-parameter, 8B-active Mixture-of-Experts model for agentic software engineering. It supports tool use and a native one-million-token context window; the official GGUF recommends 256K context for best output quality. This default entry uses the current 96 GB Q4_K_M artifact, with imatrix-quantized routed experts and a Q8_0 signal path.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q4_K_M.gguf
+      sha256: a8b55c75714ea73fd90ec85de5defdc0b8d88ca0ad2108343cdd8fc22f7583e4
+      uri: https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-Q4_K_M.gguf
+- !!merge <<: *laguna-s-2-1-q8
+  name: "laguna-s-2.1-dflash"
+  description: |
+    Laguna S 2.1's 96 GB Q4_K_M target paired with Poolside's 2.2 GB BF16 DFlash drafter for speculative decoding. DFlash drafts a block of tokens per forward pass and accelerates generation without changing the target model's outputs. Flash attention is enabled because the DFlash path requires it.
+
+    License: OpenMDW 1.1.
+  tags:
+    - llm
+    - gguf
+    - moe
+    - reasoning
+    - code
+    - agent
+    - tools
+    - long-context
+    - dflash
+    - speculative
+  overrides:
+    backend: llama-cpp
+    flash_attention: "on"
+    draft_model: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-DFlash-BF16.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q4_K_M.gguf
+      sha256: a8b55c75714ea73fd90ec85de5defdc0b8d88ca0ad2108343cdd8fc22f7583e4
+      uri: https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-Q4_K_M.gguf
+    - filename: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-DFlash-BF16.gguf
+      sha256: 2ee8aa30338d6599bc7a8ce008cc57c56f2c2b2fdc21f6db9ecda203c751bfd4
+      uri: https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-DFlash-BF16.gguf
 - name: "lfm2.5-1.2b-instruct"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
