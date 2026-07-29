@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "복사",
+    "edit": "편집",
+    "editMessage": "메시지 편집",
+    "save": "저장",
+    "cancel": "취소",
     "regenerate": "다시 생성",
     "jumpToLatest": "Jump to latest"
   },

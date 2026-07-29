@@ -33,6 +33,56 @@ const TWO_TURNS = [
   { role: 'assistant', content: 'second answer' },
 ]
 
+test('saved message edits persist without sending a completion request', async ({ page }) => {
+  await mockModels(page)
+  let completionRequests = 0
+  await page.route('**/v1/chat/completions', (route) => {
+    completionRequests++
+    route.abort()
+  })
+  await seedChat(page, TWO_TURNS)
+  await page.goto('/app/chat')
+
+  const firstUser = page.locator('.chat-message-user').first()
+  await firstUser.hover()
+  await firstUser.getByTitle('Edit').click()
+  await firstUser.getByRole('textbox').fill('edited first question')
+  await firstUser.getByRole('button', { name: 'Save' }).click()
+
+  const firstAssistant = page.locator('.chat-message-assistant').first()
+  await firstAssistant.hover()
+  await firstAssistant.getByTitle('Edit').click()
+  await firstAssistant.getByRole('textbox').fill('edited first answer')
+  await firstAssistant.getByRole('button', { name: 'Save' }).click()
+
+  await expect(firstUser).toContainText('edited first question')
+  await expect(firstAssistant).toContainText('edited first answer')
+  await expect.poll(() => page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('localai_chats_data'))
+    return data.chats[0].history.slice(0, 2).map(message => message.content)
+  })).toEqual(['edited first question', 'edited first answer'])
+
+  await page.reload()
+  await expect(page.locator('.chat-message-user').first()).toContainText('edited first question')
+  await expect(page.locator('.chat-message-assistant').first()).toContainText('edited first answer')
+  expect(completionRequests).toBe(0)
+})
+
+test('cancelling a message edit leaves the original content unchanged', async ({ page }) => {
+  await mockModels(page)
+  await seedChat(page, TWO_TURNS)
+  await page.goto('/app/chat')
+
+  const firstUser = page.locator('.chat-message-user').first()
+  await firstUser.hover()
+  await firstUser.getByTitle('Edit').click()
+  await firstUser.getByRole('textbox').fill('discard this draft')
+  await firstUser.getByRole('button', { name: 'Cancel' }).click()
+
+  await expect(firstUser).toContainText('first question')
+  await expect(firstUser).not.toContainText('discard this draft')
+})
+
 test('duplicate creates an independent copy and switches to it', async ({ page }) => {
   await mockModels(page)
   await seedChat(page, TWO_TURNS)
@@ -111,6 +161,29 @@ const FILE_TURNS = [
   { role: 'user', content: 'anything else' },
   { role: 'assistant', content: 'nope, that is it' },
 ]
+
+test('editing a file prompt preserves its content blocks and attachment metadata', async ({ page }) => {
+  await mockModels(page)
+  await seedChat(page, FILE_TURNS)
+  await page.goto('/app/chat')
+
+  const firstUser = page.locator('.chat-message-user').first()
+  await firstUser.hover()
+  await firstUser.getByTitle('Edit').click()
+  await firstUser.getByRole('textbox').fill('edited file question')
+  await firstUser.getByRole('button', { name: 'Save' }).click()
+
+  await expect.poll(() => page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('localai_chats_data'))
+    return data.chats[0].history[0]
+  })).toEqual({
+    ...FILE_TURNS[0],
+    content: [
+      { type: 'text', text: 'edited file question' },
+      FILE_TURNS[0].content[1],
+    ],
+  })
+})
 
 test('regenerating a non-last answer in a fork still sends the uploaded file content', async ({ page }) => {
   await mockModels(page)

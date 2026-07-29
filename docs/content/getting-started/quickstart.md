@@ -63,6 +63,10 @@ To get your first chat working:
 1. Open the **Models** page and search for `qwen3-4b`. Click **Install** on the `qwen3-4b` entry and wait for the download to finish. (`qwen3-4b` is a small, CPU-friendly Qwen3 model that also supports tool calling, so you can reuse it later in the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough.)
 2. Open the **Chat** page, select `qwen3-4b` from the model dropdown, type a message, and send it. You should get a reply within a few seconds.
 
+To correct an earlier prompt or response without running the model again, hover
+over the saved message and select **Edit**. **Save** updates that conversation's
+local history; **Cancel** discards the draft.
+
 ### Downloading models from the CLI
 
 When starting LocalAI (either via Docker or via CLI) you can specify as argument a list of models to install automatically before starting the API, for example:

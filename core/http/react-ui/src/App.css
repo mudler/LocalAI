@@ -3540,6 +3540,37 @@ button.collapsible-header:focus-visible {
   background: var(--color-primary-light);
 }
 
+.chat-message-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-width: min(32rem, 60vw);
+}
+
+.chat-message-edit-input {
+  width: 100%;
+  min-height: 6rem;
+  resize: vertical;
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  line-height: 1.5;
+  padding: var(--spacing-sm);
+}
+
+.chat-message-edit-input:focus {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 1px;
+}
+
+.chat-message-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-xs);
+}
+
 .chat-message-system {
   align-self: center;
   max-width: 90%;
