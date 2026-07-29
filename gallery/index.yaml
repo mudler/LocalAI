@@ -3,18 +3,27 @@
   name: "kat-coder-v2.5-dev"
   variants:
     - model: kat-coder-v2.5-dev-q8
+    - model: kat-coder-v2.5-dev-apex-i-quality
+    - model: kat-coder-v2.5-dev-apex-i-balanced
+    - model: kat-coder-v2.5-dev-apex-i-compact
+    - model: kat-coder-v2.5-dev-apex-i-mini
+    - model: kat-coder-v2.5-dev-apex-quality
+    - model: kat-coder-v2.5-dev-apex-balanced
+    - model: kat-coder-v2.5-dev-apex-compact
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev
     - https://huggingface.co/bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF
+    - https://huggingface.co/mudler/KAT-Coder-V2.5-Dev-APEX-GGUF
   description: |
     KAT-Coder-V2.5-Dev is an Apache-2.0 agentic coding model from Kwaipilot,
     post-trained from Qwen3.6-35B-A3B. It has 35 billion total parameters with
     3 billion activated per token, a 262K-token context window, and text-only
     weights tuned for repository-level coding and tool use.
 
-    This entry uses the Q4_K_M GGUF quantization. The Q8_0 build is available
-    as a higher-quality variant for hosts with more memory.
+    This entry offers standard Q4_K_M and Q8_0 GGUF quantizations alongside
+    APEX mixed-precision variants with quality, balanced, compact, and mini
+    profiles. The APEX I-profiles use importance-matrix calibration.
   license: "apache-2.0"
   icon: https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev/resolve/main/kat_logo_hd.png
   tags:
@@ -69,6 +78,146 @@
     - filename: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
       sha256: 5fa510f44779b0e3d38a6678985f417a1c65e3000405ca5d6dcf7fd065e47a15
       uri: huggingface://bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-quality"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-balanced"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-compact"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-mini"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-quality"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-balanced"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-compact"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
