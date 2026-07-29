@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -98,6 +99,11 @@ type ScoreClassifierOptions struct {
 	// sends Probe.Prompt as-is and relies on the backend's n_ctx guard.
 	TokenCounter     func(string) (int, error)
 	MaxContextTokens int
+
+	// CompletionReserveTokens reserves additional context beyond the longest
+	// scoring candidate. Classifier slot filling uses this to ensure the prompt
+	// scored here can be continued without overflowing the model context.
+	CompletionReserveTokens int
 }
 
 // ScoreClassifier scores every policy label as the model's actual
@@ -139,6 +145,17 @@ type ScoreClassifier struct {
 	budget *lazyBudget
 
 	cache *labelSetCache
+
+	// stablePrefix is the rendered-prompt prefix shared by every probe:
+	// the chat template's preamble plus the option-list system prompt,
+	// up to where the per-turn text begins. Computed once (the byte-wise
+	// common prefix of two synthetic probes) and sent with each Score
+	// call as a state-reuse boundary hint — on backends whose models
+	// cannot rewind state (hybrid/recurrent), a snapshot at this
+	// boundary is what keeps repeat scoring at probe-size cost instead
+	// of a full option-list re-prefill.
+	stablePrefixOnce sync.Once
+	stablePrefix     string
 }
 
 // NewScoreClassifier panics on caller errors at construction (empty
@@ -202,8 +219,13 @@ func NewScoreClassifier(policies []ScorePolicy, scorer backend.Scorer, opts Scor
 		systemPrompt:        systemPrompt,
 		labelOrder:          labels,
 		candidates:          candidates,
-		budget:              &lazyBudget{tokenize: opts.TokenCounter, maxContext: opts.MaxContextTokens, extras: candidates},
-		cache:               newLabelSetCache(opts.CacheCap),
+		budget: &lazyBudget{
+			tokenize:   opts.TokenCounter,
+			maxContext: opts.MaxContextTokens,
+			extras:     candidates,
+			reserve:    opts.CompletionReserveTokens,
+		},
+		cache: newLabelSetCache(opts.CacheCap),
 	}
 }
 
@@ -228,25 +250,76 @@ func renderSystemPrompt(tmpl string, policies []ScorePolicy) (string, error) {
 
 func (c *ScoreClassifier) Name() string { return ClassifierScore }
 
-func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
-	start := time.Now()
-
+// renderProbe returns the exact prompt Classify scores for p (system
+// prompt + trimmed user turns through the model's chat template), plus the
+// trimmed user text used as the memo-cache key.
+func (c *ScoreClassifier) renderProbe(p Probe) (prompt, userText string, err error) {
 	// Trim oldest turns until the rendered prompt fits the classifier's
 	// context. Cache-keyed on the trimmed text so conversations that
 	// trim to the same tail share an entry.
-	userText := trimmedProbeText(p, c.budget, func(joined string) (string, error) {
+	userText = trimmedProbeText(p, c.budget, func(joined string) (string, error) {
 		return c.renderer(c.systemPrompt, joined)
 	})
+	prompt, err = c.renderer(c.systemPrompt, userText)
+	return prompt, userText, err
+}
 
+// stablePrefixLen returns the byte length of prompt's leading run that
+// is invariant across probes, by rendering two synthetic probes with no
+// common text and taking their byte-wise common prefix. Clamped against
+// the actual prompt so a template that (unexpectedly) varies its
+// preamble degrades to a shorter hint, never a wrong one.
+func (c *ScoreClassifier) stablePrefixLen(prompt string) int {
+	c.stablePrefixOnce.Do(func() {
+		a, aErr := c.renderer(c.systemPrompt, "\x02")
+		b, bErr := c.renderer(c.systemPrompt, "\x03")
+		if aErr != nil || bErr != nil {
+			return
+		}
+		n := 0
+		for n < len(a) && n < len(b) && a[n] == b[n] {
+			n++
+		}
+		c.stablePrefix = a[:n]
+	})
+	n := 0
+	limit := min(len(c.stablePrefix), len(prompt))
+	for n < limit && prompt[n] == c.stablePrefix[n] {
+		n++
+	}
+	return n
+}
+
+// SlotFillPrompt returns the completion prompt for filling a chosen
+// label's argument slots: the identical prompt Classify scored — so the
+// backend's prompt cache is already warm with it — continued by the
+// label's route JSON re-opened at its first slot field:
+//
+//	…<prompt>{"route": "up", "distance":
+//
+// The caller constrains the remaining tokens with a grammar and closes
+// the object; keeping the field style byte-identical to the scored
+// candidates keeps the continuation on-distribution.
+func (c *ScoreClassifier) SlotFillPrompt(p Probe, label, firstSlot string) (string, error) {
+	prompt, _, err := c.renderProbe(p)
+	if err != nil {
+		return "", fmt.Errorf("score slot fill: render prompt: %w", err)
+	}
+	return prompt + `{"route": "` + escapeJSONString(label) + `", "` + escapeJSONString(firstSlot) + `": `, nil
+}
+
+func (c *ScoreClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
+	start := time.Now()
+
+	prompt, userText, err := c.renderProbe(p)
+	if err != nil {
+		return errDecision(start, fmt.Errorf("score classify: render prompt: %w", err))
+	}
 	key := cacheKey(userText)
 	if hit, ok := c.cache.get(key); ok {
 		return Decision{Labels: hit, Score: 1.0, Latency: time.Since(start)}, nil
 	}
-	prompt, err := c.renderer(c.systemPrompt, userText)
-	if err != nil {
-		return errDecision(start, fmt.Errorf("score classify: render prompt: %w", err))
-	}
-	results, err := c.scorer.Score(ctx, prompt, c.candidates)
+	results, err := c.scorer.Score(ctx, prompt, c.stablePrefixLen(prompt), c.candidates)
 	if err != nil {
 		xlog.Warn("router: score classifier failed", "error", err, "labels", c.labelOrder)
 		return errDecision(start, fmt.Errorf("score classify: %w", err))
