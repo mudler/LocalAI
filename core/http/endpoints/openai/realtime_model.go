@@ -7,6 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
@@ -36,11 +39,38 @@ type wrappedModel struct {
 	LLMConfig            *config.ModelConfig
 	VADConfig            *config.ModelConfig
 	SoundDetectionConfig *config.ModelConfig
+	// ScoreConfig is the classifier-mode scoring model
+	// (pipeline.classifier.model). nil falls back to LLMConfig — with
+	// slot-based Score the same process serves scoring and generation
+	// and shares its prompt cache between them.
+	ScoreConfig *config.ModelConfig
 
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
 	evaluator   *templates.Evaluator
+
+	// Classifier-mode memo: constructing a ScoreClassifier parses the
+	// scoring model's chat template, so reuse it while the option set is
+	// unchanged. Guarded by a mutex only because session.update can swap
+	// options while a response is in flight.
+	classifierMu   sync.Mutex
+	classifier     *router.ScoreClassifier
+	classifierKey  string
+	classifierWarn sync.Once
+	// Prewarm FIFO: a single worker drains warms in registration order —
+	// a plain mutex proved unfair under a burst of registrations (Go
+	// mutexes barge), running the most recently registered list last,
+	// long after the user's first command for it arrived. Pending
+	// duplicates coalesce (a connect-time barrage registers the same
+	// list several times), but completed warms are deliberately NOT
+	// memoized: a rewarm on a still-resident list costs one probe-sized
+	// decode, and on an evicted list it is exactly the re-prefill the
+	// next turn would otherwise pay in the foreground.
+	prewarmMu      sync.Mutex
+	prewarmQueue   []prewarmJob
+	prewarmPending map[string]bool
+	prewarmActive  bool
 
 	// Routing — populated by newModel when the application wires routing
 	// deps in. nil-safe: with classifierRegistry == nil the per-turn
@@ -88,6 +118,17 @@ func (m *transcriptOnlyModel) SoundDetection(ctx context.Context, audio string, 
 
 func (m *transcriptOnlyModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
 	return nil, fmt.Errorf("predict operation not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error) {
+	return nil, fmt.Errorf("classifier mode not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error) {
+	return "", nil, fmt.Errorf("classifier mode not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string) {
 }
 
 func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
@@ -369,14 +410,258 @@ func (m *wrappedModel) PredictConfig() *config.ModelConfig {
 	return m.LLMConfig
 }
 
+// scoreConfig resolves the classifier-mode scoring model: the explicit
+// pipeline.classifier.model when set, else the pipeline LLM.
+func (m *wrappedModel) scoreConfig() *config.ModelConfig {
+	if m.ScoreConfig != nil {
+		return m.ScoreConfig
+	}
+	return m.LLMConfig
+}
+
+// classifierFor returns a ScoreClassifier for the given option set,
+// reusing the previous one while options and normalization are unchanged
+// (construction parses the scoring model's chat template).
+func (m *wrappedModel) classifierFor(options []types.ClassifierOption, normalization string) (*router.ScoreClassifier, error) {
+	scoreCfg := m.scoreConfig()
+	if scoreCfg == nil || !scoreCfg.HasUsecases(config.FLAG_SCORE) {
+		return nil, fmt.Errorf("classifier: scoring model must include score in known_usecases")
+	}
+	switch normalization {
+	case "", router.ScoreNormalizationRaw, router.ScoreNormalizationMean:
+	default:
+		// NewScoreClassifier panics on unknown modes; session.update
+		// validation should have rejected this — fail soft anyway.
+		return nil, fmt.Errorf("classifier: unknown normalization %q", normalization)
+	}
+	if len(options) == 0 {
+		return nil, fmt.Errorf("classifier: no options to score")
+	}
+
+	var key strings.Builder
+	key.WriteString(normalization)
+	for _, o := range options {
+		key.WriteString("\x1f")
+		key.WriteString(o.ID)
+		key.WriteString("\x1e")
+		// The policy description includes slot declarations, so keying on
+		// it also invalidates the classifier when slots change.
+		key.WriteString(classifierPolicyDescription(&o))
+	}
+
+	m.classifierMu.Lock()
+	defer m.classifierMu.Unlock()
+	if m.classifier != nil && m.classifierKey == key.String() {
+		return m.classifier, nil
+	}
+
+	cfg := m.scoreConfig()
+	policies := make([]router.ScorePolicy, 0, len(options))
+	for _, o := range options {
+		if o.ID == "" || o.Description == "" {
+			// NewScoreClassifier panics on these; validation upstream
+			// should have caught them.
+			return nil, fmt.Errorf("classifier: option with empty id or description")
+		}
+		policies = append(policies, router.ScorePolicy{Label: o.ID, Description: classifierPolicyDescription(&o)})
+	}
+
+	opts := router.ScoreClassifierOptions{
+		// The memo cache stores only label sets — a hit would return an
+		// empty distribution and blind the localai.classifier.result
+		// event, so keep it off.
+		CacheCap:      0,
+		Normalization: normalization,
+	}
+	if m.routerDeps != nil && m.routerDeps.TokenCounter != nil && cfg.ContextSize != nil {
+		opts.TokenCounter = m.routerDeps.TokenCounter(cfg.Name)
+		opts.MaxContextTokens = *cfg.ContextSize
+	}
+	for i := range options {
+		if options[i].Tool != nil && len(options[i].Tool.Slots) > 0 {
+			reserve := slotFillContextReserve(&options[i])
+			if reserve > opts.CompletionReserveTokens {
+				opts.CompletionReserveTokens = reserve
+			}
+		}
+	}
+	if m.evaluator != nil {
+		if renderer := middleware.NewTemplateRenderer(m.evaluator, cfg); renderer != nil {
+			opts.PromptRenderer = renderer
+		} else {
+			m.classifierWarn.Do(func() {
+				xlog.Warn("realtime classifier: scoring model has no Go chat template; falling back to a generic ChatML envelope, which may be off-distribution",
+					"model", cfg.Name)
+			})
+		}
+	}
+	if st := middleware.PickAssistantTurnEnd(cfg.StopWords, cfg.TemplateConfig.ChatMessage); st != "" {
+		opts.StopToken = st
+	}
+
+	scorer := backend.NewScorer(m.modelLoader, *cfg, m.appConfig)
+	m.classifier = router.NewScoreClassifier(policies, scorer, opts)
+	m.classifierKey = key.String()
+	return m.classifier, nil
+}
+
+// PrewarmClassifier primes the scoring backend's prompt cache for a newly
+// registered option list so the first real turns don't pay the prefill.
+// One throwaway score prefills the new option-list prompt and declares the
+// per-turn probe boundary, leaving the backend a rewind point (a KV
+// checkpoint on hybrid/recurrent models, which cannot rewind arbitrarily)
+// at the stable prefix every subsequent turn reuses.
+// Best-effort: errors are logged, never surfaced.
+func (m *wrappedModel) PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string) {
+	classifier, err := m.classifierFor(options, normalization)
+	if err != nil {
+		xlog.Debug("realtime classifier: prewarm skipped", "error", err)
+		return
+	}
+	m.classifierMu.Lock()
+	key := m.classifierKey
+	m.classifierMu.Unlock()
+
+	m.prewarmMu.Lock()
+	defer m.prewarmMu.Unlock()
+	if m.prewarmPending == nil {
+		m.prewarmPending = make(map[string]bool)
+	}
+	if m.prewarmPending[key] {
+		return
+	}
+	m.prewarmPending[key] = true
+	m.prewarmQueue = append(m.prewarmQueue, prewarmJob{classifier: classifier, key: key, options: len(options)})
+	if !m.prewarmActive {
+		m.prewarmActive = true
+		go m.prewarmWorker()
+	}
+}
+
+type prewarmJob struct {
+	classifier *router.ScoreClassifier
+	key        string
+	options    int
+}
+
+// prewarmWorker drains queued warms one at a time, in order. One
+// throwaway score per list is enough: the scoring call itself plants the
+// backend's reuse point at the stable-prefix boundary it declares, so
+// the real turns that follow restore from it no matter how their probe
+// differs. The worker exits when the queue drains and restarts on the
+// next registration.
+func (m *wrappedModel) prewarmWorker() {
+	for {
+		m.prewarmMu.Lock()
+		if len(m.prewarmQueue) == 0 {
+			m.prewarmActive = false
+			m.prewarmMu.Unlock()
+			return
+		}
+		job := m.prewarmQueue[0]
+		m.prewarmQueue = m.prewarmQueue[1:]
+		m.prewarmMu.Unlock()
+
+		start := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		const probe = "warmup"
+		_, err := job.classifier.Classify(ctx, router.Probe{Prompt: probe, Messages: []string{probe}})
+		cancel()
+		if err != nil {
+			xlog.Warn("realtime classifier: prewarm scoring failed", "error", err)
+		} else {
+			xlog.Debug("realtime classifier: prewarmed scoring prompt cache",
+				"options", job.options, "latency_ms", time.Since(start).Milliseconds())
+		}
+		m.prewarmMu.Lock()
+		delete(m.prewarmPending, job.key)
+		m.prewarmMu.Unlock()
+	}
+}
+
+func (m *wrappedModel) ClassifyTurn(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string) ([]router.LabelScore, error) {
+	classifier, err := m.classifierFor(options, normalization)
+	if err != nil {
+		return nil, err
+	}
+	decision, err := classifier.Classify(ctx, classifierProbe(messages))
+	if err != nil {
+		return nil, err
+	}
+	// LabelScores is in policy-declaration order, which mirrors option
+	// order by construction.
+	if len(decision.LabelScores) != len(options) {
+		return nil, fmt.Errorf("classifier: got %d scores for %d options", len(decision.LabelScores), len(options))
+	}
+	return decision.LabelScores, nil
+}
+
+// FillToolArguments runs the hybrid slot-fill completion: the exact prompt
+// the classifier scored (rendered by the same, cached ScoreClassifier — so
+// the backend's prompt cache is warm) continued by the chosen route JSON
+// re-opened at its first slot, with a grammar pinning everything but the
+// slot values. Deterministic (temperature 0), a couple dozen tokens at
+// most.
+func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Messages, options []types.ClassifierOption, normalization string, chosen *types.ClassifierOption) (string, map[string]string, error) {
+	if chosen == nil || chosen.Tool == nil || len(chosen.Tool.Slots) == 0 {
+		return "", nil, fmt.Errorf("classifier: option has no slots to fill")
+	}
+	slots := chosen.Tool.Slots
+	classifier, err := m.classifierFor(options, normalization)
+	if err != nil {
+		return "", nil, err
+	}
+	prompt, err := classifier.SlotFillPrompt(classifierProbe(messages), chosen.ID, slots[0].Name)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// The scoring config, narrowed to a deterministic constrained
+	// completion. The completion usecase must be declared alongside score
+	// — bootstrap-style configs use known_usecases: [chat, completion,
+	// score].
+	cfg := *m.scoreConfig()
+	if !cfg.HasUsecases(config.FLAG_COMPLETION) {
+		return "", nil, fmt.Errorf("classifier: slot filling requires completion in the scoring model's known_usecases")
+	}
+	cfg.Grammar = slotFillGrammar(slots)
+	maxTokens := slotFillMaxTokens(slots)
+	temperature := 0.0
+	cfg.Maxtokens = &maxTokens
+	cfg.Temperature = &temperature
+
+	fn, err := backend.ModelInference(ctx, prompt, nil, nil, nil, nil, m.modelLoader, &cfg, m.confLoader, m.appConfig, nil, "", "", nil, nil, nil, nil)
+	if err != nil {
+		return "", nil, fmt.Errorf("classifier: slot fill inference: %w", err)
+	}
+	resp, err := fn()
+	if err != nil {
+		return "", nil, fmt.Errorf("classifier: slot fill inference: %w", err)
+	}
+	values, err := parseSlotValues(chosen.ID, slots[0].Name, resp.Response, slots)
+	if err != nil {
+		return "", nil, err
+	}
+	args, err := chosen.Tool.SpliceArguments(values)
+	if err != nil {
+		return "", nil, err
+	}
+	return args, values, nil
+}
+
 func (m *wrappedModel) Warmup(ctx context.Context) error {
-	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
+	stages := []backend.PreloadStage{
 		{Role: "vad", Cfg: m.VADConfig},
 		{Role: "transcription", Cfg: m.TranscriptionConfig},
 		{Role: "llm", Cfg: m.LLMConfig},
 		{Role: "tts", Cfg: m.TTSConfig},
 		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
-	})
+	}
+	// The scoring model is a separate stage only when it isn't the LLM.
+	if m.ScoreConfig != nil && m.ScoreConfig != m.LLMConfig {
+		stages = append(stages, backend.PreloadStage{Role: "classifier", Cfg: m.ScoreConfig})
+	}
+	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, stages)
 	return err
 }
 
@@ -456,11 +741,11 @@ func modelSoundDetection(ctx context.Context, ml *model.ModelLoader, appConfig *
 // config named by pipeline.sound_detection. Returns (nil, nil) when no model
 // is configured so sound detection stays additive and never blocks session
 // setup.
-func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader) (*config.ModelConfig, error) {
+func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (*config.ModelConfig, error) {
 	if pipeline.SoundDetection == "" {
 		return nil, nil
 	}
-	cfg, err := cl.LoadResolvedModelConfig(pipeline.SoundDetection, ml.ModelPath)
+	cfg, err := cl.LoadResolvedModelConfig(pipeline.SoundDetection, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load sound detection config: %w", err)
 	}
@@ -471,7 +756,7 @@ func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigL
 }
 
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
-	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -481,7 +766,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -491,7 +776,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -513,7 +798,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 // speech) and is driven by client-side windowing (turn_detection none +
 // input_audio_buffer.commit) rather than the voice VAD loop.
 func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
-	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -574,7 +859,7 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) (Model, error) {
 	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
-	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -585,7 +870,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -617,7 +902,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	xlog.Debug("Loading a wrapped model")
 
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
-	cfgLLM, err := cl.LoadResolvedModelConfig(pipeline.LLM, ml.ModelPath)
+	cfgLLM, err := cl.LoadResolvedModelConfig(pipeline.LLM, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -632,7 +917,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	applyPipelineReasoning(cfgLLM, *pipeline)
 	applyPipelineThinking(cfgLLM, *pipeline)
 
-	cfgTTS, err := cl.LoadResolvedModelConfig(pipeline.TTS, ml.ModelPath)
+	cfgTTS, err := cl.LoadResolvedModelConfig(pipeline.TTS, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -642,9 +927,42 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml)
+	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	// Classifier mode scores on its own model config when one is named;
+	// otherwise ClassifyTurn falls back to the LLM config at call time
+	// (so a client can enable classification via session.update even
+	// when the pipeline block is absent).
+	var cfgScore *config.ModelConfig
+	if pipeline.Classifier != nil && pipeline.Classifier.Model != "" {
+		cfgScore, err = cl.LoadResolvedModelConfig(pipeline.Classifier.Model, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load classifier scoring config: %w", err)
+		}
+		if valid, err := cfgScore.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate classifier scoring config: %w", err)
+		}
+		if !cfgScore.HasUsecases(config.FLAG_SCORE) {
+			return nil, fmt.Errorf("pipeline classifier: scoring model %q must declare known_usecases: [score]", cfgScore.Name)
+		}
+	}
+	if pipeline.Classifier != nil && pipeline.Classifier.Enabled {
+		effectiveScore := cfgScore
+		if effectiveScore == nil {
+			effectiveScore = cfgLLM
+		}
+		if effectiveScore.HasRouter() {
+			// A router model has no concrete backend to score on — the
+			// per-turn routing decision happens at Predict time, after
+			// classification would already have run.
+			return nil, fmt.Errorf("pipeline classifier: llm %q is a router model; set pipeline.classifier.model to a concrete scoring model", cfgLLM.Name)
+		}
+		if !effectiveScore.HasUsecases(config.FLAG_SCORE) {
+			return nil, fmt.Errorf("pipeline classifier: scoring model %q must declare known_usecases: [score]", effectiveScore.Name)
+		}
 	}
 
 	wm := &wrappedModel{
@@ -653,6 +971,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		LLMConfig:            cfgLLM,
 		VADConfig:            cfgVAD,
 		SoundDetectionConfig: cfgSound,
+		ScoreConfig:          cfgScore,
 
 		confLoader:  cl,
 		modelLoader: ml,
