@@ -111,9 +111,12 @@ pipeline:
     type: semantic_vad   # default for sessions on this model (server_vad if unset)
     eagerness: medium    # low | medium | high | auto (auto == medium)
     retranscribe: false  # see below
+    # vad_window_sec: 6  # widen the per-tick VAD scan window (see below)
 ```
 
 A client `session.update` still overrides `type` and `eagerness` per session.
+
+**VAD scan window**: each turn-detection tick the VAD rescans only the most recent slice of buffered audio — sized automatically from the commit silence threshold (the `server_vad` silence window, or the semantic eagerness fallback) plus a warm-up margin, so long turns cost the same per tick as short ones. `vad_window_sec` widens the window if needed; values below the automatic floor are ignored. Buffered turn audio is retained for at most 90 s — a turn that genuinely never pauses (continuous speech or a noise source the VAD keeps classifying as speech) keeps only its most recent 90 s for the commit-time batch transcription (the semantic live stream is unaffected — it already consumed the audio incrementally).
 
 **Eagerness** sets the fallback silence window used when no end-of-utterance token was seen (the model missed it, or the user genuinely trails off): `low` waits 8 s, `medium`/`auto` 4 s, `high` 2 s - the same max-timeout semantics OpenAI documents. After the token is seen, the turn commits on the next VAD tick (~300 ms).
 
@@ -162,6 +165,90 @@ On CPU, set `summary_model` to a small, fast model so compaction never competes 
 {{% /notice %}}
 
 Clients can also manage history directly via the now-supported `conversation.item.delete`, `conversation.item.truncate`, and `input_audio_buffer.clear` realtime events.
+
+### Classifier mode (LocalAI extension)
+
+On hardware that can afford prompt processing but not token generation — a Raspberry Pi running a small LLM, for example — a realtime session can replace autoregressive generation with **prefill-only classification**: you register a fixed list of options, each user turn is scored against them with the Score primitive (a single forward pass, no decode), and the winning option's canned reply is spoken and/or its canned tool call is emitted. On llama-cpp, scoring runs through the same server slot the LLM uses, so the conversation prefix stays KV-cached across turns, and all options are scored together in one batched decode: the shared prefix (prompt plus the options' common token prefix) is processed once, then each option's unique tail rides a forked sequence in a single forward pass. A warm turn costs roughly one pass over the new words plus one small batch over the option tails, independent of the option count.
+
+Enable it in the pipeline config:
+
+```yaml
+name: drone-pi
+pipeline:
+  vad: silero-vad-sherpa
+  transcription: parakeet-cpp-realtime_eou_120m-v1
+  llm: lfm2.5-1.2b-instruct       # scores AND (if asked) generates
+  tts: vits-piper-en_US-amy-sherpa
+  classifier:
+    enabled: true
+    threshold: 0.85               # softmax floor the winner must clear (see note below)
+    fallback:
+      mode: reply                 # none | reply | generate
+      reply: "Say again?"
+    options:
+      - id: up
+        description: the user asks the drone to move or fly up/higher
+        reply: Going up.
+        tool:
+          name: move
+          arguments: {direction: up}
+      - id: greeting
+        description: the user greets the assistant
+        reply: Hello, ready to fly.
+```
+
+Or per session / per response from the client (the field is additive — OpenAI clients simply never send it):
+
+```json
+{"type": "session.update", "session": {"type": "realtime", "localai_classifier": {
+  "enabled": true, "threshold": 0.85,
+  "options": [{"id": "up", "description": "...", "reply": "Going up.",
+               "tool": {"name": "move", "arguments": {"direction": "up"}}}],
+  "fallback": {"mode": "reply", "reply": "Say again?"}
+}}}
+```
+
+Like `tools`, the option list is replaced wholesale on each update. A `response.create` may carry its own `localai_classifier` to override the session for one response — `{"enabled": false}` runs normal generation once.
+
+How a classified response behaves:
+
+- The winner's `reply` is emitted through the ordinary response events (spoken via TTS, or `response.output_text.*` in text-only mode), and its `tool` (if any) is emitted as a standard `function_call` item with exactly the configured arguments — the client executes it and reports back with `conversation.item.create` as usual. In classifier mode you typically should **not** send a follow-up `response.create` after the tool output: the canned reply already acknowledged the command, and the follow-up would classify a tool-output turn.
+- Every classified response also emits a `localai.classifier.result` event carrying the full softmax distribution, the chosen option id (empty when the fallback applied), the threshold, and the scoring latency — useful for visualizing confidence in a client UI.
+- A committed turn whose transcript is empty (the VAD fired on noise and the ASR heard no words) is never scored — an empty prompt produces a confidently arbitrary winner. The fallback applies directly: the result event carries an empty `scores` list, and `generate` mode falls through to generation.
+- **Wake-word gating**: set `address: {names: ["drone"], mode: ignore}` and the assistant only acts on turns that mention one of the names ("Drone go up", not just "go up"). The check is a deterministic case-insensitive whole-word match on the latest transcript — deliberately not model-based: scoring cannot detect a missing name (a 1.2B scorer rates "go up" as addressed with p≈1.0 even with a dedicated addressing stage), while a literal match is exact and free. Unaddressed turns skip scoring entirely (ambient conversation costs nothing) and emit a result event with empty `scores` and `fallback: "not_addressed"`; `mode: ignore` completes the response silently, `mode: reply` speaks `reply`.
+- When no option clears `threshold`, `fallback.mode` decides: `none` completes the response with no output, `reply` speaks the canned fallback reply, and `generate` falls through to normal autoregressive generation (slow on weak hardware, but always available since the same model config serves both paths). Set the threshold high: with the default `raw` normalization a confident in-list pick lands near 1.0, while an out-of-list request spreads its probability across the options — measured on a 1.2B scorer, in-list utterances scored ≥0.97 and out-of-list ones peaked around 0.8, so a floor of ~0.85 separates them. A low threshold (say 0.35) practically never falls back. Also keep each option's `description` narrowly scoped: a catch-all clause like "…or asks for help" turns that option into a magnet for every request the model cannot map, defeating the fallback.
+- Agentic follow-up turns (after a server-side assistant tool executes) always use generation — the option list describes user intents, not tool outputs.
+
+Knobs that matter for latency and accuracy: keep option `description`s short (they all go into the scoring system prompt) and the option count small. By default only the latest user message is scored — earlier turns echo option names (the canned replies especially) and empirically make small scoring models re-choose the previous option regardless of the new command. `history_items: N` opts the trailing N conversation messages back in (role-labeled); only do that with a scorer large enough to weigh the context. `normalization: mean` divides each option's joint log-prob by its token count — useful when option ids have very different lengths. The scoring model needs a Go-side chat template (`template.chat` / `template.chat_message`); without one the scoring prompt falls back to a generic ChatML envelope, which may be off-distribution for the model. Use `classifier.model` to score on a different config than the pipeline LLM (rarely needed).
+
+### Argument slots (hybrid classify-then-complete)
+
+A canned tool call can leave holes for the model to fill: declare `slots` on the option's tool and reference them as `"{{name}}"` in the arguments template. When the option wins, LocalAI runs a short **grammar-constrained completion** that continues the exact scoring prompt (so the llama.cpp prompt cache is already warm) with the chosen route JSON re-opened at the first slot — only the value tokens are free; everything else is pinned by the grammar. Number slots substitute unquoted, enum/string slots inside their quotes.
+
+```yaml
+tool:
+  name: move_drone
+  arguments:
+    direction: forward
+    distance: "{{distance}}"
+    units: "{{units}}"
+  slots:
+    - name: distance
+      type: number            # number | enum | string
+    - name: units
+      type: enum
+      values: [m, meters, ft, feet]
+      default: m              # used if inference fails outright
+      hint: assume m when the user gives no units
+```
+
+The option's spoken `reply` can reference the same placeholders — `reply: "Going forward {{distance}} {{units}}."` — and the filled values are spliced in as plain text before the reply is emitted, so what the assistant says confirms what it inferred. Reply placeholders are optional (one that names no slot stays literal).
+
+Slot declarations (and hints) are appended to the option's description in the shared system prompt, so they also inform scoring and cost no extra per-turn tokens. The `localai.classifier.result` event carries the final `arguments` and a `fill_latency_ms`. On an inference failure the slots' defaults apply (and template the reply); if any slot lacks a default the response fails (or falls through to generation with `fallback.mode: generate`). Slot filling requires `completion` in the scoring model's `known_usecases` alongside `score`.
+
+Registering an option list (pipeline seed or `session.update`) prewarms the scoring prompt in the background: one throwaway score prefills the option-list prompt and plants a state checkpoint exactly at the per-turn probe boundary. Every scoring call also declares that boundary (the probe-invariant prompt prefix) to the backend, which checkpoints there on each prefill — on hybrid/recurrent models (which cannot rewind their state arbitrarily, only restore checkpoints) this is what keeps every turn at probe-size cost instead of a full option-list re-prefill. A client that swaps option lists at runtime (e.g. voice-switched command modes) pays nothing on the first turn after a swap: the rewarm hides behind the acknowledgement reply, and it runs on every registration deliberately — if the list's slot was evicted, the rewarm is exactly the re-prefill the next turn would otherwise pay in the foreground. Swapping between several lists? Give the scoring model a slot per list and make the prefix routing selective: `options: [parallel:3, sps:0.5]` (the default slot-similarity threshold of 0.1 funnels different lists onto one slot — they share enough prompt structure to clear it).
+
+The concrete scoring model must declare `score` in `known_usecases`. A single llama.cpp model can serve ordinary inference and classification concurrently by declaring multiple use cases, for example `known_usecases: [chat, completion, score]`; LocalAI reserves the scoring slots only when `score` is present. Scoring also requires the unified KV cache, which is enabled by default, so a score-enabled model cannot set `kv_unified:false`.
 
 ## Transports
 
