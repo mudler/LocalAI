@@ -166,6 +166,21 @@ func estimateModelSizeBytes(c config.ModelConfig, modelsPath string) int64 {
 	return int64(result.SizeBytes)
 }
 
+// effectiveThreads resolves the thread count a backend is asked to use.
+// Per-model threads wins: SetDefaults already fills an unset per-model value
+// from the app-level --threads, so overriding a set value with the app value
+// here would make the YAML `threads:` knob dead config (it did, for years —
+// e.g. a tiny VAD model could never opt down from the global pool size).
+func effectiveThreads(c config.ModelConfig, appThreads int) int {
+	if c.Threads != nil && *c.Threads > 0 {
+		return *c.Threads
+	}
+	if appThreads > 0 {
+		return appThreads
+	}
+	return 1
+}
+
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
 	defOpts := []model.Option{
 		model.WithBackendString(c.Backend),
@@ -178,16 +193,7 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		defOpts = append(defOpts, model.WithModelFile(c.ModelFileName()))
 	}
 
-	threads := 1
-
-	if c.Threads != nil {
-		threads = *c.Threads
-	}
-
-	if so.Threads != 0 {
-		threads = so.Threads
-	}
-
+	threads := effectiveThreads(c, so.Threads)
 	c.Threads = &threads
 
 	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
@@ -416,6 +422,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		Options:              withCompanionArtifactOptions(c.Options, c.Artifacts),
 		Overrides:            c.Overrides,
 		EngineArgs:           engineArgsJSON,
+		EnableScore:          c.HasUsecases(config.FLAG_SCORE),
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
 		ContextSize:          int32(ctxSize),
