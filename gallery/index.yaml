@@ -1,4 +1,74 @@
 ---
+- &kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev"
+  variants:
+    - model: kat-coder-v2.5-dev-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev
+    - https://huggingface.co/bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF
+  description: |
+    KAT-Coder-V2.5-Dev is an Apache-2.0 agentic coding model from Kwaipilot,
+    post-trained from Qwen3.6-35B-A3B. It has 35 billion total parameters with
+    3 billion activated per token, a 262K-token context window, and text-only
+    weights tuned for repository-level coding and tool use.
+
+    This entry uses the Q4_K_M GGUF quantization. The Q8_0 build is available
+    as a higher-quality variant for hosts with more memory.
+  license: "apache-2.0"
+  icon: https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev/resolve/main/kat_logo_hd.png
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - coding
+  last_checked: "2026-07-29"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+      sha256: 4221c26e5663502d1c96fc901c9967d0e70ce2dcfaa5a9fb9280a46bd19e3c07
+      uri: huggingface://bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-q8"
+  variants: []
+  description: |
+    KAT-Coder-V2.5-Dev is an Apache-2.0 agentic coding model from Kwaipilot,
+    post-trained from Qwen3.6-35B-A3B. It has 35 billion total parameters with
+    3 billion activated per token, a 262K-token context window, and text-only
+    weights tuned for repository-level coding and tool use.
+
+    This entry uses the higher-quality Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
+      sha256: 5fa510f44779b0e3d38a6678985f417a1c65e3000405ca5d6dcf7fd065e47a15
+      uri: huggingface://bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
