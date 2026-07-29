@@ -75,7 +75,7 @@ func newVoiceGate(
 
 	// Resolved like every other pipeline sub-model (one alias hop), so an
 	// aliased voice_recognition model gets its target's backend.
-	recCfg, err := cl.LoadResolvedModelConfig(cfg.Model, ml.ModelPath)
+	recCfg, err := cl.LoadResolvedModelConfig(cfg.Model, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("voice_recognition: failed to load model %q: %w", cfg.Model, err)
 	}
@@ -261,8 +261,10 @@ func (g *voiceGate) Authorize(ctx context.Context, wavPath string) (allowed bool
 
 // decide interprets an Authorize result against the gate's when-policy and the
 // session's prior verification state.
-//   proceed:      run the LLM response for this utterance.
-//   markVerified: record a successful first-utterance verification.
+//
+//	proceed:      run the LLM response for this utterance.
+//	markVerified: record a successful first-utterance verification.
+//
 // Note: when:first AND alreadyVerified is normally handled by the caller
 // skipping Authorize entirely; if it still reaches here, proceed is true.
 func (g *voiceGate) decide(alreadyVerified, allowed bool) (proceed, markVerified bool) {
