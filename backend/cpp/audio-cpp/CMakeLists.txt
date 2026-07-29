@@ -85,7 +85,7 @@ endif()
 
 if(AUDIO_CPP_BUILD_TESTS)
   enable_testing()
-  add_executable(audio-cpp-runtime-test tests/runtime_test.cpp)
+  add_executable(audio-cpp-runtime-test tests/runtime_tests.cpp)
   target_link_libraries(audio-cpp-runtime-test PRIVATE
       localai_audio_cpp_runtime
       Threads::Threads)
