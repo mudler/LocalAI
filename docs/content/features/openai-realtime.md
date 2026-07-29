@@ -347,6 +347,31 @@ By default a realtime session responds with audio plus a transcript. To make the
 
 The GA `output_modalities` wins when both are present. A response-level value overrides the session-level one, and when neither is set the session falls back to `["audio"]`.
 
+### Out-of-band responses and `metadata`
+
+A response can be created outside the default conversation by setting `conversation` to `none`. The reply is not added to the conversation history, which is what makes it usable for a side channel — answering a chat message or a webhook while a spoken conversation is in progress.
+
+Because such a response arrives on the same socket as everything else, attach `metadata` to correlate it. LocalAI echoes the map back verbatim on both `response.created` and `response.done`:
+
+```json
+{"type": "response.create", "response": {
+  "conversation": "none",
+  "output_modalities": ["text"],
+  "metadata": {"client_run": "abc123"},
+  "input": [{"type": "message", "role": "user",
+             "content": [{"type": "input_text", "text": "Is the oven still on?"}]}]
+}}
+```
+
+```json
+{"type": "response.done", "response": {
+  "id": "resp_...", "status": "completed",
+  "metadata": {"client_run": "abc123"}
+}}
+```
+
+Keys are strings up to 64 characters, values up to 512. A response created without `metadata` omits the field rather than sending an empty object.
+
 ## Gating a realtime pipeline with voice recognition
 
 A pipeline realtime model can require speaker verification before it responds. Add a `voice_recognition` block under `pipeline`. When present, each committed utterance is verified against authorized speakers; unauthorized utterances are dropped before the LLM runs (no LLM call, no tool execution, no TTS). The session stays open.
