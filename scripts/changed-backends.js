@@ -6,6 +6,7 @@ import {
   getAllBackendPaths,
   filterMatrix,
   BACKEND_MATRIX_FILE,
+  BACKEND_PROTO_FILE,
 } from "./lib/backend-filter.mjs";
 
 // Matrix data lives in a small data-only YAML so both backend.yml (master push)
@@ -110,6 +111,42 @@ async function getPreviousMatrix(event) {
   } catch (err) {
     console.log(
       `could not read ${BACKEND_MATRIX_FILE} at ${ref}, falling back to run-all:`,
+      err.message
+    );
+    return null;
+  }
+}
+
+// backend.proto at the base revision plus the checked-out copy, so filterMatrix
+// can tell an additive edit (a new field, message or RPC, which invalidates no
+// existing image) from a breaking one. Returning null means "rebuild
+// everything", the same posture as an unresolvable matrix diff.
+//
+// Only called when the changed-file list names the proto, so the common path
+// costs no extra API request.
+async function getProtoRevisions(event) {
+  const ref = event.pull_request ? event.pull_request.base.sha : event.before;
+  if (!ref || /^0+$/.test(ref)) return null;
+  const owner = event.repository.owner.login;
+  const repo = event.repository.name;
+  try {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path: BACKEND_PROTO_FILE,
+      ref,
+      mediaType: { format: 'raw' },
+    });
+    const previous = typeof res.data === 'string'
+      ? res.data
+      : Buffer.from(res.data.content, 'base64').toString('utf8');
+    return {
+      previous,
+      current: fs.readFileSync(BACKEND_PROTO_FILE, "utf8"),
+    };
+  } catch (err) {
+    console.log(
+      `could not read ${BACKEND_PROTO_FILE} at ${ref}, falling back to run-all:`,
       err.message
     );
     return null;
@@ -240,7 +277,7 @@ function emitFullMatrix() {
   }
 }
 
-function emitFilteredMatrix(changedFiles, previousMatrix) {
+function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
   console.log("Changed files:", changedFiles);
 
   const { filtered, filteredDarwin, changedBackends } = filterMatrix({
@@ -248,6 +285,7 @@ function emitFilteredMatrix(changedFiles, previousMatrix) {
     includesDarwin,
     changedFiles,
     previousMatrix,
+    protoRevisions,
   });
 
   console.log("Filtered files:", filtered);
@@ -306,5 +344,9 @@ function emitFilteredMatrix(changedFiles, previousMatrix) {
     ? await getPreviousMatrix(event)
     : null;
 
-  emitFilteredMatrix(changedFiles, previousMatrix);
+  const protoRevisions = changedFiles.includes(BACKEND_PROTO_FILE)
+    ? await getProtoRevisions(event)
+    : null;
+
+  emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions);
 })();
