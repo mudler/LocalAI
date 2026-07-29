@@ -200,7 +200,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `threads` | int | `processor count` | Number of threads for parallel computation |
+| `threads` | int | `processor count` | Number of threads for parallel computation. A per-model value overrides the server-wide `--threads`/`LOCALAI_THREADS` setting |
 | `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
 | `gpu_layers` | int | `0` | Number of layers to offload to GPU (0 = CPU only) |
@@ -911,6 +911,8 @@ Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref 
 | `pipeline.llm` | string | LLM model name |
 | `pipeline.transcription` | string | Transcription model name |
 | `pipeline.vad` | string | Voice activity detection model name |
+| `pipeline.turn_detection` | object | Realtime turn-detection defaults. Keys: `type` (`server_vad`/`semantic_vad`), `eagerness` (`low`/`medium`/`high`/`auto`), `retranscribe`, `vad_window_sec` (widen the per-tick VAD scan window; values below the automatic floor are ignored). See [Realtime turn detection]({{%relref "features/openai-realtime" %}}) |
+| `pipeline.classifier` | object | Realtime classifier mode: prefill-scored option selection instead of generation. Keys: `enabled`, `threshold`, `normalization` (`raw`/`mean`), `history_items`, `fallback` (`mode`: `none`/`reply`/`generate`, `reply`), `options` (list of `id`, `description`, `reply`, `tool` `{name, arguments}`), `address` (wake-word gate: `names`, `mode`: `ignore`/`reply`, `reply`), `model` (optional separate scoring config). See [Realtime classifier mode]({{%relref "features/openai-realtime#classifier-mode-localai-extension" %}}) |
 
 ## gRPC Configuration
 
