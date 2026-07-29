@@ -4312,6 +4312,97 @@
     - filename: mmproj-F16.gguf
       sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
+- &pocket-35b
+  name: pocket-35b-q4-k-m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/FINAL-Bench/Darwin-36B-Opus
+    - https://huggingface.co/FINAL-Bench/POCKET-35B-GGUF
+  description: |
+    POCKET-35B is an Apache-2.0 Qwen3.5-family sparse MoE model derived from
+    Darwin-36B-Opus. Its official GGUF ladder spans Q4_K_M, Q3_K_M, Q2_K, and
+    IQ1_M so LocalAI can select a build for the available memory. All builds run
+    with the stock llama.cpp backend.
+  license: apache-2.0
+  icon: https://huggingface.co/FINAL-Bench/POCKET-35B-GGUF/resolve/main/pocket_hero.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - qwen
+    - qwen3.5
+    - moe
+  last_checked: "2026-07-29"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: POCKET-35B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: POCKET-35B-Q4_K_M.gguf
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
+      sha256: 6f479f637c8fb932df39b9cfabdc454568eee48c0e7c0584e1815a27558e8ffe
+  variants:
+    - model: pocket-35b-q3-k-m
+    - model: pocket-35b-q2-k
+    - model: pocket-35b-iq1-m
+- !!merge <<: *pocket-35b
+  name: pocket-35b-q3-k-m
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: POCKET-35B-Q3_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: POCKET-35B-Q3_K_M.gguf
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q3_K_M.gguf
+      sha256: 9ab4184f0f5af0cc1cf8eee7e553664b692c3f837a8868c4a16137bb3a3c97a2
+  variants: []
+- !!merge <<: *pocket-35b
+  name: pocket-35b-q2-k
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: POCKET-35B-Q2_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: POCKET-35B-Q2_K.gguf
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q2_K.gguf
+      sha256: 2567ed710fb5b5bdf0df99ecfa241ab1a2b35edc618d2830b91d468e3a3ce191
+  variants: []
+- !!merge <<: *pocket-35b
+  name: pocket-35b-iq1-m
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: POCKET-35B-IQ1_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: POCKET-35B-IQ1_M.gguf
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-IQ1_M.gguf
+      sha256: c56c77d158786f6dfb084e8cf3467456668e400cc7632c366cc0444b9f8565a1
+  variants: []
 - name: qwen3.5-35b-a3b-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
