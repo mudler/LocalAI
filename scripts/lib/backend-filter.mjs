@@ -50,6 +50,12 @@ export function inferBackendPath(item) {
   if (item.backend === "magpie-tts-cpp") {
     return `backend/go/magpie-tts-cpp/`;
   }
+  // trellis2cpp is a Go backend (Dockerfile.golang) wrapping the trellis2.cpp
+  // ggml port via purego, living in backend/go/trellis2cpp/. Keep the mapping
+  // explicit so a future dockerfile-suffix change cannot break path filtering.
+  if (item.backend === "trellis2cpp") {
+    return `backend/go/trellis2cpp/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }

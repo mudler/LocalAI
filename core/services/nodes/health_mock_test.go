@@ -157,6 +157,9 @@ func (c *fakeBackendClient) GenerateImage(_ context.Context, _ *pb.GenerateImage
 func (c *fakeBackendClient) GenerateVideo(_ context.Context, _ *pb.GenerateVideoRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) Generate3D(_ context.Context, _ *pb.Generate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
