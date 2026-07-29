@@ -28,7 +28,7 @@ func PreloadModelByName(ctx context.Context, cl *config.ModelConfigLoader, ml *m
 		return nil, err
 	}
 
-	stages, err := pipelineStages(cl, &cfg.Pipeline, ml.ModelPath)
+	stages, err := pipelineStages(cl, &cfg.Pipeline, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ var loadStage = PreloadModel
 // pipeline itself uses. A stage that fails to resolve is a misconfiguration,
 // so it fails fast rather than being deferred to load. A pipeline with no
 // stages set returns nil, which callers treat as "not a pipeline".
-func pipelineStages(cl *config.ModelConfigLoader, p *config.Pipeline, modelPath string) ([]PreloadStage, error) {
+func pipelineStages(cl *config.ModelConfigLoader, p *config.Pipeline, modelPath string, opts ...config.ConfigLoaderOption) ([]PreloadStage, error) {
 	voiceRec := ""
 	if p.VoiceRecognition != nil {
 		voiceRec = p.VoiceRecognition.Model
@@ -76,7 +76,7 @@ func pipelineStages(cl *config.ModelConfigLoader, p *config.Pipeline, modelPath 
 		if s.name == "" {
 			continue
 		}
-		cfg, err := cl.LoadResolvedModelConfig(s.name, modelPath)
+		cfg, err := cl.LoadResolvedModelConfig(s.name, modelPath, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("%s (%s): %w", s.role, s.name, err)
 		}
@@ -87,9 +87,11 @@ func pipelineStages(cl *config.ModelConfigLoader, p *config.Pipeline, modelPath 
 
 // PreloadStages loads every present stage at once and waits for all of them, so
 // a pipeline warms in the time of its slowest stage rather than the sum. Absent
-// (nil-config) stages are skipped. A failed stage does not cancel the others —
-// they all run to completion so the joined error names every broken stage at
-// once, alongside the names that did load.
+// stages are skipped. Some callers represent an unset optional stage with a
+// nil config, while others materialize a default config with an empty name. A
+// failed stage does not cancel the others — they all run to completion so the
+// joined error names every broken stage at once, alongside the names that did
+// load.
 func PreloadStages(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, stages []PreloadStage) ([]string, error) {
 	var (
 		wg     sync.WaitGroup
@@ -98,7 +100,7 @@ func PreloadStages(ctx context.Context, ml *model.ModelLoader, appConfig *config
 		errs   []error
 	)
 	for _, s := range stages {
-		if s.Cfg == nil {
+		if s.Cfg == nil || s.Cfg.Name == "" {
 			continue
 		}
 		wg.Add(1)

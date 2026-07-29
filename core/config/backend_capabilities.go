@@ -30,6 +30,7 @@ const (
 	UsecaseFaceRecognition     = "face_recognition"
 	UsecaseSpeakerRecognition  = "speaker_recognition"
 	UsecaseTokenClassify       = "token_classify"
+	UsecaseScore               = "score"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -60,6 +61,7 @@ const (
 	MethodVoiceEmbed         GRPCMethod = "VoiceEmbed"
 	MethodVoiceAnalyze       GRPCMethod = "VoiceAnalyze"
 	MethodTokenClassify      GRPCMethod = "TokenClassify"
+	MethodScore              GRPCMethod = "Score"
 )
 
 // UsecaseInfo describes a single known_usecase value and how it maps
@@ -192,6 +194,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodTokenClassify,
 		Description: "Per-token classification (NER) via the TokenClassify RPC — the PII detector tier. Declared explicitly via known_usecases; never auto-guessed, since the token-classification head is not useful as general generation or embeddings.",
 	},
+	UsecaseScore: {
+		Flag:        FLAG_SCORE,
+		GRPCMethod:  MethodScore,
+		Description: "Joint log-probability scoring of candidate continuations via the Score RPC. Declared explicitly via known_usecases and usable alongside generation usecases.",
+	},
 }
 
 // BackendCapability describes which gRPC methods and usecases a backend supports.
@@ -241,8 +248,8 @@ func referenceVoiceCloning() *VoiceCloningCapability {
 var BackendCapabilities = map[string]BackendCapability{
 	// --- LLM / text generation backends ---
 	"llama-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision},
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true, // requires mmproj
 		Description:      "llama.cpp GGUF models — LLM inference with optional vision via mmproj",
