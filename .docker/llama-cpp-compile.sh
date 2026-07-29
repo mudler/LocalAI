@@ -28,6 +28,10 @@ if [ -z "${BUILD_TYPE:-}" ]; then
   # variants with it (the host never *selects* SME unless it has it, but every variant must
   # still compile).
   if [ "${TARGETARCH}" = "arm64" ]; then
+    # The prebuilt base inherits default ports.ubuntu.com sources; honor the
+    # APT_*_MIRROR build args here like the from-source path does, so this
+    # apt step survives a mirror outage.
+    sh /LocalAI/.docker/apt-mirror.sh || true
     apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
     export CC=gcc-14 CXX=g++-14
   fi
