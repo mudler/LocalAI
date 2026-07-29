@@ -49,4 +49,21 @@ alias: real-llm
 		Expect(direct.Backend).To(Equal("llama-cpp"))
 		Expect(direct.Name).To(Equal("real-llm"))
 	})
+
+	It("applies loader defaults while preserving explicit model threads", func() {
+		tmpDir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(tmpDir, "defaulted.yaml"), []byte("name: defaulted\nbackend: llama-cpp\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(tmpDir, "explicit.yaml"), []byte("name: explicit\nbackend: llama-cpp\nthreads: 3\n"), 0644)).To(Succeed())
+
+		cl := config.NewModelConfigLoader(tmpDir)
+		defaulted, err := cl.LoadResolvedModelConfig("defaulted", tmpDir, config.LoadOptionThreads(11))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(defaulted.Threads).NotTo(BeNil())
+		Expect(*defaulted.Threads).To(Equal(11))
+
+		explicit, err := cl.LoadResolvedModelConfig("explicit", tmpDir, config.LoadOptionThreads(11))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(explicit.Threads).NotTo(BeNil())
+		Expect(*explicit.Threads).To(Equal(3))
+	})
 })

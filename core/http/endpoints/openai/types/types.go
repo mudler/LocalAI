@@ -956,6 +956,11 @@ type RealtimeSession struct {
 
 	// Controls how the realtime conversation is truncated prior to model inference. The default is auto.
 	Truncation *TruncationUnion `json:"truncation,omitempty"`
+
+	// LocalAIClassifier is a LocalAI extension: prefill-scored option
+	// selection instead of autoregressive generation. Replaced wholesale
+	// on update, like tools. OpenAI clients simply never set it.
+	LocalAIClassifier *ClassifierConfig `json:"localai_classifier,omitempty"`
 }
 
 func (r RealtimeSession) Type() SessionType {
@@ -1191,6 +1196,11 @@ type ResponseCreateParams struct {
 
 	// Tools available to the model.
 	Tools []ToolUnion `json:"tools,omitempty"`
+
+	// LocalAIClassifier is a LocalAI extension: when non-nil it replaces
+	// the session's classifier config for this response only —
+	// {"enabled": false} runs normal generation once.
+	LocalAIClassifier *ClassifierConfig `json:"localai_classifier,omitempty"`
 }
 
 type Response struct {
