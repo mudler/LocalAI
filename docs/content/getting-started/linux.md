@@ -59,6 +59,58 @@ After installation, you can:
 - Configure models in the models directory
 - Customize settings via environment variables or config files
 
+## Start LocalAI on demand with systemd
+
+LocalAI accepts a single TCP listener passed through the systemd socket
+activation protocol. This lets systemd listen on the public port and start
+LocalAI only when the first client connects.
+
+Create `/etc/systemd/system/local-ai.socket`:
+
+```ini
+[Unit]
+Description=LocalAI API socket
+
+[Socket]
+ListenStream=8080
+NoDelay=true
+
+[Install]
+WantedBy=sockets.target
+```
+
+Create the matching `/etc/systemd/system/local-ai.service`:
+
+```ini
+[Unit]
+Description=LocalAI
+
+[Service]
+Type=simple
+User=localai
+Group=localai
+ExecStart=/usr/local/bin/local-ai run
+WorkingDirectory=/var/lib/local-ai
+```
+
+Adjust the user, binary path, working directory, and model configuration for
+your installation. Then enable the socket, not the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now local-ai.socket
+```
+
+The first connection to port 8080 starts `local-ai.service`; systemd holds that
+connection until LocalAI is ready to accept it. `LOCALAI_ADDRESS` and
+`--address` are ignored while an inherited listener is present. LocalAI
+rejects activation with multiple stream listeners so it cannot silently choose
+the wrong endpoint.
+
+For a Podman-managed container, configure Podman to preserve and pass the
+systemd socket file descriptor into the container. The LocalAI process inside
+the container consumes the same activation protocol.
+
 ## Next Steps
 
 - [Try it out with examples](/basics/try/)
