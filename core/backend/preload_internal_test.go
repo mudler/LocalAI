@@ -103,12 +103,13 @@ var _ = Describe("PreloadStages", func() {
 		return PreloadStage{Role: role, Cfg: &config.ModelConfig{Name: name}}
 	}
 
-	It("loads every present stage, skips absent (nil-config) ones, and returns the loaded names", func() {
+	It("loads every present stage, skips absent stages, and returns the loaded names", func() {
 		stubLoader(nil)
 
 		loaded, err := PreloadStages(context.Background(), nil, nil, []PreloadStage{
 			mkStage("vad", "vad-m"),
-			{Role: "transcription"}, // absent stage
+			{Role: "transcription"},
+			mkStage("tts", ""),
 			mkStage("llm", "llm-m"),
 		})
 
