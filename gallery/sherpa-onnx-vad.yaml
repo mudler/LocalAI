@@ -4,6 +4,11 @@ name: "sherpa-onnx-vad"
 config_file: |
   backend: sherpa-onnx
   type: vad
+  # Silero is a ~2MB recurrent model with no exploitable graph parallelism:
+  # measured per-call latency is identical at 1 and 10 ORT threads, while
+  # every extra pool thread just spin-waits between the realtime loop's
+  # frequent tiny inferences.
+  threads: 1
   options:
     # Silero VAD. Defaults mirror upstream sherpa-onnx. Override for
     # faster turn-taking (lower min_silence) or different sample rate
