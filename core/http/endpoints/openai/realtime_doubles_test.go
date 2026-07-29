@@ -3,11 +3,13 @@ package openai
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -99,11 +101,81 @@ type fakeModel struct {
 	predictResp        backend.LLMResponse
 	predictErr         error
 
+	// ClassifyTurn scripting: classifyScores is returned as the option
+	// distribution (in option order); classifyErr fails the call.
+	// classifyCalls counts invocations and lastClassifyOptions records
+	// what the handler asked to score.
+	classifyScores      []router.LabelScore
+	classifyErr         error
+	classifyCalls       int
+	lastClassifyOptions []types.ClassifierOption
+
+	// FillToolArguments scripting: fillArgs/fillValues are returned
+	// verbatim; fillErr fails the call. fillCalls counts invocations and
+	// lastFillChosen records which option's slots the handler asked to
+	// fill.
+	fillArgs       string
+	fillValues     map[string]string
+	fillErr        error
+	fillCalls      int
+	lastFillChosen *types.ClassifierOption
+
+	// PrewarmClassifier runs on a background goroutine, so its recording
+	// is mutex-guarded; specs poll prewarmCalls with Eventually.
+	prewarmMu          sync.Mutex
+	prewarmCalls       int
+	lastPrewarmOptions []types.ClassifierOption
+
+	// VAD scripting: vadFn, when set, decides per call (specs vary the
+	// answer across ticks or record the request); otherwise
+	// vadSegments/vadErr answer every call.
+	vadFn       func(*schema.VADRequest) (*schema.VADResponse, error)
+	vadSegments []schema.VADSegment
+	vadErr      error
+
 	lastMessages schema.Messages
 }
 
-func (m *fakeModel) VAD(context.Context, *schema.VADRequest) (*schema.VADResponse, error) {
-	return nil, nil
+func (m *fakeModel) PrewarmClassifier(_ context.Context, options []types.ClassifierOption, _ string) {
+	m.prewarmMu.Lock()
+	defer m.prewarmMu.Unlock()
+	m.prewarmCalls++
+	m.lastPrewarmOptions = options
+}
+
+func (m *fakeModel) prewarmed() (int, []types.ClassifierOption) {
+	m.prewarmMu.Lock()
+	defer m.prewarmMu.Unlock()
+	return m.prewarmCalls, m.lastPrewarmOptions
+}
+
+func (m *fakeModel) FillToolArguments(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string, chosen *types.ClassifierOption) (string, map[string]string, error) {
+	m.fillCalls++
+	m.lastFillChosen = chosen
+	if m.fillErr != nil {
+		return "", nil, m.fillErr
+	}
+	return m.fillArgs, m.fillValues, nil
+}
+
+func (m *fakeModel) ClassifyTurn(_ context.Context, msgs schema.Messages, options []types.ClassifierOption, _ string) ([]router.LabelScore, error) {
+	m.classifyCalls++
+	m.lastClassifyOptions = options
+	m.lastMessages = msgs
+	if m.classifyErr != nil {
+		return nil, m.classifyErr
+	}
+	return m.classifyScores, nil
+}
+
+func (m *fakeModel) VAD(_ context.Context, req *schema.VADRequest) (*schema.VADResponse, error) {
+	if m.vadFn != nil {
+		return m.vadFn(req)
+	}
+	if m.vadErr != nil {
+		return nil, m.vadErr
+	}
+	return &schema.VADResponse{Segments: m.vadSegments}, nil
 }
 
 func (m *fakeModel) Transcribe(context.Context, string, string, bool, bool, string) (*schema.TranscriptionResult, error) {
