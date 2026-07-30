@@ -605,3 +605,73 @@ var _ = Describe("JSON schema property ordering (issue #10052)", func() {
 		Expect(keyIndex(grammar, "arguments")).To(BeNumerically("<", keyIndex(grammar, "aaa_unlisted")))
 	})
 })
+
+var _ = Describe("JSON schema grammar cyclic $ref handling", func() {
+	// A client-supplied grammar_json_functions schema with a cyclic $ref used to
+	// recurse until the goroutine stack overflowed, crashing the whole process
+	// instead of failing the single request. The converter must now return an
+	// error for such schemas rather than recursing forever.
+	It("returns an error for a directly self-referential $ref", func() {
+		const schema = `{
+			"$defs": {"A": {"$ref": "#/$defs/A"}},
+			"oneOf": [{"type": "object", "properties": {"x": {"$ref": "#/$defs/A"}}}]
+		}`
+		_, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("cyclic $ref"))
+	})
+
+	It("returns an error for an indirect $ref cycle (A -> B -> A)", func() {
+		const schema = `{
+			"$defs": {
+				"A": {"type": "object", "properties": {"b": {"$ref": "#/$defs/B"}}},
+				"B": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}
+			},
+			"$ref": "#/$defs/A"
+		}`
+		_, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("cyclic $ref"))
+	})
+
+	It("still resolves a non-cyclic $ref reused by sibling properties", func() {
+		const schema = `{
+			"$defs": {"Leaf": {"type": "string"}},
+			"type": "object",
+			"properties": {
+				"x": {"$ref": "#/$defs/Leaf"},
+				"y": {"$ref": "#/$defs/Leaf"}
+			}
+		}`
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(BeNil())
+		Expect(grammar).ToNot(BeEmpty())
+	})
+
+	// A deeply nested but acyclic schema has no $ref cycle to catch, yet it can
+	// still recurse deeply enough to exhaust the goroutine stack. The bounded
+	// depth counter must reject it with an ordinary error instead of crashing.
+	It("returns an error for a schema nested deeper than the depth limit", func() {
+		// Wrap a string leaf in enough nested "array"/"items" layers to exceed
+		// maxSchemaDepth; each layer is one visit() recursion.
+		const layers = 400
+		schema := `{"type": "string"}`
+		for i := 0; i < layers; i++ {
+			schema = `{"type": "array", "items": ` + schema + `}`
+		}
+		_, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("maximum depth"))
+	})
+
+	It("still builds a grammar for a moderately nested acyclic schema", func() {
+		const layers = 32
+		schema := `{"type": "string"}`
+		for i := 0; i < layers; i++ {
+			schema = `{"type": "array", "items": ` + schema + `}`
+		}
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).To(BeNil())
+		Expect(grammar).ToNot(BeEmpty())
+	})
+})
