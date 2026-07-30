@@ -90,7 +90,7 @@ else
     awk '
         prev2 == "        } else if (!strcmp(optname, \"spec_p_split\")) {" &&
         prev1 ~ /^ +if \(optval != NULL\) \{$/ &&
-        $0    ~ /^ +try \{ params\.speculative\.p_split = std::stof\(optval_str\); \} catch \(\.\.\.\) \{\}$/ &&
+        $0    ~ /^ +try \{ params\.speculative\.draft\.p_split = std::stof\(optval_str\); \} catch \(\.\.\.\) \{\}$/ &&
         !done {
             print                        # print the try-line itself
             getline inner_close          # read "            }" closing the inner if
