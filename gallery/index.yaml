@@ -1,4 +1,149 @@
 ---
+- &pocket-35b
+  name: "pocket-35b"
+  variants:
+    - model: pocket-35b-q2
+    - model: pocket-35b-iq1
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/FINAL-Bench/Darwin-36B-Opus
+    - https://huggingface.co/FINAL-Bench/POCKET-35B-GGUF
+  description: |
+    POCKET-35B is an Apache-2.0 Qwen3.5-family mixture-of-experts model from
+    FINAL-Bench/VIDRAFT, derived from Darwin-36B-Opus and packaged for stock
+    llama.cpp. This entry uses the quality-oriented Q4_K_M GGUF quantization.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+  last_checked: "2026-07-30"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
+      sha256: 6f479f637c8fb932df39b9cfabdc454568eee48c0e7c0584e1815a27558e8ffe
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
+- !!merge <<: *pocket-35b
+  name: "pocket-35b-q2"
+  variants: []
+  description: |
+    POCKET-35B is an Apache-2.0 Qwen3.5-family mixture-of-experts model from
+    FINAL-Bench/VIDRAFT, derived from Darwin-36B-Opus and packaged for stock
+    llama.cpp. This entry uses the smaller Q2_K GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q2_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q2_K.gguf
+      sha256: 2567ed710fb5b5bdf0df99ecfa241ab1a2b35edc618d2830b91d468e3a3ce191
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q2_K.gguf
+- !!merge <<: *pocket-35b
+  name: "pocket-35b-iq1"
+  variants: []
+  description: |
+    POCKET-35B is an Apache-2.0 Qwen3.5-family mixture-of-experts model from
+    FINAL-Bench/VIDRAFT, derived from Darwin-36B-Opus and packaged for stock
+    llama.cpp. This entry uses the most compact IQ1_M GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-IQ1_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-IQ1_M.gguf
+      sha256: c56c77d158786f6dfb084e8cf3467456668e400cc7632c366cc0444b9f8565a1
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-IQ1_M.gguf
+- &pocket-26b
+  name: "pocket-26b"
+  variants:
+    - model: pocket-26b-q2
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-26B-A4B-it
+    - https://huggingface.co/FINAL-Bench/POCKET-26B-GGUF
+  description: |
+    POCKET-26B is an Apache-2.0 Gemma 4 26B-A4B mixture-of-experts model from
+    FINAL-Bench/VIDRAFT, tuned for Korean and packaged for stock llama.cpp.
+    This entry uses the quality-oriented Q4_K_M GGUF quantization.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - korean
+  last_checked: "2026-07-30"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q4_K_M.gguf
+      sha256: b91b0923605621d246fdcce733d3666020273cf7abaf172dd5345659c96aab1b
+      uri: huggingface://FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q4_K_M.gguf
+- !!merge <<: *pocket-26b
+  name: "pocket-26b-q2"
+  variants: []
+  description: |
+    POCKET-26B is an Apache-2.0 Gemma 4 26B-A4B mixture-of-experts model from
+    FINAL-Bench/VIDRAFT, tuned for Korean and packaged for stock llama.cpp.
+    This entry uses the smaller Q2_K GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q2_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q2_K.gguf
+      sha256: 490687be6493769dc8322df396cd31d412a15877eaccea4d2f16ca1f93383334
+      uri: huggingface://FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q2_K.gguf
 - &mellum2-12b-a2-5b-instruct
   name: "mellum2-12b-a2.5b-instruct"
   variants:
