@@ -5,6 +5,8 @@ config_file: |
     backend: stablediffusion-ggml
     step: 20
     cfg_scale: 6.0
+    known_usecases:
+      - video
     options:
     - "diffusion_model"
     - "vae_decode_only:false"
