@@ -1,6 +1,9 @@
 package localaitools
 
-import "github.com/mudler/LocalAI/core/services/voiceprofile"
+import (
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
+)
 
 // DTOs for the LocalAIClient interface. Where the same shape already exists
 // elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
@@ -113,6 +116,31 @@ type Node struct {
 type SetNodeVRAMBudgetRequest struct {
 	NodeID string `json:"node_id"          jsonschema:"The federated node id (from list_nodes) whose VRAM budget to set."`
 	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
+}
+
+// ModelSchedulingConfig is the REST/MCP wire shape for one per-model
+// distributed scheduling rule. The NodeSelector field is a JSON object encoded
+// as a string, matching /api/nodes/scheduling responses.
+type ModelSchedulingConfig = nodes.ModelSchedulingConfig
+
+// SetSchedulingRequest is the input for set_scheduling. It mirrors
+// /api/nodes/scheduling so standalone MCP and REST callers preserve the same
+// PATCH-style semantics for the optional prefix-cache routing fields.
+type SetSchedulingRequest struct {
+	ModelName           string            `json:"model_name"                         jsonschema:"Installed model name whose distributed scheduling rule should be created or updated."`
+	NodeSelector        map[string]string `json:"node_selector,omitempty"            jsonschema:"Optional node-label selector. Empty means any healthy backend node."`
+	MinReplicas         int               `json:"min_replicas"                       jsonschema:"Minimum desired replicas. Mutually exclusive with spread_all."`
+	MaxReplicas         int               `json:"max_replicas"                       jsonschema:"Maximum desired replicas. Must be >= min_replicas when non-zero. Mutually exclusive with spread_all."`
+	SpreadAll           bool              `json:"spread_all,omitempty"               jsonschema:"When true, keep one replica on every matching node. Mutually exclusive with min_replicas/max_replicas."`
+	RoutePolicy         *string           `json:"route_policy,omitempty"             jsonschema:"Optional prefix-cache route policy override. Omit to preserve the existing value on updates."`
+	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"    jsonschema:"Optional absolute imbalance threshold override. Omit to preserve the existing value on updates."`
+	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"    jsonschema:"Optional relative imbalance threshold override. Omit to preserve the existing value on updates."`
+	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"         jsonschema:"Optional minimum prefix match threshold override. Omit to preserve the existing value on updates."`
+}
+
+// DeleteSchedulingRequest identifies the model scheduling rule to remove.
+type DeleteSchedulingRequest struct {
+	ModelName string `json:"model_name" jsonschema:"Installed model name whose scheduling config should be removed."`
 }
 
 // ImportModelURIRequest is the input for import_model_uri. It mirrors the
