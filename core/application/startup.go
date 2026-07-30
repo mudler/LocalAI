@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -60,6 +61,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		options.Threads = xsysinfo.CPUPhysicalCores()
 	}
 
+	trace.ConfigureBackendTracePersistence(options.DataPath)
 	application := newApplication(options)
 	application.startupConfig = &startupConfigCopy
 
@@ -133,7 +135,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
 		}
 	}
-
 	// Initialize auth database if auth is enabled
 	if options.Auth.Enabled {
 		// Auto-generate HMAC secret if not provided

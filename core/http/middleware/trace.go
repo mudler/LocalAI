@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
 )
 
@@ -59,33 +61,94 @@ type APIExchange struct {
 
 var traceBuffer *circularbuffer.Queue[APIExchange]
 var mu sync.Mutex
-var logChan = make(chan APIExchange, 100)
-var tracingMaxItems int
+var logChan = make(chan traceCommand, 100)
 var traceIDSeq atomic.Uint64
+var traceConsumerOnce sync.Once
+var traceStore *tracepersist.Store[APIExchange]
+var traceStoreKey string
+
+type traceCommand struct {
+	exchange *APIExchange
+	store    *tracepersist.Store[APIExchange]
+	clear    chan error
+}
 
 func nextTraceID() string {
 	return strconv.FormatUint(traceIDSeq.Add(1), 10)
 }
 
-var doInitializeTracing = sync.OnceFunc(func() {
-	maxItems := tracingMaxItems
+func initializeTracing(dataPath string, maxItems int) {
 	if maxItems <= 0 {
 		maxItems = 100
 	}
+	key := filepath.Join(dataPath, strconv.Itoa(maxItems))
 	mu.Lock()
+	if traceBuffer != nil && traceStoreKey == key {
+		mu.Unlock()
+		return
+	}
+
+	var store *tracepersist.Store[APIExchange]
+	var restored []APIExchange
+	if dataPath != "" {
+		var err error
+		store, err = tracepersist.New[APIExchange](filepath.Join(dataPath, "traces", "api"), maxItems)
+		if err != nil {
+			xlog.Warn("Failed to initialize API trace persistence", "error", err)
+		} else if restored, err = store.Load(); err != nil {
+			xlog.Warn("Failed to restore API traces", "error", err)
+			store = nil
+		}
+	}
 	traceBuffer = circularbuffer.New[APIExchange](maxItems)
+	for _, exchange := range restored {
+		traceBuffer.Enqueue(exchange)
+		advanceTraceID(&traceIDSeq, exchange.ID)
+	}
+	traceStore = store
+	traceStoreKey = key
 	mu.Unlock()
 
-	go func() {
-		for exchange := range logChan {
-			mu.Lock()
-			if traceBuffer != nil {
-				traceBuffer.Enqueue(exchange)
+	traceConsumerOnce.Do(func() {
+		go func() {
+			for command := range logChan {
+				if command.clear != nil {
+					mu.Lock()
+					if traceBuffer != nil {
+						traceBuffer.Clear()
+					}
+					mu.Unlock()
+					var err error
+					if command.store != nil {
+						err = command.store.Clear()
+					}
+					command.clear <- err
+					continue
+				}
+				exchange := *command.exchange
+				if command.store != nil {
+					if err := command.store.Append(exchange.ID, exchange); err != nil {
+						xlog.Warn("Failed to persist API trace", "error", err)
+					}
+				}
+				mu.Lock()
+				if traceBuffer != nil {
+					traceBuffer.Enqueue(exchange)
+				}
+				mu.Unlock()
 			}
-			mu.Unlock()
-		}
-	}()
-})
+		}()
+	})
+}
+
+func advanceTraceID(seq *atomic.Uint64, id string) {
+	n, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return
+	}
+	for current := seq.Load(); n > current && !seq.CompareAndSwap(current, n); current = seq.Load() {
+	}
+}
 
 type bodyWriter struct {
 	http.ResponseWriter
@@ -145,11 +208,6 @@ func (w *bodyWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, http.ErrNotSupported
 }
 
-func initializeTracing(maxItems int) {
-	tracingMaxItems = maxItems
-	doInitializeTracing()
-}
-
 // sensitiveTraceHeaders is the set of header names whose values must not
 // land in the in-memory trace buffer. Keys are canonical — http.Header
 // stores them that way, so range yields canonical keys directly.
@@ -175,13 +233,12 @@ func redactSensitiveHeaders(h http.Header) http.Header {
 
 // TraceMiddleware intercepts and logs JSON API requests and responses
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
+	initializeTracing(app.ApplicationConfig().DataPath, app.ApplicationConfig().TracingMaxItems)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if !app.ApplicationConfig().EnableTracing {
 				return next(c)
 			}
-
-			initializeTracing(app.ApplicationConfig().TracingMaxItems)
 
 			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
 			if ct != "application/json" {
@@ -266,8 +323,11 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				exchange.UserName = user.Name
 			}
 
+			mu.Lock()
+			store := traceStore
+			mu.Unlock()
 			select {
-			case logChan <- exchange:
+			case logChan <- traceCommand{exchange: &exchange, store: store}:
 			default:
 				xlog.Warn("Trace channel full, dropping trace")
 			}
@@ -348,6 +408,18 @@ func window[T any](s []T, offset, limit int) []T {
 
 // ClearTraces clears the in-memory logs
 func ClearTraces() {
+	mu.Lock()
+	store := traceStore
+	initialized := traceBuffer != nil
+	mu.Unlock()
+	if initialized {
+		done := make(chan error, 1)
+		logChan <- traceCommand{store: store, clear: done}
+		if err := <-done; err != nil {
+			xlog.Warn("Failed to clear persisted API traces", "error", err)
+		}
+		return
+	}
 	mu.Lock()
 	if traceBuffer != nil {
 		traceBuffer.Clear()
