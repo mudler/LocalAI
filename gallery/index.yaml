@@ -32041,6 +32041,50 @@
   overrides:
     parameters:
       model: all-MiniLM-L6-v2
+- name: harrier-oss-v1-0.6b
+  url: github:mudler/LocalAI/gallery/sentencetransformers.yaml@master
+  variants:
+    - model: harrier-oss-v1-270m
+  urls:
+    - https://huggingface.co/microsoft/harrier-oss-v1-0.6b
+  description: |
+    Harrier OSS v1 0.6B is Microsoft's 600-million-parameter text embedding model for semantic search, retrieval, clustering, and related sentence representation tasks.
+  license: mit
+  tags:
+    - harrier
+    - microsoft
+    - sentence-transformers
+    - safetensors
+    - embedding
+    - gpu
+    - cpu
+  overrides:
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: microsoft/harrier-oss-v1-0.6b
+- name: harrier-oss-v1-270m
+  url: github:mudler/LocalAI/gallery/sentencetransformers.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/harrier-oss-v1-270m
+  description: |
+    Harrier OSS v1 270M is Microsoft's 270-million-parameter text embedding model for semantic search, retrieval, clustering, and related sentence representation tasks.
+  license: mit
+  tags:
+    - harrier
+    - microsoft
+    - sentence-transformers
+    - safetensors
+    - embedding
+    - gpu
+    - cpu
+  overrides:
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: microsoft/harrier-oss-v1-270m
 - name: dreamshaper
   url: github:mudler/LocalAI/gallery/dreamshaper.yaml@master
   urls:
