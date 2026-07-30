@@ -116,5 +116,5 @@ func (l *lazyEmbedder) Embed(ctx context.Context, text string) ([]float32, error
 // VectorStore takes a store name, not a model name — no adapterConfig, no
 // staleness to avoid.
 func (a *Application) VectorStore(storeName string) backend.VectorStore {
-	return backend.NewVectorStore(a.modelLoader, a.applicationConfig, storeName)
+	return backend.NewVectorStore(a.modelLoader, a.applicationConfig, a.backendLoader, storeName)
 }

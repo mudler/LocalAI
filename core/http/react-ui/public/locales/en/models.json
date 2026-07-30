@@ -29,6 +29,7 @@
     "llm": "Chat",
     "image": "Image",
     "video": "Video",
+    "threed": "3D",
     "multimodal": "Multimodal",
     "vision": "Vision",
     "tts": "TTS",

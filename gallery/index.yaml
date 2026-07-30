@@ -1,4 +1,230 @@
 ---
+- &kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev"
+  variants:
+    - model: kat-coder-v2.5-dev-q8
+    - model: kat-coder-v2.5-dev-apex-i-quality
+    - model: kat-coder-v2.5-dev-apex-i-balanced
+    - model: kat-coder-v2.5-dev-apex-i-compact
+    - model: kat-coder-v2.5-dev-apex-i-mini
+    - model: kat-coder-v2.5-dev-apex-quality
+    - model: kat-coder-v2.5-dev-apex-balanced
+    - model: kat-coder-v2.5-dev-apex-compact
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev
+    - https://huggingface.co/bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF
+    - https://huggingface.co/mudler/KAT-Coder-V2.5-Dev-APEX-GGUF
+  description: |
+    KAT-Coder-V2.5-Dev is an Apache-2.0 agentic coding model from Kwaipilot,
+    post-trained from Qwen3.6-35B-A3B. It has 35 billion total parameters with
+    3 billion activated per token, a 262K-token context window, and text-only
+    weights tuned for repository-level coding and tool use.
+
+    This entry offers standard Q4_K_M and Q8_0 GGUF quantizations alongside
+    APEX mixed-precision variants with quality, balanced, compact, and mini
+    profiles. The APEX I-profiles use importance-matrix calibration.
+  license: "apache-2.0"
+  icon: https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev/resolve/main/kat_logo_hd.png
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - coding
+  last_checked: "2026-07-29"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+      sha256: 4221c26e5663502d1c96fc901c9967d0e70ce2dcfaa5a9fb9280a46bd19e3c07
+      uri: huggingface://bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-q8"
+  variants: []
+  description: |
+    KAT-Coder-V2.5-Dev is an Apache-2.0 agentic coding model from Kwaipilot,
+    post-trained from Qwen3.6-35B-A3B. It has 35 billion total parameters with
+    3 billion activated per token, a 262K-token context window, and text-only
+    weights tuned for repository-level coding and tool use.
+
+    This entry uses the higher-quality Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
+      sha256: 5fa510f44779b0e3d38a6678985f417a1c65e3000405ca5d6dcf7fd065e47a15
+      uri: huggingface://bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF/Kwaipilot_KAT-Coder-V2.5-Dev-Q8_0.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-quality"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+      sha256: e1cf7f33e13ee787a8557effee41eef5261b24696e283ef9d320830ba39f6784
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Quality.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-balanced"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+      sha256: ee6e0ec15964c42ba91831d13e9709239f1b74da3dc49dd3edec4ad6aed8029f
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Balanced.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-compact"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+      sha256: 5235ac39e7989d9fcf08078acfa755611d42a1f80060d226e4aba04a3595d0d8
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Compact.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-i-mini"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+      sha256: 9d901bf1c44946840e15e6f73a66782f56ae2f1a41d6508995ddcd976e9af878
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-I-Mini.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-quality"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+      sha256: 849737baf59183ed518d34f2460f0dcd86190953ccc3213072bdcb1d7f8d2882
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Quality.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-balanced"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+      sha256: 9a5d31b110a95bc085d9851c420dd7a1ffeaec7c9263073c8850d8fb81c4f8ba
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Balanced.gguf
+- !!merge <<: *kat-coder-v2-5-dev
+  name: "kat-coder-v2.5-dev-apex-compact"
+  variants: []
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
+      sha256: 98dfee53102bbf01e67a768066543a707b40f365ff71e35132ac432c58ad99fd
+      uri: huggingface://mudler/KAT-Coder-V2.5-Dev-APEX-GGUF/KAT-Coder-V2.5-Dev-APEX-Compact.gguf
 - name: "inkling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -31062,6 +31288,101 @@
     - filename: clip_vision_h.safetensors
       sha256: ""
       uri: https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors
+- name: trellis2-4b
+  url: github:mudler/LocalAI/gallery/trellis2cpp.yaml@master
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png
+  urls:
+    - https://huggingface.co/microsoft/TRELLIS.2-4B
+    - https://huggingface.co/LocalAI-io/TRELLIS.2-4B-GGUF
+    - https://huggingface.co/LocalAI-io/TRELLIS-image-large-GGUF
+    - https://huggingface.co/LocalAI-io/dinov3-vitl16-pretrain-lvd1689m-GGUF
+  description: |
+    Microsoft TRELLIS.2-4B image-to-3D generation via trellis2.cpp (C++/ggml).
+    Generates a textured 3D mesh (binary glTF / GLB with PBR materials) from a
+    single conditioning image. This is the full pipeline: coarse preview, 512
+    fine dual-grid, 1024 cascade, and PBR texturing (~18 GB of f16 GGUFs;
+    the 1024 textured path needs roughly 10 GB VRAM).
+  license: mit
+  tags:
+    - trellis
+    - image-to-3d
+    - 3d-generation
+    - gguf
+  last_checked: "2026-07-16"
+  overrides:
+    parameters:
+      model: ss_flow_f16.gguf
+  files:
+    - filename: dino_f16.gguf
+      sha256: 385d8186a38a2328ec740fb2ac1f33f9194d8774efc7ccafd4aa2e51cf5f6450
+      uri: huggingface://LocalAI-io/dinov3-vitl16-pretrain-lvd1689m-GGUF/dino_f16.gguf
+    - filename: ss_flow_f16.gguf
+      sha256: 1dded5b74237d24e6876a642a26f90b43742e3554418573860f810e3bbe61e8c
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/ss_flow_f16.gguf
+    - filename: ss_dec_f16.gguf
+      sha256: 9c2210b7ed830fdc8286961a8189878ff5bcfd3bfc83ab4eacee005d293d2185
+      uri: huggingface://LocalAI-io/TRELLIS-image-large-GGUF/ss_dec_f16.gguf
+    - filename: slat_flow_f16.gguf
+      sha256: 2f94bad7b1c524ad8c01943bc38fcc0c314e7d482ce896f3c6e96eb6e7cec15c
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/slat_flow_f16.gguf
+    - filename: slat_flow_1024_f16.gguf
+      sha256: b6a2270131e2e9235e9b6cb525193eb85ae132fa5af3274322aacd39e40a6bc5
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/slat_flow_1024_f16.gguf
+    - filename: shape_dec_f16.gguf
+      sha256: 6fe53f1d7763dabf7c8d72bc38f4053d87fde6f65bf17a9d378d27edb39d3530
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/shape_dec_f16.gguf
+    - filename: shape_enc_f16.gguf
+      sha256: 3ec80ff580987fcdb9bc594fc8b6fda890d63101ca442eb2b26f5dc315e8696c
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/shape_enc_f16.gguf
+    - filename: tex_dec_f16.gguf
+      sha256: afd304f4dfcb8c94df851b85519b415b99f04070f7d29de1320c50631b1be4e0
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/tex_dec_f16.gguf
+    - filename: tex_slat_flow_512_f16.gguf
+      sha256: 89a081b7f5487a5b31f03d240e4d959a56db0cc2c46c327230097a2554da52ae
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/tex_slat_flow_512_f16.gguf
+    - filename: tex_slat_flow_1024_f16.gguf
+      sha256: bbb55b0910c7929aac5e0612a9bb15113837a2c674cafb9f0f170eda8b5558a8
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/tex_slat_flow_1024_f16.gguf
+- name: trellis2-4b-geometry
+  url: github:mudler/LocalAI/gallery/trellis2cpp.yaml@master
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png
+  urls:
+    - https://huggingface.co/microsoft/TRELLIS.2-4B
+    - https://huggingface.co/LocalAI-io/TRELLIS.2-4B-GGUF
+    - https://huggingface.co/LocalAI-io/TRELLIS-image-large-GGUF
+    - https://huggingface.co/LocalAI-io/dinov3-vitl16-pretrain-lvd1689m-GGUF
+  description: |
+    Microsoft TRELLIS.2-4B image-to-3D generation via trellis2.cpp (C++/ggml) —
+    geometry-only variant (~7 GB): coarse preview plus the 512 fine dual-grid
+    mesh, without the 1024 cascade or PBR texturing. The backend detects the
+    reduced model set automatically; install trellis2-4b instead for textured
+    output.
+  license: mit
+  tags:
+    - trellis
+    - image-to-3d
+    - 3d-generation
+    - gguf
+  last_checked: "2026-07-16"
+  overrides:
+    parameters:
+      model: ss_flow_f16.gguf
+  files:
+    - filename: dino_f16.gguf
+      sha256: 385d8186a38a2328ec740fb2ac1f33f9194d8774efc7ccafd4aa2e51cf5f6450
+      uri: huggingface://LocalAI-io/dinov3-vitl16-pretrain-lvd1689m-GGUF/dino_f16.gguf
+    - filename: ss_flow_f16.gguf
+      sha256: 1dded5b74237d24e6876a642a26f90b43742e3554418573860f810e3bbe61e8c
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/ss_flow_f16.gguf
+    - filename: ss_dec_f16.gguf
+      sha256: 9c2210b7ed830fdc8286961a8189878ff5bcfd3bfc83ab4eacee005d293d2185
+      uri: huggingface://LocalAI-io/TRELLIS-image-large-GGUF/ss_dec_f16.gguf
+    - filename: slat_flow_f16.gguf
+      sha256: 2f94bad7b1c524ad8c01943bc38fcc0c314e7d482ce896f3c6e96eb6e7cec15c
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/slat_flow_f16.gguf
+    - filename: shape_dec_f16.gguf
+      sha256: 6fe53f1d7763dabf7c8d72bc38f4053d87fde6f65bf17a9d378d27edb39d3530
+      uri: huggingface://LocalAI-io/TRELLIS.2-4B-GGUF/shape_dec_f16.gguf
 - name: sd-1.5-ggml
   url: github:mudler/LocalAI/gallery/sd-ggml.yaml@master
   urls:

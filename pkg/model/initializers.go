@@ -26,6 +26,7 @@ var Aliases = map[string]string{
 	"ik_llama":               IKLLamaCPP,
 	"ik-llama":               IKLLamaCPP,
 	"embedded-store":         LocalStoreBackend,
+	"valkey":                 ValkeyStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
@@ -43,9 +44,11 @@ var TypeAlias = map[string]string{
 const (
 	WhisperBackend             = "whisper"
 	StableDiffusionGGMLBackend = "stablediffusion-ggml"
+	Trellis2CppBackend         = "trellis2cpp"
 
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
+	ValkeyStoreBackend  = "valkey-store"
 )
 
 // starts the grpcModelProcess for the backend, and returns a grpc client

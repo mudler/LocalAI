@@ -17,6 +17,11 @@ export const CAP_VAD = 'FLAG_VAD'
 export const CAP_DIARIZATION = 'FLAG_DIARIZATION'
 export const CAP_SOUND_CLASSIFICATION = 'FLAG_SOUND_CLASSIFICATION'
 export const CAP_VIDEO = 'FLAG_VIDEO'
+// Wire format note: /api/models/capabilities serves KnownUsecaseStrings, which
+// syncKnownUsecasesFromString rewrites to the UPPERCASE keys of
+// GetAllModelConfigUsecases() — so this must be FLAG_3D, not the lowercase
+// "3d" served by the OpenAI-style /v1/models/capabilities endpoint.
+export const CAP_3D = 'FLAG_3D'
 export const CAP_DETECTION = 'FLAG_DETECTION'
 export const CAP_FACE_RECOGNITION = 'FLAG_FACE_RECOGNITION'
 export const CAP_SPEAKER_RECOGNITION = 'FLAG_SPEAKER_RECOGNITION'

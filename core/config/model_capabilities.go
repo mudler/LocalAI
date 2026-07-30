@@ -15,9 +15,10 @@ const (
 	ModalityImage = "image"
 	ModalityAudio = "audio"
 	ModalityVideo = "video"
+	Modality3D    = "3d"
 )
 
-var modalityOrder = []string{ModalityText, ModalityImage, ModalityAudio, ModalityVideo}
+var modalityOrder = []string{ModalityText, ModalityImage, ModalityAudio, ModalityVideo, Modality3D}
 
 func declaredModalities(modalities []string) map[string]bool {
 	declared := make(map[string]bool, len(modalities))
@@ -154,6 +155,7 @@ func (c *ModelConfig) Capabilities() []string {
 	add(c.HasUsecases(FLAG_SOUND_GENERATION), UsecaseSoundGeneration)
 	add(c.HasUsecases(FLAG_IMAGE), UsecaseImage)
 	add(c.HasUsecases(FLAG_VIDEO), UsecaseVideo)
+	add(c.HasUsecases(FLAG_3D), Usecase3D)
 	add(c.HasUsecases(FLAG_VAD), UsecaseVAD)
 	add(c.HasUsecases(FLAG_DETECTION), UsecaseDetection)
 	add(c.HasUsecases(FLAG_DEPTH), UsecaseDepth)
@@ -181,9 +183,10 @@ func (c *ModelConfig) InputModalities() []string {
 		c.HasUsecases(FLAG_TTS) || c.HasUsecases(FLAG_SOUND_GENERATION) || imageGen || videoGen
 
 	// Image input via a chat model requires vision (gated on chat, like the
-	// Ollama surface); detection/depth/face models consume images directly.
+	// Ollama surface); detection/depth/face/3D models consume images directly.
 	imageIn := (chatish && c.VisionSupported()) || c.LimitMMPerPrompt.LimitImagePerPrompt > 0 ||
-		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION)
+		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION) ||
+		c.HasUsecases(FLAG_3D)
 
 	audioIn := c.AudioInputSupported() || c.HasUsecases(FLAG_TRANSCRIPT) || c.HasUsecases(FLAG_AUDIO_TRANSFORM) ||
 		c.HasUsecases(FLAG_REALTIME_AUDIO) || c.HasUsecases(FLAG_VAD) || c.HasUsecases(FLAG_DIARIZATION) ||
@@ -208,10 +211,12 @@ func (c *ModelConfig) OutputModalities() []string {
 	audioOut := c.HasUsecases(FLAG_TTS) || c.HasUsecases(FLAG_SOUND_GENERATION) ||
 		c.HasUsecases(FLAG_AUDIO_TRANSFORM) || c.HasUsecases(FLAG_REALTIME_AUDIO)
 	videoOut := c.HasUsecases(FLAG_VIDEO)
+	threeDOut := c.HasUsecases(FLAG_3D)
 
 	modalities[ModalityText] = modalities[ModalityText] || textOut
 	modalities[ModalityImage] = modalities[ModalityImage] || imageOut
 	modalities[ModalityAudio] = modalities[ModalityAudio] || audioOut
 	modalities[ModalityVideo] = modalities[ModalityVideo] || videoOut
+	modalities[Modality3D] = modalities[Modality3D] || threeDOut
 	return orderedModalities(modalities)
 }
