@@ -191,16 +191,31 @@ The container exposes the following volumes:
 | `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
 | `/data` | Persistent data (collections, agent state, tasks, jobs) | `--data-path` | `$LOCALAI_DATA_PATH` |
 
-To persist models and data, mount volumes:
+{{% notice warning %}}
+Container files that are not stored in a volume are lost when the container is
+recreated during an image upgrade. Mount all four paths if you want to preserve
+installed models, backends, settings, and application data.
+{{% /notice %}}
+
+The host paths can be anywhere on persistent storage, but the container paths
+must be exactly `/models`, `/backends`, `/configuration`, and `/data`. In
+UnRAID and other container-template UIs, create one path mapping for each row
+in the table above.
+
+To use bind mounts:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 \
   -v $PWD/models:/models \
+  -v $PWD/backends:/backends \
+  -v $PWD/configuration:/configuration \
   -v $PWD/data:/data \
   localai/localai:latest
 # Or with Podman:
 podman run -ti --name local-ai -p 8080:8080 \
   -v $PWD/models:/models \
+  -v $PWD/backends:/backends \
+  -v $PWD/configuration:/configuration \
   -v $PWD/data:/data \
   localai/localai:latest
 ```
@@ -209,16 +224,24 @@ Or use named volumes:
 
 ```bash
 docker volume create localai-models
+docker volume create localai-backends
+docker volume create localai-configuration
 docker volume create localai-data
 docker run -ti --name local-ai -p 8080:8080 \
   -v localai-models:/models \
+  -v localai-backends:/backends \
+  -v localai-configuration:/configuration \
   -v localai-data:/data \
   localai/localai:latest
 # Or with Podman:
 podman volume create localai-models
+podman volume create localai-backends
+podman volume create localai-configuration
 podman volume create localai-data
 podman run -ti --name local-ai -p 8080:8080 \
   -v localai-models:/models \
+  -v localai-backends:/backends \
+  -v localai-configuration:/configuration \
   -v localai-data:/data \
   localai/localai:latest
 ```
