@@ -160,6 +160,27 @@ The volume is real: 13 gallery-only PRs merged that week with 10 open at once, a
 | `gallery/**` | Model-gallery metadata, parsed at runtime, never copied into an image |
 | `docs/**`, `examples/**`, `**/*.md` | Never enter an image or a binary. `lint.yml` already excluded these before gallery was added |
 
+### `backend/{cpp,go,python}/**` on `image-pr.yml` and `build-test.yaml` only
+
+Version-pin bumps dominate PR volume: 48 `update/*` PRs in the week to 2026-07-30, from 16 pins, each a two-line diff. Most edit nothing but one `backend/*/<name>/Makefile`.
+
+Neither of those two workflows can observe such a change. `make build` is `go build ./cmd/local-ai`, GoReleaser builds the same plus `./cmd/launcher`, and the core image's final stage ships only `entrypoint.sh`, `healthcheck.sh` and that binary. The per-backend trees are copied into the builder but nothing in them reaches the output.
+
+What still triggers a full run, because none of it lives under those prefixes:
+
+- `backend/backend.proto` — feeds `protogen-go`, so it does change the binary.
+- `go.mod` / `go.sum` — the `go mod tidy` before-hook.
+- `backend/Dockerfile.*` and anything else directly under `backend/`.
+
+Deliberately **not** applied to:
+
+| Workflow | Why it must keep seeing `backend/**` |
+|---|---|
+| `test.yml` | `TEST_PATHS` explicitly includes `./backend/go/cloud-proxy/...`, `./backend/go/local-store/...` and `./backend/go/valkey-store/...` |
+| `lint.yml` | `.golangci.yml` carries `backend/`-scoped rules, so golangci-lint covers that tree |
+| `tests-e2e.yml` | The e2e suite drives real backends over gRPC |
+| `backend_pr.yml` | This is the workflow whose entire job is to rebuild the changed backend |
+
 What still runs, and why it has to:
 
 | Workflow | Why it keeps running |
