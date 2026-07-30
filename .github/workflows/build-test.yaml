@@ -8,12 +8,21 @@ on:
     # GoReleaser and the darwin launcher take no gallery, docs or markdown
     # input, so a diff confined to these paths cannot change either binary.
     # The darwin job matters here: macOS is the scarcest runner class.
+    #
+    # backend/{cpp,go,python}/**: GoReleaser builds ./cmd/local-ai and the
+    # launcher builds ./cmd/launcher; neither compiles a backend. The
+    # before-hooks still matter, but their input is backend/backend.proto
+    # (protogen-go) and go.mod/go.sum (go mod tidy), none of which live under
+    # these prefixes, so a change to any of those still triggers a full run.
     # See .agents/ci-caching.md.
     paths-ignore:
       - 'gallery/**'
       - 'docs/**'
       - 'examples/**'
       - '**/*.md'
+      - 'backend/cpp/**'
+      - 'backend/go/**'
+      - 'backend/python/**'
 
 # Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
 # so every push to the same PR shares a group; on a master push the key falls
