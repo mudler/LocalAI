@@ -103,7 +103,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
         <div className="canvas-audio-wrapper">
           <i className="fas fa-music canvas-audio-icon" />
           <p>{current.title}</p>
-          <audio controls src={current.url} style={{ width: '100%' }} />
+          <audio controls src={current.url} className="w-full" />
         </div>
       )
     }
@@ -229,7 +229,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
             >Preview</button>
           </div>
         )}
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button className="btn btn-secondary btn-sm" onClick={handleCopy} title="Copy">
           <i className={`fas ${copySuccess ? 'fa-check' : 'fa-copy'}`} />
         </button>

@@ -220,11 +220,11 @@ export default function AgentJobs() {
         <PageHeader title="Agent Jobs" supporting="Manage agent tasks and automated workflows" />
         <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-exclamation-triangle" style={{ fontSize: '3rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
-          <h2 style={{ marginBottom: 'var(--spacing-sm)' }}>No Models Installed</h2>
+          <h2 className="mb-sm">No Models Installed</h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', maxWidth: 500, margin: '0 auto var(--spacing-md)' }}>
             Agent Jobs require at least one model with MCP (Model Context Protocol) support. Install a model first, then configure MCP in the model settings.
           </p>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
+          <div className="hstack hstack--center">
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
               <i className="fas fa-store" /> Browse Models
             </button>
@@ -244,19 +244,19 @@ export default function AgentJobs() {
         <PageHeader title="Agent Jobs" supporting="Manage agent tasks and automated workflows" />
         <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
           <i className="fas fa-plug" style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: 'var(--spacing-md)' }} />
-          <h2 style={{ marginBottom: 'var(--spacing-sm)' }}>MCP Not Configured</h2>
+          <h2 className="mb-sm">MCP Not Configured</h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', maxWidth: 600, margin: '0 auto var(--spacing-md)' }}>
             You have models installed, but none have MCP (Model Context Protocol) enabled. Agent Jobs require MCP to interact with tools and external services. Edit a model configuration to add MCP servers.
           </p>
           <div style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)', maxWidth: 500, margin: '0 auto var(--spacing-md)', textAlign: 'left' }}>
-            <p style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Example MCP configuration (YAML):</p>
+            <p className="text-sm fw-semibold mb-xs">Example MCP configuration (YAML):</p>
             <pre style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', whiteSpace: 'pre-wrap' }}>{`mcp:
   stdio:
     - name: my-tool
       command: /path/to/tool
       args: ["--flag"]`}</pre>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
+          <div className="hstack hstack--center">
             <button className="btn btn-primary" onClick={() => navigate('/app/manage')}>
               <i className="fas fa-cog" /> Manage Models
             </button>
@@ -275,8 +275,8 @@ export default function AgentJobs() {
         title="Agent Jobs"
         supporting="Manage agent tasks and automated workflows"
         actions={
-          <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
-            <i className="fas fa-plus" /> New Task
+          <button className="btn btn-primary fas fa-plus" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
+            <i /> New Task
           </button>
         }
       />
@@ -291,7 +291,7 @@ export default function AgentJobs() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+        <div className="loading-center"><LoadingSpinner size="lg" /></div>
       ) : activeTab === 'tasks' ? (
         tasks.length === 0 && !taskUserGroups ? (
           <div className="empty-state">
@@ -304,7 +304,7 @@ export default function AgentJobs() {
           </div>
         ) : (
           <>
-            {taskUserGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Tasks</h2>}
+            {taskUserGroups && <h2 className="text-lg fw-semibold mb-md">Your Tasks</h2>}
             {tasks.length === 0 ? (
               <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>You have no tasks yet.</p>
             ) : (
@@ -317,7 +317,7 @@ export default function AgentJobs() {
                     <th>Model</th>
                     <th>Cron</th>
                     <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -342,20 +342,20 @@ export default function AgentJobs() {
                       </td>
                       <td>
                         {task.cron ? (
-                          <span className="badge badge-info" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
+                          <span className="badge badge-info text-mono text-xs">
                             {task.cron}
                           </span>
                         ) : '-'}
                       </td>
                       <td>
                         {task.enabled === false ? (
-                          <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>Disabled</span>
+                          <span className="badge chip-neutral">Disabled</span>
                         ) : (
                           <span className="badge badge-success">Enabled</span>
                         )}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
+                        <div className="hstack hstack--xs hstack--end">
                           <button className="btn btn-primary btn-sm" onClick={() => openExecuteModal(task)} title="Execute">
                             <i className="fas fa-play" />
                           </button>
@@ -378,10 +378,10 @@ export default function AgentJobs() {
         )
       ) : (
         <>
-          {jobUserGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Your Jobs</h2>}
+          {jobUserGroups && <h2 className="text-lg fw-semibold mb-md">Your Jobs</h2>}
           {/* Job History Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+          <div className="hstack hstack--between mb-md">
+            <div className="hstack">
               <select className="input" value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} style={{ width: 'auto', minWidth: 140 }}>
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -390,7 +390,7 @@ export default function AgentJobs() {
                 <option value="failed">Failed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
-              <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+              <span className="text-note">
                 {filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -416,7 +416,7 @@ export default function AgentJobs() {
                     <th>Task</th>
                     <th>Status</th>
                     <th>Created</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -429,11 +429,11 @@ export default function AgentJobs() {
                       </td>
                       <td>{job.task_id || '-'}</td>
                       <td>{statusBadge(job.status)}</td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                      <td className="text-sub">
                         {formatDate(job.created_at)}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
+                        <div className="hstack hstack--xs hstack--end">
                           <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} title="View">
                             <i className="fas fa-eye" />
                           </button>
@@ -462,8 +462,8 @@ export default function AgentJobs() {
           currentUserId={user?.id}
           itemKey="tasks"
           renderGroup={(items) => (
-            <div className="table-container">
-              <table className="table">
+            <div className="table-container table fw-medium text-sub text-sm">
+              <table>
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -474,9 +474,9 @@ export default function AgentJobs() {
                 <tbody>
                   {(items || []).map(task => (
                     <tr key={task.id || task.name}>
-                      <td style={{ fontWeight: 500 }}>{task.name || task.id}</td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{task.description || '-'}</td>
-                      <td style={{ fontSize: '0.8125rem' }}>{task.model || '-'}</td>
+                      <td>{task.name || task.id}</td>
+                      <td>{task.description || '-'}</td>
+                      <td>{task.model || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -494,8 +494,8 @@ export default function AgentJobs() {
           currentUserId={user?.id}
           itemKey="jobs"
           renderGroup={(items) => (
-            <div className="table-container">
-              <table className="table">
+            <div className="table-container table text-mono text-sm text-sub">
+              <table>
                 <thead>
                   <tr>
                     <th>Job ID</th>
@@ -507,10 +507,10 @@ export default function AgentJobs() {
                 <tbody>
                   {(items || []).map(job => (
                     <tr key={job.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{job.id?.slice(0, 12)}...</td>
+                      <td>{job.id?.slice(0, 12)}...</td>
                       <td>{job.task_id || '-'}</td>
                       <td>{statusBadge(job.status)}</td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.created_at)}</td>
+                      <td>{formatDate(job.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -533,10 +533,10 @@ export default function AgentJobs() {
       {/* Execute Task Modal */}
       {executeModal && (
         <Modal onClose={() => setExecuteModal(null)}>
-          <div style={{ padding: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-              <h3 style={{ fontWeight: 600 }}>
-                <i className="fas fa-play" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+          <div className="pad-md">
+            <div className="hstack hstack--between mb-md">
+              <h3 className="fw-semibold">
+                <i className="fas fa-play text-primary icon-before" />
                 Execute: {executeModal.name}
               </h3>
               <button className="btn btn-secondary btn-sm" onClick={() => setExecuteModal(null)}>
@@ -545,7 +545,7 @@ export default function AgentJobs() {
             </div>
 
             {/* Tabs */}
-            <div className="tabs" style={{ marginBottom: 'var(--spacing-md)' }}>
+            <div className="tabs mb-md">
               <button className={`tab ${executeTab === 'parameters' ? 'tab-active' : ''}`} onClick={() => setExecuteTab('parameters')}>
                 <i className="fas fa-sliders-h" /> Parameters
               </button>
@@ -558,24 +558,23 @@ export default function AgentJobs() {
               <div>
                 <label className="form-label">Parameters (key=value, one per line)</label>
                 <textarea
-                  className="textarea"
+                  className="textarea text-mono text-sm"
                   value={executeParams}
                   onChange={(e) => setExecuteParams(e.target.value)}
                   rows={5}
                   placeholder={`topic=AI trends\nformat=markdown`}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                 />
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+                <p className="text-meta mt-xs">
                   These will be available as {'{{.parameter_name}}'} in the prompt template.
                 </p>
               </div>
             ) : (
               <div>
                 {['images', 'videos', 'audios', 'files'].map(type => (
-                  <div key={type} style={{ marginBottom: 'var(--spacing-md)' }}>
+                  <div key={type} className="mb-md">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-xs)' }}>
                       <label className="form-label" style={{ marginBottom: 0, textTransform: 'capitalize' }}>
-                        <i className={`fas ${type === 'images' ? 'fa-image' : type === 'videos' ? 'fa-video' : type === 'audios' ? 'fa-headphones' : 'fa-file'}`} style={{ marginRight: 4 }} />
+                        <i className={`fas ${type === 'images' ? 'fa-image' : type === 'videos' ? 'fa-video' : type === 'audios' ? 'fa-headphones' : 'fa-file'} icon-before`} />
                         {type} ({executeMultimedia[type].length})
                       </label>
                       <button className="btn btn-secondary btn-sm" onClick={() => { fileTypeRef.current = type; fileInputRef.current?.click() }}>
@@ -599,7 +598,7 @@ export default function AgentJobs() {
                     )}
                   </div>
                 ))}
-                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, fileTypeRef.current)} />
+                <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e, fileTypeRef.current)} />
               </div>
             )}
 

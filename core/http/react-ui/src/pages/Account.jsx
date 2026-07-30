@@ -214,7 +214,7 @@ function SecurityTab({ addToast }) {
         </SettingRow>
         {weakWarning && (
           <SettingRow label="" description="">
-            <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+            <div role="alert" className="stack stack--xs">
               <div className="login-warning">{weakWarning}</div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.875rem' }}>
                 <input
@@ -337,7 +337,7 @@ function ApiKeysTab({ addToast }) {
   return (
     <div>
       {/* Create key form */}
-      <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
+      <div className="card mb-md">
         <form onSubmit={handleCreate}>
           <SettingRow label={t('account.apiKeys.create')} description={t('account.apiKeys.createDescription')}>
             <div className="account-input-row">

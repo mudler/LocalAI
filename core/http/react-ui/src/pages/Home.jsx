@@ -414,9 +414,9 @@ export default function Home() {
                     <i className="fas fa-arrow-up" />
                   </button>
                 </div>
-                <input ref={imageInputRef} type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={(e) => addFiles(e.target.files, setImageFiles)} />
-                <input ref={audioInputRef} type="file" multiple accept="audio/*" style={{ display: 'none' }} onChange={(e) => addFiles(e.target.files, setAudioFiles)} />
-                <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.pdf" style={{ display: 'none' }} onChange={(e) => addFiles(e.target.files, setTextFiles)} />
+                <input ref={imageInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => addFiles(e.target.files, setImageFiles)} />
+                <input ref={audioInputRef} type="file" multiple accept="audio/*" className="hidden" onChange={(e) => addFiles(e.target.files, setAudioFiles)} />
+                <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => addFiles(e.target.files, setTextFiles)} />
               </div>
             </form>
           </div>

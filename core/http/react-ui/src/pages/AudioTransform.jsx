@@ -438,7 +438,7 @@ function AudioInput({ label, help, file, onChange }) {
                   </div>
                 )}
                 {hasFile && !cap.recording && (
-                  <div className="audio-transform-drop__file" style={{ marginTop: 'var(--spacing-sm)' }}>
+                  <div className="audio-transform-drop__file mt-sm">
                     <i className="fas fa-file-audio" /> {file.name}
                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>{t('audioTransform.input.clear')}</button>
                   </div>

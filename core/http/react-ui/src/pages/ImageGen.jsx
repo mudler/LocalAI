@@ -169,7 +169,7 @@ export default function ImageGen() {
               ))}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
+            <div className="text-center text-muted">
               <i className="fas fa-image" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>{t('image.empty')}</p>
             </div>

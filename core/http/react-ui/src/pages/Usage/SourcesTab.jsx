@@ -74,7 +74,7 @@ export default function SourcesTab({ period, adminUserId }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="loading-center">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -101,8 +101,8 @@ export default function SourcesTab({ period, adminUserId }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-      <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+    <div className="stack">
+      <div className="card pad-md">
         <SourceMixRibbon
           bySource={totals.by_source}
           keyCount={(totals.by_key || []).length}
@@ -111,7 +111,7 @@ export default function SourcesTab({ period, adminUserId }) {
       </div>
 
       {selectedKey && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+        <div className="hstack hstack--xs">
           <span
             style={{
               display: 'inline-flex',
@@ -125,7 +125,7 @@ export default function SourcesTab({ period, adminUserId }) {
               border: '1px solid var(--color-border-subtle)',
             }}
           >
-            <i className="fas fa-filter" style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }} aria-hidden />
+            <i className="fas fa-filter text-meta" aria-hidden />
             {t('usage.sources.filteredTo', { name: labelForSelected(totals, selectedKey, t) })}
             <button
               type="button"
@@ -148,11 +148,11 @@ export default function SourcesTab({ period, adminUserId }) {
         </div>
       )}
 
-      <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+      <div className="card pad-md">
         <SourceTimeChart buckets={buckets} selectedKey={selectedKey} totals={totals} />
       </div>
 
-      <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+      <div className="card pad-md">
         <SourcesTable
           totals={totals}
           selectedKey={selectedKey}

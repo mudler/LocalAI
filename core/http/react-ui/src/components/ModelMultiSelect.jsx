@@ -21,7 +21,7 @@ export default function ModelMultiSelect({ value, onChange, capability, placehol
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
       {items.length === 0 ? (
-        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+        <div className="text-meta">
           No detectors — PII is enabled but nothing scans requests. Add a token-classification
           (NER) model below; its <code>pii_detection</code> block supplies the policy.
         </div>

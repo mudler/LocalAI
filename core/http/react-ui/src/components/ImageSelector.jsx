@@ -40,7 +40,7 @@ export default function ImageSelector({ selected, onSelect, dev, onDevChange }) 
               transition: 'all 150ms',
             }}
           >
-            <i className={`fas ${opt.icon}`} style={{ fontSize: '0.75rem' }} />
+            <i className={`fas ${opt.icon} text-xs`} />
             {opt.label}
           </button>
         )
@@ -62,7 +62,7 @@ export default function ImageSelector({ selected, onSelect, dev, onDevChange }) 
           }}
           title="Use development (master) images instead of stable releases"
         >
-          <i className="fas fa-flask" style={{ fontSize: '0.75rem' }} />
+          <i className="fas fa-flask text-xs" />
           Dev
         </button>
       )}

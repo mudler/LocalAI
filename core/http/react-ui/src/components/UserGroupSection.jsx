@@ -22,7 +22,7 @@ export default function UserGroupSection({ title, userGroups, userMap, currentUs
   const totalUsers = userIds.length
 
   return (
-    <div style={{ marginTop: 'var(--spacing-lg)' }}>
+    <div className="mt-lg">
       <style>{`
         .ugs-header {
           display: flex;
@@ -155,7 +155,7 @@ function UserSubSection({ uid, displayName, initials, avatarUrl, count, itemKey,
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v) } }}
         aria-expanded={open}
       >
-        <i className={`fas fa-chevron-right ugs-chevron ${open ? 'open' : ''}`} style={{ fontSize: '0.625rem' }} />
+        <i className={`fas fa-chevron-right ugs-chevron ${open ? 'open' : ''} text-xs`} />
         <div className="ugs-avatar">
           {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}
         </div>

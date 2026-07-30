@@ -188,7 +188,7 @@ export default function VideoGen() {
               ))}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
+            <div className="text-center text-muted">
               <i className="fas fa-video" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>{t('video.empty')}</p>
             </div>
