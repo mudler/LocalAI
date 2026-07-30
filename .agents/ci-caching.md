@@ -210,15 +210,38 @@ RUN --mount=type=cache,target=/root/.ccache,id=<backend>-ccache-${TARGETARCH}-${
     bash /usr/local/sbin/compile.sh
 ```
 
-The compile script exports `CMAKE_C/CXX/CUDA_COMPILER_LAUNCHER=ccache` so CMake threads ccache through gcc/g++/nvcc. `cache-to: type=registry,mode=max` exports the cache mount data into the registry cache, so subsequent builds restore it.
+The compile script exports `CMAKE_C/CXX/CUDA_COMPILER_LAUNCHER=ccache` so CMake threads ccache through gcc/g++/nvcc. Cache scope is per `(TARGETARCH, BUILD_TYPE)` so e.g. cublas-12 doesn't share with cublas-13 (their CUDA headers differ; cross-pollination would just be cache misses anyway).
 
-On a `LLAMA_VERSION` bump, most translation units are byte-identical to the previous version's preprocessed source — ccache returns the previous `.o` and skips the real compile. Same for LocalAI source changes that don't actually touch llama.cpp's CMake inputs. Cache scope is per `(TARGETARCH, BUILD_TYPE)` so e.g. cublas-12 doesn't share with cublas-13 (their CUDA headers differ; cross-pollination would just be cache misses anyway).
+### ⚠️ This ccache does nothing in CI today
+
+This section previously claimed that `cache-to: type=registry,mode=max` "exports the cache mount data into the registry cache, so subsequent builds restore it". **That is not true.** BuildKit does not export the contents of a `--mount=type=cache` to a registry cache export. A cache mount lives in the builder's local state, and every CI job gets a fresh runner with a fresh builder, so `/root/.ccache` starts empty on every single build.
+
+Measured on 2026-07-30 from the `ccache -s` output the compile script already prints (it runs `ccache -z` first, so the numbers are per-build):
+
+| Job | Commit touched | Build time | ccache |
+|---|---|---|---|
+| 89766266951 (llama-cpp, cublas 13) | `backend/go/magpie-tts-cpp/Makefile` only | 6369s | **0 / 889 hits**, and 0 / 1778 |
+| 89766267281 (llama-cpp, hipblas) | same commit | 8160s | **0 / 537 hits** |
+| 90210828110 (llama-cpp, cublas 12.8) | `LLAMA_VERSION` bump | 5673s | **0 / 813 hits** |
+
+The first two are the decisive control: commit `90355cd44` changed exactly one file, `backend/go/magpie-tts-cpp/Makefile`, nowhere near llama.cpp. The engine source was byte-identical to the previous build, which is precisely the case this section says ccache should serve, and the hit rate was still **0.00%**. A cache that was being restored but merely matching poorly would show partial hits; 0-of-N is the signature of an empty cache.
+
+So the paragraph above about `LLAMA_VERSION` bumps reusing previous `.o` files describes an intended design that is not in effect. `Dockerfile.{llama-cpp,ik-llama-cpp,turboquant,bonsai,ds4,privacy-filter}` pay the ccache wrapper overhead and get nothing back. Multi-hour C++ rebuilds are recompiling identical translation units from scratch.
+
+**Do not "fix" this by adding cache mounts to more Dockerfiles.** Wiring the same mount into `Dockerfile.golang` (215 of the 434 matrix entries) was measured locally at 18% faster on a rebuild after a source edit, with a 71.5% ccache hit rate — but only because the local test reused one builder across both builds. In CI it would be a no-op for exactly the reason above.
+
+Making this actually work needs the cache to live outside the builder. The options, none of them free:
+
+- **ccache `remote_storage`** (ccache ≥ 4.4, HTTP or Redis backend) or **sccache** with an S3/GCS/Redis backend. Genuinely works across runners; needs a cache service to point at. quay.io is a registry, not a blob store, so the existing infra does not cover it.
+- **Round-trip the cache dir through `actions/cache` on the runner**: restore it, pass it in, and export it back out via a build stage output. No external infra, but clunky, and the repo already sits at GitHub's 10 GB cache ceiling while the llama-cpp ccache alone is capped at 5 GB.
+
+Until one of those lands, treat C++ backend builds as always-cold and spend the effort on not running them instead (path filtering, see above).
 
 ## Composite actions
 
 Two composite actions handle runner-side prep:
 
-- **`.github/actions/free-disk-space/action.yml`** — wraps `jlumbroso/free-disk-space@main` plus an explicit apt purge of dotnet/android/ghc/mono/etc. Reclaims ~6–10 GB on `ubuntu-latest`. No-op on self-hosted runners. Used by `backend_build.yml`, `image_build.yml`, `test.yml`, `tests-aio.yml`, etc.
+- **`.github/actions/free-disk-space/action.yml`** — wraps `jlumbroso/free-disk-space@main` plus an explicit apt purge of dotnet/android/ghc/mono/etc. Reclaims ~6–10 GB on `ubuntu-latest`. No-op on self-hosted runners. Used by `backend_build.yml`, `image_build.yml` and `base-images.yml` — the jobs that actually build images. Deliberately **not** used by `test.yml`, which runs no buildx step.
 - **`.github/actions/setup-build-disk/action.yml`** — relocates Docker's data-root to `/mnt` on hosted X64 runners. GHA hosted `ubuntu-latest` ships ~75 GB of unused space at `/mnt`; combined with the free-disk-space cleanup this gives ~100 GB working space — enough for ROCm dev image + vLLM torch install + flash-attn intermediate layers. No-op on self-hosted and on non-X64 hosted runners. Used by `backend_build.yml`, `image_build.yml`, `base-images.yml`.
 
 Both actions run before any docker buildx step.
