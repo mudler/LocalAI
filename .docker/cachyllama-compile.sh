@@ -20,13 +20,15 @@ fi
 cd /LocalAI/backend/cpp/cachyllama
 
 if [ -z "${BUILD_TYPE:-}" ]; then
-  # Pure CPU image: one ggml CPU_ALL_VARIANTS build replaces the per-microarch binaries.
-  # arm64: the armv9.2 SME variants need gcc-14 (gcc-13 rejects +sme).
+  # Keep arm64 on the portable, fully linked build. CachyLLaMA's ARM
+  # CPU_ALL_VARIANTS build includes SME variants that do not build reliably
+  # across the Linux and Darwin toolchains used by backend CI.
   if [ "${TARGETARCH}" = "arm64" ]; then
-    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
-    export CC=gcc-14 CXX=g++-14
+    make cachyllama-fallback
+  else
+    # One ggml CPU_ALL_VARIANTS build replaces the per-microarch x86 binaries.
+    make cachyllama-cpu-all
   fi
-  make cachyllama-cpu-all
 else
   # GPU build (cublas/hipblas/sycl/vulkan/...): single fallback CPU build, the accelerator
   # does the compute. Keeps the GPU compile from also building the CPU variant matrix and
