@@ -29,7 +29,7 @@ function formatEta(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
-export default function OperationCard({ operation, onCancel, onDismiss, onRetry }) {
+export default function OperationCard({ operation, onCancel, onPause, onDismiss, onRetry }) {
   const { t } = useTranslation('admin')
   const nodes = Array.isArray(operation.nodes) ? operation.nodes : []
   // Holds only what the user chose. The default has to stay a live
@@ -144,6 +144,16 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
 
         <div className="operation-card__actions">
           {showProgress && <span className="operation-card__pct" aria-hidden="true">{Math.round(operation.progress)}%</span>}
+          {canCancel && (
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary operation-card__pause"
+              onClick={() => onPause?.(operation.jobID)}
+              aria-label={t('activity.pauseLabel', { name })}
+            >
+              {t('activity.pause')}
+            </button>
+          )}
           {canCancel && (
             // A page of cards would otherwise hand a screen reader a list of
             // identical "Cancel" buttons with nothing to tell them apart.

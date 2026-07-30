@@ -12,6 +12,8 @@
     "timeLeft": "{{value}} left",
     "cancel": "Cancel",
     "cancelLabel": "Cancel {{name}}",
+    "pause": "Pause",
+    "pauseLabel": "Pause {{name}} and keep downloaded data",
     "retry": "Retry",
     "retryLabel": "Retry {{name}}",
     "nodeCount": "{{count}} nodes",

@@ -32,6 +32,7 @@ type ManagementOp[T any, E any] struct {
 	// Context for cancellation support
 	Context    context.Context
 	CancelFunc context.CancelFunc
+	PauseFunc  context.CancelFunc
 
 	// External backend installation parameters (for OCI/URL/path)
 	// These are used when installing backends from external sources rather than galleries
@@ -189,6 +190,7 @@ type GalleryProgressEvent struct {
 // runs the cancel func on whichever replica registered it.
 type GalleryCancelEvent struct {
 	JobID string `json:"id"`
+	Pause bool   `json:"pause,omitempty"`
 }
 
 // NodeStatus values shared between NodeProgress (per-node tick) and the

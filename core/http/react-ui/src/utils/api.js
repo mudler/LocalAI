@@ -173,6 +173,7 @@ export const resourcesApi = {
 export const operationsApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.operations),
   cancel: (jobID) => postJSON(API_CONFIG.endpoints.cancelOperation(jobID), {}),
+  pause: (jobID) => postJSON(API_CONFIG.endpoints.pauseOperation(jobID), {}),
   dismiss: (jobID) => postJSON(API_CONFIG.endpoints.dismissOperation(jobID), {}),
   history: () => fetchJSON(API_CONFIG.endpoints.operationsHistory),
   clearHistory: () => fetchJSON(API_CONFIG.endpoints.operationsHistory, { method: 'DELETE' }),

@@ -390,6 +390,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
+	// Pause operation endpoint (admin only). Unlike cancel, pause preserves a
+	// partial download so submitting the same install later resumes it.
+	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to pause operation", "jobID", jobID)
+
+		if err := galleryService.PauseOperation(jobID); err != nil {
+			xlog.Error("Failed to pause operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+
+		opcache.DeleteUUID(jobID)
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "Operation paused",
+		})
+	}, adminMiddleware)
+
 	// Dismiss a failed operation (acknowledge the error and remove it from the list)
 	app.POST("/api/operations/:jobID/dismiss", func(c echo.Context) error {
 		jobID := c.Param("jobID")
@@ -1004,7 +1022,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
@@ -1013,9 +1031,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueModelOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1051,7 +1070,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
@@ -1060,9 +1079,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueModelOp(op)
 		cl.RemoveModelConfig(galleryName)
 
@@ -1457,19 +1477,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 			// The React UI's "Reinstall backend" action reuses this route, so
 			// the op must force even when the backend is already installed.
 			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1519,19 +1540,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		opcache.SetBackend(cacheKey, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 			ExternalURI:        req.URI,
 			ExternalName:       req.Name,
 			ExternalAlias:      req.Alias,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1567,7 +1589,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
@@ -1575,9 +1597,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1686,7 +1709,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// and the Backends UI can reflect progress on the affected row.
 		opcache.SetBackend(backendName, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendName,
@@ -1694,9 +1717,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Upgrade:            true,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
