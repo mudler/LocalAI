@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1)
 # The ggml submodule is pinned by trellis2cpp's .gitmodules and fetched via
 # --recursive. The commit pin lives here so bump_deps.yaml can update it.
 TRELLIS2CPP_REPO?=https://github.com/localai-org/trellis2cpp
-TRELLIS2CPP_VERSION?=73dfbe5dfc2cbefd0950853718086556c6d9b043
+TRELLIS2CPP_VERSION?=2f3e6e26edbbaaf8ce93d092f16f46968a366a6a
 
 # libtrellis2 + ggml as shared libraries; no example/test binaries.
 CMAKE_ARGS+=-DCMAKE_BUILD_TYPE=Release
