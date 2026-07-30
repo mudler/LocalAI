@@ -194,11 +194,11 @@ JSON` : ''
   return (
     <main className="voice-library-page">
       <PageHeader
-        title={<><i className="fas fa-wave-square" aria-hidden="true" /> {t('voiceLibrary.title')}</>}
+        title={<><i className="fas fa-wave-square btn btn-primary fa-plus" aria-hidden="true" /> {t('voiceLibrary.title')}</>}
         supporting={t('voiceLibrary.subtitle')}
         actions={(
-          <Link className="btn btn-primary" to="/app/voice-library/new">
-            <i className="fas fa-plus" aria-hidden="true" /> {t('voiceLibrary.actions.create')}
+          <Link to="/app/voice-library/new">
+            <i aria-hidden="true" /> {t('voiceLibrary.actions.create')}
           </Link>
         )}
       />
@@ -251,8 +251,7 @@ JSON` : ''
                 icon="fa-microphone-lines"
                 title={t('voiceLibrary.empty.title')}
                 body={t('voiceLibrary.empty.body')}
-                actions={<Link className="btn btn-primary" to="/app/voice-library/new">{t('voiceLibrary.actions.createFirst')}</Link>}
-                className="voice-library-empty"
+                actions={<Link className="btn btn-primary voice-library-empty" to="/app/voice-library/new">{t('voiceLibrary.actions.createFirst')}</Link>}
               />
             )}
             {!loading && !error && profiles.length > 0 && filteredProfiles.length === 0 && (
@@ -260,8 +259,7 @@ JSON` : ''
                 icon="fa-filter-circle-xmark"
                 title={t('voiceLibrary.noResults.title')}
                 body={t('voiceLibrary.noResults.body')}
-                actions={<button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setLanguage('all') }}>{t('voiceLibrary.actions.clearFilters')}</button>}
-                className="voice-library-empty"
+                actions={<button type="button" className="btn btn-secondary voice-library-empty" onClick={() => { setSearch(''); setLanguage('all') }}>{t('voiceLibrary.actions.clearFilters')}</button>}
               />
             )}
             {!loading && !error && filteredProfiles.map(profile => (

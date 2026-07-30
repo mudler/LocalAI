@@ -35,7 +35,7 @@ export default function GalleryLoader() {
       justifyContent: 'center', padding: 'var(--spacing-xl) var(--spacing-md)',
       minHeight: '280px', gap: 'var(--spacing-lg)',
     }}>
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+      <div className="hstack">
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} style={{
             width: 10, height: 10, borderRadius: '50%',

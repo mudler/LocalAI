@@ -12,15 +12,15 @@ function ResourceGroup({ title, icon, items, readOnly, pathPrefix, onView, onDel
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+    <div className="mb-lg">
+      <div className="hstack hstack--between mb-sm">
         <h3
           style={{ margin: 0, fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
           onClick={() => setCollapsed((v) => !v)}
         >
-          <i className={`fas fa-chevron-${collapsed ? 'right' : 'down'}`} style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }} />
-          <i className={`fas fa-${icon}`} style={{ color: 'var(--color-primary)' }} /> {title}
-          <span className="badge" style={{ marginLeft: 'var(--spacing-xs)' }}>{items.length}</span>
+          <i className={`fas fa-chevron-${collapsed ? 'right' : 'down'} text-meta`} />
+          <i className={`fas fa-${icon} text-primary`} /> {title}
+          <span className="badge ml-xs">{items.length}</span>
         </h3>
         {!readOnly && (
           <button className="btn btn-primary btn-sm" onClick={() => onUpload(pathPrefix)}>
@@ -41,12 +41,12 @@ function ResourceGroup({ title, icon, items, readOnly, pathPrefix, onView, onDel
                 className="skilledit-resource-item"
               >
                 <div style={{ minWidth: 0 }}>
-                  <span style={{ fontWeight: 500 }}>{res.name}</span>
+                  <span className="fw-medium">{res.name}</span>
                   <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginLeft: 'var(--spacing-sm)' }}>
                     {res.mime_type} &middot; {(res.size || 0).toLocaleString()} B
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                <div className="hstack hstack--xs">
                   <button className="btn btn-secondary btn-sm" onClick={() => onView(res)} title="View/Edit">
                     <i className="fas fa-edit" /> View/Edit
                   </button>
@@ -161,10 +161,10 @@ function ResourcesSection({ skillName, addToast }) {
 
   return (
     <>
-      <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-        <i className="fas fa-folder" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} /> Resources
+      <h3 className="group-label group-label--tight">
+        <i className="fas fa-folder text-primary icon-before" /> Resources
       </h3>
-      <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-md)' }}>
+      <p className="text-base text-secondary mb-md">
         Scripts, references, and assets for this skill. Paths must start with scripts/, references/, or assets/.
       </p>
       {loading ? (
@@ -182,8 +182,8 @@ function ResourcesSection({ skillName, addToast }) {
       {editor.open && (
         <div className="skilledit-modal-overlay" onClick={() => !editor.saving && setEditor((e) => ({ ...e, open: false }))}>
           <div className="card skilledit-modal-card" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-              <i className="fas fa-edit" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} /> Edit {editor.name}
+            <h3 className="group-label">
+              <i className="fas fa-edit text-primary icon-before" /> Edit {editor.name}
             </h3>
             {editor.readable ? (
               <>
@@ -202,7 +202,7 @@ function ResourcesSection({ skillName, addToast }) {
                 </div>
               </>
             ) : (
-              <p style={{ color: 'var(--color-text-secondary)' }}>Binary file. Download via API or export skill.</p>
+              <p className="text-secondary">Binary file. Download via API or export skill.</p>
             )}
           </div>
         </div>
@@ -211,8 +211,8 @@ function ResourcesSection({ skillName, addToast }) {
       {upload.open && (
         <div className="skilledit-modal-overlay" onClick={() => !upload.uploading && setUpload((u) => ({ ...u, open: false }))}>
           <div className="card skilledit-modal-card" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-              <i className="fas fa-upload" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} /> Upload to {upload.pathPrefix}
+            <h3 className="group-label">
+              <i className="fas fa-upload text-primary icon-before" /> Upload to {upload.pathPrefix}
             </h3>
             <div className="form-group">
               <label className="form-label">File</label>
@@ -245,7 +245,7 @@ function ResourcesSection({ skillName, addToast }) {
       {deletePath && (
         <div className="skilledit-modal-overlay" onClick={() => setDeletePath(null)}>
           <div className="card skilledit-modal-card" style={{ maxWidth: '360px' }} onClick={(e) => e.stopPropagation()}>
-            <p style={{ marginBottom: 'var(--spacing-md)' }}>Delete resource <strong>{deletePath}</strong>?</p>
+            <p className="mb-md">Delete resource <strong>{deletePath}</strong>?</p>
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setDeletePath(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={handleDeleteConfirm}>
@@ -345,8 +345,8 @@ export default function SkillEdit() {
 
   if (loading) {
     return (
-      <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-        <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+      <div className="page page--narrow loading-center">
+        <i className="fas fa-spinner fa-spin icon-xl text-primary" />
       </div>
     )
   }
@@ -502,12 +502,12 @@ export default function SkillEdit() {
       <PageHeader
         title={
           <>
-            <i className="fas fa-book" style={{ marginRight: 'var(--spacing-xs)' }} /> {isNew ? 'New skill' : `Edit: ${name}`}
+            <i className="fas fa-book icon-before" /> {isNew ? 'New skill' : `Edit: ${name}`}
           </>
         }
       />
 
-      <div className="card" style={{ marginTop: 'var(--spacing-md)' }}>
+      <div className="card mt-md">
         <div className="skilledit-layout">
           <div className="skilledit-sidebar">
             <ul className="skilledit-sidebar-nav">
@@ -607,7 +607,7 @@ export default function SkillEdit() {
                   {isNew || !name ? (
                     <div>
                       <h3 className="skilledit-section-title">Resources</h3>
-                      <p style={{ color: 'var(--color-text-secondary)' }}>
+                      <p className="text-secondary">
                         Save the skill first to add scripts, references, and assets. After creating the skill, use this tab to upload files and manage resources.
                       </p>
                     </div>

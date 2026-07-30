@@ -188,7 +188,7 @@ function BackendLogsDetail({ modelId }) {
             borderRadius: '50%',
             background: wsConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
           }} />
-          <span style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="text-secondary">
             {wsConnected ? 'Live' : 'Reconnecting...'}
           </span>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 'var(--spacing-sm)' }}>
@@ -197,14 +197,14 @@ function BackendLogsDetail({ modelId }) {
               checked={autoScroll}
               onChange={(e) => setAutoScroll(e.target.checked)}
             />
-            <span style={{ color: 'var(--color-text-secondary)' }}>Auto-scroll</span>
+            <span className="text-secondary">Auto-scroll</span>
           </label>
         </div>
       </div>
 
       {/* Log output */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <div className="loading-center">
           <LoadingSpinner size="lg" />
         </div>
       ) : filteredLines.length === 0 ? (
@@ -321,7 +321,7 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
 
   if (hits === null) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="loading-center">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -334,8 +334,8 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
           <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
           <h2 className="empty-state-title">Model not loaded on any worker</h2>
           <p className="empty-state-text">
-            <span style={{ fontFamily: 'var(--font-mono)' }}>{modelId}</span> isn't currently loaded on any node in the cluster.
-            Check the <Link to="/app/nodes" style={{ color: 'var(--color-primary)' }}>Nodes page</Link> to see which models are running where.
+            <span className="text-mono">{modelId}</span> isn't currently loaded on any node in the cluster.
+            Check the <Link to="/app/nodes" className="text-primary">Nodes page</Link> to see which models are running where.
           </p>
         </div>
       </div>
@@ -361,7 +361,7 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
         title={<><i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
         supporting={`Hosted on ${hits.length} workers — pick one to view its logs.`}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+      <div className="stack stack--xs">
         {hits.map(({ node, model }) => (
           <Link
             key={`${node.id}#${model.replica_index ?? 0}`}
@@ -374,12 +374,12 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
             }}
           >
             <div>
-              <div style={{ fontWeight: 500 }}>{node.name || node.id}</div>
+              <div className="fw-medium">{node.name || node.id}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
                 {node.id}{model.replica_index ? ` · replica ${model.replica_index}` : ''} · {model.state}
               </div>
             </div>
-            <i className="fas fa-chevron-right" style={{ color: 'var(--color-text-muted)' }} />
+            <i className="fas fa-chevron-right text-muted" />
           </Link>
         ))}
       </div>
@@ -398,7 +398,7 @@ function BackendLogsRouter({ modelId }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+      <div className="loading-center">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -426,7 +426,7 @@ export default function BackendLogs() {
         <h2 className="empty-state-title">No model selected</h2>
         <p className="empty-state-text">
           View backend logs for a specific model from the{' '}
-          <Link to="/app/manage" style={{ color: 'var(--color-primary)' }}>System page</Link>.
+          <Link to="/app/manage" className="text-primary">System page</Link>.
         </p>
       </div>
     </div>

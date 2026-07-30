@@ -73,10 +73,9 @@ export default function AmbiguityAlert({ modality, candidates = [], knownBackend
                     <span>{name}</span>
                     {!isInstalled && (
                       <i
-                        className="fas fa-download"
+                        className="fas fa-download text-meta"
                         aria-hidden="true"
                         title="Not installed yet — LocalAI will download it"
-                        style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}
                       />
                     )}
                   </button>

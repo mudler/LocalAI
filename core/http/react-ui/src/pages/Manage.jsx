@@ -511,7 +511,7 @@ export default function Manage() {
       />
 
       {/* Tabs */}
-      <div className="tabs" style={{ marginBottom: 'var(--spacing-md)' }}>
+      <div className="tabs mb-md">
         {TABS.map(t => {
           const upgradeCount = t.key === 'backends' ? Object.keys(upgrades).length : 0
           return (
@@ -520,7 +520,7 @@ export default function Manage() {
               className={`tab ${activeTab === t.key ? 'tab-active' : ''}`}
               onClick={() => handleTabChange(t.key)}
             >
-              <i className={`fas ${t.icon}`} style={{ marginRight: 6 }} />
+              <i className={`fas ${t.icon} icon-before`} />
               {t.label}
               {t.key === 'models' && !modelsLoading && ` (${models.length})`}
               {t.key === 'backends' && !backendsLoading && ` (${backends.length})`}
@@ -567,12 +567,12 @@ export default function Manage() {
           rightSlot={(
             <>
               {distributedMode && (
-                <span className="cell-muted" title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly">
-                  <i className="fas fa-rotate" /> Last synced {lastSyncedAgo}
+                <span className={`cell-muted fas fa-rotate btn btn-secondary btn-sm fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly">
+                  <i /> Last synced {lastSyncedAgo}
                 </span>
               )}
-              <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
-                <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
+              <button onClick={handleReload} disabled={reloading}>
+                <i />
                 {reloading ? ' Updating...' : ' Update'}
               </button>
             </>
@@ -582,13 +582,13 @@ export default function Manage() {
         {modelsLoading ? (
           <GalleryLoader />
         ) : models.length === 0 ? (
-          <div className="card" style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+          <div className="card loading-center text-center">
             <i className="fas fa-exclamation-triangle" style={{ fontSize: '2rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
-            <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>No models installed yet</h3>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-md)' }}>
+            <h3 className="mb-sm">No models installed yet</h3>
+            <p className="text-base text-secondary mb-md">
               Install a model from the gallery to get started.
             </p>
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
+            <div className="hstack hstack--center">
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/models')}>
                 <i className="fas fa-store" /> Browse Gallery
               </button>
@@ -610,13 +610,13 @@ export default function Manage() {
           <ResponsiveTable>
               <thead>
                 <tr>
-                  <th style={{ width: 30 }}></th>
-                  <th style={{ width: 64 }}></th>
+                  <th className="col-w-30"></th>
+                  <th className="col-w-64"></th>
                   <th>Model</th>
                   <th>Status</th>
                   <th>Backend</th>
                   <th>Use cases</th>
-                  <th style={{ width: 40 }}></th>
+                  <th className="col-w-40"></th>
                 </tr>
               </thead>
               <tbody>
@@ -656,7 +656,7 @@ export default function Manage() {
                       <td>
                         <div className="cell-stack">
                           {model.disabled ? (
-                            <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                            <span className="badge chip-neutral">
                               <i className="fas fa-ban" /> Disabled
                             </span>
                           ) : Array.isArray(model.loaded_on) && model.loaded_on.length > 0 ? (
@@ -666,7 +666,7 @@ export default function Manage() {
                               <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Running
                             </span>
                           ) : (
-                            <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                            <span className="badge chip-neutral">
                               <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Idle
                             </span>
                           )}
@@ -706,7 +706,7 @@ export default function Manage() {
                           ))}
                         </div>
                       </td>
-                      <StopPropagationCell style={{ textAlign: 'right' }}>
+                      <StopPropagationCell className="text-right">
                         <ActionMenu
                           ariaLabel={`Actions for ${model.id}`}
                           triggerLabel={`Actions for ${model.id}`}
@@ -774,13 +774,13 @@ export default function Manage() {
         {backendsLoading ? (
           <GalleryLoader />
         ) : backends.length === 0 ? (
-          <div className="card" style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+          <div className="card loading-center text-center">
             <i className="fas fa-server" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }} />
-            <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>No backends installed yet</h3>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--spacing-md)' }}>
+            <h3 className="mb-sm">No backends installed yet</h3>
+            <p className="text-base text-secondary mb-md">
               Install backends from the gallery to extend functionality.
             </p>
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
+            <div className="hstack hstack--center">
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/backends')}>
                 <i className="fas fa-server" /> Browse Backend Gallery
               </button>
@@ -911,13 +911,13 @@ export default function Manage() {
             <ResponsiveTable>
               <thead>
                 <tr>
-                  <th style={{ width: 30 }}></th>
-                  <th style={{ width: 64 }}></th>
+                  <th className="col-w-30"></th>
+                  <th className="col-w-64"></th>
                   <th>Backend</th>
                   <th>Version</th>
                   {distributedMode && <th>Nodes</th>}
                   <th>Installed</th>
-                  <th style={{ width: 40 }}></th>
+                  <th className="col-w-40"></th>
                 </tr>
               </thead>
               <tbody>
@@ -1006,7 +1006,7 @@ export default function Manage() {
                           {backend.Metadata?.installed_at ? formatInstalledAt(backend.Metadata.installed_at) : '—'}
                         </span>
                       </td>
-                      <StopPropagationCell style={{ textAlign: 'right' }}>
+                      <StopPropagationCell className="text-right">
                         {backend.IsSystem ? (
                           <span className="badge" title="System backends are managed outside the gallery">
                             <i className="fas fa-lock" /> Protected
@@ -1135,11 +1135,11 @@ function ModelDetail({ model, enriched, matchedCaps, distributedMode, onNavigate
         {urls.length > 0 && (<>
           <dt>Links</dt>
           <dd>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div className="stack stack--xs">
               {urls.map((url, i) => (
                 <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer"
                   style={{ color: 'var(--color-primary)', wordBreak: 'break-all', fontSize: 'var(--text-xs)' }}>
-                  <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.625rem' }} />{url}
+                  <i className="fas fa-external-link-alt icon-before text-xs" />{url}
                 </a>
               ))}
             </div>
@@ -1221,11 +1221,11 @@ function BackendDetail({ backend, enriched, upgradeInfo, nodes, distributedMode 
         {urls.length > 0 && (<>
           <dt>Links</dt>
           <dd>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div className="stack stack--xs">
               {urls.map((url, i) => (
                 <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer"
                   style={{ color: 'var(--color-primary)', wordBreak: 'break-all', fontSize: 'var(--text-xs)' }}>
-                  <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.625rem' }} />{url}
+                  <i className="fas fa-external-link-alt icon-before text-xs" />{url}
                 </a>
               ))}
             </div>

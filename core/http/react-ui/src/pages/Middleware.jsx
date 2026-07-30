@@ -36,17 +36,7 @@ function actionBadge(action) {
     allow: 'var(--color-warning)',
   }
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      fontSize: '0.6875rem',
-      fontWeight: 600,
-      borderRadius: 'var(--radius-sm)',
-      background: colors[action] || 'var(--color-bg-tertiary)',
-      color: 'white',
-      fontFamily: 'var(--font-mono)',
-      textTransform: 'uppercase',
-    }}>
+    <span className="mw-badge" style={{ background: colors[action] || 'var(--color-bg-tertiary)' }}>
       {action}
     </span>
   )
@@ -54,17 +44,10 @@ function actionBadge(action) {
 
 function enabledBadge(enabled) {
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      fontSize: '0.6875rem',
-      fontWeight: 600,
-      borderRadius: 'var(--radius-sm)',
-      background: enabled ? 'var(--color-success, #22c55e)' : 'var(--color-bg-tertiary)',
-      color: enabled ? 'white' : 'var(--color-text-muted)',
-      fontFamily: 'var(--font-mono)',
-      textTransform: 'uppercase',
-    }}>
+    <span
+      className={`mw-badge${enabled ? '' : ' mw-badge--off'}`}
+      style={{ background: enabled ? 'var(--color-success)' : 'var(--color-bg-tertiary)' }}
+    >
       {enabled ? 'on' : 'off'}
     </span>
   )
@@ -136,25 +119,25 @@ export default function Middleware() {
       />
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+      <div className="hstack hstack--xs mb-md">
         {TABS.map(tab => (
           <button
             key={tab.id}
             className={`btn btn-sm ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => selectTab(tab.id)}
           >
-            <i className={`fas ${tab.icon}`} style={{ marginRight: 4 }} />
+            <i className={`fas ${tab.icon} icon-before`} />
             {tab.label}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button className="btn btn-secondary btn-sm" onClick={fetchAll} disabled={loading}>
           <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
         </button>
       </div>
 
       {loading && !status ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <div className="loading-center">
           <LoadingSpinner size="lg" />
         </div>
       ) : activeTab === 'filtering' ? (
@@ -200,12 +183,12 @@ function FilteringTab({ status, addToast, onChanged }) {
   return (
     <>
       {/* Default rule banner */}
-      <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-sm)' }}>
-          <i className="fas fa-info-circle" style={{ color: 'var(--color-text-muted)', marginTop: 2 }} />
+      <div className="card pad-md mb-md">
+        <div className="hstack hstack--top hstack--nowrap">
+          <i className="fas fa-info-circle text-muted mt-xs" />
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>NER-based PII redaction</div>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+            <div className="fw-semibold mb-xs">NER-based PII redaction</div>
+            <div className="text-sub">
               Redaction is per-model and runs request-side. It is OFF by default; backends matching <code>{(pii.default_enabled_for_backends || []).join(', ')}</code> default to ON (cloud passthroughs). A model opts in with <code>pii: {'{'} enabled: true, detectors: [&hellip;] {'}'}</code>; each detector is a <code>token_classify</code> model whose <code>pii_detection</code> block defines the policy (which entities, what action, min score). Edit a detector model to change its policy.
             </div>
           </div>
@@ -216,10 +199,10 @@ function FilteringTab({ status, addToast, onChanged }) {
       <DetectorModels pii={pii} addToast={addToast} onChanged={onChanged} />
 
       {/* Per-model resolved state */}
-      <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Per-model state</span>
-          <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+      <div className="card pad-md">
+        <div className="hstack hstack--between mb-sm">
+          <span className="text-base fw-semibold">Per-model state</span>
+          <span className="text-meta">
             Toggle PII inline; edit a row for detectors and policy.
           </span>
         </div>
@@ -228,20 +211,20 @@ function FilteringTab({ status, addToast, onChanged }) {
             <thead>
               <tr>
                 <th>Model</th>
-                <th style={{ width: 120 }}>Backend</th>
-                <th style={{ width: 120 }}>PII</th>
-                <th style={{ width: 110 }}>Source</th>
+                <th className="col-w-120">Backend</th>
+                <th className="col-w-120">PII</th>
+                <th className="col-w-110">Source</th>
                 <th>Detectors</th>
-                <th style={{ width: 80 }}>Edit</th>
+                <th className="col-w-80">Edit</th>
               </tr>
             </thead>
             <tbody>
               {(pii.models || []).map(m => (
                 <tr key={m.name}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{m.name}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{m.backend || '—'}</td>
+                  <td className="text-mono text-sm">{m.name}</td>
+                  <td className="text-mono text-meta">{m.backend || '—'}</td>
                   <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span className="hstack hstack--xs">
                       <Toggle
                         checked={!!m.enabled}
                         disabled={piiBusy.has(m.name)}
@@ -250,27 +233,26 @@ function FilteringTab({ status, addToast, onChanged }) {
                       {m.enabled && (!m.detectors || m.detectors.length === 0) && (
                         <span
                           title="Enabled but no detector resolved — nothing is scanned. Toggle a detector's Default on above, or add pii.detectors to the model."
-                          style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-warning)', whiteSpace: 'nowrap', cursor: 'help' }}
+                          className="mw-noop"
                         >
-                          <i className="fas fa-triangle-exclamation" style={{ marginRight: 3 }} />no-op
+                          <i className="fas fa-triangle-exclamation icon-before" />no-op
                         </span>
                       )}
                     </span>
                   </td>
-                  <td style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                  <td className="text-meta">
                     {m.explicit ? 'YAML' : (m.default_for_backend ? 'backend default' : 'default off')}
                   </td>
-                  <td style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                  <td className="cell-mono text-xs">
                     {m.detectors && m.detectors.length > 0
-                      ? <>{m.detectors.join(', ')}{m.detectors_from_default && <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}> (default)</span>}</>
-                      : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                      ? <>{m.detectors.join(', ')}{m.detectors_from_default && <span className="text-muted"> (default)</span>}</>
+                      : <span className="text-muted">—</span>}
                   </td>
                   <td>
                     <Link
                       to={`/app/model-editor/${encodeURIComponent(m.name)}`}
                       state={fromState(location, 'Middleware')}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
+                      className="btn btn-secondary btn-sm pill-xs"
                       title={`Edit ${m.name}.yaml`}
                     >
                       <i className="fas fa-pen-to-square" /> Edit
@@ -280,7 +262,7 @@ function FilteringTab({ status, addToast, onChanged }) {
               ))}
               {(!pii.models || pii.models.length === 0) && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: 'var(--spacing-md)' }}>
+                  <td colSpan={6} className="inline-empty">
                     No models loaded.
                   </td>
                 </tr>
@@ -304,17 +286,7 @@ function detectorTypeBadge(type) {
   }
   const t = map[type] || map.unknown
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      fontSize: '0.6875rem',
-      fontWeight: 600,
-      borderRadius: 'var(--radius-sm)',
-      background: t.color,
-      color: 'white',
-      fontFamily: 'var(--font-mono)',
-      textTransform: 'uppercase',
-    }}>
+    <span className="mw-badge" style={{ background: t.color }}>
       {t.label}
     </span>
   )
@@ -356,9 +328,9 @@ function DetectorModels({ pii, addToast, onChanged }) {
   }
 
   return (
-    <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Detector models</span>
+    <div className="card pad-md mb-md">
+      <div className="hstack hstack--between mb-sm">
+        <span className="text-base fw-semibold">Detector models</span>
         <button
           className="btn btn-secondary btn-sm"
           onClick={() => navigate('/app/model-editor?template=secret-filter', { state: fromState(location, 'Middleware') })}
@@ -367,7 +339,7 @@ function DetectorModels({ pii, addToast, onChanged }) {
           <i className="fas fa-plus" /> Add detector model
         </button>
       </div>
-      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+      <div className="text-sub mb-sm">
         These token_classify models do the scanning. Toggle <strong>Default</strong> on to apply a
         detector to any PII-enabled model that names none of its own (chiefly cloud-proxy / MITM models).
         Per-model <code>pii.detectors</code> always overrides. Edit a detector to change which entities it
@@ -379,22 +351,22 @@ function DetectorModels({ pii, addToast, onChanged }) {
           <thead>
             <tr>
               <th>Detector model</th>
-              <th style={{ width: 110 }}>Type</th>
-              <th style={{ width: 120 }}>Backend</th>
-              <th style={{ width: 110 }}>Default</th>
-              <th style={{ width: 80 }}>Edit</th>
+              <th className="col-w-110">Type</th>
+              <th className="col-w-120">Backend</th>
+              <th className="col-w-110">Default</th>
+              <th className="col-w-80">Edit</th>
             </tr>
           </thead>
           <tbody>
             {rows.map(d => (
               <tr key={d.name}>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                <td className="text-mono text-sm fw-semibold">
                   {d.missing
                     ? <span title="This default detector names a model that is not loaded.">{d.name}</span>
                     : <Link to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} title={`Edit ${d.name}.yaml`}>{d.name}</Link>}
                 </td>
                 <td>{detectorTypeBadge(d.type)}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{d.backend || '—'}</td>
+                <td className="text-mono text-meta">{d.backend || '—'}</td>
                 <td>
                   <Toggle
                     checked={!!d.default}
@@ -404,13 +376,12 @@ function DetectorModels({ pii, addToast, onChanged }) {
                 </td>
                 <td>
                   {d.missing ? (
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>—</span>
+                    <span className="text-meta">—</span>
                   ) : (
                     <Link
                       to={`/app/model-editor/${encodeURIComponent(d.name)}`}
                       state={fromState(location, 'Middleware')}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
+                      className="btn btn-secondary btn-sm pill-xs"
                       title={`Edit ${d.name}.yaml`}
                     >
                       <i className="fas fa-pen-to-square" /> Edit
@@ -421,7 +392,7 @@ function DetectorModels({ pii, addToast, onChanged }) {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: 'var(--spacing-md)' }}>
+                <td colSpan={5} className="inline-empty">
                   No detector models loaded. Add one with the button above (a token_classify NER model
                   or a built-in secret pattern model).
                 </td>
@@ -461,42 +432,20 @@ function LabelBar({ label, score, threshold, active }) {
   const scorePct = Math.max(0, Math.min(100, score * 100))
   const thresholdPct = Math.max(0, Math.min(100, (threshold || 0) * 100))
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-      <div style={{
-        width: 160,
-        color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
-        fontWeight: active ? 600 : 400,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }} title={label}>
+    <div className="mw-score">
+      <div className={`mw-score__label${active ? ' mw-score__label--active' : ''}`} title={label}>
         {label}
       </div>
-      <div style={{ flex: 1, position: 'relative', height: 14, background: 'var(--color-border, #e5e7eb)', borderRadius: 2 }}>
-        <div style={{
-          width: `${scorePct}%`,
-          height: '100%',
-          background: active ? 'var(--color-success, #2da44e)' : 'var(--color-text-muted)',
-          opacity: active ? 1 : 0.45,
-          borderRadius: 2,
-        }} />
+      <div className="mw-score__track">
+        <div className={`mw-score__fill${active ? ' mw-score__fill--active' : ''}`} style={{ width: `${scorePct}%` }} />
         {threshold > 0 && (
           <div
             title={`Activation threshold ${thresholdPct.toFixed(0)}%`}
-            style={{
-              position: 'absolute',
-              top: -3,
-              left: `${thresholdPct}%`,
-              width: 2,
-              height: 20,
-              background: 'var(--color-warning, #d97706)',
-              transform: 'translateX(-1px)',
-              pointerEvents: 'none',
-            }}
+            className="mw-score__threshold" style={{ left: `${thresholdPct}%` }}
           />
         )}
       </div>
-      <div style={{ width: 56, textAlign: 'right', color: 'var(--color-text-muted)' }}>
+      <div className="mw-score__value">
         {scorePct.toFixed(1)}%
       </div>
     </div>
@@ -509,7 +458,7 @@ function LabelBar({ label, score, threshold, active }) {
 function DecisionDetail({ d }) {
   if (!d.label_scores?.length) {
     return (
-      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>
+      <div className="text-meta text-italic">
         {d.cached
           ? 'Cached decision — per-label scores not recorded (the cache stores only the resulting label set).'
           : 'No per-label scores recorded for this decision (likely a fallback row).'}
@@ -519,10 +468,10 @@ function DecisionDetail({ d }) {
   const threshold = d.activation_threshold || 0
   const active = decisionActiveSet(d)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 720 }}>
-      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+    <div className="stack stack--xs" style={{ maxWidth: 720 }}>
+      <div className="text-meta">
         Activation threshold:&nbsp;
-        <span style={{ color: 'var(--color-warning, #d97706)', fontWeight: 600 }}>
+        <span className="text-warning fw-semibold">
           {(threshold * 100).toFixed(0)}%
         </span>
         &nbsp;(orange marker on each bar)
@@ -575,8 +524,7 @@ function RoutingTab({ status, decisions }) {
           {router.note || 'Add a `router:` block to a model YAML to enable intelligent routing. The classifier picks one of the listed candidates per request and the standard model-resolution path runs against the chosen target.'}
         </p>
         <button
-          className="btn btn-primary"
-          style={{ marginTop: 'var(--spacing-md)' }}
+          className="btn btn-primary mt-md"
           onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
         >
           <i className="fas fa-plus" /> Create routing model
@@ -588,11 +536,11 @@ function RoutingTab({ status, decisions }) {
   return (
     <>
       {/* Configured router models */}
-      <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Active routers</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-            <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+      <div className="card pad-md mb-md">
+        <div className="hstack hstack--between mb-sm">
+          <span className="text-base fw-semibold">Active routers</span>
+          <div className="hstack">
+            <span className="text-meta">
               Edit the router model YAML to change candidates or rules.
             </span>
             <button
@@ -608,33 +556,33 @@ function RoutingTab({ status, decisions }) {
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: 160 }}>Model</th>
-                <th style={{ width: 110 }}>Classifier</th>
+                <th className="w-160">Model</th>
+                <th className="col-w-110">Classifier</th>
                 <th>Candidates</th>
-                <th style={{ width: 200 }}>Embedding cache</th>
-                <th style={{ width: 140 }}>Fallback</th>
+                <th className="col-w-200">Embedding cache</th>
+                <th className="col-w-140">Fallback</th>
               </tr>
             </thead>
             <tbody>
               {router.models.map(m => (
                 <tr key={m.name}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                  <td className="text-mono text-sm fw-semibold">
                     <Link to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} title="Edit this router model's config">{m.name}</Link>
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{m.classifier}</td>
-                  <td style={{ fontSize: '0.75rem' }}>
+                  <td className="text-mono text-xs">{m.classifier}</td>
+                  <td className="text-xs">
                     {(m.candidates || []).map((c, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)' }}>
-                        <span style={{ minWidth: 100, color: 'var(--color-primary)' }}>{(c.labels || []).join(', ') || '—'}</span>
-                        <span style={{ color: 'var(--color-text-muted)' }}>→</span>
+                      <div key={i} className="hstack hstack--xs text-mono">
+                        <span className="min-w-100 text-primary">{(c.labels || []).join(', ') || '—'}</span>
+                        <span className="text-muted">→</span>
                         <span>{c.model}</span>
                       </div>
                     ))}
                   </td>
-                  <td style={{ fontSize: '0.75rem' }}>
+                  <td className="text-xs">
                     <RouterCacheCell cache={m.embedding_cache} />
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  <td className="text-mono text-meta">
                     {m.fallback || '—'}
                   </td>
                 </tr>
@@ -645,15 +593,15 @@ function RoutingTab({ status, decisions }) {
       </div>
 
       {/* Recent decisions */}
-      <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Recent decisions</span>
-          <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+      <div className="card pad-md">
+        <div className="hstack hstack--between mb-sm">
+          <span className="text-base fw-semibold">Recent decisions</span>
+          <span className="text-meta">
             Newest first, capped at 100.
           </span>
         </div>
         {(!decisions || decisions.length === 0) ? (
-          <div style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>
+          <div className="inline-empty text-sm">
             No routing decisions yet. Send a request to a router model to populate this log.
           </div>
         ) : (
@@ -661,11 +609,11 @@ function RoutingTab({ status, decisions }) {
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: 170 }}>Time</th>
-                  <th style={{ width: 130 }}>Router</th>
-                  <th style={{ width: 80 }}>Label</th>
-                  <th style={{ width: 130 }}>Served</th>
-                  <th style={{ width: 90 }}>Latency</th>
+                  <th className="col-w-170">Time</th>
+                  <th className="col-w-130">Router</th>
+                  <th className="col-w-80">Label</th>
+                  <th className="col-w-130">Served</th>
+                  <th className="col-w-90">Latency</th>
                   <th>Correlation</th>
                 </tr>
               </thead>
@@ -676,29 +624,29 @@ function RoutingTab({ status, decisions }) {
                     <Fragment key={d.id}>
                       <tr
                         onClick={() => toggleExpanded(d.id)}
-                        style={{ cursor: 'pointer' }}
+                        className="clickable"
                         title={isExpanded ? 'Click to collapse' : 'Click to see per-label score breakdown'}
                       >
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          <span style={{ display: 'inline-block', width: 12, color: 'var(--color-text-muted)' }}>
+                        <td className="text-mono text-meta">
+                          <span className="d-block text-muted w-12">
                             {isExpanded ? '▼' : '▶'}
                           </span>
                           {d.created_at}
                         </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{d.router_model}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 600 }}>
+                        <td className="text-mono text-xs">{d.router_model}</td>
+                        <td className="cell-mono text-xs fw-semibold">
                           {d.label}
                           {d._scoreSuffix}
                         </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{d.served_model}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{d.latency_ms}ms</td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                        <td className="text-mono text-xs">{d.served_model}</td>
+                        <td className="text-mono text-meta">{d.latency_ms}ms</td>
+                        <td className="text-mono text-meta">
                           {d.correlation_id || '—'}
                         </td>
                       </tr>
                       {isExpanded && (
                         <tr>
-                          <td colSpan={6} style={{ background: 'var(--color-bg-muted, #f6f8fa)', padding: 'var(--spacing-md)' }}>
+                          <td colSpan={6} className="bg-muted pad-md">
                             <DecisionDetail d={d} />
                           </td>
                         </tr>
@@ -767,23 +715,23 @@ function ProxyTab({ status, addToast, onChanged }) {
   const mitmModels = mitm.models || []
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+    <div className="stack">
       {conflictHosts.length > 0 && (
-        <div className="card" style={{ padding: 'var(--spacing-md)', borderLeft: '3px solid var(--color-error)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-            <i className="fas fa-triangle-exclamation" style={{ color: 'var(--color-error)' }} />
-            <span style={{ fontWeight: 600 }}>MITM listener disabled — duplicate host claims</span>
+        <div className="card mw-alert">
+          <div className="hstack mb-xs">
+            <i className="fas fa-triangle-exclamation text-error" />
+            <span className="fw-semibold">MITM listener disabled — duplicate host claims</span>
           </div>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', margin: 0 }}>
+          <p className="text-sub m-0">
             Each MITM intercept host must be owned by exactly one model config. Resolve by editing the conflicting model YAMLs.
           </p>
-          <ul style={{ margin: 'var(--spacing-xs) 0 0', paddingLeft: 20, fontSize: '0.8125rem' }}>
+          <ul className="mw-list text-sm mt-xs">
             {conflictHosts.map(h => (
               <li key={h}>
-                <code style={{ fontFamily: 'var(--font-mono)' }}>{h}</code>
+                <code className="text-mono">{h}</code>
                 {' claimed by: '}
                 {(conflicts[h] || []).map(name => (
-                  <Link key={name} to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')} style={{ marginRight: 6, fontFamily: 'var(--font-mono)' }}>
+                  <Link key={name} to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')} className="icon-before text-mono">
                     {name}
                   </Link>
                 ))}
@@ -793,26 +741,26 @@ function ProxyTab({ status, addToast, onChanged }) {
         </div>
       )}
 
-      <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>State</h2>
+      <div className="card pad-lg">
+        <div className="hstack hstack--md mb-md">
+          <h2 className="text-lg fw-semibold m-0">State</h2>
           {enabledBadge(mitm.running)}
           {mitm.running && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+            <span className="text-mono text-sub">
               listening on {mitm.listen_addr}
             </span>
           )}
         </div>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+        <p className="text-sub mb-sm">
           The MITM proxy terminates TLS for allowlisted hosts so PII redaction
           can run on traffic from clients that authenticate via OAuth /
           subscription (Claude Code, Codex CLI). Non-allowlisted hosts get a
           plain CONNECT tunnel — no inspection, no CA-trust required.
         </p>
         {ownerEntries.length > 0 ? (
-          <div style={{ marginBottom: 'var(--spacing-sm)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            <div style={{ marginBottom: 4 }}>Hosts claimed by model configs (PII settings flow from the owning config):</div>
-            <ul style={{ margin: 0, paddingLeft: 20, fontFamily: 'var(--font-mono)' }}>
+          <div className="text-meta mb-sm">
+            <div className="mb-xs">Hosts claimed by model configs (PII settings flow from the owning config):</div>
+            <ul className="mw-list mw-list--mono">
               {ownerEntries.map(([host, name]) => (
                 <li key={host}>
                   {host} → <Link to={`/app/model-editor/${encodeURIComponent(name)}`} state={fromState(location, 'Middleware')}>{name}</Link>
@@ -821,7 +769,7 @@ function ProxyTab({ status, addToast, onChanged }) {
             </ul>
           </div>
         ) : (
-          <div style={{ marginBottom: 'var(--spacing-sm)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+          <div className="text-meta mb-sm">
             No model config declares an MITM intercept host. Without one, every CONNECT tunnels through unmodified. Create one from the Add Model page using the MITM Intercept template.
           </div>
         )}
@@ -834,15 +782,15 @@ function ProxyTab({ status, addToast, onChanged }) {
             <i className="fas fa-download" /> Download CA cert
           </a>
         ) : (
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+          <span className="text-meta">
             CA not generated yet — start the listener to generate it.
           </span>
         )}
       </div>
 
-      <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>MITM Models</h2>
+      <div className="card pad-lg">
+        <div className="hstack hstack--between mb-sm">
+          <h2 className="text-lg fw-semibold m-0">MITM Models</h2>
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })}
@@ -852,7 +800,7 @@ function ProxyTab({ status, addToast, onChanged }) {
           </button>
         </div>
         {mitmModels.length === 0 ? (
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+          <div className="text-note">
             No model config declares <code>mitm.hosts</code>. Use the Add MITM model button above — the template defaults to <code>api.anthropic.com</code> with PII filtering on.
           </div>
         ) : (
@@ -861,15 +809,15 @@ function ProxyTab({ status, addToast, onChanged }) {
               <tr>
                 <th>Model</th>
                 <th>Hosts</th>
-                <th style={{ width: 80 }}>PII</th>
-                <th style={{ width: 80 }}>Edit</th>
+                <th className="col-w-80">PII</th>
+                <th className="col-w-80">Edit</th>
               </tr>
             </thead>
             <tbody>
               {mitmModels.map(m => (
                 <tr key={m.name}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>{m.name}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                  <td className="text-mono text-sm fw-semibold">{m.name}</td>
+                  <td className="text-mono text-xs">
                     {(m.hosts || []).join(', ')}
                   </td>
                   <td>{enabledBadge(m.pii_enabled)}</td>
@@ -877,8 +825,7 @@ function ProxyTab({ status, addToast, onChanged }) {
                     <Link
                       to={`/app/model-editor/${encodeURIComponent(m.name)}`}
                       state={fromState(location, 'Middleware')}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
+                      className="btn btn-secondary btn-sm pill-xs"
                     >
                       <i className="fas fa-pen-to-square" /> Edit
                     </Link>
@@ -890,31 +837,31 @@ function ProxyTab({ status, addToast, onChanged }) {
         )}
       </div>
 
-      <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, marginTop: 0, marginBottom: 'var(--spacing-md)' }}>Configuration</h2>
+      <div className="card pad-lg">
+        <h2 className="text-lg fw-semibold mb-md mt-0">Configuration</h2>
 
-        <label style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>Listen address</div>
+        <label className="d-block mb-md">
+          <div className="text-base fw-medium mb-xs">Listen address</div>
           <input
             type="text"
             value={listen}
             onChange={e => setListen(e.target.value)}
             placeholder=":8443  (leave empty to disable)"
-            style={{ width: '100%', padding: '8px 12px', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-primary)' }}
+            className="mw-field-input"
           />
-          <div style={{ marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+          <div className="text-meta mt-xs">
             Bind address for the proxy listener. Empty disables it. Bind to <code>127.0.0.1:port</code> unless the listener is reachable only from clients you control — there is no auth on the CONNECT port. Clients connect to the proxy over plain HTTP (use <code>http://</code>, even for the <code>HTTPS_PROXY</code> env var); the proxy terminates TLS for allowlisted hosts inside the CONNECT tunnel.
           </div>
         </label>
 
-        <div style={{ marginBottom: 'var(--spacing-md)', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+        <div className="text-sub mb-md">
           Intercept hosts are declared per-model in the model YAML's
-          {' '}<code style={{ fontFamily: 'var(--font-mono)' }}>mitm.hosts:</code>{' '}
+          {' '}<code className="text-mono">mitm.hosts:</code>{' '}
           block. Each host is owned by exactly one model config; PII filtering and
           pattern overrides flow from the owning config when the host is intercepted.
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        <div className="hstack">
           <button
             className="btn btn-primary btn-sm"
             onClick={save}
@@ -934,12 +881,12 @@ function ProxyTab({ status, addToast, onChanged }) {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-secondary)' }}>
-        <h2 style={{ fontSize: '0.875rem', fontWeight: 600, marginTop: 0, marginBottom: 'var(--spacing-sm)' }}>Client setup</h2>
-        <ol style={{ margin: 0, paddingLeft: 20, fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
+      <div className="card pad-md bg-secondary">
+        <h2 className="text-base fw-semibold mb-sm mt-0">Client setup</h2>
+        <ol className="mw-list text-sub">
           <li>Download the CA cert (button above).</li>
-          <li>Trust it on the client. For Node-based CLIs (Claude Code, Codex): <code style={{ fontFamily: 'var(--font-mono)' }}>export NODE_EXTRA_CA_CERTS=$(pwd)/localai-mitm-ca.crt</code></li>
-          <li>Point the client at the proxy: <code style={{ fontFamily: 'var(--font-mono)' }}>export HTTPS_PROXY=http://&lt;host&gt;:&lt;port&gt;</code> (yes, <code>http://</code> — clients speak plain HTTP to the proxy, which then terminates TLS for allowlisted hosts on the inner connection).</li>
+          <li>Trust it on the client. For Node-based CLIs (Claude Code, Codex): <code className="text-mono">export NODE_EXTRA_CA_CERTS=$(pwd)/localai-mitm-ca.crt</code></li>
+          <li>Point the client at the proxy: <code className="text-mono">export HTTPS_PROXY=http://&lt;host&gt;:&lt;port&gt;</code> (yes, <code>http://</code> — clients speak plain HTTP to the proxy, which then terminates TLS for allowlisted hosts on the inner connection).</li>
         </ol>
       </div>
     </div>
@@ -1007,18 +954,7 @@ function kindBadge(kind) {
     admission: 'var(--color-error)',
   }
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      fontSize: '0.6875rem',
-      fontWeight: 600,
-      borderRadius: 'var(--radius-sm)',
-      background: colors[kind] || 'var(--color-bg-tertiary)',
-      color: 'white',
-      fontFamily: 'var(--font-mono)',
-      textTransform: 'uppercase',
-      whiteSpace: 'nowrap',
-    }}>
+    <span className="mw-badge mw-badge--nowrap" style={{ background: colors[kind] || 'var(--color-bg-tertiary)' }}>
       {kind.replace(/_/g, ' ')}
     </span>
   )
@@ -1029,15 +965,15 @@ function EventsTab({ events }) {
   const filtered = kindFilter ? events.filter(e => eventKind(e) === kindFilter) : events
 
   return (
-    <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Recent events</span>
-          <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+    <div className="card pad-md">
+      <div className="hstack hstack--between mb-sm">
+        <div className="hstack hstack--xs">
+          <span className="text-base fw-semibold">Recent events</span>
+          <span className="text-meta">
             shared by PII filter and MITM proxy · newest first · capped at 100
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+        <div className="hstack hstack--xs">
           {EVENT_KINDS.map(k => (
             <button
               key={k.id || 'all'}
@@ -1064,29 +1000,29 @@ function EventsTab({ events }) {
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: 170 }}>Time</th>
-                <th style={{ width: 130 }}>Kind</th>
-                <th style={{ width: 200 }}>Subject</th>
+                <th className="col-w-170">Time</th>
+                <th className="col-w-130">Kind</th>
+                <th className="col-w-200">Subject</th>
                 <th>Details</th>
-                <th style={{ width: 110 }}>Action</th>
+                <th className="col-w-110">Action</th>
                 <th>Correlation</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(e => (
                 <tr key={e.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  <td className="text-mono text-meta">
                     {e.created_at}
                   </td>
                   <td>{kindBadge(eventKind(e))}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                  <td className="text-mono text-sm fw-semibold">
                     {eventSubject(e)}
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  <td className="text-mono text-meta">
                     {eventDetails(e)}
                   </td>
                   <td>{e.action ? actionBadge(e.action) : '—'}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                  <td className="text-mono text-meta">
                     {e.correlation_id || '—'}
                   </td>
                 </tr>
@@ -1106,7 +1042,7 @@ function EventsTab({ events }) {
 // admins can tell at a glance whether the threshold is well-placed.
 function RouterCacheCell({ cache }) {
   if (!cache) {
-    return <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+    return <span className="text-muted">—</span>
   }
   const stats = cache.stats || {}
   const hits = stats.hits || 0
@@ -1121,25 +1057,25 @@ function RouterCacheCell({ cache }) {
   const threshold = cache.similarity_threshold || 0.80
   const thresholdBucket = Math.max(0, Math.min(9, Math.floor(threshold * 10)))
   return (
-    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', lineHeight: 1.3 }}>
-      <div style={{ fontWeight: 600 }}>{cache.embedding_model}</div>
-      <div style={{ color: 'var(--color-text-muted)' }}>
+    <div className="text-mono text-xs">
+      <div className="fw-semibold">{cache.embedding_model}</div>
+      <div className="text-muted">
         {totalLookups === 0 ? (
           <span>no traffic yet</span>
         ) : (
           <>
-            <span style={{ color: hitRate >= 50 ? 'var(--color-success, #2da44e)' : 'var(--color-text-muted)' }}>
+            <span className={hitRate >= 50 ? 'text-success' : 'text-muted'}>
               {hitRate}% hit
             </span>
             <span> · {hits}h/{nearMisses}n/{misses}m</span>
             {lowConf > 0 && <span> · {lowConf} skipped</span>}
-            {errors > 0 && <span style={{ color: 'var(--color-warning, #d97706)' }}> · {errors} err</span>}
+            {errors > 0 && <span className="text-warning"> · {errors} err</span>}
           </>
         )}
       </div>
       {buckets.length === 10 && buckets.some(v => v > 0) && (
         <div title={`Cosine similarity histogram, threshold=${threshold}`}
-             style={{ display: 'flex', alignItems: 'flex-end', gap: 1, marginTop: 4, height: 18 }}>
+             className="mw-hist">
           {buckets.map((count, i) => {
             const h = bucketMax > 0 ? Math.max(2, Math.round((count / bucketMax) * 18)) : 2
             const inHitZone = i >= thresholdBucket
@@ -1147,20 +1083,11 @@ function RouterCacheCell({ cache }) {
               <div
                 key={i}
                 title={`[${(i/10).toFixed(1)}, ${((i+1)/10).toFixed(1)}): ${count}`}
-                style={{
-                  width: 6,
-                  height: h,
-                  background: count === 0
-                    ? 'var(--color-border, #e5e7eb)'
-                    : inHitZone
-                      ? 'var(--color-success, #2da44e)'
-                      : 'var(--color-warning, #d97706)',
-                  opacity: count === 0 ? 0.3 : 1,
-                }}
+                className={`mw-hist__bar${count === 0 ? '' : inHitZone ? ' mw-hist__bar--hit' : ' mw-hist__bar--miss'}`} style={{ height: h }}
               />
             )
           })}
-          <div style={{ marginLeft: 4, fontSize: '0.625rem', color: 'var(--color-text-muted)' }}>
+          <div className="ml-xs text-meta">
             sim ≥ {threshold}
           </div>
         </div>

@@ -14,7 +14,7 @@ import KeyValueChips from '../components/nodes/KeyValueChips'
 // precision/special-value problems (e.g. MaxReplicas=0 = "no limit").
 function ReplicaInput({ id, label, value, onChange, presets }) {
   return (
-    <div style={{ flex: 1 }}>
+    <div className="flex-1">
       <label className="form-label" htmlFor={id}>{label}</label>
       <input
         id={id}
@@ -97,7 +97,7 @@ function SchedulingForm({ onSave, onCancel }) {
       {/* Mode selector — uses the project's segmented control instead of two
           50%-width filled buttons that competed visually with the actual
           primary action (Save). */}
-      <div role="radiogroup" aria-label="Scheduling mode" className="segmented" style={{ marginBottom: 'var(--spacing-xs)' }}>
+      <div role="radiogroup" aria-label="Scheduling mode" className="segmented mb-xs">
         <button
           type="button" role="radio" aria-checked={mode === 'placement'}
           className={`segmented__item${mode === 'placement' ? ' is-active' : ''}`}
@@ -131,7 +131,7 @@ function SchedulingForm({ onSave, onCancel }) {
       {/* Linear vertical flow — model picker is the visual focus, then the
           mode-specific fields below. No 2-column grid (the mismatched widths
           made the form look raw). */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+      <div className="stack">
         <div>
           <label className="form-label" htmlFor="sched-model">Model</label>
           {/* Searchable combobox so a long gallery doesn't force the operator
@@ -158,7 +158,7 @@ function SchedulingForm({ onSave, onCancel }) {
             placeholderValue="value (e.g. nvidia)"
             ariaLabel="Node selector"
           />
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+          <span className="text-meta d-block mt-xs">
             {mode === 'placement'
               ? 'Models will load only on nodes that match all listed labels.'
               : (hasSelector ? 'Replicas land only on matching nodes.' : 'Empty = any healthy node.')}
@@ -166,7 +166,7 @@ function SchedulingForm({ onSave, onCancel }) {
         </div>
 
         {mode === 'autoscaling' && (
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+          <div className="hstack hstack--md">
             <ReplicaInput
               id="sched-min"
               label="Min replicas"
@@ -199,14 +199,14 @@ function SchedulingForm({ onSave, onCancel }) {
             <option value="round_robin">Round Robin</option>
             <option value="prefix_cache">Prefix Cache</option>
           </select>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+          <span className="text-meta d-block mt-xs">
             Prefix Cache routes shared-prefix requests to the same replica to reuse its KV cache, falling back to round-robin when replicas are imbalanced.
           </span>
         </div>
 
         {routePolicy === 'prefix_cache' && (
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-            <div style={{ flex: 1 }}>
+          <div className="hstack hstack--md">
+            <div className="flex-1">
               <label className="form-label" htmlFor="sched-min-prefix-match">Min prefix match</label>
               <input
                 id="sched-min-prefix-match"
@@ -218,11 +218,11 @@ function SchedulingForm({ onSave, onCancel }) {
                 value={minPrefixMatch}
                 onChange={e => setMinPrefixMatch(parseFloat(e.target.value) || 0)}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+              <span className="text-meta d-block mt-xs">
                 Fraction of the prompt (0..1) that must match a cached prefix before affinity kicks in. 0 inherits the default.
               </span>
             </div>
-            <div style={{ flex: 1 }}>
+            <div className="flex-1">
               <label className="form-label" htmlFor="sched-balance-abs">Balance abs threshold</label>
               <input
                 id="sched-balance-abs"
@@ -232,11 +232,11 @@ function SchedulingForm({ onSave, onCancel }) {
                 value={balanceAbsThreshold}
                 onChange={e => setBalanceAbsThreshold(parseInt(e.target.value) || 0)}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+              <span className="text-meta d-block mt-xs">
                 Max absolute in-flight gap allowed before falling back to round-robin. 0 inherits the default.
               </span>
             </div>
-            <div style={{ flex: 1 }}>
+            <div className="flex-1">
               <label className="form-label" htmlFor="sched-balance-rel">Balance rel threshold</label>
               <input
                 id="sched-balance-rel"
@@ -247,7 +247,7 @@ function SchedulingForm({ onSave, onCancel }) {
                 value={balanceRelThreshold}
                 onChange={e => setBalanceRelThreshold(parseFloat(e.target.value) || 0)}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: 6 }}>
+              <span className="text-meta d-block mt-xs">
                 Max relative in-flight ratio (&gt;= 1) allowed before falling back to round-robin. 0 inherits the default.
               </span>
             </div>
@@ -309,9 +309,9 @@ export default function Scheduling() {
         supporting={t('scheduling.subtitle')}
       />
       <div>
-        <button className="btn btn-primary btn-sm" style={{ marginBottom: 'var(--spacing-md)' }}
+        <button className="btn btn-primary btn-sm mb-md"
           onClick={() => setShowForm(f => !f)}>
-          <i className="fas fa-plus" style={{ marginRight: 6 }} />
+          <i className="fas fa-plus icon-before" />
           Add Scheduling Rule
         </button>
         {showForm && <SchedulingForm onSave={handleSave} onCancel={() => setShowForm(false)} />}
@@ -330,7 +330,7 @@ export default function Scheduling() {
                 <th>Routing</th>
                 <th>Thresholds</th>
                 <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="text-right">Actions</th>
               </tr></thead>
               <tbody>
                 {schedulingConfigs.map(cfg => {
@@ -365,10 +365,10 @@ export default function Scheduling() {
                               fontFamily: 'var(--font-mono)', marginRight: 4,
                             }}>{k}={v}</span>
                           ))
-                        } catch { return <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>{cfg.node_selector}</span> }
-                      })() : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>Any node</span>}
+                        } catch { return <span className="text-note">{cfg.node_selector}</span> }
+                      })() : <span className="text-note">Any node</span>}
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>
+                    <td className="text-mono">
                       {isSpread
                         ? <span style={{
                             display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
@@ -377,13 +377,13 @@ export default function Scheduling() {
                           }}>Spread: all matching nodes</span>
                         : isAutoScaling ? cfg.min_replicas : '-'}
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>
+                    <td className="text-mono">
                       {isSpread ? '-' : isAutoScaling ? (cfg.max_replicas || 'no limit') : '-'}
                     </td>
-                    <td style={{ fontSize: '0.8125rem' }}>
+                    <td className="text-sm">
                       {cfg.route_policy || 'default'}
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    <td className="text-mono text-meta">
                       {cfg.route_policy === 'prefix_cache' ? (
                         <>
                           <div>match: {cfg.min_prefix_match ? cfg.min_prefix_match : 'inherit'}</div>
@@ -404,14 +404,14 @@ export default function Scheduling() {
                             color: 'var(--color-warning, #d97706)',
                           }}
                         >
-                          <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }} />
+                          <i className="fas fa-exclamation-triangle icon-before" />
                           Unsatisfiable until {unsatisfiableUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       ) : (
-                        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>OK</span>
+                        <span className="text-note">OK</span>
                       )}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td className="text-right">
                       <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(cfg.model_name)}>
                         <i className="fas fa-trash" />
                       </button>

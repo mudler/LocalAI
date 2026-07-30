@@ -144,7 +144,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
   }, [node, onUpdate, addToast])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+    <div className="stack">
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
     }}>
@@ -177,19 +177,17 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 }}
               />
               <button
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm min-h-control"
                 onClick={save}
                 disabled={saving}
-                style={{ minHeight: 32 }}
                 aria-label="Save replica capacity"
               >
                 {saving ? <LoadingSpinner size="xs" /> : <><i className="fas fa-check" /> Save</>}
               </button>
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm min-h-control"
                 onClick={cancel}
                 disabled={saving}
-                style={{ minHeight: 32 }}
                 aria-label="Cancel"
               >
                 Cancel
@@ -198,8 +196,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
           ) : (
             <>
               <span
-                className="cell-mono"
-                style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}
+                className="cell-mono text-sub"
               >
                 {current}
               </span>
@@ -236,8 +233,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   disabled={resetting}
                   aria-label="Clear admin override and let the worker flag apply"
                   title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration"
-                  className="btn btn-secondary btn-sm"
-                  style={{ minHeight: 32 }}
+                  className="btn btn-secondary btn-sm min-h-control"
                 >
                   {resetting ? <LoadingSpinner size="xs" /> : <><i className="fas fa-undo" /> Reset</>}
                 </button>
@@ -288,19 +284,17 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 }}
               />
               <button
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm min-h-control"
                 onClick={saveBudget}
                 disabled={budgetSaving}
-                style={{ minHeight: 32 }}
                 aria-label="Save VRAM budget"
               >
                 {budgetSaving ? <LoadingSpinner size="xs" /> : <><i className="fas fa-check" /> Save</>}
               </button>
               <button
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm min-h-control"
                 onClick={cancelBudget}
                 disabled={budgetSaving}
-                style={{ minHeight: 32 }}
                 aria-label="Cancel"
               >
                 Cancel
@@ -309,16 +303,14 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
           ) : (
             <>
               <span
-                className="cell-mono"
-                style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}
+                className="cell-mono text-sub"
               >
                 {hasBudget ? currentBudget : 'none'}
               </span>
               {hasBudget && budgetBytes > 0 && (
                 <span
-                  className="cell-mono"
+                  className="cell-mono text-meta"
                   title="Resolved allocation ceiling out of this node's total VRAM"
-                  style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}
                 >
                   {formatVRAM(budgetBytes)} / {formatVRAM(node.total_vram)}
                 </span>
@@ -342,8 +334,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   disabled={budgetClearing}
                   aria-label="Clear the VRAM budget for this node"
                   title="Clear the VRAM budget; this node's full VRAM becomes available again"
-                  className="btn btn-secondary btn-sm"
-                  style={{ minHeight: 32 }}
+                  className="btn btn-secondary btn-sm min-h-control"
                 >
                   {budgetClearing ? <LoadingSpinner size="xs" /> : <><i className="fas fa-undo" /> Clear</>}
                 </button>

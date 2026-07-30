@@ -137,21 +137,21 @@ function AudioSnippet({ data }) {
     { label: 'DC Offset', value: data.audio_dc_offset },
   ]
   return (
-    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-      <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-        <i className="fas fa-headphones" style={{ color: 'var(--color-primary)' }} /> Audio Snippet
+    <div className="mb-md">
+      <h4 className="hstack hstack--xs text-sm fw-semibold mb-xs">
+        <i className="fas fa-headphones text-primary" /> Audio Snippet
       </h4>
-      <div style={{ background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)' }}>
+      <div className="tr-well">
         {audioUrl
           ? <WaveformPlayer src={audioUrl} height={64} />
-          : <div data-testid="audio-snippet-unavailable" style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: 'var(--spacing-xs)' }}>
+          : <div data-testid="audio-snippet-unavailable" className="text-xs text-secondary pad-xs">
               <i className="fas fa-triangle-exclamation" /> Audio clip not playable — it was truncated when recorded (raise Max Body Bytes in the tracing settings).
             </div>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 'var(--spacing-xs)', fontSize: '0.75rem', marginTop: 'var(--spacing-sm)' }}>
+        <div className="tr-metrics mt-sm">
           {metrics.map(m => (
-            <div key={m.label} style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)' }}>
-              <div style={{ color: 'var(--color-text-secondary)' }}>{m.label}</div>
-              <div style={{ fontFamily: 'var(--font-mono)' }}>{m.value}</div>
+            <div key={m.label} className="tr-metric">
+              <div className="text-secondary">{m.label}</div>
+              <div className="text-mono">{m.value}</div>
             </div>
           ))}
         </div>
@@ -181,47 +181,37 @@ function DataFields({ data, nested }) {
 
   return (
     <div>
-      {!nested && <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Data Fields</h4>}
-      <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+      {!nested && <h4 className="text-sm fw-semibold mb-xs">Data Fields</h4>}
+      <div className="tr-fields">
         {filtered.map(([key, value]) => {
           const objValue = isPlainObject(value)
           const large = !objValue && isLargeValue(value)
           const expandable = objValue || large
           const expanded = expandedFields[key]
           return (
-            <div key={key} style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <div key={key} className="tr-field">
               <div
                 onClick={expandable ? () => toggleField(key) : undefined}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-                  padding: 'var(--spacing-xs) var(--spacing-sm)',
-                  cursor: expandable ? 'pointer' : 'default',
-                  fontSize: '0.8125rem',
-                }}
+                className={`tr-field__head${expandable ? ' tr-field__head--expandable' : ''}`}
               >
                 {expandable ? (
-                  <i className={`fas fa-chevron-${expanded ? 'down' : 'right'}`} style={{ fontSize: '0.6rem', color: 'var(--color-text-secondary)', width: 12, flexShrink: 0 }} />
+                  <i className={`fas fa-chevron-${expanded ? 'down' : 'right'} tr-field__chevron`} />
                 ) : (
-                  <span style={{ width: 12, flexShrink: 0 }} />
+                  <span className="tr-field__chevron" />
                 )}
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', flexShrink: 0 }}>{key}</span>
-                {objValue && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{fieldSummary(value)}</span>}
-                {!objValue && !large && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{formatValue(value)}</span>}
-                {!objValue && large && !expanded && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{truncateValue(value, 120)}</span>}
+                <span className="tr-field__key">{key}</span>
+                {objValue && !expanded && <span className="text-xs text-secondary">{fieldSummary(value)}</span>}
+                {!objValue && !large && <span className="text-mono text-xs text-secondary">{formatValue(value)}</span>}
+                {!objValue && large && !expanded && <span className="text-xs text-secondary cell-clip">{truncateValue(value, 120)}</span>}
               </div>
               {expanded && objValue && (
-                <div style={{ padding: '0 0 var(--spacing-xs) var(--spacing-md)' }}>
+                <div className="tr-field__nested">
                   <DataFields data={value} nested />
                 </div>
               )}
               {expanded && large && (
-                <div style={{ padding: '0 var(--spacing-sm) var(--spacing-sm)' }}>
-                  <pre style={{
-                    background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-                    fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                    overflow: 'auto', maxHeight: '50vh', margin: 0,
-                  }}>
+                <div className="tr-field__body">
+                  <pre className="tr-code">
                     {formatLargeValue(value)}
                   </pre>
                 </div>
@@ -244,26 +234,22 @@ function BackendTraceDetail({ trace }) {
   ]
 
   return (
-    <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+    <div className="tr-panel">
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', fontSize: '0.75rem' }}>
+      <div className="tr-metrics tr-metrics--fixed mb-md">
         {infoItems.map(item => (
-          <div key={item.label} style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)', border: '1px solid var(--color-border)' }}>
-            <div style={{ color: 'var(--color-text-secondary)' }}>{item.label}</div>
-            <div style={{ fontWeight: 500 }}>{item.label === 'Type' ? <span style={typeBadgeStyle(item.value)}>{item.value}</span> : item.value}</div>
+          <div key={item.label} className="tr-metric tr-metric--outlined">
+            <div className="text-secondary">{item.label}</div>
+            <div className="fw-medium">{item.label === 'Type' ? <span style={typeBadgeStyle(item.value)}>{item.value}</span> : item.value}</div>
           </div>
         ))}
       </div>
 
       {/* Error banner */}
       {trace.error && (
-        <div style={{
-          background: 'var(--color-error-light)', border: '1px solid var(--color-error-border)',
-          borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)',
-          display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-        }}>
-          <i className="fas fa-exclamation-triangle" style={{ color: 'var(--color-error)' }} />
-          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem' }}>{trace.error}</span>
+        <div className="tr-error mb-md">
+          <i className="fas fa-exclamation-triangle text-error" />
+          <span className="text-error text-sm">{trace.error}</span>
         </div>
       )}
 
@@ -272,10 +258,10 @@ function BackendTraceDetail({ trace }) {
           it resolves the model to the host worker(s) and either redirects to
           /app/node-backend-logs/<nodeId>/<modelId> or shows a node picker. */}
       {trace.model_name && (
-        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+        <div className="mb-md">
           <a
             href={`/app/backend-logs/${encodeURIComponent(trace.model_name)}${trace.timestamp ? `?from=${encodeURIComponent(trace.timestamp)}` : ''}`}
-            style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+            className="hstack hstack--xs text-sm text-primary"
           >
             <i className="fas fa-terminal" /> View backend logs
           </a>
@@ -289,14 +275,9 @@ function BackendTraceDetail({ trace }) {
           payload here (capped to ~1MB upstream); pretty-print when
           it parses as JSON, otherwise show the raw text. */}
       {trace.body && (
-        <div style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Request Body</h4>
-          <pre style={{
-            background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            overflow: 'auto', maxHeight: '50vh', margin: 0,
-          }}>
+        <div className="mb-md">
+          <h4 className="text-sm fw-semibold mb-xs">Request Body</h4>
+          <pre className="tr-code">
             {formatLargeValue(trace.body)}
           </pre>
         </div>
@@ -317,50 +298,33 @@ function ApiTraceDetail({ trace }) {
     ['User Agent', trace.user_agent],
   ].filter(([, v]) => v)
   return (
-    <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
+    <div className="tr-panel">
       {meta.length > 0 && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.25rem var(--spacing-md)',
-          alignItems: 'baseline', marginBottom: 'var(--spacing-md)', fontSize: '0.8125rem',
-        }}>
+        <div className="tr-meta-grid mb-md">
           {meta.map(([label, value]) => (
             <React.Fragment key={label}>
-              <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>{label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{value}</span>
+              <span className="fw-semibold text-secondary">{label}</span>
+              <span className="text-mono wrap-anywhere">{value}</span>
             </React.Fragment>
           ))}
         </div>
       )}
       {trace.error && (
-        <div style={{
-          background: 'var(--color-error-light)', border: '1px solid var(--color-error-border)',
-          borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)',
-          display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-        }}>
-          <i className="fas fa-exclamation-triangle" style={{ color: 'var(--color-error)' }} />
-          <span style={{ color: 'var(--color-error)', fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{trace.error}</span>
+        <div className="tr-error mb-md">
+          <i className="fas fa-exclamation-triangle text-error" />
+          <span className="text-error text-sm text-mono wrap-anywhere">{trace.error}</span>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+      <div className="tr-split">
         <div>
-          <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Request Body</h4>
-          <pre style={{
-            background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            overflow: 'auto', maxHeight: '50vh', margin: 0,
-          }}>
+          <h4 className="text-sm fw-semibold mb-xs">Request Body</h4>
+          <pre className="tr-code">
             {decodeTraceBody(trace.request?.body)}
           </pre>
         </div>
         <div>
-          <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Response Body</h4>
-          <pre style={{
-            background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-sm)',
-            fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            overflow: 'auto', maxHeight: '50vh', margin: 0,
-          }}>
+          <h4 className="text-sm fw-semibold mb-xs">Response Body</h4>
+          <pre className="tr-code">
             {decodeTraceBody(trace.response?.body)}
           </pre>
         </div>
@@ -407,9 +371,9 @@ export default function Traces() {
       aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
       onClick={() => toggleSort(key)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
-      style={{ cursor: 'pointer', userSelect: 'none', ...(props.style || {}) }}
+      className="sortable-th" style={props.style}
     >
-      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, opacity: 0.7 }} aria-hidden="true" />}
+      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'} ml-xs op-70`} aria-hidden="true" />}
     </th>
   )
   const [backendLoggingEnabled, setBackendLoggingEnabled] = useState(null)
@@ -548,21 +512,21 @@ export default function Traces() {
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'api' ? 'tab-active' : ''}`} onClick={() => setActiveTab('api')}>
-          <i className="fas fa-exchange-alt" style={{ marginRight: 'var(--spacing-xs)', fontSize: '0.75rem' }} />
+          <i className="fas fa-exchange-alt icon-before text-xs" />
           API Traces
-          <span style={{ marginLeft: 'var(--spacing-xs)', opacity: 0.6, fontSize: '0.75rem' }}>({apiCount})</span>
+          <span className="ml-xs op-60 text-xs">({apiCount})</span>
         </button>
         <button className={`tab ${activeTab === 'backend' ? 'tab-active' : ''}`} onClick={() => setActiveTab('backend')}>
-          <i className="fas fa-cogs" style={{ marginRight: 'var(--spacing-xs)', fontSize: '0.75rem' }} />
+          <i className="fas fa-cogs icon-before text-xs" />
           Backend Traces
-          <span style={{ marginLeft: 'var(--spacing-xs)', opacity: 0.6, fontSize: '0.75rem' }}>({backendCount})</span>
+          <span className="ml-xs op-60 text-xs">({backendCount})</span>
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center' }}>
+      <div className="hstack mb-md">
         <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><i className="fas fa-rotate" /> Refresh</button>
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button
           className="btn btn-danger btn-sm"
           onClick={handleClear}
@@ -577,36 +541,23 @@ export default function Traces() {
       {settings && (() => {
         const allEnabled = tracingEnabled && backendLoggingEnabled
         return (
-        <div style={{
-          border: `1px solid ${allEnabled ? 'var(--color-success-border)' : 'var(--color-warning-border)'}`,
-          borderRadius: 'var(--radius-md)',
-          marginBottom: 'var(--spacing-md)',
-          overflow: 'hidden',
-        }}>
+        <div className={`tr-settings mb-md${allEnabled ? ' tr-settings--ok' : ''}`}>
           <button
             onClick={() => setSettingsExpanded(!settingsExpanded)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: 'var(--spacing-sm) var(--spacing-md)',
-              background: allEnabled ? 'var(--color-success-light)' : 'var(--color-warning-light)',
-              border: 'none', cursor: 'pointer',
-              color: 'var(--color-text-primary)',
-            }}
+            className="tr-settings__toggle"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-              <i className={`fas ${allEnabled ? 'fa-circle-check' : 'fa-exclamation-triangle'}`}
-                style={{ color: allEnabled ? 'var(--color-success)' : 'var(--color-warning)', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.8125rem', textAlign: 'left' }}>
+            <div className="hstack">
+              <i className={`fas ${allEnabled ? 'fa-circle-check' : 'fa-exclamation-triangle'} shrink-0 ${allEnabled ? 'text-success' : 'text-warning'}`} />
+              <span className="text-sm text-left">
                 Tracing is <strong>{tracingEnabled ? 'enabled' : 'disabled'}</strong>
                 {' · Backend logging is '}<strong>{backendLoggingEnabled ? 'enabled' : 'disabled'}</strong>
                 {!tracingEnabled && ' — new requests will not be recorded'}
               </span>
             </div>
-            <i className={`fas fa-chevron-${settingsExpanded ? 'up' : 'down'}`}
-              style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flexShrink: 0 }} />
+            <i className={`fas fa-chevron-${settingsExpanded ? 'up' : 'down'} text-meta shrink-0`} />
           </button>
           {settingsExpanded && (
-            <div style={{ padding: '0 var(--spacing-md) var(--spacing-md)', background: 'var(--color-bg-secondary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+            <div className="tr-settings__body">
               <SettingRow label="Enable Tracing" description="Record API requests, responses, and backend operations">
                 <Toggle
                   checked={settings.enable_tracing}
@@ -615,9 +566,8 @@ export default function Traces() {
               </SettingRow>
               <SettingRow label="Max Items" description="Maximum trace items to retain (0 = unlimited)">
                 <input
-                  className="input"
+                  className="input col-w-120"
                   type="number"
-                  style={{ width: 120 }}
                   value={settings.tracing_max_items ?? ''}
                   onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_items: parseInt(e.target.value) || 0 }))}
                   placeholder="100"
@@ -626,9 +576,8 @@ export default function Traces() {
               </SettingRow>
               <SettingRow label="Max Body Bytes" description="Per-field cap for captured bodies and backend trace Data (0 = uncapped). Prevents oversized LLM histories or TTS snippets from locking this page in loading.">
                 <input
-                  className="input"
+                  className="input col-w-120"
                   type="number"
-                  style={{ width: 120 }}
                   value={settings.tracing_max_body_bytes ?? ''}
                   onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_body_bytes: parseInt(e.target.value) || 0 }))}
                   placeholder="65536"
@@ -641,7 +590,7 @@ export default function Traces() {
                   onChange={(v) => setSettings(prev => ({ ...prev, enable_backend_logging: v }))}
                 />
               </SettingRow>
-              <div className="form-group__actions" style={{ justifyContent: 'flex-end' }}>
+              <div className="form-group__actions hstack--end">
                 <button className="btn btn-primary btn-sm" onClick={handleSaveSettings} disabled={saving}>
                   {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
                 </button>
@@ -653,7 +602,7 @@ export default function Traces() {
       })()}
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+        <div className="loading-center"><LoadingSpinner size="lg" /></div>
       ) : traces.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-wave-square" /></div>
@@ -676,32 +625,32 @@ export default function Traces() {
         <ResponsiveTable>
             <thead>
               <tr>
-                <th style={{ width: '30px' }}></th>
+                <th className="col-w-30"></th>
                 {sortableTh('method', 'Method')}
                 {sortableTh('path', 'Path')}
                 {sortableTh('user', 'User')}
                 {sortableTh('status', 'Status')}
-                <th style={{ width: '40px' }}>Result</th>
+                <th className="col-w-40">Result</th>
               </tr>
             </thead>
             <tbody>
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
-                  <tr onClick={() => toggleRow(i, trace)} style={{ cursor: 'pointer' }}>
-                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
+                  <tr onClick={() => toggleRow(i, trace)} className="clickable">
+                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'} text-xs`} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.request?.path || '-'}</td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
+                    <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
+                    <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
                     <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td className="text-center">
                       {trace.error
-                        ? <i className="fas fa-times-circle" style={{ color: 'var(--color-error)' }} title={trace.error} />
-                        : <i className="fas fa-check-circle" style={{ color: 'var(--color-success)' }} />}
+                        ? <i className="fas fa-times-circle text-error" title={trace.error} />
+                        : <i className="fas fa-check-circle text-success" />}
                     </td>
                   </tr>
                   {expandedRow === i && (
                     <tr>
-                      <td colSpan="6" style={{ padding: 0 }}>
+                      <td colSpan="6" className="p-0">
                         <ApiTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
                       </td>
                     </tr>
@@ -714,36 +663,36 @@ export default function Traces() {
         <ResponsiveTable>
             <thead>
               <tr>
-                <th style={{ width: '30px' }}></th>
+                <th className="col-w-30"></th>
                 {sortableTh('type', 'Type')}
                 {sortableTh('time', 'Time')}
                 {sortableTh('model', 'Model')}
                 <th>Summary</th>
                 {sortableTh('duration', 'Duration')}
-                <th style={{ width: '40px' }}>Status</th>
+                <th className="col-w-40">Status</th>
               </tr>
             </thead>
             <tbody>
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={i}>
-                  <tr onClick={() => toggleRow(i, trace)} style={{ cursor: 'pointer' }}>
-                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'}`} style={{ fontSize: '0.7rem' }} /></td>
+                  <tr onClick={() => toggleRow(i, trace)} className="clickable">
+                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'} text-xs`} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{formatDateTime(trace.timestamp)}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{trace.model_name || '-'}</td>
-                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td className="text-sub nowrap">{formatDateTime(trace.timestamp)}</td>
+                    <td className="text-mono text-sm">{trace.model_name || '-'}</td>
+                    <td className="cell-clip cell-clip--wide">
                       {trace.summary || '-'}
                     </td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDuration(trace.duration)}</td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td className="text-sub">{formatDuration(trace.duration)}</td>
+                    <td className="text-center">
                       {trace.error
-                        ? <i className="fas fa-times-circle" style={{ color: 'var(--color-error)' }} title={trace.error} />
-                        : <i className="fas fa-check-circle" style={{ color: 'var(--color-success)' }} />}
+                        ? <i className="fas fa-times-circle text-error" title={trace.error} />
+                        : <i className="fas fa-check-circle text-success" />}
                     </td>
                   </tr>
                   {expandedRow === i && (
                     <tr>
-                      <td colSpan="7" style={{ padding: 0 }}>
+                      <td colSpan="7" className="p-0">
                         <BackendTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
                       </td>
                     </tr>

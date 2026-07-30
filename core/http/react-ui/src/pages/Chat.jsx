@@ -266,7 +266,7 @@ function UserMessageContent({ content, files }) {
   const text = typeof content === 'string' ? content : content?.[0]?.text || ''
   return (
     <>
-      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{text}</div>
+      <div className="wrap-anywhere">{text}</div>
       {files && files.length > 0 && (
         <div className="chat-message-files">
           {files.map((f, i) => (
@@ -945,7 +945,7 @@ export default function Chat() {
           <div id="chat-model-info-panel" className="chat-model-info-panel">
             <div className="chat-model-info-header">
               <span>{t('header.modelInfoTitle', { model: activeChat.model })}</span>
-              <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+              <div className="hstack hstack--xs">
                 {isAdmin && activeChat.model && (
                   <button
                     type="button"
@@ -1417,7 +1417,7 @@ export default function Chat() {
               type="file"
               multiple
               accept="image/*,audio/*,video/*,application/pdf,.txt,.md,.csv,.json"
-              style={{ display: 'none' }}
+              className="hidden"
               onChange={handleFileChange}
             />
             <textarea

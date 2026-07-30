@@ -30,14 +30,14 @@ export default function PatternListEditor({ value, onChange }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+      <div className="text-meta">
         Restricted regex: literals, <code>[…]</code> classes, <code>\w \d \s</code>, <code>?*+{'{m,n}'}</code>, anchors.
         Each pattern must contain a fixed literal run of ≥3 characters (e.g. <code>sk-prefix-</code>);
         <code>.</code> and capturing groups are not allowed. Matches report under the pattern name.
       </div>
 
       {rows.length === 0 && (
-        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+        <div className="text-meta">
           No custom patterns. Enable built-ins above, or add a pattern for an internal credential
           format (e.g. <code>tok-[A-Za-z0-9]{'{32,64}'}</code>).
         </div>
@@ -98,8 +98,7 @@ export default function PatternListEditor({ value, onChange }) {
         </div>
       ))}
 
-      <button type="button" className="btn btn-secondary btn-sm" onClick={add}
-        style={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
+      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
         <i className="fas fa-plus" /> Add pattern
       </button>
     </div>

@@ -134,7 +134,7 @@ export default function SourcesTable({
     kind === 'apikey' ? 'fas fa-key' : kind === 'web' ? 'fas fa-globe' : 'fas fa-gear'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+    <div className="stack stack--sm">
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
         <input
           type="search"
@@ -180,7 +180,7 @@ export default function SourcesTable({
             <tr>
               <th>{t('usage.sources.sortName')}</th>
               {showUserColumn && <th style={{ width: 180 }}>{t('usage.sources.sortUser')}</th>}
-              <th style={{ width: 110 }}>Prefix</th>
+              <th className="col-w-110">Prefix</th>
               <th style={{ width: 100, textAlign: 'right' }}>{t('usage.sources.sortRequests')}</th>
               <th style={{ width: 100, textAlign: 'right' }}>{t('usage.sources.sortTokens')}</th>
               <th style={{ width: 120, textAlign: 'right' }}>{t('usage.sources.sortLastUsed')}</th>
@@ -202,8 +202,7 @@ export default function SourcesTable({
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                       <i
-                        className={iconFor(r.kind)}
-                        style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}
+                        className={`${iconFor(r.kind)} text-note`}
                       />
                       <span>{r.name}</span>
                       {r.revoked && (
@@ -220,11 +219,11 @@ export default function SourcesTable({
                     </span>
                   </td>
                   {showUserColumn && (
-                    <td style={{ color: 'var(--color-text-secondary)', fontSize: '0.8125rem' }}>
+                    <td className="text-sub">
                       {r.userName || r.userID || '-'}
                     </td>
                   )}
-                  <td style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>{r.prefix || '-'}</td>
+                  <td className="text-meta">{r.prefix || '-'}</td>
                   <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                     {Number(r.requests || 0).toLocaleString()}
                   </td>

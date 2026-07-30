@@ -425,46 +425,29 @@ export default function NodeInstallPicker({
 
   return (
     <Modal onClose={onClose} maxWidth="780px">
-      <div style={{
-        padding: 'var(--spacing-md) var(--spacing-lg)',
-        borderBottom: '1px solid var(--color-border-subtle)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 'var(--spacing-sm)',
-      }}>
-        <h2 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-          <i className="fas fa-cog" style={{ color: 'var(--color-primary)' }} />
-          Install <span style={{ fontFamily: 'var(--font-mono)' }}>{backend.name}</span>
+      <div className="nip-bar nip-bar--head">
+        <h2 className="hstack text-lg m-0">
+          <i className="fas fa-cog text-primary" />
+          Install <span className="text-mono">{backend.name}</span>
           {backend.isMeta ? (
-            <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>Auto-resolving</span>
+            <span className="badge badge-info text-xs">Auto-resolving</span>
           ) : (
-            <span className="badge badge-warning" style={{ fontSize: '0.6875rem' }}>Hardware-specific</span>
+            <span className="badge badge-warning text-xs">Hardware-specific</span>
           )}
         </h2>
         <button
           type="button"
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm pill-tiny"
           onClick={onClose}
           aria-label="Close"
-          style={{ fontSize: '1.125rem', lineHeight: 1, padding: '4px 10px' }}
         >×</button>
       </div>
 
-      <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)' }}>
+      <div className="nip-body">
         {!backend.isMeta && (
-          <div className="card" style={{
-            marginBottom: 'var(--spacing-md)',
-            padding: 'var(--spacing-sm) var(--spacing-md)',
-            background: 'var(--color-warning-light)',
-            border: '1px solid var(--color-warning-border)',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--spacing-sm)',
-          }}>
-            <i className="fas fa-microchip" style={{ color: 'var(--color-warning)' }} />
-            <span style={{ color: 'var(--color-warning)', fontSize: '0.8125rem' }}>
+          <div className="card nip-warn mb-md">
+            <i className="fas fa-microchip text-warning" />
+            <span className="text-warning text-sm">
               {targetLabel}. Install only on nodes where you want this build to run.
               {hardwareTarget && ` Targets: ${humanTargetLabel(hardwareTarget).replace(' build', '')}.`}
             </span>
@@ -472,7 +455,7 @@ export default function NodeInstallPicker({
         )}
 
         {noNodes ? (
-          <div className="empty-state" style={{ padding: 'var(--spacing-xl) 0' }}>
+          <div className="empty-state">
             <div className="empty-state-icon"><i className="fas fa-server" /></div>
             <h3 className="empty-state-title">No backend nodes available</h3>
             <p className="empty-state-text">
@@ -486,8 +469,8 @@ export default function NodeInstallPicker({
         ) : (
           <>
             {/* Filter row */}
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-              <div className="search-bar" style={{ flex: 1, minWidth: 180 }}>
+            <div className="hstack mb-sm">
+              <div className="search-bar flex-1 min-w-180">
                 <i className="fas fa-search search-icon" />
                 <input
                   ref={headerInputRef}
@@ -512,20 +495,19 @@ export default function NodeInstallPicker({
 
             {/* Variant override (auto-resolving only) */}
             {backend.isMeta && concreteVariants.length > 0 && (
-              <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+              <div className="mb-sm">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="btn btn-ghost btn-sm pill-tiny"
                   onClick={() => setOverrideExpanded(v => !v)}
                   aria-expanded={overrideExpanded}
-                  style={{ padding: '4px 8px' }}
                 >
-                  <i className={`fas fa-chevron-${overrideExpanded ? 'down' : 'right'}`} style={{ marginRight: 4, fontSize: '0.625rem' }} />
+                  <i className={`fas fa-chevron-${overrideExpanded ? 'down' : 'right'} icon-before text-xs`} />
                   Override variant for selected nodes…
                 </button>
                 {overrideExpanded && (
-                  <div className="card" style={{ marginTop: 4, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 0, marginBottom: 'var(--spacing-xs)' }}>
+                  <div className="card mt-xs" style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                    <p className="text-xs text-secondary mt-0 mb-xs">
                       By default each node picks its own variant. Override to install one specific variant on every selected node — useful when GPU detection fails on a node and you want the CPU build there instead.
                     </p>
                     <SearchableSelect
@@ -541,11 +523,11 @@ export default function NodeInstallPicker({
             )}
 
             {/* Node table */}
-            <div className="table-container" style={{ marginBottom: 'var(--spacing-sm)', maxHeight: '40vh', overflowY: 'auto' }}>
-              <table className="table" style={{ margin: 0 }}>
+            <div className="table-container nip-scroll mb-sm">
+              <table className="table m-0">
                 <thead>
                   <tr>
-                    <th style={{ width: 28 }}>
+                    <th className="w-28">
                       <input
                         type="checkbox"
                         aria-label="Select all visible"
@@ -591,18 +573,15 @@ export default function NodeInstallPicker({
                           />
                         </td>
                         <td>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontWeight: 500, fontSize: '0.875rem' }}>{node.name}</span>
+                          <div className="stack stack--xs">
+                            <span className="text-base fw-medium">{node.name}</span>
                             {node.labels && Object.keys(node.labels).length > 0 && (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                              <div className="nip-labels">
                                 {Object.entries(node.labels).slice(0, 3).map(([k, v]) => (
-                                  <span key={k} className="cell-mono" style={{
-                                    padding: '1px 5px', borderRadius: 'var(--radius-sm)', fontSize: '0.6875rem',
-                                    background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-subtle)',
-                                  }}>{k}={v}</span>
+                                  <span key={k} className="cell-mono nip-label">{k}={v}</span>
                                 ))}
                                 {Object.keys(node.labels).length > 3 && (
-                                  <span className="cell-muted" style={{ fontSize: '0.6875rem' }}>
+                                  <span className="cell-muted text-xs">
                                     +{Object.keys(node.labels).length - 3}
                                   </span>
                                 )}
@@ -611,13 +590,13 @@ export default function NodeInstallPicker({
                           </div>
                         </td>
                         <td>
-                          <span style={{ fontSize: '0.8125rem' }}>
+                          <span className="text-sm">
                             {STATUS_LABELS[node.status] || node.status}
                           </span>
                         </td>
-                        <td style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                        <td className="cell-mono text-secondary">
                           {totalVRAM ? (
-                            <>{vendor && <span style={{ marginRight: 4 }}>{vendor}</span>}{totalVRAM}</>
+                            <>{vendor && <span className="icon-before">{vendor}</span>}{totalVRAM}</>
                           ) : totalRAM ? (
                             <span>CPU · {totalRAM}</span>
                           ) : <span className="cell-muted">—</span>}
@@ -625,11 +604,11 @@ export default function NodeInstallPicker({
                         <td>
                           {rowState?.status === 'installing' ? (
                             <span className="badge badge-info">
-                              <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }} />Installing
+                              <i className="fas fa-spinner fa-spin icon-before" />Installing
                             </span>
                           ) : rowState?.status === 'done' ? (
                             <span className="badge badge-success">
-                              <i className="fas fa-check" style={{ marginRight: 4 }} />Installed
+                              <i className="fas fa-check icon-before" />Installed
                             </span>
                           ) : rowState?.status === 'error' ? (
                             <button
@@ -637,21 +616,21 @@ export default function NodeInstallPicker({
                               className="badge badge-error"
                               title={rowState.error}
                               aria-describedby={`err-${node.id}`}
-                              style={{ border: 'none', cursor: 'help' }}
+                              className="btn-help"
                             >
-                              <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }} />Failed
-                              <span id={`err-${node.id}`} style={{ position: 'absolute', left: -9999 }}>{rowState.error}</span>
+                              <i className="fas fa-exclamation-triangle icon-before" />Failed
+                              <span id={`err-${node.id}`} className="sr-offscreen">{rowState.error}</span>
                             </button>
                           ) : suit === 'installed' ? (
-                            <span className="badge" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                            <span className="badge chip-neutral">
                               Installed
                             </span>
                           ) : suit === 'override' ? (
                             <span className="badge badge-warning">
-                              <i className="fas fa-exclamation-circle" style={{ marginRight: 4 }} />Override
+                              <i className="fas fa-exclamation-circle icon-before" />Override
                             </span>
                           ) : (
-                            <span className="badge badge-success" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)' }}>
+                            <span className="badge badge-success badge-success--soft">
                               Compatible
                             </span>
                           )}
@@ -661,7 +640,7 @@ export default function NodeInstallPicker({
                   })}
                   {filteredNodes.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: 'var(--spacing-md)', color: 'var(--color-text-muted)' }}>
+                      <td colSpan={5} className="inline-empty">
                         No nodes match the current filters.
                       </td>
                     </tr>
@@ -671,29 +650,22 @@ export default function NodeInstallPicker({
             </div>
 
             {pendingCount > 0 && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 0, marginBottom: 'var(--spacing-sm)' }}>
-                +{pendingCount} awaiting approval — <a href="/app/nodes" style={{ color: 'var(--color-primary)' }}>approve from Nodes</a>.
+              <p className="text-meta mt-0 mb-sm">
+                +{pendingCount} awaiting approval — <a href="/app/nodes" className="text-primary">approve from Nodes</a>.
               </p>
             )}
 
             {/* Mismatch confirm */}
             {showMismatchConfirm && (
-              <div className="card" style={{
-                marginBottom: 'var(--spacing-sm)',
-                padding: 'var(--spacing-md)',
-                background: 'var(--color-warning-light)',
-                border: '1px solid var(--color-warning-border)',
-                borderRadius: 'var(--radius-md)',
-              }}>
-                <p style={{ marginTop: 0, marginBottom: 'var(--spacing-sm)', color: 'var(--color-warning)', fontSize: '0.875rem' }}>
+              <div className="card nip-warn nip-warn--block mb-sm">
+                <p className="text-base text-warning mt-0 mb-sm">
                   Installing {targetLabel.toLowerCase()} on {counts.overrides} node{counts.overrides === 1 ? '' : 's'} that don't match. Those nodes will run inference on the chosen build, not their native GPU. Continue?
                 </p>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                <div className="hstack hstack--end">
                   <button className="btn btn-secondary btn-sm" type="button" onClick={() => setShowMismatchConfirm(false)}>
                     Cancel
                   </button>
-                  <button className="btn btn-primary btn-sm" type="button" onClick={submit}
-                    style={{ background: 'var(--color-warning)', borderColor: 'var(--color-warning)' }}>
+                  <button className="btn btn-primary btn-sm btn--warning" type="button" onClick={submit}>
                     Install on {targetLabel.replace(' build', '')}
                   </button>
                 </div>
@@ -704,20 +676,13 @@ export default function NodeInstallPicker({
       </div>
 
       {!noNodes && (
-        <div style={{
-          padding: 'var(--spacing-md) var(--spacing-lg)',
-          borderTop: '1px solid var(--color-border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--spacing-sm)',
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ flex: 1, fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+        <div className="nip-bar nip-bar--foot">
+          <div className="flex-1 text-sub">
             {totalAttempted > 0 ? (
               <>
                 {doneCount} of {totalAttempted} done
                 {errorCount > 0 && (
-                  <> · <span className="badge badge-error" style={{ fontSize: '0.6875rem' }}>{errorCount} failed</span></>
+                  <> · <span className="badge badge-error text-xs">{errorCount} failed</span></>
                 )}
               </>
             ) : (

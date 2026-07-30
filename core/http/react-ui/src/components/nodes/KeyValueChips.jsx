@@ -66,22 +66,20 @@ export default function KeyValueChips({ pairs, onAdd, onRemove, placeholderKey =
       )}
       <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'stretch' }}>
         <input
-          className="input"
+          className="input flex-1"
           type="text"
           placeholder={placeholderKey}
           value={k}
           onChange={e => setK(e.target.value)}
           onKeyDown={onKeyDown}
-          style={{ flex: 1 }}
         />
         <input
-          className="input"
+          className="input flex-1"
           type="text"
           placeholder={placeholderValue}
           value={v}
           onChange={e => setV(e.target.value)}
           onKeyDown={onKeyDown}
-          style={{ flex: 1 }}
         />
         <button
           type="button"
