@@ -415,6 +415,13 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn detokenize(
+        &self,
+        _: Request<backend::DetokenizeRequest>,
+    ) -> Result<Response<backend::DetokenizeResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn detect(
         &self,
         _: Request<backend::DetectOptions>,

@@ -111,6 +111,7 @@ var RouteFeatureRegistry = []RouteFeature{
 
 	// Tokenize
 	{"POST", "/v1/tokenize", FeatureTokenize},
+	{"POST", "/v1/detokenize", FeatureTokenize},
 
 	// Rerank
 	{"POST", "/v1/rerank", FeatureRerank},
