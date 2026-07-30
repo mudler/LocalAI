@@ -3,7 +3,18 @@
   
   on:
     pull_request:
-  
+      # None of these seven image builds can observe a diff confined to these
+      # paths. Gallery metadata is parsed at runtime and never copied into an
+      # image; docs and markdown never enter one at all. Gallery content is
+      # still checked by yaml-check.yml and by
+      # core/gallery/variants_lint_test.go under 'tests'.
+      # See .agents/ci-caching.md.
+      paths-ignore:
+        - 'gallery/**'
+        - 'docs/**'
+        - 'examples/**'
+        - '**/*.md'
+
   concurrency:
     group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}

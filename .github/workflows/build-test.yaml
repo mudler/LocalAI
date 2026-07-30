@@ -5,6 +5,15 @@ on:
     branches:
       - master
   pull_request:
+    # GoReleaser and the darwin launcher take no gallery, docs or markdown
+    # input, so a diff confined to these paths cannot change either binary.
+    # The darwin job matters here: macOS is the scarcest runner class.
+    # See .agents/ci-caching.md.
+    paths-ignore:
+      - 'gallery/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '**/*.md'
 
 # Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
 # so every push to the same PR shares a group; on a master push the key falls

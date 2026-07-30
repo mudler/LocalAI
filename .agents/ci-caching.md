@@ -145,6 +145,36 @@ Checked against every proto commit in the preceding six months, all nine resolva
 
 The Sunday 06:00 UTC cron on `backend.yml` exists specifically because path filtering can leave Python backends frozen on stale wheels. `DEPS_REFRESH` (below) only fires when the build actually runs, so an untouched Python backend would never re-resolve its unpinned deps. The weekly cron is the safety net.
 
+## Content-blind PRs skip the workflows that cannot see them
+
+`backend_pr.yml` and `test-extra.yml` filter themselves (matrix generation and a `detect-changes` job), so a gallery-only or docs-only PR costs them about one job each. The Go and image workflows had no filter of any kind, so a one-line `gallery/index.yaml` edit queued 20 jobs, and a docs-only PR queued the same.
+
+This is worth more than it looks. Measured over the week to 2026-07-30, **97% of CI wall-clock is queueing, 3% is execution** (median queue ~5h against a 4-20min median job). Cutting job count is therefore the only lever that shortens feedback time; making individual jobs faster moves 3%.
+
+The volume is real: 13 gallery-only PRs merged that week with 10 open at once, and 78 of the 137 PRs opened were bot-generated.
+
+`paths-ignore` on the PR trigger of `image-pr.yml` (7 jobs), `build-test.yaml` (3), `lint.yml` (2) and `tests-e2e.yml` (1) drops 13 of those 20. The excluded set:
+
+| Path | Why no image or Go build can see it |
+|---|---|
+| `gallery/**` | Model-gallery metadata, parsed at runtime, never copied into an image |
+| `docs/**`, `examples/**`, `**/*.md` | Never enter an image or a binary. `lint.yml` already excluded these before gallery was added |
+
+What still runs, and why it has to:
+
+| Workflow | Why it keeps running |
+|---|---|
+| `test.yml` (`tests`) | `core/gallery/variants_lint_test.go` reads the real `gallery/index.yaml` and asserts the index invariants (no duplicate entry names, no build claimed by two parents). This is the only schema-level check the gallery has. |
+| `yaml-check.yml` (`Yamllint`) | Lints `gallery/` for syntax. |
+| `backend_pr.yml`, `test-extra.yml` | Already self-filtering; they stop after the detect step. |
+
+Two properties this relies on:
+
+- `paths-ignore` skips a run only when **every** changed file matches, so a PR touching the gallery *and* Go code still runs everything. That is what makes the exclusion safe rather than a hole.
+- `master` carries no branch protection and no rulesets, so a skipped workflow reports no status and nothing waits on it. If required status checks are ever introduced, these four entries must be excluded from the required set or PRs will hang on "Expected — Waiting for status to be reported".
+
+Deliberately **not** filtered: `image.yml` on master push still rebuilds all 18 container images for a gallery-only commit. Skipping it would mean the `master` and `latest` tags are not republished for that commit, which is a publishing-semantics decision rather than a pure cost one.
+
 ## The `DEPS_REFRESH` cache-buster (Python backends)
 
 Every Python backend goes through the shared `backend/Dockerfile.python`, which ends with:

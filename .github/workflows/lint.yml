@@ -8,6 +8,9 @@ on:
       - 'examples/**'
       - 'README.md'
       - '**/*.md'
+      # golangci-lint runs new-from-merge-base, so a diff with no touched Go
+      # lines can only ever be a no-op. See .agents/ci-caching.md.
+      - 'gallery/**'
   push:
     branches:
       - master
