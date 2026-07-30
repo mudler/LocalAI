@@ -92,6 +92,7 @@ var expectedFullCatalog = sortedStrings(
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
+	ToolListScheduling,
 	ToolListVoiceProfiles,
 	ToolLoadModel,
 	ToolReloadModels,
@@ -105,6 +106,9 @@ var expectedFullCatalog = sortedStrings(
 	ToolCreateVoiceProfile,
 	ToolDeleteVoiceProfile,
 	ToolSetNodeVRAMBudget,
+	ToolSetScheduling,
+	ToolDeleteScheduling,
+	ToolGetScheduling,
 )
 
 // expectedReadOnlyCatalog is the tool set when DisableMutating=true. Sorted.
@@ -123,6 +127,8 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListInstalledModels,
 	ToolListKnownBackends,
 	ToolListNodes,
+	ToolListScheduling,
+	ToolGetScheduling,
 	ToolListVoiceProfiles,
 	ToolSystemInfo,
 	ToolVRAMEstimate,
@@ -165,6 +171,10 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListKnownBackends, struct{}{}, "ListKnownBackends"},
 		{ToolSystemInfo, struct{}{}, "SystemInfo"},
 		{ToolListNodes, struct{}{}, "ListNodes"},
+		{ToolListScheduling, struct{}{}, "ListScheduling"},
+		{ToolGetScheduling, DeleteSchedulingRequest{ModelName: "qwen"}, "GetScheduling"},
+		{ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2}, "SetScheduling"},
+		{ToolDeleteScheduling, DeleteSchedulingRequest{ModelName: "qwen"}, "DeleteScheduling"},
 		{ToolListVoiceProfiles, struct{}{}, "ListVoiceProfiles"},
 		{ToolInstallModel, InstallModelRequest{ModelName: "test/foo"}, "InstallModel"},
 		{ToolImportModelURI, ImportModelURIRequest{URI: "Qwen/Qwen3-4B-GGUF"}, "ImportModelURI"},
@@ -219,6 +229,40 @@ var _ = Describe("Tool error surfacing", func() {
 	})
 })
 
+var _ = Describe("Scheduling tool behavior", func() {
+	It("round-trips list/get/set/delete over the MCP surface", func() {
+		fc := &fakeClient{
+			listScheduling: func() ([]ModelSchedulingConfig, error) {
+				return []ModelSchedulingConfig{{ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2}}, nil
+			},
+			getScheduling: func(modelName string) (*ModelSchedulingConfig, error) {
+				return &ModelSchedulingConfig{ModelName: modelName, SpreadAll: true}, nil
+			},
+			setScheduling: func(req SetSchedulingRequest) (*ModelSchedulingConfig, error) {
+				return &ModelSchedulingConfig{ModelName: req.ModelName, MinReplicas: req.MinReplicas, MaxReplicas: req.MaxReplicas}, nil
+			},
+		}
+		ctx, sess, done := connectInMemory(fc, Options{})
+		DeferCleanup(done)
+
+		listRes := callTool(ctx, sess, ToolListScheduling, struct{}{})
+		Expect(listRes.IsError).To(BeFalse(), resultText(listRes))
+		Expect(resultText(listRes)).To(ContainSubstring(`"model_name": "qwen"`))
+
+		getRes := callTool(ctx, sess, ToolGetScheduling, DeleteSchedulingRequest{ModelName: "qwen"})
+		Expect(getRes.IsError).To(BeFalse(), resultText(getRes))
+		Expect(resultText(getRes)).To(ContainSubstring(`"spread_all": true`))
+
+		setRes := callTool(ctx, sess, ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2})
+		Expect(setRes.IsError).To(BeFalse(), resultText(setRes))
+		Expect(resultText(setRes)).To(ContainSubstring(`"max_replicas": 2`))
+
+		deleteRes := callTool(ctx, sess, ToolDeleteScheduling, DeleteSchedulingRequest{ModelName: "qwen"})
+		Expect(deleteRes.IsError).To(BeFalse(), resultText(deleteRes))
+		Expect(resultText(deleteRes)).To(ContainSubstring(`"deleted": "qwen"`))
+	})
+})
+
 var _ = Describe("Argument validation", func() {
 	type validationCase struct {
 		desc string
@@ -235,6 +279,9 @@ var _ = Describe("Argument validation", func() {
 		{"toggle_model_state rejects unknown action", ToolToggleModelState, map[string]any{"name": "foo", "action": "noop"}, "action must be one of"},
 		{"edit_model_config rejects empty patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
 		{"create_voice_profile requires consent", ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Voice", Transcript: "words", AudioBase64: "UklGRg=="}, "consent_confirmed must be true"},
+		{"set_scheduling requires model_name", ToolSetScheduling, SetSchedulingRequest{}, "model_name is required"},
+		{"set_scheduling rejects invalid replica range", ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 3, MaxReplicas: 1}, "min_replicas must be <= max_replicas"},
+		{"delete_scheduling requires model_name", ToolDeleteScheduling, DeleteSchedulingRequest{}, "model_name is required"},
 	}
 
 	for _, c := range cases {
