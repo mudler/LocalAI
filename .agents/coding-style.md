@@ -70,3 +70,37 @@ The project documentation is located in `docs/content`. When adding new features
 - **Configuration**: If you modify configuration options, update the relevant sections in `docs/content/`.
 - **Examples**: providing concrete examples (like YAML configuration blocks) is highly encouraged to help users get started quickly.
 - **Shortcodes**: Use `{{% notice note %}}`, `{{% notice tip %}}`, or `{{% notice warning %}}` for callout boxes. Do **not** use `{{% alert %}}` — that shortcode does not exist in this project's Hugo theme and will break the docs build.
+
+## React UI styling
+
+The React UI ships a design system in `core/http/react-ui/src/App.css`: design
+tokens, form grids, data tables, stat cards, callouts, plus a small semantic
+primitive layer (`.stack`, `.hstack`, `.text-note`, `.text-meta`, `.tone-*`,
+`.icon-chip`). **Use it instead of `style={{ ... }}`.** Inline styles are a
+spacing or colour decision made in one file, so no two pages end up sharing a
+rhythm, which is the main reason the app reads as unfinished.
+
+Inline styles are still correct for values that are genuinely computed at
+runtime: `width: ${pct}%`, a data-driven `background`, a tooltip's coordinates.
+Everything else belongs in a class.
+
+A ratchet enforces this:
+
+```sh
+cd core/http/react-ui
+npm run lint:inline-styles          # fails if the count went UP
+npm run lint:inline-styles:report   # per-file counts, worst first
+npm run lint:inline-styles:write    # refresh the baseline after converting
+```
+
+The gate also fails on **duplicate `className` attributes on one element**. JSX
+keeps the last and silently drops the first, so `<i className={icon}
+className="text-xs" />` loses its icon while passing lint, the build and the e2e
+suite. Converting a style to a class on an element that already has a
+`className` is the usual way to introduce one; merge them into a single
+attribute instead.
+
+When converting a page, prefer naming the shapes it actually has
+(`.p2p-diagram`, `.usage-tile`) over adding more utilities, and check whether an
+existing block already covers it: the Nodes page reuses the P2P setup shapes,
+and Model Editor reuses the Settings section rail.
