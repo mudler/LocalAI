@@ -6,11 +6,18 @@ ARG UBUNTU_CODENAME=noble
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
 
+FROM ghcr.io/astral-sh/uv:0.8.22 AS uv
+
 FROM ${BASE_IMAGE} AS requirements
 
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Installed backends create their virtual environments at runtime, including in
+# minimal L4T images where neither system Python nor pip is available.
+COPY --from=uv /uv /uvx /usr/local/bin/
+RUN uv --version
 
 # hwdata ships /usr/share/hwdata/pci.ids. Without it, the ghw library we use
 # for hardware detection cannot resolve PCI vendor IDs and fails to enumerate
