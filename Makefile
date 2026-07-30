@@ -172,6 +172,15 @@ build-dev: ## Run LocalAI in dev mode with live reload
 dev-dist:
 	$(GORELEASER) build --snapshot --clean
 
+## PR-time variant of dev-dist: builds only the host platform instead of all
+## three release targets (linux/amd64, linux/arm64, darwin/arm64). The point of
+## running goreleaser on a PR is to catch a broken config or a broken
+## before-hook (protogen-go, react-ui, go mod tidy), and --single-target still
+## exercises every one of those. Nothing consumes a PR's cross-compiled
+## binaries. master pushes and tags still run the full dev-dist/dist.
+dev-dist-single:
+	$(GORELEASER) build --snapshot --clean --single-target
+
 dist:
 	$(GORELEASER) build --clean
 

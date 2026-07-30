@@ -259,9 +259,19 @@ Eviction is rarely needed in normal operation — `DEPS_REFRESH` handles weekly 
 
 ## What the cache does **not** cover
 
-- The `free-disk-space` and `setup-build-disk` composite actions run on every job — these reclaim runner-state, not Docker layers, so BuildKit caches don't apply.
+- The `free-disk-space` and `setup-build-disk` composite actions run on every job — these reclaim runner-state, not Docker layers, so BuildKit caches don't apply. `test.yml` deliberately does **not** use `free-disk-space`: it runs no buildx step, and the multi-GB fixture downloads that once justified it left `make test` in the test-suite reorg.
 - Intermediate artifacts of `Build (PR)` are not pushed anywhere — PRs only build for verification.
 - Darwin builds (see below) — macOS runners have no Docker daemon, so the registry-backed BuildKit cache cannot apply.
+
+### The Linux Go workflows set `cache: false` on purpose
+
+`test.yml`, `lint.yml`, `tests-e2e.yml` and friends pass `cache: false` to `actions/setup-go@v5`, unlike the darwin jobs. This looks like an oversight and is not.
+
+Measured over the week to 2026-07-30, the `Set up Go` step has a **median of 11 seconds** on these runners. There is essentially nothing to win: the module download is not where the time goes. The expensive steps are compilation and test execution (`Test (with coverage gate)` at ~18.6min, `Test Backend E2E` at ~14.5min), and Go's build cache would have to survive across runners to touch those.
+
+Enabling it also has a real cost. GitHub caps Actions cache at **10 GB per repo and the repo already sits at that ceiling** (31 entries), so every `setup-go` entry written by a branch with a distinct `go.sum` (222-375 MB on Linux, up to 1.4 GB on macOS) evicts something else. See the darwin cache budget below.
+
+Before re-enabling this, measure `Set up Go` again and confirm it has actually become slow. If room is needed in the 10 GB budget, the cheapest evictions are the `docker.io--tonistiigi--binfmt` entries (~30 MB each, trivially re-fetched).
 
 ## Darwin native caches
 
