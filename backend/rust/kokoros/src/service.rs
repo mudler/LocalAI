@@ -334,6 +334,13 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn generate3_d(
+        &self,
+        _: Request<backend::Generate3DRequest>,
+    ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn audio_transcription(
         &self,
         _: Request<backend::TranscriptRequest>,

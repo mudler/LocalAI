@@ -263,4 +263,64 @@ var _ = Describe("triggerResponse", func() {
 		Expect(done.Response.Usage.OutputTokens).To(Equal(3))
 		Expect(done.Response.Usage.TotalTokens).To(Equal(8))
 	})
+
+	// response.metadata is the only thing tying a terminal event back to the
+	// response.create that asked for it. Without the echo, a client running an
+	// out-of-band response alongside the spoken conversation cannot tell its own
+	// answer from the conversation's, and blocks until it times out.
+	It("echoes response.create metadata back on response.created and response.done", func() {
+		m := &fakeModel{
+			cfg:         &config.ModelConfig{},
+			predictResp: backend.LLMResponse{Response: "Hi there."},
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig:      &config.ModelConfig{},
+			OutputModalities: []types.Modality{types.ModalityText},
+		}
+		t := &fakeTransport{}
+
+		triggerResponse(context.Background(), session, &Conversation{}, t, &types.ResponseCreateParams{
+			Metadata: map[string]string{"client_run": "abc123"},
+		})
+
+		var created *types.ResponseCreatedEvent
+		var done *types.ResponseDoneEvent
+		for i := range t.events {
+			switch e := t.events[i].(type) {
+			case types.ResponseCreatedEvent:
+				created = &e
+			case types.ResponseDoneEvent:
+				done = &e
+			}
+		}
+		Expect(created).NotTo(BeNil())
+		Expect(created.Response.Metadata).To(HaveKeyWithValue("client_run", "abc123"))
+		Expect(done).NotTo(BeNil())
+		Expect(done.Response.Metadata).To(HaveKeyWithValue("client_run", "abc123"))
+	})
+
+	// Omitted rather than sent as an empty object, matching the omitempty tag.
+	It("sends no metadata when response.create carried none", func() {
+		m := &fakeModel{
+			cfg:         &config.ModelConfig{},
+			predictResp: backend.LLMResponse{Response: "Hi there."},
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig:      &config.ModelConfig{},
+			OutputModalities: []types.Modality{types.ModalityText},
+		}
+		t := &fakeTransport{}
+
+		triggerResponse(context.Background(), session, &Conversation{}, t, nil)
+
+		for i := range t.events {
+			if d, ok := t.events[i].(types.ResponseDoneEvent); ok {
+				Expect(d.Response.Metadata).To(BeEmpty())
+			}
+		}
+	})
 })

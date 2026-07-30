@@ -122,7 +122,7 @@ The per-backend prefix match only sees files under a backend's own directory, so
 
 | Changed path | Rebuilds |
 |---|---|
-| `backend/backend.proto` | everything (all languages compile or copy it) |
+| `backend/backend.proto` | nothing if the edit is additive-only, otherwise everything (see below) |
 | `backend/Dockerfile.<x>` | the Linux entries whose `dockerfile:` names it |
 | `backend/python/common/` | Python, Linux + Darwin |
 | `scripts/build/package-gpu-libs.sh` | Python, Linux only |
@@ -131,6 +131,17 @@ The per-backend prefix match only sees files under a backend's own directory, so
 | anything else under `scripts/build/` (except `*_test.sh`) | everything — conservative default for unclassified packaging inputs |
 
 Deliberately excluded: `backend/index.yaml` (gallery metadata, never enters an image), `.github/backend-matrix.yml` (adding a backend would rebuild all of them), `backend/Dockerfile.base-grpc-builder` (owned by `base-images.yml`), and the root `Makefile` (touched in ~11% of commits, and its backend-relevant edits arrive alongside the backend directory anyway). `make test-ci-scripts` pins all of this.
+
+#### `backend/backend.proto` is content-filtered, not path-filtered
+
+Every language consumes the proto, so a path rule for it can only ever say "rebuild all 473 images". It changes in ~1.3% of commits, and that was enough to make it the single largest CI cost driver in the repo: on 2026-07-29 four runs totalling 935 queued jobs traced to nothing but a proto edit, one of which (#11158) was a six-line diff adding `bool cache_prompt = 8;`.
+
+An additive proto edit cannot change how a backend that never references the new symbol behaves, so `filterMatrix()` suppresses the rule for one. `changed-backends.js` fetches `backend/backend.proto` at the base revision (same contents-API pattern as `.github/backend-matrix.yml`) and hands both texts to `protoChangeIsAdditive()`, which compares them structurally rather than textually:
+
+- **Additive, rebuilds nothing**: a new field with an unused number, a new message, a new enum value, a new RPC. Comment, whitespace and ordering changes also land here.
+- **Breaking, rebuilds everything**: a removed, renumbered, retyped or renamed field, a dropped RPC, a changed `option` or `package`. So does an unresolvable base revision, matching the run-all posture used for a truncated diff.
+
+Checked against every proto commit in the preceding six months, all nine resolvable ones classify as additive. Note the tradeoff this accepts: generated stubs do change for an additive edit, so image bytes would differ on a rebuild even though behavior does not. That is the same standard already applied when the filter declines to rebuild on unrelated `pkg/` changes, and the weekly cron remains the backstop.
 
 The Sunday 06:00 UTC cron on `backend.yml` exists specifically because path filtering can leave Python backends frozen on stale wheels. `DEPS_REFRESH` (below) only fires when the build actually runs, so an untouched Python backend would never re-resolve its unpinned deps. The weekly cron is the safety net.
 

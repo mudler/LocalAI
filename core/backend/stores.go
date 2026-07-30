@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/store"
 )
@@ -23,21 +24,25 @@ type VectorStore interface {
 
 // NewVectorStore returns a VectorStore backed by the local-store
 // gRPC backend, namespaced by storeName so two routers don't collide.
-func NewVectorStore(loader *model.ModelLoader, appConfig *config.ApplicationConfig, storeName string) VectorStore {
+// cl resolves the per-store model config (backend + options); it may be nil,
+// in which case the store falls back to the default backend and its built-in
+// defaults.
+func NewVectorStore(loader *model.ModelLoader, appConfig *config.ApplicationConfig, cl *config.ModelConfigLoader, storeName string) VectorStore {
 	if storeName == "" {
 		return nil
 	}
-	return &localVectorStore{loader: loader, appConfig: appConfig, storeName: storeName}
+	return &localVectorStore{loader: loader, appConfig: appConfig, cl: cl, storeName: storeName}
 }
 
 type localVectorStore struct {
 	loader    *model.ModelLoader
 	appConfig *config.ApplicationConfig
+	cl        *config.ModelConfigLoader
 	storeName string
 }
 
 func (s *localVectorStore) backend(_ context.Context) (grpc.Backend, error) {
-	return StoreBackend(s.loader, s.appConfig, s.storeName, "")
+	return StoreBackend(s.loader, s.appConfig, s.cl, s.storeName, "")
 }
 
 func (s *localVectorStore) Search(ctx context.Context, vec []float32) (sim float64, payload []byte, ok bool, err error) {
@@ -121,7 +126,24 @@ func (s *localVectorStore) recordTrace(start time.Time, op string, vecDim int, s
 	})
 }
 
-func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, storeName string, backend string) (grpc.Backend, error) {
+func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, cl *config.ModelConfigLoader, storeName string, backend string) (grpc.Backend, error) {
+	// Resolve the per-store model config (keyed by the store namespace, which
+	// is the model ID for a store). This is the LocalAI-native config surface:
+	// a store's backend selection and its backend-specific settings live in a
+	// model YAML's `backend:` and `options:` fields, so different stores can
+	// point at different servers/indexes. When no config exists for the store,
+	// we fall back to the default backend and let the backend apply its own
+	// built-in defaults — preserving the zero-config experience.
+	var loadOpts []string
+	if cl != nil {
+		if cfg, ok := cl.GetModelConfig(storeName); ok {
+			if backend == "" {
+				backend = cfg.Backend
+			}
+			loadOpts = cfg.Options
+		}
+	}
+
 	if backend == "" {
 		backend = model.LocalStoreBackend
 	}
@@ -143,6 +165,13 @@ func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, st
 		model.WithBackendString(backend),
 		model.WithModelID(storeName),
 		model.WithModel(store.NamespacePrefix + storeName),
+	}
+
+	// Thread the store's configured options through to the backend's LoadModel
+	// via ModelOptions.Options (field 62). The loader clones these opts and
+	// overrides only Model/ModelFile, so the namespace set above is preserved.
+	if len(loadOpts) > 0 {
+		sc = append(sc, model.WithLoadGRPCLoadModelOpts(&pb.ModelOptions{Options: loadOpts}))
 	}
 
 	return sl.Load(sc...)

@@ -50,6 +50,12 @@ export function inferBackendPath(item) {
   if (item.backend === "magpie-tts-cpp") {
     return `backend/go/magpie-tts-cpp/`;
   }
+  // trellis2cpp is a Go backend (Dockerfile.golang) wrapping the trellis2.cpp
+  // ggml port via purego, living in backend/go/trellis2cpp/. Keep the mapping
+  // explicit so a future dockerfile-suffix change cannot break path filtering.
+  if (item.backend === "trellis2cpp") {
+    return `backend/go/trellis2cpp/`;
+  }
   if (item.dockerfile.endsWith("golang")) {
     return `backend/go/${item.backend}/`;
   }
@@ -178,6 +184,126 @@ const GO_BACKEND_PKG_PREFIXES = [
   "pkg/utils/",
 ];
 
+export const BACKEND_PROTO_FILE = "backend/backend.proto";
+const PROTO_RULE_ID = "backend-proto";
+
+// Split a .proto into a map of symbol -> fingerprint so two revisions can be
+// compared structurally instead of textually. A comment reflow, a reindent or a
+// reordered field must not read as a change, and a renumbered or retyped field
+// must.
+//
+// The scanner is deliberately syntax-light: it tracks brace depth to build a
+// container path and records one entry per declaration (`message`, `enum`,
+// `service`, `oneof`, `rpc`) and one per statement (fields, enum values,
+// `option`, `reserved`). It never needs to understand types, only to notice
+// when the text describing one stops being identical.
+function protoSymbols(text) {
+  const symbols = new Map();
+  const stack = [];
+  const norm = s => s.trim().replace(/\s+/g, " ");
+
+  // A declaration is identified by its kind and name, so that changing its body
+  // shows up as changed members rather than as a wholesale replacement.
+  const declKey = header => {
+    const rpc = header.match(/^rpc\s+([A-Za-z_]\w*)/);
+    if (rpc) return `rpc ${rpc[1]}`;
+    const decl = header.match(/^(message|enum|service|oneof|extend)\s+([A-Za-z_]\w*)/);
+    if (decl) return `${decl[1]} ${decl[2]}`;
+    return header;
+  };
+
+  // `bool cache_prompt = 8` is identified by `cache_prompt`, so renumbering or
+  // retyping it changes the fingerprint under a stable key, while renaming it
+  // reads as a removal plus an addition. Statements with no `=` (`reserved 4;`)
+  // are their own identity.
+  const stmtKey = stmt => {
+    const eq = stmt.indexOf("=");
+    if (eq === -1) return stmt;
+    const lhs = norm(stmt.slice(0, eq)).split(" ");
+    return lhs[lhs.length - 1] || stmt;
+  };
+
+  let buf = "";
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+
+    // String literals first: `option go_package = "github.com/..."` contains a
+    // `//` that is not a comment.
+    if (c === '"' || c === "'") {
+      buf += c;
+      i++;
+      while (i < text.length) {
+        if (text[i] === "\\") {
+          buf += text.slice(i, i + 2);
+          i += 2;
+          continue;
+        }
+        buf += text[i];
+        i++;
+        if (text[i - 1] === c) break;
+      }
+      continue;
+    }
+    if (c === "/" && text[i + 1] === "/") {
+      while (i < text.length && text[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && text[i + 1] === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    if (c === "{") {
+      const header = norm(buf);
+      buf = "";
+      i++;
+      const key = header ? declKey(header) : "";
+      if (header) symbols.set(`${stack.join("/")}|${key}`, header);
+      stack.push(key);
+      continue;
+    }
+    if (c === "}") {
+      stack.pop();
+      buf = "";
+      i++;
+      continue;
+    }
+    if (c === ";") {
+      const stmt = norm(buf);
+      buf = "";
+      i++;
+      if (stmt) symbols.set(`${stack.join("/")}|${stmtKey(stmt)}`, stmt);
+      continue;
+    }
+    buf += c;
+    i++;
+  }
+  return symbols;
+}
+
+// True when every symbol the previous revision declared survives unchanged into
+// the current one. New symbols are free: a backend that never references a new
+// field, message or RPC produces the same behavior with or without it, so its
+// image does not need rebuilding.
+//
+// Anything else (a removed, renumbered, retyped or renamed field, a dropped
+// RPC, a changed option) is treated as breaking and rebuilds the full matrix.
+// Either text being unresolvable is breaking too, matching the run-all posture
+// changed-backends.js takes for a diff it cannot compute.
+export function protoChangeIsAdditive(previousText, currentText) {
+  if (typeof previousText !== "string" || typeof currentText !== "string") {
+    return false;
+  }
+  const before = protoSymbols(previousText);
+  const after = protoSymbols(currentText);
+  for (const [key, fingerprint] of before) {
+    if (after.get(key) !== fingerprint) return false;
+  }
+  return true;
+}
+
 // Shared build inputs: files that end up in, or decide the contents of, images
 // belonging to backends whose own directory they do not live under. The
 // per-backend prefix match in filterMatrix() structurally cannot see these, so
@@ -200,7 +326,14 @@ export const SHARED_BUILD_INPUTS = [
     // backends regenerate their stubs from it via `make protogen-go`, the C++
     // CMakeLists compile backend.pb.cc from it, and the Rust crate Makefile
     // copies it in before build.rs runs.
-    matches: file => file === "backend/backend.proto",
+    //
+    // Which is why this rule is always/always, and why it is the single most
+    // expensive entry in the table: 417 Linux plus 56 Darwin builds. It fires
+    // on 1.3% of commits (10 of 767 over six months), and every one of those
+    // ten was purely additive. filterMatrix() suppresses this rule for an
+    // additive-only diff, so `id` exists to identify it there.
+    id: PROTO_RULE_ID,
+    matches: file => file === BACKEND_PROTO_FILE,
     linux: always,
     darwin: always,
   },
@@ -362,8 +495,19 @@ export function filterMatrix({
   includesDarwin,
   changedFiles,
   previousMatrix,
+  protoRevisions,
 }) {
-  const sharedRules = matchedSharedRules(changedFiles);
+  // An additive-only backend.proto edit invalidates no existing image, so drop
+  // its always/always rule. Every other matched rule still applies: a PR that
+  // touches the proto and scripts/build/ is still a full rebuild.
+  const protoAdditiveOnly =
+    changedFiles.includes(BACKEND_PROTO_FILE) &&
+    !!protoRevisions &&
+    protoChangeIsAdditive(protoRevisions.previous, protoRevisions.current);
+
+  const sharedRules = matchedSharedRules(changedFiles).filter(
+    rule => !(rule.id === PROTO_RULE_ID && protoAdditiveOnly)
+  );
 
   const matrixFileChanged = changedFiles.includes(BACKEND_MATRIX_FILE);
   // The matrix file changed but we could not resolve what it used to say (API
