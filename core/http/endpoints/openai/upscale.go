@@ -24,11 +24,11 @@ import (
 // UpscaleEndpoint handles POST /v1/images/upscale
 //
 // @Summary      Image upscaling
-// @Description  Upscale an image using a specified model (e.g. realesrgan). Accepts multipart/form-data.
+// @Description  Upscale an image using a specified model (e.g. stable-diffusion-x4-upscaler). Accepts multipart/form-data.
 // @Tags         images
 // @Accept       multipart/form-data
 // @Produce      application/json
-// @Param        model   formData  string  true   "Upscaler model identifier (e.g. realesrgan)"
+// @Param        model   formData  string  true   "Upscaler model identifier (e.g. stable-diffusion-x4-upscaler)"
 // @Param        image   formData  file    true   "Input image file"
 // @Param        scale   formData  int     false  "Upscale factor: 2 or 4 (default 2)"
 // @Success      200 {object} schema.OpenAIResponse
@@ -47,9 +47,11 @@ func UpscaleEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 
 		scale := 2
 		if scaleStr != "" {
-			if v, err := strconv.Atoi(scaleStr); err == nil && (v == 2 || v == 4) {
-				scale = v
+			v, err := strconv.Atoi(scaleStr)
+			if err != nil || (v != 2 && v != 4) {
+				return echo.NewHTTPError(http.StatusBadRequest, "scale must be 2 or 4")
 			}
+			scale = v
 		}
 
 		// Read uploaded image
@@ -76,7 +78,7 @@ func UpscaleEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 			return echo.ErrBadRequest
 		}
 
-		tmpDir := appConfig.GeneratedContentDir
+		tmpDir := filepath.Join(appConfig.GeneratedContentDir, "images")
 		if err := os.MkdirAll(tmpDir, 0750); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to prepare storage")
 		}
@@ -100,9 +102,6 @@ func UpscaleEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 		// Prepare output file path
 		id := uuid.New().String()
 		dstPath := filepath.Join(tmpDir, fmt.Sprintf("upscale_%s.png", id))
-		defer func() {
-			// Only remove on error; success path keeps the file for serving
-		}()
 
 		fn, err := backend.ImageUpscaleFunc(c.Request().Context(), srcPath, dstPath, scale, ml, *cfg, appConfig)
 		if err != nil {

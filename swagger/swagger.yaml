@@ -3968,7 +3968,8 @@ paths:
         in: formData
         name: response_format
         type: string
-      - description: desired output sample rate
+      - description: desired output sample rate in Hz; omit for the backend's own
+          rate, otherwise 8000-192000
         in: formData
         name: sample_rate
         type: integer
@@ -4012,7 +4013,8 @@ paths:
         in: formData
         name: response_format
         type: string
-      - description: desired output sample rate
+      - description: desired output sample rate in Hz; omit for the backend's own
+          rate, otherwise 8000-192000
         in: formData
         name: sample_rate
         type: integer
@@ -4820,6 +4822,49 @@ paths:
               type: string
             type: object
       summary: Image inpainting
+      tags:
+      - images
+  /v1/images/upscale:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upscale an image using a specified model (e.g. stable-diffusion-x4-upscaler).
+        Accepts multipart/form-data.
+      parameters:
+      - description: Upscaler model identifier (e.g. stable-diffusion-x4-upscaler)
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: Input image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: 'Upscale factor: 2 or 4 (default 2)'
+        in: formData
+        name: scale
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Image upscaling
       tags:
       - images
   /v1/mcp/chat/completions:
