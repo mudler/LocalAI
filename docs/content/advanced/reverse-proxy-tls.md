@@ -108,24 +108,47 @@ server {
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
     
-    # Set the X-Forwarded-Proto header
-    proxy_set_header X-Forwarded-Proto $scheme;
-    
-    # Pass the original host
-    proxy_set_header X-Forwarded-Host $host;
-    
-    # If serving under a sub-path
-    # proxy_set_header X-Forwarded-Prefix /localai;
-    
-    # Other proxy settings
-    proxy_pass http://127.0.0.1:8080;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_cache_bypass $http_upgrade;
+    # Allow multimodal requests with images or other large inputs.
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        # Set the externally visible scheme and host.
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Host $host;
+
+        # If serving under a sub-path
+        # proxy_set_header X-Forwarded-Prefix /localai;
+
+        # Local inference can take much longer than common proxy defaults.
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60m;
+        proxy_read_timeout 60m;
+
+        # Stream responses as LocalAI emits them. Disabling request buffering is
+        # optional and can help when clients upload large multimodal inputs.
+        proxy_buffering off;
+        proxy_request_buffering off;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_cache_bypass $http_upgrade;
+    }
 }
 ```
+
+Adjust the `60m` values for the slowest request you expect to serve. The
+important setting for long non-streaming requests is `proxy_read_timeout`: if
+the proxy stops waiting before LocalAI finishes, clients receive a proxy-generated
+`504 Gateway Time-out` even though inference may still be running. OpenResty,
+Nginx Proxy Manager, Caddy, Traefik, and HAProxy have equivalent upstream
+response timeout settings.
+
+For bulk jobs on a trusted private network, you can also bypass the public
+reverse proxy and connect directly to LocalAI.
 
 ## Serving Under a Sub-Path
 
@@ -164,6 +187,19 @@ proxy_set_header X-Forwarded-Prefix /localai;
 
 - Check that your proxy is not adding duplicate headers
 - Verify `X-Forwarded-Proto` is not being set to both `http` and `https`
+
+### 504 Gateway Time-out During Inference
+
+An HTML `504 Gateway Time-out` page branded by Nginx or OpenResty means the
+reverse proxy stopped waiting for LocalAI. Increase the proxy's upstream read
+and send timeouts beyond the worst-case inference time. Also check its request
+body limit when sending images, audio, or other large inputs.
+
+This is separate from LocalAI's optional busy watchdog. If busy watchdog checks
+are enabled, set `LOCALAI_WATCHDOG_BUSY_TIMEOUT` beyond the longest expected
+request or disable the busy check for workloads that legitimately run longer.
+The default busy timeout is 5 minutes, but it is only enforced when the busy
+watchdog is enabled.
 
 ## Security Note
 
