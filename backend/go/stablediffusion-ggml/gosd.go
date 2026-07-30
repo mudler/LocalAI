@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -18,6 +19,7 @@ type SDGGML struct {
 	threads      int
 	sampleMethod string
 	cfgScale     float32
+	vaeTiling    vaeTiling
 }
 
 var (
@@ -42,6 +44,62 @@ var (
 	VidGenParamsSetSeed        func(params uintptr, seed int64)
 	VidGenParamsSetVideoFrames func(params uintptr, n int)
 )
+
+type vaeTiling struct {
+	enabled       bool
+	tileSizeX     int
+	tileSizeY     int
+	hasTileSize   bool
+	targetOverlap float32
+	hasOverlap    bool
+}
+
+func parseVAETiling(options []string) vaeTiling {
+	var t vaeTiling
+	for _, op := range options {
+		name, value, hasValue := strings.Cut(op, ":")
+		switch name {
+		case "vae_tiling":
+			// A bare flag reads as "on", matching "diffusion_model". The truthy
+			// spellings are the ones load_model already accepts for its own
+			// bool options, so an author does not have to remember two
+			// conventions.
+			t.enabled = !hasValue || value == "true" || value == "1"
+		case "vae_tile_size":
+			if x, y, ok := parseTileSize(value); ok {
+				t.tileSizeX, t.tileSizeY, t.hasTileSize = x, y, true
+			}
+		case "vae_tile_overlap":
+			if f, err := strconv.ParseFloat(value, 32); err == nil && f >= 0 {
+				t.targetOverlap, t.hasOverlap = float32(f), true
+			}
+		}
+	}
+	return t
+}
+
+// parseTileSize accepts "512" for a square tile and "512x384" for a
+// rectangular one.
+//
+// A value it cannot make sense of is reported as absent rather than as a zero.
+// The caller only calls the upstream setter when a size was given, so a typo
+// leaves the library's own default in place instead of installing a degenerate
+// tiling that would fail at generation time.
+func parseTileSize(value string) (int, int, bool) {
+	xs, ys, split := strings.Cut(value, "x")
+	if !split {
+		ys = xs
+	}
+	x, err := strconv.Atoi(xs)
+	if err != nil || x <= 0 {
+		return 0, 0, false
+	}
+	y, err := strconv.Atoi(ys)
+	if err != nil || y <= 0 {
+		return 0, 0, false
+	}
+	return x, y, true
+}
 
 // Copied from Purego internal/strings
 // TODO: We should upstream sending []string
@@ -100,6 +158,9 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	}
 
 	sd.cfgScale = opts.CFGScale
+	// Read from the unfiltered list: none of the tiling options name a path, so
+	// the resolution pass above neither rewrites nor drops them.
+	sd.vaeTiling = parseVAETiling(opts.Options)
 
 	ret := LoadModel(modelFile, modelPathC, options, opts.Threads, diffusionModel)
 	runtime.KeepAlive(keepAlive)
@@ -148,8 +209,22 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	ImgGenParamsSetPrompts(p, t, negative)
 	ImgGenParamsSetDimensions(p, int(opts.Width), int(opts.Height))
 	ImgGenParamsSetSeed(p, int64(opts.Seed))
+	// Tiling decodes the latent in overlapping tiles, so the VAE compute buffer
+	// scales with the tile rather than with the image. That is the difference
+	// between working and failing on any device that caps a single allocation
+	// (RADV reports a 4GiB maxMemoryAllocationSize, for one) or that simply
+	// does not have the VRAM for a full-frame decode at high resolution.
+	//
+	// Only the setters the operator configured are called, so an unset tile
+	// size or overlap keeps the library's own default.
 	vaep := ImgGenParamsGetVaeTilingParams(p)
-	TilingParamsSetEnabled(vaep, false)
+	TilingParamsSetEnabled(vaep, sd.vaeTiling.enabled)
+	if sd.vaeTiling.hasTileSize {
+		TilingParamsSetTileSizes(vaep, sd.vaeTiling.tileSizeX, sd.vaeTiling.tileSizeY)
+	}
+	if sd.vaeTiling.hasOverlap {
+		TilingParamsSetTargetOverlap(vaep, sd.vaeTiling.targetOverlap)
+	}
 
 	ret := GenImage(p, int(opts.Step), dst, sd.cfgScale, srcImage, strength, maskImage, refImages, refImagesCount)
 	runtime.KeepAlive(keepAlive)

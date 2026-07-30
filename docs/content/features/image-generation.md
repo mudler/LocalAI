@@ -107,6 +107,34 @@ options:
 `vae_decode_only` is still accepted for backwards compatibility but is now a no-op: upstream removed the flag and the model decides automatically.
 {{% /notice %}}
 
+#### VAE tiling
+
+Sampling runs in a small latent space, but the final VAE decode expands it to full resolution and needs one large compute buffer. At 1024x1024 that buffer can exceed 8 GB, which is enough to fail on a GPU that has plenty of memory overall:
+
+```
+ggml_vulkan: Requested buffer size exceeds device buffer size limit: ErrorOutOfDeviceMemory
+[ERROR] vae: failed to allocate the compute buffer
+[ERROR] stable-diffusion.cpp - decode_first_stage failed for latent 1
+```
+
+Tiling decodes the latent in overlapping tiles, so peak memory scales with the tile instead of the image. It costs a little time and can leave faint seams, so it is off unless you ask for it.
+
+| Option | Example | Description |
+|--------|---------|-------------|
+| `vae_tiling` | `vae_tiling:true` | Enable tiled VAE decoding. The bare form `vae_tiling` also works. |
+| `vae_tile_size` | `vae_tile_size:512` or `vae_tile_size:512x384` | Tile dimensions in pixels. One number means a square tile. Omit to use the upstream default. |
+| `vae_tile_overlap` | `vae_tile_overlap:0.25` | Overlap between neighbouring tiles. More overlap hides seams better and costs more time. Omit to use the upstream default. |
+
+```yaml
+options:
+- "diffusion_model"
+- "sampler:euler"
+- "vae_tiling:true"
+- "vae_tile_size:512"
+```
+
+Reach for this when the decode fails but sampling completed, which the backend log shows as `sampling completed` followed by a VAE allocation error. Two cases hit it: cards without the VRAM for a full-frame decode, and drivers that cap a single allocation regardless of free memory (Mesa RADV reports a 4 GiB `maxMemoryAllocationSize`, so a large decode fails there even with tens of GB free). Lowering the output resolution avoids it too, at the cost of the resolution.
+
 #### Distributed inference (RPC workers)
 
 The `stablediffusion-ggml` backend can offload computation to remote `ggml` RPC workers, sharding a model that does not fit on a single machine. It reuses the **same backend-agnostic `rpc-server` workers as the llama.cpp backend**, so one worker pool can serve both.
