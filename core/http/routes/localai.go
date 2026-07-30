@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -193,10 +194,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 
 	// Stores
-	router.POST("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
-	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
-	router.POST("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
-	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
+	router.POST("/stores/set", localai.StoresSetEndpoint(ml, cl, appConfig))
+	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, cl, appConfig))
+	router.POST("/stores/get", localai.StoresGetEndpoint(ml, cl, appConfig))
+	router.POST("/stores/find", localai.StoresFindEndpoint(ml, cl, appConfig))
 
 	if !appConfig.DisableMetrics {
 		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
@@ -207,6 +208,17 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		videoHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
+
+	model3dHandler := localai.Model3DEndpoint(cl, ml, appConfig)
+	router.POST("/3d/generations",
+		model3dHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DRequest) }))
+	router.POST("/3d/remesh",
+		localai.Model3DRemeshEndpoint(ml, appConfig),
+		echomiddleware.BodyLimit("513M"),
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DRemeshRequest) }))
 
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
@@ -333,6 +345,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"voice_profiles": "/api/voice-profiles",
 					"vad":            "/vad",
 					"video":          "/video",
+					"3d_generation":  "/3d/generations",
 					"detection":      "/v1/detection",
 					"tokenize":       "/v1/tokenize",
 				},

@@ -165,6 +165,18 @@ func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest)
 	return &pb.Result{Message: "Video generated", Success: true}, nil
 }
 
+func (s *server) Generate3D(ctx context.Context, in *pb.Generate3DRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.Generate3D(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error generating 3D asset: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "3D asset generated", Success: true}, nil
+}
+
 func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
 	if err := s.checkModelIdentity(in); err != nil {
 		return nil, err

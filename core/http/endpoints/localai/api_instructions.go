@@ -82,6 +82,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "POST /video accepts start_image, end_image, and audio as public URL, base64, or data URI. Backend-specific tuning is passed as string values in params.",
 	},
 	{
+		Name:        "3d",
+		Description: "Image-to-3D asset generation (binary glTF / GLB) via TRELLIS.2",
+		Tags:        []string{"3d"},
+		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling. POST /3d/remesh accepts multipart model, mesh (GLB), and a single detail percentage to return a watertight print-ready GLB; the enclosing offset is derived automatically.",
+	},
+	{
 		Name:        "face-recognition",
 		Description: "Face verification (1:1), identification (1:N), embedding, and demographic analysis",
 		Tags:        []string{"face-recognition"},
