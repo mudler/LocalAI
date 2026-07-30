@@ -4479,6 +4479,100 @@
     - filename: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
       sha256: 50887b60c77ee5c95bc3657814ae993abcab7b2d71868b9af1e84d6badd09a57
       uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/Qwen3.5-35B-A3B-APEX-Quality.gguf
+- name: fara1.5-27b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: fara1.5-27b-q8
+  urls:
+    - https://huggingface.co/microsoft/Fara1.5-27B
+    - https://huggingface.co/bartowski/Fara1.5-27B-GGUF
+  description: |
+    Fara1.5-27B is Microsoft's 27B-parameter multimodal computer-use agent for web browsers, fine-tuned from Qwen3.5-27B. It accepts screenshots and text, emits structured browser actions, supports a 262K-token context, and should be deployed with appropriate sandboxing and user-confirmation controls. This entry uses the Q4_K_M GGUF quantization.
+  license: mit
+  tags:
+    - fara
+    - qwen
+    - qwen3.5
+    - 27b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - computer-use
+    - gpu
+    - cpu
+  last_checked: "2026-07-30"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Fara1.5-27B-GGUF/mmproj-Fara1.5-27B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Fara1.5-27B-GGUF/Fara1.5-27B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Fara1.5-27B-GGUF/Fara1.5-27B-Q4_K_M.gguf
+      sha256: 6d56b1a9222d4746f23dfd3f9ee42fb0901142399ddaeb622a99b4e1bcba440e
+      uri: huggingface://bartowski/Fara1.5-27B-GGUF/Fara1.5-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Fara1.5-27B-GGUF/mmproj-Fara1.5-27B-f16.gguf
+      sha256: 6358165b66c42f375c69da8a990b4fa60ffd2a6b0175c90c48f7d15737ce059d
+      uri: huggingface://bartowski/Fara1.5-27B-GGUF/mmproj-Fara1.5-27B-f16.gguf
+- name: fara1.5-27b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/Fara1.5-27B
+    - https://huggingface.co/bartowski/Fara1.5-27B-GGUF
+  description: |
+    Fara1.5-27B is Microsoft's 27B-parameter multimodal computer-use agent for web browsers, fine-tuned from Qwen3.5-27B. It accepts screenshots and text, emits structured browser actions, supports a 262K-token context, and should be deployed with appropriate sandboxing and user-confirmation controls. This entry uses the Q8_0 GGUF quantization.
+  license: mit
+  tags:
+    - fara
+    - qwen
+    - qwen3.5
+    - 27b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - computer-use
+    - gpu
+    - cpu
+  last_checked: "2026-07-30"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Fara1.5-27B-GGUF/mmproj-Fara1.5-27B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Fara1.5-27B-GGUF/Fara1.5-27B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Fara1.5-27B-GGUF/Fara1.5-27B-Q8_0.gguf
+      sha256: 77578ded07b855c90b154abbb3c1c7f4669b29fa19afc27412a2940a51cf634d
+      uri: huggingface://bartowski/Fara1.5-27B-GGUF/Fara1.5-27B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Fara1.5-27B-GGUF/mmproj-Fara1.5-27B-f16.gguf
+      sha256: 6358165b66c42f375c69da8a990b4fa60ffd2a6b0175c90c48f7d15737ce059d
+      uri: huggingface://bartowski/Fara1.5-27B-GGUF/mmproj-Fara1.5-27B-f16.gguf
 - name: qwen_qwen3.5-35b-a3b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
