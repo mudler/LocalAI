@@ -18,7 +18,7 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
-# Intel XPU: torch==2.11.0+xpu lives on the PyTorch XPU index, transitive
+# Intel XPU: torch==2.12.0+xpu lives on the PyTorch XPU index, transitive
 # deps on PyPI — unsafe-best-match lets uv mix both. vllm-xpu-kernels only
 # ships a python3.12 wheel per upstream docs, so bump the portable Python
 # before installRequirements (matches the l4t13 pattern below).
@@ -168,7 +168,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
 
 # Intel XPU has no upstream-published vllm wheels, so we always build vllm
 # from source against torch-xpu and replace the default triton with
-# triton-xpu (matching torch 2.11). Mirrors the upstream procedure:
+# triton-xpu (matching torch 2.12). Mirrors the upstream procedure:
 # https://github.com/vllm-project/vllm/blob/main/docs/getting_started/installation/gpu.xpu.inc.md
 elif [ "x${BUILD_TYPE}" == "xintel" ]; then
     # Hide requirements-intel-after.txt so installRequirements doesn't
@@ -194,18 +194,18 @@ elif [ "x${BUILD_TYPE}" == "xintel" ]; then
 
     _vllm_src=$(mktemp -d)
     trap 'rm -rf "${_vllm_src}"' EXIT
-    git clone --depth 1 https://github.com/vllm-project/vllm "${_vllm_src}/vllm"
+    git clone --depth 1 --branch v0.26.0 https://github.com/vllm-project/vllm "${_vllm_src}/vllm"
     pushd "${_vllm_src}/vllm"
         # Install vllm's own runtime deps (torch-xpu, vllm_xpu_kernels,
         # pydantic, fastapi, …) from upstream's requirements/xpu.txt — the
         # canonical source of truth. Avoids re-pinning everything ourselves.
         uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -r requirements/xpu.txt
         # Stock triton (NVIDIA-only) may have come in transitively; replace
-        # with triton-xpu==3.7.0 which matches torch 2.11.
+        # with triton-xpu==3.7.1 which matches torch 2.12.
         uv pip uninstall triton triton-xpu 2>/dev/null || true
         uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} \
             --extra-index-url https://download.pytorch.org/whl/xpu \
-            triton-xpu==3.7.0
+            triton-xpu==3.7.1
         export CMAKE_PREFIX_PATH="$(python -c 'import site; print(site.getsitepackages()[0])'):${CMAKE_PREFIX_PATH:-}"
         VLLM_TARGET_DEVICE=xpu uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps .
     popd
