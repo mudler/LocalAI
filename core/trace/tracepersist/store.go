@@ -44,6 +44,9 @@ func (s *Store[T]) Load() ([]T, error) {
 	}
 	records := make([]T, 0, len(files))
 	for _, name := range files {
+		// names comes directly from os.ReadDir(s.dir), so it cannot contain a
+		// path separator or escape the store directory.
+		// #nosec G304
 		data, err := os.ReadFile(filepath.Join(s.dir, name))
 		if err != nil {
 			return nil, err
@@ -79,7 +82,9 @@ func (s *Store[T]) Append(id string, record T) error {
 		return err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
 	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return err
