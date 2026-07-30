@@ -84,6 +84,34 @@ func fakeLocalAI() *httptest.Server {
 		})
 	})
 
+	mux.HandleFunc("/api/nodes/scheduling", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"model_name": "qwen", "min_replicas": 1, "max_replicas": 2}})
+		case http.MethodPost:
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			body["id"] = "sched-1"
+			_ = json.NewEncoder(w).Encode(body)
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/nodes/scheduling/qwen", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"model_name": "qwen", "spread_all": true})
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
 	return httptest.NewServer(mux)
 }
 
@@ -195,6 +223,35 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(bs).To(HaveLen(1))
 			Expect(bs[0].Name).To(Equal("llama-cpp"))
 			Expect(bs[0].Installed).To(BeTrue())
+		})
+	})
+
+	Describe("Scheduling", func() {
+		It("lists scheduling configs", func() {
+			out, err := c.ListScheduling(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].ModelName).To(Equal("qwen"))
+			Expect(out[0].MinReplicas).To(Equal(1))
+		})
+
+		It("gets one scheduling config", func() {
+			out, err := c.GetScheduling(ctx, "qwen")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.ModelName).To(Equal("qwen"))
+			Expect(out.SpreadAll).To(BeTrue())
+		})
+
+		It("sets a scheduling config", func() {
+			out, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.ID).To(Equal("sched-1"))
+			Expect(out.ModelName).To(Equal("qwen"))
+			Expect(out.MaxReplicas).To(Equal(2))
+		})
+
+		It("deletes a scheduling config", func() {
+			Expect(c.DeleteScheduling(ctx, "qwen")).To(Succeed())
 		})
 	})
 })
