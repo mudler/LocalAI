@@ -47351,3 +47351,504 @@
     - model: gemma-4-26b-a4b-it-heretic-apex-i-balanced
     - model: gemma-4-26b-a4b-it-heretic-apex-i-compact
     - model: gemma-4-26b-a4b-it-heretic-apex-i-mini
+- name: audio-cpp-supertonic
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Supertonic 3 (audio.cpp, GGUF orig) - fast English text to speech with no
+    reference clip required, served by the audio-cpp backend. Covers both the
+    TTS and the TTSStream RPC, so /v1/audio/speech works streaming and
+    non-streaming.
+
+    The orig (F32) package is deliberate. Upstream's tested-status table in
+    docs/gguf.md records supertonic as Pass on orig, untested on 16-bit, and
+    "No (unsupported weight dtype)" on q8_0; the f16 package aborted the
+    process inside ggml_concat when tested locally. The backend refuses
+    anything but f32/i64 weights for this family, so a wrong build fails at
+    load with a clear message rather than crashing.
+  license: openrail
+  tags:
+    - audio-cpp
+    - supertonic
+    - tts
+    - text-to-speech
+    - gguf
+    - ggml
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+    name: audio-cpp-supertonic
+    parameters:
+      model: audio-cpp/supertonic-3-orig.gguf
+  files:
+    - filename: audio-cpp/supertonic-3-orig.gguf
+      sha256: af814486a0bc9513fb36afabd9b1155ad14fb2c36a107ac6ffe62ea9adafb662
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Supertonic-3-GGUF/supertonic-3-orig.gguf
+- name: audio-cpp-chatterbox
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Chatterbox (audio.cpp, Q8_0) - multilingual zero-shot voice cloning, served
+    by the audio-cpp backend.
+
+    A reference clip is REQUIRED. This build advertises only the cloning and
+    voice-conversion tasks, not plain TTS, so every request must set the TTS
+    voice field to the path of a WAV file on the server; a voice that is not a
+    file on disk is treated as a named preset and the request is refused with a
+    message saying so.
+
+    The voice-conversion half is reached through /audio/transform rather than
+    /v1/audio/speech: post the speech to convert as `audio` and the target
+    speaker's clip as `reference`. That is why this entry declares
+    audio_transform alongside tts. With both this and a source-separation model
+    installed, /audio/transform has two candidates, so name the model
+    explicitly rather than relying on the default pick.
+
+    Q8_0 rather than 16-bit because upstream's tested-status table records the
+    same result for both (Pass, ASR match with drift) and this build is half
+    the size.
+  license: mit
+  tags:
+    - audio-cpp
+    - chatterbox
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - voice-conversion
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+      - audio_transform
+    name: audio-cpp-chatterbox
+    parameters:
+      model: audio-cpp/chatterbox-q8_0.gguf
+  files:
+    - filename: audio-cpp/chatterbox-q8_0.gguf
+      sha256: d586dd1aa59613cab8046176fb7ca5ba191c02a9b10ffa5b0d892ed22b470656
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Chatterbox-GGUF/chatterbox-q8_0.gguf
+- name: audio-cpp-citrinet-asr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Citrinet ASR (audio.cpp, Q8_0) - compact English speech to text, served by
+    the audio-cpp backend through /v1/audio/transcriptions. 40 MB, offline
+    transcription only. Q8_0 is the only package upstream publishes and tests
+    for this family, and it is recorded as a clean Pass.
+
+    Licensing: the checkpoint is pulled from NVIDIA NGC
+    (nvidia/nemo/stt_en_citrinet_256), whose use is governed by the NGC Terms
+    of Use rather than a named open licence.
+  license: other
+  tags:
+    - audio-cpp
+    - citrinet
+    - asr
+    - speech-recognition
+    - transcription
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - transcript
+    name: audio-cpp-citrinet-asr
+    parameters:
+      model: audio-cpp/citrinet-asr-q8_0.gguf
+  files:
+    - filename: audio-cpp/citrinet-asr-q8_0.gguf
+      sha256: e1b9187ecc1c5770f5785f1d1e797ff2bf1f3692c78a5328684275aa729c6368
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Citrinet-ASR-GGUF/citrinet-asr-q8_0.gguf
+- name: audio-cpp-nemotron-asr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Nemotron 3.5 ASR Streaming 0.6B (audio.cpp, F16) - streaming English speech
+    to text, served by the audio-cpp backend. It serves the backend's live
+    bidirectional transcription RPC as well as ordinary
+    /v1/audio/transcriptions calls.
+
+    F16 rather than Q8_0 because upstream's tested-status table records Q8_0 as
+    "Pass (minor filler drift)" while 16-bit is a clean Pass, and drift in a
+    transcript is drift in the output a caller reads.
+  license: other
+  tags:
+    - audio-cpp
+    - nemotron
+    - asr
+    - speech-recognition
+    - transcription
+    - streaming
+    - gguf
+    - ggml
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - transcript
+    name: audio-cpp-nemotron-asr
+    parameters:
+      model: audio-cpp/nemotron-3.5-asr-streaming-0.6b-f16.gguf
+  files:
+    - filename: audio-cpp/nemotron-3.5-asr-streaming-0.6b-f16.gguf
+      sha256: 8bef32306425ebe62484160ee1450fa477f92d0e6e03b13cf4e5fa158254137e
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Nemotron-3.5-ASR-Streaming-0.6B-GGUF/nemotron-3.5-asr-streaming-0.6b-f16.gguf
+- name: audio-cpp-sortformer-diarization
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Sortformer Diarization 4-speaker v1 (audio.cpp, Q8_0) - speaker diarization
+    for up to four speakers, served by the audio-cpp backend through
+    /v1/audio/diarization. Returns per-segment start, end and speaker label; it
+    does not transcribe, so pair it with an ASR model for text.
+
+    Q8_0 because upstream records it as a clean Pass, the same as 16-bit, at
+    two thirds of the size.
+
+    Licensing: the base checkpoint nvidia/diar_sortformer_4spk-v1 is
+    CC BY-NC 4.0, so commercial use is not permitted.
+  license: cc-by-nc-4.0
+  tags:
+    - audio-cpp
+    - sortformer
+    - diarization
+    - speaker-diarization
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - diarization
+    name: audio-cpp-sortformer-diarization
+    parameters:
+      model: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
+  files:
+    - filename: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
+      sha256: 84744b047296daf2177aed9dd2735497152ff83f49ec170d2a6a18cbcb93ef19
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Sortformer-Diar-4spk-v1-GGUF/sortformer-diar-4spk-v1-q8_0.gguf
+- name: audio-cpp-htdemucs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    HTDemucs (audio.cpp, F16) - four-stem music source separation (drums, bass,
+    other, vocals), served by the audio-cpp backend through /audio/transform.
+    One run produces all four stems; ask for a single one with the
+    params[stem] form field, and read the X-Audio-Stems response header for the
+    URLs of the rest.
+
+    F16 rather than Q8_0 because upstream's tested-status table records Q8_0 as
+    "Pass (drift)" while 16-bit is a clean Pass, and separation drift is
+    audible in an isolated stem in a way it is not in a mix.
+  license: mit
+  tags:
+    - audio-cpp
+    - htdemucs
+    - demucs
+    - source-separation
+    - stem-separation
+    - audio-transform
+    - gguf
+    - ggml
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - audio_transform
+    name: audio-cpp-htdemucs
+    parameters:
+      model: audio-cpp/htdemucs-f16.gguf
+  files:
+    - filename: audio-cpp/htdemucs-f16.gguf
+      sha256: 27763c59d7e65f64bbb326dc0c15beec952291954b70a813b7f4b83ebe6bd0c9
+      uri: huggingface://audio-cpp/audio.cpp-gguf/HTDemucs-GGUF/htdemucs-f16.gguf
+- name: audio-cpp-stable-audio-sfx
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Stable Audio 3 Small SFX (audio.cpp, Q8_0) - text to sound effects, served
+    by the audio-cpp backend through /v1/sound-generation. Set
+    duration_seconds to control the length.
+
+    Text prompt only. The family also has an audio-conditioned editing route
+    upstream, which is not wired here: it aborts the process on the pinned
+    revision, and no field on the sound-generation request can reach it in any
+    case.
+
+    Q8_0 because upstream records both 16-bit and Q8_0 as "Pass (drift)", so
+    the smaller build costs nothing extra.
+  license: other
+  tags:
+    - audio-cpp
+    - stable-audio
+    - sound-generation
+    - sfx
+    - text-to-audio
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - sound_generation
+    name: audio-cpp-stable-audio-sfx
+    parameters:
+      model: audio-cpp/stable-audio-3-small-sfx-q8_0.gguf
+  files:
+    - filename: audio-cpp/stable-audio-3-small-sfx-q8_0.gguf
+      sha256: 5bb1ec653134e63dac46264e336ae198a2590195fc996fcd0605021215e9b26f
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Stable-Audio-3-Small-SFX-GGUF/stable-audio-3-small-sfx-q8_0.gguf
+- name: audio-cpp-forced-aligner
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Qwen3 Forced Aligner 0.6B (audio.cpp, Q8_0) - aligns a transcript you
+    already have against the audio, served by the audio-cpp backend.
+
+    It is driven through /v1/audio/transcriptions, not a dedicated endpoint:
+    put the known transcript in the prompt field and the model returns it with
+    word timings instead of recognising anything. Both a transcript and a
+    language are required, so this entry defaults language to en; override it
+    with the language form field for other languages.
+
+    Q8_0 because upstream records both 16-bit and Q8_0 as a clean Pass.
+  license: apache-2.0
+  tags:
+    - audio-cpp
+    - qwen3
+    - forced-alignment
+    - alignment
+    - transcription
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - transcript
+    name: audio-cpp-forced-aligner
+    parameters:
+      language: en
+      model: audio-cpp/qwen3-forced-aligner-0.6b-q8_0.gguf
+  files:
+    - filename: audio-cpp/qwen3-forced-aligner-0.6b-q8_0.gguf
+      sha256: 75209490b11cec2b0db749ca5f4ff92266f58efd30f7fd04d9eb2a3ac9cc929f
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Qwen3-ForcedAligner-0.6B-GGUF/qwen3-forced-aligner-0.6b-q8_0.gguf
+- name: audio-cpp-silero-vad
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/0xShug0/audio.cpp
+    - https://github.com/snakers4/silero-vad
+  description: |
+    Silero VAD (audio.cpp) - voice activity detection over /v1/vad. The model
+    ships inside the audio-cpp backend package, so installing this entry
+    downloads nothing.
+  license: mit
+  tags:
+    - audio-cpp
+    - silero
+    - vad
+    - voice-activity-detection
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - vad
+    name: audio-cpp-silero-vad
+    options:
+      - family:silero_vad
+    parameters:
+      model: bundled:silero_vad
+- name: audio-cpp-marblenet-vad
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/0xShug0/audio.cpp
+    - https://github.com/NVIDIA/NeMo
+  description: |
+    MarbleNet VAD (audio.cpp) - NeMo voice activity detection over /v1/vad, an
+    alternative to Silero with different segment boundaries. The model ships
+    inside the audio-cpp backend package, so installing this entry downloads
+    nothing.
+  license: other
+  tags:
+    - audio-cpp
+    - marblenet
+    - nemo
+    - vad
+    - voice-activity-detection
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - vad
+    name: audio-cpp-marblenet-vad
+    options:
+      - family:marblenet_vad
+    parameters:
+      model: bundled:marblenet_vad
+- name: audio-cpp-irodori-voicedesign
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://huggingface.co/Aratako/Irodori-TTS-600M-v3-VoiceDesign
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Irodori TTS 600M v3 VoiceDesign (audio.cpp, Q8_0) - describe the voice you
+    want in words instead of supplying a reference clip, served by the
+    audio-cpp backend.
+
+    Drive it through /v1/audio/speech with the `instructions` field: the
+    backend routes a request carrying instructions to audio.cpp's vdes task, so
+    "a calm elderly woman speaking slowly with a warm, gentle tone" shapes the
+    delivery of whatever you put in `input`. Without instructions this build
+    still answers as ordinary TTS, and with a reference WAV in `voice` it
+    clones instead; the request decides which of the three it gets.
+
+    The model is Japanese-first and handles English, so an English ASR round
+    trip recovers the words with accent drift rather than cleanly.
+  license: mit
+  tags:
+    - audio-cpp
+    - irodori
+    - tts
+    - text-to-speech
+    - voice-design
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+    name: audio-cpp-irodori-voicedesign
+    parameters:
+      model: audio-cpp/irodori-tts-600m-v3-voicedesign-q8_0.gguf
+  files:
+    - filename: audio-cpp/irodori-tts-600m-v3-voicedesign-q8_0.gguf
+      sha256: eda37824d020f90a5f7bf831cee8145714b35b93876651765fc516637f425b33
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Irodori-TTS-600M-v3-VoiceDesign-GGUF/irodori-tts-600m-v3-voicedesign-q8_0.gguf
+- name: audio-cpp-seedvc-singing
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://huggingface.co/mlx-community/SeedVC-MLX
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Seed-VC (audio.cpp, Q8_0) - singing voice conversion, served by the
+    audio-cpp backend through /audio/transform. Post the performance to convert
+    as `audio` and the target singer's clip as `reference`.
+
+    This entry pins task:svc, and the pin is what makes it a singing model
+    rather than a speech one. Seed-VC advertises both svc and ordinary voice
+    conversion, and nothing in a request says "this input is singing", so
+    auto-routing always picks voice conversion; the pin is the only way to
+    reach the singing path. Drop the option from the model config to get plain
+    voice conversion from the same weights.
+
+    Q8_0 because the 16-bit and Q8_0 builds carry the same tested status
+    upstream (drift) and this one is half the size. Note the GPL-3.0 licence,
+    which is stricter than most of the gallery.
+  license: gpl-3.0
+  tags:
+    - audio-cpp
+    - seed-vc
+    - singing-voice-conversion
+    - voice-conversion
+    - audio-transform
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - audio_transform
+    name: audio-cpp-seedvc-singing
+    options:
+      - task:svc
+    parameters:
+      model: audio-cpp/seed-vc-mlx-q8_0.gguf
+  files:
+    - filename: audio-cpp/seed-vc-mlx-q8_0.gguf
+      sha256: f3e2469eb29762af96f9663ce62eab6e8c40f3798c6dc0835e7613f22b4b75f7
+      uri: huggingface://audio-cpp/audio.cpp-gguf/SeedVC-MLX-GGUF/seed-vc-mlx-q8_0.gguf
+- name: audio-cpp-vevo2-speech-to-speech
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://huggingface.co/RMSnow/Vevo2
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Vevo2 (audio.cpp, Q8_0) - speech to speech, served by the audio-cpp backend
+    through /audio/transform. Post the source speech as `audio`, the target
+    speaker's clip as `reference`, and the words being spoken as
+    `params[text]`.
+
+    The text is not optional and not a hint. Vevo2's speech-to-speech route is
+    a text and prosody route: it reads the line it is resynthesising and
+    refuses the run without one. /audio/transform has no text field on the
+    wire, so the params map carries it and the backend lifts it into the
+    engine's text input; `params[target_text]` is the same thing under the name
+    Vevo2's own option table uses. Add `params[language]` when the line is not
+    English.
+
+    This entry pins task:s2s. Vevo2 also advertises plain voice conversion,
+    which needs no text and which auto-routing picks first, so without the pin
+    the text would be carried and then ignored. Drop the option to get voice
+    conversion from the same weights.
+
+    Q8_0 because it is the only build that fits alongside the rest of the
+    gallery; upstream records the original and 16-bit builds as the cleaner
+    ones, so expect drift on some routes.
+  license: other
+  tags:
+    - audio-cpp
+    - vevo2
+    - speech-to-speech
+    - voice-conversion
+    - audio-transform
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-07-27"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - audio_transform
+    name: audio-cpp-vevo2-speech-to-speech
+    options:
+      - task:s2s
+    parameters:
+      model: audio-cpp/vevo2-q8_0.gguf
+  files:
+    - filename: audio-cpp/vevo2-q8_0.gguf
+      sha256: f80a70facaaecfcf1aa417ef16ef091318c5e789b24c16a741233c64a72fcee8
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Vevo2-GGUF/vevo2-q8_0.gguf

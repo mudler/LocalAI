@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -32,6 +33,27 @@ func AudioToWav(src, dst string) error {
 		return passthroughWAV(src, dst)
 	}
 	return convertWithFFmpeg(src, dst)
+}
+
+// AudioToWavPreservingShape converts audio to 16-bit PCM WAV while KEEPING the
+// source sample rate and channel count. A WAV that is already 16-bit PCM is
+// passed through byte for byte, whatever its rate or channel count.
+//
+// It is the counterpart to AudioToWav, which folds everything to 16 kHz mono.
+// That fold is right for speech backends and destructive for the rest: source
+// separation models refuse any rate but their checkpoint's own, and separate a
+// centred vocal from a wide mix using the stereo image, so a 16 kHz mono
+// downmix removes both the format they accept and the cue they work from.
+// Callers pick between the two from the BACKEND'S declared need
+// (config.AudioTransformRequiresMono16kInput), never from the file.
+//
+// Non-WAV uploads are still transcoded, since backends read WAV. Only the rate
+// and the channel layout survive that.
+func AudioToWavPreservingShape(src, dst string) error {
+	if strings.HasSuffix(src, ".wav") && isPCM16Wav(src) {
+		return passthroughWAV(src, dst)
+	}
+	return convertWithFFmpegPreservingShape(src, dst)
 }
 
 func passthroughWAV(src, dst string) error {
@@ -82,6 +104,50 @@ func convertWithFFmpeg(src, dst string) error {
 	return nil
 }
 
+// isPCM16Wav returns true when src is a valid WAV carrying PLAIN 16-bit PCM, at
+// ANY sample rate and ANY channel count. Weaker than isTargetWav on rate and
+// channels; exactly as strict on the encoding, and deliberately so.
+//
+// The format tag is checked and that is not a formality. go-audio's
+// IsValidFile() never inspects it, so a BitDepth == 16 test on its own also
+// accepts WAVE_FORMAT_EXTENSIBLE (0xFFFE), which is what many DAWs and Windows
+// tools write. Consumers are not as relaxed: audio.cpp's WAV reader accepts
+// 16-bit only when the tag is 1 and otherwise refuses with "unsupported WAV
+// encoding". Passing such a file through unchanged would trade a transcode for
+// a failed request, and music files, which are the input this passthrough
+// exists for, are exactly where extensible turns up.
+func isPCM16Wav(src string) bool {
+	// #nosec G304 -- src is the very path the caller is about to hand ffmpeg as
+	// its input, so opening it here reaches nothing ffmpeg would not. In the
+	// upload path it is a server-created temp file whose name is
+	// filepath.Join(server-made dir, path.Base(client name)), so no traversal
+	// survives. This only reads to classify the format, and any error returns
+	// false, which takes the transcode branch rather than the passthrough.
+	f, err := os.Open(src)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+
+	dec := wav.NewDecoder(f)
+	if !dec.IsValidFile() {
+		return false
+	}
+	return dec.BitDepth == 16 && dec.WavAudioFormat == 1
+}
+
+// convertWithFFmpegPreservingShape transcodes to 16-bit PCM WAV with no -ar and
+// no -ac, so ffmpeg keeps the source rate and channel count. Dropping those two
+// flags is the whole difference from convertWithFFmpeg.
+func convertWithFFmpegPreservingShape(src, dst string) error {
+	commandArgs := []string{"-y", "-i", src, "-acodec", "pcm_s16le", dst}
+	out, err := ffmpegCommand(commandArgs)
+	if err != nil {
+		return fmt.Errorf("error: %w out: %s", err, out)
+	}
+	return nil
+}
+
 // AudioResample resamples an audio file to the given sample rate using ffmpeg.
 // If sampleRate <= 0, it is a no-op and returns src unchanged.
 func AudioResample(src string, sampleRate int) (string, error) {
@@ -94,7 +160,85 @@ func AudioResample(src string, sampleRate int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error resampling audio: %w out: %s", err, out)
 	}
+	// A successful exit is not enough. For a rate its resampler collapses to
+	// nothing (-ar 1 on a one second clip is the reproducer) ffmpeg writes a
+	// bare 78-byte header, no audio at all, and exits 0 - and every caller here
+	// hands that straight back to the client as the audio it asked for. A 200
+	// carrying no audio is the silent wrong answer; callers already handle an
+	// error from this function.
+	info, statErr := os.Stat(dst)
+	if statErr != nil {
+		return "", fmt.Errorf("error resampling audio: no output at %s: %w out: %s", dst, statErr, out)
+	}
+	if info.Size() == 0 {
+		return "", fmt.Errorf("error resampling audio: ffmpeg produced an empty file at %d Hz out: %s", sampleRate, out)
+	}
+	if wavAudioBytes(dst) == 0 {
+		return "", fmt.Errorf("error resampling audio: ffmpeg produced a WAV with no audio at %d Hz out: %s", sampleRate, out)
+	}
 	return dst, nil
+}
+
+// wavAudioBytes reports how many bytes of audio a RIFF/WAVE file actually
+// carries on disk. Returns -1 for anything it cannot walk as RIFF/WAVE, so a
+// caller can tell "no audio" apart from "not a file I can judge".
+//
+// The declared data-chunk size is deliberately clamped to the bytes that are
+// really present, and that clamp is the entire point. When ffmpeg's resampler
+// collapses a signal to nothing it still writes a header CLAIMING 70 data
+// bytes and then writes none of them, so the file is 78 bytes of header and
+// go-audio's decoder reports a 35 second duration for it: both the declared
+// size and the parsed duration say "audio", and only the file length says the
+// truth. A plain size check does not work either, since the file is not empty.
+func wavAudioBytes(path string) int64 {
+	// #nosec G304 -- the only caller passes AudioResample's own dst, a name
+	// this package derives from src by string substitution and has just had
+	// ffmpeg write. Nothing outside chooses it, and the file being inspected is
+	// one we created moments earlier.
+	f, err := os.Open(path)
+	if err != nil {
+		return -1
+	}
+	defer func() { _ = f.Close() }()
+
+	info, err := f.Stat()
+	if err != nil {
+		return -1
+	}
+	var riffHeader [12]byte
+	if _, err := io.ReadFull(f, riffHeader[:]); err != nil {
+		return -1
+	}
+	if string(riffHeader[0:4]) != "RIFF" || string(riffHeader[8:12]) != "WAVE" {
+		return -1
+	}
+
+	offset := int64(len(riffHeader))
+	var chunkHeader [8]byte
+	for {
+		if _, err := f.ReadAt(chunkHeader[:], offset); err != nil {
+			// Ran off the end without meeting a data chunk: no audio.
+			return 0
+		}
+		declared := int64(binary.LittleEndian.Uint32(chunkHeader[4:8]))
+		payload := offset + int64(len(chunkHeader))
+		if string(chunkHeader[0:4]) == "data" {
+			available := info.Size() - payload
+			if available < 0 {
+				available = 0
+			}
+			if declared < available {
+				return declared
+			}
+			return available
+		}
+		offset = payload + declared
+		// RIFF chunks are word aligned; an odd-sized one is followed by a pad
+		// byte that is not part of the next chunk's header.
+		if declared%2 == 1 {
+			offset++
+		}
+	}
 }
 
 // AudioConvert converts generated wav file from tts to other output formats.

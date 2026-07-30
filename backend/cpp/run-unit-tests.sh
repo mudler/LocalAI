@@ -37,9 +37,19 @@ if [ -z "$JSON_INC" ]; then
 fi
 
 # Active source dirs only - exclude per-variant build copies, dev snapshots and
-# the vendored upstream llama.cpp tree.
+# the vendored upstream checkouts.
+#
+# Every upstream checkout needs its own -not -path, and audio.cpp is safe TODAY
+# only by luck: its 44 tests all put "test" at the FRONT (17 test-*.cpp, 27
+# test_*.cpp, zero *_test.cpp), so the glob below misses every one of them.
+# Nothing enforces that. This gate runs on every PR for every backend, and it
+# compiles each match as a STANDALONE translation unit with nothing but
+# nlohmann/json on the include path, so the day upstream adds or renames one
+# test to *_test.cpp the whole gate goes red repo-wide, on an Apache-2.0 file
+# nobody here wrote. Exclude it now rather than diagnose that later.
 mapfile -t tests < <(find "$ROOT" -name '*_test.cpp' \
     -not -path '*/llama.cpp/*' \
+    -not -path '*/audio.cpp/*' \
     -not -path '*-build/*' \
     -not -path '*-dev/*' \
     -not -path '*fallback*' | sort)

@@ -225,6 +225,20 @@ type BackendCapability struct {
 	AcceptsVideos bool
 	// AcceptsAudios indicates multimodal audio input in Predict.
 	AcceptsAudios bool
+	// AudioTransformInputMono16k declares that this backend's AudioTransform
+	// input must be folded to 16 kHz mono 16-bit WAV before it is handed over.
+	//
+	// Opt-IN, and the default of false means "hand the backend the upload as
+	// it is". The /audio/transform endpoint used to fold EVERY upload to
+	// 16 kHz mono, which is what LocalVQE wants for acoustic echo cancellation
+	// and what no source separation model can survive: htdemucs and
+	// mel_band_roformer refuse any rate but their checkpoint's own (44.1 kHz
+	// for every published one) and work in stereo, so every separation request
+	// made through the HTTP API failed with an INTERNAL raised inside the
+	// engine, while a direct gRPC call worked. Declaring the need rather than
+	// defaulting to it means a backend that wants the fold says so and a
+	// backend that does not needs no entry here at all.
+	AudioTransformInputMono16k bool
 	// VoiceCloning describes the backend's per-request reference-audio
 	// contract. Model variants that share a backend may narrow this further;
 	// use VoiceCloningForModel for UI/API decisions.
@@ -436,6 +450,36 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "Sherpa-ONNX — multi-model speech toolkit (ASR, TTS, VAD)",
 	},
+	// audio-cpp is one gRPC server in front of ~30 audio.cpp model families, so
+	// PossibleUsecases is their UNION and no single model serves all of it:
+	// which RPCs a given model answers is decided by the family baked into its
+	// GGUF, and every audio-cpp gallery entry pins its own known_usecases.
+	//
+	// VoiceCloning is not decoration here. VoiceCloningForModel returns nil as
+	// soon as the backend has no capability entry, BEFORE it consults the
+	// model's own tts.voice_cloning override, so without this key a
+	// `voice: "profile:<id>"` request is refused with 400 for every audio-cpp
+	// model and no model YAML can rescue it, on a backend that ships
+	// audio-cpp-chatterbox, whose family advertises cloning and not plain TTS,
+	// so a reference clip is the only way to use it at all.
+	//
+	// Deliberately NOT AudioTransformInputMono16k: the families this backend
+	// reaches through AudioTransform are separation and conversion (htdemucs,
+	// mel_band_roformer, seed_vc), which refuse any rate but their
+	// checkpoint's own and work from the stereo image.
+	"audio-cpp": {
+		GRPCMethods: []GRPCMethod{
+			MethodTTS, MethodTTSStream, MethodAudioTranscription,
+			MethodVAD, MethodDiarize, MethodSoundGeneration, MethodAudioTransform,
+		},
+		PossibleUsecases: []string{
+			UsecaseTTS, UsecaseTranscript, UsecaseVAD, UsecaseDiarization,
+			UsecaseSoundGeneration, UsecaseAudioTransform,
+		},
+		DefaultUsecases: []string{UsecaseTTS},
+		VoiceCloning:    referenceVoiceCloning(),
+		Description:     "audio.cpp native engine: one server for TTS, voice cloning, ASR, forced alignment, VAD, diarization, source separation and music generation; the model's family decides which",
+	},
 
 	// --- TTS backends ---
 	"piper": {
@@ -580,7 +624,11 @@ var BackendCapabilities = map[string]BackendCapability{
 		GRPCMethods:      []GRPCMethod{MethodAudioTransform},
 		PossibleUsecases: []string{UsecaseAudioTransform},
 		DefaultUsecases:  []string{UsecaseAudioTransform},
-		Description:      "LocalVQE — joint AEC, noise suppression, and dereverberation for 16 kHz mono speech",
+		// The model is trained on 16 kHz mono speech and its AEC needs the
+		// input and the loopback reference in the same shape, so the endpoint
+		// keeps folding uploads for this backend.
+		AudioTransformInputMono16k: true,
+		Description:                "LocalVQE — joint AEC, noise suppression, and dereverberation for 16 kHz mono speech",
 	},
 
 	// --- Utility backends ---
@@ -651,11 +699,59 @@ func NormalizeBackendName(backend string) string {
 	return strings.ReplaceAll(backend, ".", "-")
 }
 
-// llamaCppChannelSuffixes are the release-channel suffixes appended to a
-// llama.cpp backend name in the gallery ("llama-cpp" vs
-// "llama-cpp-development"). They carry no engine information, so they are
-// stripped before the family check below.
-var llamaCppChannelSuffixes = []string{"-development", "-quantization"}
+// galleryChannelSuffixes are the release-channel suffixes appended to a backend
+// name in the gallery ("llama-cpp" vs "llama-cpp-development" vs
+// "llama-cpp-quantization"). They carry no engine information, so they are
+// stripped before any family or capability lookup falls back.
+var galleryChannelSuffixes = []string{"-development", "-quantization"}
+
+// galleryHardwarePrefixes are the acceleration prefixes the gallery prepends
+// when it publishes one concrete backend image per hardware capability behind a
+// meta name: "cpu-localvqe", "vulkan-localvqe", "cuda12-audio-cpp",
+// "metal-darwin-arm64-llama-cpp". They carry no engine information either, and
+// an operator may pin any of them in a model config's `backend:`.
+//
+// This is the exhaustive set present in backend/index.yaml, longest first so
+// "cuda13-nvidia-l4t-arm64-" is tried before "cuda13-" and
+// "intel-sycl-f16-" before "intel-". Stripping is a FALLBACK only (see
+// GetBackendCapability), so a backend whose real name happened to start with
+// one of these would still be found by its exact name first.
+var galleryHardwarePrefixes = []string{
+	"cuda13-nvidia-l4t-arm64-",
+	"metal-darwin-arm64-",
+	"nvidia-l4t-arm64-",
+	"intel-sycl-f16-",
+	"intel-sycl-f32-",
+	"nvidia-l4t-",
+	"vulkan-",
+	"cuda12-",
+	"cuda13-",
+	"metal-",
+	"intel-",
+	"rocm-",
+	"cpu-",
+}
+
+// stripBackendVariant reduces a concrete gallery backend name to the meta name
+// its capabilities are registered under: "vulkan-localvqe-development" becomes
+// "localvqe". Returns the input unchanged when nothing matches.
+//
+// Both halves are needed. A pinned variant carries a hardware prefix, a release
+// channel carries a suffix, and backend/index.yaml ships names with both.
+func stripBackendVariant(name string) string {
+	for _, suffix := range galleryChannelSuffixes {
+		if strings.HasSuffix(name, suffix) {
+			name = strings.TrimSuffix(name, suffix)
+			break
+		}
+	}
+	for _, prefix := range galleryHardwarePrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return strings.TrimPrefix(name, prefix)
+		}
+	}
+	return name
+}
 
 // IsLlamaCppBackend reports whether a backend name refers to a build of the
 // llama.cpp gRPC server. The gallery ships one concrete backend per hardware
@@ -676,7 +772,7 @@ func IsLlamaCppBackend(backend string) bool {
 	if name == "" {
 		return true
 	}
-	for _, suffix := range llamaCppChannelSuffixes {
+	for _, suffix := range galleryChannelSuffixes {
 		name = strings.TrimSuffix(name, suffix)
 	}
 	if strings.HasSuffix(name, "ik-llama-cpp") {
@@ -735,11 +831,61 @@ func UsesLlamaCppServingOptions(backend string) bool {
 
 // GetBackendCapability returns the capability info for a backend, or nil if unknown.
 // Handles backend name normalization.
+//
+// A PINNED GALLERY VARIANT RESOLVES TO ITS META NAME. The gallery ships one
+// image per hardware capability ("cpu-localvqe", "vulkan-localvqe",
+// "metal-localvqe") and an operator may put any of them in a model's
+// `backend:`. They are the same engine, so an exact-match-only lookup silently
+// downgraded every pinned model to "unknown backend": vulkan-localvqe lost the
+// 16 kHz mono fold that /audio/transform used to apply unconditionally and
+// started failing inside LocalVQE, and a pinned audio-cpp variant would lose
+// its voice-cloning contract the same way. Same class of bug as #10945, same
+// answer as IsLlamaCppBackend.
+//
+// Exact match FIRST, so a backend genuinely registered under a variant-looking
+// name keeps its own entry and stripping can never shadow it.
 func GetBackendCapability(backend string) *BackendCapability {
-	if cap, ok := BackendCapabilities[NormalizeBackendName(backend)]; ok {
-		return &cap
+	capability, _ := resolveBackendCapability(backend)
+	return capability
+}
+
+// resolveBackendCapability is GetBackendCapability plus the key the entry was
+// found under. Callers that then branch on backend identity MUST use that key,
+// not the name they passed in. VoiceCloningForModel is the reason this exists:
+// its per-backend switch encodes which model variants of a backend can clone,
+// and keying it on the caller's spelling meant "cuda12-vibevoice-cpp" resolved
+// the capability by stripping but missed the "vibevoice-cpp" case, falling
+// through to the permissive default and advertising cloning for the 0.5B model
+// that cannot do it.
+func resolveBackendCapability(backend string) (*BackendCapability, string) {
+	name := NormalizeBackendName(backend)
+	if cap, ok := BackendCapabilities[name]; ok {
+		return &cap, name
 	}
-	return nil
+	if base := stripBackendVariant(name); base != name {
+		if cap, ok := BackendCapabilities[base]; ok {
+			return &cap, base
+		}
+	}
+	return nil, name
+}
+
+// AudioTransformRequiresMono16kInput reports whether /audio/transform must fold
+// uploads to 16 kHz mono before handing them to this backend.
+//
+// False for an unknown backend, which is the safe answer: an unregistered
+// backend gets its upload unchanged, so a model that needs the file intact
+// (source separation, voice conversion at 44.1 kHz) works without an entry
+// here, and one that needs the fold cannot get it by accident.
+//
+// Pinned gallery variants are covered: GetBackendCapability strips the hardware
+// prefix and the release-channel suffix, so cpu-localvqe, vulkan-localvqe and
+// metal-localvqe all fold exactly as "localvqe" does. They must, because the
+// usecase gate does not stand in for this one: naming a model explicitly makes
+// BuildFilteredFirstAvailableDefaultModel return before it filters.
+func AudioTransformRequiresMono16kInput(backend string) bool {
+	capability := GetBackendCapability(backend)
+	return capability != nil && capability.AudioTransformInputMono16k
 }
 
 // llmAutoLoadUsecases are the usecases that mark a backend able to serve a
@@ -788,8 +934,7 @@ func VoiceCloningForModel(cfg *ModelConfig) *VoiceCloningCapability {
 	if cfg == nil {
 		return nil
 	}
-	backend := NormalizeBackendName(cfg.Backend)
-	capability := GetBackendCapability(backend)
+	capability, backend := resolveBackendCapability(cfg.Backend)
 	if capability == nil || capability.VoiceCloning == nil {
 		return nil
 	}

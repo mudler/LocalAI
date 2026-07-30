@@ -7,6 +7,8 @@ url = "/features/voice-activity-detection/"
 
 Voice Activity Detection (VAD) identifies segments of speech in audio data. LocalAI provides a `/v1/vad` endpoint powered by the [Silero VAD](https://github.com/snakers4/silero-vad) backend.
 
+The [audio.cpp backend]({{%relref "features/audio-cpp" %}}) also serves this endpoint, and ships the `silero_vad` and `marblenet_vad` assets inside its own package, so VAD works there with nothing to download (`model: bundled:silero_vad` plus the `family:silero_vad` option).
+
 ## API
 
 - **Method:** `POST`

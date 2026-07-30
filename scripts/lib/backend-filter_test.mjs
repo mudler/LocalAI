@@ -8,7 +8,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { filterMatrix, inferBackendPath } from "./backend-filter.mjs";
+import {
+  filterMatrix,
+  inferBackendPath,
+  inferBackendPathDarwin,
+} from "./backend-filter.mjs";
 
 test("trellis2cpp maps to its Go backend source directory", () => {
   assert.equal(
@@ -59,6 +63,12 @@ const includes = [
     backend: "turboquant",
     dockerfile: "./backend/Dockerfile.turboquant",
     "tag-suffix": "-turboquant",
+    "base-image": "ubuntu:24.04",
+  },
+  {
+    backend: "audio-cpp",
+    dockerfile: "./backend/Dockerfile.audio-cpp",
+    "tag-suffix": "-cpu-audio-cpp",
     "base-image": "ubuntu:24.04",
   },
 ];
@@ -202,6 +212,44 @@ test("turboquant still retriggers on llama-cpp source changes", () => {
   const { filtered } = run(["backend/cpp/llama-cpp/grpc-server.cpp"]);
 
   assert.deepEqual(names(filtered), ["llama-cpp", "turboquant"]);
+});
+
+// ---------------------------------------------------------------------------
+// audio-cpp: a C++ backend whose Dockerfile suffix is its only Linux marker
+// ---------------------------------------------------------------------------
+
+test("audio-cpp source changes rebuild audio-cpp and nothing else", () => {
+  // Without an inferBackendPath case, Dockerfile.audio-cpp resolves to null and
+  // filterMatrix drops every audio-cpp entry, so a PR touching only this
+  // backend would get zero CI jobs and look green for the wrong reason.
+  const { filtered, filteredDarwin, changedBackends } = run([
+    "backend/cpp/audio-cpp/grpc-server.cpp",
+  ]);
+
+  assert.deepEqual(names(filtered), ["audio-cpp"]);
+  assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual([...changedBackends], ["audio-cpp"]);
+});
+
+test("Dockerfile.audio-cpp rebuilds only audio-cpp", () => {
+  const { filtered } = run(["backend/Dockerfile.audio-cpp"]);
+
+  assert.deepEqual(names(filtered), ["audio-cpp"]);
+});
+
+test("audio-cpp resolves to its C++ sources on Darwin, not backend/go", () => {
+  // There is no Darwin matrix entry yet (the Metal build script does not
+  // exist), so this pins the function directly. lang=go on a Darwin entry only
+  // selects the runner and toolchain; routing audio-cpp by that field would
+  // point at backend/go/audio-cpp/, which does not exist.
+  assert.equal(
+    inferBackendPathDarwin({
+      backend: "audio-cpp",
+      lang: "go",
+      "tag-suffix": "-metal-darwin-arm64-audio-cpp",
+    }),
+    "backend/cpp/audio-cpp/",
+  );
 });
 
 // ---------------------------------------------------------------------------

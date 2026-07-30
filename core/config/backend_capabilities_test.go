@@ -70,6 +70,135 @@ var _ = Describe("GetBackendCapability", func() {
 	It("returns nil for unknown backends", func() {
 		Expect(GetBackendCapability("nonexistent")).To(BeNil())
 	})
+
+	// The gallery ships one concrete image per hardware capability behind a
+	// meta name, and an operator may pin any of them in a model's `backend:`.
+	// An exact-match-only lookup silently treated every one of them as an
+	// unknown backend, which cost vulkan-localvqe the 16 kHz mono fold its AEC
+	// needs and would cost a pinned audio-cpp variant its voice-cloning
+	// contract. Same class as #10945.
+	It("resolves a pinned hardware variant to its meta backend", func() {
+		for _, name := range []string{"cpu-localvqe", "vulkan-localvqe", "metal-localvqe"} {
+			capability := GetBackendCapability(name)
+			Expect(capability).NotTo(BeNil(), "pinned variant %q must resolve", name)
+			Expect(capability.PossibleUsecases).To(ContainElement(UsecaseAudioTransform), name)
+		}
+	})
+
+	It("resolves a pinned variant that also carries a release channel", func() {
+		for _, name := range []string{
+			"cuda12-audio-cpp", "cuda13-audio-cpp-development",
+			"metal-audio-cpp", "cpu-audio-cpp-development",
+			"cuda13-nvidia-l4t-arm64-llama-cpp", "intel-sycl-f16-llama-cpp",
+			"metal-darwin-arm64-llama-cpp", "nvidia-l4t-arm64-llama-cpp",
+			"rocm-llama-cpp-development", "intel-llama-cpp",
+		} {
+			Expect(GetBackendCapability(name)).NotTo(BeNil(), "pinned variant %q must resolve", name)
+		}
+	})
+
+	It("does not invent a capability for a name that only looks like a variant", func() {
+		Expect(GetBackendCapability("cpu-nonexistent")).To(BeNil())
+		Expect(GetBackendCapability("vulkan-")).To(BeNil())
+	})
+
+	// Stripping is a fallback, never a rewrite: a backend registered under its
+	// own name keeps its own entry even if that name starts with a prefix.
+	It("prefers an exact match over the stripped one", func() {
+		BackendCapabilities["cpu-exact-match-probe"] = BackendCapability{
+			PossibleUsecases: []string{UsecaseChat},
+			Description:      "test fixture",
+		}
+		BackendCapabilities["exact-match-probe"] = BackendCapability{
+			PossibleUsecases: []string{UsecaseTTS},
+			Description:      "test fixture",
+		}
+		DeferCleanup(func() {
+			delete(BackendCapabilities, "cpu-exact-match-probe")
+			delete(BackendCapabilities, "exact-match-probe")
+		})
+
+		capability := GetBackendCapability("cpu-exact-match-probe")
+		Expect(capability).NotTo(BeNil())
+		Expect(capability.PossibleUsecases).To(Equal([]string{UsecaseChat}))
+	})
+})
+
+// audio-cpp advertises voice cloning from the backend itself and ships
+// audio-cpp-chatterbox, whose family serves cloning and NOT plain TTS, so a
+// reference clip is the only way to use it. Without a capability entry
+// VoiceCloningForModel returns nil before it ever reads the model's own
+// tts.voice_cloning override, so `voice: "profile:<id>"` was refused with a 400
+// for every audio-cpp model and no model YAML could rescue it.
+var _ = Describe("audio-cpp capabilities", func() {
+	It("is registered", func() {
+		Expect(GetBackendCapability("audio-cpp")).NotTo(BeNil())
+	})
+
+	It("advertises the RPCs its families actually serve", func() {
+		capability := GetBackendCapability("audio-cpp")
+		Expect(capability.GRPCMethods).To(ContainElements(
+			MethodTTS, MethodTTSStream, MethodAudioTranscription,
+			MethodVAD, MethodDiarize, MethodSoundGeneration, MethodAudioTransform))
+		Expect(capability.PossibleUsecases).To(ContainElements(
+			UsecaseTTS, UsecaseTranscript, UsecaseVAD, UsecaseDiarization,
+			UsecaseSoundGeneration, UsecaseAudioTransform))
+	})
+
+	It("carries the reference-audio contract, for pinned variants too", func() {
+		for _, name := range []string{"audio-cpp", "cuda12-audio-cpp", "metal-audio-cpp"} {
+			cloning := VoiceCloningForModel(&ModelConfig{Backend: name})
+			Expect(cloning).NotTo(BeNil(), "%q must reach the backend with a profile voice", name)
+			Expect(cloning.AcceptedAudioFormats).To(ContainElement("audio/wav"))
+		}
+	})
+
+	// The families audio-cpp reaches through AudioTransform are separation and
+	// conversion, which refuse any rate but their checkpoint's own.
+	It("does not ask for the 16 kHz mono fold", func() {
+		Expect(AudioTransformRequiresMono16kInput("audio-cpp")).To(BeFalse())
+	})
+})
+
+// The fold to 16 kHz mono in /audio/transform is opt-IN. It used to be
+// unconditional, which made source separation unreachable through the HTTP
+// API: htdemucs and mel_band_roformer refuse any rate but their checkpoint's
+// own and separate using the stereo image, so every such request died with an
+// INTERNAL raised inside the engine while the same call over gRPC worked.
+var _ = Describe("AudioTransformRequiresMono16kInput", func() {
+	It("folds for localvqe, whose AEC is trained on 16 kHz mono", func() {
+		Expect(AudioTransformRequiresMono16kInput("localvqe")).To(BeTrue())
+	})
+
+	// Pinned gallery variants are the same engine and must fold identically.
+	// They did not: the lookup was exact-match only, so vulkan-localvqe was an
+	// unknown backend, lost the fold that used to be unconditional, and started
+	// failing inside LocalVQE. The usecase gate is no substitute, because
+	// BuildFilteredFirstAvailableDefaultModel returns early once the client
+	// names a model explicitly.
+	It("folds for every pinned localvqe variant the gallery ships", func() {
+		Expect(AudioTransformRequiresMono16kInput("cpu-localvqe")).To(BeTrue())
+		Expect(AudioTransformRequiresMono16kInput("vulkan-localvqe")).To(BeTrue())
+		Expect(AudioTransformRequiresMono16kInput("metal-localvqe")).To(BeTrue())
+	})
+
+	It("does not fold for a backend that has not asked for it", func() {
+		// Registered, and deliberately NOT folding: its separation and
+		// conversion families refuse any rate but their checkpoint's own.
+		Expect(AudioTransformRequiresMono16kInput("audio-cpp")).To(BeFalse())
+		Expect(AudioTransformRequiresMono16kInput("nonexistent")).To(BeFalse())
+		Expect(AudioTransformRequiresMono16kInput("")).To(BeFalse())
+	})
+
+	It("is claimed by no other registered backend", func() {
+		for name, capability := range BackendCapabilities {
+			if name == "localvqe" {
+				continue
+			}
+			Expect(capability.AudioTransformInputMono16k).To(BeFalse(),
+				"backend %q asks for the 16 kHz mono fold; that has to be a deliberate, documented need", name)
+		}
+	})
 })
 
 var _ = Describe("VoiceCloningForModel", func() {
@@ -92,6 +221,29 @@ var _ = Describe("VoiceCloningForModel", func() {
 		Entry("typed setting wins over compatibility option", ModelConfig{Name: "private-build", Backend: "qwen3-tts-cpp", TTSConfig: TTSConfig{VoiceCloning: voiceCloningSetting(true)}, Options: []string{"voice_cloning:false"}}, true),
 		Entry("legacy option custom opt-in", ModelConfig{Name: "private-build", Backend: "qwen3-tts-cpp", Options: []string{"voice_cloning:true"}}, true),
 		Entry("legacy option opt-out", ModelConfig{Name: "voxcpm-1.5", Backend: "voxcpm", Options: []string{"voice_cloning=false"}}, false),
+	)
+
+	// A pinned gallery variant must reach the SAME per-backend rule as the meta
+	// name, in both directions. Resolving the capability by stripping the prefix
+	// while still keying the model-variant switch on the pinned spelling made
+	// every variant fall through to the permissive default: cuda12-vibevoice-cpp
+	// advertised cloning for the realtime 0.5B model, which cannot do it, and
+	// /v1/audio/speech accepted a profile: voice it had to fail on in the backend
+	// instead of rejecting it with a 400.
+	DescribeTable("resolves the model-variant rule through pinned gallery variants",
+		func(cfg ModelConfig, expected bool) {
+			Expect(VoiceCloningForModel(&cfg) != nil).To(Equal(expected))
+		},
+		Entry("cuda12-vibevoice-cpp 0.5B stays unsupported", ModelConfig{Name: "vibevoice-cpp-0.5b", Backend: "cuda12-vibevoice-cpp"}, false),
+		Entry("cuda12-vibevoice-cpp 1.5B stays supported", ModelConfig{Name: "vibevoice-1.5b", Backend: "cuda12-vibevoice-cpp"}, true),
+		Entry("metal-coqui tacotron2 stays unsupported", ModelConfig{Name: "tacotron2-en", Backend: "metal-coqui"}, false),
+		Entry("metal-coqui xtts stays supported", ModelConfig{Name: "xtts-v2", Backend: "metal-coqui"}, true),
+		Entry("cuda12-crispasr ASR stays unsupported", ModelConfig{Name: "parakeet-asr", Backend: "cuda12-crispasr"}, false),
+		Entry("cuda12-crispasr F5 stays supported", ModelConfig{Name: "f5-tts-crispasr", Backend: "cuda12-crispasr"}, true),
+		Entry("cpu-qwen3-tts-cpp CustomVoice stays unsupported", ModelConfig{Name: "qwen3-tts-flash", Backend: "cpu-qwen3-tts-cpp"}, false),
+		Entry("cpu-qwen3-tts-cpp Base stays supported", ModelConfig{Name: "qwen3-tts-cpp-0.6b-base", Backend: "cpu-qwen3-tts-cpp"}, true),
+		Entry("release channel suffix too", ModelConfig{Name: "vibevoice-cpp-0.5b", Backend: "vibevoice-cpp-development"}, false),
+		Entry("pinned audio-cpp keeps its unconditional cloning", ModelConfig{Name: "audio-cpp-chatterbox", Backend: "cuda12-audio-cpp"}, true),
 	)
 })
 

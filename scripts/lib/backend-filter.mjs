@@ -81,6 +81,9 @@ export function inferBackendPath(item) {
   if (item.dockerfile.endsWith("ds4")) {
     return `backend/cpp/ds4/`;
   }
+  if (item.dockerfile.endsWith("audio-cpp")) {
+    return `backend/cpp/audio-cpp/`;
+  }
   if (item.dockerfile.endsWith("llama-cpp")) {
     return `backend/cpp/llama-cpp/`;
   }
@@ -103,6 +106,13 @@ export function inferBackendPathDarwin(item) {
   // same lang=go-for-runner convention, source under backend/cpp.
   if (item.backend === "privacy-filter") {
     return `backend/cpp/privacy-filter/`;
+  }
+  // audio-cpp is C++ too (built via `make backends/audio-cpp-darwin`); same
+  // lang=go-for-runner convention, source under backend/cpp. Without this the
+  // generic path below would look for backend/go/audio-cpp/, which does not
+  // exist, and no change to the real sources would ever trigger a Darwin build.
+  if (item.backend === "audio-cpp") {
+    return `backend/cpp/audio-cpp/`;
   }
   if (!item.lang) {
     return `backend/python/${item.backend}/`;
@@ -142,10 +152,16 @@ export function backendChanged(backend, pathPrefix, changedFiles) {
 // without it is a Python backend (see .github/backend-matrix.yml).
 const isDarwinPython = item => !item.lang;
 
-// backend_build_darwin.yml routes llama-cpp, ds4 and privacy-filter to their
-// own bespoke make targets; every other lang=go entry goes through
-// `make build-darwin-go-backend` -> scripts/build/golang-darwin.sh.
-const DARWIN_BESPOKE_BUILDERS = new Set(["llama-cpp", "ds4", "privacy-filter"]);
+// backend_build_darwin.yml routes llama-cpp, ds4, privacy-filter and audio-cpp
+// to their own bespoke make targets; every other lang=go entry goes through
+// `make build-darwin-go-backend` -> scripts/build/golang-darwin.sh. Keep this
+// set in sync with the `if:` conditions in that workflow.
+const DARWIN_BESPOKE_BUILDERS = new Set([
+  "llama-cpp",
+  "ds4",
+  "privacy-filter",
+  "audio-cpp",
+]);
 const isDarwinGenericGo = item =>
   !!item.lang && !DARWIN_BESPOKE_BUILDERS.has(item.backend);
 
@@ -450,7 +466,7 @@ export const BACKEND_MATRIX_FILE = ".github/backend-matrix.yml";
 
 // Identity of a matrix entry across revisions. tag-suffix names the image;
 // per-arch legs of the same image are distinguished by platform-tag. Verified
-// unique across all 417 Linux and 56 Darwin entries.
+// unique across all 432 Linux and 57 Darwin entries.
 export function matrixEntryKey(item) {
   return JSON.stringify([item["tag-suffix"] || "", item["platform-tag"] || ""]);
 }

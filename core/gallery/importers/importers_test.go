@@ -458,3 +458,26 @@ invalid: yaml: content: [unclosed bracket
 		})
 	})
 })
+
+var _ = Describe("audio-cpp importer registration", func() {
+	// audio-cpp stays preference-only on purpose. Its only reliable signal is
+	// the audiocpp.model_spec.family key embedded INSIDE the GGUF, which an
+	// importer cannot read from a remote HuggingFace repo, and the upstream
+	// GGUF repo hosts 30-odd families in one place, so repo-level matching
+	// would be a coin flip. An importer that matched .gguf would additionally
+	// capture every llama.cpp repo it saw first.
+	//
+	// THIS IS A TRIPWIRE, NOT COVERAGE. It exercises no audio-cpp behaviour and
+	// cannot go red for anything but the one act it is aimed at: someone adding
+	// an AudioCpp*Importer to the registry, which would silently turn the
+	// backend into an auto-detect candidate for every GGUF repo. Do not read a
+	// green here as the registration being tested; that assertion lives in
+	// core/http/endpoints/localai/backend_test.go, against the /backends/known
+	// payload that actually reaches the import form.
+	It("registers no importer that would auto-match GGUF repositories", func() {
+		for _, importer := range importers.Registry() {
+			Expect(fmt.Sprintf("%T", importer)).ToNot(ContainSubstring("AudioCpp"),
+				"audio-cpp must stay preference-only; a GGUF auto-matcher would capture llama.cpp repos")
+		}
+	})
+})

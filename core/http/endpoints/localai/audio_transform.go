@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -59,7 +60,44 @@ const (
 	// default ceiling is generous; raised here to 1 MiB to allow larger
 	// frame_samples for backends with longer hops.
 	audioTransformWSReadLimit = 1 << 20
+
+	// minAudioTransformSampleRate / maxAudioTransformSampleRate bound the
+	// caller-supplied `sample_rate` form field.
+	//
+	// THIS IS A RESOURCE BOUND, not a taste judgement. The value is
+	// interpolated straight into ffmpeg's -ar by utils.AudioResample, and
+	// ffmpeg accepts absurd rates happily: -ar 999999999 on a one second clip
+	// writes a 3.9 GB WAV and exits 0, into a GeneratedContentDir that nothing
+	// sweeps, and a separation request repeats that for every stem
+	// (see convertStems). At the other end -ar 1 writes a ZERO byte file, also
+	// exit 0, which was then served to the caller as the transformed audio.
+	//
+	// 8000 is the lowest rate any telephony codec uses and the lowest anything
+	// here is trained on; 192000 is the highest rate consumer audio hardware
+	// and the WAV container are routinely used at, and is already 4x the
+	// 48 kHz every model in the gallery produces. `sample_rate` unset (0) still
+	// means "leave the backend's own rate alone" and skips the check.
+	minAudioTransformSampleRate = 8000
+	maxAudioTransformSampleRate = 192000
 )
+
+// validateAudioTransformSampleRate returns an HTTP 400 for a requested output
+// rate outside [minAudioTransformSampleRate, maxAudioTransformSampleRate].
+// Zero means unset and is always accepted.
+//
+// Split out from the handler so the bound is testable without a model, a
+// backend or a multipart body: the handler rejects before it touches disk.
+func validateAudioTransformSampleRate(sampleRate int) error {
+	if sampleRate == 0 {
+		return nil
+	}
+	if sampleRate < minAudioTransformSampleRate || sampleRate > maxAudioTransformSampleRate {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf(
+			"sample_rate must be between %d and %d Hz (got %d)",
+			minAudioTransformSampleRate, maxAudioTransformSampleRate, sampleRate))
+	}
+	return nil
+}
 
 // AudioTransformEndpoint implements the batch audio-transform API. Accepts a
 // multipart/form-data request with `audio` (required) and an optional
@@ -76,7 +114,7 @@ const (
 // @Param audio formData file true "primary input audio file"
 // @Param reference formData file false "auxiliary reference audio (loopback for AEC, target voice for conversion, etc.)"
 // @Param response_format formData string false "wav | mp3 | ogg | flac"
-// @Param sample_rate formData integer false "desired output sample rate"
+// @Param sample_rate formData integer false "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000"
 // @Success 200 {string} binary "transformed audio file"
 // @Router /audio/transformations [post]
 // @Router /audio/transform [post]
@@ -94,6 +132,12 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 
 		xlog.Debug("LocalAI Audio Transform Request received", "model", input.Model)
 
+		// Before the temp dir and before the model is touched: a rejected rate
+		// must not cost an upload, a decode or an inference.
+		if err := validateAudioTransformSampleRate(input.SampleRate); err != nil {
+			return err
+		}
+
 		audioFile, err := c.FormFile("audio")
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "missing required 'audio' file field")
@@ -105,14 +149,24 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 		}
 		defer func() { _ = os.RemoveAll(dir) }()
 
-		audioPath, err := saveMultipartFileAsWAV(audioFile, dir, "audio")
+		// Whether the upload is folded to 16 kHz mono is the BACKEND'S
+		// declaration and not this endpoint's default. LocalVQE's echo
+		// cancellation needs that shape; source separation cannot survive it.
+		// See config.AudioTransformRequiresMono16kInput.
+		fold := config.AudioTransformRequiresMono16kInput(cfg.Backend)
+
+		audioPath, err := saveMultipartFileAsWAV(audioFile, dir, "audio", fold)
 		if err != nil {
 			return err
 		}
 
 		var referencePath string
 		if refFile, err := c.FormFile("reference"); err == nil {
-			referencePath, err = saveMultipartFileAsWAV(refFile, dir, "reference")
+			// The reference is folded on the same terms as the primary input.
+			// For AEC the two have to be the same shape to line up sample for
+			// sample; for voice conversion the reference is a speaker clip
+			// whose rate the family resolves for itself.
+			referencePath, err = saveMultipartFileAsWAV(refFile, dir, "reference", fold)
 			if err != nil {
 				return err
 			}
@@ -154,13 +208,28 @@ func AudioTransformEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader,
 		// history alongside the output. The /generated-audio/ prefix is
 		// the same one ttsApi uses (parsed from Content-Disposition).
 		if name := filepath.Base(out.AudioPath); name != "" {
-			c.Response().Header().Set(echo.HeaderAccessControlExposeHeaders, "X-Audio-Input-Url, X-Audio-Reference-Url")
+			c.Response().Header().Set(echo.HeaderAccessControlExposeHeaders, exposedAudioTransformHeaders)
 			c.Response().Header().Set("X-Audio-Input-Url", "/generated-audio/"+name)
 		}
 		if out.ReferencePath != "" {
 			if name := filepath.Base(out.ReferencePath); name != "" {
 				c.Response().Header().Set("X-Audio-Reference-Url", "/generated-audio/"+name)
 			}
+		}
+		// The body can carry one file, and a separation produces several from
+		// one run. The rest are named here, as JSON, so a caller can fetch the
+		// stems it did not ask for without paying for another separation.
+		// Header rather than body for the same reason the input URLs are
+		// headers: the body is the audio itself.
+		//
+		// Converted on the same terms as dst, because dst IS one of these stems
+		// and the caller is entitled to expect the set to match. Skipping this
+		// left a caller who asked for 48 kHz mp3 with an mp3 body and four
+		// 44.1 kHz WAV siblings, one of which was supposed to be the same
+		// recording as the body.
+		if header := stemsHeader(convertStems(out.Stems, input.SampleRate, input.Format)); header != "" {
+			c.Response().Header().Set(echo.HeaderAccessControlExposeHeaders, exposedAudioTransformHeaders)
+			c.Response().Header().Set("X-Audio-Stems", header)
 		}
 		return c.Attachment(dst, filepath.Base(dst))
 	}
@@ -318,19 +387,123 @@ func buildConfigRequest(fmt_ proto.AudioTransformStreamConfig_SampleFormat, ctrl
 	}
 }
 
-// saveMultipartFileAsWAV materialises an uploaded multipart file into `dir`
-// and converts it to LocalVQE's required shape (16 kHz mono s16 WAV) via
-// ffmpeg. The conversion is a passthrough when the upload already matches.
-// `name` is used as the base filename for the converted output so the dir
-// stays readable for debugging (e.g. "audio.wav", "reference.wav").
-func saveMultipartFileAsWAV(fh *multipart.FileHeader, dir, name string) (string, error) {
+// exposedAudioTransformHeaders is the CORS allow-list for the artifact headers
+// this endpoint sets. A browser cannot read any of them without it.
+const exposedAudioTransformHeaders = "X-Audio-Input-Url, X-Audio-Reference-Url, X-Audio-Stems"
+
+// convertStems applies the request's sample_rate and response_format to every
+// stem, so the whole set stays in the shape the caller asked for and dst keeps
+// duplicating the stem it was selected from. Both conversions are no-ops when
+// unset, so an ordinary request pays nothing.
+//
+// A stem whose conversion fails is DROPPED from the list rather than reported
+// at its original rate or format: advertising a URL whose file is not in the
+// shape the caller asked for is the silent wrong answer this whole design is
+// trying to avoid, and the caller still receives the audio it actually asked
+// for in the body. The failure is logged, since the file is on disk either way.
+func convertStems(stems []backend.AudioTransformStem, sampleRate int, format string) []backend.AudioTransformStem {
+	if len(stems) == 0 {
+		return nil
+	}
+	converted := make([]backend.AudioTransformStem, 0, len(stems))
+	for _, stem := range stems {
+		path := stem.Dst
+		var err error
+		if sampleRate > 0 {
+			path, err = utils.AudioResample(path, sampleRate)
+			if err != nil {
+				xlog.Warn("audio_transform: cannot resample stem", "stem", stem.Name, "error", err)
+				continue
+			}
+		}
+		path, err = utils.AudioConvert(path, format)
+		if err != nil {
+			xlog.Warn("audio_transform: cannot convert stem", "stem", stem.Name, "error", err)
+			continue
+		}
+		converted = append(converted, backend.AudioTransformStem{Name: stem.Name, Dst: path})
+	}
+	if len(converted) == 0 {
+		return nil
+	}
+	return converted
+}
+
+// stemsHeader renders the extra named outputs as a compact JSON array for the
+// X-Audio-Stems response header:
+//
+//	[{"name":"vocals","url":"/generated-audio/transform-1.vocals.wav"}, ...]
+//
+// JSON rather than a name=url list because a stem name is the MODEL'S string:
+// it comes out of the checkpoint's config, so a name containing a comma or an
+// equals sign would silently corrupt any hand-rolled separator format. Header
+// values must also stay on one line, which json.Marshal guarantees since it
+// escapes every control character.
+func stemsHeader(stems []backend.AudioTransformStem) string {
+	if len(stems) == 0 {
+		return ""
+	}
+	type stemEntry struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	entries := make([]stemEntry, 0, len(stems))
+	for _, stem := range stems {
+		name := filepath.Base(stem.Dst)
+		if name == "" || name == "." || name == string(filepath.Separator) {
+			continue
+		}
+		// PathEscape, because the file name carries the MODEL'S stem name and a
+		// stem name legally contains a space (there is a spec for "lead
+		// vocals"), and '#', '?' and '%' are legal too. An unescaped '#' would
+		// truncate the URL in the client before it ever reached the server.
+		// The `name` field keeps the raw stem name; only the URL is escaped.
+		entries = append(entries, stemEntry{
+			Name: stem.Name,
+			URL:  "/generated-audio/" + url.PathEscape(name),
+		})
+	}
+	if len(entries) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(entries)
+	if err != nil {
+		// Unreachable for a slice of plain strings, and a failure here must
+		// not cost the caller the audio it did ask for.
+		xlog.Debug("audio_transform: cannot encode stem header", "error", err)
+		return ""
+	}
+	return string(encoded)
+}
+
+// saveMultipartFileAsWAV materialises an uploaded multipart file into `dir` as
+// a 16-bit PCM WAV. `name` is used as the base filename for the converted
+// output so the dir stays readable for debugging (e.g. "audio.wav",
+// "reference.wav").
+//
+// `foldToMono16k` picks the target shape. True folds to 16 kHz mono, which is
+// what LocalVQE requires; false keeps the upload's own rate and channel count,
+// which is what everything else needs and what source separation cannot work
+// without. Either way a WAV that already matches is passed through rather than
+// re-encoded.
+func saveMultipartFileAsWAV(fh *multipart.FileHeader, dir, name string, foldToMono16k bool) (string, error) {
 	f, err := fh.Open()
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = f.Close() }()
 
-	raw := filepath.Join(dir, "raw-"+path.Base(fh.Filename))
+	// `name` prefixes the raw copy too, and that is not cosmetic. Both parts of
+	// one request land in the SAME dir, and a client that uploads
+	// `-F audio=@mic/clip.wav -F reference=@loopback/clip.wav` sends the same
+	// BASENAME twice. Without the prefix both parts write "raw-clip.wav", and
+	// because utils.AudioToWavPreservingShape hardlinks a WAV that is already
+	// PCM16 rather than copying it, audio.wav and raw-clip.wav are one inode:
+	// the reference part's os.Create then truncates the audio the caller
+	// uploaded first and refills it with the reference. The request still
+	// returns 200, with mic == reference, which for AEC means the canceller
+	// nulls everything and hands back near-silence.
+	raw := filepath.Join(dir, name+"-raw-"+path.Base(fh.Filename))
 	out, err := os.Create(raw)
 	if err != nil {
 		return "", err
@@ -342,7 +515,11 @@ func saveMultipartFileAsWAV(fh *multipart.FileHeader, dir, name string) (string,
 	_ = out.Close()
 
 	dst := filepath.Join(dir, name+".wav")
-	if err := utils.AudioToWav(raw, dst); err != nil {
+	convert := utils.AudioToWavPreservingShape
+	if foldToMono16k {
+		convert = utils.AudioToWav
+	}
+	if err := convert(raw, dst); err != nil {
 		return "", fmt.Errorf("normalize %s: %w", name, err)
 	}
 	return dst, nil
