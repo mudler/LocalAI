@@ -26,9 +26,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
+      # A PR builds only the host target. The three-platform cross-compile
+      # (linux/amd64, linux/arm64, darwin/arm64) is the bulk of this job's
+      # ~6.6min median and no PR consumes the resulting binaries. The
+      # before-hooks (protogen-go, react-ui, go mod tidy) run either way, so the
+      # "is the release build broken" signal is unchanged. master and tags still
+      # build everything.
       - name: Run GoReleaser
         run: |
-          make dev-dist
+          make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
   launcher-build-darwin:
     runs-on: macos-latest
     steps:
