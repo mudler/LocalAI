@@ -143,6 +143,11 @@ var defaultImporters = []Importer{
 	&CoquiImporter{},
 	// Image/Video (Batch 3)
 	&StableDiffusionGGMLImporter{},
+	// Trellis2CppImporter (TRELLIS.2 image-to-3D, native C++/ggml port) must
+	// run before LlamaCPPImporter so its GGUF sets aren't claimed by the
+	// generic .gguf importer; matches only trellis-named URIs/repos or the
+	// distinctive component filenames, so arbitrary GGUFs are never claimed.
+	&Trellis2CppImporter{},
 	&ACEStepImporter{},
 	// LongCat repositories carry generic Diffusers metadata, so this exact
 	// owner/repo matcher must run before DiffuserImporter.

@@ -2163,6 +2163,11 @@ type liveResponse struct {
 	output  []types.MessageItemUnion
 	usage   backend.TokenUsage
 	outcome responseOutcome
+	// metadata is echoed back on response.created and response.done. It is the
+	// only thing tying a terminal event to the response.create that asked for
+	// it, which is what lets a client run an out-of-band response alongside the
+	// spoken conversation and still recognise its own answer.
+	metadata map[string]string
 }
 
 func (r *liveResponse) addItem(it types.MessageItemUnion) { r.output = append(r.output, it) }
@@ -2192,12 +2197,16 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 	// terminals the legacy code emitted (one response.done per turn, with empty
 	// Output/Usage) are gone; tool turns are now internal to this single response.
 	r := &liveResponse{id: generateUniqueID()}
+	if overrides != nil {
+		r.metadata = overrides.Metadata
+	}
 	sendEvent(t, types.ResponseCreatedEvent{
 		ServerEventBase: types.ServerEventBase{},
 		Response: types.Response{
-			ID:     r.id,
-			Object: "realtime.response",
-			Status: types.ResponseStatusInProgress,
+			ID:       r.id,
+			Object:   "realtime.response",
+			Status:   types.ResponseStatusInProgress,
+			Metadata: r.metadata,
 		},
 	})
 
@@ -2208,10 +2217,11 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 		sendEvent(t, types.ResponseDoneEvent{
 			ServerEventBase: types.ServerEventBase{},
 			Response: types.Response{
-				ID:     r.id,
-				Object: "realtime.response",
-				Status: types.ResponseStatusCancelled,
-				Output: r.output,
+				ID:       r.id,
+				Object:   "realtime.response",
+				Status:   types.ResponseStatusCancelled,
+				Output:   r.output,
+				Metadata: r.metadata,
 			},
 		})
 	case outcomeFailed:
@@ -2221,11 +2231,12 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 		sendEvent(t, types.ResponseDoneEvent{
 			ServerEventBase: types.ServerEventBase{},
 			Response: types.Response{
-				ID:     r.id,
-				Object: "realtime.response",
-				Status: types.ResponseStatusCompleted,
-				Output: r.output,
-				Usage:  responseUsage(r.usage),
+				ID:       r.id,
+				Object:   "realtime.response",
+				Status:   types.ResponseStatusCompleted,
+				Output:   r.output,
+				Usage:    responseUsage(r.usage),
+				Metadata: r.metadata,
 			},
 		})
 	}

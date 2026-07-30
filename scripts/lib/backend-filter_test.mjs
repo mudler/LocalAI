@@ -8,7 +8,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { filterMatrix } from "./backend-filter.mjs";
+import { filterMatrix, inferBackendPath } from "./backend-filter.mjs";
+
+test("trellis2cpp maps to its Go backend source directory", () => {
+  assert.equal(
+    inferBackendPath({
+      backend: "trellis2cpp",
+      dockerfile: "./backend/Dockerfile.golang",
+    }),
+    "backend/go/trellis2cpp/"
+  );
+});
 
 // A representative slice of .github/backend-matrix.yml: one entry per build
 // path that the filter treats differently. Kept inline rather than parsed from
@@ -381,6 +391,149 @@ test("an unavailable previous matrix conservatively rebuilds everything", () => 
   // Same posture as changed-backends.js's run-all fallbacks: if we cannot
   // resolve what the entries used to be, we must not claim nothing changed.
   const { filtered, filteredDarwin } = run([".github/backend-matrix.yml"], null);
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+// --- backend.proto: additive changes must not rebuild the world -------------
+//
+// backend/backend.proto is consumed by every language, so the SHARED_BUILD_INPUTS
+// rule for it is always/always: a full 417-entry Linux matrix plus all 56 Darwin
+// entries. It fires on 1.3% of commits, and in practice every one of those has
+// been purely additive (a new field with an unused number, a new message, a new
+// RPC). Adding `bool cache_prompt = 8;` (PR #11158) cannot change the behavior of
+// a backend that never reads it, yet it rebuilt all 473 images.
+//
+// So the rule becomes content-aware rather than path-aware, using the same shape
+// as previousMatrix above: changed-backends.js resolves the base revision and
+// hands the two texts in, and everything here stays pure.
+
+const protoWith = body => `
+syntax = "proto3";
+
+package backend;
+
+service Backend {
+  rpc Health(HealthMessage) returns (Reply) {}
+  rpc Predict(PredictOptions) returns (Reply) {}
+}
+
+message HealthMessage {}
+
+message PredictOptions {
+${body}
+}
+`;
+
+const BASE_FIELDS = `  string Prompt = 1;
+  int32 Tokens = 2;
+  bool UseTokenizerTemplate = 3;`;
+
+const runProto = (previous, current) =>
+  filterMatrix({
+    includes,
+    includesDarwin,
+    changedFiles: ["backend/backend.proto"],
+    protoRevisions: { previous, current },
+  });
+
+test("an added proto field rebuilds nothing", () => {
+  // The real PR #11158 diff: six added lines, one new field, unused number.
+  const { filtered, filteredDarwin, changedBackends } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(`${BASE_FIELDS}\n  bool cache_prompt = 8;`)
+  );
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+  assert.equal(changedBackends.size, 0);
+});
+
+test("an added proto message and RPC rebuild nothing", () => {
+  const current = protoWith(BASE_FIELDS).replace(
+    "message HealthMessage {}",
+    "message HealthMessage {}\n\nmessage ScoreRequest {\n  string Text = 1;\n}"
+  ).replace(
+    "  rpc Predict(PredictOptions) returns (Reply) {}",
+    "  rpc Predict(PredictOptions) returns (Reply) {}\n  rpc Score(ScoreRequest) returns (Reply) {}"
+  );
+
+  const { filtered, filteredDarwin } = runProto(protoWith(BASE_FIELDS), current);
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+});
+
+test("a removed proto field rebuilds every backend on every OS", () => {
+  const { filtered, filteredDarwin } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(`  string Prompt = 1;\n  bool UseTokenizerTemplate = 3;`)
+  );
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+test("a renumbered proto field rebuilds every backend on every OS", () => {
+  // Wire-incompatible: an old backend reading field 2 gets nothing.
+  const { filtered, filteredDarwin } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(`  string Prompt = 1;\n  int32 Tokens = 9;\n  bool UseTokenizerTemplate = 3;`)
+  );
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+test("a retyped proto field rebuilds every backend on every OS", () => {
+  const { filtered, filteredDarwin } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(`  string Prompt = 1;\n  int64 Tokens = 2;\n  bool UseTokenizerTemplate = 3;`)
+  );
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+test("a renamed proto field rebuilds every backend on every OS", () => {
+  // Same number and type, but every generated accessor changes name.
+  const { filtered, filteredDarwin } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(`  string Prompt = 1;\n  int32 MaxTokens = 2;\n  bool UseTokenizerTemplate = 3;`)
+  );
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+test("a removed proto RPC rebuilds every backend on every OS", () => {
+  const { filtered, filteredDarwin } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(BASE_FIELDS).replace(
+      "  rpc Predict(PredictOptions) returns (Reply) {}\n",
+      ""
+    )
+  );
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+test("a comment-only proto change rebuilds nothing", () => {
+  const { filtered, filteredDarwin } = runProto(
+    protoWith(BASE_FIELDS),
+    protoWith(`  string Prompt = 1;\n  // how many tokens to emit\n  int32 Tokens = 2;\n  bool UseTokenizerTemplate = 3;`)
+  );
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+});
+
+test("unresolvable proto revisions conservatively rebuild everything", () => {
+  // Same posture as the previousMatrix fallback: if we cannot resolve what the
+  // proto used to say, we must not claim the change was additive.
+  const { filtered, filteredDarwin } = runProto(null, protoWith(BASE_FIELDS));
 
   assert.equal(filtered.length, includes.length);
   assert.equal(filteredDarwin.length, includesDarwin.length);
