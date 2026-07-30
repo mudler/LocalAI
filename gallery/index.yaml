@@ -63,14 +63,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/Kimi-K3-GGUF
-  description: |
-    📰&nbsp;&nbsp;Tech Blog | &nbsp;&nbsp;&nbsp; 📄&nbsp;&nbsp;Full Report
-
-    ## 1. Model Introduction
-
-    Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date. It is a 2.8T-parameter model built on Kimi Delta Attention (KDA) and Attention Residuals (AttnRes), with native vision capabilities and a 1-million-token context window. It is the world's first open 3T-class model, designed for frontier intelligence across long-horizon coding, knowledge work, and reasoning.
-
-    ...
+  description: "\U0001F4F0&nbsp;&nbsp;Tech Blog | &nbsp;&nbsp;&nbsp; \U0001F4C4&nbsp;&nbsp;Full Report\n\n## 1. Model Introduction\n\nKimi K3 is an open-weight, native multimodal agentic model and our most capable model to date. It is a 2.8T-parameter model built on Kimi Delta Attention (KDA) and Attention Residuals (AttnRes), with native vision capabilities and a 1-million-token context window. It is the world's first open 3T-class model, designed for frontier intelligence across long-horizon coding, knowledge work, and reasoning.\n\n...\n"
   license: "other"
   tags:
     - llm
@@ -1103,7 +1096,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: bc0c5023ca1f6b6a0fed6bb365166699629b88868e78beff45b821d9694939b2
+      sha256: ea2be54e4e989cb8cc2a88c0791b15eaa50eb97fb46a89843f6415d7e1a73e33
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
