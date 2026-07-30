@@ -59,6 +59,148 @@
     - filename: llama-cpp/models/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q8_0/Mellum2-12B-A2.5B-Instruct-Q8_0.gguf
       sha256: 273d13d353607111534c5c2beace7d89b8f0ebe259db56ee0878e5c5bb79e7a2
       uri: huggingface://JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q8_0/Mellum2-12B-A2.5B-Instruct-Q8_0.gguf
+- name: "kimi-k3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Kimi-K3-GGUF
+  description: |
+    📰&nbsp;&nbsp;Tech Blog | &nbsp;&nbsp;&nbsp; 📄&nbsp;&nbsp;Full Report
+
+    ## 1. Model Introduction
+
+    Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date. It is a 2.8T-parameter model built on Kimi Delta Attention (KDA) and Attention Residuals (AttnRes), with native vision capabilities and a 1-million-token context window. It is the world's first open 3T-class model, designed for frontier intelligence across long-horizon coding, knowledge work, and reasoning.
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Kimi-K3-UD-Q8_K_XL/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00001-of-00034.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00001-of-00034.gguf
+      sha256: 49414d73110fed8779bf4cc10baed4ade1709581760507b4d4dd1e0782c71c2b
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00001-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00002-of-00034.gguf
+      sha256: 8afa5cab374bf323c6b28d6139333c4581b3bcce4f75a3542cf5a4a2f28bbff6
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00002-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00003-of-00034.gguf
+      sha256: 1b447d250003a476b979ca0bde9f71adb42a78d35fbc351eac97e64b5ded8991
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00003-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00004-of-00034.gguf
+      sha256: 56870ecd9222119ba7bb79d518df1599bb4f3525478f8fc3a4d2b8a6e1e69d64
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00004-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00005-of-00034.gguf
+      sha256: 2eb46799a7bdea9ea81a0031ae1e6303d92d4b4461ccdf2b49bd76dc202a4006
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00005-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00006-of-00034.gguf
+      sha256: ea2fa20d7586143b8b176aa8556245d3780d9fed9456cd6895d7a4c3a5352a5d
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00006-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00007-of-00034.gguf
+      sha256: b5fe6bc05ef66ea3080a6d271d9a22b7ebc9d7f5f65bd74e39ad99a7ac5e1d0b
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00007-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00008-of-00034.gguf
+      sha256: daf59926e12dcb7202595f5a1831729c8cf1410d67cdd03f743831e7b2809a9c
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00008-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00009-of-00034.gguf
+      sha256: 06d5e6eb2ac4cc185e7a1fc031bb18f57056ed76e273030e3bbf04a5d53dc2bd
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00009-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00010-of-00034.gguf
+      sha256: 03bbf920b3990524b0ee671f92d432839a4a7af730abdde270b5eff0e7840c64
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00010-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00011-of-00034.gguf
+      sha256: 8cf6eb75ca99cff7a01d1969f450d52eda1301c6e1fdd9f971d04ea7ba696d20
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00011-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00012-of-00034.gguf
+      sha256: 5e5ced86c2441bf0838e03e5223f00135dc7841cb7d99a4e2b324dcacab38f93
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00012-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00013-of-00034.gguf
+      sha256: 5b4cdd9d3e252297b94ff3ebcfb99357bf68d95acbc6cd8d7af74d45445d8ce0
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00013-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00014-of-00034.gguf
+      sha256: 847aa6aa98fea95facbb28e72d0624f4808bb5e00e5b33d0b217a5bd703a0118
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00014-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00015-of-00034.gguf
+      sha256: 476bf0b746cd1c3e6b6a3c869c39ba24ed3fea4b2cbc976c4febf9b2a127a340
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00015-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00016-of-00034.gguf
+      sha256: 3b0ba8491a547110cd04bc6cc78483695bde59be8c175df93b10da25b8b5d82f
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00016-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00017-of-00034.gguf
+      sha256: 7f6b4190fc1703e8ee40f1df837c132b80d5469e320b8791fb140e871a110e32
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00017-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00018-of-00034.gguf
+      sha256: 561a674f49566643da911dcf26ea013d101affdfcff9fceda5b7fea599be586e
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00018-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00019-of-00034.gguf
+      sha256: 3a54deea2362d43b918f0f89229a4c28b3714012c9fe60797a95cb4e274b0d15
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00019-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00020-of-00034.gguf
+      sha256: 63204d1051bb4e1cd80faa95766257f3b7ad77808e47beafdd5e65ca6a940c4e
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00020-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00021-of-00034.gguf
+      sha256: 644bed85c9b3a64839db36bd882b8382984b73f5ab078bb0bfd07344c19a7315
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00021-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00022-of-00034.gguf
+      sha256: 684f98815915963b2765a1ba19135a4b1b987164fd801065fcc22faee114603f
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00022-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00023-of-00034.gguf
+      sha256: 0c3ede7aaf2369a4eb753b6fec2dcf698a199446121d2c5996515d52796c5131
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00023-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00024-of-00034.gguf
+      sha256: 954515c926aed9b4f5957d9539c422a942972d940cb6483be64fbd29ed0da129
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00024-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00025-of-00034.gguf
+      sha256: 65b1f1e369d03b8d6cf10d4f686aaa57ed735bbb9a801220e52b7504d6d12f6e
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00025-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00026-of-00034.gguf
+      sha256: b3fe36ad0cb8a6e641c594d88521b707ca7db8932181eb6e83abe58a56ac3401
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00026-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00027-of-00034.gguf
+      sha256: 6eafd3585c77cd601a3ee2d02e85e416e9f493348babd9a1a5722a78f86d0cc6
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00027-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00028-of-00034.gguf
+      sha256: 326e217e83fa2665ec1e0119c765af150e7ab65382c26e2fe1420359f7b995c1
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00028-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00029-of-00034.gguf
+      sha256: d61705e4db186c0b3a7a1a704434641c2229abe77432af59cb02a193478eb3a7
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00029-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00030-of-00034.gguf
+      sha256: ac72bf92d176e83c74e70ce8b897732e29920f6b317aca7903229ac54e7615f7
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00030-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00031-of-00034.gguf
+      sha256: 7b8967a87090e7e7f9088a7b22924c7dc196e1e6c64ee85037df1995975554fd
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00031-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00032-of-00034.gguf
+      sha256: d7573ce35be653c7cebf7b8dabd0cf9a18880cb3c2e02126df374833f2d21805
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00032-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00033-of-00034.gguf
+      sha256: feeaec9cabe7978b237c6135a5b4d546830b1893043f5004d8cc9d79680e817b
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00033-of-00034.gguf
+    - filename: llama-cpp/models/Kimi-K3-UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00034-of-00034.gguf
+      sha256: a9e13cead6cb340f148dcf5bebe6faa203ef5a6059dd6480f7d609d660c785ad
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/UD-Q8_K_XL/Kimi-K3-UD-Q8_K_XL-00034-of-00034.gguf
+    - filename: llama-cpp/mmproj/Kimi-K3-UD-Q8_K_XL/mmproj-F32.gguf
+      sha256: 62d78a7ae738567265d114d0cabfe794aa604ed252031b3abee9c2c4baa90374
+      uri: https://huggingface.co/unsloth/Kimi-K3-GGUF/resolve/main/mmproj-F32.gguf
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
