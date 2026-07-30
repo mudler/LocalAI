@@ -715,6 +715,7 @@ For image generation models using the `diffusers` backend:
 | `diffusers.cuda` | bool | Enable CUDA for diffusers |
 | `diffusers.pipeline_type` | string | Pipeline type (e.g., `stable-diffusion`, `stable-diffusion-xl`) |
 | `diffusers.scheduler_type` | string | Scheduler type (e.g., `euler`, `ddpm`) |
+| `diffusers.original_config_file` | string | Local path or URL to the original configuration for loading a single-file checkpoint |
 | `diffusers.enable_parameters` | string | Comma-separated parameters to enable |
 | `diffusers.cfg_scale` | float32 | Classifier-free guidance scale |
 | `diffusers.img2img` | bool | Enable image-to-image transformation |
