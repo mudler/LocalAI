@@ -82,6 +82,16 @@ else
 	VARIANT_TARGETS = libdepthanythingcpp-fallback.dylib
 endif
 
+## Builds the native engine variants and stops short of the Go binary. The
+## variants depend only on sources/depth-anything.cpp, a clone pinned by
+## DEPTHANYTHING_VERSION, so nothing in this target can observe a change
+## elsewhere in the LocalAI tree. Dockerfile.golang calls it from a layer that
+## copies in this Makefile and nothing else, which keeps the multi-minute ggml
+## compile in the registry layer cache across builds whose only change is on the
+## Go side. See .agents/ci-caching.md.
+.PHONY: engine
+engine: $(VARIANT_TARGETS)
+
 depth-anything-cpp: main.go godepthanythingcpp.go $(VARIANT_TARGETS)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o depth-anything-cpp ./
 

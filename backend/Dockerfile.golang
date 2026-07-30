@@ -248,10 +248,48 @@ RUN <<EOT bash
     fi
 EOT
 
-COPY . /LocalAI
-
 RUN git config --global --add safe.directory /LocalAI
 
+# Prebuild the native engine from a layer that depends on this backend's own
+# directory and nothing else.
+#
+# The expensive part of a C++ backend build is the engine: each of these
+# Makefiles clones an upstream repo at a pinned SHA and compiles it once per
+# SIMD variant (depth-anything-cpp builds four: avx, avx2, avx512, fallback),
+# and those variant targets depend only on the clone. They cannot observe a
+# change anywhere else in the LocalAI tree. Building them below `COPY . /LocalAI`
+# threw that away: any Go-side edit invalidated the layer and recompiled C++ that
+# had not changed. Measured on 2026-07-30, that is a 100+ minute rebuild for the
+# larger engines.
+#
+# Copying only this backend's directory first keeps the compile in a layer that
+# survives any change elsewhere in the tree, so `cache-from: type=registry`
+# restores it. That covers the expensive cases directly: a shared-build-input or
+# backend.proto change, the weekly full-matrix cron and a tag push all rebuild
+# every backend while touching none of their directories. This is the mechanism
+# behind base-grpc-* applied one level down; unlike a --mount=type=cache it is a
+# real layer, which is what actually survives to the registry.
+#
+# The whole directory rather than just the Makefile: the CMake targets also need
+# CMakeLists.txt, and the file list differs per backend. The cost is that editing
+# this backend's Go sources also invalidates the engine layer.
+#
+# Backends whose Makefile has no `engine` target are unaffected: the guard skips
+# the prebuild and their engine still compiles in the `build` step below.
+COPY backend/go/${BACKEND}/ /LocalAI/backend/go/${BACKEND}/
+RUN cd /LocalAI/backend/go/${BACKEND} && \
+    if make -n engine >/dev/null 2>&1; then \
+        echo "==> prebuilding engine for ${BACKEND} (cacheable layer)" && \
+        make engine; \
+    else \
+        echo "==> ${BACKEND} has no engine target; it builds with the backend"; \
+    fi
+
+COPY . /LocalAI
+
+# The engine variants built above survive this COPY (they are build outputs, not
+# tracked files) and are newer than the pinned clone, so make treats them as up
+# to date and goes straight to the Go binary.
 RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
 
 FROM scratch
