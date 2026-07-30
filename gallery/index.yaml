@@ -1,4 +1,64 @@
 ---
+- &mellum2-12b-a2-5b-instruct
+  name: "mellum2-12b-a2.5b-instruct"
+  variants:
+    - model: mellum2-12b-a2.5b-instruct-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/JetBrains/Mellum2-12B-A2.5B-Instruct
+    - https://huggingface.co/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q4_K_M
+    - https://huggingface.co/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q8_0
+  description: |
+    Mellum2-12B-A2.5B-Instruct is an Apache-2.0 mixture-of-experts model from
+    JetBrains with 12 billion total parameters, 2.5 billion activated per token,
+    and a 131,072-token context window.
+
+    This entry uses the Q4_K_M GGUF quantization.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+  last_checked: "2026-07-30"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q4_K_M/Mellum2-12B-A2.5B-Instruct-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q4_K_M/Mellum2-12B-A2.5B-Instruct-Q4_K_M.gguf
+      sha256: b04281c27de5d968d577f310d982273b1b13bdbd8117b3ecffffeebfe222f0a7
+      uri: huggingface://JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q4_K_M/Mellum2-12B-A2.5B-Instruct-Q4_K_M.gguf
+- !!merge <<: *mellum2-12b-a2-5b-instruct
+  name: "mellum2-12b-a2.5b-instruct-q8"
+  variants: []
+  description: |
+    Mellum2-12B-A2.5B-Instruct is an Apache-2.0 mixture-of-experts model from
+    JetBrains with 12 billion total parameters, 2.5 billion activated per token,
+    and a 131,072-token context window.
+
+    This entry uses the higher-quality Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q8_0/Mellum2-12B-A2.5B-Instruct-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q8_0/Mellum2-12B-A2.5B-Instruct-Q8_0.gguf
+      sha256: 273d13d353607111534c5c2beace7d89b8f0ebe259db56ee0878e5c5bb79e7a2
+      uri: huggingface://JetBrains/Mellum2-12B-A2.5B-Instruct-GGUF-Q8_0/Mellum2-12B-A2.5B-Instruct-Q8_0.gguf
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
