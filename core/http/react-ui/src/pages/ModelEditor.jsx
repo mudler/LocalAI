@@ -266,16 +266,16 @@ export default function ModelEditor() {
     if (isCreateMode) return null
     if (vramEstimate.loading) {
       return (
-        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-          <i className="fas fa-spinner fa-spin" style={{ marginRight: 4 }} />
+        <div className="text-meta mt-xs">
+          <i className="fas fa-spinner fa-spin icon-before" />
           Estimating VRAM...
         </div>
       )
     }
     if (vramEstimate.vramDisplay) {
       return (
-        <div style={{ fontSize: '0.6875rem', color: 'var(--color-warning)', marginTop: 4, fontWeight: 500 }}>
-          <i className="fas fa-memory" style={{ marginRight: 4 }} />
+        <div className="text-xs text-warning fw-medium mt-xs">
+          <i className="fas fa-memory icon-before" />
           ~{vramEstimate.vramDisplay} VRAM
         </div>
       )
@@ -421,7 +421,7 @@ export default function ModelEditor() {
   const loading = metaLoading || configLoading
   const showTemplateSelector = isCreateMode && !selectedTemplate
 
-  if (loading) return <div className="page page--medium" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+  if (loading) return <div className="page page--medium loading-center"><LoadingSpinner size="lg" /></div>
   if (metaError) return <div className="page page--medium"><div className="empty-state"><p className="empty-state-text">Failed to load config metadata: {metaError}</p></div></div>
 
   const backPage = isCreateMode && selectedTemplate ? t('actions.templates')
@@ -430,12 +430,9 @@ export default function ModelEditor() {
 
   return (
     <FormContextProvider formData={values}>
-    <div className="page page--medium" style={{ padding: 0 }}>
+    <div className="page page--medium p-0">
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: 'var(--spacing-lg) var(--spacing-lg) var(--spacing-md)',
-      }}>
+      <div className="me-head">
         <div>
           <h1 className="page-title">{isCreateMode ? t('title.add') : t('title.edit')}</h1>
           <p className="page-subtitle">
@@ -444,7 +441,7 @@ export default function ModelEditor() {
               : decodeURIComponent(name)}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        <div className="hstack">
           <button className="btn btn-secondary" onClick={() => {
             if (isCreateMode && selectedTemplate) { setSelectedTemplate(null); setValues({}); setActiveFieldPaths(new Set()) }
             else if (backState) navigate(backState.from)
@@ -471,10 +468,7 @@ export default function ModelEditor() {
       {/* Tabs (hidden during template selection) */}
       {!showTemplateSelector && (
         <div>
-          <div style={{
-            display: 'flex', gap: 0, padding: '0 var(--spacing-lg)',
-            borderBottom: '1px solid var(--color-border)',
-          }}>
+          <div className="me-tabs">
             {['interactive', 'yaml'].map(tb => {
               const active = tab === tb
               const blocked = !active && isDirty
@@ -487,35 +481,20 @@ export default function ModelEditor() {
                     setTabSwitchWarning(false)
                     setTab(tb)
                   }}
-                  style={{
-                    padding: 'var(--spacing-sm) var(--spacing-md)', border: 'none',
-                    cursor: blocked ? 'not-allowed' : 'pointer',
-                    background: 'transparent', fontSize: '0.875rem',
-                    fontWeight: active ? 600 : 400,
-                    opacity: blocked ? 0.5 : 1,
-                    color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                    borderBottom: active ? '2px solid var(--color-primary)' : '2px solid transparent',
-                    transition: 'all 150ms',
-                  }}
+                  className={`me-tab${active ? ' me-tab--on' : ''}${blocked ? ' me-tab--blocked' : ''}`}
                 >
-                  <i className={`fas ${tb === 'interactive' ? 'fa-sliders' : 'fa-code'}`} style={{ marginRight: 6 }} />
+                  <i className={`fas ${tb === 'interactive' ? 'fa-sliders' : 'fa-code'} icon-before`} />
                   {tb === 'interactive' ? t('tabs.interactive') : t('tabs.yaml')}
                 </button>
               )
             })}
           </div>
           {tabSwitchWarning && isDirty && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-              padding: 'var(--spacing-sm) var(--spacing-lg)',
-              fontSize: '0.8125rem', color: 'var(--color-warning, #f59e0b)',
-              background: 'var(--color-warning-light, rgba(245, 158, 11, 0.08))',
-            }}>
+            <div className="me-warn">
               <i className="fas fa-exclamation-triangle" />
               <span>{t('actions.switchWarning')}</span>
               <button
-                className="btn btn-secondary"
-                style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: '0.75rem' }}
+                className="btn btn-secondary ml-auto pill-tiny"
                 onClick={() => {
                   if (tab === 'yaml') {
                     setYamlText(savedYamlText)
@@ -536,9 +515,9 @@ export default function ModelEditor() {
 
       {/* YAML Tab */}
       {!showTemplateSelector && tab === 'yaml' && (
-        <div style={{ padding: '0 var(--spacing-lg) var(--spacing-lg)' }}>
+        <div className="me-pad--bottom">
           {isCreateMode && (
-            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+            <p className="text-sub mb-sm">
               {t('tabs.yamlDescription')}
             </p>
           )}
@@ -556,21 +535,20 @@ export default function ModelEditor() {
         <>
           {/* Model name input (create mode) */}
           {isCreateMode && (
-            <div style={{ padding: '0 var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
-              <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                <label className="form-label" style={{ fontWeight: 600 }}>
-                  <i className="fas fa-tag" style={{ marginRight: '6px', color: 'var(--color-primary)' }} />
+            <div className="me-pad mb-md">
+              <div className="card pad-md">
+                <label className="form-label fw-semibold">
+                  <i className="fas fa-tag icon-before text-primary" />
                   {t('forms.modelName.label')}
                 </label>
                 <input
-                  className="input"
+                  className="input max-w-400"
                   type="text"
                   value={values['name'] || ''}
                   onChange={e => handleFieldChange('name', e.target.value)}
                   placeholder={t('forms.modelName.placeholder')}
-                  style={{ maxWidth: 400 }}
                 />
-                <p style={{ marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                <p className="text-meta mt-xs">
                   {t('forms.modelName.hint')}
                 </p>
               </div>
@@ -578,7 +556,7 @@ export default function ModelEditor() {
           )}
 
           {/* Field browser */}
-          <div style={{ padding: '0 var(--spacing-lg)' }}>
+          <div className="me-pad">
             <FieldBrowser
               fields={fields}
               activeFieldPaths={activeFieldPaths}
@@ -590,39 +568,27 @@ export default function ModelEditor() {
               no inner overflow:auto here, so the global footer ends up
               below the content (like every other page) instead of pinned
               to the viewport bottom, eating editing space on short screens. */}
-          <div style={{ display: 'flex', gap: 0 }}>
+          <div className="set-layout">
             {/* Sidebar — sticks to the top of the viewport as the body scrolls. */}
-            <nav style={{
-              width: 180, flexShrink: 0, padding: '0 var(--spacing-sm)',
-              position: 'sticky', top: 'var(--spacing-md)', alignSelf: 'flex-start',
-            }}>
+            <nav className="set-rail">
               {activeSections.map(s => (
                 <button
                   key={s.id}
                   onClick={() => scrollTo(s.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-                    width: '100%', padding: '8px 12px',
-                    background: activeSection === s.id ? 'var(--color-primary-light)' : 'transparent',
-                    border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                    color: activeSection === s.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                    fontSize: '0.8125rem', fontWeight: activeSection === s.id ? 600 : 400,
-                    textAlign: 'left', transition: 'all 150ms', marginBottom: 2,
-                    borderLeft: activeSection === s.id ? '2px solid var(--color-primary)' : '2px solid transparent',
-                  }}
+                  className={`set-rail__item${activeSection === s.id ? ' set-rail__item--on' : ''}`}
                 >
-                  <i className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'}`} style={{
-                    width: 16, textAlign: 'center', fontSize: '0.75rem',
-                    color: activeSection === s.id ? (SECTION_COLORS[s.id] || 'var(--color-primary)') : 'var(--color-text-muted)',
-                  }} />
+                  <i
+                    className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'} set-rail__icon`}
+                    style={activeSection === s.id ? { color: SECTION_COLORS[s.id] || 'var(--color-primary)' } : undefined}
+                  />
                   {s.label}
-                  <span style={{ marginLeft: 'auto', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                  <span className="ml-auto text-meta">
                     {fieldsBySection[s.id]?.length || 0}
                   </span>
                 </button>
               ))}
               {activeSections.length === 0 && (
-                <div style={{ padding: '12px', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                <div className="text-note pad-sm">
                   {t('forms.empty.nav')}
                 </div>
               )}
@@ -630,15 +596,13 @@ export default function ModelEditor() {
 
             {/* Content */}
             <div
-              style={{
-                flex: 1, padding: '0 var(--spacing-lg) var(--spacing-xl) var(--spacing-md)',
-              }}
+              className="me-body"
             >
               {activeSections.length === 0 && (
-                <div className="card" style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
-                  <i className="fas fa-sliders" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }} />
-                  <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>{t('forms.empty.title')}</h3>
-                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>
+                <div className="card loading-center text-center">
+                  <i className="fas fa-sliders icon-xl text-muted mb-md" />
+                  <h3 className="mb-sm">{t('forms.empty.title')}</h3>
+                  <p className="text-base text-secondary">
                     {t('forms.empty.text')}
                   </p>
                 </div>
@@ -648,21 +612,16 @@ export default function ModelEditor() {
                 const sectionFields = fieldsBySection[s.id] || []
                 const isCollapsed = collapsedSections.has(s.id)
                 return (
-                  <div key={s.id} ref={el => sectionRefs.current[s.id] = el} style={{ marginBottom: 'var(--spacing-xl)' }}>
+                  <div key={s.id} ref={el => sectionRefs.current[s.id] = el} className="mb-xl">
                     <h3
                       onClick={() => toggleSection(s.id)}
-                      style={{
-                        fontSize: '1rem', fontWeight: 700, cursor: 'pointer', userSelect: 'none',
-                        display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-                        marginBottom: isCollapsed ? 0 : 'var(--spacing-md)',
-                      }}
+                      className={`me-section-head${isCollapsed ? ' me-section-head--collapsed' : ''}`}
                     >
-                      <i className={`fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'}`}
-                        style={{ fontSize: '0.625rem', width: 12, color: 'var(--color-text-muted)' }} />
+                      <i className={`fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} me-chevron`} />
                       <i className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'}`}
                         style={{ color: SECTION_COLORS[s.id] || 'var(--color-primary)' }} />
                       {s.label}
-                      <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--color-text-muted)' }}>
+                      <span className="text-xs fw-normal text-muted">
                         ({sectionFields.length})
                       </span>
                     </h3>

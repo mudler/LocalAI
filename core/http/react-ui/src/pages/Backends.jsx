@@ -312,11 +312,11 @@ export default function Backends() {
   const SortHeader = ({ col, children }) => (
     <th
       onClick={() => handleSort(col)}
-      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+      className="sortable-th nowrap"
     >
       {children}
       {sortBy === col && (
-        <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, fontSize: '0.6875rem', color: 'var(--color-primary)' }} />
+        <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'} ml-xs text-xs text-primary`} />
       )}
     </th>
   )
@@ -328,17 +328,9 @@ export default function Backends() {
           give a fast way to clear it. Visually a primary-tinted strip so the
           user knows they're in a special mode without it feeling alarming. */}
       {targetNode && (
-        <div className="card" style={{
-          marginBottom: 'var(--spacing-md)',
-          padding: 'var(--spacing-sm) var(--spacing-md)',
-          background: 'var(--color-primary-light)',
-          border: '1px solid var(--color-primary-border)',
-          borderRadius: 'var(--radius-md)',
-          display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-          flexWrap: 'wrap',
-        }}>
+        <div className="card bk-notice tone-primary mb-md">
           <i className="fas fa-bullseye" style={{ color: 'var(--color-primary)' }} />
-          <span style={{ color: 'var(--color-primary)', fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+          <span className="bk-notice__text">
             Installing only on <span style={{ fontFamily: 'var(--font-mono)' }}>{targetNode.name}</span>
           </span>
           <span style={{ flex: 1 }} />
@@ -353,21 +345,21 @@ export default function Backends() {
         title={t('backends.title')}
         supporting={t('backends.subtitle')}
         actions={
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
+        <div className="hstack hstack--md">
+          <div className="bk-counts">
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{filteredBackends.length}</div>
+              <div className="bk-count tone-primary">{filteredBackends.length}</div>
               <div style={{ color: 'var(--color-text-muted)' }}>Available</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <a onClick={() => navigate('/app/manage')} style={{ cursor: 'pointer' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{installedCount}</div>
+                <div className="bk-count tone-success">{installedCount}</div>
                 <div style={{ color: 'var(--color-text-muted)' }}>Installed</div>
               </a>
             </div>
             {Object.keys(upgrades).length > 0 && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-warning)' }}>
+                <div className="bk-count tone-warning">
                   {Object.keys(upgrades).length}
                 </div>
                 <div style={{ color: 'var(--color-text-muted)' }}>Updates</div>
@@ -383,17 +375,10 @@ export default function Backends() {
 
       {/* Upgrade Banner */}
       {Object.keys(upgrades).length > 0 && (
-        <div className="card" style={{
-          marginBottom: 'var(--spacing-md)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: 'var(--spacing-sm) var(--spacing-md)',
-          background: 'var(--color-warning-light)',
-          border: '1px solid var(--color-warning-border)',
-          borderRadius: 'var(--radius-md)',
-        }}>
+        <div className="card bk-notice bk-notice--between tone-warning mb-md">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <i className="fas fa-arrow-up" style={{ color: 'var(--color-warning)' }} />
-            <span style={{ color: 'var(--color-warning)', fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+            <span className="bk-notice__text">
               {Object.keys(upgrades).length} backend{Object.keys(upgrades).length > 1 ? 's have' : ' has'} updates available
             </span>
           </div>
@@ -417,11 +402,11 @@ export default function Backends() {
 
       {showManualInstall && (
         <form onSubmit={handleManualInstall} className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
+          <h3 className="text-base fw-semibold mb-sm">
             <i className="fas fa-download" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
             Install External Backend
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 'var(--spacing-sm)', alignItems: 'end' }}>
+          <div className="bk-manual-grid">
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">OCI Image / URL / Path *</label>
               <input className="input" value={manualUri} onChange={(e) => setManualUri(e.target.value)} placeholder="oci://quay.io/example/backend:latest" />
@@ -442,15 +427,15 @@ export default function Backends() {
       )}
 
       {/* Search + Filters */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="search-bar" style={{ flex: 1, minWidth: 200 }}>
+      <div className="hstack mb-md">
+        <div className="search-bar search-grow">
           <i className="fas fa-search search-icon" />
           <input className="input" placeholder="Search backends by name, description, or type..." value={search} onChange={(e) => handleSearch(e.target.value)} />
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
-        <div className="filter-bar" style={{ margin: 0, flex: 1 }}>
+      <div className="hstack hstack--md mb-md">
+        <div className="filter-bar m-0 flex-1">
           {FILTERS.map(f => (
             <button
               key={f.key}
@@ -463,7 +448,7 @@ export default function Backends() {
         ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', borderLeft: '1px solid var(--color-border-subtle)', paddingLeft: 'var(--spacing-md)' }}>
+        <div className="bk-toggles">
           <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
             <Toggle checked={showAllBackends} onChange={handleToggleAllBackends} />
             <i className="fas fa-cubes" style={{ fontSize: '0.625rem' }} />
@@ -526,13 +511,9 @@ export default function Backends() {
                     {/* Icon */}
                     <td>
                       {b.icon ? (
-                        <img src={b.icon} alt="" style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', objectFit: 'cover' }} />
+                        <img src={b.icon} alt="" className="bk-icon" />
                       ) : (
-                        <div style={{
-                          width: 28, height: 28, borderRadius: 'var(--radius-sm)',
-                          background: 'var(--color-bg-tertiary)', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center',
-                        }}>
+                        <div className="bk-icon-fallback">
                           <i className="fas fa-cog" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }} />
                         </div>
                       )}
@@ -542,7 +523,7 @@ export default function Backends() {
                     <td>
                       <span style={{ fontWeight: 500 }}>{b.name || b.id}</span>
                       {b.version && (
-                        <span className="badge" style={{ fontSize: '0.625rem', marginLeft: 4, background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                        <span className="badge badge--tiny badge--soft ml-xs">
                           v{b.version}
                         </span>
                       )}
@@ -556,11 +537,7 @@ export default function Backends() {
                         // the full Markdown is rendered in the detail panel instead.
                         const desc = stripMarkdown(b.description)
                         return (
-                          <span style={{
-                            fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
-                            display: 'inline-block', maxWidth: 300, overflow: 'hidden',
-                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }} title={desc}>
+                          <span className="bk-desc" title={desc}>
                             {desc || '-'}
                           </span>
                         )
@@ -577,7 +554,7 @@ export default function Backends() {
                     {/* License */}
                     <td>
                       {b.license ? (
-                        <span className="badge" style={{ fontSize: '0.6875rem', background: 'var(--color-bg-tertiary)' }}>{b.license}</span>
+                        <span className="badge badge--soft text-xs">{b.license}</span>
                       ) : '-'}
                     </td>
 
@@ -595,33 +572,33 @@ export default function Backends() {
                             </span>
                           </div>
                           {op.progress > 0 && (
-                            <div className="operation-bar-container" style={{ flex: 'none', width: '120px', marginTop: 4 }}>
+                            <div className="operation-bar-container bk-progress">
                               <div className="operation-bar" style={{ width: `${op.progress}%` }} />
                             </div>
                           )}
                         </div>
                       ) : b.installed ? (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div className="hstack hstack--xs">
                           {!distributedEnabled && (
                             <span className="badge badge-success">
-                              <i className="fas fa-check" style={{ fontSize: '0.5rem', marginRight: 2 }} /> Installed
+                              <i className="fas fa-check icon-tiny" /> Installed
                             </span>
                           )}
                           {b.version && (
-                            <span className="badge" style={{ fontSize: '0.625rem', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            <span className="badge badge--tiny badge--soft">
                               v{b.version}
                             </span>
                           )}
                           {upgrades[b.name] && (
-                            <span className="badge" style={{ fontSize: '0.625rem', background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
-                              <i className="fas fa-arrow-up" style={{ fontSize: '0.5rem', marginRight: 2 }} />
+                            <span className="badge badge--tiny badge--warn-soft">
+                              <i className="fas fa-arrow-up icon-tiny" />
                               {upgrades[b.name].available_version ? `v${upgrades[b.name].available_version}` : 'Update'}
                             </span>
                           )}
                         </div>
                       ) : (
                         <span className="badge" style={{ background: 'var(--color-surface-sunken)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border-default)' }}>
-                          <i className="fas fa-circle" style={{ fontSize: '0.5rem', marginRight: 2 }} /> Not Installed
+                          <i className="fas fa-circle icon-tiny" /> Not Installed
                         </span>
                       )}
                     </td>
@@ -646,7 +623,7 @@ export default function Backends() {
                                 onClick={(e) => { e.stopPropagation(); openPicker(b, missing) }}
                                 title={`Install on ${missing.length} more node${missing.length === 1 ? '' : 's'}`}
                                 aria-label="Install on more nodes"
-                                style={{ padding: '2px 6px' }}
+                                className="pill-xs"
                               >
                                 <i className="fas fa-plus" style={{ fontSize: '0.6875rem' }} />
                               </button>
@@ -709,19 +686,18 @@ export default function Backends() {
                           // to prevent. Both share a chevron menu for the
                           // alternate path.
                           b.isMeta ? (
-                            <div style={{ display: 'inline-flex' }}>
+                            <div className="inline-flex">
                               <button className="btn btn-primary btn-sm" onClick={() => handleInstall(b.name || b.id)} disabled={isProcessing} title="Install on all nodes" style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
                                 <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-download'}`} /> Install on all
                               </button>
                               <button
                                 ref={splitMenuFor === idx ? splitMenuAnchorRef : undefined}
-                                className="btn btn-primary btn-sm"
+                                className="btn btn-primary btn-sm bk-split-btn"
                                 onClick={() => setSplitMenuFor(splitMenuFor === idx ? null : idx)}
                                 aria-haspopup="menu"
                                 aria-expanded={splitMenuFor === idx}
                                 aria-label="More install options"
                                 disabled={isProcessing}
-                                style={{ padding: '0 8px', borderLeft: '1px solid rgba(0,0,0,0.15)', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
                               >
                                 <i className={`fas fa-chevron-${splitMenuFor === idx ? 'up' : 'down'}`} style={{ fontSize: '0.6875rem' }} />
                               </button>
@@ -762,10 +738,7 @@ export default function Backends() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)',
-        }}>
+        <div className="pagination-row mt-md">
           <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
             <i className="fas fa-chevron-left" /> Previous
           </button>
@@ -832,18 +805,18 @@ function BackendDetailRow({ label, children }) {
   if (!children) return null
   return (
     <tr>
-      <td style={{ fontWeight: 500, fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'top', padding: '6px 12px 6px 0' }}>
+      <td className="bk-detail__label">
         {label}
       </td>
-      <td style={{ fontSize: '0.8125rem', padding: '6px 0' }}>{children}</td>
+      <td className="bk-detail__value">{children}</td>
     </tr>
   )
 }
 
 function BackendDetail({ backend }) {
   return (
-    <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', background: 'var(--color-bg-primary)', borderTop: '1px solid var(--color-border-subtle)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div className="bk-detail">
+      <table className="bk-detail__table">
         <tbody>
           <BackendDetailRow label="Description">
             {backend.description && (
@@ -865,7 +838,7 @@ function BackendDetail({ backend }) {
           </BackendDetailRow>
           <BackendDetailRow label="Tags">
             {backend.tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+              <div className="hstack hstack--xs">
                 {backend.tags.map(tag => (
                   <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
                 ))}
@@ -874,10 +847,10 @@ function BackendDetail({ backend }) {
           </BackendDetailRow>
           <BackendDetailRow label="Links">
             {backend.urls?.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div className="stack stack--xs">
                 {backend.urls.map((url, i) => (
-                  <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
-                    <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
+                  <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary wrap-anywhere">
+                    <i className="fas fa-external-link-alt icon-before text-xs" />{url}
                   </a>
                 ))}
               </div>
