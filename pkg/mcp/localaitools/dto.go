@@ -1,7 +1,8 @@
 package localaitools
 
 import (
-	"github.com/mudler/LocalAI/core/services/nodes"
+	"time"
+
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 )
 
@@ -119,9 +120,25 @@ type SetNodeVRAMBudgetRequest struct {
 }
 
 // ModelSchedulingConfig is the REST/MCP wire shape for one per-model
-// distributed scheduling rule. The NodeSelector field is a JSON object encoded
-// as a string, matching /api/nodes/scheduling responses.
-type ModelSchedulingConfig = nodes.ModelSchedulingConfig
+// distributed scheduling rule. Keep this DTO explicit instead of aliasing the
+// node-registry model so MCP contracts remain owned by localaitools while still
+// matching /api/nodes/scheduling JSON.
+type ModelSchedulingConfig struct {
+	ID                  string     `json:"id"`
+	ModelName           string     `json:"model_name"`
+	NodeSelector        string     `json:"node_selector,omitempty"`
+	MinReplicas         int        `json:"min_replicas"`
+	MaxReplicas         int        `json:"max_replicas"`
+	SpreadAll           bool       `json:"spread_all,omitempty"`
+	RoutePolicy         string     `json:"route_policy,omitempty"`
+	BalanceAbsThreshold int        `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64    `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64    `json:"min_prefix_match,omitempty"`
+	UnsatisfiableUntil  *time.Time `json:"unsatisfiable_until,omitempty"`
+	UnsatisfiableTicks  int        `json:"unsatisfiable_ticks"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+}
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
 // /api/nodes/scheduling so standalone MCP and REST callers preserve the same
