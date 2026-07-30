@@ -144,11 +144,12 @@ Adjust the `60m` values for the slowest request you expect to serve. The
 important setting for long non-streaming requests is `proxy_read_timeout`: if
 the proxy stops waiting before LocalAI finishes, clients receive a proxy-generated
 `504 Gateway Time-out` even though inference may still be running. OpenResty,
-Nginx Proxy Manager, Caddy, Traefik, and HAProxy have equivalent upstream
-response timeout settings.
+Nginx Proxy Manager, Caddy, Traefik, HAProxy, and ingress controllers have
+equivalent upstream response timeout settings.
 
 For bulk jobs on a trusted private network, you can also bypass the public
-reverse proxy and connect directly to LocalAI.
+reverse proxy and connect directly to LocalAI, for example
+`http://localai-host:8080/v1`.
 
 ## Serving Under a Sub-Path
 
