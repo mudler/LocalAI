@@ -2487,6 +2487,44 @@
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B-it-mmproj.gguf
       sha256: 7498a37cb619e55f2fcf87eb931f56e99389ed6d432e4c5c66110694c0d65578
+- name: "zero-gemma4-e4b-openzero-q5-k-m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/gemma-4-E4B-it
+    - https://huggingface.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF
+  description: |
+    Zero Gemma4-E4B OpenZero is a Gemma 4 E4B instruction fine-tune for
+    local coding, research, chat, and agentic workflows. It was trained on
+    2,033 curated OpenZero examples and is distributed as one merged Q5_K_M
+    GGUF file.
+
+    License: OpenZero Community Source v1; see the model repository for terms.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - chat
+    - coding
+    - agent
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Zero-Gemma4-E4B-OpenZero-Q5_K_M-F16-Merged.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Zero-Gemma4-E4B-OpenZero-Q5_K_M-F16-Merged.gguf
+      sha256: 84fd62ff6c5f0abe14dd2c6135e56800df4bc4a0b9d4cd8d9f26c36b28aa190b
+      uri: huggingface://shafire/Zero-Gemma4-E4B-OpenZero-GGUF/Zero-Gemma4-E4B-OpenZero-Q5_K_M-F16-Merged.gguf
 - name: "gemma-4-26b-a4b-it-qat-q4_0"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -12802,6 +12840,32 @@
     - filename: Qwen3-14B.Q4_K_M.gguf
       sha256: ee624d4be12433277bb9a340d3e5aabf5eb68fc788a7048ee99917edaa46494a
       uri: huggingface://MaziyarPanahi/Qwen3-14B-GGUF/Qwen3-14B.Q4_K_M.gguf
+- name: zero-qwen3-8b-openzero-q5-k-m
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-8B
+    - https://huggingface.co/shafire/Zero-Qwen3-8B-OpenZero-GGUF
+  description: |
+    Zero Qwen3-8B OpenZero is a Qwen3-8B fine-tune for local coding,
+    research, chat, and agentic workflows. It was trained on 2,033 curated
+    OpenZero examples and is distributed here as the standalone Q5_K_M GGUF.
+
+    License: OpenZero Community Source v1; see the model repository for terms.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - chat
+    - coding
+    - agent
+  overrides:
+    parameters:
+      model: Zero-Qwen3-8B-OpenZero-Q5_K_M.gguf
+  files:
+    - filename: Zero-Qwen3-8B-OpenZero-Q5_K_M.gguf
+      sha256: 390464f750b5cb53da298848adc05839c1fd40404a74cd5f800cad9612d17d59
+      uri: huggingface://shafire/Zero-Qwen3-8B-OpenZero-GGUF/Zero-Qwen3-8B-OpenZero-Q5_K_M.gguf
 - name: qwen3-8b
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:
