@@ -198,6 +198,31 @@ var _ = Describe("Backend hooks and parser defaults", func() {
 			// chunked_prefill is still seeded since user didn't set it
 			Expect(cfg.EngineArgs["enable_chunked_prefill"]).To(Equal(true))
 		})
+
+		// The backend applies options: before engine_args:, so seeding a default
+		// for a key the user already set through a CLI-style option would silently
+		// win over it. https://github.com/mudler/LocalAI/issues/11130
+		It("does not seed a default the user set through options", func() {
+			cfg := &ModelConfig{
+				Backend: "vllm",
+				Options: []string{"--enable-prefix-caching:false", "--enable-chunked-prefill"},
+			}
+			cfg.SetDefaults()
+
+			Expect(cfg.EngineArgs).NotTo(HaveKey("enable_prefix_caching"))
+			Expect(cfg.EngineArgs).NotTo(HaveKey("enable_chunked_prefill"))
+		})
+
+		It("still seeds defaults when options carry unrelated entries", func() {
+			cfg := &ModelConfig{
+				Backend: "vllm",
+				Options: []string{"tool_parser:hermes", "--quantization:gptq_marlin"},
+			}
+			cfg.SetDefaults()
+
+			Expect(cfg.EngineArgs["enable_prefix_caching"]).To(Equal(true))
+			Expect(cfg.EngineArgs["enable_chunked_prefill"]).To(Equal(true))
+		})
 	})
 
 	Context("llamaCppDefaults GGUF guessing", func() {

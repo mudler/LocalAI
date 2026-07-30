@@ -222,6 +222,14 @@ test-build-scripts:
 test-ci-scripts:
 	@set -e; for t in scripts/lib/*_test.mjs; do echo "== $$t"; node --test "$$t"; done
 
+## Runs the unit tests for the shared python backend helpers. These modules are
+## pure stdlib on purpose so they run without any backend venv; the list is
+## explicit because their siblings (model_identity_test) import grpc and the
+## generated protobufs, which only exist inside a built backend.
+PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test
+test-python-helpers:
+	cd backend/python/common && python3 -m unittest $(PYTHON_HELPER_TESTS)
+
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
 ## --fail-fast so a single failure doesn't truncate the coverage number, and

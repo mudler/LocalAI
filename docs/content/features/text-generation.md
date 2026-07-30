@@ -766,6 +766,35 @@ engine_args:
   attention_backend: TRITON_ATTN
 ```
 
+#### CLI-style engine flags in `options`
+
+Engine arguments can also be written in `options:` with vLLM's own CLI
+spelling, which is handy when copying a command line out of vLLM's
+documentation:
+
+```yaml
+options:
+  - --quantization:gptq_marlin
+  - --enable-prefix-caching
+  - --kv-cache-dtype:fp8_e5m2
+  - --reasoning-parser:qwen3
+```
+
+Rules:
+
+- Only `--` prefixed entries are treated as engine flags; everything
+  else in `options:` (`tool_parser:`, `reasoning_parser:`, …) keeps its
+  existing meaning. Both `--flag:value` and `--flag=value` are accepted.
+- Dashes become underscores (`--enable-prefix-caching` →
+  `enable_prefix_caching`) and the value is coerced to the target
+  field's type. A bare `--flag` sets a boolean field to `true`.
+- Unknown or uncoercible flags are logged on the backend's stderr and
+  skipped rather than failing the load. `engine_args:` stays strict and
+  is applied last, so it wins on conflict.
+
+`engine_args:` remains the form to use for anything structured (nested
+configs, maps); `options:` is a convenience for flat flags.
+
 #### Multi-node data parallelism
 
 `engine_args.data_parallel_size > 1` combined with the
