@@ -3984,7 +3984,8 @@ paths:
         in: formData
         name: response_format
         type: string
-      - description: desired output sample rate
+      - description: desired output sample rate in Hz; omit for the backend's own
+          rate, otherwise 8000-192000
         in: formData
         name: sample_rate
         type: integer
@@ -4028,7 +4029,8 @@ paths:
         in: formData
         name: response_format
         type: string
-      - description: desired output sample rate
+      - description: desired output sample rate in Hz; omit for the backend's own
+          rate, otherwise 8000-192000
         in: formData
         name: sample_rate
         type: integer
