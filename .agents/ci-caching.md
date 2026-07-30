@@ -173,7 +173,16 @@ Two properties this relies on:
 - `paths-ignore` skips a run only when **every** changed file matches, so a PR touching the gallery *and* Go code still runs everything. That is what makes the exclusion safe rather than a hole.
 - `master` carries no branch protection and no rulesets, so a skipped workflow reports no status and nothing waits on it. If required status checks are ever introduced, these four entries must be excluded from the required set or PRs will hang on "Expected — Waiting for status to be reported".
 
-Deliberately **not** filtered: `image.yml` on master push still rebuilds all 18 container images for a gallery-only commit. Skipping it would mean the `master` and `latest` tags are not republished for that commit, which is a publishing-semantics decision rather than a pure cost one.
+### `image.yml` on master push is gated too, by a job rather than a path filter
+
+The same reasoning applies to master pushes, and the volume is larger there: on 2026-07-30, **12 of the 23 queued `image.yml` runs** were commits like "add 1 new model to gallery" or a docs fix, each rebuilding all 18 container images.
+
+`image.yml` now has a `changes` job that decides once whether the push can affect any image; the other 11 jobs carry `needs: changes` plus an `if:` on its output. Verified against the shipped `Dockerfile`: the final stage copies only `entrypoint.sh`, `healthcheck.sh` and the `local-ai` binary, there is no `go:embed` of `gallery/` or `docs/`, and the gallery is fetched at runtime from `github:mudler/LocalAI/gallery/index.yaml@master`. A gallery-only commit therefore produces byte-identical images, and the gallery change reaches users through GitHub immediately whether or not an image is rebuilt.
+
+Two properties to preserve if you touch it:
+
+- **It is a job gate, not `paths-ignore`.** `paths-ignore` on `push` also applies to tag pushes, and a tag created on an existing commit carries an empty commits list, which would silently skip the release image build. The gate short-circuits to "build" for `refs/tags/*`, and for any push whose base commit is missing, zero, or unresolvable.
+- **The merge jobs must name the gate explicitly.** They use `if: ${{ !cancelled() && ... }}`, and `!cancelled()` is true when a dependency is *skipped*, so without the extra condition they would run and try to merge manifest lists for images that were never built.
 
 ## The `DEPS_REFRESH` cache-buster (Python backends)
 
