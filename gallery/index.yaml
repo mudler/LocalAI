@@ -1080,6 +1080,238 @@
     - filename: llama-cpp/models/Gemmable-4-12B-MTP-GGUF/gemmable-4-12b-Q4_K_M-mtp.gguf
       sha256: 217dc0ed177ecc733f801a851c3e3854cf1b17a1f86cd5430c0a7f82d93027bc
       uri: https://huggingface.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF/resolve/main/gemmable-4-12b-Q4_K_M-mtp.gguf
+- &laguna-xs-2-1
+  name: "laguna-xs-2.1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: laguna-xs-2.1-apex-i-quality
+    - model: laguna-xs-2.1-apex-i-balanced
+    - model: laguna-xs-2.1-apex-i-compact
+    - model: laguna-xs-2.1-apex-i-mini
+    - model: laguna-xs-2.1-apex-quality
+    - model: laguna-xs-2.1-apex-balanced
+    - model: laguna-xs-2.1-apex-compact
+  urls:
+    - https://huggingface.co/poolside/Laguna-XS-2.1
+    - https://huggingface.co/poolside/Laguna-XS-2.1-GGUF
+    - https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF
+  description: |
+    Laguna XS 2.1 is Poolside's 33B-parameter, 3B-active Mixture-of-Experts model for agentic coding and long-horizon work on local machines. It supports tool use, interleaved reasoning, and a native 262K-token context window. This default entry uses the official 20.3 GB Q4_K_M GGUF.
+
+    License: OpenMDW 1.1.
+  license: "other"
+  icon: https://poolside.ai/assets/laguna/laguna-xs2-1-banner.svg
+  tags:
+    - llm
+    - gguf
+    - moe
+    - reasoning
+    - code
+    - agent
+    - tools
+    - long-context
+  last_checked: "2026-07-30"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/poolside/Laguna-XS-2.1-GGUF/Laguna-XS-2.1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/poolside/Laguna-XS-2.1-GGUF/Laguna-XS-2.1-Q4_K_M.gguf
+      sha256: 1ac7079101fca5a6df8c5a7523a3c30ea7d1c0e4b1258090e7d6d4039287f6cb
+      uri: https://huggingface.co/poolside/Laguna-XS-2.1-GGUF/resolve/main/Laguna-XS-2.1-Q4_K_M.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-i-quality"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 21.8 GB APEX-I Quality format. This is the highest-fidelity importance-matrix APEX build for llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Quality.gguf
+      sha256: e15e4b9c7c5833c9a58bc70c9745f0cd21e00d4f9edd0c114cd39862ebe545c3
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-I-Quality.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-i-balanced"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 24.3 GB APEX-I Balanced format, an importance-matrix build balancing fidelity and memory use for llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Balanced.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Balanced.gguf
+      sha256: 64f0a1aab7a72121e68f7c2f6814471f0bd4a87130e5d0d8dff3003eb74b5510
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-I-Balanced.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-i-compact"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 15.8 GB APEX-I Compact format, an importance-matrix build tuned for lower memory use in llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Compact.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Compact.gguf
+      sha256: b674541db815d8829e4c57bd56cffebbd49e9822e284e69f199ae7fbd0b705d2
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-I-Compact.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-i-mini"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 12.8 GB APEX-I Mini format, the smallest importance-matrix APEX build for llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Mini.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-I-Mini.gguf
+      sha256: 04d7ccf014da825f20d2d09e996258faf399f3f2176d57fd7ce375b8b8d71de1
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-I-Mini.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-quality"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 21.8 GB APEX Quality format, the highest-fidelity non-imatrix APEX build for llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-Quality.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-Quality.gguf
+      sha256: fd7dba637bcb1c3e1590a9b33c40bd5fe411a1156f6520b14ccd6dfb344feffd
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-Quality.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-balanced"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 24.3 GB APEX Balanced format, balancing fidelity and memory use for llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-Balanced.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-Balanced.gguf
+      sha256: 997c6b9de70c594423f21cef07f3ad45944bbbe37a0ee10b4ea20bf094e615fa
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-Balanced.gguf
+- !!merge <<: *laguna-xs-2-1
+  name: "laguna-xs-2.1-apex-compact"
+  variants: []
+  description: |
+    Laguna XS 2.1 in the 15.8 GB APEX Compact format, tuned for lower memory use in llama.cpp.
+
+    License: OpenMDW 1.1.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-Compact.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mudler/Laguna-XS-2.1-APEX-GGUF/Laguna-XS-2.1-APEX-Compact.gguf
+      sha256: cb2604e56eec8037e553cc91a81b454a816695d8443a18a162856fb6d1c8128a
+      uri: https://huggingface.co/mudler/Laguna-XS-2.1-APEX-GGUF/resolve/main/Laguna-XS-2.1-APEX-Compact.gguf
 - &laguna-s-2-1-q8
   name: "laguna-s-2.1-q8"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
