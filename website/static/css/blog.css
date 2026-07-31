@@ -1,0 +1,143 @@
+/* Blog: index and article. Uses only the tokens declared in site.css.
+   Everything is prefixed .bp- so it cannot collide with the home page. */
+
+.bp-top{padding-bottom:0}
+.bp-h1{font-size:clamp(2.1rem,5vw,3.9rem);max-width:22ch}
+.bp-intro{max-width:58ch;color:var(--dim);font-size:1.06rem;line-height:1.68;margin-top:1.6rem}
+.bp-intro p+p{margin-top:1rem}
+
+/* ---------- index ---------- */
+
+.bp-index{padding-top:clamp(2.5rem,5vw,3.6rem)}
+.bp-list{border-top:1px solid var(--line2)}
+.bp-item{display:grid;gap:.5rem 1.8rem;align-items:baseline;position:relative;
+  padding:1.6rem .9rem 1.7rem 1rem;border-bottom:1px solid var(--line2);
+  transition:background .3s,padding-left .3s}
+@media(min-width:900px){.bp-item{grid-template-columns:11rem 1fr 6rem}}
+.bp-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--glitch);
+  transform:scaleY(0);transform-origin:top;transition:transform .35s cubic-bezier(.16,1,.3,1)}
+.bp-item:hover::before{transform:scaleY(1)}
+.bp-item:hover{background:rgba(95,205,228,.055);padding-left:1.6rem}
+.bp-item__m{display:flex;flex-wrap:wrap;gap:.55rem;align-items:baseline;
+  font-family:'Geist Mono',monospace;font-size:.66rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--faint)}
+.bp-item__m em{font-style:normal;color:var(--cyan)}
+.bp-item__b{display:grid;gap:.45rem}
+.bp-item__t{font-family:var(--display),sans-serif;font-weight:700;
+  font-variation-settings:'wdth' 104,'wght' 780,'opsz' 144;letter-spacing:var(--dtrack);
+  font-size:clamp(1.25rem,2.4vw,1.7rem);line-height:1.14;text-wrap:balance}
+.bp-item:hover .bp-item__t{color:var(--cyan-hi)}
+.bp-item__s{color:var(--dim);font-size:.95rem;line-height:1.6;max-width:62ch}
+.bp-item__go{font-family:'Geist Mono',monospace;font-size:.64rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);text-align:left}
+@media(min-width:900px){.bp-item__go{text-align:right}}
+.bp-item:hover .bp-item__go{color:var(--cyan)}
+
+.bp-end{margin-top:3rem;padding:1.8rem 1.7rem 2rem;border:1px solid var(--line);border-radius:10px;
+  background:rgba(255,255,255,.028)}
+.bp-end__h{font-size:clamp(1.4rem,2.6vw,1.95rem);max-width:22ch;margin-top:.55rem}
+.bp-end p{color:var(--dim);font-size:.95rem;max-width:56ch;margin-top:.7rem}
+
+/* ---------- article ---------- */
+
+.bp-back{font-family:'Geist Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase}
+.bp-back a{color:var(--faint)} .bp-back a:hover{color:var(--cyan)}
+.bp-back--b{margin-top:2.6rem}
+.bp-hd{margin-top:1.6rem;padding-bottom:2rem;border-bottom:1px solid var(--line2)}
+.bp-sum{max-width:62ch;color:var(--ink)}
+.bp-meta{display:flex;flex-wrap:wrap;gap:.5rem 1.3rem;margin-top:1.6rem;
+  font-family:'Geist Mono',monospace;font-size:.66rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--faint)}
+.bp-meta span:first-child{color:var(--cyan)}
+
+/* body copy, held at a comfortable measure */
+.bp-body{max-width:68ch;margin-top:2.6rem;color:var(--dim);font-size:1.02rem;line-height:1.75}
+.bp-body>*+*{margin-top:1.25rem}
+.bp-body p{text-wrap:pretty}
+.bp-body a{color:var(--cyan-hi);border-bottom:1px solid rgba(95,205,228,.4)}
+.bp-body a:hover{border-bottom-color:var(--cyan-hi)}
+.bp-body strong{color:var(--ink);font-weight:600}
+.bp-body em{color:var(--ink)}
+
+.bp-body h2{font-size:clamp(1.5rem,3vw,2.1rem);max-width:24ch;margin-top:3rem;color:var(--ink)}
+.bp-body h3{font-size:clamp(1.15rem,2.1vw,1.35rem);max-width:30ch;margin-top:2.2rem;color:var(--ink)}
+.bp-body h2+*,.bp-body h3+*{margin-top:.9rem}
+.bp-body h2::after{content:"";display:block;width:52px;height:3px;border-radius:2px;
+  background:var(--cyan);opacity:.85;margin-top:.85rem}
+
+.bp-body ul,.bp-body ol{margin-top:1.1rem;padding-left:1.2rem;display:grid;gap:.55rem}
+.bp-body li{padding-left:.2rem}
+.bp-body li::marker{color:var(--cyan)}
+.bp-body li>ul,.bp-body li>ol{margin-top:.55rem}
+
+.bp-body blockquote{margin:2rem 0;padding:.2rem 0 .2rem 1.4rem;border-left:3px solid var(--cyan);
+  color:var(--ink);font-family:var(--display),sans-serif;font-weight:700;
+  font-variation-settings:'wdth' 102,'wght' 700;letter-spacing:-.018em;
+  font-size:1.12rem;line-height:1.5}
+.bp-body blockquote p+p{margin-top:.7rem}
+
+.bp-body code{font-family:'Geist Mono',ui-monospace,monospace;font-size:.84em;
+  background:rgba(95,205,228,.10);border:1px solid var(--line2);border-radius:4px;
+  padding:.08em .36em;color:var(--cyan-hi)}
+.bp-body pre{margin:1.8rem 0;padding:1.15rem 1.2rem;overflow-x:auto;background:var(--deep);
+  border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 18px 40px -28px rgba(0,0,0,.9)}
+.bp-body pre code{background:none;border:0;padding:0;color:var(--dim);
+  font-size:.82rem;line-height:1.85;white-space:pre}
+
+/* Hugo's highlighter writes its own palette as inline styles. Pull it back
+   onto the site's colours so a code block looks like the rest of the page. */
+.bp-body .highlight{margin:1.8rem 0}
+.bp-body .highlight pre{margin:0;padding:1.15rem 1.2rem;overflow-x:auto;
+  background:var(--deep)!important;color:var(--dim)!important;
+  border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 18px 40px -28px rgba(0,0,0,.9)}
+.bp-body .highlight code{background:none;border:0;padding:0;color:inherit;
+  font-size:.82rem;line-height:1.85}
+.bp-body .highlight span{color:inherit!important;background:none!important}
+
+.bp-body hr{margin:2.8rem 0;border:0;border-top:1px solid var(--line2)}
+
+.bp-body figure{margin:2.2rem 0}
+.bp-body figure img{width:100%;border:1px solid var(--line);border-radius:11px;background:var(--deep)}
+.bp-body figcaption{margin-top:.7rem;font-family:'Geist Mono',monospace;font-size:.64rem;
+  line-height:1.6;color:var(--faint)}
+
+/* tables ride the same white card the home page uses, so wide numeric
+   tables stay readable and can scroll on their own */
+.bp-body .tw{margin:2rem 0;max-width:none}
+@media(min-width:1080px){.bp-body .tw{width:min(78ch,calc(100vw - 2*var(--pad)))}}
+.bp-body .tw caption{caption-side:bottom;padding:.7rem .9rem;text-align:left;
+  font-family:'Geist Mono',monospace;font-size:.62rem;line-height:1.6;color:var(--p-dim)}
+.bp-body .tw td b{color:#0F6F86}
+.bp-body .tw code{color:#0F6F86;background:rgba(15,111,134,.09);border-color:var(--p-line)}
+
+.bp-note{margin:2rem 0;padding:1.1rem 1.2rem;border:1px dashed var(--line);border-radius:9px;
+  background:rgba(11,35,48,.5);font-size:.93rem;color:var(--dim)}
+.bp-note b{color:var(--ink)}
+
+/* ---------- article footer ---------- */
+
+.bp-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:2.6rem;padding-top:1.6rem;
+  border-top:1px solid var(--line2)}
+.bp-tags span{font-family:'Geist Mono',monospace;font-size:.63rem;color:var(--dim);
+  border:1px solid var(--line);padding:.24rem .5rem;border-radius:999px}
+
+.bp-cta{display:grid;gap:1.6rem;margin-top:2.6rem;padding:1.8rem 1.7rem 2rem;
+  border:1px solid var(--line);border-radius:10px;background:rgba(95,205,228,.055)}
+@media(min-width:900px){.bp-cta{grid-template-columns:1.2fr .8fr;align-items:center}}
+.bp-cta__h{font-size:clamp(1.35rem,2.4vw,1.8rem);max-width:20ch;margin-top:.55rem}
+.bp-cta p{color:var(--dim);font-size:.94rem;max-width:52ch;margin-top:.7rem}
+.bp-cta .acts{margin-top:0}
+
+.bp-pn{display:grid;gap:.85rem;margin-top:1.6rem}
+@media(min-width:760px){.bp-pn{grid-template-columns:1fr 1fr}}
+.bp-pn__i{display:flex;flex-direction:column;gap:.5rem;padding:1.1rem 1.2rem 1.2rem;
+  border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.028);
+  transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s}
+.bp-pn__i:hover{transform:translateY(-3px);border-color:var(--cyan)}
+.bp-pn__i--r{text-align:right}
+.bp-pn__k{font-family:'Geist Mono',monospace;font-size:.62rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--cyan)}
+.bp-pn__t{font-family:var(--display),sans-serif;font-weight:700;font-size:1.02rem;
+  font-variation-settings:'wdth' 104,'wght' 740;letter-spacing:var(--dtrack);line-height:1.25}

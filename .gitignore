@@ -62,6 +62,11 @@ prepare
 /ggml-metal.metal
 docs/static/gallery.html
 
+# Hugo build output and lock files (docs/ and website/)
+docs/public/
+website/public/
+.hugo_build.lock
+
 # Protobuf generated files
 *.pb.go
 *pb2.py

@@ -1,4 +1,7 @@
-baseURL = 'https://localai.io/'
+# The documentation is a second Hugo site, served under /docs/ of the marketing
+# site (see ../website). CI passes the same path via --baseURL, so keeping it
+# here means a local build produces the same links as production.
+baseURL = 'https://localai.io/docs/'
 languageCode = 'en-GB'
 defaultContentLanguage = 'en'
 
