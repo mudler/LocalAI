@@ -70,7 +70,7 @@
   files:
     - filename: llama-cpp/models/Parable-Qwen3-4B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Qwen3-4B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: c6f991bd243fd1449d50a58a8de7d26bcad35d908bc0193e5a2c2c56ac6b8d5f
+      sha256: c94b06a912aa901f3da5689754577ad534415efafc50dcee3f389594a153bf38
 - name: "parable-granite-4.1-8b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1409,7 +1409,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: ea2be54e4e989cb8cc2a88c0791b15eaa50eb97fb46a89843f6415d7e1a73e33
+      sha256: 7d6d1691bc2d02c5a8194afb8bd9b57519343afebf020231c61d9236504b4a5c
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -13096,8 +13096,8 @@
       model: rfdetr-seg-medium-f16.gguf
   files:
     - filename: rfdetr-seg-medium-f16.gguf
-      sha256: 885d85ed6935495fc50ff464e06b6ea3bd8e8386865852d68a8be0f649d65afe
       uri: huggingface://mudler/rfdetr-cpp-seg-medium/rfdetr-seg-medium-f16.gguf
+      sha256: dd7c8da7cf0a2e64a1002f5ff66d7fede45b00e612457f249bcd9d4a0c122566
 - name: rfdetr-cpp-seg-large
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13125,8 +13125,8 @@
       model: rfdetr-seg-large-f16.gguf
   files:
     - filename: rfdetr-seg-large-f16.gguf
-      sha256: 90423066d0791b4ae249f3986cce1f095a1e4090bf46800bf7f9e371ea80d559
       uri: huggingface://mudler/rfdetr-cpp-seg-large/rfdetr-seg-large-f16.gguf
+      sha256: ffc631b8e6115b11bdbb8e876c77aaa3e3e5d8c41c00ce8417ebbf183b1e6404
 - name: rfdetr-cpp-seg-xlarge
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13154,8 +13154,8 @@
       model: rfdetr-seg-xlarge-f16.gguf
   files:
     - filename: rfdetr-seg-xlarge-f16.gguf
-      sha256: 0b82de4a6e65a40bc930979a1a4281cb24de35203d30eeefd797c858101a7bec
       uri: huggingface://mudler/rfdetr-cpp-seg-xlarge/rfdetr-seg-xlarge-f16.gguf
+      sha256: 72b6210e255ebb89a8d471c06a6f4b5307205b1a34b9e4292de90d1488da4e26
 - name: rfdetr-cpp-seg-2xlarge
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13184,8 +13184,8 @@
       model: rfdetr-seg-2xlarge-f16.gguf
   files:
     - filename: rfdetr-seg-2xlarge-f16.gguf
-      sha256: 7f957997db23e844194ea8266a95b4adc3deb6d0b71c0924922b20fbdeafa299
       uri: huggingface://mudler/rfdetr-cpp-seg-2xlarge/rfdetr-seg-2xlarge-f16.gguf
+      sha256: 00f3988bdf9a382b06610c200b3938b65a7731d14eafa84b73f6c3b5be4af8d9
 - name: edgetam
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
