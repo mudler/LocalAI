@@ -397,6 +397,35 @@
       <span>Deutsch</span><span>Español</span><span>français</span><span>日本語</span>
       <span>한국어</span><span>Português</span><span>Русский</span><span>中文</span>
     </div>
+    <p class="kicker rv mt3">Who turns up around it</p>
+    <h3 class="eco__h rv">Engineers from these companies have put code in</h3>
+    <p class="eco__note rv">Every name below is a person with commits in the repository whose public profile
+      names that employer. It is a claim about them, not about their employer, and the commit history is
+      there if you want to check it. Organisations that want to say they use LocalAI add themselves to
+      <a href="https://github.com/mudler/LocalAI/blob/master/ADOPTERS.md">ADOPTERS.md</a>.</p>
+    <ul class="eco eco--co rv">
+      {{- range .Site.Data.ecosystem.contributors.companies }}
+      <li><b>{{ .name }}</b><span>{{ .commits }} commit{{ if ne .commits 1 }}s{{ end }}{{ if gt .people 1 }}, {{ .people }} people{{ end }}</span></li>
+      {{- end }}
+    </ul>
+    <p class="eco__aside rv">Plus researchers at {{ delimit .Site.Data.ecosystem.contributors.academia ", " " and " }}.</p>
+
+    <h3 class="eco__h rv mt3">And these projects integrate it</h3>
+    <p class="eco__note rv">Each one references LocalAI in its own repository or documentation, so you can
+      verify any of them without taking our word for it.</p>
+    <div class="eco eco--int rv">
+      {{- range .Site.Data.ecosystem.integrations.projects }}
+      <a href="{{ .url }}"><b>{{ .name }}</b>{{ with .by }}<em>{{ . }}</em>{{ end }}<span>{{ .what }}</span></a>
+      {{- end }}
+    </div>
+
+    <h3 class="eco__h rv mt3">Written about elsewhere</h3>
+    <div class="eco eco--press rv">
+      {{- range .Site.Data.ecosystem.press.articles }}
+      <a href="{{ .url }}"><b>{{ .outlet }}</b><span>{{ .title }}</span><em>{{ .what }}</em></a>
+      {{- end }}
+    </div>
+
     <p class="kicker rv mt3">What other people say</p>
     <div class="headline">
       <a class="hq rv" href="https://x.com/ggerganov/status/2065447087311917459">

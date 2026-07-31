@@ -1,0 +1,97 @@
+# Who shows up around LocalAI, and the evidence for each claim.
+#
+# Three lists, three different strengths of evidence. Keep them separate: a
+# person fixing a typo is not their employer adopting the project, and saying
+# so invites a takedown request.
+#
+#   contributors  someone with commits in this repository whose public GitHub
+#                 profile names that employer. Evidence is the commit history
+#                 plus a self-declared field, so the claim is about the person.
+#   integrations  the other project's own repository or documentation
+#                 references LocalAI. Checkable by anyone, needs no permission.
+#   press         somebody else published a piece about LocalAI.
+#
+# Companies that want to say they use LocalAI add themselves to ADOPTERS.md at
+# the repository root. That pull request is the permission, which is why the
+# adopters list is kept apart from this file.
+#
+# Refreshed on 2026-07-31. Contribution counts are from the GitHub API.
+
+contributors:
+  note: "Engineers whose public profile names these employers have commits in the repository."
+  companies:
+    - { name: "Microsoft",       people: 3, commits: 20 }
+    - { name: "Spectro Cloud",   people: 3, commits: 11 }
+    - { name: "VictoriaMetrics", people: 1, commits: 5 }
+    - { name: "Acronis",         people: 1, commits: 5 }
+    - { name: "BearingPoint",    people: 1, commits: 4 }
+    - { name: "Zendesk",         people: 1, commits: 3 }
+    - { name: "Nextcloud",       people: 1, commits: 2 }
+    - { name: "Scaleway",        people: 1, commits: 2 }
+    - { name: "Kubermatic",      people: 1, commits: 2 }
+    - { name: "Avanade",         people: 1, commits: 2 }
+    - { name: "IBM",             people: 1, commits: 1 }
+    - { name: "Ableton",         people: 1, commits: 1 }
+    - { name: "Atlassian",       people: 1, commits: 1 }
+    - { name: "TikTok",          people: 1, commits: 1 }
+    - { name: "CockroachDB",     people: 1, commits: 1 }
+    - { name: "MediaTek",        people: 1, commits: 1 }
+    - { name: "Samsung SDS",     people: 1, commits: 1 }
+    - { name: "Ant Group",       people: 1, commits: 1 }
+    - { name: "Deloitte",        people: 1, commits: 1 }
+    - { name: "solo.io",         people: 1, commits: 1 }
+    - { name: "Qonto",           people: 1, commits: 1 }
+  academia:
+    - MIT
+    - University of Edinburgh
+    - RMIT
+    - Rochester Institute of Technology
+    - University of Miami
+    - USC
+
+integrations:
+  note: "These projects reference LocalAI in their own repository or documentation."
+  projects:
+    - name: AnythingLLM
+      by: Mintplex Labs
+      url: https://github.com/Mintplex-Labs/anything-llm
+      what: "Runs LocalAI as a model provider for its chat and document workspaces."
+    - name: langchain4j
+      url: https://github.com/langchain4j/langchain4j
+      what: "Ships a LocalAI module, so JVM applications can target it directly."
+    - name: LangChain
+      url: https://python.langchain.com/docs/integrations/providers/localai/
+      what: "Documents LocalAI as a provider in the Python integrations."
+    - name: Flowise
+      by: FlowiseAI
+      url: https://github.com/FlowiseAI/Flowise
+      what: "Offers LocalAI as a node for chat and embeddings in its visual builder."
+    - name: AIKit
+      by: Sertac Ozercan
+      url: https://github.com/sozercan/aikit
+      what: "Builds fine-tuned models into images that serve through LocalAI."
+    - name: Kairos
+      url: https://github.com/kairos-io/kairos
+      what: "Ships LocalAI as part of its immutable Linux distribution."
+
+press:
+  note: "Written about LocalAI, by people who do not work on it."
+  articles:
+    - outlet: SUSE
+      title: "Running AI locally"
+      author: "Christian Huller"
+      date: "2025-11-24"
+      url: https://www.suse.com/c/running-ai-locally/
+      what: "Deploying LocalAI on openSUSE, then driving it from VS Code."
+    - outlet: SUSE
+      title: "Adding own documents to your local AI using RAG"
+      url: https://www.suse.com/c/adding-own-documents-to-your-local-ai-using-rag/
+      what: "Retrieval over your own documents, on top of LocalAI."
+    - outlet: SUSE
+      title: "Local AI and Confluence"
+      url: https://www.suse.com/c/local-ai-and-confluence/
+      what: "Putting a Confluence space behind a local model."
+    - outlet: SUSE
+      title: "Introduction to AI training with openSUSE"
+      url: https://www.suse.com/c/introduction-to-ai-training-with-opensuse/
+      what: "Training a LoRA and serving it through LocalAI."
