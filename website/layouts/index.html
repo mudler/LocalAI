@@ -165,7 +165,10 @@
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">Engines we build</p>
     <h2 class="rv mt1" style="max-width:22ch">{{ len .Site.Data.engines.engines }} engines, written from scratch.</h2>
-    <p class="lede rv mt2">Most backends wrap somebody else's engine. These do not. They exist because the thing we needed was a 9 GB Python install, or closed, or nobody had built it yet. Each one is a binary and a GGUF file, checked against the reference implementation in CI.</p>
+    {{/* Names the link back to the runtime section explicitly. Readers were
+         arriving here and taking these for unrelated side projects, because
+         nothing on the page said they are the backends the core loads. */}}
+    <p class="lede rv mt2">Those backends the core pulls in on demand are mostly ours. Most projects wrap somebody else's engine. We wrote ours, because the thing we needed came as a 9 GB Python install, or was closed, or did not exist. Each one is a binary and a GGUF file, checked against the reference implementation in CI.</p>
 
     <div class="spot rv">
       <div>
@@ -257,7 +260,10 @@
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">APEX quantization</p>
     <h2 class="rv mt1" style="max-width:19ch">The model you could not fit, on the card you already own.</h2>
-    <p class="lede rv mt2">A 35B mixture-of-experts model is 64.6 GB at full precision, which puts it out of reach of every consumer GPU. APEX gets it to 12.2 GB, and it runs at 74 tokens a second, more than twice the speed of the original. Quality barely moves. The file is an ordinary GGUF, so stock llama.cpp opens it with no patches, and 201 of them are already sitting in the LocalAI gallery.</p>
+    {{/* APEX was being used as a known term on first appearance, in a section
+         that opened straight onto a benchmark table. The first two sentences
+         say what it is and why it follows the engines. */}}
+    <p class="lede rv mt2">The engine decides how fast a model runs. The weights decide whether it runs at all, so we build those too. APEX assigns a different precision to every tensor and every layer: a 35B mixture-of-experts model goes from 64.6 GB, out of reach of any consumer GPU, to 12.2 GB at 74 tokens a second. That is more than twice the speed of the original, and quality barely moves. The file is an ordinary GGUF, so stock llama.cpp opens it with no patches, and 201 of them are already sitting in the LocalAI gallery.</p>
     <div class="sizes rv">
       <div class="sz"><span>F16 · 64.6 GB</span><i style="width:100%"></i><u>30.4 t/s</u></div>
       <div class="sz"><span>Q8_0 · 34.4 GB</span><i style="width:53%"></i><u>52.5 t/s</u></div>
