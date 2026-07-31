@@ -21,8 +21,36 @@ concurrency:
 
 jobs:
   golangci-lint:
-    runs-on: ubuntu-latest
+    # Self-hosted for PUSH only, and only in the canonical repo.
+    #
+    # This workflow also runs on pull_request, which for a fork PR means
+    # executing untrusted contributor code. That must never land on a
+    # self-hosted runner, so anything that is not a push to mudler/LocalAI stays
+    # on the ephemeral hosted pool. Pushes to master are trusted code that has
+    # already been reviewed and merged.
+    #
+    # Why at all: the hosted pool is shared account-wide and starved for 35
+    # straight minutes on 2026-07-31 while arc-runner-set kept completing jobs.
+    # Lint is small and runs on every commit, so it is a good candidate to move
+    # off the contended pool.
+    runs-on: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}
     steps:
+      - name: Preflight - required host tools
+        # The hosted images ship these; a self-hosted container image may not.
+        # Check up front so a missing tool reports itself by name instead of
+        # surfacing as an opaque failure inside `make protogen-go` (which needs
+        # curl + unzip for protoc) or `make lint`.
+        run: |
+          missing=""
+          for t in git curl unzip make tar; do
+            command -v "$t" >/dev/null 2>&1 || missing="$missing $t"
+          done
+          echo "runner: ${RUNNER_NAME:-unknown}  os: $(uname -sm)"
+          if [ -n "$missing" ]; then
+            echo "::error::missing required tools on this runner:$missing"
+            exit 1
+          fi
+          echo "all required tools present"
       - uses: actions/checkout@v7
         with:
           # Full history so golangci-lint's new-from-merge-base can reach
@@ -55,8 +83,25 @@ jobs:
     # container build (a missing transitive dep, a partial cuDNN family). Their
     # shell tests need nothing but bash + gcc + ldd, so run them on every PR
     # rather than waiting on a multi-GB cross-arch backend image build.
-    runs-on: ubuntu-latest
+    #
+    # Push-only self-hosted routing, same fork-safety reasoning as
+    # golangci-lint above.
+    runs-on: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}
     steps:
+      - name: Preflight - required host tools
+        # This job additionally needs a C toolchain: the packaging-script tests
+        # compile a throwaway binary and inspect it with ldd.
+        run: |
+          missing=""
+          for t in git make gcc ldd python3; do
+            command -v "$t" >/dev/null 2>&1 || missing="$missing $t"
+          done
+          echo "runner: ${RUNNER_NAME:-unknown}  os: $(uname -sm)"
+          if [ -n "$missing" ]; then
+            echo "::error::missing required tools on this runner:$missing"
+            exit 1
+          fi
+          echo "all required tools present"
       - uses: actions/checkout@v7
       - name: run packaging script tests
         run: make test-build-scripts

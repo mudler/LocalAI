@@ -359,6 +359,21 @@ GitHub Actions caches are limited to 10 GB per repo. Steady-state worst case: ~8
 
 One residual self-hosted reference remains in `test-extra.yml` (`tests-vibevoice-cpp-grpc-transcription` uses `bigger-runner` for the 30s JFK-decode timeout headroom). That's a separate concern.
 
+### Small always-on jobs routed to `arc-runner-set`
+
+The hosted pool is shared across the whole *account*, not per repo, so a burst in one repo starves the others. On 2026-07-31 it went to **zero scheduled jobs for 35 consecutive minutes** with 39 jobs queued, while `arc-runner-set` completed 12 jobs without interruption over the same window. Actions was healthy globally at the time (other public repos were scheduling normally), so this is an account-level throttle, not an outage.
+
+Two small, high-frequency workflows are therefore routed to `arc-runner-set`:
+
+| workflow | jobs | routing expression selects self-hosted when |
+|---|---|---|
+| `gh-pages.yml` | `build`, `deploy` | `github.repository == 'mudler/LocalAI'` |
+| `lint.yml` | `golangci-lint`, `build-scripts` | `github.event_name == 'push'` **and** the repo guard |
+
+The `lint.yml` routing is push-only **on purpose**. That workflow also triggers on `pull_request`, and a fork PR runs untrusted contributor code; that must stay on the ephemeral hosted pool and never touch a self-hosted runner. `gh-pages.yml` needs no such clause because it only triggers on push-to-master and `workflow_dispatch`. The repository guard in both keeps forks (which have no such runner label) from queueing forever.
+
+Both workflows fetch their own toolchains (`setup-go`, `actions-hugo`) and use no `sudo`/`apt`. Because a self-hosted image may be leaner than the hosted one, each `lint.yml` job opens with a preflight step that names any missing tool (`curl`/`unzip`/`make` for protoc and lint, `gcc`/`ldd`/`python3` for the packaging-script tests) instead of failing opaquely mid-build. If the runner image turns out to lack them, either extend the image or revert the single `runs-on:` expression per job.
+
 ## Touching the cache pipeline
 
 When changing `image_build.yml`, `backend_build.yml`, any of the `backend/Dockerfile.*` files, `Dockerfile.base-grpc-builder`, `.docker/install-base-deps.sh`, `.docker/<backend>-compile.sh`, or `scripts/changed-backends.js`:
