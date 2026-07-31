@@ -329,7 +329,23 @@ This configuration has been tested on a 'custom' cluster managed by SUSE Rancher
 
 ### Requirements
 
-If building from source, you need to install [Intel oneAPI Base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html) and have the Intel drivers available in the system.
+You need a machine with an Intel GPU and a kernel that drives it, which every current Linux kernel does. You do not need to install any Intel graphics packages: the backends carry their own copy of the Intel graphics driver, so they work on a machine that has none installed, and on a machine whose own driver was built against a newer C library than the backend.
+
+If you build from source instead of using the images, you need the [Intel oneAPI Base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html).
+
+#### Using your own Intel driver instead
+
+The carried driver comes from Intel's own package repository, so it knows the cards released up to the point the image was built. If your GPU is newer than that, or you would rather use the driver your distribution ships, point the backend at it:
+
+```bash
+docker run --rm -ti --device /dev/dri -p 8080:8080 \
+  -e ZE_ENABLE_ALT_DRIVERS=/usr/lib/x86_64-linux-gnu/libze_intel_gpu.so.1 \
+  -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
+```
+
+Set the path to wherever your distribution keeps that file. Whatever you set is used as is, and the carried driver is left alone.
+
+The backends carry only the driver Level Zero uses, which is how llama.cpp reaches an Intel GPU. They do not carry an OpenCL driver, so OpenCL inside a container continues to use whatever the image itself provides.
 
 ### Container images
 
@@ -354,6 +370,8 @@ docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=
 ```
 
 Note also that sycl does have a known issue to hang with `mmap: true`. You have to disable it in the model configuration if explicitly enabled.
+
+On an integrated Intel GPU, the amount of free graphics memory can only be read if the driver is asked to report it. The backends do that for you by setting `ZES_ENABLE_SYSMAN=1`. If you set that variable yourself, your value is kept, and setting it to `0` makes the backend read zero free memory, because an integrated GPU has no memory of its own and shares the system's.
 
 ## Vulkan acceleration
 
@@ -456,7 +474,7 @@ sycl-ls
 
 - **NVIDIA**: Ensure `nvidia-container-toolkit` is installed and the Docker runtime is configured. Test with `docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi`.
 - **AMD**: Ensure `/dev/dri` and `/dev/kfd` are passed to the container and that `amdgpu-dkms` is installed on the host.
-- **Intel**: Ensure `/dev/dri` is passed to the container and Intel GPU drivers are installed on the host.
+- **Intel**: Ensure `/dev/dri` is passed to the container. No Intel graphics packages are needed on the host, since the backends bring their own driver. If the GPU is a recent model that the carried driver does not know, point the backend at the host's own driver as shown in [Intel acceleration](#intel-acceleration-sycl).
 
 ### Model loads on CPU instead of GPU
 
