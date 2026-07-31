@@ -270,35 +270,46 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
 
 		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
+		// These sampling parameters live under the `parameters:` key on disk: ModelConfig
+		// embeds schema.PredictionOptions with `yaml:"parameters"`, so the loader only reads
+		// them from that submap. Writing them at the top level produced keys the loader never
+		// read back, leaving the persisted defaults inert on reload (#11230).
+		params, ok := configMap["parameters"].(map[string]any)
+		if !ok {
+			params = make(map[string]any)
+		}
 		if modelConfig.Temperature != nil {
-			if _, exists := configMap["temperature"]; !exists {
-				configMap["temperature"] = *modelConfig.Temperature
+			if _, exists := params["temperature"]; !exists {
+				params["temperature"] = *modelConfig.Temperature
 			}
 		}
 		if modelConfig.TopP != nil {
-			if _, exists := configMap["top_p"]; !exists {
-				configMap["top_p"] = *modelConfig.TopP
+			if _, exists := params["top_p"]; !exists {
+				params["top_p"] = *modelConfig.TopP
 			}
 		}
 		if modelConfig.TopK != nil {
-			if _, exists := configMap["top_k"]; !exists {
-				configMap["top_k"] = *modelConfig.TopK
+			if _, exists := params["top_k"]; !exists {
+				params["top_k"] = *modelConfig.TopK
 			}
 		}
 		if modelConfig.MinP != nil {
-			if _, exists := configMap["min_p"]; !exists {
-				configMap["min_p"] = *modelConfig.MinP
+			if _, exists := params["min_p"]; !exists {
+				params["min_p"] = *modelConfig.MinP
 			}
 		}
 		if modelConfig.RepeatPenalty != 0 {
-			if _, exists := configMap["repeat_penalty"]; !exists {
-				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
+			if _, exists := params["repeat_penalty"]; !exists {
+				params["repeat_penalty"] = modelConfig.RepeatPenalty
 			}
 		}
 		if modelConfig.PresencePenalty != 0 {
-			if _, exists := configMap["presence_penalty"]; !exists {
-				configMap["presence_penalty"] = modelConfig.PresencePenalty
+			if _, exists := params["presence_penalty"]; !exists {
+				params["presence_penalty"] = modelConfig.PresencePenalty
 			}
+		}
+		if len(params) > 0 {
+			configMap["parameters"] = params
 		}
 
 		// Re-marshal from configMap to preserve unknown fields
