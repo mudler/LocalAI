@@ -30,6 +30,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
+	"github.com/mudler/LocalAI/internal"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -297,6 +298,7 @@ func (v *Verifier) remoteOptions(ctx context.Context) []remote.Option {
 	opts := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithTransport(t),
+		remote.WithUserAgent(internal.UserAgent()),
 	}
 	if v.auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth: v.auth}))
