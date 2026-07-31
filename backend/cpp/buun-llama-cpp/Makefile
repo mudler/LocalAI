@@ -40,6 +40,9 @@ PATCHES_DIR := $(CURRENT_MAKEFILE_DIR)/patches
 define buun-llama-cpp-build
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build
+	# Stock llama.cpp patches target upstream and may not apply to this fork.
+	# The buun-specific compatibility series is applied explicitly below.
+	rm -rf $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build purge
 	# Augment the copied grpc-server.cpp's KV-cache allow-list with the
 	# fork's turbo2/turbo3/turbo4/turbo2_tcq/turbo3_tcq types and wire up the
