@@ -13,6 +13,7 @@
         <div class="acts fd">
           <a class="btn" href="#start">Install LocalAI <span>→</span></a>
           <a class="btn btn--o" href="/docs/">Read the docs</a>
+          <a class="btn btn--o" href="{{ .Site.Params.github }}">&#9733; Star on GitHub</a>
         </div>
         <div class="figures fd">
           <div><b class="tnum" data-count="48042">0</b><span>GitHub stars</span></div>
@@ -279,7 +280,7 @@
     </div>
     <p class="mono rv" style="margin-top:.9rem;font-size:.66rem;color:var(--p-dim)">Qwen3.5-35B-A3B on an NVIDIA DGX Spark (GB10). Perplexity on wikitext-2-raw at context 2048. Full methodology in the technical report.</p>
     <div class="acts rv">
-      <a class="btn" href="https://huggingface.co/collections/mudler/apex-quants">APEX models on Hugging Face ↗</a>
+      <a class="btn" href="https://huggingface.co/collections/mudler/apex-quants-gguf">APEX models on Hugging Face ↗</a>
       <a class="btn btn--o" href="https://github.com/localai-org/apex-quant">Technical report ↗</a>
     </div>
   </div>
@@ -397,35 +398,9 @@
       <span>Deutsch</span><span>Español</span><span>français</span><span>日本語</span>
       <span>한국어</span><span>Português</span><span>Русский</span><span>中文</span>
     </div>
-    <p class="kicker rv mt3">Who turns up around it</p>
-    <h3 class="eco__h rv">Engineers from these companies have put code in</h3>
-    <p class="eco__note rv">Every name below is a person with commits in the repository whose public profile
-      names that employer. It is a claim about them, not about their employer, and the commit history is
-      there if you want to check it. Organisations that want to say they use LocalAI add themselves to
-      <a href="https://github.com/mudler/LocalAI/blob/master/ADOPTERS.md">ADOPTERS.md</a>.</p>
-    <ul class="eco eco--co rv">
-      {{- range .Site.Data.ecosystem.contributors.companies }}
-      <li><b>{{ .name }}</b><span>{{ .commits }} commit{{ if ne .commits 1 }}s{{ end }}{{ if gt .people 1 }}, {{ .people }} people{{ end }}</span></li>
-      {{- end }}
-    </ul>
-    <p class="eco__aside rv">Plus researchers at {{ delimit .Site.Data.ecosystem.contributors.academia ", " " and " }}.</p>
-
-    <h3 class="eco__h rv mt3">And these projects integrate it</h3>
-    <p class="eco__note rv">Each one references LocalAI in its own repository or documentation, so you can
-      verify any of them without taking our word for it.</p>
-    <div class="eco eco--int rv">
-      {{- range .Site.Data.ecosystem.integrations.projects }}
-      <a href="{{ .url }}"><b>{{ .name }}</b>{{ with .by }}<em>{{ . }}</em>{{ end }}<span>{{ .what }}</span></a>
-      {{- end }}
-    </div>
-
-    <h3 class="eco__h rv mt3">Written about elsewhere</h3>
-    <div class="eco eco--press rv">
-      {{- range .Site.Data.ecosystem.press.articles }}
-      <a href="{{ .url }}"><b>{{ .outlet }}</b><span>{{ .title }}</span><em>{{ .what }}</em></a>
-      {{- end }}
-    </div>
-
+    {{/* The strongest sentence in this section is somebody else's, so it opens
+         the section rather than closing it. Everything below is supporting
+         evidence for what these three people already said. */}}
     <p class="kicker rv mt3">What other people say</p>
     <div class="headline">
       <a class="hq rv" href="https://x.com/ggerganov/status/2065447087311917459">
@@ -440,6 +415,37 @@
         <blockquote>&ldquo;Build something good enough that the community chooses to carry it beyond your reach. This week, Ettore Di Giacinto brought NVIDIA Parakeet to the CPU.&rdquo;</blockquote>
         <p class="hq__w">Adi Margolin<b>On LinkedIn</b></p>
         <span class="hq__go">Read the post &#8599;</span></a>
+    </div>
+
+    {{/* Names run as a sentence rather than a grid of pills. A pill wall of
+         employers reads as a customer logo wall, which is a claim we are not
+         making; a sentence keeps it about the people, which is the true one. */}}
+    <p class="kicker rv mt3">Who shows up</p>
+    <h3 class="eco__h rv">{{ .Site.Params.contributors }} people have put code in this repository.</h3>
+    {{- $co := slice }}
+    {{- range .Site.Data.ecosystem.contributors.companies }}{{ $co = $co | append (printf "<b>%s</b>" .name) }}{{ end }}
+    {{- $ac := slice }}
+    {{- range .Site.Data.ecosystem.contributors.academia }}{{ $ac = $ac | append (printf "<b>%s</b>" .) }}{{ end }}
+    <p class="eco__names rv">Some of them do it from a desk at {{ delimit $co ", " " and " | safeHTML }}.
+      Others from labs at {{ delimit $ac ", " " and " | safeHTML }}.</p>
+    <p class="eco__note rv">That is where they work, not who sent them.
+      <a href="{{ .Site.Params.github }}/graphs/contributors">The commit history is public &#8599;</a></p>
+
+    <h3 class="eco__h rv mt3">And these projects integrate it</h3>
+    <p class="eco__note rv">Each one names LocalAI in its own repository or documentation.</p>
+    <div class="eco eco--int rv">
+      {{- range .Site.Data.ecosystem.integrations.projects }}
+      <a href="{{ .url }}"><b>{{ .name }}</b>{{ with .by }}<em>{{ . }}</em>{{ end }}<span>{{ .what }}</span></a>
+      {{- end }}
+    </div>
+    <p class="eco__aside rv">Using LocalAI at work? Add your organisation to
+      <a href="{{ .Site.Params.github }}/blob/master/ADOPTERS.md">ADOPTERS.md</a>.</p>
+
+    <h3 class="eco__h rv mt3">Written about elsewhere</h3>
+    <div class="eco eco--press rv">
+      {{- range .Site.Data.ecosystem.press.articles }}
+      <a href="{{ .url }}"><b>{{ .outlet }}</b><span>{{ .title }}</span><em>{{ .what }}</em></a>
+      {{- end }}
     </div>
 
     <p class="kicker rv mt3">Built on, integrated with, written about</p>
@@ -476,17 +482,6 @@
         <p class="post__h">@mattapperson <em>builds on</em></p>
         <p>Oh, high there @LocalAI_API, nice to see a terminal based UI for ya! (it&#x27;s a WIP, but just wanted something cleaner then CURL calls)</p>
         <span class="post__go">On X, 2023 &#8599;</span></a>
-    </div>
-    <div class="cards">
-      <a class="cd rv" href="https://modelslab.com/blog/audio-generation/parakeet-cpp-vs-whisper-self-hosted-asr-comparison-2026"><p class="cd__k">Coverage</p>
-        <h3>parakeet.cpp vs Whisper</h3><p>An independent comparison of self-hosted ASR options put parakeet.cpp against Whisper on accuracy and speed.</p>
-        <span class="cite">modelslab.com ↗</span></a>
-      <a class="cd rv" href="https://snailtext.app/blog/whisper-vs-parakeet-tdt/"><p class="cd__k">Coverage</p>
-        <h3>Roughly 4x faster on CPU</h3><p>A third-party benchmark measured Parakeet TDT against Whisper Small through whisper.cpp on the same machine.</p>
-        <span class="cite">snailtext.app ↗</span></a>
-      <a class="cd rv" href="https://github.com/mudler/LocalAI/graphs/contributors"><p class="cd__k">Contributors</p>
-        <h3>224 people have shipped code</h3><p>Backends, gallery entries, docs, translations and bug fixes, from people who are not on the team.</p>
-        <span class="cite">github.com ↗</span></a>
     </div>
   </div>
 </section>

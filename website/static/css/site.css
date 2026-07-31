@@ -442,14 +442,16 @@ footer{background:var(--deep);border-top:1px solid var(--line2);padding:3rem 0 4
 .eco__note{color:var(--dim);font-size:.92rem;max-width:66ch;margin-top:.7rem}
 .eco__note a{color:var(--cyan);text-decoration:underline;text-underline-offset:.2rem}
 .eco__aside{color:var(--faint);font-size:.85rem;margin-top:1rem;max-width:66ch}
+.eco__aside a{color:var(--cyan);text-decoration:underline;text-underline-offset:.2rem}
+
+/* Employers are set as a running sentence, not a grid of pills, so the line
+   reads as a statement about people rather than a wall of customer logos. The
+   names take weight and the connective text stays dim, which lets the eye
+   scan the list without the paragraph turning into a badge rack. */
+.eco__names{color:var(--dim);font-size:1rem;line-height:1.75;max-width:62ch;margin-top:1rem}
+.eco__names b{color:var(--ink);font-weight:600}
 
 .eco{list-style:none;padding:0;margin:1.4rem 0 0}
-.eco--co{display:flex;flex-wrap:wrap;gap:.5rem}
-.eco--co li{display:flex;align-items:baseline;gap:.5rem;padding:.5rem .8rem;border-radius:999px;
-  border:1px solid var(--line);background:rgba(255,255,255,.028);transition:border-color .22s,background .22s}
-.eco--co li:hover{border-color:rgba(95,205,228,.5);background:rgba(95,205,228,.07)}
-.eco--co b{font-size:.9rem;font-weight:600;color:var(--ink)}
-.eco--co span{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--faint);white-space:nowrap}
 
 .eco--int{display:grid;gap:.8rem}
 @media(min-width:700px){.eco--int{grid-template-columns:repeat(2,1fr)}}

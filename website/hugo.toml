@@ -18,6 +18,7 @@ enableEmoji = true
   huggingface = 'https://huggingface.co/mudler'
   # Refreshed by hand or by CI; shown in the nav and the traction band.
   stars = '48,042'
+  contributors = '224'
 
 [markup.goldmark.renderer]
   unsafe = true
