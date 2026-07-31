@@ -141,3 +141,66 @@
   text-transform:uppercase;color:var(--cyan)}
 .bp-pn__t{font-family:var(--display),sans-serif;font-weight:700;font-size:1.02rem;
   font-variation-settings:'wdth' 104,'wght' 740;letter-spacing:var(--dtrack);line-height:1.25}
+
+/* ---- Star history chart ------------------------------------------------
+   One series, so no legend: the title names it. Grid and axes stay
+   recessive, the four release markers are annotations rather than a second
+   series, and the numbers are also available as a table. */
+.sc{margin:2.6rem 0;padding:1.5rem 1.5rem 1.3rem;border:1px solid var(--line);border-radius:12px;
+  background:rgba(4,19,28,.86);backdrop-filter:blur(6px);
+  box-shadow:0 20px 44px -30px rgba(0,0,0,.9)}
+.sc__head{margin:0 0 1.4rem}
+.sc__k{font-family:'Geist Mono',monospace;font-size:.63rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--cyan);margin:0}
+.sc__title{font-family:var(--display),sans-serif;font-weight:700;letter-spacing:-.026em;
+  font-size:1.24rem;margin:.55rem 0 .5rem;color:var(--ink)}
+.sc__desc{font-family:var(--display),ui-sans-serif,system-ui,sans-serif;
+  color:var(--dim);font-size:.88rem;line-height:1.6;margin:0;max-width:62ch}
+
+.sc__plot{position:relative;padding-left:2.4rem;padding-bottom:3.4rem;touch-action:pan-y}
+.sc__svg{display:block;width:100%;height:clamp(190px,26vw,300px);overflow:visible}
+.sc__grid line{stroke:rgba(255,255,255,.07);stroke-width:1}
+.sc__mline{stroke:rgba(255,255,255,.16);stroke-width:1;stroke-dasharray:2 4}
+.sc__mdot{fill:var(--navy0);stroke:var(--cyan-hi);stroke-width:2}
+.sc__cross{stroke:rgba(155,230,245,.55);stroke-width:1}
+.sc__dot{position:absolute;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;
+  background:var(--cyan-hi);box-shadow:0 0 0 3px rgba(95,205,228,.25);pointer-events:none}
+
+.sc__ylab{position:absolute;left:0;top:0;width:2.4rem}
+.sc__ylab span{position:absolute;left:0;transform:translateY(-50%);
+  font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--faint);font-variant-numeric:tabular-nums}
+.sc__xlab{position:absolute;left:2.4rem;right:0;bottom:0;height:3.1rem}
+.sc__xlab span{position:absolute;transform:translateX(-50%);text-align:center;width:8.4rem;
+  font-family:var(--display),ui-sans-serif,system-ui,sans-serif;
+  font-size:.66rem;line-height:1.32;color:var(--dim)}
+/* rows after the first sit further from the axis, so a leader keeps them attached */
+.sc__xlab span:not(.sc__x0)::before{content:"";position:absolute;left:50%;top:-.55rem;
+  width:1px;height:.55rem;background:rgba(255,255,255,.18)}
+.sc__xlab b{display:block;font-family:'Geist Mono',monospace;font-size:.6rem;
+  color:var(--cyan);font-weight:400;margin-bottom:.15rem}
+
+.sc__tip{position:absolute;top:-.2rem;padding:.45rem .6rem;border-radius:7px;pointer-events:none;
+  background:rgba(1,10,17,.94);border:1px solid var(--line);backdrop-filter:blur(6px);
+  font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--ink);white-space:nowrap;
+  box-shadow:0 10px 26px -14px rgba(0,0,0,.95)}
+.sc__tip b{color:var(--cyan-hi);font-variant-numeric:tabular-nums}
+.sc__tip span{display:block;color:var(--faint);font-size:.6rem;margin-top:.12rem}
+
+.sc__data{margin-top:1.2rem;border-top:1px solid var(--line);padding-top:.9rem}
+.sc__data summary{cursor:pointer;font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--dim)}
+.sc__data summary:hover{color:var(--cyan)}
+.sc__tablewrap{overflow-x:auto;margin-top:.9rem;max-height:19rem}
+.sc__tablewrap table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.sc__tablewrap caption{text-align:left;font-size:.68rem;color:var(--faint);padding-bottom:.5rem}
+.sc__tablewrap th,.sc__tablewrap td{text-align:left;padding:.4rem .7rem .4rem 0;
+  font-family:'Geist Mono',monospace;font-size:.72rem;border-bottom:1px solid var(--line)}
+.sc__tablewrap th{color:var(--faint);font-weight:400;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase}
+.sc__tablewrap td{color:var(--dim)}
+
+@media(max-width:640px){
+  .sc{padding:1.1rem 1rem}
+  .sc__xlab span{width:5.4rem;font-size:.58rem}
+  .sc__plot{padding-bottom:4rem}
+}
+@media(prefers-reduced-motion:reduce){.sc *{transition:none!important}}
+.sc__est{opacity:.5}

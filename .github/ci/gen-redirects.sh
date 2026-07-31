@@ -3,18 +3,18 @@
 # Generate client-side redirects for the documentation URLs that used to live at
 # the site root.
 #
-# Until the marketing site existed, the Hugo docs site WAS localai.io, so pages
+# Until this site existed, the Hugo docs site WAS localai.io, so pages
 # were published at /features/..., /getting-started/..., /faq/ and so on. The
 # docs now build under /docs/, and GitHub Pages serves static files only: there
 # is no server-side rewrite, no .htaccess, no _redirects. The only way to keep
 # every published, bookmarked and search-indexed URL alive is to leave a real
 # HTML file at the old address that sends the browser to the new one.
 #
-# Anything the marketing site already publishes wins: it owns /, /engines/,
+# Anything the main site already publishes wins: it owns /, /engines/,
 # /blog/ and friends, so an existing file is never replaced.
 #
 # Usage: gen-redirects.sh <public-dir> [base-url]
-#   public-dir  merged output directory (marketing site with docs/ inside it)
+#   public-dir  merged output directory (main site with docs/ inside it)
 #   base-url    absolute or root-relative prefix the deployment is served from,
 #               trailing slash optional (default "/")
 
@@ -73,4 +73,4 @@ done <<EOF
 $(find "$DOCS_DIR" -type f -name '*.html' | sort)
 EOF
 
-echo "gen-redirects: ${created} redirect(s) written, ${skipped} path(s) left to the marketing site"
+echo "gen-redirects: ${created} redirect(s) written, ${skipped} path(s) left to the main site"

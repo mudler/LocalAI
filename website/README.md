@@ -1,4 +1,4 @@
-# localai.io marketing site
+# localai.io
 
 The Hugo site served at the root of localai.io. The documentation is a separate
 Hugo site in [`../docs`](../docs) and is served under `/docs/`. CI builds both
@@ -10,7 +10,7 @@ and uploads them as a single GitHub Pages artifact
 From the repository root:
 
 ```bash
-make website    # marketing site only, http://localhost:1313/
+make website    # this site only, http://localhost:1313/
 make docs       # documentation only, http://localhost:1313/docs/
 make site       # build both, merged into website/public, exactly as CI does
 make site-serve # the same merged build, served on http://localhost:8000

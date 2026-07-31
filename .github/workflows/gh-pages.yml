@@ -56,9 +56,9 @@ jobs:
       - name: Generate gallery
         run: go run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
 
-      # Two Hugo sites, one Pages artifact: the marketing site owns the root,
+      # Two Hugo sites, one Pages artifact: the main site owns the root,
       # the docs site is nested under /docs/.
-      - name: Build marketing site
+      - name: Build the main site
         working-directory: website
         run: hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
 
@@ -68,7 +68,7 @@ jobs:
           mkdir -p layouts/_default
           hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/docs/"
 
-      - name: Merge documentation into the marketing site
+      - name: Merge documentation into the main site
         run: |
           mkdir -p website/public/docs
           cp -R docs/public/. website/public/docs/

@@ -4,7 +4,7 @@ defaultContentLanguage = 'en'
 title = 'LocalAI'
 enableEmoji = true
 
-# The marketing site. Documentation is a second Hugo site under ../docs,
+# The main site. Documentation is a second Hugo site under ../docs,
 # built with baseURL <root>/docs/ and merged into this site's public/ by CI.
 # See .github/workflows/gh-pages.yml.
 
