@@ -55,35 +55,107 @@ contributors:
 
 integrations:
   note: "These projects reference LocalAI in their own repository or documentation."
+  # Admission rule: the project's OWN repository or official docs must name
+  # LocalAI as a provider, backend or integration. A blog post saying so is not
+  # enough, and neither is a generic "any OpenAI-compatible server" line that
+  # never names us. Every entry below was opened and read before being added,
+  # and the quote that justifies it is in the pull request that added it.
+  #
+  # Deliberately excluded after checking: LiteLLM, n8n, Home Assistant core,
+  # BionicGPT, Semantic Kernel, Spring AI, Jan, CrewAI, Haystack, Onyx,
+  # SillyTavern, Portkey and Kong all have zero mentions in their own repos.
+  # PrivateGPT and Langflow name us only in passing comparisons or a tooltip.
+  # Tools4AI has a LocalAI processor whose methods return null.
   projects:
     - name: AnythingLLM
       by: Mintplex Labs
       url: https://github.com/Mintplex-Labs/anything-llm
       what: "Runs LocalAI as a model provider for its chat and document workspaces."
-    - name: langchain4j
-      url: https://github.com/langchain4j/langchain4j
-      what: "Ships a LocalAI module, so JVM applications can target it directly."
     - name: LangChain
       url: https://python.langchain.com/docs/integrations/providers/localai/
       what: "Documents LocalAI as a provider in the Python integrations."
+    - name: LlamaIndex
+      url: https://docs.llamaindex.ai/en/stable/examples/llm/localai/
+      what: "Documents LocalAI as an OpenAI-compatible LLM you can point it at."
+    - name: Open WebUI
+      url: https://docs.openwebui.com/getting-started/quick-start/connect-a-provider/starting-with-openai-compatible
+      what: "Connects to LocalAI as an OpenAI-compatible local server."
+    - name: Dify
+      by: LangGenius
+      url: https://marketplace.dify.ai/plugin/langgenius/localai
+      what: "Ships an official LocalAI plugin for inference and embeddings."
+    - name: LibreChat
+      url: https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/speech
+      what: "Uses LocalAI as a speech provider for text to speech."
+    - name: RAGFlow
+      by: InfiniFlow
+      url: https://ragflow.io/docs/supported_models
+      what: "Lists LocalAI as a model provider, and ships a driver for it including rerank."
     - name: Flowise
       by: FlowiseAI
       url: https://github.com/FlowiseAI/Flowise
       what: "Offers LocalAI as a node for chat and embeddings in its visual builder."
-    - name: AIKit
-      by: Sertac Ozercan
-      url: https://github.com/sozercan/aikit
-      what: "Builds fine-tuned models into images that serve through LocalAI."
+    - name: Continue
+      url: https://docs.continue.dev/customize/model-providers/top-level/openai
+      what: "Lists LocalAI among the OpenAI-compatible providers the editor can target."
+    - name: big-AGI
+      url: https://github.com/enricoros/big-AGI/blob/main/docs/config-local-localai.md
+      what: "Adds LocalAI as a model source, with its own setup page and env vars."
     - name: K8sGPT
       by: CNCF Sandbox
       url: https://docs.k8sgpt.ai/reference/providers/backend/
       what: "Lists LocalAI as an analysis backend, alongside Bedrock and Azure OpenAI."
-    - name: LlamaIndex
-      url: https://docs.llamaindex.ai/en/stable/examples/llm/localai/
-      what: "Documents LocalAI as an OpenAI-compatible LLM you can point it at."
+    - name: k8sgpt-operator
+      by: k8sgpt-ai
+      url: https://github.com/k8sgpt-ai/k8sgpt-operator
+      what: "Sets LocalAI as the backend on the K8sGPT custom resource, with no OpenAI secret."
+    - name: Nextcloud
+      url: https://apps.nextcloud.com/apps/integration_openai
+      what: "Points its text, image and speech features at a self-hosted LocalAI."
+    - name: Frigate
+      url: https://github.com/blakeblackshear/frigate/blob/dev/docs/docs/configuration/genai/config.md
+      what: "Names LocalAI as a server for its generative AI features."
+      # Present in the dev branch docs source; not yet on the published site.
     - name: Kairos
       url: https://github.com/kairos-io/kairos
       what: "Ships LocalAI as part of its immutable Linux distribution."
+    - name: AIKit
+      by: Sertac Ozercan
+      url: https://github.com/sozercan/aikit
+      what: "Builds fine-tuned models into images that serve through LocalAI."
+    - name: langchain4j
+      url: https://github.com/langchain4j/langchain4j
+      what: "Ships a LocalAI module, so JVM applications can target it directly."
+    - name: promptfoo
+      url: https://www.promptfoo.dev/docs/providers/localai/
+      what: "Provides a localai: prefix so evals run against chat, completion and embeddings."
+    - name: Mods
+      by: Charm
+      url: https://github.com/charmbracelet/mods
+      what: "Reads a LocalAI endpoint from its config, so the CLI pipes shell output to a local model."
+    - name: TypingMind
+      url: https://docs.typingmind.com/manage-and-connect-ai-models/local-ai
+      what: "Documents pointing a custom model endpoint at a LocalAI server."
+    - name: baibot
+      by: etke.cc
+      url: https://github.com/etkecc/baibot/blob/main/docs/providers.md
+      what: "Has a first-class localai provider for text, speech to text and text to speech."
+    - name: LLM Vision
+      by: Home Assistant
+      url: https://github.com/valentinfrlch/ha-llmvision
+      what: "Lists LocalAI as a provider for analysing camera images and video feeds."
+    - name: VoxInput
+      url: https://github.com/richiejp/VoxInput
+      what: "Sends desktop voice input to LocalAI for transcription and a realtime assistant."
+    - name: Obsidian BMO Chatbot
+      url: https://github.com/longy2k/obsidian-bmo-chatbot
+      what: "Lists LocalAI as a self-hosted endpoint for the note-taking chat plugin."
+    - name: ShellOracle
+      url: https://github.com/djcopley/ShellOracle
+      what: "Ships a LocalAI provider for turning natural language into shell commands."
+    - name: QA-Pilot
+      url: https://github.com/reid41/QA-Pilot
+      what: "Runs its repository chat against a LocalAI base URL."
 
 press:
   note: "Written about LocalAI, by people who do not work on it."

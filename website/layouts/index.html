@@ -429,14 +429,22 @@
     <p class="eco__names rv">Some of them do it from a desk at {{ delimit $co ", " " and " | safeHTML }}.
       Others from labs at {{ delimit $ac ", " " and " | safeHTML }}.</p>
     <p class="eco__note rv">That is where they work, not who sent them.
-      <a href="{{ .Site.Params.github }}/graphs/contributors">The commit history is public &#8599;</a></p>
+      <a href="{{ .Site.Params.github }}/graphs/contributors">Check out the full contributor list, 200+ and growing &#8599;</a></p>
 
-    <h3 class="eco__h rv mt3">And these projects integrate it</h3>
-    <p class="eco__note rv">Each one names LocalAI in its own repository or documentation.</p>
-    <div class="eco eco--int rv">
-      {{- range .Site.Data.ecosystem.integrations.projects }}
-      <a href="{{ .url }}"><b>{{ .name }}</b>{{ with .by }}<em>{{ . }}</em>{{ end }}<span>{{ .what }}</span></a>
-      {{- end }}
+    {{/* The list runs as a marquee because the count is the argument: any one
+         of these is a weak signal, and the whole moving line is the strong one.
+         It pauses on hover so the links stay usable. */}}
+    <h3 class="eco__h rv mt3">And many projects integrate it</h3>
+    <p class="eco__note rv">Click any name to see where they say so.</p>
+    <div class="reel reel--int rv">
+      <div class="reel__t">
+        {{- range .Site.Data.ecosystem.integrations.projects }}
+        <a href="{{ .url }}">{{ .name }}</a>
+        {{- end }}
+        {{- range .Site.Data.ecosystem.integrations.projects }}
+        <a href="{{ .url }}" tabindex="-1" aria-hidden="true">{{ .name }}</a>
+        {{- end }}
+      </div>
     </div>
     <p class="eco__aside rv">Using LocalAI at work? Add your organisation to
       <a href="{{ .Site.Params.github }}/blob/master/ADOPTERS.md">ADOPTERS.md</a>.</p>
@@ -491,15 +499,17 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">From the team</p>
-    <h2 class="rv mt1" style="max-width:20ch">Every release gets written up and demonstrated.</h2>
-    <p class="lede rv mt2">A changelog tells you what moved. These posts show you what it does, with a recording you can watch and a command you can run.</p>
+    <h2 class="rv mt1" style="max-width:22ch">We publish the numbers, including the ones that cost us.</h2>
+    <p class="lede rv mt2">APEX takes a 35B model from 64.6 GB to 12.2 GB, and from 30.4 to 74.4 tokens a second. Perplexity goes from 6.537 to 7.088. That trade is in the post too, with the command that produced it.</p>
+    {{/* Pulled from the posts themselves. The cards used to be hand-written,
+         which is how one of them ended up advertising a post that did not
+         exist, and how all three linked to the index instead of the article. */}}
     <div class="cards">
-      <a class="cd rv" href="/blog/"><p class="cd__k">Release · v4.8.0</p><h3>What landed in LocalAI 4.8</h3>
-        <p>The audio.cpp backend, Valkey vector search, configurable VAE tiling, and a faster realtime path.</p><span class="cd__go">Read the post →</span></a>
-      <a class="cd rv" href="/blog/"><p class="cd__k">Engineering</p><h3>Porting vLLM to C++</h3>
-        <p>What paged attention looks like without a Python runtime, and what it cost us to get there.</p><span class="cd__go">Read the post →</span></a>
-      <a class="cd rv" href="/blog/"><p class="cd__k">Benchmarks</p><h3>How APEX beats Q8_0 at a third of the size</h3>
-        <p>Per-tensor, per-layer precision for mixture-of-experts models, measured against the alternatives.</p><span class="cd__go">Read the post →</span></a>
+      {{- range first 3 (where .Site.RegularPages "Section" "blog") }}
+      <a class="cd rv" href="{{ .RelPermalink }}">
+        <p class="cd__k">{{ .Date.Format "2 January 2006" }}</p><h3>{{ .Title }}</h3>
+        <p>{{ .Params.summary | truncate 155 }}</p><span class="cd__go">Read the post →</span></a>
+      {{- end }}
     </div>
   </div>
 </section>

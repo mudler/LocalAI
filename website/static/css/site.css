@@ -288,6 +288,15 @@ h2{font-size:clamp(2.1rem,5vw,3.9rem)}
 .reel span::before{content:"/ ";color:var(--cyan)}
 @keyframes roll{to{transform:translateX(-50%)}}
 
+/* Integrations reel. Same motion as the engines reel, but the items are links,
+   so it stops on hover or keyboard focus and the names stay clickable. */
+.reel--int .reel__t{animation-duration:64s}
+.reel--int:hover .reel__t,.reel--int:focus-within .reel__t{animation-play-state:paused}
+.reel--int a{font-family:'Geist Mono',monospace;font-size:.78rem;color:var(--dim);white-space:nowrap;
+  transition:color .18s}
+.reel--int a::before{content:"/ ";color:var(--cyan)}
+.reel--int a:hover,.reel--int a:focus-visible{color:var(--ink)}
+
 /* apex */
 .tw{overflow-x:auto;margin-top:2.2rem;border:1px solid var(--p-line);border-radius:8px;background:#fff}
 table{border-collapse:collapse;width:100%;min-width:640px;font-variant-numeric:tabular-nums}
@@ -344,10 +353,16 @@ tbody tr:hover td{background:rgba(95,205,228,.10)}
   letter-spacing:-.02em;color:var(--cyan);font-variant-numeric:tabular-nums}
 .big span{font-family:'Geist Mono',monospace;font-size:.58rem;letter-spacing:.11em;
   text-transform:uppercase;color:var(--faint)}
-.tl{margin-top:2.6rem;border-top:1px solid var(--line2);overflow-x:auto}
-.tl__t{display:flex;gap:0;min-width:min-content;padding-top:1.4rem}
-.tl__i{flex:0 0 15rem;padding:0 1.3rem 0 0;position:relative}
-.tl__i::before{content:"";position:absolute;left:0;top:-1.4rem;width:7px;height:7px;border-radius:50%;
+/* Six 15rem columns need 90rem, so the old flex row scrolled sideways on any
+   normal laptop. It wraps into a grid instead, and the rule that carried the
+   dots moves from the container onto each item so a wrapped row still gets a
+   line above it. */
+.tl{margin-top:2.6rem}
+/* Zero column gap so the borders of adjacent items meet and the rule reads as
+   one continuous line; the items carry their own right padding instead. */
+.tl__t{display:grid;grid-template-columns:repeat(auto-fit,minmax(13.5rem,1fr));gap:1.7rem 0}
+.tl__i{padding:1.4rem 1.3rem 0 0;position:relative;border-top:1px solid var(--line2)}
+.tl__i::before{content:"";position:absolute;left:0;top:0;width:7px;height:7px;border-radius:50%;
   background:var(--cyan);transform:translateY(-50%) scale(0);transition:transform .45s cubic-bezier(.16,1,.3,1)}
 .in .tl__i::before{transform:translateY(-50%) scale(1)}
 .tl__i:nth-child(1)::before{transition-delay:.05s}.tl__i:nth-child(2)::before{transition-delay:.13s}
