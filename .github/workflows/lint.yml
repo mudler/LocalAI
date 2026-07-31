@@ -33,7 +33,12 @@ jobs:
     # straight minutes on 2026-07-31 while arc-runner-set kept completing jobs.
     # Lint is small and runs on every commit, so it is a good candidate to move
     # off the contended pool.
-    runs-on: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}
+    # REVERTED to hosted: the arc-runner-set image has git, curl, unzip, tar,
+    # ldd and python3, but NOT make (nor gcc). Measured on run 30637392862,
+    # where the preflight below named both. Re-route here once the runner image
+    # ships a C toolchain and make; the preflight stays so the next attempt
+    # fails by name in one second instead of opaquely mid-build.
+    runs-on: ubuntu-latest
     steps:
       - name: Preflight - required host tools
         # The hosted images ship these; a self-hosted container image may not.
@@ -86,7 +91,12 @@ jobs:
     #
     # Push-only self-hosted routing, same fork-safety reasoning as
     # golangci-lint above.
-    runs-on: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}
+    # REVERTED to hosted: the arc-runner-set image has git, curl, unzip, tar,
+    # ldd and python3, but NOT make (nor gcc). Measured on run 30637392862,
+    # where the preflight below named both. Re-route here once the runner image
+    # ships a C toolchain and make; the preflight stays so the next attempt
+    # fails by name in one second instead of opaquely mid-build.
+    runs-on: ubuntu-latest
     steps:
       - name: Preflight - required host tools
         # This job additionally needs a C toolchain: the packaging-script tests

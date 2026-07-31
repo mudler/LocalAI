@@ -363,16 +363,21 @@ One residual self-hosted reference remains in `test-extra.yml` (`tests-vibevoice
 
 The hosted pool is shared across the whole *account*, not per repo, so a burst in one repo starves the others. On 2026-07-31 it went to **zero scheduled jobs for 35 consecutive minutes** with 39 jobs queued, while `arc-runner-set` completed 12 jobs without interruption over the same window. Actions was healthy globally at the time (other public repos were scheduling normally), so this is an account-level throttle, not an outage.
 
-Two small, high-frequency workflows are therefore routed to `arc-runner-set`:
+`gh-pages.yml` (`build` + `deploy`) is therefore routed to `arc-runner-set` when `github.repository == 'mudler/LocalAI'`. It needs no fork-safety clause because it only triggers on push-to-master and `workflow_dispatch`, so it never executes pull-request code. The repository guard keeps forks (which have no such runner label) from queueing forever. It fetches its own toolchains via `setup-go` / `actions-hugo` and uses no `sudo`/`apt`.
 
-| workflow | jobs | routing expression selects self-hosted when |
-|---|---|---|
-| `gh-pages.yml` | `build`, `deploy` | `github.repository == 'mudler/LocalAI'` |
-| `lint.yml` | `golangci-lint`, `build-scripts` | `github.event_name == 'push'` **and** the repo guard |
+#### What the `arc-runner-set` image actually contains
 
-The `lint.yml` routing is push-only **on purpose**. That workflow also triggers on `pull_request`, and a fork PR runs untrusted contributor code; that must stay on the ephemeral hosted pool and never touch a self-hosted runner. `gh-pages.yml` needs no such clause because it only triggers on push-to-master and `workflow_dispatch`. The repository guard in both keeps forks (which have no such runner label) from queueing forever.
+Measured 2026-07-31 on run `30637392862` by a preflight step, not assumed:
 
-Both workflows fetch their own toolchains (`setup-go`, `actions-hugo`) and use no `sudo`/`apt`. Because a self-hosted image may be leaner than the hosted one, each `lint.yml` job opens with a preflight step that names any missing tool (`curl`/`unzip`/`make` for protoc and lint, `gcc`/`ldd`/`python3` for the packaging-script tests) instead of failing opaquely mid-build. If the runner image turns out to lack them, either extend the image or revert the single `runs-on:` expression per job.
+| present | **absent** |
+|---|---|
+| `git`, `curl`, `unzip`, `tar`, `ldd`, `python3` | **`make`**, **`gcc`** |
+
+That is why `lint.yml` is **not** on the self-hosted pool. Both of its jobs were routed there and both failed in one second: `golangci-lint` needs `make` (for `make protogen-go`, itself needing `curl`+`unzip` to fetch protoc, and for `make lint`), and `build-scripts` additionally needs a C toolchain because the packaging-script tests compile a throwaway binary and inspect it with `ldd`. Both jobs are back on `ubuntu-latest`.
+
+The preflight steps were deliberately left in place. They cost about a second on the hosted pool and mean that whenever the runner image gains `make` + `gcc`, re-routing is one `runs-on:` line per job and any remaining gap reports itself by name rather than as an opaque mid-build failure.
+
+Note for any future re-route: `lint.yml` also triggers on `pull_request`, and a fork PR runs untrusted contributor code. That must never reach a persistent self-hosted runner, so any re-route has to stay push-only, e.g. `${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}`.
 
 ## Touching the cache pipeline
 
