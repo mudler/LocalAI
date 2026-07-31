@@ -59,6 +59,20 @@ var _ = Describe("utils/archive tests", func() {
 		Expect(err.Error()).To(ContainSubstring("unsafe path"))
 		Expect(filepath.Join(tmpDir, "escaped.txt")).ToNot(BeAnExistingFile())
 	})
+
+	It("rejects tar hardlinks that point outside the destination", func() {
+		tmpDir := GinkgoT().TempDir()
+		archivePath := filepath.Join(tmpDir, "model.tar")
+		extractPath := filepath.Join(tmpDir, "models")
+
+		Expect(writeTarArchiveWithHardlink(archivePath, "payload.bin", "../../escaped.txt")).To(Succeed())
+
+		err := ExtractArchive(archivePath, extractPath)
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("unsafe path"))
+		Expect(filepath.Join(tmpDir, "escaped.txt")).ToNot(BeAnExistingFile())
+	})
 })
 
 func writeZipArchive(path string, files map[string]string) (err error) {
@@ -125,4 +139,30 @@ func writeTarArchive(path string, files map[string]string) (err error) {
 	}
 
 	return nil
+}
+
+func writeTarArchiveWithHardlink(path, name, linkname string) (err error) {
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := out.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+
+	writer := tar.NewWriter(out)
+	defer func() {
+		if closeErr := writer.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+
+	return writer.WriteHeader(&tar.Header{
+		Name:     name,
+		Linkname: linkname,
+		Typeflag: tar.TypeLink,
+		Mode:     0o600,
+	})
 }
