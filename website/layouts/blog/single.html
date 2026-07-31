@@ -1,0 +1,66 @@
+{{ define "main" }}
+<main id="top">
+
+<article class="navy bp-article">
+  <div class="shell">
+
+    <p class="bp-back"><a href="{{ "/blog/" | relURL }}">&#8592; All posts</a></p>
+
+    <header class="bp-hd">
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      {{ with .Params.category }}<p class="kicker">{{ . }}</p>{{ end }}
+      <h1 class="bp-h1 mt1">{{ .Title }}</h1>
+      {{ with .Params.summary }}<p class="lede mt2 bp-sum">{{ . }}</p>{{ end }}
+      <p class="bp-meta">
+        {{ with .Params.author }}<span>{{ . }}</span>{{ end }}
+        <span><time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 January 2006" }}</time></span>
+        <span>{{ .ReadingTime }} min read</span>
+      </p>
+    </header>
+
+    <div class="bp-body">
+      {{ .Content }}
+    </div>
+
+    {{ with .Params.tags }}
+    <div class="bp-tags">
+      {{ range . }}<span>{{ . }}</span>{{ end }}
+    </div>
+    {{ end }}
+
+    <div class="bp-cta">
+      <div>
+        <p class="kicker">Try it</p>
+        <h2 class="bp-cta__h">Run this on the machine you are reading it on.</h2>
+        <p>LocalAI installs as a container, a binary, a macOS DMG or a Helm chart, and pulls a backend the first time a model asks for one.</p>
+      </div>
+      <div class="acts">
+        <a class="btn" href="{{ .Site.Params.docsURL }}">Read the documentation &#8594;</a>
+        <a class="btn btn--o" href="{{ .Site.Params.github }}">LocalAI on GitHub &#8599;</a>
+      </div>
+    </div>
+
+    {{ if or .PrevInSection .NextInSection }}
+    <nav class="bp-pn" aria-label="More posts">
+      {{ with .NextInSection }}
+      <a class="bp-pn__i" href="{{ .RelPermalink }}">
+        <span class="bp-pn__k">&#8592; Newer</span>
+        <span class="bp-pn__t">{{ .Title }}</span>
+      </a>
+      {{ else }}<span></span>{{ end }}
+      {{ with .PrevInSection }}
+      <a class="bp-pn__i bp-pn__i--r" href="{{ .RelPermalink }}">
+        <span class="bp-pn__k">Older &#8594;</span>
+        <span class="bp-pn__t">{{ .Title }}</span>
+      </a>
+      {{ end }}
+    </nav>
+    {{ end }}
+
+    <p class="bp-back bp-back--b"><a href="{{ "/blog/" | relURL }}">&#8592; All posts</a></p>
+
+  </div>
+</article>
+
+</main>
+{{ end }}

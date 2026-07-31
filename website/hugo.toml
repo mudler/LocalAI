@@ -1,0 +1,31 @@
+baseURL = 'https://localai.io/'
+languageCode = 'en-GB'
+defaultContentLanguage = 'en'
+title = 'LocalAI'
+enableEmoji = true
+
+# The main site. Documentation is a second Hugo site under ../docs,
+# built with baseURL <root>/docs/ and merged into this site's public/ by CI.
+# See .github/workflows/gh-pages.yml.
+
+[params]
+  description = 'LocalAI is the open source AI engine. Run any model, LLMs, vision, voice, image and video, on any hardware. No GPU required.'
+  author = 'Ettore Di Giacinto'
+  docsURL = '/docs/'
+  github = 'https://github.com/mudler/LocalAI'
+  discord = 'https://discord.gg/uJAeKSAGDy'
+  x = 'https://twitter.com/LocalAI_API'
+  huggingface = 'https://huggingface.co/mudler'
+  # Refreshed by hand or by CI; shown in the nav and the traction band.
+  stars = '48,042'
+
+[markup.goldmark.renderer]
+  unsafe = true
+
+[outputs]
+  home = ['html']
+  section = ['html', 'rss']
+  page = ['html']
+
+[taxonomies]
+  tag = 'tags'

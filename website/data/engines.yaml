@@ -1,0 +1,281 @@
+# The nineteen native engines the LocalAI team wrote, and the one quantization
+# recipe that feeds them. This file is the single source of truth for the
+# /engines/ page: the layout renders whatever is here, in this order, and adds
+# nothing of its own. Numbers in `highlights` come from each engine's own
+# benchmark suite, so if a README moves, move the number here too.
+#
+# Fields per engine:
+#   name       display name, matching how the repo calls itself
+#   tagline    one sentence, benefit first, what the user gets
+#   category   must match a category id below
+#   language   implementation language
+#   repo       canonical GitHub URL
+#   featured   optional, renders the entry wide with its clip
+#   status     optional badge for anything not generally announced
+#   media      optional clip under /media/
+#   poster     optional still under /img/
+#   clips      optional extra clips, only shown on featured entries
+#   highlights optional list of concrete facts
+
+categories:
+  - id: hearing
+    label: Hearing
+    blurb: Turning sound into something a model can act on, words first and then everything else in the room.
+  - id: voice
+    label: Voice
+    blurb: Speech coming back out, in a voice you chose or one you cloned from a few seconds of audio.
+  - id: identity
+    label: Identity
+    blurb: Working out who is in front of the microphone or the camera, and whether they are really there.
+  - id: vision
+    label: Vision
+    blurb: Finding things in an image and naming them, including things nobody trained a class for.
+  - id: space
+    label: Space
+    blurb: Reading distance, camera pose and shape out of ordinary photos, with no rig and no capture setup.
+  - id: text
+    label: Text
+    blurb: Serving language models, and cleaning what goes into them before it leaves the machine.
+  - id: data
+    label: Data
+    blurb: The storage and quantization work that decides what actually fits on your hardware.
+
+engines:
+  # ---------------------------------------------------------------- hearing
+  - name: parakeet.cpp
+    tagline: Transcribe a meeting on a laptop CPU and be finished before whisper.cpp has cleared the first minute.
+    category: hearing
+    language: C++17
+    repo: https://github.com/mudler/parakeet.cpp
+    featured: true
+    media: /media/parakeet-duel.mp4
+    clips:
+      - src: /media/parakeet-long.mp4
+        caption: Long-form audio, ours against NeMo on the same machine
+    highlights:
+      - About 27x faster than whisper.cpp turbo on CPU, and about 12x on GPU
+      - WER 0 against NVIDIA NeMo on every published checkpoint, so the transcript is identical
+      - Cache-aware streaming with end-of-utterance detection, for live audio
+      - Ten checkpoints, from 110M to 1.1B, and 40 or more locales on the streaming multilingual model
+
+  - name: moss-transcribe.cpp
+    tagline: Get the transcript, the speaker labels and the timestamps out of a single pass, then export straight to srt or json.
+    category: hearing
+    language: C++17
+    repo: https://github.com/localai-org/moss-transcribe.cpp
+    highlights:
+      - 1.58x to 1.78x faster than PyTorch on CPU, on about 1.5x less memory
+      - Byte-identical transcript against the reference, cosine 1.0 component by component
+      - 3.4 GB at f32 down to 511 MB at q4_k, still byte-identical through q5_k
+
+  - name: ced.cpp
+    tagline: Let the model hear a smoke alarm, a dog or breaking glass, not only the words somebody typed.
+    category: hearing
+    language: C++17
+    repo: https://github.com/localai-org/ced.cpp
+    media: /media/ced.mp4
+    highlights:
+      - 527 AudioSet sound classes, multi-label, tagged in about 55 ms
+      - 6 MB on disk at ced-tiny q8_0, 111 MB at ced-base
+      - About 1.25x faster than PyTorch at f32 on half the memory
+      - Works over REST and live over the realtime websocket
+
+  - name: LocalVQE
+    tagline: Keep a voice loop usable in a real room, with the echo, the noise and the reverb removed before the model ever hears it.
+    category: hearing
+    language: C++
+    repo: https://github.com/localai-org/LocalVQE
+    highlights:
+      - Echo cancellation, noise suppression and dereverberation in one pass
+      - Streaming and causal, 16 ms latency, 5x realtime on a desktop CPU
+      - From a 17 KB linear filter to a 19 MB joint model, pick what your CPU can afford
+      - About 21x realtime on a single Raspberry Pi 5 core
+
+  # ------------------------------------------------------------------ voice
+  - name: moss-tts.cpp
+    tagline: Clone a voice from a short reference clip and have it read anything back at 48 kHz stereo.
+    category: voice
+    language: C++17
+    repo: https://github.com/mudler/moss-tts.cpp
+    media: /media/moss.mp4
+    highlights:
+      - About 1.9x faster per frame than PyTorch on CPU, both at fp32
+      - Codec decode matches the reference at 114.9 dB SNR
+      - 48 kHz stereo out of MOSS-TTS-Local v1.5, 12 codebooks
+      - Flat C API as well as a CLI, so it embeds anywhere
+
+  - name: magpie-tts.cpp
+    tagline: Ship multilingual speech from one GGUF that already carries the codec, the tokenizer and the pronunciation dictionaries.
+    category: voice
+    language: C++17
+    repo: https://github.com/mudler/magpie-tts.cpp
+    media: /media/magpie.mp4
+    highlights:
+      - 63x faster than the NeMo reference at f32, 73x at q8_0
+      - 5 named voices, 9 languages plus 3 Arabic variants
+      - 541 MB at q4_k, everything bundled in the single file
+      - Deterministic from a seed, and parity holds to 3.6e-5 on the full decode
+
+  - name: vibevoice.cpp
+    tagline: Read a multi-speaker script in cloned voices, and transcribe long recordings back with speaker labels, from the same binary.
+    category: voice
+    language: C++
+    repo: https://github.com/localai-org/vibevoice.cpp
+    highlights:
+      - Voice cloning from roughly 5 seconds of reference audio
+      - Long-form ASR with diarization on the same engine as the synthesis
+      - 11 GB down to 6.8 GB at Q8_0 with no measurable recall loss
+      - Realtime 0.5B, 1.5B and a 7B ASR model
+
+  - name: voxtral-tts.c
+    tagline: Run a 4B speech model with nothing but a C compiler and libm, reading the weights straight off the safetensors file.
+    category: voice
+    language: C
+    repo: https://github.com/mudler/voxtral-tts.c
+    status: Experimental
+    highlights:
+      - Pure C, no dependency beyond the C standard library and math
+      - BF16 weights read from mmap, no conversion step
+      - 20 preset voices across 9 languages, 24 kHz output
+      - Optional BLAS, Apple Accelerate, NEON and CUDA paths
+
+  # --------------------------------------------------------------- identity
+  - name: voice-detect.cpp
+    tagline: Tell who is speaking, and read their age, gender and mood, without an onnxruntime install anywhere near it.
+    category: identity
+    language: C++17
+    repo: https://github.com/localai-org/voice-detect.cpp
+    media: /media/voice.mp4
+    highlights:
+      - Embedding cosine 0.9999 or better against the reference, often exactly 1.0
+      - 5.4x lower peak memory than the Python path, 62 MB against 334 MB
+      - Six model families, ECAPA-TDNN and WeSpeaker through ERes2Net and CAM++
+      - Verification, identification against a registry, plus age, gender and emotion
+
+  - name: face-detect.cpp
+    tagline: Detect, recognise and verify a face, and catch a photo held up to the camera, all from one shared library.
+    category: identity
+    language: C++17
+    repo: https://github.com/mudler/face-detect.cpp
+    featured: true
+    media: /media/face.mp4
+    clips:
+      - src: /media/face-id.mp4
+        caption: The same person found again in a different photo, one against many
+    highlights:
+      - Boxes and landmarks land within 1 pixel of insightface
+      - Recognition embedding cosine 1.000000 against the reference
+      - Detect, align, recognise, demographics and anti-spoofing in one pipeline
+      - The yunet-sface pack is Apache-2.0, so it is usable commercially
+
+  # ----------------------------------------------------------------- vision
+  - name: locate-anything.cpp
+    tagline: Ask for the red mug on the left in plain words and get coordinates back, not a caption.
+    category: vision
+    language: C++17
+    repo: https://github.com/mudler/locate-anything.cpp
+    featured: true
+    media: /media/locate.mp4
+    highlights:
+      - 1.66x to 3.09x faster than the official PyTorch on CPU
+      - Identical detections, IoU 1.000 against the reference
+      - At q8_0 it is about 4.8x faster than PyTorch f32 and still box-identical
+      - 9.2 GB at f16, 4.7 GB at q4_k, and an annotated PNG out of the box
+
+  - name: rf-detr.cpp
+    tagline: Get boxes and instance masks at COCO quality out of any image, with no PyTorch anywhere in the process.
+    category: vision
+    language: C++17
+    repo: https://github.com/localai-org/rf-detr.cpp
+    highlights:
+      - 11 variants, 5 detection and 6 segmentation, from Nano to 2XLarge
+      - About 9% faster than PyTorch on CPU at F16, and 1.86x smaller
+      - Mean mask IoU 0.99 against PyTorch on the small segmentation variants
+      - 44 published GGUFs, F32 through Q4_K
+
+  # ------------------------------------------------------------------ space
+  - name: depth-anything.cpp
+    tagline: Turn one ordinary photo into distance in metres, a camera pose and a point cloud you can open in a 3D viewer.
+    category: space
+    language: C++17
+    repo: https://github.com/localai-org/depth-anything.cpp
+    featured: true
+    media: /media/depth-race.mp4
+    clips:
+      - src: /media/depth.mp4
+        caption: Metric depth on CPU, against PyTorch on the same box
+    highlights:
+      - 1.31x faster than PyTorch on CPU at q8_0, in half the memory
+      - Loads about 6.7x faster, 112 ms against 749 ms
+      - 99 MB at q4_k, and correlation 1.0 with the reference component by component
+      - Exports to glb, COLMAP and PLY, plus confidence and a sky mask
+
+  - name: free-splatter.cpp
+    tagline: Turn a handful of snapshots into a 3D Gaussian scene with no camera poses, no rig and no GPU.
+    category: space
+    language: C++
+    repo: https://github.com/localai-org/free-splatter.cpp
+    highlights:
+      - 0.22 s per forward pass on Vulkan, against 1.37 s for the PyTorch reference on CUDA
+      - 14 s on 12 CPU threads, roughly 4x the reference, with no GPU at all
+      - Pose-free, so ordinary photos are enough
+      - One 3D Gaussian per pixel, ready for any splat viewer
+
+  - name: trellis2.cpp
+    tagline: Drop in one image and get back a watertight textured mesh you can hand straight to a 3D tool.
+    category: space
+    language: C++
+    repo: https://github.com/localai-org/trellis2cpp
+    highlights:
+      - Single image to GLB with PBR materials, all inference in C++
+      - Prebuilt f16 GGUFs, so no safetensors download and no conversion
+      - Flat C ABI plus a Go demo server with a browser mesh viewer
+      - Metal on by default on Apple, CUDA and CPU elsewhere
+
+  # ------------------------------------------------------------------- text
+  - name: vllm.cpp
+    tagline: Serve a language model with vLLM's throughput from a 66 MiB binary instead of a 9 GB virtualenv.
+    category: text
+    language: C++20
+    repo: https://github.com/mudler/vllm.cpp
+    status: In development
+    media: /media/vllm-race.mp4
+    highlights:
+      - 66 MiB to install, against 9.1 GiB for a vLLM environment
+      - Continuous batching, paged KV cache, prefix caching and speculative decoding
+      - 25 or more architectures, gated token for token against a pinned vLLM oracle
+      - CPU, CUDA, Metal and Vulkan from the same source
+
+  - name: privacy-filter.cpp
+    tagline: Catch names, addresses and card numbers on the machine, before any of it reaches a model or a log.
+    category: text
+    language: C++
+    repo: https://github.com/localai-org/privacy-filter.cpp
+    highlights:
+      - 7.7x faster than HF Transformers on an 8k token document, on CPU
+      - Runs flat to 131k tokens on GPU where HF runs out of memory at about 16k
+      - Exact UTF-8 byte offsets for every span it finds
+      - 360 tokens a second on a Raspberry Pi 5, on-device
+
+  # ------------------------------------------------------------------- data
+  - name: local-store
+    tagline: Get vector search inside LocalAI with nothing to deploy, nothing to configure and no second service to run.
+    category: data
+    language: Go
+    repo: https://github.com/mudler/LocalAI
+    highlights:
+      - Ships in-tree and is the default, so embeddings work on a fresh install
+      - Exact cosine similarity, zero configuration
+      - Backs RAG, the face and voice registries and the semantic router cache
+      - Swap in valkey-store per request when you need durability
+
+  - name: apex-quant
+    tagline: Fit a 35B mixture-of-experts model on a card you already own, and watch it run faster than the full-size build.
+    category: data
+    language: Shell
+    repo: https://github.com/localai-org/apex-quant
+    highlights:
+      - 64.6 GB down to 12.2 GB, at 74.4 tokens a second against 30.4
+      - APEX Quality beats F16 perplexity at a third of the size
+      - Ordinary GGUF files, so stock llama.cpp opens them unpatched
+      - 201 builds already sitting in the LocalAI gallery

@@ -1548,7 +1548,12 @@ swagger:
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
-## Documentation
+## Documentation and website
+# The published site is two Hugo sites: website/ owns the root, docs/ is nested
+# under /docs/. Serve them separately while editing; use `make site` to get the
+# merged tree (including the legacy URL redirects) that GitHub Pages deploys.
+SITE_BASE_URL?=http://localhost:8000
+
 docs/layouts/_default:
 	mkdir -p docs/layouts/_default
 
@@ -1560,11 +1565,29 @@ docs/public: docs/layouts/_default docs/static/gallery.html
 
 docs-clean:
 	rm -rf docs/public
+	rm -rf website/public
 	rm -rf docs/static/gallery.html
 
 .PHONY: docs
 docs: docs/static/gallery.html
 	cd docs && hugo serve
+
+.PHONY: website
+website:
+	cd website && hugo serve
+
+.PHONY: site
+site: docs/static/gallery.html
+	rm -rf website/public docs/public
+	cd website && hugo --minify --baseURL "$(SITE_BASE_URL)/"
+	cd docs && hugo --minify --baseURL "$(SITE_BASE_URL)/docs/"
+	mkdir -p website/public/docs
+	cp -R docs/public/. website/public/docs/
+	./.github/ci/gen-redirects.sh website/public "$(SITE_BASE_URL)/"
+
+.PHONY: site-serve
+site-serve: site
+	cd website/public && python3 -m http.server 8000
 
 ########################################################
 ## Platform-specific builds

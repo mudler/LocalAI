@@ -1,4 +1,4 @@
-name: Deploy docs to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   push:
@@ -6,9 +6,11 @@ on:
       - master
     paths:
       - 'docs/**'
+      - 'website/**'
       - 'gallery/**'
       - 'images/**'
       - '.github/ci/modelslist.go'
+      - '.github/ci/gen-redirects.sh'
       - '.github/workflows/gh-pages.yml'
   workflow_dispatch:
 
@@ -49,19 +51,36 @@ jobs:
         id: pages
         uses: actions/configure-pages@v6
 
+      # The gallery page is generated from the model index and shipped as a
+      # static asset of the docs site, so it has to exist before Hugo runs.
       - name: Generate gallery
         run: go run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
 
-      - name: Build site
+      # Two Hugo sites, one Pages artifact: the main site owns the root,
+      # the docs site is nested under /docs/.
+      - name: Build the main site
+        working-directory: website
+        run: hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
+
+      - name: Build documentation site
         working-directory: docs
         run: |
           mkdir -p layouts/_default
-          hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
+          hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/docs/"
+
+      - name: Merge documentation into the main site
+        run: |
+          mkdir -p website/public/docs
+          cp -R docs/public/. website/public/docs/
+
+      # Keeps the pre-split URLs alive; see the script header.
+      - name: Generate legacy URL redirects
+        run: .github/ci/gen-redirects.sh website/public "${{ steps.pages.outputs.base_url }}/"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/public
+          path: website/public
 
   deploy:
     environment:
