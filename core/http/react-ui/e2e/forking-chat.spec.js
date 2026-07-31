@@ -3,6 +3,7 @@ import { test, expect } from './coverage-fixtures.js'
 // Seeds two-message chat into localStorage so we don't need a live model.
 async function seedChat(page, history) {
   await page.addInitScript((h) => {
+    if (localStorage.getItem('localai_chats_data')) return
     const chat = {
       id: 'seed1', name: 'Seeded Chat', model: 'test-model',
       history: h, systemPrompt: '', mcpMode: false, mcpServers: [],
