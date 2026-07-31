@@ -16,9 +16,8 @@ enableEmoji = true
   discord = 'https://discord.gg/uJAeKSAGDy'
   x = 'https://twitter.com/LocalAI_API'
   huggingface = 'https://huggingface.co/mudler'
-  # Refreshed by hand or by CI; shown in the nav and the traction band.
-  stars = '48,042'
-  contributors = '224'
+  # Counters live in data/stats.yaml, which .github/ci/refresh-site-counters.sh
+  # rewrites weekly. They used to sit here as hand-typed strings and drifted.
 
 [markup.goldmark.renderer]
   unsafe = true

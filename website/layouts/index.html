@@ -16,9 +16,9 @@
           <a class="btn btn--o" href="{{ .Site.Params.github }}">&#9733; Star on GitHub</a>
         </div>
         <div class="figures fd">
-          <div><b class="tnum" data-count="48042">0</b><span>GitHub stars</span></div>
+          <div><b class="tnum" data-count="{{ .Site.Data.stats.stars }}">0</b><span>GitHub stars</span></div>
           <div><b class="tnum" data-count="73">0</b><span>Backends</span></div>
-          <div><b class="tnum" data-count="18">0</b><span>Engines we wrote</span></div>
+          <div><b class="tnum" data-count="{{ len .Site.Data.engines.engines }}">0</b><span>Engines we wrote</span></div>
           <div><b class="tnum" data-count="1585">0</b><span>Models, one click</span></div>
         </div>
       </div>
@@ -164,7 +164,7 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">Engines we build</p>
-    <h2 class="rv mt1" style="max-width:22ch">Eighteen engines, written from scratch.</h2>
+    <h2 class="rv mt1" style="max-width:22ch">{{ len .Site.Data.engines.engines }} engines, written from scratch.</h2>
     <p class="lede rv mt2">Most backends wrap somebody else's engine. These do not. They exist because the thing we needed was a 9 GB Python install, or closed, or nobody had built it yet. Each one is a binary and a GGUF file, checked against the reference implementation in CI.</p>
 
     <div class="spot rv">
@@ -247,7 +247,7 @@
       <video src="/media/vllm-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="vllm.cpp ahead of vLLM at every concurrency level"></video>
     </div>
 
-    <p class="rv mt2"><a class="btn btn--o" href="/engines/">All eighteen engines →</a></p>
+    <p class="rv mt2"><a class="btn btn--o" href="/engines/">All {{ len .Site.Data.engines.engines }} engines →</a></p>
   </div>
 </section>
 
@@ -363,14 +363,14 @@
     <h2 class="rv mt1" style="max-width:22ch">Forty-eight thousand stars, and still shipping every week.</h2>
     <div class="trend rv">
       <img src="/img/trendshift.svg" alt="LocalAI on Trendshift">
-      <p>LocalAI has been <b>trending on GitHub</b> repeatedly since it launched, and it is one of the most starred self-hosted AI projects there is. <b>224 people</b> have contributed code, <b>3,187</b> are in the Discord, and the README is kept translated into <b>eight languages</b> because the users are everywhere.</p>
+      <p>LocalAI has been <b>trending on GitHub</b> repeatedly since it launched, and it is one of the most starred self-hosted AI projects there is. <b>{{ lang.FormatNumberCustom 0 .Site.Data.stats.contributors }} people</b> have contributed code, <b>{{ lang.FormatNumberCustom 0 .Site.Data.stats.discord }}</b> are in the Discord, and the README is kept translated into <b>eight languages</b> because the users are everywhere.</p>
     </div>
     <div class="big rv">
-      <div><b class="tnum" data-count="48042">0</b><span>Stars</span></div>
-      <div><b class="tnum" data-count="4314">0</b><span>Forks</span></div>
-      <div><b class="tnum" data-count="224">0</b><span>Contributors</span></div>
-      <div><b class="tnum" data-count="133">0</b><span>Releases</span></div>
-      <div><b class="tnum" data-count="3187">0</b><span>In Discord</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.stars }}">0</b><span>Stars</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.forks }}">0</b><span>Forks</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.contributors }}">0</b><span>Contributors</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.releases }}">0</b><span>Releases</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.discord }}">0</b><span>In Discord</span></div>
       <div><b class="tnum" data-count="0" data-text="3 yrs">0</b><span>Shipping since</span></div>
     </div>
     <div class="tl rv">
@@ -421,7 +421,7 @@
          employers reads as a customer logo wall, which is a claim we are not
          making; a sentence keeps it about the people, which is the true one. */}}
     <p class="kicker rv mt3">Who shows up</p>
-    <h3 class="eco__h rv">{{ .Site.Params.contributors }} people have put code in this repository.</h3>
+    <h3 class="eco__h rv">{{ lang.FormatNumberCustom 0 .Site.Data.stats.contributors }} people have put code in this repository.</h3>
     {{- $co := slice }}
     {{- range .Site.Data.ecosystem.contributors.companies }}{{ $co = $co | append (printf "<b>%s</b>" .name) }}{{ end }}
     {{- $ac := slice }}
