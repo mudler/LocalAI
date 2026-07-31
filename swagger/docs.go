@@ -1798,7 +1798,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "desired output sample rate",
+                        "description": "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000",
                         "name": "sample_rate",
                         "in": "formData"
                     }
@@ -1855,7 +1855,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "desired output sample rate",
+                        "description": "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000",
                         "name": "sample_rate",
                         "in": "formData"
                     }
