@@ -58,6 +58,15 @@
 #define LOCALAI_HAS_SERVER_REALTIME 1
 #include "server-realtime.cpp"
 #endif
+// CachyLLaMA splits its persistent prompt-cache implementation out of
+// server-context.cpp. Pull both implementation files into this monolithic
+// adapter TU when present; older llama.cpp pins do not ship them.
+#if __has_include("server-context-ssd-cache.cpp")
+#include "server-context-ssd-cache.cpp"
+#endif
+#if __has_include("server-context-page-manager.cpp")
+#include "server-context-page-manager.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI
