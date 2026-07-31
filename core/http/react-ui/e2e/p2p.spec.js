@@ -59,7 +59,7 @@ test.describe('P2P (Swarm) section on the Cluster page', () => {
     // The enabled p2p content (Network Token panel + the federation / sharding
     // tabs) is rendered inside the swarm section.
     await expect(page.getByRole('heading', { name: /Network Token/i })).toBeVisible()
-    await expect(page.getByText('Federation', { exact: true })).toBeVisible()
-    await expect(page.getByText('Model Sharding', { exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Federation/i })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Model sharding/i })).toBeVisible()
   })
 })
