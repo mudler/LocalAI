@@ -10043,6 +10043,54 @@
     - filename: ai21labs_AI21-Jamba-Reasoning-3B-Q4_K_M.gguf
       sha256: ac7ec0648dea62d1efb5ef6e7268c748ffc71f1c26eebe97eccff0a8d41608e6
       uri: huggingface://bartowski/ai21labs_AI21-Jamba-Reasoning-3B-GGUF/ai21labs_AI21-Jamba-Reasoning-3B-Q4_K_M.gguf
+- &antares-1b
+  name: "antares-1b"
+  variants:
+    - model: antares-1b-q8
+  url: "github:mudler/LocalAI/gallery/granite4.yaml@master"
+  urls:
+    - https://huggingface.co/fdtn-ai/antares-1b
+    - https://huggingface.co/HolkViking/antares-1b-Q4_K_M-GGUF
+    - https://huggingface.co/mitkox/antares-1b-Q8_0-GGUF
+  description: |
+    Antares-1B is an Apache-2.0 Granite 4.0 model specialized for vulnerability
+    localization in real-world codebases. It operates as a terminal agent that
+    navigates repositories, inspects source files, and identifies vulnerable
+    file paths. This entry uses the Q4_K_M GGUF quantization.
+  license: "apache-2.0"
+  tags:
+    - granite
+    - 1b
+    - gguf
+    - quantized
+    - llm
+    - security
+    - vulnerability-detection
+    - agentic
+    - chat
+  last_checked: "2026-07-31"
+  overrides:
+    parameters:
+      model: antares-1b-q4_k_m.gguf
+  files:
+    - filename: antares-1b-q4_k_m.gguf
+      sha256: 562693472633ad1b0fe2d0cda54edfead53aea2ff2c7e0bdbf5f393291f2ba2c
+      uri: huggingface://HolkViking/antares-1b-Q4_K_M-GGUF/antares-1b-q4_k_m.gguf
+- !!merge <<: *antares-1b
+  name: "antares-1b-q8"
+  variants: []
+  description: |
+    Antares-1B is an Apache-2.0 Granite 4.0 model specialized for vulnerability
+    localization in real-world codebases. It operates as a terminal agent that
+    navigates repositories, inspects source files, and identifies vulnerable
+    file paths. This entry uses the higher-quality Q8_0 GGUF quantization.
+  overrides:
+    parameters:
+      model: antares-1b-q8_0.gguf
+  files:
+    - filename: antares-1b-q8_0.gguf
+      sha256: f0b147c42d9056d59eb3f0ab51d4d57a2259bf1b4e37ae986ef96a6c2e0ac6b7
+      uri: huggingface://mitkox/antares-1b-Q8_0-GGUF/antares-1b-q8_0.gguf
 - name: ibm-granite_granite-4.0-h-small
   url: github:mudler/LocalAI/gallery/granite4.yaml@master
   urls:
