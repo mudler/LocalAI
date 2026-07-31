@@ -432,3 +432,43 @@ footer{background:var(--deep);border-top:1px solid var(--line2);padding:3rem 0 4
   .rv,.fd{opacity:1;transform:none}.hero h1 u b{transform:none}
   .bars i,.sz i{transform:scaleX(1)}
 }
+
+/* ---- Ecosystem band ----------------------------------------------------
+   Three lists, three strengths of evidence, kept visually distinct so a
+   contributor's employer never reads as a customer logo. Names are set in
+   type rather than fetched as logos: no trademark question, and it matches
+   the rest of the page. */
+.eco__h{font-size:clamp(1.25rem,2.3vw,1.7rem);margin-top:1.1rem}
+.eco__note{color:var(--dim);font-size:.92rem;max-width:66ch;margin-top:.7rem}
+.eco__note a{color:var(--cyan);text-decoration:underline;text-underline-offset:.2rem}
+.eco__aside{color:var(--faint);font-size:.85rem;margin-top:1rem;max-width:66ch}
+
+.eco{list-style:none;padding:0;margin:1.4rem 0 0}
+.eco--co{display:flex;flex-wrap:wrap;gap:.5rem}
+.eco--co li{display:flex;align-items:baseline;gap:.5rem;padding:.5rem .8rem;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.028);transition:border-color .22s,background .22s}
+.eco--co li:hover{border-color:rgba(95,205,228,.5);background:rgba(95,205,228,.07)}
+.eco--co b{font-size:.9rem;font-weight:600;color:var(--ink)}
+.eco--co span{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--faint);white-space:nowrap}
+
+.eco--int{display:grid;gap:.8rem}
+@media(min-width:700px){.eco--int{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1020px){.eco--int{grid-template-columns:repeat(3,1fr)}}
+.eco--int a{display:flex;flex-direction:column;gap:.3rem;padding:1.05rem 1.1rem;border-radius:10px;
+  border:1px solid var(--line);background:rgba(255,255,255,.028);
+  transition:transform .26s cubic-bezier(.16,1,.3,1),border-color .26s}
+.eco--int a:hover{transform:translateY(-3px);border-color:rgba(95,205,228,.55)}
+.eco--int b{font-size:1rem;color:var(--ink)}
+.eco--int em{font-family:'Geist Mono',monospace;font-size:.6rem;font-style:normal;color:var(--cyan)}
+.eco--int span{color:var(--dim);font-size:.85rem}
+
+.eco--press{display:grid;gap:.8rem}
+@media(min-width:760px){.eco--press{grid-template-columns:repeat(2,1fr)}}
+.eco--press a{display:grid;gap:.25rem;padding:.95rem 1.05rem;border-radius:10px;
+  border:1px solid var(--line);border-left:2px solid var(--cyan);background:rgba(255,255,255,.028);
+  transition:background .22s}
+.eco--press a:hover{background:rgba(95,205,228,.07)}
+.eco--press b{font-family:'Geist Mono',monospace;font-size:.62rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--cyan)}
+.eco--press span{color:var(--ink);font-size:.94rem}
+.eco--press em{color:var(--faint);font-size:.82rem;font-style:normal}
