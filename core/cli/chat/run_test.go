@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -278,6 +279,31 @@ var _ = Describe("prepare", func() {
 			chosen, err := newPrompter(strings.NewReader("1\n"), &bytes.Buffer{}).choose(nil)
 			Expect(err).To(HaveOccurred())
 			Expect(chosen).To(BeEmpty())
+		})
+	})
+
+	// A server started for this session is stopped by a deferred call, which a
+	// signal skips: the process dies where it stands and leaves 'local-ai run'
+	// reparented to init. The agent is also handed a context nobody else
+	// cancels, since nib installs no handler of its own when it is embedded.
+	Describe("shutdown signals", func() {
+		It("ends the session when the terminal goes away", func() {
+			ctx, stop := shutdownContext(context.Background())
+			defer stop()
+
+			self, err := os.FindProcess(os.Getpid())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(self.Signal(syscall.SIGHUP)).To(Succeed())
+
+			Eventually(ctx.Done()).WithTimeout(5 * time.Second).Should(BeClosed())
+			Expect(ctx.Err()).To(MatchError(context.Canceled))
+		})
+
+		// SIGINT and SIGTERM cannot be delivered here to prove the same thing:
+		// Ginkgo registers for both to abort the suite, and a signal goes to
+		// every registered listener.
+		It("also listens for an interrupt and a terminate", func() {
+			Expect(shutdownSignals).To(ContainElements(os.Signal(os.Interrupt), os.Signal(syscall.SIGTERM)))
 		})
 	})
 

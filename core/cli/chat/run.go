@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mudler/nib/app"
@@ -36,9 +38,41 @@ type Options struct {
 	ErrOut io.Writer
 }
 
+// shutdownSignals end the session. SIGHUP is one of them because this is a
+// terminal program: once the terminal is gone there is nobody left to talk to,
+// and a server started for the session has to go with it.
+var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
+
+// shutdownContext derives a context that is cancelled when the process is
+// asked to stop.
+//
+// Without it a signal kills this process where it stands, skipping the
+// deferred Stop below, and a 'local-ai run' started for the session is
+// reparented to init with nothing left that knows to shut it down. An
+// interactive Ctrl+C happens to be safe already, because the child shares this
+// process' foreground process group and the terminal signals all of it, but a
+// SIGTERM from a supervisor or a script reaches only this process.
+//
+// A handler rather than SysProcAttr.Pdeathsig on the child: Pdeathsig is
+// Linux-only, and in Go it is delivered when the OS thread that forked exits
+// rather than when the process does, so it can fire on a perfectly healthy
+// parent. Setpgid is not an alternative either, since taking the child out of
+// the foreground process group is what would break the Ctrl+C that works
+// today. SIGKILL stays uncovered, as it must: nothing in the process can
+// observe it.
+//
+// It doubles as the agent's own cancellation. nib's app.Run installs no
+// handler, deliberately leaving that to whoever embeds it.
+func shutdownContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(parent, shutdownSignals...)
+}
+
 // Run starts the agent: resolve where state lives, make sure a server is
 // reachable, pick a model, then hand off to nib.
 func Run(ctx context.Context, opts Options) error {
+	ctx, stop := shutdownContext(ctx)
+	defer stop()
+
 	p, err := prepare(ctx, opts, isTerminal(opts.In))
 	if err != nil {
 		return err
