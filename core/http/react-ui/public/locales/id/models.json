@@ -139,14 +139,13 @@
     }
   },
   "rail": {
-    "loadedCount_one": "{{count}} model dimuat",
-    "loadedCount_other": "{{count}} model dimuat",
     "sortLabel": "Urutkan model",
     "downloadingPct": "mengunduh {{percent}}%",
     "tooLarge": "{{size}} · terlalu besar",
     "fitsSize": "{{size}} · muat",
     "previousPage": "Halaman sebelumnya",
-    "nextPage": "Halaman berikutnya"
+    "nextPage": "Halaman berikutnya",
+    "showingCount": "{{shown}} dari {{total}}"
   },
   "groups": {
     "text": "Teks dan penalaran",

@@ -511,7 +511,7 @@ export default function Backends() {
                 onToggleGroup={toggleGroup}
                 selectedId={selectedName}
                 onSelect={selectBackend}
-                countLabel={`${backends.length} loaded`}
+                countLabel={`${backends.length} of ${allBackends.length}`}
                 ariaLabel="Backends"
                 testId="backends-rail"
                 actions={

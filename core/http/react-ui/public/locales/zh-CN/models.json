@@ -126,14 +126,13 @@
     }
   },
   "rail": {
-    "loadedCount_one": "已加载 {{count}} 个模型",
-    "loadedCount_other": "已加载 {{count}} 个模型",
     "sortLabel": "排序模型",
     "downloadingPct": "下载中 {{percent}}%",
     "tooLarge": "{{size}} · 过大",
     "fitsSize": "{{size}} · 可运行",
     "previousPage": "上一页",
-    "nextPage": "下一页"
+    "nextPage": "下一页",
+    "showingCount": "{{total}} 个中的 {{shown}} 个"
   },
   "groups": {
     "text": "文本与推理",

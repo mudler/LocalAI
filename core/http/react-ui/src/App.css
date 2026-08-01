@@ -11736,6 +11736,22 @@ button.collapsible-header:focus-visible {
 
 .entity-rail__item:hover { background: var(--color-bg-hover); }
 
+/* The rail rounds its corners with overflow:hidden, which clips an outline
+   drawn outside the element. Inset it so the first and last entries keep a
+   visible focus ring. */
+.entity-rail__item:focus-visible,
+.entity-rail__group-head:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Touch. A 30px row is fine for a mouse and too small for a thumb, so coarse
+   pointers get the 44px target without costing density on a desktop. */
+@media (pointer: coarse) {
+  .entity-rail__item { padding-top: 12px; padding-bottom: 12px; }
+  .entity-rail__group-head { padding-top: 10px; padding-bottom: 10px; }
+}
+
 .entity-rail__item--on {
   background: var(--color-primary-light);
   box-shadow: inset 2px 0 0 var(--color-primary);
@@ -11784,12 +11800,6 @@ button.collapsible-header:focus-visible {
 .entity-rail__stripe--err { background: var(--color-error); }
 .entity-rail__stripe--off { background: transparent; }
 
-.entity-rail__empty {
-  padding: var(--spacing-md) var(--spacing-sm);
-  text-align: center;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
 
 .entity-rail__meta--bad { color: var(--color-error); }
 .entity-rail__meta--ok { color: var(--color-success); }

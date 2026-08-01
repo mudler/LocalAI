@@ -142,14 +142,13 @@
     }
   },
   "rail": {
-    "loadedCount_one": "{{count}} model loaded",
-    "loadedCount_other": "{{count}} models loaded",
     "sortLabel": "Sort models",
     "downloadingPct": "downloading {{percent}}%",
     "tooLarge": "{{size}} · too large",
     "fitsSize": "{{size}} · fits",
     "previousPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "showingCount": "{{shown}} of {{total}}"
   },
   "groups": {
     "text": "Text and reasoning",

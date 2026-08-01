@@ -110,14 +110,13 @@
     "deleteFailed": "삭제 실패: {{message}}"
   },
   "rail": {
-    "loadedCount_one": "모델 {{count}}개 불러옴",
-    "loadedCount_other": "모델 {{count}}개 불러옴",
     "sortLabel": "모델 정렬",
     "downloadingPct": "내려받는 중 {{percent}}%",
     "tooLarge": "{{size}} · 너무 큼",
     "fitsSize": "{{size}} · 실행 가능",
     "previousPage": "이전 페이지",
-    "nextPage": "다음 페이지"
+    "nextPage": "다음 페이지",
+    "showingCount": "{{total}}개 중 {{shown}}개"
   },
   "groups": {
     "text": "텍스트 및 추론",

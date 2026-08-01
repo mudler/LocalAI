@@ -60,7 +60,6 @@ const USE_CASES = [
 
 // Number of columns the expandable detail row spans, per tab. Kept as
 // constants so adding/removing a column doesn't silently break the colSpan.
-const MODELS_COLSPAN = 7 // chevron, icon, name, status, backend, use cases, actions
 
 // formatInstalledAt renders an installed_at timestamp as a short relative/abs
 // string suitable for dense tables. Returns the raw value if parsing fails so
@@ -126,11 +125,6 @@ function formatBackendVersion(metadata) {
 // Gallery descriptions are Markdown. The row preview is a single truncated
 // line, so it shows the text without the syntax; the full Markdown is rendered
 // in the expanded detail panel instead.
-function ResourceRowDesc({ description }) {
-  const text = stripMarkdown(description)
-  if (!text) return null
-  return <span className="resource-row__desc" title={text}>{text}</span>
-}
 
 export default function Manage() {
   const { addToast } = useOutletContext()

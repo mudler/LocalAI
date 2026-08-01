@@ -617,7 +617,7 @@ export default function Models() {
                 onToggleGroup={toggleGroup}
                 selectedId={selectedName}
                 onSelect={selectModel}
-                countLabel={t('rail.loadedCount', { count: visibleModels.length })}
+                countLabel={t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}
                 ariaLabel={t('title')}
                 testId="discover-rail"
                 actions={
@@ -683,7 +683,7 @@ export default function Models() {
                 <div className="zero-pane__shelf">
                   <div className="zero-pane__shelf-head">
                     <h3 className="zero-pane__shelf-title">{t('shelves.browsing')}</h3>
-                    <span className="zero-pane__shelf-meta">{t('rail.loadedCount', { count: visibleModels.length })}</span>
+                    <span className="zero-pane__shelf-meta">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
                   </div>
                   <p className="zero-pane__shelf-hint">{t('shelves.pickHint')}</p>
                 </div>

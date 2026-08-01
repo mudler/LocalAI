@@ -126,14 +126,13 @@
     }
   },
   "rail": {
-    "loadedCount_one": "{{count}} Modell geladen",
-    "loadedCount_other": "{{count}} Modelle geladen",
     "sortLabel": "Modelle sortieren",
     "downloadingPct": "Download {{percent}}%",
     "tooLarge": "{{size}} · zu groß",
     "fitsSize": "{{size}} · passt",
     "previousPage": "Vorherige Seite",
-    "nextPage": "Nächste Seite"
+    "nextPage": "Nächste Seite",
+    "showingCount": "{{shown}} von {{total}}"
   },
   "groups": {
     "text": "Text und Reasoning",

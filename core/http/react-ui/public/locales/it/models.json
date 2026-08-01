@@ -126,14 +126,13 @@
     }
   },
   "rail": {
-    "loadedCount_one": "{{count}} modello caricato",
-    "loadedCount_other": "{{count}} modelli caricati",
     "sortLabel": "Ordina modelli",
     "downloadingPct": "download {{percent}}%",
     "tooLarge": "{{size}} · troppo grande",
     "fitsSize": "{{size}} · compatibile",
     "previousPage": "Pagina precedente",
-    "nextPage": "Pagina successiva"
+    "nextPage": "Pagina successiva",
+    "showingCount": "{{shown}} di {{total}}"
   },
   "groups": {
     "text": "Testo e ragionamento",

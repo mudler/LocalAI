@@ -30,7 +30,6 @@ export default function EntityRail({
   actions = null,
   ariaLabel,
   testId = 'entity-rail',
-  emptyLabel,
 }) {
   const railRef = useRef(null)
 
@@ -55,15 +54,27 @@ export default function EntityRail({
       ? (at < 0 ? 0 : Math.min(ids.length - 1, at + 1))
       : (at < 0 ? ids.length - 1 : Math.max(0, at - 1))
     onSelect(ids[next])
-    railRef.current?.querySelector(`[data-entity="${CSS.escape(ids[next])}"]`)
-      ?.scrollIntoView({ block: 'nearest' })
+    // Move focus with the selection, not just the highlight. Roving tabindex
+    // means the newly selected entry is the one tab stop, so leaving focus
+    // behind would strand the keyboard on an entry that is no longer reachable
+    // by Tab.
+    const el = railRef.current?.querySelector(`[data-entity="${CSS.escape(ids[next])}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+    el?.focus()
   }
+
+  // Roving tabindex: the rail is one tab stop, and the arrows move inside it.
+  // Without this every entry is its own stop, so tabbing past a forty-entry
+  // rail to reach the pane is forty keystrokes.
+  const firstId = items[0]?.id
+  const tabbableId = items.some(i => i.id === selectedId) ? selectedId : firstId
 
   const renderItem = (item) => (
     <RailItem
       key={item.id}
       item={item}
       selected={item.id === selectedId}
+      tabbable={item.id === tabbableId}
       onSelect={onSelect}
       onKeyDown={onKeyDown}
       testId={testId}
@@ -79,17 +90,18 @@ export default function EntityRail({
         {actions}
       </div>
 
+      {/* Not role="listbox". A listbox may only contain options and groups, and
+          the collapse control for each group is a button that has to live
+          inside the scroller with the entries it folds. Buttons in a labelled
+          group is the honest description of what this is, and it costs nothing:
+          selection is announced by aria-current and the arrow keys still work. */}
       <div
         className="entity-rail__list"
-        role="listbox"
+        role="group"
         aria-label={ariaLabel}
-        tabIndex={0}
         ref={railRef}
         onKeyDown={onKeyDown}
       >
-        {items.length === 0 && emptyLabel && (
-          <p className="entity-rail__empty">{emptyLabel}</p>
-        )}
         {useGroups
           ? groups.map(group => {
             const inGroup = items.filter(i => i.groupId === group.id)
@@ -121,12 +133,12 @@ export default function EntityRail({
 
 // One line: what it is, and its single most decision-relevant fact. Anything
 // that needs a sentence belongs in the pane.
-function RailItem({ item, selected, onSelect, onKeyDown, testId }) {
+function RailItem({ item, selected, tabbable, onSelect, onKeyDown, testId }) {
   return (
     <button
       type="button"
-      role="option"
-      aria-selected={selected}
+      aria-current={selected ? 'true' : undefined}
+      tabIndex={tabbable ? 0 : -1}
       data-entity={item.id}
       data-testid={`${testId}-item`}
       className={`entity-rail__item${selected ? ' entity-rail__item--on' : ''}`}

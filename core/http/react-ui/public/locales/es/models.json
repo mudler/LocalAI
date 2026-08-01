@@ -126,14 +126,13 @@
     }
   },
   "rail": {
-    "loadedCount_one": "{{count}} modelo cargado",
-    "loadedCount_other": "{{count}} modelos cargados",
     "sortLabel": "Ordenar modelos",
     "downloadingPct": "descargando {{percent}}%",
     "tooLarge": "{{size}} · demasiado grande",
     "fitsSize": "{{size}} · cabe",
     "previousPage": "Página anterior",
-    "nextPage": "Página siguiente"
+    "nextPage": "Página siguiente",
+    "showingCount": "{{shown}} de {{total}}"
   },
   "groups": {
     "text": "Texto y razonamiento",
