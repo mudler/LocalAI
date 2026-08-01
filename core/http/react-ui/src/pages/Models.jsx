@@ -13,6 +13,10 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
+import SplitView from '../components/split/SplitView'
+import EntityRail from '../components/split/EntityRail'
+import DetailHeader from '../components/split/DetailHeader'
+import StatGrid from '../components/split/StatGrid'
 import { formatBytes } from '../utils/format'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
@@ -600,41 +604,45 @@ export default function Models() {
           )}
         </div>
       ) : (
-        <div className={`discover${selectedModel ? ' discover--detail' : ''}`} data-testid="discover">
-          <div className="discover__rail-col">
-            <DiscoverRail
-              models={visibleModels}
-              grouped={grouped}
-              collapsedGroups={collapsedGroups}
-              onToggleGroup={toggleGroup}
-              selectedName={selectedName}
-              onSelect={selectModel}
-              estimates={estimates}
-              contextSize={contextSize}
-              fitsGpu={fitsGpu}
-              isInstalling={isInstalling}
-              getOperationProgress={getOperationProgress}
-              sort={sort}
-              order={order}
-              onSort={handleSort}
-              t={t}
-            />
+        <SplitView
+          testId="discover"
+          detail={!!selectedModel}
+          rail={
+            <>
+              <EntityRail
+                items={visibleModels.map(m => railItemFor(m, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
+                groups={RAIL_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
+                grouped={grouped}
+                collapsedGroups={collapsedGroups}
+                onToggleGroup={toggleGroup}
+                selectedId={selectedName}
+                onSelect={selectModel}
+                countLabel={t('rail.loadedCount', { count: visibleModels.length })}
+                ariaLabel={t('title')}
+                testId="discover-rail"
+                actions={
+                  <div className="entity-rail__sort" role="group" aria-label={t('rail.sortLabel')}>
+                    <SortButton col="name" label={t('table.modelName')} sort={sort} order={order} onSort={handleSort} />
+                    <SortButton col="status" label={t('table.status')} sort={sort} order={order} onSort={handleSort} />
+                  </div>
+                }
+              />
 
-            {totalPages > 1 && (
-              <div className="pagination discover__pager">
-                <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
-                  <i className="fas fa-chevron-left" />
-                </button>
-                <span className="discover__pager-label">{page} / {totalPages}</span>
-                <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label={t('rail.nextPage')}>
-                  <i className="fas fa-chevron-right" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="discover__pane" data-testid="discover-pane">
-            {selectedModel ? (
+              {totalPages > 1 && (
+                <div className="pagination split-view__pager">
+                  <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
+                    <i className="fas fa-chevron-left" />
+                  </button>
+                  <span className="split-view__pager-label">{page} / {totalPages}</span>
+                  <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label={t('rail.nextPage')}>
+                    <i className="fas fa-chevron-right" />
+                  </button>
+                </div>
+              )}
+            </>
+          }
+          pane={
+            selectedModel ? (
               <DiscoverDetail
                 model={selectedModel}
                 estimate={estimates[selectedName]}
@@ -680,9 +688,9 @@ export default function Models() {
                   <p className="discover__shelf-hint">{t('shelves.pickHint')}</p>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       )}
 
       <ConfirmDialog
@@ -1032,161 +1040,58 @@ function groupForModel(model) {
   return RAIL_GROUPS[RAIL_GROUPS.length - 1]
 }
 
-// DiscoverRail is the scannable half of the split: one line per entry, grouped
-// while browsing and flat while searching.
+// railItemFor maps a gallery entry onto the shape EntityRail speaks. Keeping
+// the vocabulary translation here, rather than teaching the rail about models,
+// is what lets Backends and Host reuse the same component without three
+// slightly different rails growing out of it.
 //
-// Counts are deliberately phrased as "loaded", not as a share of the catalog.
-// The listing is paginated server-side, so this component only ever sees one
-// page; a header claiming a catalog total would be inventing a number it has
-// no way to know.
-function DiscoverRail({
-  models, grouped, collapsedGroups, onToggleGroup, selectedName, onSelect,
-  estimates, contextSize, fitsGpu, isInstalling, getOperationProgress,
-  sort, order, onSort, t,
-}) {
-  const railRef = useRef(null)
-
-  // Up/Down moves the selection so the pane can be stepped through without
-  // returning to the mouse. Held on the container rather than per row, so it
-  // keeps working while focus sits on the row that was just selected.
-  const onKeyDown = (e) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-    const names = Array.from(railRef.current?.querySelectorAll('[data-model]') || [])
-      .map(el => el.dataset.model)
-    if (names.length === 0) return
-    e.preventDefault()
-    // Both the list and each entry carry this handler, so whichever one has
-    // focus must consume the key rather than let the other act on it too.
-    e.stopPropagation()
-    const at = names.indexOf(selectedName)
-    const next = e.key === 'ArrowDown'
-      ? (at < 0 ? 0 : Math.min(names.length - 1, at + 1))
-      : (at < 0 ? names.length - 1 : Math.max(0, at - 1))
-    onSelect(names[next])
-    railRef.current?.querySelector(`[data-model="${CSS.escape(names[next])}"]`)
-      ?.scrollIntoView({ block: 'nearest' })
-  }
-
-  const renderItem = (model) => (
-    <RailItem
-      key={model.name || model.id}
-      model={model}
-      selected={(model.name || model.id) === selectedName}
-      onSelect={onSelect}
-      estimates={estimates}
-      contextSize={contextSize}
-      fitsGpu={fitsGpu}
-      installing={isInstalling(model.name || model.id)}
-      progress={getOperationProgress(model.name || model.id)}
-      onKeyDown={onKeyDown}
-      t={t}
-    />
-  )
-
-  const sortButton = (key, label) => (
-    <button
-      type="button"
-      className={`discover__sort-btn${sort === key ? ' active' : ''}`}
-      aria-pressed={sort === key}
-      onClick={() => onSort(key)}
-    >
-      {label}
-      {sort === key && (
-        <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />
-      )}
-    </button>
-  )
-
-  return (
-    <div className="discover__rail">
-      <div className="discover__rail-head">
-        <span className="discover__rail-count">{t('rail.loadedCount', { count: models.length })}</span>
-        <div className="discover__sort" role="group" aria-label={t('rail.sortLabel')}>
-          {sortButton('name', t('table.modelName'))}
-          {sortButton('status', t('table.status'))}
-        </div>
-      </div>
-
-      <div
-        className="discover__rail-list"
-        role="listbox"
-        aria-label={t('title')}
-        tabIndex={0}
-        ref={railRef}
-        onKeyDown={onKeyDown}
-      >
-        {grouped
-          ? RAIL_GROUPS.map(group => {
-            const inGroup = models.filter(m => groupForModel(m).id === group.id)
-            if (inGroup.length === 0) return null
-            const open = !collapsedGroups.has(group.id)
-            return (
-              <div className="discover__group" key={group.id}>
-                <button
-                  type="button"
-                  className="discover__group-head"
-                  aria-expanded={open}
-                  data-testid={`discover-group-${group.id}`}
-                  onClick={() => onToggleGroup(group.id)}
-                >
-                  <i className={`fas fa-chevron-${open ? 'down' : 'right'} discover__group-caret`} aria-hidden="true" />
-                  <i className={`fas ${group.icon} discover__group-icon`} aria-hidden="true" />
-                  <span className="discover__group-label">{t(group.labelKey)}</span>
-                  <span className="discover__group-count">{inGroup.length}</span>
-                </button>
-                {open && inGroup.map(renderItem)}
-              </div>
-            )
-          })
-          : models.map(renderItem)}
-      </div>
-    </div>
-  )
-}
-
-// RailItem is one line: what it is, and whether it will run here. Anything that
-// needs a sentence belongs in the pane.
-function RailItem({ model, selected, onSelect, estimates, contextSize, fitsGpu, installing, progress, onKeyDown, t }) {
+// The rail line gets exactly one fact beyond the name, and it is spent on
+// whether the thing will run here. Descriptions belong in the pane; two lines
+// is the budget and the second one is worth more as an answer than as prose.
+function railItemFor(model, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }) {
   const name = model.name || model.id
   const est = estimates[name]
   const sizeDisplay = est?.sizeDisplay
   const vramBytes = est?.estimates?.[String(contextSize)]?.vramBytes
   const fit = fitsGpu(vramBytes)
   const hasSize = sizeDisplay && sizeDisplay !== '0 B'
+  const installing = isInstalling(name)
+  const progress = getOperationProgress(name)
 
   let meta = model.backend || ''
-  let metaModifier = ''
+  let metaTone
   if (installing) {
     meta = progress > 0 ? t('rail.downloadingPct', { percent: Math.round(progress) }) : t('table.installing')
-    metaModifier = ' discover__rail-meta--busy'
+    metaTone = 'busy'
   } else if (model.installed) {
     meta = t('table.installed')
-    metaModifier = ' discover__rail-meta--installed'
+    metaTone = 'ok'
   } else if (hasSize && fit === false) {
     meta = t('rail.tooLarge', { size: sizeDisplay })
-    metaModifier = ' discover__rail-meta--unfit'
+    metaTone = 'bad'
   } else if (hasSize && fit === true) {
     meta = t('rail.fitsSize', { size: sizeDisplay })
   } else if (hasSize) {
     meta = sizeDisplay
   }
 
+  return { id: name, name, icon: groupForModel(model).icon, meta, metaTone, groupId: groupForModel(model).id }
+}
+
+// SortButton is the home sorting found after the column headers went. It sits
+// in the rail rather than the filter band above, because it orders this list
+// and nothing else on the page.
+function SortButton({ col, label, sort, order, onSort }) {
+  const active = sort === col
   return (
     <button
       type="button"
-      role="option"
-      aria-selected={selected}
-      data-model={name}
-      data-testid="discover-rail-item"
-      className={`discover__item${selected ? ' discover__item--on' : ''}`}
-      onClick={() => onSelect(name)}
-      onKeyDown={onKeyDown}
+      className={`entity-rail__sort-btn${active ? ' active' : ''}`}
+      aria-pressed={active}
+      onClick={() => onSort(col)}
     >
-      <i className={`fas ${groupForModel(model).icon} discover__item-icon`} aria-hidden="true" />
-      <span className="discover__item-main">
-        <span className="discover__item-name">{name}</span>
-        <span className={`discover__rail-meta${metaModifier}`}>{meta}</span>
-      </span>
+      {label}
+      {active && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />}
     </button>
   )
 }
@@ -1292,25 +1197,18 @@ function DiscoverDetail({
   const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
 
   return (
-    <div className="discover__detail">
-      <button type="button" className="discover__back" onClick={onBack} data-testid="discover-back">
-        <i className="fas fa-arrow-left" aria-hidden="true" /> {t('detail.backToAll')}
-      </button>
-
-      <div className="discover__detail-head">
-        <i className={`fas ${groupForModel(model).icon} discover__detail-icon`} aria-hidden="true" />
-        <div className="discover__detail-title">
-          <h2 className="discover__detail-name">{name}</h2>
-          {/* Capped, with the whole of it on the title so nothing is lost to the
-              truncation. The rendered Markdown follows further down the pane. */}
-          {model.description && (
-            <p className="discover__detail-lede" title={stripMarkdown(model.description)}>
-              {stripMarkdown(model.description).slice(0, 220)}
-            </p>
-          )}
-        </div>
-        <div className="discover__detail-actions">
-          {installing ? (
+    <div className="detail-pane">
+      <DetailHeader
+        testId="discover"
+        icon={groupForModel(model).icon}
+        name={name}
+        lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
+        ledeTitle={model.description ? stripMarkdown(model.description) : null}
+        onBack={onBack}
+        backLabel={t('detail.backToAll')}
+        warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
+        actions={
+          installing ? (
             <div className="inline-install">
               <div className="inline-install__row">
                 <div className="operation-spinner" />
@@ -1337,32 +1235,21 @@ function DiscoverDetail({
             <button className="btn btn-primary btn-sm" onClick={() => onInstall(name)} data-testid="discover-install">
               <i className="fas fa-download" /> {t('actions.install')}
             </button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
-      {model.trustRemoteCode && (
-        <p className="discover__warning">
-          <i className="fas fa-circle-exclamation" aria-hidden="true" /> {t('detail.requiresTrustRemoteCode')}
-        </p>
-      )}
-
-      <dl className="discover__stats">
-        <div className="discover__stat">
-          <dt>{t('detail.size')}</dt>
-          <dd>{sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—'}</dd>
-        </div>
-        <div className="discover__stat">
-          <dt>{t('detail.vramAt', { context: contextLabel })}</dt>
-          <dd>{vramBytes ? formatBytes(vramBytes) : '—'}</dd>
-        </div>
-        <div className="discover__stat">
-          <dt>{t('detail.headroom')}</dt>
-          <dd className={headroom === null ? '' : headroom < 0 ? 'discover__stat--bad' : 'discover__stat--ok'}>
-            {headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom))}
-          </dd>
-        </div>
-      </dl>
+      <StatGrid
+        stats={[
+          { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
+          { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
+          {
+            label: t('detail.headroom'),
+            value: headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom)),
+            tone: headroom === null ? undefined : headroom < 0 ? 'bad' : 'ok',
+          },
+        ]}
+      />
 
       <VramByContext
         estimate={estimate}

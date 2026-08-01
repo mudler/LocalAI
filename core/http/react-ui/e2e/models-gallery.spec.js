@@ -105,7 +105,7 @@ const MOCK_ESTIMATES = {
 // spanning the row.
 const PANE = '[data-testid="discover-pane"]';
 const railItems = (page) => page.locator('[data-testid="discover-rail-item"]');
-const railItem = (page, name) => page.locator(`[data-model="${name}"]`);
+const railItem = (page, name) => page.locator(`[data-entity="${name}"]`);
 // Rendered means the rail has entries. The old gate waited on a column header.
 const railReady = (page) =>
   expect(railItems(page).first()).toBeVisible({ timeout: 10_000 });
@@ -1375,7 +1375,7 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     page,
   }) => {
     await railItem(page, "markdown-model").click();
-    const cell = page.locator(".discover__detail-lede");
+    const cell = page.locator(".detail-pane__lede");
 
     await expect(cell).toHaveText(
       "Qwen3.6-27B Chat with it at the Qwen site for free.",
@@ -1395,7 +1395,7 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     // The lede is capped, so the full stripped text has to stay reachable on
     // hover rather than being truncated out of existence.
     await railItem(page, "markdown-model").click();
-    await expect(page.locator(".discover__detail-lede")).toHaveAttribute(
+    await expect(page.locator(".detail-pane__lede")).toHaveAttribute(
       "title",
       "Qwen3.6-27B Chat with it at the Qwen site for free.",
     );
@@ -1422,7 +1422,7 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     // honest treatment is to omit the line - but never to print "undefined".
     await railItem(page, "no-description-model").click();
     await expect(page.locator(PANE)).toContainText("no-description-model");
-    await expect(page.locator(".discover__detail-lede")).toHaveCount(0);
+    await expect(page.locator(".detail-pane__lede")).toHaveCount(0);
     await expect(page.locator(PANE)).not.toContainText("undefined");
   });
 
@@ -1711,14 +1711,14 @@ test.describe("Models Gallery - Discover split view", () => {
   });
 
   test("the rail groups while browsing", async ({ page }) => {
-    await expect(page.locator('[data-testid="discover-group-text"]')).toBeVisible();
-    await expect(page.locator('[data-testid="discover-group-audio"]')).toBeVisible();
+    await expect(page.locator('[data-testid="discover-rail-group-text"]')).toBeVisible();
+    await expect(page.locator('[data-testid="discover-rail-group-audio"]')).toBeVisible();
   });
 
   test("collapsing a group hides its entries and keeps the others", async ({
     page,
   }) => {
-    const text = page.locator('[data-testid="discover-group-text"]');
+    const text = page.locator('[data-testid="discover-rail-group-text"]');
     await expect(railItem(page, "llama-model")).toBeVisible();
     await text.click();
     await expect(text).toHaveAttribute("aria-expanded", "false");
@@ -1729,9 +1729,9 @@ test.describe("Models Gallery - Discover split view", () => {
   test("a query flattens the rail to results", async ({ page }) => {
     // Not a toggle the user has to find: once a term is typed the buckets are
     // between them and the answer, so they go away on their own.
-    await expect(page.locator('[data-testid="discover-group-text"]')).toBeVisible();
+    await expect(page.locator('[data-testid="discover-rail-group-text"]')).toBeVisible();
     await page.locator('input[type="text"]').first().fill("llama");
-    await expect(page.locator('[data-testid="discover-group-text"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="discover-rail-group-text"]')).toHaveCount(0);
     await expect(railItems(page).first()).toBeVisible();
   });
 

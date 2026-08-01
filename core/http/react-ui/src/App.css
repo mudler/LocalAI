@@ -11597,35 +11597,37 @@ button.collapsible-header:focus-visible {
 .ajd-code--error { background: var(--color-error-light); color: var(--color-error); max-height: none; }
 
 /* ==========================================================================
-   Discover: the model gallery as a rail plus a pane.
+   SplitView: the shell shared by Discover, Backends and Host.
 
    The rail is scanned, the pane answers. The pane has exactly two states -
-   the discovery shelves with nothing selected, and one model's detail with
-   something selected - which is what replaces the click-to-expand table row.
+   a zero state with nothing selected and one entity's detail with something
+   selected - which is what replaces the click-to-expand table row. What the
+   zero state says is the surface's business: a catalog offers what to install,
+   an inventory reports what is running.
    ========================================================================== */
 
-.discover {
+.split-view {
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   gap: var(--spacing-md);
   align-items: start;
 }
 
-.discover__rail-col {
+.split-view__rail-col {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
   min-width: 0;
 }
 
-.discover__rail {
+.entity-rail {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
-.discover__rail-head {
+.entity-rail__head {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -11634,12 +11636,12 @@ button.collapsible-header:focus-visible {
   flex-wrap: wrap;
 }
 
-.discover__rail-count {
+.entity-rail__count {
   font-size: 0.75rem;
   color: var(--color-text-muted);
 }
 
-.discover__sort {
+.entity-rail__sort {
   display: flex;
   gap: 2px;
   margin-left: auto;
@@ -11647,7 +11649,7 @@ button.collapsible-header:focus-visible {
 
 /* Sorting lost its home when the column headers went. It reappears here rather
    than in the filter band above, because it orders this list and nothing else. */
-.discover__sort-btn {
+.entity-rail__sort-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -11660,28 +11662,28 @@ button.collapsible-header:focus-visible {
   cursor: pointer;
 }
 
-.discover__sort-btn:hover {
+.entity-rail__sort-btn:hover {
   color: var(--color-text-primary);
   border-color: var(--color-border-default);
 }
 
-.discover__sort-btn.active {
+.entity-rail__sort-btn.active {
   color: var(--color-primary);
   border-color: var(--color-primary-border);
   background: var(--color-primary-light);
 }
 
-.discover__rail-list {
+.entity-rail__list {
   max-height: 640px;
   overflow-y: auto;
 }
 
-.discover__rail-list:focus-visible {
+.entity-rail__list:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: -2px;
 }
 
-.discover__group-head {
+.entity-rail__group-head {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
@@ -11698,19 +11700,19 @@ button.collapsible-header:focus-visible {
   z-index: 1;
 }
 
-.discover__group:first-child .discover__group-head { border-top: 0; }
+.entity-rail__group:first-child .entity-rail__group-head { border-top: 0; }
 
-.discover__group-caret { font-size: 0.5625rem; color: var(--color-text-muted); width: 10px; }
-.discover__group-icon { font-size: 0.6875rem; color: var(--color-text-muted); }
+.entity-rail__caret { font-size: 0.5625rem; color: var(--color-text-muted); width: 10px; }
+.entity-rail__group-icon { font-size: 0.6875rem; color: var(--color-text-muted); }
 
-.discover__group-label {
+.entity-rail__group-label {
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.discover__group-count {
+.entity-rail__group-count {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: 0.6875rem;
@@ -11718,7 +11720,7 @@ button.collapsible-header:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.discover__item {
+.entity-rail__item {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -11732,14 +11734,14 @@ button.collapsible-header:focus-visible {
   cursor: pointer;
 }
 
-.discover__item:hover { background: var(--color-bg-hover); }
+.entity-rail__item:hover { background: var(--color-bg-hover); }
 
-.discover__item--on {
+.entity-rail__item--on {
   background: var(--color-primary-light);
   box-shadow: inset 2px 0 0 var(--color-primary);
 }
 
-.discover__item-icon {
+.entity-rail__icon {
   flex: none;
   width: 16px;
   font-size: 0.75rem;
@@ -11747,11 +11749,11 @@ button.collapsible-header:focus-visible {
   text-align: center;
 }
 
-.discover__item--on .discover__item-icon { color: var(--color-primary); }
+.entity-rail__item--on .entity-rail__icon { color: var(--color-primary); }
 
-.discover__item-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.entity-rail__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 
-.discover__item-name {
+.entity-rail__name {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--color-text-primary);
@@ -11760,19 +11762,41 @@ button.collapsible-header:focus-visible {
   white-space: nowrap;
 }
 
-.discover__rail-meta {
+.entity-rail__meta {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   color: var(--color-text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 
-.discover__rail-meta--unfit { color: var(--color-error); }
-.discover__rail-meta--installed { color: var(--color-success); }
-.discover__rail-meta--busy { color: var(--color-primary); }
+/* A left edge for surfaces read by condition before they are read by name. An
+   inventory has one; a catalog does not, because "available" is not a state
+   worth a colour on every row. */
+.entity-rail__stripe {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex: none;
+}
 
-.discover__pager { margin: 0; }
-.discover__pager-label {
+.entity-rail__stripe--run { background: var(--color-success); }
+.entity-rail__stripe--idle { background: var(--color-border-strong); }
+.entity-rail__stripe--err { background: var(--color-error); }
+.entity-rail__stripe--off { background: transparent; }
+
+.entity-rail__empty {
+  padding: var(--spacing-md) var(--spacing-sm);
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.entity-rail__meta--bad { color: var(--color-error); }
+.entity-rail__meta--ok { color: var(--color-success); }
+.entity-rail__meta--busy { color: var(--color-primary); }
+
+.split-view__pager { margin: 0; }
+.split-view__pager-label {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
   padding: 0 var(--spacing-sm);
@@ -11781,7 +11805,7 @@ button.collapsible-header:focus-visible {
 
 /* --- Pane ---------------------------------------------------------------- */
 
-.discover__pane {
+.split-view__pane {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
@@ -11822,9 +11846,9 @@ button.collapsible-header:focus-visible {
 
 /* --- Detail -------------------------------------------------------------- */
 
-.discover__detail { display: flex; flex-direction: column; gap: var(--spacing-md); }
+.detail-pane { display: flex; flex-direction: column; gap: var(--spacing-md); }
 
-.discover__back {
+.detail-pane__back {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
@@ -11838,33 +11862,33 @@ button.collapsible-header:focus-visible {
   cursor: pointer;
 }
 
-.discover__back:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+.detail-pane__back:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
 
-.discover__detail-head { display: flex; gap: var(--spacing-sm); align-items: flex-start; flex-wrap: wrap; }
+.detail-pane__head { display: flex; gap: var(--spacing-sm); align-items: flex-start; flex-wrap: wrap; }
 
-.discover__detail-icon {
+.detail-pane__icon {
   flex: none;
   font-size: 1.25rem;
   color: var(--color-primary);
   padding-top: 2px;
 }
 
-.discover__detail-title { flex: 1 1 260px; min-width: 0; }
+.detail-pane__title { flex: 1 1 260px; min-width: 0; }
 
-.discover__detail-name {
+.detail-pane__name {
   font-size: 1.0625rem;
   font-weight: 600;
   letter-spacing: -0.015em;
   word-break: break-word;
 }
 
-.discover__detail-lede { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 2px; }
+.detail-pane__lede { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 2px; }
 
-.discover__detail-actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
+.detail-pane__actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
 
 .discover__progress { flex: none; width: 120px; margin-top: 4px; }
 
-.discover__warning {
+.detail-pane__warning {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -11876,7 +11900,7 @@ button.collapsible-header:focus-visible {
   padding: 6px var(--spacing-sm);
 }
 
-.discover__stats {
+.stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 1px;
@@ -11886,9 +11910,9 @@ button.collapsible-header:focus-visible {
   overflow: hidden;
 }
 
-.discover__stat { background: var(--color-surface-sunken); padding: 6px var(--spacing-sm); }
+.stat-grid__item { background: var(--color-surface-sunken); padding: 6px var(--spacing-sm); }
 
-.discover__stat dt {
+.stat-grid__item dt {
   font-family: var(--font-mono);
   font-size: 0.5625rem;
   letter-spacing: 0.1em;
@@ -11896,15 +11920,16 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-muted);
 }
 
-.discover__stat dd {
+.stat-grid__item dd {
   font-size: 0.9375rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   margin-top: 1px;
 }
 
-.discover__stat--ok { color: var(--color-success); }
-.discover__stat--bad { color: var(--color-error); }
+.stat-grid__value--ok { color: var(--color-success); }
+.stat-grid__value--bad { color: var(--color-error); }
+.stat-grid__value--warn { color: var(--color-warning); }
 
 /* --- VRAM by context ----------------------------------------------------- */
 
@@ -12024,7 +12049,7 @@ button.collapsible-header:focus-visible {
    pane becomes the page and the rail steps aside, which is the same trade a
    pushed route would make without the routing. */
 @media (max-width: 900px) {
-  .discover { grid-template-columns: minmax(0, 1fr); }
-  .discover__rail-list { max-height: 320px; }
-  .discover--detail .discover__rail-col { display: none; }
+  .split-view { grid-template-columns: minmax(0, 1fr); }
+  .entity-rail__list { max-height: 320px; }
+  .split-view--detail .split-view__rail-col { display: none; }
 }
