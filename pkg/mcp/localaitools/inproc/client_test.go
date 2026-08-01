@@ -2,6 +2,7 @@ package inproc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -165,6 +166,13 @@ var _ = Describe("inproc.Client model scheduling", func() {
 		Expect(created.NodeSelector).To(Equal(`{"gpu":"nvidia"}`))
 		Expect(created.RoutePolicy).To(Equal("prefix_cache"))
 		Expect(created.MinPrefixMatch).To(Equal(0.4))
+		Expect(schedulingJSONKeys(created)).ToNot(Or(
+			HaveKey("id"),
+			HaveKey("unsatisfiable_until"),
+			HaveKey("unsatisfiable_ticks"),
+			HaveKey("created_at"),
+			HaveKey("updated_at"),
+		))
 
 		listed, err := c.ListScheduling(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -193,3 +201,15 @@ var _ = Describe("inproc.Client model scheduling", func() {
 		Expect(missing).To(BeNil())
 	})
 })
+
+func schedulingJSONKeys(config *localaitools.ModelSchedulingConfig) map[string]any {
+	var out map[string]any
+	Expect(json.Unmarshal([]byte(mustMarshal(config)), &out)).To(Succeed())
+	return out
+}
+
+func mustMarshal(v any) string {
+	b, err := json.Marshal(v)
+	Expect(err).ToNot(HaveOccurred())
+	return string(b)
+}

@@ -4,7 +4,6 @@ import "github.com/mudler/LocalAI/core/services/nodes"
 
 func SchedulingConfigFromNode(config nodes.ModelSchedulingConfig) ModelSchedulingConfig {
 	return ModelSchedulingConfig{
-		ID:                  config.ID,
 		ModelName:           config.ModelName,
 		NodeSelector:        config.NodeSelector,
 		MinReplicas:         config.MinReplicas,
@@ -14,10 +13,6 @@ func SchedulingConfigFromNode(config nodes.ModelSchedulingConfig) ModelSchedulin
 		BalanceAbsThreshold: config.BalanceAbsThreshold,
 		BalanceRelThreshold: config.BalanceRelThreshold,
 		MinPrefixMatch:      config.MinPrefixMatch,
-		UnsatisfiableUntil:  config.UnsatisfiableUntil,
-		UnsatisfiableTicks:  config.UnsatisfiableTicks,
-		CreatedAt:           config.CreatedAt,
-		UpdatedAt:           config.UpdatedAt,
 	}
 }
 

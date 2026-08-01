@@ -1,10 +1,6 @@
 package localaitools
 
-import (
-	"time"
-
-	"github.com/mudler/LocalAI/core/services/voiceprofile"
-)
+import "github.com/mudler/LocalAI/core/services/voiceprofile"
 
 // DTOs for the LocalAIClient interface. Where the same shape already exists
 // elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
@@ -119,25 +115,19 @@ type SetNodeVRAMBudgetRequest struct {
 	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
 }
 
-// ModelSchedulingConfig is the REST/MCP wire shape for one per-model
-// distributed scheduling rule. Keep this DTO explicit instead of aliasing the
-// node-registry model so MCP contracts remain owned by localaitools while still
-// matching /api/nodes/scheduling JSON.
+// ModelSchedulingConfig is the MCP wire shape for one per-model distributed
+// scheduling rule. Keep this DTO explicit instead of aliasing the node-registry
+// model so the MCP contract only exposes operator-facing scheduling fields.
 type ModelSchedulingConfig struct {
-	ID                  string     `json:"id"`
-	ModelName           string     `json:"model_name"`
-	NodeSelector        string     `json:"node_selector,omitempty"`
-	MinReplicas         int        `json:"min_replicas"`
-	MaxReplicas         int        `json:"max_replicas"`
-	SpreadAll           bool       `json:"spread_all,omitempty"`
-	RoutePolicy         string     `json:"route_policy,omitempty"`
-	BalanceAbsThreshold int        `json:"balance_abs_threshold,omitempty"`
-	BalanceRelThreshold float64    `json:"balance_rel_threshold,omitempty"`
-	MinPrefixMatch      float64    `json:"min_prefix_match,omitempty"`
-	UnsatisfiableUntil  *time.Time `json:"unsatisfiable_until,omitempty"`
-	UnsatisfiableTicks  int        `json:"unsatisfiable_ticks"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	ModelName           string  `json:"model_name"`
+	NodeSelector        string  `json:"node_selector,omitempty"`
+	MinReplicas         int     `json:"min_replicas"`
+	MaxReplicas         int     `json:"max_replicas"`
+	SpreadAll           bool    `json:"spread_all,omitempty"`
+	RoutePolicy         string  `json:"route_policy,omitempty"`
+	BalanceAbsThreshold int     `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64 `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64 `json:"min_prefix_match,omitempty"`
 }
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
