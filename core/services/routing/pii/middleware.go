@@ -194,6 +194,7 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 
 			texts := adapter.Scan(parsed)
 			updates := make([]ScannedText, 0, len(texts))
+			pseudonyms := newPseudonymizer()
 			var blocked bool
 			var firstEventID string
 
@@ -259,7 +260,11 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 				if res.Blocked {
 					blocked = true
 				}
-				updates = append(updates, ScannedText{Index: st.Index, Text: res.Redacted})
+				redacted := res.Redacted
+				if cfg, ok := rawCfg.(responsePIIConfig); ok && cfg.PIIReverseInResponse() {
+					redacted = pseudonyms.replace(st.Text, res.Spans)
+				}
+				updates = append(updates, ScannedText{Index: st.Index, Text: redacted})
 			}
 
 			if blocked {
@@ -279,7 +284,16 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 			if firstEventID != "" {
 				c.Set(ctxKeyPIIEventID, firstEventID)
 			}
-			return next(c)
+			if len(pseudonyms.original) == 0 {
+				return next(c)
+			}
+			writer := newRestoringWriter(c.Response().Writer, pseudonyms.original)
+			c.Response().Writer = writer
+			err := next(c)
+			if finishErr := writer.Finish(); err == nil {
+				err = finishErr
+			}
+			return err
 		}
 	}
 }

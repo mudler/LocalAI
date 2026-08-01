@@ -60,10 +60,12 @@ func setRequestOnContext(req *fakeRequest) echo.MiddlewareFunc {
 type fakeModelPIIConfig struct {
 	enabled   bool
 	detectors []string
+	reverse   bool
 }
 
-func (f fakeModelPIIConfig) PIIIsEnabled() bool     { return f.enabled }
-func (f fakeModelPIIConfig) PIIDetectors() []string { return f.detectors }
+func (f fakeModelPIIConfig) PIIIsEnabled() bool         { return f.enabled }
+func (f fakeModelPIIConfig) PIIDetectors() []string     { return f.detectors }
+func (f fakeModelPIIConfig) PIIReverseInResponse() bool { return f.reverse }
 
 func withModelConfig(cfg fakeModelPIIConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -127,6 +129,33 @@ var _ = Describe("RequestMiddleware (NER)", func() {
 		Expect(events).To(HaveLen(1))
 		Expect(events[0].PatternID).To(Equal("ner:PER"))
 		Expect(events[0].Direction).To(Equal(DirectionIn))
+	})
+
+	It("restores distinct pseudonyms across streaming write boundaries", func() {
+		body := &fakeRequest{Messages: []string{"Email alice@example.com or bob@example.com"}}
+		mw := RequestMiddleware(&Redactor{}, store(), fakeAdapter(), nil,
+			WithNERResolver(resolverFor(map[string]NERConfig{
+				"privacy-filter": nerCfg(ActionMask,
+					NEREntity{Group: "EMAIL", Start: 6, End: 23, Score: 0.95},
+					NEREntity{Group: "EMAIL", Start: 27, End: 42, Score: 0.95}),
+			})))
+		e := echo.New()
+		e.POST("/chat", func(c echo.Context) error {
+			Expect(body.Messages[0]).To(Equal("Email EMAIL_001 or EMAIL_002"))
+			_, err := c.Response().Write([]byte(`data: {"delta":"EMAIL_0`))
+			Expect(err).ToNot(HaveOccurred())
+			_, err = c.Response().Write([]byte(`01 and EMAIL_002"}` + "\n\n"))
+			return err
+		}, setRequestOnContext(body), withModelConfig(fakeModelPIIConfig{
+			enabled: true, detectors: []string{"privacy-filter"}, reverse: true,
+		}), mw)
+
+		req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{}`))
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+
+		Expect(w.Code).To(Equal(http.StatusOK))
+		Expect(w.Body.String()).To(Equal("data: {\"delta\":\"alice@example.com and bob@example.com\"}\n\n"))
 	})
 
 	It("blocks (400) when a detected entity's action is block", func() {

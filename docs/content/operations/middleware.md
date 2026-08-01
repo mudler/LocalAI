@@ -165,15 +165,25 @@ pii:
   enabled: true               # default-on for cloud-proxy; explicit for audit
   detectors:
     - privacy-filter-multilingual
+  reverse_in_response: true   # restore request PII if the model echoes its pseudonym
 ```
+
+`reverse_in_response` enables bijective, request-scoped replacement. Each
+masked value is sent to the backend as a stable pseudonym such as `EMAIL_001`
+instead of a generic redaction marker. If the model includes that pseudonym in
+its response, LocalAI restores the original value before returning JSON or SSE
+to the caller. The substitution map exists only for that request and is never
+logged or persisted. Leave the option unset (the default) for irreversible
+`[REDACTED:...]` masking.
 
 Multiple detectors **union** their detections; overlapping spans resolve to
 the strongest action (`block` > `mask` > `allow`). A configured detector
 that can't be loaded **fails the request closed** (HTTP 503,
 `error.type=pii_ner_unavailable`) rather than silently skipping the check.
 The same NER path runs on the [MITM proxy]({{< relref "mitm-proxy.md" >}})
-request body for intercepted hosts. Response/output redaction is out of
-scope for now.
+request body for intercepted hosts. Bijective response restoration currently
+applies to LocalAI API routes; the MITM proxy keeps its own output-redaction
+policy.
 
 ### Instance-wide default detector
 

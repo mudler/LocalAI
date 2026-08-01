@@ -440,7 +440,13 @@ type PIIConfig struct {
 	// model just opts in by listing detectors. Multiple detectors union
 	// their hits; overlapping spans resolve to the strongest action.
 	Detectors []string `yaml:"detectors,omitempty" json:"detectors,omitempty"`
+
+	// ReverseInResponse replaces request PII with stable, request-scoped
+	// pseudonyms and restores those values when they appear in the response.
+	ReverseInResponse bool `yaml:"reverse_in_response,omitempty" json:"reverse_in_response,omitempty"`
 }
+
+func (c ModelConfig) PIIReverseInResponse() bool { return c.PII.ReverseInResponse }
 
 // @Description Detection policy for a token-classification (NER) model
 // used as a PII detector. Lives on the detector model's own config so the

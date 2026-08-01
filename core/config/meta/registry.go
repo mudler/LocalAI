@@ -816,6 +816,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			AutocompleteProvider: "models:token_classify",
 			Order:                201,
 		},
+		"pii.reverse_in_response": {
+			Section:     "pii",
+			Label:       "Restore PII In Response",
+			Description: "Replace masked values with request-scoped pseudonyms and restore them when the model returns those pseudonyms. Supports streaming responses and never persists the substitution map.",
+			Component:   "toggle",
+			Order:       202,
+		},
 
 		// --- PII detection policy (on a token_classify detector model) ---
 		"pii_detection.min_score": {
