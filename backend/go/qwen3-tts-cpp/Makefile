@@ -7,8 +7,18 @@ GO_TAGS?=
 JOBS?=$(shell nproc --ignore=1)
 
 # qwentts.cpp version
+#
+# Held at 35ebe537 rather than tracking latest: abab6b3 hangs in synthesis.
+# TTS() never returns from the native call, so tests-qwen3-tts-cpp goes from
+# ~5 minutes to the 20 minute Go test timeout. Reproduced on master on
+# 2026-08-01 and again on re-run, and the bump PR (#11241) was merged with
+# this same check already red.
+#
+# The regression is in 35ebe537..abab6b3, three upstream commits whose only
+# functional change is 26dd8adb, "predictor: unroll the frame into one cgraph
+# and sample in standard ops". Restore the bump once that is fixed upstream.
 QWEN3TTS_REPO?=https://github.com/ServeurpersoCom/qwentts.cpp
-QWEN3TTS_CPP_VERSION?=abab6b3bf317cfa1b788efce1d25f4f9239395ad
+QWEN3TTS_CPP_VERSION?=35ebe5376b82a0a59d008586d55bbe623d449011
 SO_TARGET?=libgoqwen3ttscpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
