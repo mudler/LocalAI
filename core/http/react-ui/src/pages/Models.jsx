@@ -663,15 +663,15 @@ export default function Models() {
                 t={t}
               />
             ) : (
-              <div className="discover__shelves">
-                <div className="discover__hero">
-                  <span className="discover__hero-eyebrow">{t('shelves.hostLabel')}</span>
-                  <h2 className="discover__hero-title">
+              <div className="zero-pane">
+                <div className="zero-pane__hero">
+                  <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
+                  <h2 className="zero-pane__title">
                     {totalGpuMemory > 0
                       ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
                       : t('shelves.heroNoGpu', { count: stats.total })}
                   </h2>
-                  <p className="discover__hero-text">{t('shelves.heroHint')}</p>
+                  <p className="zero-pane__text">{t('shelves.heroHint')}</p>
                 </div>
 
                 {/* The hardware-fit strip is the curation, and here it finally
@@ -680,12 +680,12 @@ export default function Models() {
                     who closed it still lands on the pane below. */}
                 <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
 
-                <div className="discover__shelf">
-                  <div className="discover__shelf-head">
-                    <h3 className="discover__shelf-title">{t('shelves.browsing')}</h3>
-                    <span className="discover__shelf-meta">{t('rail.loadedCount', { count: visibleModels.length })}</span>
+                <div className="zero-pane__shelf">
+                  <div className="zero-pane__shelf-head">
+                    <h3 className="zero-pane__shelf-title">{t('shelves.browsing')}</h3>
+                    <span className="zero-pane__shelf-meta">{t('rail.loadedCount', { count: visibleModels.length })}</span>
                   </div>
-                  <p className="discover__shelf-hint">{t('shelves.pickHint')}</p>
+                  <p className="zero-pane__shelf-hint">{t('shelves.pickHint')}</p>
                 </div>
               </div>
             )

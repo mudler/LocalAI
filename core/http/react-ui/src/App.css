@@ -11813,11 +11813,11 @@ button.collapsible-header:focus-visible {
   padding: var(--spacing-md);
 }
 
-.discover__shelves { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+.zero-pane { display: flex; flex-direction: column; gap: var(--spacing-lg); }
 
-.discover__hero { display: flex; flex-direction: column; gap: 4px; }
+.zero-pane__hero { display: flex; flex-direction: column; gap: 4px; }
 
-.discover__hero-eyebrow {
+.zero-pane__eyebrow {
   font-family: var(--font-mono);
   font-size: 0.625rem;
   letter-spacing: 0.11em;
@@ -11825,24 +11825,81 @@ button.collapsible-header:focus-visible {
   color: var(--color-eyebrow);
 }
 
-.discover__hero-title {
+.zero-pane__title {
   font-size: 1.0625rem;
   font-weight: 600;
   letter-spacing: -0.015em;
   text-wrap: balance;
 }
 
-.discover__hero-text { font-size: 0.8125rem; color: var(--color-text-muted); }
+.zero-pane__text { font-size: 0.8125rem; color: var(--color-text-muted); }
 
-.discover__shelf-head { display: flex; align-items: baseline; gap: var(--spacing-sm); }
-.discover__shelf-title { font-size: 0.875rem; font-weight: 600; }
-.discover__shelf-meta {
+.zero-pane__shelf-head { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+.zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
+.zero-pane__shelf-meta {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   color: var(--color-text-muted);
 }
-.discover__shelf-hint { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 4px; }
+.zero-pane__shelf-hint { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 4px; }
+
+/* Curated tiles. A catalog spends its zero state arguing for something; the
+   tile is where that argument gets the width a rail line never has. */
+.zero-pane__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.zero-pane__tile {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.zero-pane__tile:hover { border-color: var(--color-border-strong); background: var(--color-bg-hover); }
+
+.zero-pane__tile--feat {
+  border-color: var(--color-primary-border);
+  background: linear-gradient(150deg, var(--color-primary-light), transparent 68%), var(--color-bg-primary);
+}
+
+.zero-pane__tile-name { font-size: 0.8125rem; font-weight: 550; }
+.zero-pane__tile-foot { display: flex; align-items: center; gap: var(--spacing-xs); margin-top: auto; }
+
+/* One line that changes what you would do next. Reserved for that; a pane of
+   these has no emphasis left. */
+.zero-pane__alert {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.8125rem;
+  padding: 6px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.zero-pane__alert--warn { color: var(--color-warning); background: var(--color-warning-light); border-color: var(--color-warning-border); }
+.zero-pane__alert--bad { color: var(--color-error); background: var(--color-error-light); border-color: var(--color-error-border); }
+.zero-pane__alert > :last-child { margin-left: auto; }
+
+.detail-pane__label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
 
 /* --- Detail -------------------------------------------------------------- */
 
