@@ -1778,8 +1778,13 @@ test.describe("Models Gallery - Discover split view", () => {
     // a key on the strength of it races the render that follows.
     await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
     // Focus is on the entry just clicked, which carries the key handler.
+    // Which entry is adjacent depends on how the rail groups, so the contract
+    // is that the selection moves and comes back, not that a named model is
+    // next. Naming one made this test a hostage of the grouping table.
     await page.keyboard.press("ArrowDown");
-    await expect(page).toHaveURL(/[?&]model=whisper-model(&|$)/);
+    await expect(page).not.toHaveURL(/[?&]model=llama-model(&|$)/);
+    await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
+
     await page.keyboard.press("ArrowUp");
     await expect(page).toHaveURL(/[?&]model=llama-model(&|$)/);
   });

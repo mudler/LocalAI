@@ -20,6 +20,7 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { useResources } from '../hooks/useResources'
+import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -505,7 +506,7 @@ export default function Backends() {
             <>
               <EntityRail
                 items={backends.map(b => railItemForBackend(b, { getBackendOp, upgrades }))}
-                groups={BACKEND_GROUPS.map(g => ({ id: g.id, label: g.label, icon: g.icon }))}
+                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: BACKEND_GROUP_LABELS[g.id], icon: g.icon }))}
                 grouped={!search.trim()}
                 collapsedGroups={collapsedGroups}
                 onToggleGroup={toggleGroup}
@@ -546,7 +547,7 @@ export default function Backends() {
               <div className="detail-pane">
                 <DetailHeader
                   testId="backends"
-                  icon={groupForBackend(b).icon}
+                  icon={groupForEntity(b).icon}
                   name={name}
                   lede={b.description ? stripMarkdown(b.description).slice(0, 220) : null}
                   ledeTitle={b.description ? stripMarkdown(b.description) : null}
@@ -803,25 +804,6 @@ function BackendDetail({ backend }) {
   )
 }
 
-// Backends share Discover's taxonomy because they answer the same question one
-// level down: a backend is the runtime a use case needs. Matching the buckets
-// means "vision" means the same thing on both pages.
-const BACKEND_GROUPS = [
-  { id: 'text', label: 'Text and reasoning', icon: 'fa-brain', tags: ['chat', 'embeddings', 'rerank'] },
-  { id: 'vision', label: 'Vision', icon: 'fa-eye', tags: ['vision', 'multimodal', 'detection'] },
-  { id: 'audio', label: 'Speech and audio', icon: 'fa-wave-square', tags: ['tts', 'transcript', 'diarization', 'sound_classification', 'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
-  { id: 'visual', label: 'Image and video', icon: 'fa-image', tags: ['image', 'video', '3d'] },
-  { id: 'other', label: 'Everything else', icon: 'fa-cube', tags: [] },
-]
-
-function groupForBackend(backend) {
-  const tags = backend.tags || []
-  for (const g of BACKEND_GROUPS) {
-    if (g.tags.length > 0 && g.tags.some(tag => tags.includes(tag))) return g
-  }
-  return BACKEND_GROUPS[BACKEND_GROUPS.length - 1]
-}
-
 // The rail line spends its one fact on the thing that decides what you do
 // next: whether it is here, whether it is stale, whether it is moving.
 function railItemForBackend(backend, { getBackendOp, upgrades }) {
@@ -843,7 +825,7 @@ function railItemForBackend(backend, { getBackendOp, upgrades }) {
     metaTone = 'ok'
   }
 
-  return { id: name, name, icon: groupForBackend(backend).icon, meta, metaTone, groupId: groupForBackend(backend).id }
+  return { id: name, name, icon: groupForEntity(backend).icon, meta, metaTone, groupId: groupForEntity(backend).id }
 }
 
 function BackendSortButton({ col, label, sortBy, sortOrder, onSort }) {
@@ -923,7 +905,7 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
                   onClick={() => onSelect(name)}
                 >
                   <span className="hstack hstack--xs">
-                    <i className={`fas ${groupForBackend(b).icon}`} aria-hidden="true" />
+                    <i className={`fas ${groupForEntity(b).icon}`} aria-hidden="true" />
                     <span className="zero-pane__tile-name">{name}</span>
                   </span>
                   <span className="text-sm text-muted">{stripMarkdown(b.description).slice(0, 90) || '—'}</span>
@@ -938,4 +920,14 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
       )}
     </div>
   )
+}
+
+// Backends is not translated (6 t() calls in the whole page), so the shared
+// group ids get literal labels here rather than i18n keys.
+const BACKEND_GROUP_LABELS = {
+  text: 'Text and reasoning',
+  vision: 'Vision',
+  audio: 'Speech and audio',
+  visual: 'Image and video',
+  other: 'Everything else',
 }

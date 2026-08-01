@@ -1,5 +1,5 @@
 {
-  "title": "Modelle installieren",
+  "title": "Entdecken",
   "subtitle": "Durchsuchen und installieren Sie KI-Modelle aus der Galerie",
   "recommended": {
     "title": "Empfohlen für Ihre Hardware",
@@ -155,6 +155,7 @@
     "heroNoGpu": "{{count}} Modelle in der Galerie.",
     "heroHint": "Wähle links ein Modell, um Größe, Varianten und Lauffähigkeit zu sehen.",
     "browsing": "Durchsuchen",
-    "pickHint": "Wähle ein Modell, um die Details zu sehen."
+    "pickHint": "Wähle ein Modell, um die Details zu sehen.",
+    "heroWithRam": "{{ram}} Systemspeicher, {{count}} Modelle in der Galerie."
   }
 }

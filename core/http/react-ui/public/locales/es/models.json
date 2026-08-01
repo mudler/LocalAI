@@ -1,5 +1,5 @@
 {
-  "title": "Instalar modelos",
+  "title": "Descubrir",
   "subtitle": "Explora e instala modelos de IA desde la galería",
   "recommended": {
     "title": "Recomendado para tu hardware",
@@ -155,6 +155,7 @@
     "heroNoGpu": "{{count}} modelos en la galería.",
     "heroHint": "Elige un modelo a la izquierda para ver su tamaño, variantes y compatibilidad.",
     "browsing": "Explorando",
-    "pickHint": "Selecciona un modelo para ver su detalle."
+    "pickHint": "Selecciona un modelo para ver su detalle.",
+    "heroWithRam": "{{ram}} de memoria del sistema, {{count}} modelos en la galería."
   }
 }

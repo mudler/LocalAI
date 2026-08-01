@@ -1,5 +1,5 @@
 {
-  "title": "安装模型",
+  "title": "发现",
   "subtitle": "从模型库浏览和安装 AI 模型",
   "recommended": {
     "title": "适合你硬件的推荐",
@@ -155,6 +155,7 @@
     "heroNoGpu": "图库中有 {{count}} 个模型。",
     "heroHint": "在左侧选择模型，即可查看大小、变体以及能否在本机运行。",
     "browsing": "浏览中",
-    "pickHint": "选择一个模型以查看详情。"
+    "pickHint": "选择一个模型以查看详情。",
+    "heroWithRam": "{{ram}} 系统内存，图库中有 {{count}} 个模型。"
   }
 }

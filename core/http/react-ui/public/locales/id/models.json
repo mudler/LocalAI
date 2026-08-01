@@ -1,5 +1,5 @@
 {
-  "title": "Instal Model",
+  "title": "Jelajahi",
   "subtitle": "Telusuri dan instal model AI dari galeri",
   "models": "Model",
   "recommended": {
@@ -168,6 +168,7 @@
     "heroNoGpu": "{{count}} model di galeri.",
     "heroHint": "Pilih model di sebelah kiri untuk melihat ukuran, varian, dan kecocokannya.",
     "browsing": "Menjelajah",
-    "pickHint": "Pilih model untuk melihat detailnya."
+    "pickHint": "Pilih model untuk melihat detailnya.",
+    "heroWithRam": "Memori sistem {{ram}}, {{count}} model di galeri."
   }
 }

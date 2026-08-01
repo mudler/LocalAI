@@ -18,6 +18,7 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { formatBytes } from '../utils/format'
+import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 
@@ -137,6 +138,10 @@ export default function Models() {
   const [collapseVariants, setCollapseVariants] = useState(readCollapseVariantsPreference)
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
+  // gpu_count is 0 and gpus is null on a CPU-only host, where total_memory is
+  // system RAM. The fits check has always used it either way; only the copy
+  // has to stop calling it VRAM.
+  const hasGpu = (resources?.aggregate?.gpu_count || 0) > 0 || (resources?.gpus?.length || 0) > 0
 
   const fetchModels = useCallback(async (params = {}) => {
     try {
@@ -611,7 +616,7 @@ export default function Models() {
             <>
               <EntityRail
                 items={visibleModels.map(m => railItemFor(m, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
-                groups={RAIL_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
+                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
                 grouped={grouped}
                 collapsedGroups={collapsedGroups}
                 onToggleGroup={toggleGroup}
@@ -667,9 +672,14 @@ export default function Models() {
                 <div className="zero-pane__hero">
                   <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
                   <h2 className="zero-pane__title">
-                    {totalGpuMemory > 0
-                      ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
-                      : t('shelves.heroNoGpu', { count: stats.total })}
+                    {/* The resources endpoint reports system RAM when there is
+                        no accelerator, so calling it "GPU memory" was a claim
+                        the data did not support. */}
+                    {totalGpuMemory <= 0
+                      ? t('shelves.heroNoGpu', { count: stats.total })
+                      : hasGpu
+                        ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
+                        : t('shelves.heroWithRam', { ram: formatBytes(totalGpuMemory), count: stats.total })}
                   </h2>
                   <p className="zero-pane__text">{t('shelves.heroHint')}</p>
                 </div>
@@ -1021,25 +1031,6 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
   )
 }
 
-// Rail groups, in the order they appear. A group's tags are matched against the
-// entry's own, first match wins, so an entry lands in exactly one bucket and
-// the rail stays a list rather than becoming a set of overlapping views.
-const RAIL_GROUPS = [
-  { id: 'text', labelKey: 'groups.text', icon: 'fa-brain', tags: ['chat'] },
-  { id: 'vision', labelKey: 'groups.vision', icon: 'fa-eye', tags: ['vision', 'multimodal', 'detection'] },
-  { id: 'audio', labelKey: 'groups.audio', icon: 'fa-wave-square', tags: ['tts', 'transcript', 'diarization', 'sound_classification', 'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
-  { id: 'visual', labelKey: 'groups.visual', icon: 'fa-image', tags: ['image', 'video', '3d'] },
-  { id: 'other', labelKey: 'groups.other', icon: 'fa-cube', tags: [] },
-]
-
-function groupForModel(model) {
-  const tags = model.tags || []
-  for (const g of RAIL_GROUPS) {
-    if (g.tags.length > 0 && g.tags.some(tag => tags.includes(tag))) return g
-  }
-  return RAIL_GROUPS[RAIL_GROUPS.length - 1]
-}
-
 // railItemFor maps a gallery entry onto the shape EntityRail speaks. Keeping
 // the vocabulary translation here, rather than teaching the rail about models,
 // is what lets Backends and Host reuse the same component without three
@@ -1075,7 +1066,7 @@ function railItemFor(model, { estimates, contextSize, fitsGpu, isInstalling, get
     meta = sizeDisplay
   }
 
-  return { id: name, name, icon: groupForModel(model).icon, meta, metaTone, groupId: groupForModel(model).id }
+  return { id: name, name, icon: groupForEntity(model).icon, meta, metaTone, groupId: groupForEntity(model).id }
 }
 
 // SortButton is the home sorting found after the column headers went. It sits
@@ -1200,7 +1191,7 @@ function DiscoverDetail({
     <div className="detail-pane">
       <DetailHeader
         testId="discover"
-        icon={groupForModel(model).icon}
+        icon={groupForEntity(model).icon}
         name={name}
         lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
         ledeTitle={model.description ? stripMarkdown(model.description) : null}
