@@ -167,6 +167,33 @@ var _ = Describe("OfferToStart", func() {
 			"an unbounded cmd.Wait would report a readiness timeout instead")
 		Expect(elapsed).To(BeNumerically("<", 20*time.Second),
 			"the wait must be bounded by the output drain, not by the readiness budget")
+
+		// This is the case where cmd.Wait returns exec.ErrWaitDelay, whose own
+		// text names a struct field of os/exec. Users get told what happened
+		// instead.
+		Expect(err).NotTo(MatchError(ContainSubstring("WaitDelay")),
+			"os/exec plumbing must not reach the user")
+		Expect(err).NotTo(MatchError(ContainSubstring("exec:")))
+		Expect(err).To(MatchError(ContainSubstring("left a subprocess of its own still running")))
+	})
+
+	It("reports the exit status of a server that failed outright", func() {
+		// The counterpart to the case above: translating ErrWaitDelay must not
+		// cost a real exit status, which is the one diagnostic worth having.
+		bin, lookErr := exec.LookPath("false")
+		if lookErr != nil {
+			Skip("no 'false' binary on PATH to stand in for a server that fails")
+		}
+
+		_, err := OfferToStart(context.Background(), StartOptions{
+			Endpoint:     unusedPort,
+			Confirm:      func(string) (bool, error) { return true, nil },
+			Stderr:       io.Discard,
+			Executable:   bin,
+			ReadyTimeout: 30 * time.Second,
+		})
+		Expect(err).To(MatchError(ContainSubstring("exited before it became ready")))
+		Expect(err).To(MatchError(ContainSubstring("exit status 1")))
 	})
 })
 
@@ -178,15 +205,15 @@ var _ = Describe("StartedServer.Stop", func() {
 	})
 
 	It("interrupts the child exactly once however often it is called", func() {
-		s, interrupts, kills := stoppableServer()
+		s, proc := stoppableServer()
 
 		s.Stop()
 		s.Stop()
 		s.Stop()
 
-		Expect(interrupts.Load()).To(Equal(int32(1)),
+		Expect(proc.interrupts.Load()).To(Equal(int32(1)),
 			"a second Stop must not signal the child again")
-		Expect(kills.Load()).To(BeZero(), "a child that already exited must not be killed")
+		Expect(proc.kills.Load()).To(BeZero(), "a child that already exited must not be killed")
 	})
 
 	It("interrupts the child exactly once when called concurrently", func() {
@@ -194,7 +221,7 @@ var _ = Describe("StartedServer.Stop", func() {
 		// signal handler that also owns shutting the server down.
 		const callers = 8
 
-		s, interrupts, kills := stoppableServer()
+		s, proc := stoppableServer()
 
 		var wg sync.WaitGroup
 		wg.Add(callers)
@@ -207,25 +234,48 @@ var _ = Describe("StartedServer.Stop", func() {
 		}
 		wg.Wait()
 
-		Expect(interrupts.Load()).To(Equal(int32(1)))
-		Expect(kills.Load()).To(BeZero())
+		Expect(proc.interrupts.Load()).To(Equal(int32(1)))
+		Expect(proc.kills.Load()).To(BeZero())
+	})
+
+	It("asks the child to interrupt rather than killing it outright", func() {
+		// The escalation order is the whole point of the grace period: SIGKILL
+		// first would strand the backend subprocesses local-ai run owns.
+		s, proc := stoppableServer()
+
+		s.Stop()
+
+		Expect(proc.lastSignal.Load()).To(Equal(os.Interrupt))
+		Expect(proc.kills.Load()).To(BeZero())
 	})
 })
 
-// stoppableServer builds a StartedServer whose child has already exited, with
-// counters standing in for the signals Stop would send. Nothing is spawned.
-func stoppableServer() (s *StartedServer, interrupts, kills *atomic.Int32) {
-	interrupts = &atomic.Int32{}
-	kills = &atomic.Int32{}
+// countingProcess stands in for the *os.Process that Stop drives, recording
+// what it was asked to do.
+type countingProcess struct {
+	interrupts atomic.Int32
+	kills      atomic.Int32
+	lastSignal atomic.Value
+}
 
+func (p *countingProcess) Signal(sig os.Signal) error {
+	p.interrupts.Add(1)
+	p.lastSignal.Store(sig)
+	return nil
+}
+
+func (p *countingProcess) Kill() error {
+	p.kills.Add(1)
+	return nil
+}
+
+// stoppableServer builds a StartedServer whose child has already exited, driven
+// by a countingProcess rather than a real one. Nothing is spawned.
+func stoppableServer() (*StartedServer, *countingProcess) {
+	proc := &countingProcess{}
 	exited := make(chan struct{})
 	close(exited)
-
-	return &StartedServer{
-		exited:    exited,
-		interrupt: func() error { interrupts.Add(1); return nil },
-		kill:      func() error { kills.Add(1); return nil },
-	}, interrupts, kills
+	return &StartedServer{exited: exited, proc: proc}, proc
 }
 
 var _ = Describe("newServerCommand", func() {

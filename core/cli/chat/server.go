@@ -84,15 +84,30 @@ type StartedServer struct {
 	// closed and must only be read after that channel is observed closed.
 	waitErr error
 
-	// interrupt and kill are fields rather than direct calls on the process so
-	// that Stop's contract, in particular that the child is asked to stop
-	// exactly once however often Stop is called, can be pinned without a live
-	// process to signal. A nil interrupt means nothing was ever started.
-	interrupt func() error
-	kill      func() error
+	// proc is the child. It is an interface rather than *os.Process so that
+	// Stop's contract, in particular that the child is asked to stop exactly
+	// once however often Stop is called, can be pinned without a live process
+	// to signal. Nil means nothing was ever started.
+	proc processControl
 
 	stopOnce sync.Once
 }
+
+// processControl is the part of *os.Process that Stop needs.
+//
+// One interface rather than a pair of independent function fields: two fields
+// can be wired to each other's operation, or one left nil, and no test can tell,
+// because a fake satisfies any combination. There is nothing to swap or forget
+// here, since the sole implementation is the real process and the method names
+// carry the meaning.
+type processControl interface {
+	Signal(os.Signal) error
+	Kill() error
+}
+
+// *os.Process satisfies processControl unmodified, so production needs no
+// adapter and no nil branch: the wiring is a single assignment.
+var _ processControl = (*os.Process)(nil)
 
 // newServerCommand builds the child process. Split out from OfferToStart so the
 // process' configuration can be asserted on without spawning anything.
@@ -141,11 +156,7 @@ func OfferToStart(ctx context.Context, opts StartOptions) (*StartedServer, error
 		return nil, fmt.Errorf("starting a LocalAI server with %s: %w", bin, err)
 	}
 
-	s := &StartedServer{
-		exited:    make(chan struct{}),
-		interrupt: func() error { return cmd.Process.Signal(os.Interrupt) },
-		kill:      cmd.Process.Kill,
-	}
+	s := &StartedServer{exited: make(chan struct{}), proc: cmd.Process}
 	go func() {
 		s.waitErr = cmd.Wait()
 		close(s.exited)
@@ -156,10 +167,10 @@ func OfferToStart(ctx context.Context, opts StartOptions) (*StartedServer, error
 		timeout = defaultReadyTimeout
 	}
 	if err := waitReady(ctx, opts.Endpoint, timeout, s.exited); err != nil {
-		if errors.Is(err, errServerExited) && s.waitErr != nil {
+		if errors.Is(err, errServerExited) {
 			// Safe to read: errServerExited is only returned once exited has
 			// been observed closed, which happens after waitErr is written.
-			err = fmt.Errorf("%w: %w", err, s.waitErr)
+			err = describeExit(err, s.waitErr)
 		}
 		s.Stop()
 		return nil, fmt.Errorf("%w. Run 'local-ai run' in another terminal to see why it did not come up", err)
@@ -167,27 +178,46 @@ func OfferToStart(ctx context.Context, opts StartOptions) (*StartedServer, error
 	return s, nil
 }
 
+// describeExit adds what is known about how the child died to exitErr, without
+// putting os/exec's plumbing in front of the user.
+//
+// waitErr is exec.ErrWaitDelay when the child exited cleanly but something it
+// spawned still held its output pipe open past childOutputDrainDelay. The
+// sentinel's own text names the WaitDelay field, which is meaningless to a
+// user, so it is translated. Nothing is swallowed: os/exec only substitutes
+// ErrWaitDelay when the process itself exited without an error of its own (see
+// Cmd.Wait, "Report an error from the copying goroutines only if the program
+// otherwise exited normally"), so it can never stand in for an *ExitError.
+func describeExit(exitErr, waitErr error) error {
+	switch {
+	case waitErr == nil:
+		return exitErr
+	case errors.Is(waitErr, exec.ErrWaitDelay):
+		return fmt.Errorf("%w, and left a subprocess of its own still running", exitErr)
+	default:
+		return fmt.Errorf("%w: %w", exitErr, waitErr)
+	}
+}
+
 // Stop terminates the server this process started, giving it a chance to shut
 // down cleanly first. It is safe to call on a nil or never-started server, and
 // safe to call more than once.
 func (s *StartedServer) Stop() {
-	if s == nil || s.interrupt == nil {
+	if s == nil || s.proc == nil {
 		return
 	}
 	s.stopOnce.Do(func() {
 		// SIGINT rather than SIGKILL: local-ai run installs its own handler and
 		// needs it to unload models and stop backend subprocesses. Killing it
 		// outright would strand those children.
-		_ = s.interrupt()
+		_ = s.proc.Signal(os.Interrupt)
 
 		select {
 		case <-s.exited:
 		case <-time.After(shutdownGrace):
 			// It ignored the interrupt or wedged on the way down. The user is
 			// waiting on their shell prompt, so stop being polite.
-			if s.kill != nil {
-				_ = s.kill()
-			}
+			_ = s.proc.Kill()
 		}
 	})
 }
