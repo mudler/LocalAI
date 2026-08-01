@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mudler/nib/app"
+	nibcmd "github.com/mudler/nib/cmd"
 	nibconfig "github.com/mudler/nib/config"
 	nibtypes "github.com/mudler/nib/types"
 	"golang.org/x/term"
@@ -108,10 +109,7 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 		return nil, err
 	}
 
-	// Management subcommands (plugin, skill, and the mcp verbs that edit
-	// configured servers) touch only local state, so they must work with no
-	// server running.
-	if isManagementArgs(opts.Args) {
+	if isLocalOnlyArgs(opts.Args) {
 		return &preparation{dir: dir}, nil
 	}
 
@@ -229,15 +227,37 @@ func probeModels(ctx context.Context, opts Options) ([]string, error) {
 	return Probe(probeCtx, opts.BaseURL, opts.APIKey)
 }
 
-// isManagementArgs reports whether the forwarded arguments address nib's local
-// state rather than starting a session.
-func isManagementArgs(args []string) bool {
+// isLocalOnlyArgs reports whether the forwarded arguments do their work
+// without ever reaching a model, in which case demanding a running server (and
+// offering to start one) would be an obstacle rather than a service.
+//
+// Two groups qualify. The management subcommands edit nib's own state: plugin,
+// skill, and the mcp verbs that add or remove configured servers, which is
+// asked of nib rather than restated, because bare 'mcp' and its transport
+// flags do serve the agent and do need a model. The other group is the flags
+// that only print something, above all --init: its shell snippet goes into an
+// rc file, typically long before any server exists.
+func isLocalOnlyArgs(args []string) bool {
 	if len(args) == 0 {
 		return false
 	}
+	// A scan rather than a look at args[0]: the mode flags this command
+	// translates are prepended, so --init is not necessarily first. Positional
+	// text cannot be mistaken for a flag here, since nib ignores what is left
+	// after flag parsing.
+	for _, a := range args {
+		switch {
+		case a == "--init", a == "-init", strings.HasPrefix(a, "--init="), strings.HasPrefix(a, "-init="):
+			return true
+		case a == "--version", a == "-version":
+			return true
+		}
+	}
 	switch args[0] {
-	case "plugin", "skill", "mcp":
+	case "plugin", "skill":
 		return true
+	case "mcp":
+		return len(args) >= 2 && nibcmd.IsMCPManageSubcommand(args[1])
 	}
 	return false
 }

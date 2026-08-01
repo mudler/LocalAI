@@ -220,6 +220,24 @@ var _ = Describe("prepare", func() {
 			Entry("plugin", "plugin", "list"),
 			Entry("skill", "skill", "list"),
 			Entry("mcp add", "mcp", "add", "srv"),
+			Entry("mcp list", "mcp", "list"),
+			// The shell snippet is what a user puts in their rc file, long
+			// before any server exists.
+			Entry("the shell integration script", "--init", "zsh"),
+			Entry("the version", "--version"),
+		)
+
+		// Bare 'mcp' and its transport flags serve the agent over MCP, so they
+		// need a model like any other session. Only the verbs that edit the
+		// configured servers are local.
+		DescribeTable("still needs a server",
+			func(args ...string) {
+				_, err := prepare(context.Background(), unreachable(args...), false)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("local-ai run"))
+			},
+			Entry("mcp over stdio", "mcp", "--stdio"),
+			Entry("bare mcp", "mcp"),
 		)
 	})
 
