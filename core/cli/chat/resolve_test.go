@@ -44,8 +44,9 @@ var _ = Describe("ResolveModel", func() {
 
 	It("sorts before offering, so the same number means the same model next run", func() {
 		var offered []string
+		available := []string{"zeta", "alpha", "mid"}
 		_, err := ResolveModel(ModelRequest{
-			Available: []string{"zeta", "alpha", "mid"},
+			Available: available,
 			StateDir:  GinkgoT().TempDir(),
 			Choose: func(models []string) (string, error) {
 				offered = models
@@ -55,6 +56,9 @@ var _ = Describe("ResolveModel", func() {
 		Expect(err).ToNot(HaveOccurred())
 		// The server's /v1/models ordering is unstable between calls.
 		Expect(offered).To(Equal([]string{"alpha", "mid", "zeta"}))
+		// Sorting must happen on a copy: the caller still owns this slice, and
+		// reordering it under them would move whatever they index into it.
+		Expect(available).To(Equal([]string{"zeta", "alpha", "mid"}))
 	})
 
 	It("lists models in sorted order in the several-models error", func() {
