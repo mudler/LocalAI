@@ -9,6 +9,7 @@ done
 
 grep -q 'BUILD_PROFILE.*cublas13' "$backend_dir/install.sh"
 grep -q 'MAX_JOBS.*1' "$backend_dir/install.sh"
+grep -q 'NVCC_THREADS.*1' "$backend_dir/install.sh"
 
 if [ -d $backend_dir/common ]; then
     source $backend_dir/common/libbackend.sh
