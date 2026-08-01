@@ -3,25 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
-  description: |
-    # DeepSeek-V4-Flash-0731
-
-    Technical Report👁️
-
-    ## Introduction
-
-    **DeepSeek-V4-Flash-0731** is the official release of **DeepSeek-V4-Flash**, superseding the preview version, with substantially enhanced agentic capabilities. It has the same model structure as DeepSeek-V4-Flash-DSpark, i.e. it comes with a speculative decoding module attached.
-
-    DeepSeek-V4-Flash-0731 outperforms DeepSeek-V4-Pro (Preview) on benchmarks listed below despite its far smaller activated parameter count, and is broadly competitive with the strongest proprietary models available.
-
-    Notes:
-
-    1. For the Code Agent tasks among the public benchmarks above, DeepSeek-V4-Flash-0731 is evaluated with the minimal mode of DeepSeek Harness (to be released) as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.
-    2. † DSBench-FullStack is an internal full-stack development test set; DSBench-Hard is an internal test set of difficult coding-agent problems.
-
-    ## Chat Template
-
-    ...
+  description: "# DeepSeek-V4-Flash-0731\n\nTechnical Report\U0001F441️\n\n## Introduction\n\n**DeepSeek-V4-Flash-0731** is the official release of **DeepSeek-V4-Flash**, superseding the preview version, with substantially enhanced agentic capabilities. It has the same model structure as DeepSeek-V4-Flash-DSpark, i.e. it comes with a speculative decoding module attached.\n\nDeepSeek-V4-Flash-0731 outperforms DeepSeek-V4-Pro (Preview) on benchmarks listed below despite its far smaller activated parameter count, and is broadly competitive with the strongest proprietary models available.\n\nNotes:\n\n1. For the Code Agent tasks among the public benchmarks above, DeepSeek-V4-Flash-0731 is evaluated with the minimal mode of DeepSeek Harness (to be released) as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.\n2. † DSBench-FullStack is an internal full-stack development test set; DSBench-Hard is an internal test set of difficult coding-agent problems.\n\n## Chat Template\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -41,8 +23,8 @@
       use_tokenizer_template: true
   files:
     - filename: ds4flash.gguf
-      sha256: ""
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
+      sha256: 7ab5e306300dd16d237d0f5ff07ee968d02be5c47afc87282778f4ec6b0f54a7
 - name: "parable-granite-4.1-3b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1605,7 +1587,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 7d6d1691bc2d02c5a8194afb8bd9b57519343afebf020231c61d9236504b4a5c
+      sha256: efb3e92a73b877e69e1754212e132d90963ce9ced4f0b68f9173723fee7f85a4
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
