@@ -172,7 +172,7 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 			}
 			return nil, err
 		}
-		fmt.Fprintf(opts.ErrOut, "Started a temporary LocalAI server; it stops when you exit. Use 'local-ai run' for a persistent one.\n")
+		say(opts.ErrOut, "Started a temporary LocalAI server; it stops when you exit. Use 'local-ai run' for a persistent one.\n")
 
 		if models, err = probeModels(ctx, opts); err != nil {
 			return nil, err
@@ -189,7 +189,7 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 		Available:  models,
 		StateDir:   dir,
 		Choose:     chooser,
-		Notify:     func(message string) { fmt.Fprintln(opts.ErrOut, message) },
+		Notify:     func(message string) { say(opts.ErrOut, "%s\n", message) },
 	})
 	if err != nil {
 		return nil, err
@@ -290,6 +290,14 @@ func isTerminal(in io.Reader) bool {
 	return ok && term.IsTerminal(int(f.Fd()))
 }
 
+// say writes a line of interactive chatter: a question, or a notice about
+// something that did not stop the session. A write that fails is not worth
+// failing over, and when the terminal really is gone the read that follows the
+// question says so.
+func say(w io.Writer, format string, args ...any) {
+	_, _ = fmt.Fprintf(w, format, args...)
+}
+
 // prompter asks this run's questions on the user's terminal.
 //
 // It owns the buffered reader rather than wrapping opts.In per question,
@@ -308,7 +316,7 @@ func newPrompter(in io.Reader, out io.Writer) *prompter {
 // yesNo satisfies Confirmer. Anything that is not an explicit yes is a no, so
 // a closed stream declines rather than proceeding on the user's behalf.
 func (p *prompter) yesNo(question string) (bool, error) {
-	fmt.Fprintf(p.out, "%s [y/N]: ", question)
+	say(p.out, "%s [y/N]: ", question)
 	line, err := p.in.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return false, fmt.Errorf("reading the answer: %w", err)
@@ -329,11 +337,11 @@ func (p *prompter) choose(models []string) (string, error) {
 	if len(models) == 0 {
 		return "", errors.New("there is nothing to choose from")
 	}
-	fmt.Fprintln(p.out, "Several models are available:")
+	say(p.out, "Several models are available:\n")
 	for i, m := range models {
-		fmt.Fprintf(p.out, "  %d) %s\n", i+1, m)
+		say(p.out, "  %d) %s\n", i+1, m)
 	}
-	fmt.Fprintf(p.out, "Pick one [1-%d]: ", len(models))
+	say(p.out, "Pick one [1-%d]: ", len(models))
 
 	line, err := p.in.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
