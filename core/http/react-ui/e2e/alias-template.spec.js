@@ -69,9 +69,9 @@ test.describe('Manage - alias badge', () => {
 
   test('renders a read-only alias -> target badge on aliased rows', async ({ page }) => {
     await page.goto('/app/manage')
-    await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
-
-    // The aliased row shows the target; the plain model row does not.
+    // The badge moved off the row and into the pane: it is a fact about the
+    // model, and the rail line is spent on state.
+    await page.locator('[data-entity="gpt-4"]').click()
     await expect(page.getByText('alias -> fast-llm')).toBeVisible({ timeout: 10_000 })
   })
 })

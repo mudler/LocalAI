@@ -12110,3 +12110,21 @@ button.collapsible-header:focus-visible {
   .entity-rail__list { max-height: 320px; }
   .split-view--detail .split-view__rail-col { display: none; }
 }
+
+/* Compact list rows inside a pane: a state chip, a name, and one number. Used
+   by the Host status page for "loaded now" and by detail panes for anything
+   that is a list of facts rather than a table. */
+.rowlist { display: flex; flex-direction: column; gap: 4px; }
+
+.rowline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 5px var(--spacing-sm);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.rowline__num { margin-left: auto; font-variant-numeric: tabular-nums; }
