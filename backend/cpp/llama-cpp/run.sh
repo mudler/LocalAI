@@ -12,10 +12,10 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=llama-cpp-fallback
 
-# CPU images (x86, arm64, darwin) ship a single llama-cpp-cpu-all built with ggml
+# CPU images and x86 GPU images ship a single llama-cpp-cpu-all built with ggml
 # CPU_ALL_VARIANTS: ggml's backend registry dlopens the best libggml-cpu-*.so for this
-# host, so no shell-side AVX probing. GPU images (cublas/sycl/vulkan/hipblas) ship only
-# llama-cpp-fallback (the accelerator does the compute), so fall back to it when absent.
+# host, so no shell-side AVX probing. GPU arm64 images still ship llama-cpp-fallback
+# until their builder toolchains support ggml's complete arm variant matrix.
 if [ -e "$CURDIR"/llama-cpp-cpu-all ]; then
 	BINARY=llama-cpp-cpu-all
 fi
