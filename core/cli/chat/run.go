@@ -35,57 +35,100 @@ type Options struct {
 // Run starts the agent: resolve where state lives, make sure a server is
 // reachable, pick a model, then hand off to nib.
 func Run(ctx context.Context, opts Options) error {
-	dir, err := StateDir(opts.StateDir)
+	p, err := prepare(ctx, opts, isTerminal(opts.In))
 	if err != nil {
 		return err
 	}
+	// A server this process started belongs to this session, and Stop is
+	// nil-safe, so one defer covers both cases.
+	defer p.server.Stop()
+
+	return runAgent(ctx, p.dir, p.model, opts)
+}
+
+// preparation is what the agent needs once the environment is ready: where its
+// state lives, which model to talk to, and the server this process started on
+// the user's behalf, if any.
+type preparation struct {
+	dir    string
+	model  string
+	server *StartedServer
+}
+
+// prepare does everything that has to happen before the agent takes over the
+// terminal. It is split out of Run because all of it is testable and none of
+// what follows is: once app.Run has the terminal there is no seam left.
+//
+// interactive says whether there is a user to prompt. It is a parameter rather
+// than a second read of opts.In so the prompts can be driven over a pipe.
+func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparation, err error) {
+	dir, dirErr := StateDir(opts.StateDir)
+	if dirErr != nil {
+		return nil, dirErr
+	}
 	if err := EnsureStateDir(dir, opts.BaseURL); err != nil {
-		return err
+		return nil, err
 	}
 
-	// Management subcommands (plugin, skill, mcp) touch only local state, so
-	// they must work with no server running.
+	// Management subcommands (plugin, skill, and the mcp verbs that edit
+	// configured servers) touch only local state, so they must work with no
+	// server running.
 	if isManagementArgs(opts.Args) {
-		return runAgent(ctx, dir, "", opts)
+		return &preparation{dir: dir}, nil
 	}
 
-	interactive := isTerminal(opts.In)
+	// One prompter for every question this run asks; see its doc comment for
+	// why the reader cannot be rebuilt per question.
+	var prompts *prompter
+	if interactive {
+		prompts = newPrompter(opts.In, opts.ErrOut)
+	}
+
+	var started *StartedServer
+	defer func() {
+		// Nothing after the spawn may leave a server behind: the caller only
+		// learns about it through a successful return.
+		if err != nil {
+			started.Stop()
+		}
+	}()
 
 	models, err := Probe(ctx, opts.BaseURL, opts.APIKey)
 	if err != nil {
 		if errors.Is(err, ErrUnauthorized) {
-			return fmt.Errorf("the LocalAI server at %s rejected the API key. Pass --api-key or set LOCALAI_API_KEY", opts.Endpoint)
+			return nil, fmt.Errorf("the LocalAI server at %s rejected the API key. Pass --api-key or set LOCALAI_API_KEY", opts.Endpoint)
 		}
 		if !errors.Is(err, ErrUnreachable) {
-			return err
+			return nil, err
 		}
 
 		var confirm Confirmer
 		if interactive {
-			confirm = func(q string) (bool, error) { return askYesNo(opts.In, opts.ErrOut, q) }
+			confirm = prompts.yesNo
 		}
-		started, startErr := OfferToStart(ctx, StartOptions{
+		var startErr error
+		started, startErr = OfferToStart(ctx, StartOptions{
 			Endpoint: opts.Endpoint,
 			Confirm:  confirm,
 			Stderr:   opts.ErrOut,
 		})
 		if startErr != nil {
+			err = startErr
 			if errors.Is(startErr, ErrDeclined) {
-				return fmt.Errorf("no LocalAI server at %s. Start one with 'local-ai run', or point elsewhere with --endpoint", opts.Endpoint)
+				err = fmt.Errorf("no LocalAI server at %s. Start one with 'local-ai run', or point elsewhere with --endpoint", opts.Endpoint)
 			}
-			return startErr
+			return nil, err
 		}
-		defer started.Stop()
 		fmt.Fprintf(opts.ErrOut, "Started a temporary LocalAI server; it stops when you exit. Use 'local-ai run' for a persistent one.\n")
 
 		if models, err = Probe(ctx, opts.BaseURL, opts.APIKey); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	var chooser ModelChooser
 	if interactive {
-		chooser = func(available []string) (string, error) { return askChoice(opts.In, opts.ErrOut, available) }
+		chooser = prompts.choose
 	}
 	model, err := ResolveModel(ModelRequest{
 		Flag:       opts.Model,
@@ -95,10 +138,10 @@ func Run(ctx context.Context, opts Options) error {
 		Choose:     chooser,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return runAgent(ctx, dir, model, opts)
+	return &preparation{dir: dir, model: model, server: started}, nil
 }
 
 func runAgent(ctx context.Context, dir, model string, opts Options) error {
@@ -149,9 +192,26 @@ func isTerminal(in io.Reader) bool {
 	return ok && term.IsTerminal(int(f.Fd()))
 }
 
-func askYesNo(in io.Reader, out io.Writer, question string) (bool, error) {
-	fmt.Fprintf(out, "%s [y/N]: ", question)
-	line, err := bufio.NewReader(in).ReadString('\n')
+// prompter asks this run's questions on the user's terminal.
+//
+// It owns the buffered reader rather than wrapping opts.In per question,
+// because bufio reads ahead: a throwaway reader for the "start a server?"
+// question swallows the model choice that was typed behind it, and the next
+// question then sees EOF. A real run asks both, one after the other.
+type prompter struct {
+	in  *bufio.Reader
+	out io.Writer
+}
+
+func newPrompter(in io.Reader, out io.Writer) *prompter {
+	return &prompter{in: bufio.NewReader(in), out: out}
+}
+
+// yesNo satisfies Confirmer. Anything that is not an explicit yes is a no, so
+// a closed stream declines rather than proceeding on the user's behalf.
+func (p *prompter) yesNo(question string) (bool, error) {
+	fmt.Fprintf(p.out, "%s [y/N]: ", question)
+	line, err := p.in.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return false, fmt.Errorf("reading the answer: %w", err)
 	}
@@ -162,20 +222,29 @@ func askYesNo(in io.Reader, out io.Writer, question string) (bool, error) {
 	return false, nil
 }
 
-func askChoice(in io.Reader, out io.Writer, models []string) (string, error) {
-	fmt.Fprintln(out, "Several models are available:")
-	for i, m := range models {
-		fmt.Fprintf(out, "  %d) %s\n", i+1, m)
+// choose satisfies ModelChooser. It answers with a list index rather than with
+// what the user typed, so the result can only ever be one of the models it was
+// offered: a model name is not something to accept unvalidated here, since
+// ResolveModel persists whatever comes back and every later run then starts
+// against it.
+func (p *prompter) choose(models []string) (string, error) {
+	if len(models) == 0 {
+		return "", errors.New("there is nothing to choose from")
 	}
-	fmt.Fprintf(out, "Pick one [1-%d]: ", len(models))
+	fmt.Fprintln(p.out, "Several models are available:")
+	for i, m := range models {
+		fmt.Fprintf(p.out, "  %d) %s\n", i+1, m)
+	}
+	fmt.Fprintf(p.out, "Pick one [1-%d]: ", len(models))
 
-	line, err := bufio.NewReader(in).ReadString('\n')
+	line, err := p.in.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", fmt.Errorf("reading the choice: %w", err)
 	}
-	n, err := strconv.Atoi(strings.TrimSpace(line))
+	answer := strings.TrimSpace(line)
+	n, err := strconv.Atoi(answer)
 	if err != nil || n < 1 || n > len(models) {
-		return "", fmt.Errorf("not a valid choice: %q", strings.TrimSpace(line))
+		return "", fmt.Errorf("not a valid choice: %q. Pick a number between 1 and %d, or pass --model", answer, len(models))
 	}
 	return models[n-1], nil
 }
