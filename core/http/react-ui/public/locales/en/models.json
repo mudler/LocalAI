@@ -91,7 +91,10 @@
     "fileCount_other": "{{count}} files",
     "filename": "Filename",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "All models",
+    "vramAt": "VRAM at {{context}}",
+    "headroom": "Headroom"
   },
   "empty": {
     "title": "No models found",
@@ -137,5 +140,38 @@
       "dflash": "Faster: DFlash",
       "mtp": "Faster: MTP"
     }
+  },
+  "rail": {
+    "loadedCount_one": "{{count}} model loaded",
+    "loadedCount_other": "{{count}} models loaded",
+    "sortLabel": "Sort models",
+    "downloadingPct": "downloading {{percent}}%",
+    "tooLarge": "{{size}} · too large",
+    "fitsSize": "{{size}} · fits",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
+  },
+  "groups": {
+    "text": "Text and reasoning",
+    "vision": "Vision",
+    "audio": "Speech and audio",
+    "visual": "Image and video",
+    "other": "Everything else"
+  },
+  "chart": {
+    "title": "VRAM by context length",
+    "available": "{{vram}} available",
+    "barTitle": "{{context}} context needs {{vram}}",
+    "fitsEverywhere": "Runs at every context length on this host.",
+    "fitsNowhere": "Will not fit on this host at any context length.",
+    "fitsUpTo": "Fits up to a {{context}} context."
+  },
+  "shelves": {
+    "hostLabel": "Your host",
+    "heroWithGpu": "{{vram}} of GPU memory, {{count}} models in the gallery.",
+    "heroNoGpu": "{{count}} models in the gallery.",
+    "heroHint": "Pick anything on the left to see its size, variants and whether it will run here.",
+    "browsing": "Browsing",
+    "pickHint": "Select a model to see its detail."
   }
 }

@@ -81,7 +81,10 @@
     "fileCount_other": "{{count}} file",
     "filename": "Nome file",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "Tutti i modelli",
+    "vramAt": "VRAM a {{context}}",
+    "headroom": "Margine"
   },
   "empty": {
     "title": "Nessun modello trovato",
@@ -121,5 +124,38 @@
       "dflash": "Più veloce: DFlash",
       "mtp": "Più veloce: MTP"
     }
+  },
+  "rail": {
+    "loadedCount_one": "{{count}} modello caricato",
+    "loadedCount_other": "{{count}} modelli caricati",
+    "sortLabel": "Ordina modelli",
+    "downloadingPct": "download {{percent}}%",
+    "tooLarge": "{{size}} · troppo grande",
+    "fitsSize": "{{size}} · compatibile",
+    "previousPage": "Pagina precedente",
+    "nextPage": "Pagina successiva"
+  },
+  "groups": {
+    "text": "Testo e ragionamento",
+    "vision": "Visione",
+    "audio": "Voce e audio",
+    "visual": "Immagini e video",
+    "other": "Tutto il resto"
+  },
+  "chart": {
+    "title": "VRAM per lunghezza del contesto",
+    "available": "{{vram}} disponibili",
+    "barTitle": "Un contesto {{context}} richiede {{vram}}",
+    "fitsEverywhere": "Funziona con qualsiasi lunghezza di contesto su questo host.",
+    "fitsNowhere": "Non entra in memoria su questo host con nessuna lunghezza di contesto.",
+    "fitsUpTo": "Entra fino a un contesto {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Il tuo host",
+    "heroWithGpu": "{{vram}} di memoria GPU, {{count}} modelli nella galleria.",
+    "heroNoGpu": "{{count}} modelli nella galleria.",
+    "heroHint": "Scegli un modello a sinistra per vederne dimensione, varianti e compatibilità.",
+    "browsing": "Esplorazione",
+    "pickHint": "Seleziona un modello per vederne i dettagli."
   }
 }

@@ -11595,3 +11595,436 @@ button.collapsible-header:focus-visible {
 .ajd-code--tall { max-height: 300px; }
 .ajd-code--taller { max-height: 500px; }
 .ajd-code--error { background: var(--color-error-light); color: var(--color-error); max-height: none; }
+
+/* ==========================================================================
+   Discover: the model gallery as a rail plus a pane.
+
+   The rail is scanned, the pane answers. The pane has exactly two states -
+   the discovery shelves with nothing selected, and one model's detail with
+   something selected - which is what replaces the click-to-expand table row.
+   ========================================================================== */
+
+.discover {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: var(--spacing-md);
+  align-items: start;
+}
+
+.discover__rail-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.discover__rail {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.discover__rail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-wrap: wrap;
+}
+
+.discover__rail-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.discover__sort {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Sorting lost its home when the column headers went. It reappears here rather
+   than in the filter band above, because it orders this list and nothing else. */
+.discover__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.discover__sort-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.discover__sort-btn.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-light);
+}
+
+.discover__rail-list {
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.discover__rail-list:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.discover__group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: var(--color-surface-sunken);
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.discover__group:first-child .discover__group-head { border-top: 0; }
+
+.discover__group-caret { font-size: 0.5625rem; color: var(--color-text-muted); width: 10px; }
+.discover__group-icon { font-size: 0.6875rem; color: var(--color-text-muted); }
+
+.discover__group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.discover__group-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.discover__item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 7px var(--spacing-sm);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border-divider);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.discover__item:hover { background: var(--color-bg-hover); }
+
+.discover__item--on {
+  background: var(--color-primary-light);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.discover__item-icon {
+  flex: none;
+  width: 16px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.discover__item--on .discover__item-icon { color: var(--color-primary); }
+
+.discover__item-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+
+.discover__item-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discover__rail-meta {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.discover__rail-meta--unfit { color: var(--color-error); }
+.discover__rail-meta--installed { color: var(--color-success); }
+.discover__rail-meta--busy { color: var(--color-primary); }
+
+.discover__pager { margin: 0; }
+.discover__pager-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  padding: 0 var(--spacing-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pane ---------------------------------------------------------------- */
+
+.discover__pane {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  min-height: 420px;
+  padding: var(--spacing-md);
+}
+
+.discover__shelves { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+
+.discover__hero { display: flex; flex-direction: column; gap: 4px; }
+
+.discover__hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-eyebrow);
+}
+
+.discover__hero-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.discover__hero-text { font-size: 0.8125rem; color: var(--color-text-muted); }
+
+.discover__shelf-head { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+.discover__shelf-title { font-size: 0.875rem; font-weight: 600; }
+.discover__shelf-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+.discover__shelf-hint { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 4px; }
+
+/* --- Detail -------------------------------------------------------------- */
+
+.discover__detail { display: flex; flex-direction: column; gap: var(--spacing-md); }
+
+.discover__back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.discover__back:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+
+.discover__detail-head { display: flex; gap: var(--spacing-sm); align-items: flex-start; flex-wrap: wrap; }
+
+.discover__detail-icon {
+  flex: none;
+  font-size: 1.25rem;
+  color: var(--color-primary);
+  padding-top: 2px;
+}
+
+.discover__detail-title { flex: 1 1 260px; min-width: 0; }
+
+.discover__detail-name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  word-break: break-word;
+}
+
+.discover__detail-lede { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 2px; }
+
+.discover__detail-actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
+
+.discover__progress { flex: none; width: 120px; margin-top: 4px; }
+
+.discover__warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-error);
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--spacing-sm);
+}
+
+.discover__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px;
+  background: var(--color-border-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.discover__stat { background: var(--color-surface-sunken); padding: 6px var(--spacing-sm); }
+
+.discover__stat dt {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.discover__stat dd {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+.discover__stat--ok { color: var(--color-success); }
+.discover__stat--bad { color: var(--color-error); }
+
+/* --- VRAM by context ----------------------------------------------------- */
+
+.discover__chart { display: flex; flex-direction: column; gap: 6px; }
+
+.discover__chart-title {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.discover__chart-plot {
+  /* Matches CHART_HEIGHT in Models.jsx: the bars and the limit line are both
+     resolved in pixels against this, so they share one scale. */
+  position: relative;
+  height: 96px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 15px;
+}
+
+/* The limit is what makes the bars mean anything, so it is drawn across all of
+   them rather than annotated on each. */
+.discover__chart-limit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--discover-limit, 0);
+  border-top: 1px dashed var(--color-error-border);
+  pointer-events: none;
+}
+
+.discover__chart-limit-label {
+  position: absolute;
+  right: 0;
+  top: -1.05rem;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.05em;
+  color: var(--color-error);
+  background: var(--color-bg-secondary);
+  padding: 0 3px;
+}
+
+.discover__chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.discover__chart-value {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.discover__chart-bar {
+  height: var(--discover-bar, 0);
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  background: var(--color-success);
+  /* A surface-coloured ring keeps adjacent bars from reading as one block. */
+  box-shadow: 0 0 0 2px var(--color-bg-secondary);
+}
+
+.discover__chart-bar--over { background: var(--color-error); }
+
+.discover__chart-col:hover .discover__chart-bar { filter: brightness(1.1); }
+
+/* Its own row rather than a third line inside each column: one baseline for
+   every label, whatever the values above them do. */
+.discover__chart-axis {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--color-border-default);
+  padding-top: 3px;
+}
+
+.discover__chart-axis span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.discover__chart-axis-on { color: var(--color-primary); font-weight: 600; }
+
+.discover__chart-col--on .discover__chart-value {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.discover__chart-verdict { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; }
+.discover__chart-verdict--ok { color: var(--color-success); }
+.discover__chart-verdict--warn { color: var(--color-warning); }
+.discover__chart-verdict--bad { color: var(--color-error); }
+
+/* --- Narrow ------------------------------------------------------------- */
+
+/* Below this the two columns stop being two columns. With a model selected the
+   pane becomes the page and the rail steps aside, which is the same trade a
+   pushed route would make without the routing. */
+@media (max-width: 900px) {
+  .discover { grid-template-columns: minmax(0, 1fr); }
+  .discover__rail-list { max-height: 320px; }
+  .discover--detail .discover__rail-col { display: none; }
+}

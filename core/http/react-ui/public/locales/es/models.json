@@ -81,7 +81,10 @@
     "fileCount_other": "{{count}} archivos",
     "filename": "Nombre del archivo",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "Todos los modelos",
+    "vramAt": "VRAM a {{context}}",
+    "headroom": "Margen"
   },
   "empty": {
     "title": "No se encontraron modelos",
@@ -121,5 +124,38 @@
       "dflash": "Más rápido: DFlash",
       "mtp": "Más rápido: MTP"
     }
+  },
+  "rail": {
+    "loadedCount_one": "{{count}} modelo cargado",
+    "loadedCount_other": "{{count}} modelos cargados",
+    "sortLabel": "Ordenar modelos",
+    "downloadingPct": "descargando {{percent}}%",
+    "tooLarge": "{{size}} · demasiado grande",
+    "fitsSize": "{{size}} · cabe",
+    "previousPage": "Página anterior",
+    "nextPage": "Página siguiente"
+  },
+  "groups": {
+    "text": "Texto y razonamiento",
+    "vision": "Visión",
+    "audio": "Voz y audio",
+    "visual": "Imagen y vídeo",
+    "other": "Todo lo demás"
+  },
+  "chart": {
+    "title": "VRAM por longitud de contexto",
+    "available": "{{vram}} disponibles",
+    "barTitle": "Un contexto de {{context}} necesita {{vram}}",
+    "fitsEverywhere": "Funciona con cualquier longitud de contexto en este host.",
+    "fitsNowhere": "No cabe en este host con ninguna longitud de contexto.",
+    "fitsUpTo": "Cabe hasta un contexto de {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Tu host",
+    "heroWithGpu": "{{vram}} de memoria GPU, {{count}} modelos en la galería.",
+    "heroNoGpu": "{{count}} modelos en la galería.",
+    "heroHint": "Elige un modelo a la izquierda para ver su tamaño, variantes y compatibilidad.",
+    "browsing": "Explorando",
+    "pickHint": "Selecciona un modelo para ver su detalle."
   }
 }

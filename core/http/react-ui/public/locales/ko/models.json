@@ -87,7 +87,10 @@
     "fileCount_other": "파일 {{count}}개",
     "filename": "파일 이름",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "모든 모델",
+    "vramAt": "{{context}}에서의 VRAM",
+    "headroom": "여유 공간"
   },
   "empty": {
     "title": "모델을 찾을 수 없습니다",
@@ -105,5 +108,38 @@
     "loadFailed": "모델을 불러오지 못했습니다: {{message}}",
     "installFailed": "설치 실패: {{message}}",
     "deleteFailed": "삭제 실패: {{message}}"
+  },
+  "rail": {
+    "loadedCount_one": "모델 {{count}}개 불러옴",
+    "loadedCount_other": "모델 {{count}}개 불러옴",
+    "sortLabel": "모델 정렬",
+    "downloadingPct": "내려받는 중 {{percent}}%",
+    "tooLarge": "{{size}} · 너무 큼",
+    "fitsSize": "{{size}} · 실행 가능",
+    "previousPage": "이전 페이지",
+    "nextPage": "다음 페이지"
+  },
+  "groups": {
+    "text": "텍스트 및 추론",
+    "vision": "비전",
+    "audio": "음성 및 오디오",
+    "visual": "이미지 및 비디오",
+    "other": "기타"
+  },
+  "chart": {
+    "title": "컨텍스트 길이별 VRAM",
+    "available": "{{vram}} 사용 가능",
+    "barTitle": "{{context}} 컨텍스트에 {{vram}} 필요",
+    "fitsEverywhere": "이 호스트에서 모든 컨텍스트 길이로 실행됩니다.",
+    "fitsNowhere": "이 호스트에서는 어떤 컨텍스트 길이로도 실행할 수 없습니다.",
+    "fitsUpTo": "{{context}} 컨텍스트까지 실행 가능합니다."
+  },
+  "shelves": {
+    "hostLabel": "내 호스트",
+    "heroWithGpu": "GPU 메모리 {{vram}}, 갤러리에 모델 {{count}}개.",
+    "heroNoGpu": "갤러리에 모델 {{count}}개.",
+    "heroHint": "왼쪽에서 모델을 선택하면 크기, 변형, 실행 가능 여부를 볼 수 있습니다.",
+    "browsing": "둘러보기",
+    "pickHint": "모델을 선택하면 상세 정보가 표시됩니다."
   }
 }

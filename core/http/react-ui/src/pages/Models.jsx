@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate, useOutletContext, useLocation } from 'react-router-dom'
+import { useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { modelsApi } from '../utils/api'
@@ -12,13 +12,14 @@ import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
-import ResponsiveTable from '../components/ResponsiveTable'
 import RecommendedModels from '../components/RecommendedModels'
-import Popover from '../components/Popover'
 import { formatBytes } from '../utils/format'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 
+
+const CHART_HEIGHT = 96
+const CHART_LABEL_ROOM = 15
 
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
@@ -89,8 +90,15 @@ export default function Models() {
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
   const [installing, setInstalling] = useState(new Map())
-  const [expandedRow, setExpandedRow] = useState(null)
   const [expandedFiles, setExpandedFiles] = useState(false)
+  // Which model the pane is showing, or null for the discovery shelves. It
+  // lives in the URL so a model is linkable and so Back steps out of the detail
+  // rather than off the page, which is the one thing the expanded row could
+  // never do.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedName = searchParams.get('model')
+  // Rail groups the user has folded away.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   // Distinguishes "nothing installed" from "not asked yet". The recommendations
   // panel defaults off the installed count, so it must not read the initial 0.
@@ -101,10 +109,6 @@ export default function Models() {
   const [estimates, setEstimates] = useState({})
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   const [confirmDialog, setConfirmDialog] = useState(null)
-  // Index of the row whose variant split-menu is open, or null. A single
-  // Popover is re-anchored per row rather than one instance per row.
-  const [variantMenuFor, setVariantMenuFor] = useState(null)
-  const variantMenuAnchorRef = useRef(null)
   // Variant descriptions, keyed by model name. The listing only tells us
   // whether an entry declares any; describing them costs the server a network
   // probe per variant, so we ask for one entry at a time and keep the answer
@@ -386,6 +390,43 @@ export default function Models() {
     return fit !== false
   })
 
+  // Grouping is for browsing, not for searching. Once someone types a term they
+  // have already said what they are looking for, and the buckets only stand
+  // between them and the answer, so a query flattens the rail to ranked
+  // results. That is a rule rather than a toggle: making the user pick would be
+  // handing them our problem.
+  const grouped = !search.trim()
+  const selectedModel = selectedName
+    ? visibleModels.find(m => (m.name || m.id) === selectedName) || null
+    : null
+
+  const selectModel = useCallback((name) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (name) next.set('model', name)
+      else next.delete('model')
+      return next
+    // Returning to the shelves replaces the entry rather than pushing one, so
+    // Back leaves the gallery instead of bouncing between the two pane states.
+    }, { replace: !name })
+    setExpandedFiles(false)
+  }, [setSearchParams])
+
+  const toggleGroup = useCallback((id) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  // The detail pane lists variants, so opening a model is the ask that pays for
+  // the describe call. loadVariants is idempotent per name.
+  useEffect(() => {
+    if (selectedModel?.has_variants) loadVariants(selectedName)
+  }, [selectedName, selectedModel, loadVariants])
+
   return (
     <div className="page page--wide">
       <PageHeader
@@ -414,8 +455,6 @@ export default function Models() {
           </div>
         }
       />
-
-      <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
 
       {/* Filters, in three deliberate bands.
           1. Query scope: free-text search plus the backend select. The backend
@@ -525,7 +564,12 @@ export default function Models() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* The gallery, as a rail to scan and a pane that answers.
+          The pane has two jobs and no third: with nothing selected it is the
+          discovery page, and with a model selected it is that model's detail.
+          This is what replaces the click-to-expand row, which existed only
+          because variants, files and a VRAM estimate never fitted inside a
+          <tr> in the first place. */}
       {loading ? (
         <GalleryLoader />
       ) : visibleModels.length === 0 ? (
@@ -556,248 +600,88 @@ export default function Models() {
           )}
         </div>
       ) : (
-        <ResponsiveTable containerStyle={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }} style={{ minWidth: '800px' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '30px' }}></th>
-                  <th style={{ width: '60px' }}></th>
-                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
-                    {t('table.modelName')} {sort === 'name' && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} style={{ fontSize: '0.625rem' }} />}
-                  </th>
-                  <th>{t('table.description')}</th>
-                  <th>{t('table.backend')}</th>
-                  <th>{t('table.sizeVram')}</th>
-                  <th style={{ cursor: 'pointer' }} onClick={() => handleSort('status')}>
-                    {t('table.status')} {sort === 'status' && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} style={{ fontSize: '0.625rem' }} />}
-                  </th>
-                  <th style={{ textAlign: 'right' }}>{t('table.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleModels.map((model, idx) => {
-                  const name = model.name || model.id
-                  const estData = estimates[name]
-                  const sizeDisplay = estData?.sizeDisplay
-                  const ctxEst = estData?.estimates?.[String(contextSize)]
-                  const vramDisplay = ctxEst?.vramDisplay
-                  const vramBytes = ctxEst?.vramBytes
-                  const installing = isInstalling(name)
-                  const progress = getOperationProgress(name)
-                  const fit = fitsGpu(vramBytes)
-                  const isExpanded = expandedRow === idx
-                  const hasVariants = !!model.has_variants
+        <div className={`discover${selectedModel ? ' discover--detail' : ''}`} data-testid="discover">
+          <div className="discover__rail-col">
+            <DiscoverRail
+              models={visibleModels}
+              grouped={grouped}
+              collapsedGroups={collapsedGroups}
+              onToggleGroup={toggleGroup}
+              selectedName={selectedName}
+              onSelect={selectModel}
+              estimates={estimates}
+              contextSize={contextSize}
+              fitsGpu={fitsGpu}
+              isInstalling={isInstalling}
+              getOperationProgress={getOperationProgress}
+              sort={sort}
+              order={order}
+              onSort={handleSort}
+              t={t}
+            />
 
-                  return (
-                    <React.Fragment key={name}>
-                    <tr
-                      onClick={() => {
-                        if (!isExpanded && hasVariants) loadVariants(name)
-                        setExpandedRow(isExpanded ? null : idx)
-                        setExpandedFiles(false)
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {/* Chevron */}
-                      <td style={{ width: 30 }}>
-                        <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', transition: 'transform 150ms' }} />
-                      </td>
-                      {/* Icon */}
-                      <td>
-                        <div style={{
-                          width: 48, height: 48, borderRadius: 'var(--radius-md)',
-                          border: '1px solid var(--color-border-subtle)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: 'var(--color-bg-primary)', overflow: 'hidden',
-                        }}>
-                          {model.icon ? (
-                            <img src={model.icon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                          ) : (
-                            <i className="fas fa-brain" style={{ fontSize: '1.25rem', color: 'var(--color-accent)' }} />
-                          )}
-                        </div>
-                      </td>
+            {totalPages > 1 && (
+              <div className="pagination discover__pager">
+                <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
+                  <i className="fas fa-chevron-left" />
+                </button>
+                <span className="discover__pager-label">{page} / {totalPages}</span>
+                <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label={t('rail.nextPage')}>
+                  <i className="fas fa-chevron-right" />
+                </button>
+              </div>
+            )}
+          </div>
 
-                      {/* Name */}
-                      <td>
-                        <div>
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{name}</span>
-                          {model.trustRemoteCode && (
-                            <div style={{ marginTop: '2px' }}>
-                              <span className="badge badge-error" style={{ fontSize: '0.625rem' }}>
-                                <i className="fas fa-circle-exclamation" /> {t('table.trustRemoteCode')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
+          <div className="discover__pane" data-testid="discover-pane">
+            {selectedModel ? (
+              <DiscoverDetail
+                model={selectedModel}
+                estimate={estimates[selectedName]}
+                contextSize={contextSize}
+                onPickContext={setContextSize}
+                totalGpuMemory={totalGpuMemory}
+                fitsGpu={fitsGpu}
+                installing={isInstalling(selectedName)}
+                progress={getOperationProgress(selectedName)}
+                onInstall={handleInstall}
+                onDelete={handleDelete}
+                onBack={() => selectModel(null)}
+                expandedFiles={expandedFiles}
+                setExpandedFiles={setExpandedFiles}
+                variantData={selectedModel.has_variants ? variantData[selectedName] : null}
+                variantDetails={variantDetails}
+                onLoadVariantDetail={loadVariantDetail}
+                t={t}
+              />
+            ) : (
+              <div className="discover__shelves">
+                <div className="discover__hero">
+                  <span className="discover__hero-eyebrow">{t('shelves.hostLabel')}</span>
+                  <h2 className="discover__hero-title">
+                    {totalGpuMemory > 0
+                      ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
+                      : t('shelves.heroNoGpu', { count: stats.total })}
+                  </h2>
+                  <p className="discover__hero-text">{t('shelves.heroHint')}</p>
+                </div>
 
-                      {/* Description */}
-                      <td>
-                        {(() => {
-                          // Gallery descriptions are Markdown. This cell is a single
-                          // truncated line, so it gets the text without the syntax.
-                          const desc = stripMarkdown(model.description)
-                          return (
-                            <div style={{
-                              fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
-                              maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }} title={desc}>
-                              {desc || '—'}
-                            </div>
-                          )
-                        })()}
-                      </td>
+                {/* The hardware-fit strip is the curation, and here it finally
+                    gets the width to argue for a model rather than list one.
+                    It keeps its own dismissal and collapse state, so someone
+                    who closed it still lands on the pane below. */}
+                <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
 
-                      {/* Backend */}
-                      <td>
-                        {model.backend ? (
-                          <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
-                            {model.backend}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Size / VRAM */}
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          {(sizeDisplay || vramDisplay) ? (
-                            <>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                                {sizeDisplay && sizeDisplay !== '0 B' && (
-                                  <span>{t('table.size', { size: sizeDisplay })}</span>
-                                )}
-                                {sizeDisplay && sizeDisplay !== '0 B' && vramDisplay && vramDisplay !== '0 B' && ' · '}
-                                {vramDisplay && vramDisplay !== '0 B' && (
-                                  <span>{t('table.vram', { vram: vramDisplay })}</span>
-                                )}
-                              </span>
-                              {fit !== null && (
-                                <span style={{ fontSize: '0.6875rem', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                  <i className="fas fa-microchip" style={{ color: fit ? 'var(--color-success)' : 'var(--color-error)' }} />
-                                  <span style={{ color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
-                                    {fit ? t('table.fits') : t('table.mayNotFit')}
-                                  </span>
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td>
-                        {installing ? (
-                          <div className="inline-install">
-                            <div className="inline-install__row">
-                              <div className="operation-spinner" />
-                              <span className="inline-install__label">
-                                {progress > 0 ? t('table.installingPct', { percent: Math.round(progress) }) : `${t('table.installing')}...`}
-                              </span>
-                            </div>
-                            {progress > 0 && (
-                              <div className="operation-bar-container" style={{ flex: 'none', width: '120px', marginTop: 4 }}>
-                                <div className="operation-bar" style={{ width: `${progress}%` }} />
-                              </div>
-                            )}
-                          </div>
-                        ) : model.installed ? (
-                          <span className="badge badge-success">
-                            <i className="fas fa-check-circle" /> {t('table.installed')}
-                          </span>
-                        ) : (
-                          <span className="badge" style={{ background: 'var(--color-surface-sunken)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border-default)' }}>
-                            <i className="fas fa-circle" /> {t('table.notInstalled')}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                          {model.installed ? (
-                            <>
-                              <button className="btn btn-secondary btn-sm" onClick={() => handleInstall(name)} title={t('actions.reinstall')}>
-                                <i className="fas fa-rotate" />
-                              </button>
-                              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(name)} title={t('actions.delete')}>
-                                <i className="fas fa-trash" />
-                              </button>
-                            </>
-                          ) : hasVariants ? (
-                            // Split button: the primary keeps installing the
-                            // auto-selected build, so the default path is
-                            // unchanged. The chevron is the deliberate
-                            // override.
-                            <div style={{ display: 'inline-flex' }}>
-                              <button
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleInstall(name)}
-                                disabled={installing}
-                                title={t('actions.install')}
-                                style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-                              >
-                                <i className="fas fa-download" />
-                              </button>
-                              <button
-                                ref={variantMenuFor === idx ? variantMenuAnchorRef : undefined}
-                                className="btn btn-primary btn-sm"
-                                onClick={() => {
-                                  if (variantMenuFor !== idx) loadVariants(name)
-                                  setVariantMenuFor(variantMenuFor === idx ? null : idx)
-                                }}
-                                aria-haspopup="menu"
-                                aria-expanded={variantMenuFor === idx}
-                                aria-label={t('variants.chooseVariant')}
-                                disabled={installing}
-                                style={{ padding: '0 8px', borderLeft: '1px solid rgba(0,0,0,0.15)', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-                              >
-                                <i className={`fas fa-chevron-${variantMenuFor === idx ? 'up' : 'down'}`} style={{ fontSize: '0.6875rem' }} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={() => handleInstall(name)}
-                              disabled={installing}
-                              title={t('actions.install')}
-                            >
-                              <i className="fas fa-download" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {/* Expanded detail row */}
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan="8" style={{ padding: 0 }}>
-                          <ModelDetail model={model} fit={fit} sizeDisplay={sizeDisplay} vramDisplay={vramDisplay} expandedFiles={expandedFiles} setExpandedFiles={setExpandedFiles} variantData={hasVariants ? variantData[name] : null} variantDetails={variantDetails} onLoadVariantDetail={loadVariantDetail} installing={installing} onInstall={handleInstall} t={t} />
-                        </td>
-                      </tr>
-                    )}
-                    </React.Fragment>
-                  )
-                })}
-              </tbody>
-        </ResponsiveTable>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-            <i className="fas fa-chevron-left" />
-          </button>
-          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', padding: '0 var(--spacing-sm)' }}>
-            {page} / {totalPages}
-          </span>
-          <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-            <i className="fas fa-chevron-right" />
-          </button>
+                <div className="discover__shelf">
+                  <div className="discover__shelf-head">
+                    <h3 className="discover__shelf-title">{t('shelves.browsing')}</h3>
+                    <span className="discover__shelf-meta">{t('rail.loadedCount', { count: visibleModels.length })}</span>
+                  </div>
+                  <p className="discover__shelf-hint">{t('shelves.pickHint')}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -810,96 +694,7 @@ export default function Models() {
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => setConfirmDialog(null)}
       />
-
-      <VariantMenu
-        anchor={variantMenuAnchorRef}
-        model={variantMenuFor !== null ? visibleModels[variantMenuFor] : null}
-        variantData={variantData}
-        onClose={() => setVariantMenuFor(null)}
-        onChoose={handleInstall}
-        t={t}
-      />
     </div>
-  )
-}
-
-// VariantMenu is the split-button dropdown. It is one instance re-anchored to
-// whichever row is active, so Escape, outside-click and focus return come from
-// Popover rather than being reimplemented per row.
-function VariantMenu({ anchor, model, variantData, onClose, onChoose, t }) {
-  const name = model ? (model.name || model.id) : null
-  const data = name ? variantData[name] : null
-  return (
-    <Popover
-      anchor={anchor}
-      open={!!model}
-      onClose={onClose}
-      ariaLabel={t('variants.chooseVariant')}
-    >
-      <div className="action-menu">
-        {data?.loading && (
-          // The description is a round trip, so the menu says so rather than
-          // opening empty and looking broken.
-          <div className="action-menu__item" style={{ color: 'var(--color-text-muted)', cursor: 'default' }}>
-            <i className="fas fa-spinner fa-spin action-menu__icon" />
-            <span>{t('variants.loading')}</span>
-          </div>
-        )}
-        {(data?.variants || []).map(v => {
-          const isAuto = v.model === data?.auto_selected
-          return (
-            <button
-              key={v.model}
-              type="button"
-              className="action-menu__item"
-              onClick={() => {
-                onClose()
-                if (name) onChoose(name, v.model)
-              }}
-              // A variant that does not fit stays selectable: an explicit
-              // choice is an override the server honours with a warning.
-              style={{ opacity: v.fits ? 1 : 0.6 }}
-            >
-              <i className={`fas ${isAuto ? 'fa-circle-check' : 'fa-download'} action-menu__icon`} />
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                <span>
-                  {v.model}
-                  {isAuto && <span className="badge badge-success" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.auto')}</span>}
-                  {v.is_base && <span className="badge badge-info" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.base')}</span>}
-                  {!v.fits && <span className="badge badge-warning" style={{ fontSize: '0.625rem', marginLeft: 6 }}>{t('variants.doesNotFit')}</span>}
-                  {/* The bare token, not the spelled-out name: a dropdown item
-                      has room for a marker, and the sentence explaining what
-                      the marker means belongs in the detail row. */}
-                  {(v.features || []).map(f => (
-                    <span
-                      key={f}
-                      className="badge badge-info"
-                      style={{ fontSize: '0.625rem', marginLeft: 6 }}
-                      title={variantFeatureLabel(f, t)}
-                    >
-                      {f.toUpperCase()}
-                    </span>
-                  ))}
-                </span>
-                {/* Quantization joins backend and size on the one meta line
-                    because it is what most often separates two rows here:
-                    builds of the same model routinely share a backend and land
-                    within a gigabyte of each other, so without it the line
-                    describes nothing the user is actually choosing between.
-                    Joined by filter so a build that names no weight format
-                    drops the segment and its separator rather than rendering a
-                    dangling dot. */}
-                <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                  {[v.backend || t('variants.unknownBackend'), v.quantization, variantSizeLabel(v, t)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
-    </Popover>
   )
 }
 
@@ -1214,6 +1009,384 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           )}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// Rail groups, in the order they appear. A group's tags are matched against the
+// entry's own, first match wins, so an entry lands in exactly one bucket and
+// the rail stays a list rather than becoming a set of overlapping views.
+const RAIL_GROUPS = [
+  { id: 'text', labelKey: 'groups.text', icon: 'fa-brain', tags: ['chat'] },
+  { id: 'vision', labelKey: 'groups.vision', icon: 'fa-eye', tags: ['vision', 'multimodal', 'detection'] },
+  { id: 'audio', labelKey: 'groups.audio', icon: 'fa-wave-square', tags: ['tts', 'transcript', 'diarization', 'sound_classification', 'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
+  { id: 'visual', labelKey: 'groups.visual', icon: 'fa-image', tags: ['image', 'video', '3d'] },
+  { id: 'other', labelKey: 'groups.other', icon: 'fa-cube', tags: [] },
+]
+
+function groupForModel(model) {
+  const tags = model.tags || []
+  for (const g of RAIL_GROUPS) {
+    if (g.tags.length > 0 && g.tags.some(tag => tags.includes(tag))) return g
+  }
+  return RAIL_GROUPS[RAIL_GROUPS.length - 1]
+}
+
+// DiscoverRail is the scannable half of the split: one line per entry, grouped
+// while browsing and flat while searching.
+//
+// Counts are deliberately phrased as "loaded", not as a share of the catalog.
+// The listing is paginated server-side, so this component only ever sees one
+// page; a header claiming a catalog total would be inventing a number it has
+// no way to know.
+function DiscoverRail({
+  models, grouped, collapsedGroups, onToggleGroup, selectedName, onSelect,
+  estimates, contextSize, fitsGpu, isInstalling, getOperationProgress,
+  sort, order, onSort, t,
+}) {
+  const railRef = useRef(null)
+
+  // Up/Down moves the selection so the pane can be stepped through without
+  // returning to the mouse. Held on the container rather than per row, so it
+  // keeps working while focus sits on the row that was just selected.
+  const onKeyDown = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    const names = Array.from(railRef.current?.querySelectorAll('[data-model]') || [])
+      .map(el => el.dataset.model)
+    if (names.length === 0) return
+    e.preventDefault()
+    // Both the list and each entry carry this handler, so whichever one has
+    // focus must consume the key rather than let the other act on it too.
+    e.stopPropagation()
+    const at = names.indexOf(selectedName)
+    const next = e.key === 'ArrowDown'
+      ? (at < 0 ? 0 : Math.min(names.length - 1, at + 1))
+      : (at < 0 ? names.length - 1 : Math.max(0, at - 1))
+    onSelect(names[next])
+    railRef.current?.querySelector(`[data-model="${CSS.escape(names[next])}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }
+
+  const renderItem = (model) => (
+    <RailItem
+      key={model.name || model.id}
+      model={model}
+      selected={(model.name || model.id) === selectedName}
+      onSelect={onSelect}
+      estimates={estimates}
+      contextSize={contextSize}
+      fitsGpu={fitsGpu}
+      installing={isInstalling(model.name || model.id)}
+      progress={getOperationProgress(model.name || model.id)}
+      onKeyDown={onKeyDown}
+      t={t}
+    />
+  )
+
+  const sortButton = (key, label) => (
+    <button
+      type="button"
+      className={`discover__sort-btn${sort === key ? ' active' : ''}`}
+      aria-pressed={sort === key}
+      onClick={() => onSort(key)}
+    >
+      {label}
+      {sort === key && (
+        <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />
+      )}
+    </button>
+  )
+
+  return (
+    <div className="discover__rail">
+      <div className="discover__rail-head">
+        <span className="discover__rail-count">{t('rail.loadedCount', { count: models.length })}</span>
+        <div className="discover__sort" role="group" aria-label={t('rail.sortLabel')}>
+          {sortButton('name', t('table.modelName'))}
+          {sortButton('status', t('table.status'))}
+        </div>
+      </div>
+
+      <div
+        className="discover__rail-list"
+        role="listbox"
+        aria-label={t('title')}
+        tabIndex={0}
+        ref={railRef}
+        onKeyDown={onKeyDown}
+      >
+        {grouped
+          ? RAIL_GROUPS.map(group => {
+            const inGroup = models.filter(m => groupForModel(m).id === group.id)
+            if (inGroup.length === 0) return null
+            const open = !collapsedGroups.has(group.id)
+            return (
+              <div className="discover__group" key={group.id}>
+                <button
+                  type="button"
+                  className="discover__group-head"
+                  aria-expanded={open}
+                  data-testid={`discover-group-${group.id}`}
+                  onClick={() => onToggleGroup(group.id)}
+                >
+                  <i className={`fas fa-chevron-${open ? 'down' : 'right'} discover__group-caret`} aria-hidden="true" />
+                  <i className={`fas ${group.icon} discover__group-icon`} aria-hidden="true" />
+                  <span className="discover__group-label">{t(group.labelKey)}</span>
+                  <span className="discover__group-count">{inGroup.length}</span>
+                </button>
+                {open && inGroup.map(renderItem)}
+              </div>
+            )
+          })
+          : models.map(renderItem)}
+      </div>
+    </div>
+  )
+}
+
+// RailItem is one line: what it is, and whether it will run here. Anything that
+// needs a sentence belongs in the pane.
+function RailItem({ model, selected, onSelect, estimates, contextSize, fitsGpu, installing, progress, onKeyDown, t }) {
+  const name = model.name || model.id
+  const est = estimates[name]
+  const sizeDisplay = est?.sizeDisplay
+  const vramBytes = est?.estimates?.[String(contextSize)]?.vramBytes
+  const fit = fitsGpu(vramBytes)
+  const hasSize = sizeDisplay && sizeDisplay !== '0 B'
+
+  let meta = model.backend || ''
+  let metaModifier = ''
+  if (installing) {
+    meta = progress > 0 ? t('rail.downloadingPct', { percent: Math.round(progress) }) : t('table.installing')
+    metaModifier = ' discover__rail-meta--busy'
+  } else if (model.installed) {
+    meta = t('table.installed')
+    metaModifier = ' discover__rail-meta--installed'
+  } else if (hasSize && fit === false) {
+    meta = t('rail.tooLarge', { size: sizeDisplay })
+    metaModifier = ' discover__rail-meta--unfit'
+  } else if (hasSize && fit === true) {
+    meta = t('rail.fitsSize', { size: sizeDisplay })
+  } else if (hasSize) {
+    meta = sizeDisplay
+  }
+
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      data-model={name}
+      data-testid="discover-rail-item"
+      className={`discover__item${selected ? ' discover__item--on' : ''}`}
+      onClick={() => onSelect(name)}
+      onKeyDown={onKeyDown}
+    >
+      <i className={`fas ${groupForModel(model).icon} discover__item-icon`} aria-hidden="true" />
+      <span className="discover__item-main">
+        <span className="discover__item-name">{name}</span>
+        <span className={`discover__rail-meta${metaModifier}`}>{meta}</span>
+      </span>
+    </button>
+  )
+}
+
+// VramByContext plots the estimate the fits filter actually tests against, at
+// every context length the page asks the server for.
+//
+// It exists because a single number answers the wrong question. "Needs 6.2 GB"
+// invites "so will it run?", and the honest answer is usually "yes, up to a
+// 32k context" - which is a shape, not a number. The limit line is what makes
+// the bars mean anything, so a host with no GPU gets no chart at all rather
+// than a chart with nothing to compare against.
+function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t }) {
+  if (!(totalGpuMemory > 0)) return null
+  const points = CONTEXT_SIZES
+    .map((ctx, i) => ({ ctx, label: CONTEXT_LABELS[i], bytes: estimate?.estimates?.[String(ctx)]?.vramBytes || 0 }))
+    .filter(p => p.bytes > 0)
+  // One bar compares with nothing; the stat grid already states that number.
+  if (points.length < 2) return null
+
+  const limit = totalGpuMemory * 0.95
+  const max = Math.max(limit, ...points.map(p => p.bytes)) * 1.12
+  const over = points.filter(p => p.bytes > limit).length
+  const lastFitting = points.reduce((acc, p) => (p.bytes <= limit ? p : acc), null)
+
+  let verdictClass = 'ok'
+  let verdict = t('chart.fitsEverywhere')
+  if (over === points.length) {
+    verdictClass = 'bad'
+    verdict = t('chart.fitsNowhere')
+  } else if (over > 0) {
+    verdictClass = over === 1 ? 'warn' : 'bad'
+    verdict = t('chart.fitsUpTo', { context: lastFitting.label })
+  }
+
+  // Heights are resolved in pixels against a known plot height rather than as
+  // percentages. A percentage would resolve against the column box, which also
+  // holds the value label, so the tallest bars would overflow it.
+  const track = CHART_HEIGHT - CHART_LABEL_ROOM
+
+  return (
+    <div className="discover__chart">
+      <span className="discover__chart-title">{t('chart.title')}</span>
+      <div className="discover__chart-plot">
+        <div
+          className="discover__chart-limit"
+          style={{ '--discover-limit': `${(limit / max) * track}px` }}
+        >
+          <span className="discover__chart-limit-label">{t('chart.available', { vram: formatBytes(totalGpuMemory) })}</span>
+        </div>
+        {points.map(p => {
+          const unfit = p.bytes > limit
+          return (
+            <button
+              type="button"
+              key={p.ctx}
+              className={`discover__chart-col${p.ctx === contextSize ? ' discover__chart-col--on' : ''}`}
+              aria-pressed={p.ctx === contextSize}
+              // The bars read the context size out and set it: the slider in
+              // the filter band writes the same value, and picking the length
+              // you care about here is the same gesture as reading its bar.
+              onClick={() => onPickContext(p.ctx)}
+              title={t('chart.barTitle', { context: p.label, vram: formatBytes(p.bytes) })}
+            >
+              <span className="discover__chart-value">{formatBytes(p.bytes)}</span>
+              <span
+                className={`discover__chart-bar${unfit ? ' discover__chart-bar--over' : ''}`}
+                style={{ '--discover-bar': `${(p.bytes / max) * track}px` }}
+              />
+            </button>
+          )
+        })}
+      </div>
+      {/* The axis is its own row so every column shares one baseline, which a
+          label inside each column cannot guarantee once the values above them
+          wrap differently. */}
+      <div className="discover__chart-axis" aria-hidden="true">
+        {points.map(p => (
+          <span key={p.ctx} className={p.ctx === contextSize ? 'discover__chart-axis-on' : undefined}>{p.label}</span>
+        ))}
+      </div>
+      <p className={`discover__chart-verdict discover__chart-verdict--${verdictClass}`}>
+        <i className="fas fa-microchip" aria-hidden="true" /> {verdict}
+      </p>
+    </div>
+  )
+}
+
+// DiscoverDetail is the pane with a model selected. It owns the part a table
+// row could not hold - the headline numbers, the VRAM curve and the actions -
+// and hands the rest to ModelDetail, which already knows how to render an
+// entry's fields and is shared with the per-variant panel.
+function DiscoverDetail({
+  model, estimate, contextSize, onPickContext, totalGpuMemory, fitsGpu,
+  installing, progress, onInstall, onDelete, onBack,
+  expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
+}) {
+  const name = model.name || model.id
+  const sizeDisplay = estimate?.sizeDisplay
+  const vramBytes = estimate?.estimates?.[String(contextSize)]?.vramBytes
+  const fit = fitsGpu(vramBytes)
+  const contextLabel = CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]
+  const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
+
+  return (
+    <div className="discover__detail">
+      <button type="button" className="discover__back" onClick={onBack} data-testid="discover-back">
+        <i className="fas fa-arrow-left" aria-hidden="true" /> {t('detail.backToAll')}
+      </button>
+
+      <div className="discover__detail-head">
+        <i className={`fas ${groupForModel(model).icon} discover__detail-icon`} aria-hidden="true" />
+        <div className="discover__detail-title">
+          <h2 className="discover__detail-name">{name}</h2>
+          {/* Capped, with the whole of it on the title so nothing is lost to the
+              truncation. The rendered Markdown follows further down the pane. */}
+          {model.description && (
+            <p className="discover__detail-lede" title={stripMarkdown(model.description)}>
+              {stripMarkdown(model.description).slice(0, 220)}
+            </p>
+          )}
+        </div>
+        <div className="discover__detail-actions">
+          {installing ? (
+            <div className="inline-install">
+              <div className="inline-install__row">
+                <div className="operation-spinner" />
+                <span className="inline-install__label">
+                  {progress > 0 ? t('table.installingPct', { percent: Math.round(progress) }) : `${t('table.installing')}...`}
+                </span>
+              </div>
+              {progress > 0 && (
+                <div className="operation-bar-container discover__progress">
+                  <div className="operation-bar" style={{ width: `${progress}%` }} />
+                </div>
+              )}
+            </div>
+          ) : model.installed ? (
+            <>
+              <button className="btn btn-secondary btn-sm" onClick={() => onInstall(name)}>
+                <i className="fas fa-rotate" /> {t('actions.reinstall')}
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={() => onDelete(name)}>
+                <i className="fas fa-trash" /> {t('actions.delete')}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={() => onInstall(name)} data-testid="discover-install">
+              <i className="fas fa-download" /> {t('actions.install')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {model.trustRemoteCode && (
+        <p className="discover__warning">
+          <i className="fas fa-circle-exclamation" aria-hidden="true" /> {t('detail.requiresTrustRemoteCode')}
+        </p>
+      )}
+
+      <dl className="discover__stats">
+        <div className="discover__stat">
+          <dt>{t('detail.size')}</dt>
+          <dd>{sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—'}</dd>
+        </div>
+        <div className="discover__stat">
+          <dt>{t('detail.vramAt', { context: contextLabel })}</dt>
+          <dd>{vramBytes ? formatBytes(vramBytes) : '—'}</dd>
+        </div>
+        <div className="discover__stat">
+          <dt>{t('detail.headroom')}</dt>
+          <dd className={headroom === null ? '' : headroom < 0 ? 'discover__stat--bad' : 'discover__stat--ok'}>
+            {headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom))}
+          </dd>
+        </div>
+      </dl>
+
+      <VramByContext
+        estimate={estimate}
+        contextSize={contextSize}
+        onPickContext={onPickContext}
+        totalGpuMemory={totalGpuMemory}
+        t={t}
+      />
+
+      {/* sizeDisplay and vramDisplay are withheld: the stat grid above already
+          states both, and ModelDetail drops a row whose value is empty. */}
+      <ModelDetail
+        model={model}
+        fit={fit}
+        expandedFiles={expandedFiles}
+        setExpandedFiles={setExpandedFiles}
+        variantData={variantData}
+        variantDetails={variantDetails}
+        onLoadVariantDetail={onLoadVariantDetail}
+        installing={installing}
+        onInstall={onInstall}
+        nested
+        t={t}
+      />
     </div>
   )
 }
