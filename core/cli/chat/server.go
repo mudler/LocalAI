@@ -35,6 +35,23 @@ const (
 	// shutdownGrace is how long a server we started gets to unload models and
 	// stop its backends after SIGINT before it is killed outright.
 	shutdownGrace = 10 * time.Second
+	// childOutputDrainDelay bounds how long cmd.Wait keeps copying the child's
+	// output after the child itself has exited.
+	//
+	// This is not a theoretical guard for LocalAI. 'local-ai run' spawns backend
+	// subprocesses, and they inherit the write end of the pipe exec created for
+	// the child's stderr. A backend that outlives its parent holds that pipe
+	// open, so an unbounded cmd.Wait would block on the copy goroutine long
+	// after the server itself is gone: exited would never close, Stop would burn
+	// its whole grace period even on a clean shutdown, and the waiter goroutine
+	// would leak.
+	//
+	// The value is long enough that a legitimate final burst of logs is never
+	// truncated even on a loaded machine, where the copy itself takes
+	// microseconds. It must stay strictly below shutdownGrace: at or above it,
+	// every wedged-pipe shutdown would exhaust the grace period and then SIGKILL
+	// a process that had already exited cleanly.
+	childOutputDrainDelay = 5 * time.Second
 )
 
 // Confirmer asks a yes/no question. Nil means the session is not interactive.
@@ -58,7 +75,6 @@ type StartOptions struct {
 
 // StartedServer is a server this process started and is responsible for.
 type StartedServer struct {
-	cmd *exec.Cmd
 	// exited is closed once the child has been reaped. One background waiter
 	// owns cmd.Wait: it may only be called once, and it is what closes the
 	// pipes exec created for Stdout/Stderr and joins the goroutines copying
@@ -68,7 +84,28 @@ type StartedServer struct {
 	// closed and must only be read after that channel is observed closed.
 	waitErr error
 
+	// interrupt and kill are fields rather than direct calls on the process so
+	// that Stop's contract, in particular that the child is asked to stop
+	// exactly once however often Stop is called, can be pinned without a live
+	// process to signal. A nil interrupt means nothing was ever started.
+	interrupt func() error
+	kill      func() error
+
 	stopOnce sync.Once
+}
+
+// newServerCommand builds the child process. Split out from OfferToStart so the
+// process' configuration can be asserted on without spawning anything.
+func newServerCommand(bin string, stderr io.Writer) *exec.Cmd {
+	cmd := exec.Command(bin, "run")
+	// Stdin is left nil, so the child gets /dev/null: it is a background
+	// server, and sharing the terminal would have it stealing keystrokes from
+	// the chat REPL.
+	cmd.Stdout = stderr // the child's logs are diagnostics, not chat output
+	cmd.Stderr = stderr
+	// Bound the wait for the child's output pipes; see childOutputDrainDelay.
+	cmd.WaitDelay = childOutputDrainDelay
+	return cmd
 }
 
 // OfferToStart asks whether to start a LocalAI server and, if allowed, spawns
@@ -99,17 +136,16 @@ func OfferToStart(ctx context.Context, opts StartOptions) (*StartedServer, error
 		}
 	}
 
-	cmd := exec.Command(bin, "run")
-	// Stdin is left nil, so the child gets /dev/null: it is a background
-	// server, and sharing the terminal would have it stealing keystrokes from
-	// the chat REPL.
-	cmd.Stdout = opts.Stderr // the child's logs are diagnostics, not chat output
-	cmd.Stderr = opts.Stderr
+	cmd := newServerCommand(bin, opts.Stderr)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting a LocalAI server with %s: %w", bin, err)
 	}
 
-	s := &StartedServer{cmd: cmd, exited: make(chan struct{})}
+	s := &StartedServer{
+		exited:    make(chan struct{}),
+		interrupt: func() error { return cmd.Process.Signal(os.Interrupt) },
+		kill:      cmd.Process.Kill,
+	}
 	go func() {
 		s.waitErr = cmd.Wait()
 		close(s.exited)
@@ -135,21 +171,23 @@ func OfferToStart(ctx context.Context, opts StartOptions) (*StartedServer, error
 // down cleanly first. It is safe to call on a nil or never-started server, and
 // safe to call more than once.
 func (s *StartedServer) Stop() {
-	if s == nil || s.cmd == nil || s.cmd.Process == nil {
+	if s == nil || s.interrupt == nil {
 		return
 	}
 	s.stopOnce.Do(func() {
 		// SIGINT rather than SIGKILL: local-ai run installs its own handler and
 		// needs it to unload models and stop backend subprocesses. Killing it
 		// outright would strand those children.
-		_ = s.cmd.Process.Signal(os.Interrupt)
+		_ = s.interrupt()
 
 		select {
 		case <-s.exited:
 		case <-time.After(shutdownGrace):
 			// It ignored the interrupt or wedged on the way down. The user is
 			// waiting on their shell prompt, so stop being polite.
-			_ = s.cmd.Process.Kill()
+			if s.kill != nil {
+				_ = s.kill()
+			}
 		}
 	})
 }

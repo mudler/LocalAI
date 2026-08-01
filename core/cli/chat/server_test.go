@@ -6,7 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -108,6 +113,61 @@ var _ = Describe("OfferToStart", func() {
 		Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second),
 			"the wait should end with the process, not with the readiness budget")
 	})
+
+	It("gives up on a child whose grandchildren still hold its output pipe", func() {
+		// The real LocalAI shape: 'local-ai run' exits but a backend
+		// subprocess it spawned inherited the stderr pipe and keeps it open.
+		// Without cmd.WaitDelay, cmd.Wait blocks on the copy goroutine, exited
+		// never closes, and the readiness wait runs out the full budget instead
+		// of reporting that the server died.
+		sh, lookErr := exec.LookPath("sh")
+		if lookErr != nil {
+			Skip("no 'sh' binary on PATH to stand in for a server with a lingering child")
+		}
+
+		dir := GinkgoT().TempDir()
+		pidFile := filepath.Join(dir, "grandchild.pid")
+		script := filepath.Join(dir, "server-with-lingering-child")
+		// #nosec G306 -- this has to be executable to stand in for a binary.
+		Expect(os.WriteFile(script,
+			[]byte("#!"+sh+"\nsleep 30 &\necho $! > "+pidFile+"\nexit 0\n"),
+			0o700)).To(Succeed())
+
+		// Reap the grandchild whatever happens: it outlives its own parent by
+		// design, so nothing else will clean it up.
+		DeferCleanup(func() {
+			raw, err := os.ReadFile(pidFile)
+			if err != nil {
+				return
+			}
+			pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+			if err != nil {
+				return
+			}
+			proc, err := os.FindProcess(pid)
+			if err != nil {
+				return
+			}
+			_ = proc.Kill()
+			_, _ = proc.Wait()
+		})
+
+		start := time.Now()
+		started, err := OfferToStart(context.Background(), StartOptions{
+			Endpoint:     unusedPort,
+			Confirm:      func(string) (bool, error) { return true, nil },
+			Stderr:       io.Discard,
+			Executable:   script,
+			ReadyTimeout: 25 * time.Second,
+		})
+		elapsed := time.Since(start)
+
+		Expect(started).To(BeNil())
+		Expect(err).To(MatchError(ContainSubstring("exited before it became ready")),
+			"an unbounded cmd.Wait would report a readiness timeout instead")
+		Expect(elapsed).To(BeNumerically("<", 20*time.Second),
+			"the wait must be bounded by the output drain, not by the readiness budget")
+	})
 })
 
 var _ = Describe("StartedServer.Stop", func() {
@@ -116,17 +176,95 @@ var _ = Describe("StartedServer.Stop", func() {
 		Expect(nilServer.Stop).NotTo(Panic())
 		Expect((&StartedServer{}).Stop).NotTo(Panic())
 	})
+
+	It("interrupts the child exactly once however often it is called", func() {
+		s, interrupts, kills := stoppableServer()
+
+		s.Stop()
+		s.Stop()
+		s.Stop()
+
+		Expect(interrupts.Load()).To(Equal(int32(1)),
+			"a second Stop must not signal the child again")
+		Expect(kills.Load()).To(BeZero(), "a child that already exited must not be killed")
+	})
+
+	It("interrupts the child exactly once when called concurrently", func() {
+		// The realistic double-Stop: a deferred Stop on the way out racing the
+		// signal handler that also owns shutting the server down.
+		const callers = 8
+
+		s, interrupts, kills := stoppableServer()
+
+		var wg sync.WaitGroup
+		wg.Add(callers)
+		for range callers {
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				s.Stop()
+			}()
+		}
+		wg.Wait()
+
+		Expect(interrupts.Load()).To(Equal(int32(1)))
+		Expect(kills.Load()).To(BeZero())
+	})
+})
+
+// stoppableServer builds a StartedServer whose child has already exited, with
+// counters standing in for the signals Stop would send. Nothing is spawned.
+func stoppableServer() (s *StartedServer, interrupts, kills *atomic.Int32) {
+	interrupts = &atomic.Int32{}
+	kills = &atomic.Int32{}
+
+	exited := make(chan struct{})
+	close(exited)
+
+	return &StartedServer{
+		exited:    exited,
+		interrupt: func() error { interrupts.Add(1); return nil },
+		kill:      func() error { kills.Add(1); return nil },
+	}, interrupts, kills
+}
+
+var _ = Describe("newServerCommand", func() {
+	It("bounds how long it will wait for the child's output pipes", func() {
+		cmd := newServerCommand("/nonexistent/binary-that-must-not-run", io.Discard)
+
+		// An unbounded wait is the failure mode: backend subprocesses inherit
+		// the child's stderr pipe and can hold it open long after the server
+		// itself is gone.
+		Expect(cmd.WaitDelay).To(BeNumerically(">", 0), "cmd.Wait must not be unbounded")
+		Expect(cmd.WaitDelay).To(BeNumerically("<", shutdownGrace),
+			"a drain longer than the shutdown grace would kill a cleanly exited server")
+	})
+
+	It("runs the server subcommand without giving it the terminal", func() {
+		cmd := newServerCommand("/nonexistent/binary-that-must-not-run", io.Discard)
+
+		Expect(cmd.Args).To(Equal([]string{"/nonexistent/binary-that-must-not-run", "run"}))
+		Expect(cmd.Stdin).To(BeNil(), "the child must not compete with the REPL for stdin")
+		Expect(cmd.Stdout).NotTo(BeNil())
+		Expect(cmd.Stderr).NotTo(BeNil())
+	})
 })
 
 var _ = Describe("waitReady", func() {
-	It("polls /readyz on the endpoint root and returns once it answers 200", func() {
-		var ready atomic.Bool
+	It("polls /readyz on the endpoint root and returns only once it answers 200", func() {
+		// readyOnPoll is deliberately above 1. A handler that answers 200 to the
+		// first poll cannot tell a correct implementation apart from one that
+		// treats 503 as ready, because both return after a single request; the
+		// poll count is what makes 503-as-ready observable.
+		const readyOnPoll = 3
+
+		var polls atomic.Int32
 		var paths atomic.Value
 		paths.Store("")
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			paths.Store(r.URL.Path)
-			if !ready.Load() {
+			if polls.Add(1) < readyOnPoll {
 				// What LocalAI answers while startup is still in progress.
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
@@ -135,14 +273,10 @@ var _ = Describe("waitReady", func() {
 		}))
 		defer srv.Close()
 
-		go func() {
-			defer GinkgoRecover()
-			time.Sleep(750 * time.Millisecond)
-			ready.Store(true)
-		}()
-
 		Expect(waitReady(context.Background(), srv.URL, 20*time.Second, nil)).To(Succeed())
 		Expect(paths.Load()).To(Equal("/readyz"), "readiness lives on the endpoint root, not under /v1")
+		Expect(polls.Load()).To(BeNumerically(">=", readyOnPoll),
+			"503 means startup is still in progress and must never be accepted as ready")
 	})
 
 	It("tolerates a trailing slash on the endpoint", func() {
