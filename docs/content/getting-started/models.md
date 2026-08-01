@@ -80,6 +80,12 @@ The WebUI provides a powerful model import interface that supports both simple a
    - Custom preferences
 5. Click "Import Model" to start the import process
 
+Repositories under `mlx-community` are imported with the native MLX backend.
+LocalAI uses Hugging Face's pipeline metadata to select `mlx-vlm` for
+vision-language models and `mlx-audio` for text-to-speech models; other MLX
+repositories use `mlx`. An explicit backend selection in the import form always
+overrides this automatic routing.
+
 ### Advanced Import Mode
 
 For full control over model configuration:

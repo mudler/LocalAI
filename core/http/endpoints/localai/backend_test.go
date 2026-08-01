@@ -152,6 +152,7 @@ var _ = Describe("Backend Endpoints", func() {
 			expectPrefOnly("tinygrad", "text")
 			expectPrefOnly("trl", "text")
 			expectPrefOnly("mlx-vlm", "text")
+			expectPrefOnly("mlx-audio", "tts")
 			expectPrefOnly("whisperx", "asr")
 			expectPrefOnly("crispasr", "asr")
 			expectPrefOnly("kokoros", "tts")
