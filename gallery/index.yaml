@@ -1,4 +1,70 @@
 ---
+- name: "qwen3.5-9b-the-defiant-fable-uncensored-heretic-neo-imatrix-max-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF
+  description: |
+    ABSOLUTE FIRE: 640 ARC-C for both 8bit and 4bit. Model exceeds 7 of 7 benchmarks for Qwen 3.5 9B, Qwen3.5 27B, Qwen3.6 35B-A3B, and meets Qwen 3.6 27B in some cases...
+    and it does so in 4bit and 8bit. Regular and MTP (fast) NEO IMATRIX GGUFs provided.
+
+    Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF
+
+    Extreme intelligence in a small package. Jaw dropping performance. Superior instruction following.
+
+    A multi-stage and multi-model fine tune and multi-stage merge on local hardware by myself and Nightmedia.
+
+    Several of my 9B Qwen 3.5 fine tunes were used to make this model.
+
+    The goal of this model was to raise the general intelligence of the model AND instruction following. Getting these right raises the performance of the model from top to bottom.
+    Keep in mind, even thou this model EXCEEDS 7 critical benchmarks of Qwen 3.5 27B model, that does not mean it will beat the 27B in all tasks.
+
+    This is also a HERETIC model, trained post "Heretic'ing" -> this model does what you want, no questions asked.
+
+    Also: Thinking/reasoning block has been compacted, and in many cases it is a lot stronger.
+
+    Fully uncensored.
+
+    Benchmarks below.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  icon: https://qianwen-res.oss-accelerate-overseas.aliyuncs.com/Qwen3.5/Figures/qwen3.5_small_size_score.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M.gguf
+      sha256: d7eb4fac9389d53fa576f64a6ff53e914a00bc7705dc354d1065887565147320
+      uri: https://huggingface.co/DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/resolve/main/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M/mmproj-F32.gguf
+      sha256: a1cd5c1625b44dd0facaec998020e9b36cb78c2225eaee701e73bf2e5b051ce2
+      uri: https://huggingface.co/DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "deepseek-v4-flash-0731"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
