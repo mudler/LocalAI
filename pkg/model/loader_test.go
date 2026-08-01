@@ -65,7 +65,7 @@ var _ = Describe("ModelLoader", func() {
 
 	BeforeEach(func() {
 		// Setup the model loader with a test directory
-		modelPath = "/tmp/test_model_path"
+		modelPath = filepath.Join(os.TempDir(), "test_model_path")
 		os.Mkdir(modelPath, 0755)
 
 		systemState, err := system.GetSystemState(
