@@ -6054,14 +6054,14 @@
     - instruction-tuned
     - code
     - math
-  last_checked: "2026-07-28"
+  last_checked: "2026-08-01"
   overrides:
     parameters:
-      model: nanbeige4.2-3b-Q8_0.gguf
+      model: Nanbeige4.2-3B-Q8_0.gguf
   files:
-    - filename: nanbeige4.2-3b-Q8_0.gguf
-      sha256: 44707bb25e7ba3f2b0b5f3c2311da95ee3676986dd2014ce2aaeb14113590e33
-      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q8_0.gguf
+    - filename: Nanbeige4.2-3B-Q8_0.gguf
+      sha256: 4f8bd17cdf58bea2a94aef03457e0b8f019c26fe4daee7ae49b61bfa935a9126
+      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/Nanbeige4.2-3B-Q8_0.gguf
 - name: nanbeige4.2-3b
   url: github:mudler/LocalAI/gallery/nanbeige4.2.yaml@master
   urls:
@@ -6084,16 +6084,16 @@
     - instruction-tuned
     - code
     - math
-  last_checked: "2026-07-28"
+  last_checked: "2026-08-01"
   variants:
     - model: nanbeige4.2-3b-q8
   overrides:
     parameters:
-      model: nanbeige4.2-3b-Q4_K_M.gguf
+      model: Nanbeige4.2-3B-Q4_K_M.gguf
   files:
-    - filename: nanbeige4.2-3b-Q4_K_M.gguf
-      sha256: 9ffd17d14472ff208409b3f51a6d87a5e5ec1b878b9a6f4dfe15c2a883366104
-      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q4_K_M.gguf
+    - filename: Nanbeige4.2-3B-Q4_K_M.gguf
+      sha256: ffe1b9b8ee95ec4b962c379905aa8be6f72ae9c4645c6c70e3b6ff7b197e6ef4
+      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/Nanbeige4.2-3B-Q4_K_M.gguf
 - name: nemo-parakeet-tdt-0.6b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
