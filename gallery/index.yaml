@@ -941,6 +941,90 @@
     - filename: llama-cpp/mmproj/inkling-UD-Q4_K_XL/mmproj-BF16.gguf
       sha256: 662c925e1df293cfba16ffd6bd53dac31d3c73160ba65dff7270d7a70f351e91
       uri: https://huggingface.co/unsloth/inkling-GGUF/resolve/main/mmproj-BF16.gguf
+- &inkling-small
+  name: "inkling-small"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-Small
+    - https://huggingface.co/unsloth/Inkling-Small-GGUF
+  description: |
+    Inkling Small is a 276B-parameter mixture-of-experts multimodal model with 12B active parameters for text, image, and audio understanding, instruction following, coding, and tool use. This entry uses the Q4_K_M GGUF quantization, whose five language-model shards total approximately 162.5 GB.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - audio
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Inkling-Small-UD-Q4_K_M/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Inkling-Small-UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00001-of-00005.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Inkling-Small-UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00001-of-00005.gguf
+      sha256: a51ac3f439198f2817219edd582be4b600c273be24e78cbd58ebff982d9f007e
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00001-of-00005.gguf
+    - filename: llama-cpp/models/Inkling-Small-UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00002-of-00005.gguf
+      sha256: 3dccdd473cc3a191e6028f6105b01831ed3a8dc30ec4e02679f9e0c2ccb59671
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00002-of-00005.gguf
+    - filename: llama-cpp/models/Inkling-Small-UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00003-of-00005.gguf
+      sha256: 1a7edf29bda1d278b4668e1a082d7db634b845a53ea58c918a8cea1f9006c21c
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00003-of-00005.gguf
+    - filename: llama-cpp/models/Inkling-Small-UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00004-of-00005.gguf
+      sha256: 376f67568438da96b10566730e8a9e17e3f665ab1b9d82eba48ec33708b172f7
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00004-of-00005.gguf
+    - filename: llama-cpp/models/Inkling-Small-UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00005-of-00005.gguf
+      sha256: e34364af0d04d2d295bc374f1a4fa80002e4277db1bcf4b56240dbd443ac21d3
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-Q4_K_M/Inkling-Small-UD-Q4_K_M-00005-of-00005.gguf
+    - filename: llama-cpp/mmproj/Inkling-Small-UD-Q4_K_M/mmproj-BF16.gguf
+      sha256: 05d4475a956030be87b099865d6552a541a476db8cc3e266fcfa7c5a24846248
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/mmproj-BF16.gguf
+  variants:
+    - model: inkling-small-iq2-m
+- !!merge <<: *inkling-small
+  name: "inkling-small-iq2-m"
+  description: |
+    Inkling Small is a 276B-parameter mixture-of-experts multimodal model with 12B active parameters for text, image, and audio understanding, instruction following, coding, and tool use. This entry uses the IQ2_M GGUF quantization, whose three language-model shards total approximately 82.4 GB.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Inkling-Small-UD-IQ2_M/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Inkling-Small-UD-IQ2_M/Inkling-Small-UD-IQ2_M-00001-of-00003.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Inkling-Small-UD-IQ2_M/Inkling-Small-UD-IQ2_M-00001-of-00003.gguf
+      sha256: 3b6ace30e488ad26e816cdba4e42714f40110a3142a210bd5c2e48f69e27cb31
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-IQ2_M/Inkling-Small-UD-IQ2_M-00001-of-00003.gguf
+    - filename: llama-cpp/models/Inkling-Small-UD-IQ2_M/Inkling-Small-UD-IQ2_M-00002-of-00003.gguf
+      sha256: 5ca94e858ae116eb513a2af1facd35844d42ef4a209e1d85cc4ecc73cd21b894
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-IQ2_M/Inkling-Small-UD-IQ2_M-00002-of-00003.gguf
+    - filename: llama-cpp/models/Inkling-Small-UD-IQ2_M/Inkling-Small-UD-IQ2_M-00003-of-00003.gguf
+      sha256: 8a84e00d4625d52491969f88f24f0999bc77527b7fa1d15cbe44ef88235bb377
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/UD-IQ2_M/Inkling-Small-UD-IQ2_M-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/Inkling-Small-UD-IQ2_M/mmproj-BF16.gguf
+      sha256: 05d4475a956030be87b099865d6552a541a476db8cc3e266fcfa7c5a24846248
+      uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/mmproj-BF16.gguf
+  variants: []
 - name: "qwythos-9b-v2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
