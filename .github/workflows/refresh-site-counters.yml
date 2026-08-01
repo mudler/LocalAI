@@ -1,0 +1,44 @@
+name: Refresh site counters
+
+# The landing page shows a star count, a contributor count and a release
+# count. They were typed in by hand, so they drifted the moment somebody
+# forgot. This pulls the real numbers once a week and commits them only when
+# they have actually moved, which in turn triggers the usual Pages deploy.
+
+on:
+  schedule:
+    # Mondays, 06:17 UTC. Off the hour on purpose, since the scheduler queues
+    # everything that asks for :00 and drops what it cannot run.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-site-counters
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the counts off the GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./.github/ci/refresh-site-counters.sh
+
+      - name: Commit only if something moved
+        run: |
+          if git diff --quiet -- website/data/stats.yaml; then
+            echo "counters unchanged, nothing to commit"
+            exit 0
+          fi
+          git diff --unified=0 -- website/data/stats.yaml
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/data/stats.yaml
+          git commit -m "chore(website): refresh the counters"
+          git push

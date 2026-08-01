@@ -125,7 +125,7 @@ The per-backend prefix match only sees files under a backend's own directory, so
 | `backend/backend.proto` | nothing if the edit is additive-only, otherwise everything (see below) |
 | `backend/Dockerfile.<x>` | the Linux entries whose `dockerfile:` names it |
 | `backend/python/common/` | Python, Linux + Darwin |
-| `scripts/build/package-gpu-libs.sh` | Python, Linux only |
+| `scripts/build/package-gpu-libs.sh` | every Linux entry (Python, Go and C++ all run it) |
 | `scripts/build/<lang>-darwin.sh` | the Darwin entries that build target routes to |
 | `.github/workflows/backend_build[_darwin].yml` | everything on that OS |
 | anything else under `scripts/build/` (except `*_test.sh`) | everything — conservative default for unclassified packaging inputs |
@@ -358,6 +358,26 @@ GitHub Actions caches are limited to 10 GB per repo. Steady-state worst case: ~8
 `.github/backend-matrix.yml` has zero references to `arc-runner-set` or `bigger-runner` — all backends run on GHA free-tier hosted runners (`ubuntu-latest` for amd64, `ubuntu-24.04-arm` for arm64 native, `macos-14` for Darwin). The migration off self-hosted relied on the per-arch native split (no QEMU emulation) plus `setup-build-disk`'s `/mnt` relocation (~100 GB working space, enough for ROCm dev image + vLLM/torch installs).
 
 One residual self-hosted reference remains in `test-extra.yml` (`tests-vibevoice-cpp-grpc-transcription` uses `bigger-runner` for the 30s JFK-decode timeout headroom). That's a separate concern.
+
+### Small always-on jobs routed to `arc-runner-set`
+
+The hosted pool is shared across the whole *account*, not per repo, so a burst in one repo starves the others. On 2026-07-31 it went to **zero scheduled jobs for 35 consecutive minutes** with 39 jobs queued, while `arc-runner-set` completed 12 jobs without interruption over the same window. Actions was healthy globally at the time (other public repos were scheduling normally), so this is an account-level throttle, not an outage.
+
+`gh-pages.yml` (`build` + `deploy`) is therefore routed to `arc-runner-set` when `github.repository == 'mudler/LocalAI'`. It needs no fork-safety clause because it only triggers on push-to-master and `workflow_dispatch`, so it never executes pull-request code. The repository guard keeps forks (which have no such runner label) from queueing forever. It fetches its own toolchains via `setup-go` / `actions-hugo` and uses no `sudo`/`apt`.
+
+#### What the `arc-runner-set` image actually contains
+
+Measured 2026-07-31 on run `30637392862` by a preflight step, not assumed:
+
+| present | **absent** |
+|---|---|
+| `git`, `curl`, `unzip`, `tar`, `ldd`, `python3` | **`make`**, **`gcc`** |
+
+That is why `lint.yml` is **not** on the self-hosted pool. Both of its jobs were routed there and both failed in one second: `golangci-lint` needs `make` (for `make protogen-go`, itself needing `curl`+`unzip` to fetch protoc, and for `make lint`), and `build-scripts` additionally needs a C toolchain because the packaging-script tests compile a throwaway binary and inspect it with `ldd`. Both jobs are back on `ubuntu-latest`.
+
+The preflight steps were deliberately left in place. They cost about a second on the hosted pool and mean that whenever the runner image gains `make` + `gcc`, re-routing is one `runs-on:` line per job and any remaining gap reports itself by name rather than as an opaque mid-build failure.
+
+Note for any future re-route: `lint.yml` also triggers on `pull_request`, and a fork PR runs untrusted contributor code. That must never reach a persistent self-hosted runner, so any re-route has to stay push-only, e.g. `${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}`.
 
 ## Touching the cache pipeline
 

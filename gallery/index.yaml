@@ -1,7 +1,194 @@
 ---
+- name: "deepseek-v4-flash-0731"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
+  description: |
+    # DeepSeek-V4-Flash-0731
+
+    Technical Report👁️
+
+    ## Introduction
+
+    **DeepSeek-V4-Flash-0731** is the official release of **DeepSeek-V4-Flash**, superseding the preview version, with substantially enhanced agentic capabilities. It has the same model structure as DeepSeek-V4-Flash-DSpark, i.e. it comes with a speculative decoding module attached.
+
+    DeepSeek-V4-Flash-0731 outperforms DeepSeek-V4-Pro (Preview) on benchmarks listed below despite its far smaller activated parameter count, and is broadly competitive with the strongest proprietary models available.
+
+    Notes:
+
+    1. For the Code Agent tasks among the public benchmarks above, DeepSeek-V4-Flash-0731 is evaluated with the minimal mode of DeepSeek Harness (to be released) as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.
+    2. † DSBench-FullStack is an internal full-stack development test set; DSBench-Hard is an internal test set of difficult coding-agent problems.
+
+    ## Chat Template
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  overrides:
+    backend: ds4
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    parameters:
+      model: ds4flash.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: ds4flash.gguf
+      sha256: ""
+      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
+- name: "parable-granite-4.1-3b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Granite-4.1-3B-Claude-Fable-5
+
+    Granite 4.1 3B fine-tuned on genuine Claude Fable 5 and GPT-5.5 agent
+    traces (planning, tool use, <think> reasoning from real agent sessions).
+    Agent-flavored small model: terminal workflows, idiomatic code fixes,
+    explanations. v2 recipe: completion-masked SFT, replay mix, seed-averaged
+    weights. Published corpus and eval harness.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+    - tool-use
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Granite-4.1-3B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Granite-4.1-3B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: 67dc7695d92939c713165761f115c9d892fdff74fcbd987c8bb453b9b8ab645d
+- name: "parable-qwen3-4b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Qwen3-4B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Qwen3-4B-Claude-Fable-5
+
+    Qwen3 4B fine-tuned on genuine Claude Fable 5 agent traces. Thinking-mode
+    reasoning, agent/terminal task flavor, tool-call formatting.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Qwen3-4B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Qwen3-4B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Qwen3-4B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: c94b06a912aa901f3da5689754577ad534415efafc50dcee3f389594a153bf38
+- name: "parable-granite-4.1-8b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Granite-4.1-8B-Claude-Fable-5
+
+    Granite 4.1 8B fine-tuned on genuine Claude Fable 5 and GPT-5.5 agent
+    traces. Strongest Parable model: multi-step scripts, configs, terminal
+    workflows, <think> reasoning.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+    - tool-use
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Granite-4.1-8B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Granite-4.1-8B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: 61a8133c344a0d0a00188395afe33c803e3b973cb4bbfd5ef1fa7110e80bc1c3
+- name: "parable-qwen3-8b-claude-fable-5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF
+  description: |
+    # Parable-Qwen3-8B-Claude-Fable-5
+
+    Qwen3 8B fine-tuned on genuine Claude Fable 5 agent traces. Thinking-mode
+    reasoning with agent/terminal flavor and tool-call formatting.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - agent
+    - coding
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      uri: https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
+      sha256: 956070afc8023b8665fe450842f7be76b505b53d142460fd9b588222f4e16112
 - &pocket-35b
   name: "pocket-35b"
   variants:
+    - model: pocket-35b-q3
     - model: pocket-35b-q2
     - model: pocket-35b-iq1
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -38,6 +225,31 @@
     - filename: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
       sha256: 6f479f637c8fb932df39b9cfabdc454568eee48c0e7c0584e1815a27558e8ffe
       uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
+- !!merge <<: *pocket-35b
+  name: "pocket-35b-q3"
+  variants: []
+  description: |
+    POCKET-35B is an Apache-2.0 Qwen3.5-family mixture-of-experts model from
+    FINAL-Bench/VIDRAFT, derived from Darwin-36B-Opus and packaged for stock
+    llama.cpp. This entry uses the balanced Q3_K_M GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q3_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q3_K_M.gguf
+      sha256: 9ab4184f0f5af0cc1cf8eee7e553664b692c3f837a8868c4a16137bb3a3c97a2
+      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q3_K_M.gguf
 - !!merge <<: *pocket-35b
   name: "pocket-35b-q2"
   variants: []
@@ -828,6 +1040,74 @@
     - filename: llama-cpp/mmproj/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/mmproj-F32.gguf
       sha256: fdc443e974cad1f61c45af1cfd5580855855ddce0d6c14cc500a5714c486ac1d
       uri: https://huggingface.co/DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &qwopus3-6-27b-fusion
+  name: "qwopus3.6-27b-fusion"
+  variants:
+    - model: qwopus3.6-27b-fusion-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-27B
+    - https://huggingface.co/KyleHessling1/Qwopus3.6-27B-Fusion-GGUF
+  description: |
+    Qwopus3.6-27B Fusion is an experimental 27B Qwen3.6 merge that combines the
+    Qwopus reasoning and coding fine-tunes. It targets agentic coding and
+    general reasoning, supports the Qwen3.6 262K context window, and retains
+    the base model's MTP head. This default entry uses the 16.8 GB Q4_K_M GGUF.
+  license: qwen
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Fusion-Q4_K_M/Qwopus3.6-27B-Fusion-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Fusion-Q4_K_M/Qwopus3.6-27B-Fusion-Q4_K_M.gguf
+      sha256: 6d4e6e9ffba84ffe5166969303d4918f3a31682d75862416827412cee8f20d5d
+      uri: huggingface://KyleHessling1/Qwopus3.6-27B-Fusion-GGUF/Qwopus3.6-27B-Fusion-Q4_K_M.gguf
+- !!merge <<: *qwopus3-6-27b-fusion
+  name: "qwopus3.6-27b-fusion-q8"
+  variants: null
+  description: |
+    Qwopus3.6-27B Fusion in the higher-fidelity 29.0 GB Q8_0 GGUF format.
+    It retains the base model's MTP head for speculative decoding.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.6-27B-Fusion-Q8_0/Qwopus3.6-27B-Fusion-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.6-27B-Fusion-Q8_0/Qwopus3.6-27B-Fusion-Q8_0.gguf
+      sha256: 5594e1776b75beedf4a54b933bba386dc83a0883417e3bcd9ef53fdfd120d5b6
+      uri: huggingface://KyleHessling1/Qwopus3.6-27B-Fusion-GGUF/Qwopus3.6-27B-Fusion-Q8_0.gguf
 - name: "minicpm5-1b-claude-opus-fable5-v2-thinking"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1241,7 +1521,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: ea2be54e4e989cb8cc2a88c0791b15eaa50eb97fb46a89843f6415d7e1a73e33
+      sha256: 7d6d1691bc2d02c5a8194afb8bd9b57519343afebf020231c61d9236504b4a5c
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -4988,97 +5268,6 @@
     - filename: mmproj-F16.gguf
       sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
       uri: https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf
-- &pocket-35b
-  name: pocket-35b-q4-k-m
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/FINAL-Bench/Darwin-36B-Opus
-    - https://huggingface.co/FINAL-Bench/POCKET-35B-GGUF
-  description: |
-    POCKET-35B is an Apache-2.0 Qwen3.5-family sparse MoE model derived from
-    Darwin-36B-Opus. Its official GGUF ladder spans Q4_K_M, Q3_K_M, Q2_K, and
-    IQ1_M so LocalAI can select a build for the available memory. All builds run
-    with the stock llama.cpp backend.
-  license: apache-2.0
-  icon: https://huggingface.co/FINAL-Bench/POCKET-35B-GGUF/resolve/main/pocket_hero.svg
-  tags:
-    - llm
-    - gguf
-    - gpu
-    - cpu
-    - qwen
-    - qwen3.5
-    - moe
-  last_checked: "2026-07-29"
-  overrides:
-    backend: llama-cpp
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: POCKET-35B-Q4_K_M.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: POCKET-35B-Q4_K_M.gguf
-      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q4_K_M.gguf
-      sha256: 6f479f637c8fb932df39b9cfabdc454568eee48c0e7c0584e1815a27558e8ffe
-  variants:
-    - model: pocket-35b-q3-k-m
-    - model: pocket-35b-q2-k
-    - model: pocket-35b-iq1-m
-- !!merge <<: *pocket-35b
-  name: pocket-35b-q3-k-m
-  overrides:
-    backend: llama-cpp
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: POCKET-35B-Q3_K_M.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: POCKET-35B-Q3_K_M.gguf
-      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q3_K_M.gguf
-      sha256: 9ab4184f0f5af0cc1cf8eee7e553664b692c3f837a8868c4a16137bb3a3c97a2
-  variants: []
-- !!merge <<: *pocket-35b
-  name: pocket-35b-q2-k
-  overrides:
-    backend: llama-cpp
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: POCKET-35B-Q2_K.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: POCKET-35B-Q2_K.gguf
-      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-Q2_K.gguf
-      sha256: 2567ed710fb5b5bdf0df99ecfa241ab1a2b35edc618d2830b91d468e3a3ce191
-  variants: []
-- !!merge <<: *pocket-35b
-  name: pocket-35b-iq1-m
-  overrides:
-    backend: llama-cpp
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: POCKET-35B-IQ1_M.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: POCKET-35B-IQ1_M.gguf
-      uri: huggingface://FINAL-Bench/POCKET-35B-GGUF/POCKET-35B-IQ1_M.gguf
-      sha256: c56c77d158786f6dfb084e8cf3467456668e400cc7632c366cc0444b9f8565a1
-  variants: []
 - name: qwen3.5-35b-a3b-apex
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -5117,6 +5306,82 @@
     - filename: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
       sha256: 50887b60c77ee5c95bc3657814ae993abcab7b2d71868b9af1e84d6badd09a57
       uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/Qwen3.5-35B-A3B-APEX-Quality.gguf
+- &fara1-5-9b
+  name: fara1.5-9b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: fara1.5-9b-q8
+  urls:
+    - https://huggingface.co/microsoft/Fara1.5-9B
+    - https://huggingface.co/bartowski/Fara1.5-9B-GGUF
+  description: |
+    Fara1.5-9B is Microsoft's 9B-parameter multimodal computer-use agent for web browsers, fine-tuned from Qwen3.5-9B. It accepts screenshots and text, emits structured browser actions, supports a 262K-token context, and should be deployed with appropriate sandboxing and user-confirmation controls. This entry uses the recommended Q4_K_M GGUF quantization.
+  license: mit
+  tags:
+    - fara
+    - qwen
+    - qwen3.5
+    - 9b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - computer-use
+    - gpu
+    - cpu
+  last_checked: "2026-08-01"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Fara1.5-9B-GGUF/mmproj-Fara1.5-9B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Fara1.5-9B-GGUF/Fara1.5-9B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Fara1.5-9B-GGUF/Fara1.5-9B-Q4_K_M.gguf
+      sha256: a02e7220337b87290bca7ef7225ba4afa7104efa05c0851de6c29ec9c5d04c7d
+      uri: huggingface://bartowski/Fara1.5-9B-GGUF/Fara1.5-9B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Fara1.5-9B-GGUF/mmproj-Fara1.5-9B-f16.gguf
+      sha256: 97b423c81719ffc367124a9739d6feb6f62d62f60869a6d385a701b963ce1906
+      uri: huggingface://bartowski/Fara1.5-9B-GGUF/mmproj-Fara1.5-9B-f16.gguf
+- !!merge <<: *fara1-5-9b
+  name: fara1.5-9b-q8
+  variants: []
+  description: |
+    Fara1.5-9B is Microsoft's 9B-parameter multimodal computer-use agent for web browsers, fine-tuned from Qwen3.5-9B. It accepts screenshots and text, emits structured browser actions, supports a 262K-token context, and should be deployed with appropriate sandboxing and user-confirmation controls. This entry uses the higher-quality Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Fara1.5-9B-GGUF/mmproj-Fara1.5-9B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Fara1.5-9B-GGUF/Fara1.5-9B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Fara1.5-9B-GGUF/Fara1.5-9B-Q8_0.gguf
+      sha256: a2e30cca7aec006266308153ae781347505af16baa514bbd4e0e3f4a79ea3a22
+      uri: huggingface://bartowski/Fara1.5-9B-GGUF/Fara1.5-9B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Fara1.5-9B-GGUF/mmproj-Fara1.5-9B-f16.gguf
+      sha256: 97b423c81719ffc367124a9739d6feb6f62d62f60869a6d385a701b963ce1906
+      uri: huggingface://bartowski/Fara1.5-9B-GGUF/mmproj-Fara1.5-9B-f16.gguf
 - name: fara1.5-27b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   variants:
@@ -5865,14 +6130,14 @@
     - instruction-tuned
     - code
     - math
-  last_checked: "2026-07-28"
+  last_checked: "2026-08-01"
   overrides:
     parameters:
-      model: nanbeige4.2-3b-Q8_0.gguf
+      model: Nanbeige4.2-3B-Q8_0.gguf
   files:
-    - filename: nanbeige4.2-3b-Q8_0.gguf
-      sha256: 44707bb25e7ba3f2b0b5f3c2311da95ee3676986dd2014ce2aaeb14113590e33
-      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q8_0.gguf
+    - filename: Nanbeige4.2-3B-Q8_0.gguf
+      sha256: 4f8bd17cdf58bea2a94aef03457e0b8f019c26fe4daee7ae49b61bfa935a9126
+      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/Nanbeige4.2-3B-Q8_0.gguf
 - name: nanbeige4.2-3b
   url: github:mudler/LocalAI/gallery/nanbeige4.2.yaml@master
   urls:
@@ -5895,16 +6160,16 @@
     - instruction-tuned
     - code
     - math
-  last_checked: "2026-07-28"
+  last_checked: "2026-08-01"
   variants:
     - model: nanbeige4.2-3b-q8
   overrides:
     parameters:
-      model: nanbeige4.2-3b-Q4_K_M.gguf
+      model: Nanbeige4.2-3B-Q4_K_M.gguf
   files:
-    - filename: nanbeige4.2-3b-Q4_K_M.gguf
-      sha256: 9ffd17d14472ff208409b3f51a6d87a5e5ec1b878b9a6f4dfe15c2a883366104
-      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/nanbeige4.2-3b-Q4_K_M.gguf
+    - filename: Nanbeige4.2-3B-Q4_K_M.gguf
+      sha256: ffe1b9b8ee95ec4b962c379905aa8be6f72ae9c4645c6c70e3b6ff7b197e6ef4
+      uri: huggingface://owao/Nanbeige4.2-3B-GGUF/Nanbeige4.2-3B-Q4_K_M.gguf
 - name: nemo-parakeet-tdt-0.6b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13019,8 +13284,8 @@
       model: rfdetr-seg-medium-f16.gguf
   files:
     - filename: rfdetr-seg-medium-f16.gguf
-      sha256: 885d85ed6935495fc50ff464e06b6ea3bd8e8386865852d68a8be0f649d65afe
       uri: huggingface://mudler/rfdetr-cpp-seg-medium/rfdetr-seg-medium-f16.gguf
+      sha256: dd7c8da7cf0a2e64a1002f5ff66d7fede45b00e612457f249bcd9d4a0c122566
 - name: rfdetr-cpp-seg-large
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13048,8 +13313,8 @@
       model: rfdetr-seg-large-f16.gguf
   files:
     - filename: rfdetr-seg-large-f16.gguf
-      sha256: 90423066d0791b4ae249f3986cce1f095a1e4090bf46800bf7f9e371ea80d559
       uri: huggingface://mudler/rfdetr-cpp-seg-large/rfdetr-seg-large-f16.gguf
+      sha256: ffc631b8e6115b11bdbb8e876c77aaa3e3e5d8c41c00ce8417ebbf183b1e6404
 - name: rfdetr-cpp-seg-xlarge
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13077,8 +13342,8 @@
       model: rfdetr-seg-xlarge-f16.gguf
   files:
     - filename: rfdetr-seg-xlarge-f16.gguf
-      sha256: 0b82de4a6e65a40bc930979a1a4281cb24de35203d30eeefd797c858101a7bec
       uri: huggingface://mudler/rfdetr-cpp-seg-xlarge/rfdetr-seg-xlarge-f16.gguf
+      sha256: 72b6210e255ebb89a8d471c06a6f4b5307205b1a34b9e4292de90d1488da4e26
 - name: rfdetr-cpp-seg-2xlarge
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -13107,8 +13372,8 @@
       model: rfdetr-seg-2xlarge-f16.gguf
   files:
     - filename: rfdetr-seg-2xlarge-f16.gguf
-      sha256: 7f957997db23e844194ea8266a95b4adc3deb6d0b71c0924922b20fbdeafa299
       uri: huggingface://mudler/rfdetr-cpp-seg-2xlarge/rfdetr-seg-2xlarge-f16.gguf
+      sha256: 00f3988bdf9a382b06610c200b3938b65a7731d14eafa84b73f6c3b5be4af8d9
 - name: edgetam
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

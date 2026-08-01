@@ -19,6 +19,10 @@
 
 contributors:
   note: "Engineers whose public profile names these employers have commits in the repository."
+  # The landing page prints the names only, not the per-company counts: a "1
+  # commit" stamp next to a large employer reads as weakness even though the
+  # claim is exactly as true. The counts stay here because they are the
+  # provenance for the list, and anyone re-checking it needs them.
   companies:
     - { name: "Microsoft",       people: 3, commits: 20 }
     - { name: "Spectro Cloud",   people: 3, commits: 11 }
@@ -51,47 +55,141 @@ contributors:
 
 integrations:
   note: "These projects reference LocalAI in their own repository or documentation."
+  # Admission rule: the project's OWN repository or official docs must name
+  # LocalAI as a provider, backend or integration. A blog post saying so is not
+  # enough, and neither is a generic "any OpenAI-compatible server" line that
+  # never names us. Every entry below was opened and read before being added,
+  # and the quote that justifies it is in the pull request that added it.
+  #
+  # Deliberately excluded after checking: LiteLLM, n8n, Home Assistant core,
+  # BionicGPT, Semantic Kernel, Spring AI, Jan, CrewAI, Haystack, Onyx,
+  # SillyTavern, Portkey and Kong all have zero mentions in their own repos.
+  # PrivateGPT and Langflow name us only in passing comparisons or a tooltip.
+  # Tools4AI has a LocalAI processor whose methods return null.
   projects:
     - name: AnythingLLM
       by: Mintplex Labs
       url: https://github.com/Mintplex-Labs/anything-llm
       what: "Runs LocalAI as a model provider for its chat and document workspaces."
-    - name: langchain4j
-      url: https://github.com/langchain4j/langchain4j
-      what: "Ships a LocalAI module, so JVM applications can target it directly."
     - name: LangChain
       url: https://python.langchain.com/docs/integrations/providers/localai/
       what: "Documents LocalAI as a provider in the Python integrations."
+    - name: LlamaIndex
+      url: https://docs.llamaindex.ai/en/stable/examples/llm/localai/
+      what: "Documents LocalAI as an OpenAI-compatible LLM you can point it at."
+    - name: Open WebUI
+      url: https://docs.openwebui.com/getting-started/quick-start/connect-a-provider/starting-with-openai-compatible
+      what: "Connects to LocalAI as an OpenAI-compatible local server."
+    - name: Dify
+      by: LangGenius
+      url: https://marketplace.dify.ai/plugin/langgenius/localai
+      what: "Ships an official LocalAI plugin for inference and embeddings."
+    - name: LibreChat
+      url: https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/speech
+      what: "Uses LocalAI as a speech provider for text to speech."
+    - name: RAGFlow
+      by: InfiniFlow
+      url: https://ragflow.io/docs/supported_models
+      what: "Lists LocalAI as a model provider, and ships a driver for it including rerank."
     - name: Flowise
       by: FlowiseAI
       url: https://github.com/FlowiseAI/Flowise
       what: "Offers LocalAI as a node for chat and embeddings in its visual builder."
+    - name: Continue
+      url: https://docs.continue.dev/customize/model-providers/top-level/openai
+      what: "Lists LocalAI among the OpenAI-compatible providers the editor can target."
+    - name: big-AGI
+      url: https://github.com/enricoros/big-AGI/blob/main/docs/config-local-localai.md
+      what: "Adds LocalAI as a model source, with its own setup page and env vars."
+    - name: K8sGPT
+      by: CNCF Sandbox
+      url: https://docs.k8sgpt.ai/reference/providers/backend/
+      what: "Lists LocalAI as an analysis backend, alongside Bedrock and Azure OpenAI."
+    - name: k8sgpt-operator
+      by: k8sgpt-ai
+      url: https://github.com/k8sgpt-ai/k8sgpt-operator
+      what: "Sets LocalAI as the backend on the K8sGPT custom resource, with no OpenAI secret."
+    - name: Nextcloud
+      url: https://apps.nextcloud.com/apps/integration_openai
+      what: "Points its text, image and speech features at a self-hosted LocalAI."
+    - name: Frigate
+      url: https://github.com/blakeblackshear/frigate/blob/dev/docs/docs/configuration/genai/config.md
+      what: "Names LocalAI as a server for its generative AI features."
+      # Present in the dev branch docs source; not yet on the published site.
+    - name: Kairos
+      url: https://github.com/kairos-io/kairos
+      what: "Ships LocalAI as part of its immutable Linux distribution."
     - name: AIKit
       by: Sertac Ozercan
       url: https://github.com/sozercan/aikit
       what: "Builds fine-tuned models into images that serve through LocalAI."
-    - name: Kairos
-      url: https://github.com/kairos-io/kairos
-      what: "Ships LocalAI as part of its immutable Linux distribution."
+    - name: langchain4j
+      url: https://github.com/langchain4j/langchain4j
+      what: "Ships a LocalAI module, so JVM applications can target it directly."
+    - name: promptfoo
+      url: https://www.promptfoo.dev/docs/providers/localai/
+      what: "Provides a localai: prefix so evals run against chat, completion and embeddings."
+    - name: Mods
+      by: Charm
+      url: https://github.com/charmbracelet/mods
+      what: "Reads a LocalAI endpoint from its config, so the CLI pipes shell output to a local model."
+    - name: TypingMind
+      url: https://docs.typingmind.com/manage-and-connect-ai-models/local-ai
+      what: "Documents pointing a custom model endpoint at a LocalAI server."
+    - name: baibot
+      by: etke.cc
+      url: https://github.com/etkecc/baibot/blob/main/docs/providers.md
+      what: "Has a first-class localai provider for text, speech to text and text to speech."
+    - name: LLM Vision
+      by: Home Assistant
+      url: https://github.com/valentinfrlch/ha-llmvision
+      what: "Lists LocalAI as a provider for analysing camera images and video feeds."
+    - name: VoxInput
+      url: https://github.com/richiejp/VoxInput
+      what: "Sends desktop voice input to LocalAI for transcription and a realtime assistant."
+    - name: Obsidian BMO Chatbot
+      url: https://github.com/longy2k/obsidian-bmo-chatbot
+      what: "Lists LocalAI as a self-hosted endpoint for the note-taking chat plugin."
+    - name: ShellOracle
+      url: https://github.com/djcopley/ShellOracle
+      what: "Ships a LocalAI provider for turning natural language into shell commands."
+    - name: QA-Pilot
+      url: https://github.com/reid41/QA-Pilot
+      what: "Runs its repository chat against a LocalAI base URL."
 
 press:
   note: "Written about LocalAI, by people who do not work on it."
+  # One card per outlet. SUSE published four posts, and listing them as four
+  # entries made a single vendor look like the whole of the coverage; as one
+  # series entry the repetition becomes the point instead of the problem.
+  #
+  # Every entry here has been opened and checked to confirm it is about this
+  # project. Two earlier "coverage" links were not: a modelslab.com piece that
+  # reviewed Frikallo/parakeet.cpp, an unrelated project of the same name, and
+  # a snailtext.app benchmark of Parakeet through ONNX Runtime that never
+  # mentioned LocalAI at all. Verify before adding.
   articles:
+    - outlet: Pulumi
+      title: "Deploy low-code LLM apps on AWS with Flowise and LocalAI"
+      author: "Engin Diri"
+      date: "2024-02-26"
+      url: https://www.pulumi.com/blog/low-code-llm-apps-with-local-ai-flowise-and-pulumi/
+      what: "A full EKS deployment, with LocalAI doing inference and no GPU in the cluster."
+    - outlet: Semaphore
+      title: "LocalAI: replacing OpenAI API with open-source"
+      author: "Tomas Fernandez"
+      date: "2023-12-19"
+      url: https://semaphore.io/blog/localai
+      what: "Swapping an existing OpenAI integration over to LocalAI, endpoint by endpoint."
+    - outlet: Spectro Cloud
+      title: "K8sGPT + LocalAI: unlock Kubernetes superpowers for free"
+      author: "Tyler Gillson"
+      date: "2023-04-29"
+      url: https://www.spectrocloud.com/blog/k8sgpt-localai-unlock-kubernetes-superpowers-for-free
+      what: "Cluster diagnosis through K8sGPT, answered by a model running on CPU."
     - outlet: SUSE
-      title: "Running AI locally"
+      title: "A four-part series on running AI locally"
       author: "Christian Huller"
       date: "2025-11-24"
       url: https://www.suse.com/c/running-ai-locally/
-      what: "Deploying LocalAI on openSUSE, then driving it from VS Code."
-    - outlet: SUSE
-      title: "Adding own documents to your local AI using RAG"
-      url: https://www.suse.com/c/adding-own-documents-to-your-local-ai-using-rag/
-      what: "Retrieval over your own documents, on top of LocalAI."
-    - outlet: SUSE
-      title: "Local AI and Confluence"
-      url: https://www.suse.com/c/local-ai-and-confluence/
-      what: "Putting a Confluence space behind a local model."
-    - outlet: SUSE
-      title: "Introduction to AI training with openSUSE"
-      url: https://www.suse.com/c/introduction-to-ai-training-with-opensuse/
-      what: "Training a LoRA and serving it through LocalAI."
+      what: "Install on openSUSE and drive it from VS Code, add your own documents with RAG, put a Confluence space behind a local model, then train a LoRA and serve it."

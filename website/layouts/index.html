@@ -13,11 +13,12 @@
         <div class="acts fd">
           <a class="btn" href="#start">Install LocalAI <span>→</span></a>
           <a class="btn btn--o" href="/docs/">Read the docs</a>
+          <a class="btn btn--o" href="{{ .Site.Params.github }}">&#9733; Star on GitHub</a>
         </div>
         <div class="figures fd">
-          <div><b class="tnum" data-count="48042">0</b><span>GitHub stars</span></div>
+          <div><b class="tnum" data-count="{{ .Site.Data.stats.stars }}">0</b><span>GitHub stars</span></div>
           <div><b class="tnum" data-count="73">0</b><span>Backends</span></div>
-          <div><b class="tnum" data-count="18">0</b><span>Engines we wrote</span></div>
+          <div><b class="tnum" data-count="{{ len .Site.Data.engines.engines }}">0</b><span>Engines we wrote</span></div>
           <div><b class="tnum" data-count="1585">0</b><span>Models, one click</span></div>
         </div>
       </div>
@@ -163,8 +164,11 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">Engines we build</p>
-    <h2 class="rv mt1" style="max-width:22ch">Eighteen engines, written from scratch.</h2>
-    <p class="lede rv mt2">Most backends wrap somebody else's engine. These do not. They exist because the thing we needed was a 9 GB Python install, or closed, or nobody had built it yet. Each one is a binary and a GGUF file, checked against the reference implementation in CI.</p>
+    <h2 class="rv mt1" style="max-width:22ch">{{ len .Site.Data.engines.engines }} engines, written from scratch.</h2>
+    {{/* Names the link back to the runtime section explicitly. Readers were
+         arriving here and taking these for unrelated side projects, because
+         nothing on the page said they are the backends the core loads. */}}
+    <p class="lede rv mt2">Those backends the core pulls in on demand are mostly ours. Most projects wrap somebody else's engine. We wrote ours, because the thing we needed came as a 9 GB Python install, or was closed, or did not exist. Each one is a binary and a GGUF file, checked against the reference implementation in CI.</p>
 
     <div class="spot rv">
       <div>
@@ -246,7 +250,7 @@
       <video src="/media/vllm-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="vllm.cpp ahead of vLLM at every concurrency level"></video>
     </div>
 
-    <p class="rv mt2"><a class="btn btn--o" href="/engines/">All eighteen engines →</a></p>
+    <p class="rv mt2"><a class="btn btn--o" href="/engines/">All {{ len .Site.Data.engines.engines }} engines →</a></p>
   </div>
 </section>
 
@@ -256,7 +260,10 @@
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">APEX quantization</p>
     <h2 class="rv mt1" style="max-width:19ch">The model you could not fit, on the card you already own.</h2>
-    <p class="lede rv mt2">A 35B mixture-of-experts model is 64.6 GB at full precision, which puts it out of reach of every consumer GPU. APEX gets it to 12.2 GB, and it runs at 74 tokens a second, more than twice the speed of the original. Quality barely moves. The file is an ordinary GGUF, so stock llama.cpp opens it with no patches, and 201 of them are already sitting in the LocalAI gallery.</p>
+    {{/* APEX was being used as a known term on first appearance, in a section
+         that opened straight onto a benchmark table. The first two sentences
+         say what it is and why it follows the engines. */}}
+    <p class="lede rv mt2">The engine decides how fast a model runs. The weights decide whether it runs at all, so we build those too. APEX assigns a different precision to every tensor and every layer: a 35B mixture-of-experts model goes from 64.6 GB, out of reach of any consumer GPU, to 12.2 GB at 74 tokens a second. That is more than twice the speed of the original, and quality barely moves. The file is an ordinary GGUF, so stock llama.cpp opens it with no patches, and 201 of them are already sitting in the LocalAI gallery.</p>
     <div class="sizes rv">
       <div class="sz"><span>F16 · 64.6 GB</span><i style="width:100%"></i><u>30.4 t/s</u></div>
       <div class="sz"><span>Q8_0 · 34.4 GB</span><i style="width:53%"></i><u>52.5 t/s</u></div>
@@ -279,7 +286,7 @@
     </div>
     <p class="mono rv" style="margin-top:.9rem;font-size:.66rem;color:var(--p-dim)">Qwen3.5-35B-A3B on an NVIDIA DGX Spark (GB10). Perplexity on wikitext-2-raw at context 2048. Full methodology in the technical report.</p>
     <div class="acts rv">
-      <a class="btn" href="https://huggingface.co/collections/mudler/apex-quants">APEX models on Hugging Face ↗</a>
+      <a class="btn" href="https://huggingface.co/collections/mudler/apex-quants-gguf">APEX models on Hugging Face ↗</a>
       <a class="btn btn--o" href="https://github.com/localai-org/apex-quant">Technical report ↗</a>
     </div>
   </div>
@@ -362,14 +369,14 @@
     <h2 class="rv mt1" style="max-width:22ch">Forty-eight thousand stars, and still shipping every week.</h2>
     <div class="trend rv">
       <img src="/img/trendshift.svg" alt="LocalAI on Trendshift">
-      <p>LocalAI has been <b>trending on GitHub</b> repeatedly since it launched, and it is one of the most starred self-hosted AI projects there is. <b>224 people</b> have contributed code, <b>3,187</b> are in the Discord, and the README is kept translated into <b>eight languages</b> because the users are everywhere.</p>
+      <p>LocalAI has been <b>trending on GitHub</b> repeatedly since it launched, and it is one of the most starred self-hosted AI projects there is. <b>{{ lang.FormatNumberCustom 0 .Site.Data.stats.contributors }} people</b> have contributed code, <b>{{ lang.FormatNumberCustom 0 .Site.Data.stats.discord }}</b> are in the Discord, and the README is kept translated into <b>eight languages</b> because the users are everywhere.</p>
     </div>
     <div class="big rv">
-      <div><b class="tnum" data-count="48042">0</b><span>Stars</span></div>
-      <div><b class="tnum" data-count="4314">0</b><span>Forks</span></div>
-      <div><b class="tnum" data-count="224">0</b><span>Contributors</span></div>
-      <div><b class="tnum" data-count="133">0</b><span>Releases</span></div>
-      <div><b class="tnum" data-count="3187">0</b><span>In Discord</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.stars }}">0</b><span>Stars</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.forks }}">0</b><span>Forks</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.contributors }}">0</b><span>Contributors</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.releases }}">0</b><span>Releases</span></div>
+      <div><b class="tnum" data-count="{{ .Site.Data.stats.discord }}">0</b><span>In Discord</span></div>
       <div><b class="tnum" data-count="0" data-text="3 yrs">0</b><span>Shipping since</span></div>
     </div>
     <div class="tl rv">
@@ -397,35 +404,9 @@
       <span>Deutsch</span><span>Español</span><span>français</span><span>日本語</span>
       <span>한국어</span><span>Português</span><span>Русский</span><span>中文</span>
     </div>
-    <p class="kicker rv mt3">Who turns up around it</p>
-    <h3 class="eco__h rv">Engineers from these companies have put code in</h3>
-    <p class="eco__note rv">Every name below is a person with commits in the repository whose public profile
-      names that employer. It is a claim about them, not about their employer, and the commit history is
-      there if you want to check it. Organisations that want to say they use LocalAI add themselves to
-      <a href="https://github.com/mudler/LocalAI/blob/master/ADOPTERS.md">ADOPTERS.md</a>.</p>
-    <ul class="eco eco--co rv">
-      {{- range .Site.Data.ecosystem.contributors.companies }}
-      <li><b>{{ .name }}</b><span>{{ .commits }} commit{{ if ne .commits 1 }}s{{ end }}{{ if gt .people 1 }}, {{ .people }} people{{ end }}</span></li>
-      {{- end }}
-    </ul>
-    <p class="eco__aside rv">Plus researchers at {{ delimit .Site.Data.ecosystem.contributors.academia ", " " and " }}.</p>
-
-    <h3 class="eco__h rv mt3">And these projects integrate it</h3>
-    <p class="eco__note rv">Each one references LocalAI in its own repository or documentation, so you can
-      verify any of them without taking our word for it.</p>
-    <div class="eco eco--int rv">
-      {{- range .Site.Data.ecosystem.integrations.projects }}
-      <a href="{{ .url }}"><b>{{ .name }}</b>{{ with .by }}<em>{{ . }}</em>{{ end }}<span>{{ .what }}</span></a>
-      {{- end }}
-    </div>
-
-    <h3 class="eco__h rv mt3">Written about elsewhere</h3>
-    <div class="eco eco--press rv">
-      {{- range .Site.Data.ecosystem.press.articles }}
-      <a href="{{ .url }}"><b>{{ .outlet }}</b><span>{{ .title }}</span><em>{{ .what }}</em></a>
-      {{- end }}
-    </div>
-
+    {{/* The strongest sentence in this section is somebody else's, so it opens
+         the section rather than closing it. Everything below is supporting
+         evidence for what these three people already said. */}}
     <p class="kicker rv mt3">What other people say</p>
     <div class="headline">
       <a class="hq rv" href="https://x.com/ggerganov/status/2065447087311917459">
@@ -440,6 +421,45 @@
         <blockquote>&ldquo;Build something good enough that the community chooses to carry it beyond your reach. This week, Ettore Di Giacinto brought NVIDIA Parakeet to the CPU.&rdquo;</blockquote>
         <p class="hq__w">Adi Margolin<b>On LinkedIn</b></p>
         <span class="hq__go">Read the post &#8599;</span></a>
+    </div>
+
+    {{/* Names run as a sentence rather than a grid of pills. A pill wall of
+         employers reads as a customer logo wall, which is a claim we are not
+         making; a sentence keeps it about the people, which is the true one. */}}
+    <p class="kicker rv mt3">Who shows up</p>
+    <h3 class="eco__h rv">{{ lang.FormatNumberCustom 0 .Site.Data.stats.contributors }} people have put code in this repository.</h3>
+    {{- $co := slice }}
+    {{- range .Site.Data.ecosystem.contributors.companies }}{{ $co = $co | append (printf "<b>%s</b>" .name) }}{{ end }}
+    {{- $ac := slice }}
+    {{- range .Site.Data.ecosystem.contributors.academia }}{{ $ac = $ac | append (printf "<b>%s</b>" .) }}{{ end }}
+    <p class="eco__names rv">Some of them do it from a desk at {{ delimit $co ", " " and " | safeHTML }}.
+      Others from labs at {{ delimit $ac ", " " and " | safeHTML }}.</p>
+    <p class="eco__note rv">That is where they work, not who sent them.
+      <a href="{{ .Site.Params.github }}/graphs/contributors">Check out the full contributor list, 200+ and growing &#8599;</a></p>
+
+    {{/* The list runs as a marquee because the count is the argument: any one
+         of these is a weak signal, and the whole moving line is the strong one.
+         It pauses on hover so the links stay usable. */}}
+    <h3 class="eco__h rv mt3">And many projects integrate it</h3>
+    <p class="eco__note rv">Click any name to see where they say so.</p>
+    <div class="reel reel--int rv">
+      <div class="reel__t">
+        {{- range .Site.Data.ecosystem.integrations.projects }}
+        <a href="{{ .url }}">{{ .name }}</a>
+        {{- end }}
+        {{- range .Site.Data.ecosystem.integrations.projects }}
+        <a href="{{ .url }}" tabindex="-1" aria-hidden="true">{{ .name }}</a>
+        {{- end }}
+      </div>
+    </div>
+    <p class="eco__aside rv">Using LocalAI at work? Add your organisation to
+      <a href="{{ .Site.Params.github }}/blob/master/ADOPTERS.md">ADOPTERS.md</a>.</p>
+
+    <h3 class="eco__h rv mt3">Written about elsewhere</h3>
+    <div class="eco eco--press rv">
+      {{- range .Site.Data.ecosystem.press.articles }}
+      <a href="{{ .url }}"><b>{{ .outlet }}</b><span>{{ .title }}</span><em>{{ .what }}</em></a>
+      {{- end }}
     </div>
 
     <p class="kicker rv mt3">Built on, integrated with, written about</p>
@@ -477,17 +497,6 @@
         <p>Oh, high there @LocalAI_API, nice to see a terminal based UI for ya! (it&#x27;s a WIP, but just wanted something cleaner then CURL calls)</p>
         <span class="post__go">On X, 2023 &#8599;</span></a>
     </div>
-    <div class="cards">
-      <a class="cd rv" href="https://modelslab.com/blog/audio-generation/parakeet-cpp-vs-whisper-self-hosted-asr-comparison-2026"><p class="cd__k">Coverage</p>
-        <h3>parakeet.cpp vs Whisper</h3><p>An independent comparison of self-hosted ASR options put parakeet.cpp against Whisper on accuracy and speed.</p>
-        <span class="cite">modelslab.com ↗</span></a>
-      <a class="cd rv" href="https://snailtext.app/blog/whisper-vs-parakeet-tdt/"><p class="cd__k">Coverage</p>
-        <h3>Roughly 4x faster on CPU</h3><p>A third-party benchmark measured Parakeet TDT against Whisper Small through whisper.cpp on the same machine.</p>
-        <span class="cite">snailtext.app ↗</span></a>
-      <a class="cd rv" href="https://github.com/mudler/LocalAI/graphs/contributors"><p class="cd__k">Contributors</p>
-        <h3>224 people have shipped code</h3><p>Backends, gallery entries, docs, translations and bug fixes, from people who are not on the team.</p>
-        <span class="cite">github.com ↗</span></a>
-    </div>
   </div>
 </section>
 
@@ -496,15 +505,17 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">From the team</p>
-    <h2 class="rv mt1" style="max-width:20ch">Every release gets written up and demonstrated.</h2>
-    <p class="lede rv mt2">A changelog tells you what moved. These posts show you what it does, with a recording you can watch and a command you can run.</p>
+    <h2 class="rv mt1" style="max-width:22ch">We publish the numbers, including the ones that cost us.</h2>
+    <p class="lede rv mt2">APEX takes a 35B model from 64.6 GB to 12.2 GB, and from 30.4 to 74.4 tokens a second. Perplexity goes from 6.537 to 7.088. That trade is in the post too, with the command that produced it.</p>
+    {{/* Pulled from the posts themselves. The cards used to be hand-written,
+         which is how one of them ended up advertising a post that did not
+         exist, and how all three linked to the index instead of the article. */}}
     <div class="cards">
-      <a class="cd rv" href="/blog/"><p class="cd__k">Release · v4.8.0</p><h3>What landed in LocalAI 4.8</h3>
-        <p>The audio.cpp backend, Valkey vector search, configurable VAE tiling, and a faster realtime path.</p><span class="cd__go">Read the post →</span></a>
-      <a class="cd rv" href="/blog/"><p class="cd__k">Engineering</p><h3>Porting vLLM to C++</h3>
-        <p>What paged attention looks like without a Python runtime, and what it cost us to get there.</p><span class="cd__go">Read the post →</span></a>
-      <a class="cd rv" href="/blog/"><p class="cd__k">Benchmarks</p><h3>How APEX beats Q8_0 at a third of the size</h3>
-        <p>Per-tensor, per-layer precision for mixture-of-experts models, measured against the alternatives.</p><span class="cd__go">Read the post →</span></a>
+      {{- range first 3 (where .Site.RegularPages "Section" "blog") }}
+      <a class="cd rv" href="{{ .RelPermalink }}">
+        <p class="cd__k">{{ .Date.Format "2 January 2006" }}</p><h3>{{ .Title }}</h3>
+        <p>{{ .Params.summary | truncate 155 }}</p><span class="cd__go">Read the post →</span></a>
+      {{- end }}
     </div>
   </div>
 </section>

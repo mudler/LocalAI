@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "Kopieren",
+    "edit": "Bearbeiten",
+    "editMessage": "Nachricht bearbeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
     "regenerate": "Neu generieren",
     "jumpToLatest": "Jump to latest"
   },

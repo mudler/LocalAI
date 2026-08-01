@@ -3,6 +3,7 @@ package importers
 import (
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -31,7 +32,7 @@ func (i *MLXImporter) Match(details Details) bool {
 	}
 
 	b, ok := preferencesMap["backend"].(string)
-	if ok && b == "mlx" || b == "mlx-vlm" {
+	if ok && slices.Contains([]string{"mlx", "mlx-vlm", "mlx-audio"}, b) {
 		return true
 	}
 
@@ -71,19 +72,32 @@ func (i *MLXImporter) Import(details Details) (gallery.ModelConfig, error) {
 	// (issue #10269). Send them to the mlx-vlm backend, which applies the
 	// processor-aware chat template.
 	backend := "mlx"
-	if details.HuggingFace != nil && details.HuggingFace.PipelineTag == "image-text-to-text" {
-		backend = "mlx-vlm"
+	usecases := []string{config.UsecaseChat}
+	useTokenizerTemplate := true
+	if details.HuggingFace != nil {
+		switch details.HuggingFace.PipelineTag {
+		case "image-text-to-text":
+			backend = "mlx-vlm"
+		case "text-to-speech":
+			backend = "mlx-audio"
+			usecases = []string{config.UsecaseTTS}
+			useTokenizerTemplate = false
+		}
 	}
 	// An explicit backend preference always wins.
 	b, ok := preferencesMap["backend"].(string)
 	if ok {
 		backend = b
+		if backend == "mlx-audio" {
+			usecases = []string{config.UsecaseTTS}
+			useTokenizerTemplate = false
+		}
 	}
 
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
-		KnownUsecaseStrings: []string{config.UsecaseChat},
+		KnownUsecaseStrings: usecases,
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
@@ -91,7 +105,7 @@ func (i *MLXImporter) Import(details Details) (gallery.ModelConfig, error) {
 			},
 		},
 		TemplateConfig: config.TemplateConfig{
-			UseTokenizerTemplate: true,
+			UseTokenizerTemplate: useTokenizerTemplate,
 		},
 	}
 

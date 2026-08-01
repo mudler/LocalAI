@@ -25,7 +25,20 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Self-hosted. This workflow is push-to-master + workflow_dispatch only, so
+    # it never executes pull-request code and a fork cannot reach the runner
+    # with untrusted changes. The repository guard keeps forks (whose own master
+    # pushes would otherwise queue forever against a label they do not have) on
+    # the hosted pool.
+    #
+    # Why: the GitHub-hosted pool is shared account-wide and has repeatedly
+    # starved (2026-07-31: 35 consecutive minutes at zero scheduled jobs, while
+    # arc-runner-set kept completing work throughout). Publishing the site is
+    # small, frequent, and must not sit behind a saturated hosted queue.
+    #
+    # Needs only git, tar and curl on the runner: setup-go and actions-hugo
+    # fetch their own toolchains, and no step uses sudo, apt, make or unzip.
+    runs-on: ${{ github.repository == 'mudler/LocalAI' && 'arc-runner-set' || 'ubuntu-latest' }}
     env:
       HUGO_VERSION: "0.146.3"
     steps:
@@ -86,7 +99,11 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    # Same routing as build: a hosted slot for a ~10s deploy is exactly the kind
+    # of job that should not block on a starved pool. deploy-pages authenticates
+    # with the job's OIDC token (id-token: write above), which self-hosted
+    # runners issue the same way hosted ones do.
+    runs-on: ${{ github.repository == 'mudler/LocalAI' && 'arc-runner-set' || 'ubuntu-latest' }}
     needs: build
     steps:
       - name: Deploy to GitHub Pages
