@@ -12,10 +12,15 @@ test.describe('Navigation', () => {
     await expect(page.locator('.home-page')).toBeVisible()
   })
 
-  test('top menu exposes Home and Install Models', async ({ page }) => {
+  test('top menu exposes Home and Discover', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/models"]')).toBeVisible()
+    const discover = page.locator('.sidebar-nav a.nav-item[href="/app/models"]')
+    await expect(discover).toBeVisible()
+    // The label is asserted, not just the destination: a bare "Models" would
+    // name the same thing as the installed-models view under Host, which is
+    // the collision the rename exists to remove.
+    await expect(discover.locator('.nav-label')).toHaveText('Discover')
   })
 
   test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {

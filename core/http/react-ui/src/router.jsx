@@ -176,7 +176,7 @@ const appChildren = [
     ],
   },
 
-  // Models management (Install Models) — top-level destination, full-width.
+  // Model gallery (Discover) — top-level destination, full-width.
   { path: 'models', element: <Admin><Models /></Admin> },
   { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
