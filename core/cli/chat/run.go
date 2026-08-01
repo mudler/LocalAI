@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mudler/nib/app"
 	nibconfig "github.com/mudler/nib/config"
@@ -26,6 +27,9 @@ type Options struct {
 	StateDir string
 	TraceDir string
 	Yolo     bool
+	// ProbeTimeout bounds each check of the server. Zero means
+	// defaultProbeTimeout.
+	ProbeTimeout time.Duration
 
 	In     io.Reader
 	Out    io.Writer
@@ -93,7 +97,7 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 		}
 	}()
 
-	models, err := Probe(ctx, opts.BaseURL, opts.APIKey)
+	models, err := probeModels(ctx, opts)
 	if err != nil {
 		if errors.Is(err, ErrUnauthorized) {
 			return nil, fmt.Errorf("the LocalAI server at %s rejected the API key. Pass --api-key or set LOCALAI_API_KEY", opts.Endpoint)
@@ -121,7 +125,7 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 		}
 		fmt.Fprintf(opts.ErrOut, "Started a temporary LocalAI server; it stops when you exit. Use 'local-ai run' for a persistent one.\n")
 
-		if models, err = Probe(ctx, opts.BaseURL, opts.APIKey); err != nil {
+		if models, err = probeModels(ctx, opts); err != nil {
 			return nil, err
 		}
 	}
@@ -166,6 +170,28 @@ func runAgent(ctx context.Context, dir, model string, opts Options) error {
 		Stdout:      opts.Out,
 		Stderr:      opts.ErrOut,
 	})
+}
+
+// defaultProbeTimeout bounds a check of the server. Listing models is cheap,
+// so this is long enough that a loaded server is never given up on and short
+// enough that a hung one does not leave the user staring at nothing.
+const defaultProbeTimeout = 30 * time.Second
+
+// probeModels lists what the endpoint offers, under a budget.
+func probeModels(ctx context.Context, opts Options) ([]string, error) {
+	timeout := opts.ProbeTimeout
+	if timeout <= 0 {
+		timeout = defaultProbeTimeout
+	}
+	// A real deadline rather than a cancel plus a timer. Probe reads
+	// context.Canceled as "the caller gave up", which is a statement about the
+	// caller and not about the endpoint, and only a deadline as "nothing
+	// answered in time". Expiring the budget as a cancellation would stop
+	// ErrUnreachable firing for precisely the hung servers that the offer to
+	// start one exists for.
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return Probe(probeCtx, opts.BaseURL, opts.APIKey)
 }
 
 // isManagementArgs reports whether the forwarded arguments address nib's local

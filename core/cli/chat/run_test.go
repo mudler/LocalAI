@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -115,6 +116,28 @@ var _ = Describe("prepare", func() {
 		Expect(err.Error()).To(ContainSubstring("local-ai run"))
 		Expect(err.Error()).To(ContainSubstring(url))
 	})
+
+	// A server that accepts the connection and then never replies is the case
+	// the offer to start one exists for, so the budget has to expire as a
+	// deadline: Probe reads a cancellation as "the caller gave up" and refuses
+	// to call the endpoint unreachable on the strength of it.
+	It("treats a server that never answers as one that is not there", func(ctx SpecContext) {
+		release := make(chan struct{})
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+		}))
+		defer srv.Close()
+		defer close(release)
+
+		opts := optionsFor(srv)
+		opts.ProbeTimeout = 100 * time.Millisecond
+		_, err := prepare(context.Background(), opts, false)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("local-ai run"), "want the offer-a-server advice, got %v", err)
+	}, SpecTimeout(30*time.Second))
 
 	It("asks which model to use and remembers the answer", func() {
 		srv := modelServer("zeta", "alpha")
