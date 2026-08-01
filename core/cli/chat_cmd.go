@@ -31,7 +31,7 @@ type ChatCMD struct {
 }
 
 func (c *ChatCMD) Run(ctx *cliContext.Context) error {
-	return chatcli.Run(context.Background(), chatcli.Options{
+	err := chatcli.Run(context.Background(), chatcli.Options{
 		Args:     c.agentArgs(),
 		Endpoint: c.Endpoint,
 		BaseURL:  chatAPIBaseURL(c.Endpoint),
@@ -44,6 +44,12 @@ func (c *ChatCMD) Run(ctx *cliContext.Context) error {
 		Out:      os.Stdout,
 		ErrOut:   os.Stderr,
 	})
+	// The agent explains its own failures on stderr and hands back a code, so
+	// carry the code out and leave the explanation to stand alone.
+	if code, reported := chatcli.ExitStatus(err); reported {
+		return ExitCodeError{Code: code}
+	}
+	return err
 }
 
 // agentArgs rebuilds the argument vector the agent expects: LocalAI's mode

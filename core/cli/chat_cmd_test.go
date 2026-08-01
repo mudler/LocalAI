@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/alecthomas/kong"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,6 +61,21 @@ var _ = Describe("Chat command wiring", func() {
 			c := parse("--cli")
 			Expect(c.CLI).To(BeTrue())
 			Expect(c.Args).To(BeEmpty())
+		})
+	})
+
+	// The agent prints its own diagnosis and hands back a status. main exits
+	// with that status and prints nothing more, so the user reads one message
+	// rather than an "exit status 1" stacked under it.
+	Describe("ExitCodeError", func() {
+		It("carries the status out", func() {
+			Expect(ExitCodeError{Code: 2}.Code).To(Equal(2))
+		})
+
+		It("is recognisable after wrapping", func() {
+			var got ExitCodeError
+			Expect(errors.As(fmt.Errorf("chat: %w", ExitCodeError{Code: 2}), &got)).To(BeTrue())
+			Expect(got.Code).To(Equal(2))
 		})
 	})
 

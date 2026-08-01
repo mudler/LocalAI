@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mudler/nib/app"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -322,6 +325,35 @@ var _ = Describe("prepare", func() {
 		// every registered listener.
 		It("also listens for an interrupt and a terminate", func() {
 			Expect(shutdownSignals).To(ContainElements(os.Signal(os.Interrupt), os.Signal(syscall.SIGTERM)))
+		})
+	})
+
+	// nib reports its own failures on the error stream and returns nothing but
+	// a status, so anything that reaches here as one has already been explained
+	// once. The refusal to render the full-screen interface into a pipe is the
+	// one users meet: it names --cli, and a second message on top would bury
+	// the fix.
+	Describe("ExitStatus", func() {
+		It("recognises a status the agent already explained", func() {
+			code, reported := ExitStatus(app.ExitError{Code: 2})
+			Expect(reported).To(BeTrue())
+			Expect(code).To(Equal(2))
+		})
+
+		It("finds one that has been wrapped", func() {
+			code, reported := ExitStatus(fmt.Errorf("running the agent: %w", app.ExitError{Code: 1}))
+			Expect(reported).To(BeTrue())
+			Expect(code).To(Equal(1))
+		})
+
+		It("leaves an ordinary failure to be reported", func() {
+			_, reported := ExitStatus(errors.New("no LocalAI server at http://127.0.0.1:8080"))
+			Expect(reported).To(BeFalse())
+		})
+
+		It("says nothing about a run that succeeded", func() {
+			_, reported := ExitStatus(nil)
+			Expect(reported).To(BeFalse())
 		})
 	})
 

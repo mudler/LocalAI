@@ -39,6 +39,23 @@ type Options struct {
 	ErrOut io.Writer
 }
 
+// ExitStatus reports the status the process should exit with for an agent run
+// that failed, and whether err is such a failure.
+//
+// nib writes what went wrong to the error stream itself and hands back nothing
+// but a code, so an error that satisfies this has already been explained to the
+// user and must not be reported a second time. The refusal to render the
+// full-screen interface into a pipe arrives this way, and it is the one a user
+// is most likely to meet: it names --cli, and burying that under a second
+// message would hide the fix.
+func ExitStatus(err error) (int, bool) {
+	var exit app.ExitError
+	if errors.As(err, &exit) {
+		return exit.Code, true
+	}
+	return 0, false
+}
+
 // shutdownSignals end the session. SIGHUP is one of them because this is a
 // terminal program: once the terminal is gone there is nobody left to talk to,
 // and a server started for the session has to go with it.
