@@ -82,6 +82,38 @@ var _ = Describe("ResolveModel", func() {
 		Expect(string(data)).To(ContainSubstring("model: b"))
 	})
 
+	It("notifies, and still honours the choice, when it cannot be persisted", func() {
+		dir := GinkgoT().TempDir()
+		// A directory where the config file belongs: the write fails for any
+		// user, including root.
+		Expect(os.MkdirAll(ConfigPath(dir), 0o700)).To(Succeed())
+
+		var notices []string
+		got, err := ResolveModel(ModelRequest{
+			Available: []string{"a", "b"},
+			StateDir:  dir,
+			Choose:    func(models []string) (string, error) { return models[0], nil },
+			Notify:    func(message string) { notices = append(notices, message) },
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal("a"))
+		Expect(notices).To(HaveLen(1))
+		Expect(notices[0]).To(ContainSubstring("a"))
+		Expect(notices[0]).To(ContainSubstring("could not be saved"))
+	})
+
+	It("says nothing when the choice was saved", func() {
+		var notices []string
+		_, err := ResolveModel(ModelRequest{
+			Available: []string{"a", "b"},
+			StateDir:  GinkgoT().TempDir(),
+			Choose:    func(models []string) (string, error) { return models[0], nil },
+			Notify:    func(message string) { notices = append(notices, message) },
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(notices).To(BeEmpty())
+	})
+
 	It("propagates a chooser cancellation", func() {
 		cancelled := errors.New("cancelled")
 		_, err := ResolveModel(ModelRequest{

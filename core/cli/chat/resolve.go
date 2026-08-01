@@ -20,6 +20,12 @@ type ModelRequest struct {
 	Available  []string     // models the server advertises
 	StateDir   string       // where an interactive choice is persisted
 	Choose     ModelChooser // nil means non-interactive
+	// Notify reports a problem that is worth telling the user about but not
+	// worth failing over. Nil discards it. It exists because the one such
+	// problem here, a choice that could not be saved, changes what the user
+	// should expect next: they will be asked again. A log line does not reach
+	// them, since the agent runs at log level error by default.
+	Notify func(message string)
 }
 
 // ResolveModel picks the model for this invocation. A flag or a configured
@@ -66,8 +72,11 @@ func ResolveModel(req ModelRequest) (string, error) {
 	if req.StateDir != "" {
 		if err := PersistModel(req.StateDir, chosen); err != nil {
 			// A failure to remember the choice must not block the session: the
-			// user picked a model, so honour it and warn.
+			// user picked a model, so honour it and say what will happen.
 			xlog.Warn("could not save the model choice", "error", err, "model", chosen)
+			if req.Notify != nil {
+				req.Notify(fmt.Sprintf("Your choice of %s could not be saved, so this question comes back next time: %v", chosen, err))
+			}
 		}
 	}
 	return chosen, nil

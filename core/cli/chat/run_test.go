@@ -158,6 +158,27 @@ var _ = Describe("prepare", func() {
 		Expect(string(data)).To(ContainSubstring("zeta"))
 	})
 
+	// The choice is prompted for once and remembered. When remembering it fails
+	// the user is about to be asked again on every future run, so they have to
+	// be told here: a log line is invisible at the default log level.
+	It("says so on the prompt when the choice cannot be remembered", func() {
+		srv := modelServer("zeta", "alpha")
+		defer srv.Close()
+
+		// A directory where the config file belongs: writable state dir,
+		// unwritable config, on any platform and as any user.
+		Expect(os.MkdirAll(ConfigPath(dir), 0o700)).To(Succeed())
+
+		opts := optionsFor(srv)
+		opts.In = strings.NewReader("1\n")
+		p, err := prepare(context.Background(), opts, true)
+
+		// Failing to remember the choice must not cost the user their session.
+		Expect(err).ToNot(HaveOccurred())
+		Expect(p.model).To(Equal("alpha"))
+		Expect(errOut.String()).To(ContainSubstring("could not be saved"), "the user has to learn they will be asked again")
+	})
+
 	It("does not ask again once a model is recorded", func() {
 		srv := modelServer("zeta", "alpha")
 		defer srv.Close()

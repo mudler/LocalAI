@@ -140,6 +140,7 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 		Available:  models,
 		StateDir:   dir,
 		Choose:     chooser,
+		Notify:     func(message string) { fmt.Fprintln(opts.ErrOut, message) },
 	})
 	if err != nil {
 		return nil, err
