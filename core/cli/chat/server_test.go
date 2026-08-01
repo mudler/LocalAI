@@ -294,7 +294,7 @@ var _ = Describe("newServerCommand", func() {
 		cmd := newServerCommand("/nonexistent/binary-that-must-not-run", io.Discard)
 
 		Expect(cmd.Args).To(Equal([]string{"/nonexistent/binary-that-must-not-run", "run"}))
-		Expect(cmd.Stdin).To(BeNil(), "the child must not compete with the REPL for stdin")
+		Expect(cmd.Stdin).To(BeNil(), "the child must not compete with the agent for stdin")
 		Expect(cmd.Stdout).NotTo(BeNil())
 		Expect(cmd.Stderr).NotTo(BeNil())
 	})

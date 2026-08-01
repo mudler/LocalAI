@@ -305,8 +305,7 @@ var _ = Describe("prepare", func() {
 
 	// A server started for this session is stopped by a deferred call, which a
 	// signal skips: the process dies where it stands and leaves 'local-ai run'
-	// reparented to init. The agent is also handed a context nobody else
-	// cancels, since nib installs no handler of its own when it is embedded.
+	// reparented to init.
 	Describe("shutdown signals", func() {
 		It("ends the session when the terminal goes away", func() {
 			ctx, stop := shutdownContext(context.Background())
@@ -325,6 +324,60 @@ var _ = Describe("prepare", func() {
 		// every registered listener.
 		It("also listens for an interrupt and a terminate", func() {
 			Expect(shutdownSignals).To(ContainElements(os.Signal(os.Interrupt), os.Signal(syscall.SIGTERM)))
+		})
+	})
+
+	// Cancelling the context is not enough on its own. nib hands the TUI to
+	// bubbletea without the context, so the agent goes on running with a
+	// cancelled one, and the deferred Stop is only reached because bubbletea
+	// has a SIGINT and SIGTERM handler of its own. SIGHUP has no such backstop,
+	// and registering for it took away the default disposition that used to end
+	// the process, so on that path nothing else would ever stop the server.
+	Describe("runSession", func() {
+		It("stops the session's server on cancellation, without waiting for the agent", func() {
+			server, proc := stoppableServer()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			err := runSession(ctx, server, func(ctx context.Context) error {
+				cancel()
+				Eventually(func() int32 { return proc.interrupts.Load() }).
+					WithTimeout(5 * time.Second).
+					Should(BeNumerically(">", 0), "the server has to be stopped while the agent is still running")
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(proc.lastSignal.Load()).To(Equal(os.Interrupt))
+		})
+
+		It("leaves the server alone for as long as the session lasts", func() {
+			server, proc := stoppableServer()
+
+			Expect(runSession(context.Background(), server, func(context.Context) error {
+				return nil
+			})).To(Succeed())
+			Expect(proc.interrupts.Load()).To(BeZero())
+			Expect(proc.kills.Load()).To(BeZero())
+		})
+
+		It("returns what the agent returned", func() {
+			failed := errors.New("the agent gave up")
+			server, _ := stoppableServer()
+
+			Expect(runSession(context.Background(), server, func(context.Context) error {
+				return failed
+			})).To(MatchError(failed))
+		})
+
+		// Most sessions run against a server the user already had, and there is
+		// nothing to stop then.
+		It("copes with a session that started no server", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			Expect(runSession(ctx, nil, func(context.Context) error {
+				return nil
+			})).To(Succeed())
 		})
 	})
 

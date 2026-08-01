@@ -3,6 +3,7 @@ package chat
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -68,6 +69,17 @@ func ResolveModel(req ModelRequest) (string, error) {
 	chosen, err := req.Choose(available)
 	if err != nil {
 		return "", err
+	}
+	// Choose is an interface, so its answer is checked rather than trusted.
+	// What comes back is persisted and every later run starts against it, so a
+	// chooser that returns an empty string or a name of its own would record a
+	// model the server never offered and there would be nothing left to catch
+	// it.
+	if !slices.Contains(available, chosen) {
+		return "", fmt.Errorf(
+			"the model chooser answered %q, which is not one of the available models: %s",
+			chosen, strings.Join(available, ", "),
+		)
 	}
 	if req.StateDir != "" {
 		if err := PersistModel(req.StateDir, chosen); err != nil {

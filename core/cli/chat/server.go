@@ -115,7 +115,7 @@ func newServerCommand(bin string, stderr io.Writer) *exec.Cmd {
 	cmd := exec.Command(bin, "run")
 	// Stdin is left nil, so the child gets /dev/null: it is a background
 	// server, and sharing the terminal would have it stealing keystrokes from
-	// the chat REPL.
+	// the agent.
 	cmd.Stdout = stderr // the child's logs are diagnostics, not chat output
 	cmd.Stderr = stderr
 	// Bound the wait for the child's output pipes; see childOutputDrainDelay.

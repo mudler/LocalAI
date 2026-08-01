@@ -82,6 +82,30 @@ var _ = Describe("ResolveModel", func() {
 		Expect(string(data)).To(ContainSubstring("model: b"))
 	})
 
+	// The answer is persisted and every later run starts against it, and
+	// ModelChooser is exported, so the invariant has to hold for choosers this
+	// package did not write.
+	DescribeTable("refuses an answer the chooser was not offered",
+		func(answer string) {
+			dir := GinkgoT().TempDir()
+			got, err := ResolveModel(ModelRequest{
+				Available: []string{"alpha", "zeta"},
+				StateDir:  dir,
+				Choose:    func([]string) (string, error) { return answer, nil },
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(got).To(BeEmpty())
+			Expect(err.Error()).To(ContainSubstring("alpha, zeta"))
+
+			_, statErr := os.Stat(ConfigPath(dir))
+			Expect(os.IsNotExist(statErr)).To(BeTrue(), "nothing may be recorded for an answer that was refused")
+		},
+		Entry("nothing at all", ""),
+		Entry("a model the server never offered", "gamma"),
+		Entry("an offered model with stray whitespace", " alpha"),
+		Entry("an offered model in the wrong case", "Alpha"),
+	)
+
 	It("notifies, and still honours the choice, when it cannot be persisted", func() {
 		dir := GinkgoT().TempDir()
 		// A directory where the config file belongs: the write fails for any
