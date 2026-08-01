@@ -209,6 +209,12 @@ func runAgent(ctx context.Context, dir, model string, opts Options) error {
 		defaults.ApprovalMode = "auto"
 	}
 
+	// The streams are injected rather than left nil, which is what makes nib
+	// refuse to render its full-screen interface into a pipe and say to use
+	// --cli instead of writing to a terminal the caller may not own. The cost
+	// is nib's shell-capture idiom, out=$(local-ai chat), which needs a nil
+	// Stdout to work and would now be refused; that only matters once the
+	// --init snippets stop hardcoding the standalone nib binary.
 	return app.Run(ctx, app.Options{
 		Args:        opts.Args,
 		ProgramName: "local-ai chat",
