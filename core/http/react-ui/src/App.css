@@ -2125,7 +2125,12 @@ select.input {
    Left accent bar ties the color to the metric's semantic (success/warning/
    error/primary), icon chip sits top-right, value is left-aligned and
    prominent so you can scan a row of cards without reading labels. */
-.stat-grid {
+/* Renamed off `.stat-grid` in favour of the children it actually holds. The
+   split views introduced a second, unrelated `.stat-grid` for detail panes
+   further down this file, and being later it won every shared property: these
+   cards were being laid out on that component's 120px columns and 1px hairline
+   gap, which crushed their labels at every width. */
+.stat-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--spacing-md);
@@ -8763,7 +8768,7 @@ button.collapsible-header:focus-visible {
   outline-offset: 2px;
 }
 
-/* Manage summary marker — same .stat-grid layout. Top margin separates the
+/* Manage summary marker — same .stat-cards layout. Top margin separates the
    cards from the System Resources card above (otherwise they sit too close
    to the RAM bar) and bottom margin tightens the gap to the tabs below. */
 .manage-summary {
@@ -8900,7 +8905,16 @@ button.collapsible-header:focus-visible {
   .console-rail { position: static; flex-basis: auto; width: 100%; }
   .console-rail-toggle { display: grid; }
   .console-rail-groups { display: none; }
-  .console-rail--open .console-rail-groups { display: flex; }
+  /* Thirteen destinations stacked in one column is taller than a phone, so
+     opening the menu used to push the page's own heading past the fold: the
+     menu replaced the page rather than annotating it. Bound it and let it
+     scroll, so the content behind stays reachable. */
+  .console-rail--open .console-rail-groups {
+    display: flex;
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .console-rail.console-rail--enter { animation: none; }
@@ -12573,3 +12587,137 @@ button.collapsible-header:focus-visible {
 
 .operate-attention__go,
 .operate-section__go { color: var(--color-text-tertiary); }
+
+/* ─── Studio: capability dots and the overview ────────────────────────────
+   The dot is the whole feature in one detail: filled means a model on this
+   machine serves that modality. It is aria-hidden because the overview states
+   the same thing in words, and a dot that changes as models load would
+   otherwise interrupt a reader mid-strip. */
+.studio-tab__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  margin-left: var(--spacing-xs);
+}
+
+.studio-tab__dot--on { background: var(--color-success); }
+.studio-tab__dot--off {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+.studio-overview { max-width: 72ch; }
+
+.studio-overview__eyebrow {
+  margin: 0;
+  color: var(--color-eyebrow);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.studio-overview__title { margin: var(--spacing-xs) 0 0; letter-spacing: -0.02em; }
+
+.studio-overview__lede {
+  margin: var(--spacing-xs) 0 var(--spacing-xl);
+  color: var(--color-text-muted);
+}
+
+.studio-modalities,
+.studio-recent,
+.studio-running {
+  list-style: none;
+  margin: 0 0 var(--spacing-xl);
+  padding: 0;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.studio-modality {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) minmax(0, 10rem) 4.5rem auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.studio-modality--empty { cursor: default; }
+.studio-modality:hover:not(.studio-modality--empty) { background: var(--color-bg-hover); }
+.studio-modality:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+
+.studio-modality__group {
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.studio-modality__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.studio-modality__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
+
+.studio-modality__model,
+.studio-modality__typical {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-modality__state { color: var(--color-success); font-size: 0.75rem; font-weight: 600; }
+.studio-modality__install { color: var(--color-primary); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+
+.studio-running li,
+.studio-recent li { border-bottom: 1px solid var(--color-border-default); }
+
+.studio-running li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-xs);
+}
+
+.studio-running__name { font-family: var(--font-mono); font-size: 0.8125rem; }
+.studio-running__meter { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; }
+.studio-running__meter i { display: block; height: 100%; background: var(--color-primary); }
+
+.studio-recent__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.studio-recent__item:hover { background: var(--color-bg-hover); }
+.studio-recent__model { font-family: var(--font-mono); font-size: 0.8125rem; }
+.studio-recent__meta { color: var(--color-text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+
+.studio-overview__heading { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+.studio-overview__count {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}

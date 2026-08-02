@@ -378,7 +378,7 @@ function TrainingMonitor({ job, onStop }) {
 
       {latest && (
         <>
-          <div className="stat-grid">
+          <div className="stat-cards">
             <StatCard icon="fas fa-circle-notch" label="Status" value={latest.status} accentVar="--color-info" />
             <StatCard icon="fas fa-percent" label="Progress" value={`${latest.progress_percent?.toFixed(1)}%`} accentVar="--color-primary" />
             <StatCard icon="fas fa-shoe-prints" label="Step" value={`${latest.current_step} / ${latest.total_steps}`} />
