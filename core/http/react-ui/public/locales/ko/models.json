@@ -47,7 +47,8 @@
     "contextSize": "컨텍스트:",
     "useCaseLabel": "사용 사례로 필터링",
     "unavailableForBackend": "선택한 백엔드에서 사용할 수 없음",
-    "someSelected": "{{count}}개 선택됨"
+    "someSelected": "{{count}}개 선택됨",
+    "refineLabel": "세부 조건"
   },
   "search": {
     "placeholder": "모델 검색...",
@@ -141,6 +142,11 @@
     "heroHint": "왼쪽에서 모델을 선택하면 크기, 변형, 실행 가능 여부를 볼 수 있습니다.",
     "browsing": "둘러보기",
     "pickHint": "모델을 선택하면 상세 정보가 표시됩니다.",
-    "heroWithRam": "시스템 메모리 {{ram}}, 갤러리에 모델 {{count}}개."
+    "heroWithRam": "시스템 메모리 {{ram}}, 갤러리에 모델 {{count}}개.",
+    "byUseCase": "또는 용도로 시작하기",
+    "pickText": "채팅, 추론, 임베딩",
+    "pickVision": "이미지와 문서 읽기",
+    "pickAudio": "음성 입력과 출력",
+    "pickVisual": "이미지와 영상 생성"
   }
 }

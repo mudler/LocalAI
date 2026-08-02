@@ -1538,21 +1538,31 @@ test.describe("Models Gallery - Filter layout structure", () => {
     await railReady(page);
   });
 
-  test("the chip row contains only use-case chips", async ({ page }) => {
+  test("the chip rows contain only use-case chips", async ({ page }) => {
     await openUseCases(page);
-    const chipRow = page.locator(".filter-bar");
-    await expect(chipRow).toHaveCount(1);
-    // Nothing but .filter-btn children: no toggle, no select, no slider.
-    const childClasses = await chipRow.evaluate((el) =>
-      Array.from(el.children).map((c) => c.className),
+    // One row per family now, plus the row holding "All" on its own. The
+    // contract is unchanged: a chip row carries chips and nothing else.
+    const chipRows = page.locator(".filter-bar");
+    const rowCount = await chipRows.count();
+    expect(rowCount).toBeGreaterThan(1);
+
+    const childClasses = await chipRows.evaluateAll((rows) =>
+      rows.flatMap((r) => Array.from(r.children).map((c) => c.className)),
     );
     expect(childClasses.length).toBeGreaterThan(0);
     for (const cls of childClasses) {
       expect(cls).toContain("filter-btn");
     }
-    await expect(chipRow.locator("input[type='range']")).toHaveCount(0);
-    await expect(chipRow.locator(".filter-bar-group__toggle")).toHaveCount(0);
-    await expect(chipRow.getByText("All Backends")).toHaveCount(0);
+    await expect(chipRows.locator("input[type='range']")).toHaveCount(0);
+    await expect(chipRows.locator(".filter-bar-group__toggle")).toHaveCount(0);
+    await expect(chipRows.getByText("All Backends")).toHaveCount(0);
+
+    // Every family the rail speaks is represented, and none is empty.
+    for (const label of ["Text and reasoning", "Vision", "Speech and audio", "Image and video"]) {
+      await expect(
+        page.locator(".models-filters__usecase-label", { hasText: label }),
+      ).toBeVisible();
+    }
   });
 
   test("refinements live in their own band, outside the chip row", async ({

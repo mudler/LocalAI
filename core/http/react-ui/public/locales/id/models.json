@@ -48,7 +48,8 @@
     "contextSize": "Konteks:",
     "useCaseLabel": "Filter berdasarkan kasus penggunaan",
     "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih",
-    "someSelected": "{{count}} dipilih"
+    "someSelected": "{{count}} dipilih",
+    "refineLabel": "Persempit"
   },
   "search": {
     "placeholder": "Cari model...",
@@ -170,6 +171,11 @@
     "heroHint": "Pilih model di sebelah kiri untuk melihat ukuran, varian, dan kecocokannya.",
     "browsing": "Menjelajah",
     "pickHint": "Pilih model untuk melihat detailnya.",
-    "heroWithRam": "Memori sistem {{ram}}, {{count}} model di galeri."
+    "heroWithRam": "Memori sistem {{ram}}, {{count}} model di galeri.",
+    "byUseCase": "Atau mulai dari kasus penggunaan",
+    "pickText": "Obrolan, penalaran, embedding",
+    "pickVision": "Membaca gambar dan dokumen",
+    "pickAudio": "Suara masuk dan keluar",
+    "pickVisual": "Membuat gambar dan video"
   }
 }

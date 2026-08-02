@@ -41,7 +41,8 @@
     "contextSize": "上下文：",
     "useCaseLabel": "按用例筛选",
     "unavailableForBackend": "所选后端不支持",
-    "someSelected": "已选 {{count}} 项"
+    "someSelected": "已选 {{count}} 项",
+    "refineLabel": "细化"
   },
   "search": {
     "placeholder": "搜索模型...",
@@ -157,6 +158,11 @@
     "heroHint": "在左侧选择模型，即可查看大小、变体以及能否在本机运行。",
     "browsing": "浏览中",
     "pickHint": "选择一个模型以查看详情。",
-    "heroWithRam": "{{ram}} 系统内存，图库中有 {{count}} 个模型。"
+    "heroWithRam": "{{ram}} 系统内存，图库中有 {{count}} 个模型。",
+    "byUseCase": "或从用途开始",
+    "pickText": "对话、推理、向量",
+    "pickVision": "读取图像与文档",
+    "pickAudio": "语音输入与输出",
+    "pickVisual": "生成图像与视频"
   }
 }

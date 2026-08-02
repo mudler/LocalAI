@@ -12198,21 +12198,137 @@ button.collapsible-header:focus-visible {
 .models-filters__usecases {
   margin: 0;
   padding: var(--spacing-xs) 0 0;
-  max-height: 190px;
+  max-height: 46vh;
   overflow-y: auto;
 }
 
-/* The zero state carries the creation actions, so its eyebrow shares a row
-   with them rather than the page header holding them at arm's length. */
-.zero-pane__hero-row {
+
+/* ==========================================================================
+   Full-height view: the split fills the window instead of sitting in a
+   document that scrolls. Rail and pane scroll independently, so the filters
+   and the pane's headline both stay put while a long list moves under them.
+   ========================================================================== */
+
+.page--app {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  flex: 1;
+  /* A flex item's automatic minimum is its content, so without this the list
+     pushes the page taller instead of scrolling inside it. */
+  min-height: 0;
+  padding-bottom: var(--spacing-lg);
+}
+
+/* The header, fused. A slim row that reads as the top of the view rather than
+   a title block the view happens to sit under. */
+.view-bar {
+  display: flex;
+  align-items: baseline;
   gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
   flex-wrap: wrap;
 }
 
-.zero-pane__hero-actions {
+.view-bar__title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.view-bar__count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.view-bar__actions { display: flex; gap: var(--spacing-xs); margin-left: auto; }
+
+.page--app .split-view { flex: 1; min-height: 0; }
+
+.page--app .split-view__rail-col {
+  height: 100%;
+  min-height: 0;
+}
+
+/* The filters keep their height; the list absorbs the rest and scrolls. */
+.page--app .entity-rail {
+  flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
+}
+
+.page--app .entity-rail__list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.page--app .split-view__pane {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Grouped chips. Four families and a reset, rather than nineteen in a row. */
+.models-filters__usecase-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.models-filters__usecase-group + .models-filters__usecase-group {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-divider);
+}
+
+.models-filters__usecase-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.models-filters__usecases .filter-bar { margin: 0; }
+
+/* The refinements read as a section with a name, not three controls left where
+   they landed when the band became a column. */
+.split-view__rail-col .models-filters__refine {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-divider);
+  gap: 6px;
+}
+
+.models-filters__refine-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.split-view__rail-col .filter-bar-group__toggle {
+  justify-content: flex-start;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.split-view__rail-col .models-filters__context {
+  display: flex;
+  align-items: center;
   gap: var(--spacing-xs);
-  margin-left: auto;
+  width: 100%;
+}
+
+.split-view__rail-col .models-filters__context input[type='range'] { flex: 1; min-width: 0; }
+
+@media (max-width: 900px) {
+  /* Stacked, the view cannot be height-constrained without trapping the list
+     in a short scroller, so it goes back to scrolling with the document. */
+  .page--app { display: block; }
+  .page--app .split-view__pane { height: auto; overflow: visible; }
+  .page--app .entity-rail__list { max-height: 320px; }
 }

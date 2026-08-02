@@ -41,7 +41,8 @@
     "contextSize": "Contexto:",
     "useCaseLabel": "Filtrar por caso de uso",
     "unavailableForBackend": "No disponible para el backend seleccionado",
-    "someSelected": "{{count}} seleccionados"
+    "someSelected": "{{count}} seleccionados",
+    "refineLabel": "Refinar"
   },
   "search": {
     "placeholder": "Buscar modelos...",
@@ -157,6 +158,11 @@
     "heroHint": "Elige un modelo a la izquierda para ver su tamaño, variantes y compatibilidad.",
     "browsing": "Explorando",
     "pickHint": "Selecciona un modelo para ver su detalle.",
-    "heroWithRam": "{{ram}} de memoria del sistema, {{count}} modelos en la galería."
+    "heroWithRam": "{{ram}} de memoria del sistema, {{count}} modelos en la galería.",
+    "byUseCase": "O empieza por un caso de uso",
+    "pickText": "Chat, razonamiento, embeddings",
+    "pickVision": "Leer imágenes y documentos",
+    "pickAudio": "Voz de entrada y de salida",
+    "pickVisual": "Generar imágenes y vídeo"
   }
 }

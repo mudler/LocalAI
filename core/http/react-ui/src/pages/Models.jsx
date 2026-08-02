@@ -79,6 +79,26 @@ const FILTERS = [
   { key: 'token_classify', labelKey: 'filters.ner', icon: 'fa-tags' },
 ]
 
+// The chips grouped, using the families the rest of the UI already speaks. The
+// unlabelled first section holds "All" on its own, because it is a reset rather
+// than a use case and grouping it under a heading would imply otherwise.
+const FILTER_SECTIONS = [
+  { id: 'all', labelKey: null, keys: [''] },
+  { id: 'text', labelKey: 'groups.text', icon: 'fa-brain', pick: 'chat',
+    blurbKey: 'shelves.pickText',
+    keys: ['chat', 'embeddings', 'rerank', 'token_classify'] },
+  { id: 'vision', labelKey: 'groups.vision', icon: 'fa-eye', pick: 'vision',
+    blurbKey: 'shelves.pickVision',
+    keys: ['vision', 'multimodal', 'detection'] },
+  { id: 'audio', labelKey: 'groups.audio', icon: 'fa-wave-square', pick: 'tts',
+    blurbKey: 'shelves.pickAudio',
+    keys: ['tts', 'transcript', 'diarization', 'sound_classification',
+      'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
+  { id: 'visual', labelKey: 'groups.visual', icon: 'fa-image', pick: 'image',
+    blurbKey: 'shelves.pickVisual',
+    keys: ['image', 'video', '3d'] },
+]
+
 export default function Models() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
@@ -430,13 +450,24 @@ export default function Models() {
   }, [selectedName, selectedModel, loadVariants])
 
   return (
-    <div className="page page--wide">
+    <div className="page page--wide page--app">
       {/* Title only. The two counts used to live here as well, which meant the
           screen stated "1,247 available" three times: once in this header, once
           as the rail's "9 of 1,247", and once in the pane's own headline. The
           rail and the pane are describing what you are looking at; the header
           was just repeating them from a distance. */}
-      <PageHeader title={t('title')} supporting={t('subtitle')} />
+      <div className="view-bar">
+        <h1 className="view-bar__title">{t('title')}</h1>
+        <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
+        <div className="view-bar__actions">
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
+            <i className="fas fa-plus" /> {t('actions.addModel')}
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
+            <i className="fas fa-upload" /> {t('actions.importModel')}
+          </button>
+        </div>
+      </div>
 
       {/* Filters, in three deliberate bands.
           1. Query scope: free-text search plus the backend select. The backend
@@ -539,8 +570,17 @@ export default function Models() {
             refinements below, and a popover dismisses itself the moment you
             touch either of those, which turns one decision into three. */}
         {useCaseOpen && (
-        <div className="filter-bar models-filters__usecases" role="group" aria-label={t('filters.useCaseLabel')}>
-                  {FILTERS.map(f => {
+        <div className="models-filters__usecases" role="group" aria-label={t('filters.useCaseLabel')}>
+                  {FILTER_SECTIONS.map(section => {
+            const inSection = FILTERS.filter(f => section.keys.includes(f.key))
+            if (inSection.length === 0) return null
+            return (
+              <div className="models-filters__usecase-group" key={section.id}>
+                {section.labelKey && (
+                  <span className="models-filters__usecase-label">{t(section.labelKey)}</span>
+                )}
+                <div className="filter-bar">
+                  {inSection.map(f => {
                     const isAll = f.key === ''
                     const active = isAll ? filters.length === 0 : filters.includes(f.key)
                     const available = isFilterAvailable(f.key)
@@ -554,15 +594,20 @@ export default function Models() {
                         title={!available ? t('filters.unavailableForBackend') : undefined}
                         onClick={() => toggleFilter(f.key)}
                       >
-                        <i className={`fas ${f.icon}`} aria-hidden="true" style={{ marginRight: 4 }} />
+                        <i className={`fas ${f.icon}`} aria-hidden="true" />
                         {t(f.labelKey)}
                       </button>
                     )
                   })}
                 </div>
+              </div>
+            )
+          })}
+                </div>
                 )}
 
                 <div className="models-filters__refine" data-testid="models-filters-refine">
+                  <span className="models-filters__refine-label">{t('filters.refineLabel')}</span>
                   {/* Leads the band because it decides how many rows the other two
                       refine over, and because unlike fits-in-GPU it is always present:
                       a host with no GPU still browses builds. Turning it off is the
@@ -657,17 +702,7 @@ export default function Models() {
             ) : (
               <div className="zero-pane">
                 <div className="zero-pane__hero">
-                  <div className="zero-pane__hero-row">
-                    <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
-                    <div className="zero-pane__hero-actions">
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
-                        <i className="fas fa-plus" /> {t('actions.addModel')}
-                      </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-                        <i className="fas fa-upload" /> {t('actions.importModel')}
-                      </button>
-                    </div>
-                  </div>
+                  <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
                   <h2 className="zero-pane__title">
                     {/* The resources endpoint reports system RAM when there is
                         no accelerator, so calling it "GPU memory" was a claim
@@ -687,12 +722,29 @@ export default function Models() {
                     who closed it still lands on the pane below. */}
                 <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
 
+                {/* Somewhere to start when the recommendations are not it.
+                    These set the use-case filter rather than fetching a second
+                    list, so a shelf costs nothing and cannot go stale. */}
                 <div className="zero-pane__shelf">
                   <div className="zero-pane__shelf-head">
-                    <h3 className="zero-pane__shelf-title">{t('shelves.browsing')}</h3>
-                    <span className="zero-pane__shelf-meta">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
+                    <h3 className="zero-pane__shelf-title">{t('shelves.byUseCase')}</h3>
                   </div>
-                  <p className="zero-pane__shelf-hint">{t('shelves.pickHint')}</p>
+                  <div className="zero-pane__tiles">
+                    {FILTER_SECTIONS.filter(sec => sec.pick).map(sec => (
+                      <button
+                        type="button"
+                        key={sec.id}
+                        className="zero-pane__tile"
+                        onClick={() => { setFilters([sec.pick]); setPage(1); setUseCaseOpen(false) }}
+                      >
+                        <span className="hstack hstack--xs">
+                          <i className={`fas ${sec.icon}`} aria-hidden="true" />
+                          <span className="zero-pane__tile-name">{t(sec.labelKey)}</span>
+                        </span>
+                        <span className="text-sm text-muted">{t(sec.blurbKey)}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )

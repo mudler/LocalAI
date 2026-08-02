@@ -51,7 +51,8 @@
     "contextSize": "Context:",
     "useCaseLabel": "Filter by use case",
     "unavailableForBackend": "Not available for the selected backend",
-    "someSelected": "{{count}} selected"
+    "someSelected": "{{count}} selected",
+    "refineLabel": "Refine"
   },
   "search": {
     "placeholder": "Search models...",
@@ -173,6 +174,11 @@
     "heroHint": "Pick anything on the left to see its size, variants and whether it will run here.",
     "browsing": "Browsing",
     "pickHint": "Select a model to see its detail.",
-    "heroWithRam": "{{ram}} of system memory, {{count}} models in the gallery."
+    "heroWithRam": "{{ram}} of system memory, {{count}} models in the gallery.",
+    "byUseCase": "Or start with a use case",
+    "pickText": "Chat, reasoning, embeddings",
+    "pickVision": "Read images and documents",
+    "pickAudio": "Speech in and speech out",
+    "pickVisual": "Generate images and video"
   }
 }

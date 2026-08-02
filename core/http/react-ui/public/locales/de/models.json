@@ -41,7 +41,8 @@
     "contextSize": "Kontext:",
     "useCaseLabel": "Nach Anwendungsfall filtern",
     "unavailableForBackend": "Für das gewählte Backend nicht verfügbar",
-    "someSelected": "{{count}} ausgewählt"
+    "someSelected": "{{count}} ausgewählt",
+    "refineLabel": "Verfeinern"
   },
   "search": {
     "placeholder": "Modelle suchen...",
@@ -157,6 +158,11 @@
     "heroHint": "Wähle links ein Modell, um Größe, Varianten und Lauffähigkeit zu sehen.",
     "browsing": "Durchsuchen",
     "pickHint": "Wähle ein Modell, um die Details zu sehen.",
-    "heroWithRam": "{{ram}} Systemspeicher, {{count}} Modelle in der Galerie."
+    "heroWithRam": "{{ram}} Systemspeicher, {{count}} Modelle in der Galerie.",
+    "byUseCase": "Oder mit einem Anwendungsfall starten",
+    "pickText": "Chat, Reasoning, Embeddings",
+    "pickVision": "Bilder und Dokumente lesen",
+    "pickAudio": "Sprache rein, Sprache raus",
+    "pickVisual": "Bilder und Video erzeugen"
   }
 }
