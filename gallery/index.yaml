@@ -1007,6 +1007,99 @@
       sha256: 05d4475a956030be87b099865d6552a541a476db8cc3e266fcfa7c5a24846248
       uri: https://huggingface.co/unsloth/Inkling-Small-GGUF/resolve/main/mmproj-BF16.gguf
   variants: []
+- &qwythos-27b-v1
+  name: "qwythos-27b-v1"
+  variants:
+    - model: qwythos-27b-v1-mtp
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwythos-27B-v1
+    - https://huggingface.co/empero-ai/Qwythos-27B-v1-GGUF
+  description: |
+    Qwythos-27B-v1 is an Apache-2.0 dense 27B reasoning and agentic model
+    derived from Qwen3.5-27B. It supports tool use, vision through the included
+    projector, and a one-million-token context window. This entry uses the
+    recommended Q4_K_M GGUF quantization; an MTP-enabled build is available as
+    a variant for hosts with recent llama.cpp support.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwythos-27B-Q4_K_M/mmproj-Qwythos-27B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwythos-27B-Q4_K_M/Qwythos-27B-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwythos-27B-Q4_K_M/Qwythos-27B-Q4_K_M.gguf
+      sha256: 817aa895cd3b6e0680c7aa8da62ec393f3125ff0ab676f8f06a8fc759d20e3d5
+      uri: huggingface://empero-ai/Qwythos-27B-v1-GGUF/Qwythos-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwythos-27B-Q4_K_M/mmproj-Qwythos-27B-F16.gguf
+      sha256: 82af886db3806d5bf634145fe431dca9577235fab39720ac144b16c1b4fcb0a9
+      uri: huggingface://empero-ai/Qwythos-27B-v1-GGUF/mmproj-Qwythos-27B-F16.gguf
+- !!merge <<: *qwythos-27b-v1
+  name: "qwythos-27b-v1-mtp"
+  variants: []
+  description: |
+    Qwythos-27B-v1 MTP is the Q4_K_M build with its native multi-token
+    prediction head enabled for faster speculative decoding. It also includes
+    the shared vision projector and supports tool use and long-context
+    reasoning.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - thinking
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwythos-27B-MTP-Q4_K_M/mmproj-Qwythos-27B-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwythos-27B-MTP-Q4_K_M/Qwythos-27B-MTP-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwythos-27B-MTP-Q4_K_M/Qwythos-27B-MTP-Q4_K_M.gguf
+      sha256: 51cce0271e7ccf25d5892ec8d731bd21e7e80c9a78e291d2f473c7337656ecaa
+      uri: huggingface://empero-ai/Qwythos-27B-v1-GGUF/Qwythos-27B-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwythos-27B-MTP-Q4_K_M/mmproj-Qwythos-27B-F16.gguf
+      sha256: 82af886db3806d5bf634145fe431dca9577235fab39720ac144b16c1b4fcb0a9
+      uri: huggingface://empero-ai/Qwythos-27B-v1-GGUF/mmproj-Qwythos-27B-F16.gguf
 - name: "qwythos-9b-v2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1019,6 +1112,7 @@
     - vision
     - multimodal
     - reasoning
+    - mtp
   overrides:
     backend: llama-cpp
     function:
