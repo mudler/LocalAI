@@ -111,8 +111,11 @@ test.describe("Models gallery - recommended panel prominence", () => {
     await expect(page.evaluate((k) => localStorage.getItem(k), DISMISS_KEY)).resolves.toBe("1");
 
     await page.reload();
-    // The table is the marker that the page finished rendering without the panel.
-    await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 20_000 });
+    // The rail having entries is the marker that the page finished rendering
+    // without the panel. It used to be the table, which no longer exists.
+    await expect(
+      page.locator('[data-testid="discover-rail-item"]').first(),
+    ).toBeVisible({ timeout: 20_000 });
     await expect(panel(page)).toHaveCount(0);
   });
 

@@ -30,11 +30,7 @@ export default function GalleryLoader() {
   const phrase = LOADING_PHRASES[idx]
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', padding: 'var(--spacing-xl) var(--spacing-md)',
-      minHeight: '280px', gap: 'var(--spacing-lg)',
-    }}>
+    <div className="gallery-loader" data-testid="gallery-loader">
       <div className="hstack">
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} style={{

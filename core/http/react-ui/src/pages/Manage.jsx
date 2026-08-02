@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
@@ -11,8 +11,10 @@ import GalleryLoader from '../components/GalleryLoader'
 import ManageSummary from '../components/ManageSummary'
 import MetaBadgeRow from '../components/MetaBadgeRow'
 import ActionMenu from '../components/ActionMenu'
-import ResourceRow, { ChevronCell, IconCell, StopPropagationCell } from '../components/ResourceRow'
-import ResponsiveTable from '../components/ResponsiveTable'
+import SplitView from '../components/split/SplitView'
+import EntityRail from '../components/split/EntityRail'
+import DetailHeader from '../components/split/DetailHeader'
+import StatGrid from '../components/split/StatGrid'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
@@ -58,7 +60,6 @@ const USE_CASES = [
 
 // Number of columns the expandable detail row spans, per tab. Kept as
 // constants so adding/removing a column doesn't silently break the colSpan.
-const MODELS_COLSPAN = 7 // chevron, icon, name, status, backend, use cases, actions
 
 // formatInstalledAt renders an installed_at timestamp as a short relative/abs
 // string suitable for dense tables. Returns the raw value if parsing fails so
@@ -124,11 +125,6 @@ function formatBackendVersion(metadata) {
 // Gallery descriptions are Markdown. The row preview is a single truncated
 // line, so it shows the text without the syntax; the full Markdown is rendered
 // in the expanded detail panel instead.
-function ResourceRowDesc({ description }) {
-  const text = stripMarkdown(description)
-  if (!text) return null
-  return <span className="resource-row__desc" title={text}>{text}</span>
-}
 
 export default function Manage() {
   const { addToast } = useOutletContext()
@@ -148,6 +144,9 @@ export default function Manage() {
   const [aliasTargets, setAliasTargets] = useState({})
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
+  // See Models.jsx: a cold start has nothing to keep, a refetch does.
+  const modelsLoadedOnce = useRef(false)
+  const backendsLoadedOnce = useRef(false)
   const [reloading, setReloading] = useState(false)
   const [reinstallingBackends, setReinstallingBackends] = useState(new Set())
   const [upgrades, setUpgrades] = useState({})
@@ -156,9 +155,12 @@ export default function Manage() {
   const [togglingModels, setTogglingModels] = useState(new Set())
   const [pinningModels, setPinningModels] = useState(new Set())
   const [loadingModels, setLoadingModels] = useState(new Set())
-  // Expanded row state — keyed by `${tab}:${id}` so switching tabs doesn't
-  // collide and a single row is open at a time per tab.
-  const [expandedKey, setExpandedKey] = useState(null)
+  // Which entity the pane is showing, or null for the status page. The tab
+  // already disambiguates models from backends, so the id alone is enough.
+  // In the URL for the same reasons as the two galleries: a model is linkable
+  // and Back leaves the detail rather than the page.
+  const selectedId = searchParams.get('sel')
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   // Filter state per tab. Persisted in the URL query so switching tabs
   // doesn't lose the filter the operator just set.
   const [modelsSearch, setModelsSearch] = useState(() => searchParams.get('mq') || '')
@@ -197,7 +199,7 @@ export default function Manage() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
-    setExpandedKey(null)
+    selectEntity(null)
     localStorage.setItem('manage-tab', tab)
     setSearchParams({ tab })
   }
@@ -206,7 +208,7 @@ export default function Manage() {
   // double as shortcuts to a filtered slice instead of being purely visual.
   const handleSummaryClick = (tab, filter) => {
     setActiveTab(tab)
-    setExpandedKey(null)
+    selectEntity(null)
     localStorage.setItem('manage-tab', tab)
     if (tab === 'models') setModelsFilter(filter)
     if (tab === 'backends') setBackendsFilter(filter)
@@ -215,10 +217,23 @@ export default function Manage() {
     setSearchParams(p, { replace: true })
   }
 
-  const toggleExpanded = (tab, id) => {
-    const key = `${tab}:${id}`
-    setExpandedKey(prev => (prev === key ? null : key))
-  }
+  const selectEntity = useCallback((id) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (id) next.set('sel', id)
+      else next.delete('sel')
+      return next
+    }, { replace: !id })
+  }, [setSearchParams])
+
+  const toggleGroup = useCallback((id) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const fetchLoadedModels = useCallback(async () => {
     try {
@@ -238,6 +253,7 @@ export default function Manage() {
     } catch {
       setBackends([])
     } finally {
+      backendsLoadedOnce.current = true
       setBackendsLoading(false)
     }
   }, [])
@@ -489,14 +505,39 @@ export default function Manage() {
   }
 
   // Counts for the summary header — derived in-memory; no extra API calls.
+  useEffect(() => {
+    if (!modelsLoading) modelsLoadedOnce.current = true
+  }, [modelsLoading])
+
   const runningCount = models.filter(m =>
     !m.disabled && (loadedModelIds.has(m.id) || (Array.isArray(m.loaded_on) && m.loaded_on.length > 0))
   ).length
   const updatesCount = Object.keys(upgrades).length
 
+  // A backend is mid-flight if an operation names it, or if a reinstall was
+  // just fired from this page and the operation has not landed yet.
+  const isBackendProcessing = useCallback((backend) => {
+    const name = backend?.Name
+    if (!name) return false
+    if (reinstallingBackends.has(name)) return true
+    return operations.some(op => op.name === name && !op.completed && !op.error)
+  }, [reinstallingBackends, operations])
+
+  const selectedModel = selectedId && activeTab === 'models'
+    ? (models.find(m => m.id === selectedId) || null)
+    : null
+  const selectedBackend = selectedId && activeTab === 'backends'
+    ? (backends.find(b => b.Name === selectedId) || null)
+    : null
+
   return (
-    <div className="page page--wide">
-      <PageHeader title={t('manage.title')} supporting={t('manage.subtitle')} />
+    <div className="page page--wide page--app">
+      <div className="view-bar">
+        <h1 className="view-bar__title">{t('manage.title')}</h1>
+        <span className="view-bar__count">
+          {modelsLoading ? '—' : models.length} models · {backendsLoading ? '—' : backends.length} backends
+        </span>
+      </div>
 
       {/* Resource Monitor */}
       <ResourceMonitor />
@@ -566,29 +607,36 @@ export default function Manage() {
           onFilterChange={setModelsFilter}
           rightSlot={(
             <>
+              {/* A status line, not a control. It had picked up btn classes and
+                  two copies of `fas`, so it rendered as a button you cannot
+                  press next to a button that looked like text. */}
               {distributedMode && (
-                <span className={`cell-muted fas fa-rotate btn btn-secondary btn-sm fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly">
-                  <i /> Last synced {lastSyncedAgo}
+                <span
+                  className="cell-muted text-xs nowrap"
+                  title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly"
+                >
+                  <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'} icon-before`} aria-hidden="true" />
+                  Last synced {lastSyncedAgo}
                 </span>
               )}
-              <button onClick={handleReload} disabled={reloading}>
-                <i />
-                {reloading ? ' Updating...' : ' Update'}
+              <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
+                <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} aria-hidden="true" />
+                {reloading ? 'Updating…' : 'Update'}
               </button>
             </>
           )}
         />
 
-        {modelsLoading ? (
+        {modelsLoading && !modelsLoadedOnce.current ? (
           <GalleryLoader />
         ) : models.length === 0 ? (
-          <div className="card loading-center text-center">
-            <i className="fas fa-exclamation-triangle" style={{ fontSize: '2rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
-            <h3 className="mb-sm">No models installed yet</h3>
-            <p className="text-base text-secondary mb-md">
-              Install a model from the gallery to get started.
+          <div className="empty-state empty-state--page">
+            <div className="empty-state-icon"><i className="fas fa-brain" /></div>
+            <h2 className="empty-state-title">No models installed yet</h2>
+            <p className="empty-state-text">
+              Install a model from the gallery to get started, or import one you already have on disk.
             </p>
-            <div className="hstack hstack--center">
+            <div className="empty-state__actions">
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/models')}>
                 <i className="fas fa-store" /> Browse Gallery
               </button>
@@ -607,140 +655,149 @@ export default function Manage() {
             <button className="btn btn-ghost btn-sm" onClick={() => { setModelsSearch(''); setModelsFilter('all') }}>Clear filters</button>
           </div>
         ) : (
-          <ResponsiveTable>
-              <thead>
-                <tr>
-                  <th className="col-w-30"></th>
-                  <th className="col-w-64"></th>
-                  <th>Model</th>
-                  <th>Status</th>
-                  <th>Backend</th>
-                  <th>Use cases</th>
-                  <th className="col-w-40"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleModels.map(model => {
-                  const enriched = enrichModel(model.id)
-                  const isExpanded = expandedKey === `models:${model.id}`
-                  const isRunning = loadedModelIds.has(model.id) || (Array.isArray(model.loaded_on) && model.loaded_on.length > 0)
-                  const caps = Array.isArray(model.capabilities) ? model.capabilities : []
-                  const matchedCaps = USE_CASES.filter(uc => caps.includes(uc.cap) && !(uc.hideIf && caps.includes(uc.hideIf)))
-                  return (
-                    <ResourceRow
-                      key={model.id}
-                      expanded={isExpanded}
-                      onToggleExpand={() => toggleExpanded('models', model.id)}
-                      colSpan={MODELS_COLSPAN}
-                      dimmed={!!model.disabled}
-                      detail={(
-                        <ModelDetail
-                          model={model}
-                          enriched={enriched}
-                          matchedCaps={matchedCaps}
-                          distributedMode={distributedMode}
-                          onNavigate={navigate}
-                        />
-                      )}
-                    >
-                      <ChevronCell expanded={isExpanded} />
-                      <IconCell icon={enriched?.icon} fallback="fa-brain" alt="" />
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{model.id}</span>
-                          {enriched?.description && (
-                            <ResourceRowDesc description={enriched.description} />
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="cell-stack">
-                          {model.disabled ? (
-                            <span className="badge chip-neutral">
-                              <i className="fas fa-ban" /> Disabled
-                            </span>
-                          ) : Array.isArray(model.loaded_on) && model.loaded_on.length > 0 ? (
-                            <NodeDistributionChip nodes={model.loaded_on} context="models" />
-                          ) : loadedModelIds.has(model.id) ? (
-                            <span className="badge badge-success">
-                              <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Running
-                            </span>
-                          ) : (
-                            <span className="badge chip-neutral">
-                              <i className="fas fa-circle" style={{ fontSize: '6px' }} /> Idle
-                            </span>
-                          )}
-                          {model.source === 'registry-only' && (
-                            <span className="badge badge-warning" title="Discovered on a worker but not configured locally. Persist the config to make it permanent.">
-                              <i className="fas fa-ghost" /> Adopted
-                            </span>
-                          )}
-                          {model.pinned && (
-                            <span className="badge badge-warning" title="Pinned — won't be idle-unloaded">
-                              <i className="fas fa-thumbtack" /> Pinned
-                            </span>
-                          )}
-                          {aliasTargets[model.id] && (
-                            <span className="badge badge-info" title={`Alias -> ${aliasTargets[model.id]}`}>
-                              <i className="fas fa-arrow-right-arrow-left" /> alias -&gt; {aliasTargets[model.id]}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="badge badge-info">{model.backend || 'Auto'}</span>
-                      </td>
-                      <td>
-                        <div className="badge-row">
-                          {matchedCaps.length === 0 ? (
-                            <span className="cell-muted">—</span>
-                          ) : matchedCaps.map(uc => uc.route ? (
-                            <a
-                              key={uc.cap}
-                              href="#"
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(uc.route(model.id)) }}
-                              className="badge badge-info badge-link"
-                            >{uc.label}</a>
-                          ) : (
-                            <span key={uc.cap} className="badge">{uc.label}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <StopPropagationCell className="text-right">
+          <SplitView
+            testId="host"
+            detail={!!selectedModel}
+            rail={
+              <EntityRail
+                items={visibleModels.map(m => railItemForManagedModel(m, { loadedModelIds, enrichModel, loadingModels }))}
+                groups={MODEL_STATE_GROUPS}
+                grouped={!modelsSearch.trim()}
+                collapsedGroups={collapsedGroups}
+                onToggleGroup={toggleGroup}
+                busy={modelsLoading}
+                selectedId={selectedId}
+                onSelect={selectEntity}
+                countLabel={`${visibleModels.length} of ${models.length}`}
+                ariaLabel="Installed models"
+                testId="host-rail"
+              />
+            }
+            pane={selectedModel ? (() => {
+              const enriched = enrichModel(selectedModel.id)
+              const caps = Array.isArray(selectedModel.capabilities) ? selectedModel.capabilities : []
+              const matchedCaps = USE_CASES.filter(uc => caps.includes(uc.cap) && !(uc.hideIf && caps.includes(uc.hideIf)))
+              const isRunning = loadedModelIds.has(selectedModel.id) || (Array.isArray(selectedModel.loaded_on) && selectedModel.loaded_on.length > 0)
+              return (
+                <div className="detail-pane">
+                  <DetailHeader
+                    testId="host"
+                    icon="fa-brain"
+                    name={selectedModel.id}
+                    lede={enriched?.description ? stripMarkdown(enriched.description).slice(0, 220) : null}
+                    ledeTitle={enriched?.description ? stripMarkdown(enriched.description) : null}
+                    onBack={() => selectEntity(null)}
+                    backLabel="All models"
+                    actions={
+                      <>
+                        {!selectedModel.disabled && !isRunning && (
+                          <button className="btn btn-primary btn-sm" onClick={() => handleLoadModel(selectedModel.id)} disabled={loadingModels.has(selectedModel.id)}>
+                            <i className="fas fa-bolt" /> {loadingModels.has(selectedModel.id) ? 'Loading…' : 'Load'}
+                          </button>
+                        )}
+                        {isRunning && (
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleStopModel(selectedModel.id)}>
+                            <i className="fas fa-stop" /> Stop
+                          </button>
+                        )}
+                        {/* The rest stays behind a menu. Load/Stop is what an
+                            operator came for; everything else is occasional and
+                            would only dilute it. */}
                         <ActionMenu
-                          ariaLabel={`Actions for ${model.id}`}
-                          triggerLabel={`Actions for ${model.id}`}
+                          ariaLabel={`Actions for ${selectedModel.id}`}
+                          triggerLabel={`Actions for ${selectedModel.id}`}
                           items={[
-                            { key: 'toggle', icon: model.disabled ? 'fa-toggle-on' : 'fa-toggle-off',
-                              label: model.disabled ? 'Enable model' : 'Disable model',
-                              onClick: () => handleToggleModel(model.id, model.disabled),
-                              disabled: togglingModels.has(model.id) },
-                            { key: 'load', icon: 'fa-bolt',
-                              label: loadingModels.has(model.id) ? 'Loading…' : 'Load into memory',
-                              onClick: () => handleLoadModel(model.id),
-                              hidden: isRunning || !!model.disabled,
-                              disabled: loadingModels.has(model.id) },
-                            { key: 'stop', icon: 'fa-stop', label: 'Stop model',
-                              onClick: () => handleStopModel(model.id), hidden: !isRunning },
+                            { key: 'toggle', icon: selectedModel.disabled ? 'fa-toggle-on' : 'fa-toggle-off',
+                              label: selectedModel.disabled ? 'Enable model' : 'Disable model',
+                              onClick: () => handleToggleModel(selectedModel.id, selectedModel.disabled),
+                              disabled: togglingModels.has(selectedModel.id) },
                             { key: 'pin', icon: 'fa-thumbtack',
-                              label: model.pinned ? 'Unpin (allow idle unload)' : 'Pin (prevent idle unload)',
-                              onClick: () => handleTogglePinned(model.id, model.pinned),
-                              disabled: pinningModels.has(model.id) || !!model.disabled },
+                              label: selectedModel.pinned ? 'Unpin (allow idle unload)' : 'Pin (prevent idle unload)',
+                              onClick: () => handleTogglePinned(selectedModel.id, selectedModel.pinned),
+                              disabled: pinningModels.has(selectedModel.id) || !!selectedModel.disabled },
                             { key: 'edit', icon: 'fa-pen-to-square', label: 'Edit configuration',
-                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, { state: fromState(location, t('manage.title')) }) },
+                              onClick: () => navigate(`/app/model-editor/${encodeURIComponent(selectedModel.id)}`, { state: fromState(location, t('manage.title')) }) },
                             { key: 'logs', icon: 'fa-terminal', label: 'Backend logs',
-                              onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`) },
+                              onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(selectedModel.id)}`) },
                             { divider: true },
                             { key: 'delete', icon: 'fa-trash', label: 'Delete model', danger: true,
-                              onClick: () => handleDeleteModel(model.id) },
+                              onClick: () => handleDeleteModel(selectedModel.id) },
                           ]}
                         />
-                      </StopPropagationCell>
-                    </ResourceRow>
-                  )
-                })}
-              </tbody>
-          </ResponsiveTable>
+                      </>
+                    }
+                  />
+
+                  <StatGrid
+                    stats={[
+                      { label: 'State',
+                        value: selectedModel.disabled ? 'Disabled' : isRunning ? 'Running' : 'Idle',
+                        tone: selectedModel.disabled ? undefined : isRunning ? 'ok' : undefined },
+                      { label: 'Backend', value: selectedModel.backend || 'Auto' },
+                      enriched?.estimated_vram_display && enriched.estimated_vram_display !== '0 B'
+                        ? { label: 'VRAM', value: enriched.estimated_vram_display } : null,
+                      selectedModel.pinned ? { label: 'Pinned', value: 'yes', tone: 'warn' } : null,
+                    ]}
+                  />
+
+                  {/* Adopted, pinned and alias are row badges that lost their
+                      cell. They are facts about the model, not about its state,
+                      so they sit under the numbers rather than in the rail. */}
+                  {(aliasTargets[selectedModel.id] || selectedModel.source === 'registry-only') && (
+                    <div className="badge-row">
+                      {selectedModel.source === 'registry-only' && (
+                        <span className="badge badge-warning" title="Discovered on a worker but not configured locally. Persist the config to make it permanent.">
+                          <i className="fas fa-ghost" /> Adopted
+                        </span>
+                      )}
+                      {aliasTargets[selectedModel.id] && (
+                        <span className="badge badge-info" title={`Alias -> ${aliasTargets[selectedModel.id]}`}>
+                          <i className="fas fa-arrow-right-arrow-left" /> alias -&gt; {aliasTargets[selectedModel.id]}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {matchedCaps.length > 0 && (
+                    <div>
+                      <span className="detail-pane__label">Use cases</span>
+                      <div className="badge-row">
+                        {matchedCaps.map(uc => uc.route ? (
+                          <a
+                            key={uc.cap}
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); navigate(uc.route(selectedModel.id)) }}
+                            className="badge badge-info badge-link"
+                          >{uc.label}</a>
+                        ) : (
+                          <span key={uc.cap} className="badge">{uc.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <ModelDetail
+                    model={selectedModel}
+                    enriched={enriched}
+                    matchedCaps={matchedCaps}
+                    distributedMode={distributedMode}
+                    onNavigate={navigate}
+                  />
+                </div>
+              )
+            })() : (
+              <HostStatusPane
+                models={models}
+                backends={backends}
+                loadedModelIds={loadedModelIds}
+                upgrades={upgrades}
+                operations={operations}
+                enrichModel={enrichModel}
+                onJump={handleSummaryClick}
+              />
+            )}
+          />
+
         )}
       </div>
         )
@@ -771,16 +828,16 @@ export default function Manage() {
           </div>
         )}
 
-        {backendsLoading ? (
+        {backendsLoading && !backendsLoadedOnce.current ? (
           <GalleryLoader />
         ) : backends.length === 0 ? (
-          <div className="card loading-center text-center">
-            <i className="fas fa-server" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }} />
-            <h3 className="mb-sm">No backends installed yet</h3>
-            <p className="text-base text-secondary mb-md">
-              Install backends from the gallery to extend functionality.
+          <div className="empty-state empty-state--page">
+            <div className="empty-state-icon"><i className="fas fa-server" /></div>
+            <h2 className="empty-state-title">No backends installed yet</h2>
+            <p className="empty-state-text">
+              A backend is the runtime that actually runs a model. Install one from the gallery to give this host something to run with.
             </p>
-            <div className="hstack hstack--center">
+            <div className="empty-state__actions">
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/backends')}>
                 <i className="fas fa-server" /> Browse Backend Gallery
               </button>
@@ -908,136 +965,49 @@ export default function Manage() {
           return (
           <>
             {filterBar}
-            <ResponsiveTable>
-              <thead>
-                <tr>
-                  <th className="col-w-30"></th>
-                  <th className="col-w-64"></th>
-                  <th>Backend</th>
-                  <th>Version</th>
-                  {distributedMode && <th>Nodes</th>}
-                  <th>Installed</th>
-                  <th className="col-w-40"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleBackends.map((backend) => {
-                  const upgradeInfo = upgrades[backend.Name]
-                  const hasDrift = upgradeInfo?.node_drift?.length > 0
-                  const nodes = backend.Nodes || backend.nodes || []
-                  const enriched = enrichBackend(backend.Name)
-                  const isExpanded = expandedKey === `backends:${backend.Name}`
-                  const isDevelopment = !!(enriched?.isDevelopment)
-                  const isProcessing = reinstallingBackends.has(backend.Name)
-                  return (
-                    <ResourceRow
-                      key={backend.Name}
-                      expanded={isExpanded}
-                      onToggleExpand={() => toggleExpanded('backends', backend.Name)}
-                      colSpan={colSpan}
-                      detail={(
-                        <BackendDetail
-                          backend={backend}
-                          enriched={enriched}
-                          upgradeInfo={upgradeInfo}
-                          nodes={nodes}
-                          distributedMode={distributedMode}
-                        />
-                      )}
-                    >
-                      <ChevronCell expanded={isExpanded} />
-                      <IconCell icon={enriched?.icon} fallback="fa-cogs" alt="" />
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{backend.Name}</span>
-                            <MetaBadgeRow
-                              isSystem={!!backend.IsSystem}
-                              isMeta={!!backend.IsMeta}
-                              isDevelopment={isDevelopment}
-                            />
-                            {backend.Metadata?.alias && backend.Metadata.alias !== backend.Name && (
-                              <span className="cell-subtle" style={{ marginLeft: 0 }}>· alias {backend.Metadata.alias}</span>
-                            )}
-                            {backend.Metadata?.meta_backend_for && (
-                              <span className="cell-subtle" style={{ marginLeft: 0 }}>· for {backend.Metadata.meta_backend_for}</span>
-                            )}
-                          </div>
-                          {(enriched?.description) && (
-                            <ResourceRowDesc description={enriched.description} />
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        {(() => {
-                          const v = formatBackendVersion(backend.Metadata)
-                          return (
-                            <div className="cell-stack">
-                              <span className="cell-mono" title={v.full || undefined}>{v.label}</span>
-                              {upgradeInfo && (
-                                <span className="badge badge-warning" title={upgradeInfo.available_version ? `Upgrade to v${upgradeInfo.available_version}` : 'Update available'}>
-                                  <i className="fas fa-arrow-up" />
-                                  {upgradeInfo.available_version ? ` v${upgradeInfo.available_version}` : ' Update'}
-                                </span>
-                              )}
-                              {hasDrift && (
-                                <span
-                                  className="badge badge-warning"
-                                  title={`Drift: ${upgradeInfo.node_drift.map(d => `${d.node_name}${d.version ? ' v' + d.version : ''}`).join(', ')}`}
-                                >
-                                  <i className="fas fa-code-branch" />
-                                  {' '}Drift: {upgradeInfo.node_drift.length} node{upgradeInfo.node_drift.length === 1 ? '' : 's'}
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </td>
-                      {distributedMode && (
-                        <td>
-                          <NodeDistributionChip nodes={nodes} context="backends" />
-                        </td>
-                      )}
-                      <td>
-                        <span
-                          className="cell-muted cell-mono"
-                          title={backend.Metadata?.installed_at ? formatInstalledAtFull(backend.Metadata.installed_at) : undefined}
-                        >
-                          {backend.Metadata?.installed_at ? formatInstalledAt(backend.Metadata.installed_at) : '—'}
-                        </span>
-                      </td>
-                      <StopPropagationCell className="text-right">
-                        {backend.IsSystem ? (
-                          <span className="badge" title="System backends are managed outside the gallery">
-                            <i className="fas fa-lock" /> Protected
-                          </span>
-                        ) : (
-                          <ActionMenu
-                            ariaLabel={`Actions for ${backend.Name}`}
-                            triggerLabel={`Actions for ${backend.Name}`}
-                            items={[
-                              { key: 'upgrade', icon: 'fa-arrow-up',
-                                label: upgradeInfo?.available_version ? `Upgrade to v${upgradeInfo.available_version}` : 'Upgrade',
-                                onClick: () => handleUpgradeBackend(backend.Name),
-                                disabled: isProcessing,
-                                hidden: !upgradeInfo },
-                              { key: 'reinstall', icon: 'fa-rotate', label: 'Reinstall backend',
-                                onClick: () => handleReinstallBackend(backend.Name),
-                                disabled: isProcessing },
-                              { divider: true },
-                              { key: 'delete', icon: 'fa-trash',
-                                label: 'Delete backend',
-                                danger: true,
-                                onClick: () => handleDeleteBackend(backend.Name) },
-                            ]}
-                          />
-                        )}
-                      </StopPropagationCell>
-                    </ResourceRow>
-                  )
-                })}
-              </tbody>
-            </ResponsiveTable>
+            <SplitView
+              testId="host"
+              detail={!!selectedBackend}
+              rail={
+                <EntityRail
+                  items={visibleBackends.map(b => railItemForManagedBackend(b, { upgrades, isBackendProcessing }))}
+                  groups={BACKEND_STATE_GROUPS}
+                  grouped={!backendsSearch.trim()}
+                  collapsedGroups={collapsedGroups}
+                  onToggleGroup={toggleGroup}
+                  busy={backendsLoading}
+                  selectedId={selectedId}
+                  onSelect={selectEntity}
+                  countLabel={`${visibleBackends.length} of ${backends.length}`}
+                  ariaLabel="Installed backends"
+                  testId="host-rail"
+                />
+              }
+              pane={selectedBackend ? (
+                <ManagedBackendPane
+                  backend={selectedBackend}
+                  enriched={enrichBackend(selectedBackend.Name)}
+                  upgradeInfo={upgrades[selectedBackend.Name]}
+                  processing={isBackendProcessing(selectedBackend)}
+                  distributedMode={distributedMode}
+                  onBack={() => selectEntity(null)}
+                  onUpgrade={handleUpgradeBackend}
+                  onReinstall={handleReinstallBackend}
+                  onDelete={handleDeleteBackend}
+                />
+              ) : (
+                <HostStatusPane
+                  models={models}
+                  backends={backends}
+                  loadedModelIds={loadedModelIds}
+                  upgrades={upgrades}
+                  operations={operations}
+                  enrichModel={enrichModel}
+                  onJump={handleSummaryClick}
+                />
+              )}
+            />
+
           </>
           )
         })()}
@@ -1292,6 +1262,220 @@ function BackendDetail({ backend, enriched, upgradeInfo, nodes, distributedMode 
           </dd>
         </>)}
       </dl>
+    </div>
+  )
+}
+
+// State groups. An inventory is read by condition before it is read by name, so
+// the rail is bucketed by what a thing is doing rather than by what it is for.
+// That is the opposite of the galleries, and deliberately so: nobody opens Host
+// wondering which of their models does vision.
+const MODEL_STATE_GROUPS = [
+  { id: 'running', label: 'Running', icon: 'fa-circle-play' },
+  { id: 'idle', label: 'Idle', icon: 'fa-pause' },
+  { id: 'disabled', label: 'Disabled', icon: 'fa-ban' },
+]
+
+const BACKEND_STATE_GROUPS = [
+  { id: 'update', label: 'Update available', icon: 'fa-arrow-up' },
+  { id: 'installed', label: 'Installed', icon: 'fa-check' },
+]
+
+function railItemForManagedModel(model, { loadedModelIds, enrichModel, loadingModels }) {
+  const running = loadedModelIds.has(model.id) || (Array.isArray(model.loaded_on) && model.loaded_on.length > 0)
+  const enriched = enrichModel(model.id)
+  const vram = enriched?.estimated_vram_display
+  const hasVram = vram && vram !== '0 B'
+
+  let groupId = 'idle'
+  let stripe = 'idle'
+  let meta = hasVram ? `idle · ${vram}` : 'idle'
+  let metaTone
+
+  if (model.disabled) {
+    groupId = 'disabled'
+    stripe = 'off'
+    meta = 'disabled'
+  } else if (loadingModels.has(model.id)) {
+    groupId = 'idle'
+    stripe = 'idle'
+    meta = 'loading…'
+    metaTone = 'busy'
+  } else if (running) {
+    groupId = 'running'
+    stripe = 'run'
+    meta = hasVram ? `running · ${vram}` : 'running'
+    metaTone = 'ok'
+  }
+
+  return { id: model.id, name: model.id, icon: 'fa-brain', meta, metaTone, stripe, groupId }
+}
+
+function railItemForManagedBackend(backend, { upgrades, isBackendProcessing }) {
+  const name = backend.Name
+  const upgrade = upgrades[name]
+  const version = backend.Metadata?.version || backend.Version
+
+  let groupId = 'installed'
+  let stripe = 'idle'
+  let meta = version ? `v${version}` : 'installed'
+  let metaTone
+
+  if (isBackendProcessing(backend)) {
+    meta = 'working…'
+    metaTone = 'busy'
+  } else if (upgrade) {
+    groupId = 'update'
+    stripe = 'err'
+    meta = upgrade.available_version ? `v${version} → v${upgrade.available_version}` : 'update available'
+    metaTone = 'warn'
+  }
+
+  return { id: name, name, icon: 'fa-server', meta, metaTone, stripe, groupId }
+}
+
+// ManagedBackendPane is the detail for one installed backend. System backends
+// keep their protection: they are managed outside the gallery, so the pane
+// states that rather than offering actions that would fail.
+function ManagedBackendPane({ backend, enriched, upgradeInfo, processing, distributedMode, onBack, onUpgrade, onReinstall, onDelete }) {
+  const name = backend.Name
+  const version = backend.Metadata?.version || backend.Version
+  return (
+    <div className="detail-pane">
+      <DetailHeader
+        testId="host"
+        icon="fa-server"
+        name={name}
+        lede={enriched?.description ? stripMarkdown(enriched.description).slice(0, 220) : null}
+        ledeTitle={enriched?.description ? stripMarkdown(enriched.description) : null}
+        onBack={onBack}
+        backLabel="All backends"
+        actions={
+          backend.IsSystem ? (
+            <span className="badge" title="System backends are managed outside the gallery">
+              <i className="fas fa-lock" /> Protected
+            </span>
+          ) : (
+            <>
+              {upgradeInfo && (
+                <button className="btn btn-primary btn-sm" onClick={() => onUpgrade(name)} disabled={processing}>
+                  <i className="fas fa-arrow-up" /> {upgradeInfo.available_version ? `Upgrade to v${upgradeInfo.available_version}` : 'Upgrade'}
+                </button>
+              )}
+              <ActionMenu
+                ariaLabel={`Actions for ${name}`}
+                triggerLabel={`Actions for ${name}`}
+                items={[
+                  { key: 'reinstall', icon: 'fa-rotate', label: 'Reinstall backend',
+                    onClick: () => onReinstall(name), disabled: processing },
+                  { divider: true },
+                  { key: 'delete', icon: 'fa-trash', label: 'Delete backend', danger: true,
+                    onClick: () => onDelete(name) },
+                ]}
+              />
+            </>
+          )
+        }
+      />
+
+      <StatGrid
+        stats={[
+          { label: 'Version', value: version ? `v${version}` : '—' },
+          upgradeInfo ? { label: 'Available', value: upgradeInfo.available_version ? `v${upgradeInfo.available_version}` : 'update', tone: 'warn' } : null,
+          { label: 'Managed', value: backend.IsSystem ? 'system' : 'gallery' },
+        ]}
+      />
+
+      <BackendDetail
+        backend={backend}
+        enriched={enriched}
+        upgradeInfo={upgradeInfo}
+        nodes={backend.nodes}
+        distributedMode={distributedMode}
+      />
+    </div>
+  )
+}
+
+// HostStatusPane is the pane with nothing selected.
+//
+// Nobody opens Host to discover anything, so the zero state is not a catalog
+// front page: it is the answer to the question people actually arrive with.
+// What is loaded, what is stale, and what fell over. Every number here already
+// existed on the page; none of them had been assembled into one statement.
+function HostStatusPane({ models, backends, loadedModelIds, upgrades, operations, enrichModel, onJump }) {
+  const running = models.filter(m => !m.disabled && (loadedModelIds.has(m.id) || (Array.isArray(m.loaded_on) && m.loaded_on.length > 0)))
+  const disabled = models.filter(m => m.disabled)
+  const idle = models.length - running.length - disabled.length
+  const staleNames = Object.keys(upgrades)
+  // Failures are kept in the operations list on purpose so they can be seen and
+  // dismissed; unseen is exactly what a red badge in a scrolled-off row was.
+  const failures = operations.filter(op => op.error)
+
+  return (
+    <div className="zero-pane">
+      <div className="zero-pane__hero">
+        <span className="zero-pane__eyebrow">Right now</span>
+        <h2 className="zero-pane__title">
+          {running.length === 0
+            ? `Nothing loaded. ${models.length} models and ${backends.length} backends installed.`
+            : `${running.length} of ${models.length} models loaded, ${backends.length} backends installed.`}
+        </h2>
+        <p className="zero-pane__text">Pick anything on the left to load it, stop it, or see its configuration.</p>
+      </div>
+
+      {failures.length > 0 && (
+        <div className="zero-pane__alert zero-pane__alert--bad" role="status">
+          <i className="fas fa-circle-exclamation" aria-hidden="true" />
+          <span>
+            {failures.length === 1 ? '1 operation failed' : `${failures.length} operations failed`}
+            {': '}{failures.slice(0, 2).map(op => op.name).join(', ')}{failures.length > 2 ? '…' : ''}
+          </span>
+        </div>
+      )}
+
+      {staleNames.length > 0 && (
+        <div className="zero-pane__alert zero-pane__alert--warn">
+          <i className="fas fa-arrow-up" aria-hidden="true" />
+          <span>
+            {staleNames.length === 1 ? '1 backend has an update' : `${staleNames.length} backends have updates`}
+            {': '}{staleNames.slice(0, 3).join(', ')}{staleNames.length > 3 ? '…' : ''}
+          </span>
+          <button className="btn btn-secondary btn-sm" onClick={() => onJump('backends', 'updates')}>
+            Review
+          </button>
+        </div>
+      )}
+
+      <StatGrid
+        stats={[
+          { label: 'Loaded', value: running.length, tone: running.length > 0 ? 'ok' : undefined },
+          { label: 'Idle', value: idle },
+          { label: 'Disabled', value: disabled.length },
+          { label: 'Updates', value: staleNames.length, tone: staleNames.length > 0 ? 'warn' : undefined },
+        ]}
+      />
+
+      {running.length > 0 && (
+        <div className="zero-pane__shelf">
+          <div className="zero-pane__shelf-head">
+            <h3 className="zero-pane__shelf-title">Loaded now</h3>
+            <span className="zero-pane__shelf-meta">estimated VRAM</span>
+          </div>
+          <div className="rowlist">
+            {running.slice(0, 6).map(m => {
+              const vram = enrichModel(m.id)?.estimated_vram_display
+              return (
+                <div className="rowline" key={m.id}>
+                  <span className="badge badge-success"><i className="fas fa-circle icon-tiny" /> running</span>
+                  <span>{m.id}</span>
+                  <span className="cell-mono cell-muted rowline__num">{vram && vram !== '0 B' ? vram : '—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -62,40 +62,6 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseTokenClassify:       config.FLAG_TOKEN_CLASSIFY,
 }
 
-// extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
-func extractHFRepo(overrides map[string]any, urls []string) string {
-	if overrides != nil {
-		if params, ok := overrides["parameters"].(map[string]any); ok {
-			if modelRef, ok := params["model"].(string); ok {
-				if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
-					return repoID
-				}
-			}
-		}
-	}
-	for _, u := range urls {
-		if repoID, ok := vram.ExtractHFRepoID(u); ok {
-			return repoID
-		}
-	}
-	return ""
-}
-
-// buildEstimateInput creates a vram.ModelEstimateInput from gallery model metadata.
-func buildEstimateInput(m *gallery.GalleryModel) vram.ModelEstimateInput {
-	var input vram.ModelEstimateInput
-	input.Size = m.Size
-	if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
-		input.HFRepo = hfRepoID
-	}
-	for _, f := range m.AdditionalFiles {
-		if vram.IsWeightFile(f.URI) {
-			input.Files = append(input.Files, vram.FileInput{URI: f.URI, Size: 0})
-		}
-	}
-	return input
-}
-
 // parseContextSizes parses a comma-separated list of context sizes from a query param.
 // Returns a default of [8192] if the param is empty or unparseable.
 func parseContextSizes(raw string) []uint32 {
@@ -916,7 +882,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return c.JSON(http.StatusNotFound, map[string]any{"error": "model not found"})
 		}
 
-		input := buildEstimateInput(model)
+		input := gallery.EstimateInput(model)
 		if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
 			return c.JSON(200, vram.MultiContextEstimate{})
 		}

@@ -11595,3 +11595,897 @@ button.collapsible-header:focus-visible {
 .ajd-code--tall { max-height: 300px; }
 .ajd-code--taller { max-height: 500px; }
 .ajd-code--error { background: var(--color-error-light); color: var(--color-error); max-height: none; }
+
+/* ==========================================================================
+   SplitView: the shell shared by Discover, Backends and Host.
+
+   The rail is scanned, the pane answers. The pane has exactly two states -
+   a zero state with nothing selected and one entity's detail with something
+   selected - which is what replaces the click-to-expand table row. What the
+   zero state says is the surface's business: a catalog offers what to install,
+   an inventory reports what is running.
+   ========================================================================== */
+
+.split-view {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: var(--spacing-md);
+  align-items: start;
+}
+
+.split-view__rail-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.entity-rail {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.entity-rail__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-wrap: wrap;
+}
+
+.entity-rail__count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.entity-rail__sort {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Sorting lost its home when the column headers went. It reappears here rather
+   than in the filter band above, because it orders this list and nothing else. */
+.entity-rail__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.entity-rail__sort-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.entity-rail__sort-btn.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-light);
+}
+
+.entity-rail__list {
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.entity-rail__list:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.entity-rail__group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: var(--color-surface-sunken);
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.entity-rail__group:first-child .entity-rail__group-head { border-top: 0; }
+
+.entity-rail__caret { font-size: 0.5625rem; color: var(--color-text-muted); width: 10px; }
+.entity-rail__group-icon { font-size: 0.6875rem; color: var(--color-text-muted); }
+
+.entity-rail__group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.entity-rail__group-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.entity-rail__item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 7px var(--spacing-sm);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border-divider);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entity-rail__item:hover { background: var(--color-bg-hover); }
+
+/* The rail rounds its corners with overflow:hidden, which clips an outline
+   drawn outside the element. Inset it so the first and last entries keep a
+   visible focus ring. */
+.entity-rail__item:focus-visible,
+.entity-rail__group-head:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Touch. A 30px row is fine for a mouse and too small for a thumb, so coarse
+   pointers get the 44px target without costing density on a desktop. */
+@media (pointer: coarse) {
+  .entity-rail__item { padding-top: 12px; padding-bottom: 12px; }
+  .entity-rail__group-head { padding-top: 10px; padding-bottom: 10px; }
+}
+
+.entity-rail__item--on {
+  background: var(--color-primary-light);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.entity-rail__icon {
+  flex: none;
+  width: 16px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.entity-rail__item--on .entity-rail__icon { color: var(--color-primary); }
+
+.entity-rail__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+
+.entity-rail__name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-rail__meta {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A left edge for surfaces read by condition before they are read by name. An
+   inventory has one; a catalog does not, because "available" is not a state
+   worth a colour on every row. */
+.entity-rail__stripe {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex: none;
+}
+
+.entity-rail__stripe--run { background: var(--color-success); }
+.entity-rail__stripe--idle { background: var(--color-border-strong); }
+.entity-rail__stripe--err { background: var(--color-error); }
+.entity-rail__stripe--off { background: transparent; }
+
+
+.entity-rail__meta--bad { color: var(--color-error); }
+.entity-rail__meta--ok { color: var(--color-success); }
+.entity-rail__meta--busy { color: var(--color-primary); }
+
+.split-view__pager { margin: 0; }
+.split-view__pager-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  padding: 0 var(--spacing-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pane ---------------------------------------------------------------- */
+
+.split-view__pane {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  min-height: 420px;
+  padding: var(--spacing-md);
+}
+
+.zero-pane { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+
+.zero-pane__hero { display: flex; flex-direction: column; gap: 4px; }
+
+.zero-pane__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-eyebrow);
+}
+
+.zero-pane__title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.zero-pane__text { font-size: 0.8125rem; color: var(--color-text-muted); }
+
+.zero-pane__shelf-head { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+.zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
+.zero-pane__shelf-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+.zero-pane__shelf-hint { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 4px; }
+
+/* Curated tiles. A catalog spends its zero state arguing for something; the
+   tile is where that argument gets the width a rail line never has. */
+.zero-pane__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.zero-pane__tile {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.zero-pane__tile:hover { border-color: var(--color-border-strong); background: var(--color-bg-hover); }
+
+.zero-pane__tile--feat {
+  border-color: var(--color-primary-border);
+  background: linear-gradient(150deg, var(--color-primary-light), transparent 68%), var(--color-bg-primary);
+}
+
+.zero-pane__tile-name { font-size: 0.8125rem; font-weight: 550; }
+.zero-pane__tile-foot { display: flex; align-items: center; gap: var(--spacing-xs); margin-top: auto; }
+
+/* One line that changes what you would do next. Reserved for that; a pane of
+   these has no emphasis left. */
+.zero-pane__alert {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.8125rem;
+  padding: 6px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.zero-pane__alert--warn { color: var(--color-warning); background: var(--color-warning-light); border-color: var(--color-warning-border); }
+.zero-pane__alert--bad { color: var(--color-error); background: var(--color-error-light); border-color: var(--color-error-border); }
+.zero-pane__alert > :last-child { margin-left: auto; }
+
+.detail-pane__label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+/* --- Detail -------------------------------------------------------------- */
+
+.detail-pane { display: flex; flex-direction: column; gap: var(--spacing-md); }
+
+.detail-pane__back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.detail-pane__back:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+
+.detail-pane__head { display: flex; gap: var(--spacing-sm); align-items: flex-start; flex-wrap: wrap; }
+
+.detail-pane__icon {
+  flex: none;
+  font-size: 1.25rem;
+  color: var(--color-primary);
+  padding-top: 2px;
+}
+
+.detail-pane__title { flex: 1 1 260px; min-width: 0; }
+
+.detail-pane__name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  word-break: break-word;
+}
+
+.detail-pane__lede { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 2px; }
+
+.detail-pane__actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
+
+.discover__progress { flex: none; width: 120px; margin-top: 4px; }
+
+.detail-pane__warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-error);
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--spacing-sm);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px;
+  background: var(--color-border-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.stat-grid__item { background: var(--color-surface-sunken); padding: 6px var(--spacing-sm); }
+
+.stat-grid__item dt {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.stat-grid__item dd {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+.stat-grid__value--ok { color: var(--color-success); }
+.stat-grid__value--bad { color: var(--color-error); }
+.stat-grid__value--warn { color: var(--color-warning); }
+
+/* --- VRAM by context ----------------------------------------------------- */
+
+.discover__chart { display: flex; flex-direction: column; gap: 6px; }
+
+.discover__chart-title {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.discover__chart-plot {
+  /* Matches CHART_HEIGHT in Models.jsx: the bars and the limit line are both
+     resolved in pixels against this, so they share one scale. */
+  position: relative;
+  height: 96px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 15px;
+}
+
+/* The limit is what makes the bars mean anything, so it is drawn across all of
+   them rather than annotated on each. */
+.discover__chart-limit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--discover-limit, 0);
+  border-top: 1px dashed var(--color-error-border);
+  pointer-events: none;
+}
+
+.discover__chart-limit-label {
+  position: absolute;
+  right: 0;
+  top: -1.05rem;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.05em;
+  color: var(--color-error);
+  background: var(--color-bg-secondary);
+  padding: 0 3px;
+}
+
+.discover__chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.discover__chart-value {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.discover__chart-bar {
+  height: var(--discover-bar, 0);
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  background: var(--color-success);
+  /* A surface-coloured ring keeps adjacent bars from reading as one block. */
+  box-shadow: 0 0 0 2px var(--color-bg-secondary);
+}
+
+.discover__chart-bar--over { background: var(--color-error); }
+
+.discover__chart-col:hover .discover__chart-bar { filter: brightness(1.1); }
+
+/* Its own row rather than a third line inside each column: one baseline for
+   every label, whatever the values above them do. */
+.discover__chart-axis {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--color-border-default);
+  padding-top: 3px;
+}
+
+.discover__chart-axis span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.discover__chart-axis-on { color: var(--color-primary); font-weight: 600; }
+
+.discover__chart-col--on .discover__chart-value {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.discover__chart-verdict { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; }
+.discover__chart-verdict--ok { color: var(--color-success); }
+.discover__chart-verdict--warn { color: var(--color-warning); }
+.discover__chart-verdict--bad { color: var(--color-error); }
+
+/* --- Narrow ------------------------------------------------------------- */
+
+/* Below this the two columns stop being two columns. With a model selected the
+   pane becomes the page and the rail steps aside, which is the same trade a
+   pushed route would make without the routing. */
+@media (max-width: 900px) {
+  .split-view { grid-template-columns: minmax(0, 1fr); }
+  .entity-rail__list { max-height: 320px; }
+  .split-view--detail .split-view__rail-col { display: none; }
+}
+
+/* Compact list rows inside a pane: a state chip, a name, and one number. Used
+   by the Host status page for "loaded now" and by detail panes for anything
+   that is a list of facts rather than a table. */
+.rowlist { display: flex; flex-direction: column; gap: 4px; }
+
+.rowline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 5px var(--spacing-sm);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.rowline__num { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* A first run is a whole screen, not a card wedged under a filter bar. These
+   two states are the only thing on the page, so they get the height to say so.
+
+   They previously wore .loading-center, which is display:flex with the default
+   row direction because it exists to centre one spinner. With four children
+   that put the icon, the heading, the sentence and the buttons on a single
+   line with no gap between them. */
+.empty-state--page {
+  min-height: 52vh;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-block: var(--spacing-3xl);
+}
+
+.empty-state--page .empty-state-icon { font-size: 2rem; }
+.empty-state--page .empty-state-text { text-wrap: balance; }
+
+/* The filter band moved into the rail column, so it stacks instead of laying
+   out three horizontal bands across the page. It sits there because it narrows
+   the rail and nothing else: one column to say what you want, one to show what
+   you got. */
+.split-view__rail-col .models-filters {
+  margin-bottom: 0;
+}
+
+.split-view__rail-col .models-filters__query,
+.split-view__rail-col .models-filters__refine {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+}
+
+.split-view__rail-col .models-filters__backend { width: 100%; }
+
+/* Nineteen chips do not fit beside a 360px rail. The trigger states the
+   selection and the popover carries the full set, which also stops the chip
+   row and the rail competing to be the same control. */
+.models-filters__usecase-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.models-filters__usecase-trigger:hover { border-color: var(--color-border-strong); }
+.models-filters__usecase-caret { margin-left: auto; font-size: 0.625rem; color: var(--color-text-muted); }
+
+.models-filters__usecases {
+  margin: 0;
+  padding: var(--spacing-xs) 0 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+
+/* ==========================================================================
+   Full-height view: the split fills the window instead of sitting in a
+   document that scrolls. Rail and pane scroll independently, so the filters
+   and the pane's headline both stay put while a long list moves under them.
+   ========================================================================== */
+
+.page--app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* A flex item's automatic minimum is its content, so without this the list
+     pushes the page taller instead of scrolling inside it. */
+  min-height: 0;
+  padding-bottom: var(--spacing-lg);
+}
+
+/* The header, fused. A slim row that reads as the top of the view rather than
+   a title block the view happens to sit under. */
+.view-bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.view-bar__title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.view-bar__count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.view-bar__actions { display: flex; gap: var(--spacing-xs); margin-left: auto; }
+
+.page--app .split-view { flex: 1; min-height: 0; }
+
+.page--app .split-view__rail-col {
+  height: 100%;
+  min-height: 0;
+}
+
+/* The filters keep their height; the list absorbs the rest and scrolls. */
+.page--app .entity-rail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page--app .entity-rail__list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.page--app .split-view__pane {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Grouped chips. Four families and a reset, rather than nineteen in a row. */
+.models-filters__usecase-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.models-filters__usecase-group + .models-filters__usecase-group {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-divider);
+}
+
+.models-filters__usecase-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.models-filters__usecases .filter-bar { margin: 0; }
+
+/* The refinements read as a section with a name, not three controls left where
+   they landed when the band became a column. */
+.split-view__rail-col .models-filters__refine {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-divider);
+  gap: 6px;
+}
+
+.models-filters__refine-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.split-view__rail-col .filter-bar-group__toggle {
+  justify-content: flex-start;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.split-view__rail-col .models-filters__context {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+
+.split-view__rail-col .models-filters__context input[type='range'] { flex: 1; min-width: 0; }
+
+@media (max-width: 900px) {
+  /* Stacked, the view cannot be height-constrained without trapping the list
+     in a short scroller, so it goes back to scrolling with the document. */
+  .page--app { display: block; }
+  .page--app .split-view__pane { height: auto; overflow: visible; }
+  .page--app .entity-rail__list { max-height: 320px; }
+}
+
+/* Pin the layout for split-view routes, the way the chat route already does.
+   .app-layout and .main-content are min-height:100dvh, which is a floor, not a
+   ceiling: a tall pane grew the whole column past the viewport, so selecting a
+   model with a long detail pushed the page down and the rail grew with it. The
+   "full height" view was scrolling the document instead of scrolling inside
+   itself.
+
+   :has() rather than a route flag in App.jsx, so the shell stays unaware of
+   which pages happen to be split views. */
+.app-layout:has(.page--app) {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-layout:has(.page--app) .main-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Below the split's breakpoint the two columns stack, and a stacked view
+   cannot be height-pinned without trapping both halves in short scrollers. It
+   goes back to scrolling with the document. */
+@media (max-width: 900px) {
+  .app-layout:has(.page--app) {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .app-layout:has(.page--app) .main-content {
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
+
+/* Backends: the filters stack in the rail column the way Discover's do. Seven
+   chips fit at this width, so they need no disclosure. */
+.bk-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.bk-filters .search-bar { width: 100%; }
+.bk-filters .filter-bar { margin: 0; }
+
+.split-view__rail-col .bk-toggles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+/* Host keeps its resource monitor, summary cards and tabs above the split, so
+   only what is left after them is pinned. Those are the page's own chrome and
+   they are read once, unlike the rail and the pane, which are worked in. */
+.page--app > .tabs { flex: none; }
+.page--app > .view-bar { flex: none; }
+
+/* The console layout is a flex row with align-items:flex-start, so its body
+   sizes to content. That is right for the pages it was built for and wrong for
+   a split view, which needs a ceiling to scroll inside: without it the rail ran
+   past the viewport and over the footer.
+
+   Scoped with :has() so only the split-view routes are pinned; every other
+   console page keeps sizing to its content. */
+.console-layout:has(.page--app) {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.console-layout:has(.page--app) > .console-body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .console-layout:has(.page--app) {
+    flex: none;
+    align-items: flex-start;
+  }
+  .console-layout:has(.page--app) > .console-body { display: block; }
+}
+
+/* Refetching is not the same event as first load. A first load has nothing to
+   show, so it gets a skeleton; a refetch already has a list on screen and must
+   keep it, because the search box lives in this column and unmounting it drops
+   the field mid-keystroke along with the focus. */
+.entity-rail__progress {
+  height: 2px;
+  background: transparent;
+  overflow: hidden;
+  flex: none;
+}
+
+.entity-rail--busy .entity-rail__progress {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-primary) 40%,
+    var(--color-primary) 60%,
+    transparent 100%
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: entity-rail-sweep 1.1s var(--ease-default) infinite;
+}
+
+@keyframes entity-rail-sweep {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+/* The stale list recedes rather than disappearing, so the eye knows the answer
+   is being replaced without losing the place it was reading. */
+.entity-rail--busy .entity-rail__list {
+  opacity: 0.55;
+  transition: opacity var(--duration-normal) var(--ease-default);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-rail--busy .entity-rail__progress { animation: none; background-size: 100% 100%; }
+  .entity-rail--busy .entity-rail__list { transition: none; }
+}
+
+/* The first-load skeleton. It was six inline style declarations on a bare div,
+   which is also why nothing could reliably select it. */
+.gallery-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+  min-height: 280px;
+  gap: var(--spacing-lg);
+}
+
+/* An estimate still in flight. Muted and gently pulsing, so the row reads as
+   working rather than as missing a value: what is pending is the "will it fit"
+   answer, not the entry itself, which is installable already. */
+.entity-rail__meta--pending {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  animation: entity-rail-pending 1.6s var(--ease-default) infinite;
+}
+
+@keyframes entity-rail-pending {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-rail__meta--pending { animation: none; opacity: 0.75; }
+}
