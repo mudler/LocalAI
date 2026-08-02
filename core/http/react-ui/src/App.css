@@ -12332,3 +12332,36 @@ button.collapsible-header:focus-visible {
   .page--app .split-view__pane { height: auto; overflow: visible; }
   .page--app .entity-rail__list { max-height: 320px; }
 }
+
+/* Pin the layout for split-view routes, the way the chat route already does.
+   .app-layout and .main-content are min-height:100dvh, which is a floor, not a
+   ceiling: a tall pane grew the whole column past the viewport, so selecting a
+   model with a long detail pushed the page down and the rail grew with it. The
+   "full height" view was scrolling the document instead of scrolling inside
+   itself.
+
+   :has() rather than a route flag in App.jsx, so the shell stays unaware of
+   which pages happen to be split views. */
+.app-layout:has(.page--app) {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-layout:has(.page--app) .main-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Below the split's breakpoint the two columns stack, and a stacked view
+   cannot be height-pinned without trapping both halves in short scrollers. It
+   goes back to scrolling with the document. */
+@media (max-width: 900px) {
+  .app-layout:has(.page--app) {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .app-layout:has(.page--app) .main-content {
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
