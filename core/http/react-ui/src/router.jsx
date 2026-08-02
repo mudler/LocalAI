@@ -43,6 +43,9 @@ const TTS = page('tts', () => import('./pages/TTS'))
 const Sound = page('sound', () => import('./pages/Sound'))
 const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
 const Talk = page('talk', () => import('./pages/Talk'))
+// Referenced only from JSX below — same blind spot as Activity further down.
+// eslint-disable-next-line no-unused-vars
+const OperateOverview = page('operate', () => import('./pages/OperateOverview'))
 const Backends = page('backends', () => import('./pages/Backends'))
 // Only referenced from JSX below, which eslint cannot see without
 // eslint-plugin-react. Suppressed here rather than left to widen the file's
@@ -158,6 +161,7 @@ const appChildren = [
   {
     element: <ConsoleLayout config={operateConsole} />,
     children: [
+      { path: 'operate', element: <Admin><OperateOverview /></Admin> },
       { path: 'backends', element: <Admin><Backends /></Admin> },
       { path: 'activity', element: <Admin><Activity /></Admin> },
       { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },

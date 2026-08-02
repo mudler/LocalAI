@@ -143,5 +143,27 @@
   "explorer": {
     "title": "Explorer",
     "subtitle": "Dateien und Konfiguration durchsuchen"
+  },
+  "operate": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "Everything running on this installation, and anything that wants a decision.",
+      "attention": {
+        "heading": "Needs attention",
+        "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
+        "backendUpdate": "Update available: {{from}} → {{to}}"
+      },
+      "sections": {
+        "heading": "Sections",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{updates}} backend updates · {{running}} operations running",
+        "cluster": "Cluster",
+        "clusterSummary": "{{nodes}} nodes",
+        "observability": "Observability",
+        "observabilitySummary": "Usage and traces",
+        "administration": "Administration",
+        "administrationSummary": "Users, middleware, host and settings"
+      }
+    }
   }
 }

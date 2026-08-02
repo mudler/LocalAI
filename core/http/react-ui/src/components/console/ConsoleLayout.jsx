@@ -6,6 +6,7 @@ import { apiUrl } from '../../utils/basePath'
 import { preloadRoute } from '../../router'
 import RouteFallback from '../RouteFallback'
 import { isConsoleItemVisible } from './consoleConfig'
+import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
 
 // The App wraps the outlet in key={pathname}, so this layout remounts on every
 // sub-navigation. Tracking the last-entered console id across mounts lets us
@@ -24,6 +25,11 @@ let featuresCache = {}
 // route in router.jsx — wrapped pages keep their existing flat URLs.
 
 function RailItem({ item, label }) {
+  // Null outside Operate, where no provider is mounted — the rail then renders
+  // exactly as it did before signals existed.
+  const summary = useOperateSummary()
+  const signal = item.signal ? summary?.signals?.[item.signal] : null
+
   if (item.external) {
     return (
       <a className="nav-item" href={apiUrl(item.href)} target="_blank" rel="noopener noreferrer">
@@ -42,11 +48,15 @@ function RailItem({ item, label }) {
     >
       <i className={`${item.icon} nav-icon`} />
       <span className="nav-label">{label}</span>
+      {/* Ambient, and hidden from assistive tech: it changes under the reader
+          and is never the only place a fact appears. The overview states the
+          same things in prose, where they can be read deliberately. */}
+      {signal != null && <span className="nav-signal" aria-hidden="true">{signal}</span>}
     </NavLink>
   )
 }
 
-export default function ConsoleLayout({ config }) {
+function ConsoleLayoutInner({ config }) {
   const { t } = useTranslation('nav')
   const { isAdmin, authEnabled, hasFeature } = useAuth()
   const [features, setFeatures] = useState(featuresCache)
@@ -113,5 +123,17 @@ export default function ConsoleLayout({ config }) {
         </Suspense>
       </div>
     </div>
+  )
+}
+
+// The summary provider wraps the Operate console and nothing else. That is the
+// whole of "poll only while the user is in Operate": elsewhere the provider is
+// not mounted, so no timer exists to gate. Build gets the plain layout.
+export default function ConsoleLayout({ config }) {
+  if (config.id !== 'operate') return <ConsoleLayoutInner config={config} />
+  return (
+    <OperateSummaryProvider>
+      <ConsoleLayoutInner config={config} />
+    </OperateSummaryProvider>
   )
 }
