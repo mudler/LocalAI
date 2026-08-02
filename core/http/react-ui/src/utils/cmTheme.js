@@ -2,65 +2,66 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 
-// Dark theme — Nord polar-night surfaces with aurora syntax highlighting
+// Dark theme — restated from theme.css because CodeMirror cannot read CSS
+// variables. Keep in step with the tokens or the editor drifts off-palette.
 const darkEditorTheme = EditorView.theme({
   '&': {
-    backgroundColor: '#13171f',
-    color: '#eceff4',
+    backgroundColor: '#0d1117',
+    color: '#edf4fc',
     fontFamily: 'var(--font-mono)',
     fontSize: '0.8125rem',
     lineHeight: '1.5',
   },
   '.cm-content': {
-    caretColor: '#88c0d0',
+    caretColor: '#4f8cff',
     padding: '0',
   },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#88c0d0', borderLeftWidth: '2px' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#4f8cff', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'rgba(136, 192, 208, 0.25)',
+    backgroundColor: 'rgba(79, 140, 255, 0.25)',
   },
   '.cm-gutters': {
-    backgroundColor: '#1a1f2a',
-    color: '#6e7a8c',
-    borderRight: '1px solid #2f3644',
+    backgroundColor: '#131a23',
+    color: '#67748a',
+    borderRight: '1px solid #223046',
   },
-  '.cm-activeLineGutter': { backgroundColor: 'rgba(136, 192, 208, 0.1)', color: '#a1acb9' },
-  '.cm-activeLine': { backgroundColor: 'rgba(136, 192, 208, 0.06)' },
-  '.cm-foldPlaceholder': { backgroundColor: '#2f3644', border: 'none', color: '#a1acb9' },
-  '.cm-matchingBracket': { backgroundColor: 'rgba(136, 192, 208, 0.22)', outline: '1px solid rgba(136, 192, 208, 0.5)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(79, 140, 255, 0.1)', color: '#9aabc0' },
+  '.cm-activeLine': { backgroundColor: 'rgba(79, 140, 255, 0.06)' },
+  '.cm-foldPlaceholder': { backgroundColor: '#223046', border: 'none', color: '#9aabc0' },
+  '.cm-matchingBracket': { backgroundColor: 'rgba(79, 140, 255, 0.22)', outline: '1px solid rgba(79, 140, 255, 0.5)' },
   '.cm-tooltip': {
-    backgroundColor: '#1a1f2a',
-    border: '1px solid #2f3644',
+    backgroundColor: '#131a23',
+    border: '1px solid #223046',
     borderRadius: 'var(--radius-md)',
     boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
   },
   '.cm-tooltip-autocomplete': {
     '& > ul': { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' },
     '& > ul > li': { padding: 'var(--spacing-xs) var(--spacing-sm)' },
-    '& > ul > li[aria-selected]': { backgroundColor: 'rgba(136, 192, 208, 0.22)', color: '#eceff4' },
+    '& > ul > li[aria-selected]': { backgroundColor: 'rgba(79, 140, 255, 0.22)', color: '#edf4fc' },
   },
   '.cm-tooltip.cm-completionInfo': { padding: 'var(--spacing-sm)', maxWidth: '300px' },
-  '.cm-completionDetail': { color: '#a1acb9', fontStyle: 'italic', marginLeft: '0.5em' },
-  '.cm-panels': { backgroundColor: '#1a1f2a', color: '#eceff4' },
-  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #2f3644' },
-  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #2f3644' },
+  '.cm-completionDetail': { color: '#9aabc0', fontStyle: 'italic', marginLeft: '0.5em' },
+  '.cm-panels': { backgroundColor: '#131a23', color: '#edf4fc' },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #223046' },
+  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #223046' },
   '.cm-searchMatch': { backgroundColor: 'rgba(235, 203, 139, 0.2)', outline: '1px solid rgba(235, 203, 139, 0.45)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(235, 203, 139, 0.42)' },
-  '.cm-selectionMatch': { backgroundColor: 'rgba(136, 192, 208, 0.12)' },
+  '.cm-selectionMatch': { backgroundColor: 'rgba(79, 140, 255, 0.12)' },
 }, { dark: true })
 
 const darkHighlightStyle = HighlightStyle.define([
-  { tag: tags.propertyName, color: '#88c0d0', fontWeight: '500' }, // YAML keys — frost cyan
-  { tag: tags.string, color: '#a3be8c' },               // strings — aurora green
+  { tag: tags.propertyName, color: '#4f8cff', fontWeight: '500' }, // YAML keys — action blue
+  { tag: tags.string, color: '#56d6a4' },               // strings — mint
   { tag: tags.number, color: '#d08770' },               // numbers — aurora orange
   { tag: tags.bool, color: '#b48ead' },                 // booleans — aurora purple
   { tag: tags.null, color: '#b48ead' },                 // null — aurora purple
-  { tag: tags.keyword, color: '#81a1c1' },              // keywords — frost blue
-  { tag: tags.comment, color: '#6e7a8c', fontStyle: 'italic' }, // comments — muted
-  { tag: tags.meta, color: '#d8dee9' },                 // directives — snow storm
-  { tag: tags.punctuation, color: '#8fbcbb' },          // colons, dashes — frost teal
+  { tag: tags.keyword, color: '#7aa7e8' },              // keywords — frost blue
+  { tag: tags.comment, color: '#67748a', fontStyle: 'italic' }, // comments — muted
+  { tag: tags.meta, color: '#d3dee9' },                 // directives — snow storm
+  { tag: tags.punctuation, color: '#5ec8c0' },          // colons, dashes — frost teal
   { tag: tags.atom, color: '#bf616a' },                 // special values — aurora red
-  { tag: tags.labelName, color: '#88c0d0', fontWeight: '500' }, // anchors/aliases
+  { tag: tags.labelName, color: '#4f8cff', fontWeight: '500' }, // anchors/aliases
 ])
 
 // Light theme — Nord snow-storm surfaces with darkened aurora highlighting
@@ -82,16 +83,16 @@ const lightEditorTheme = EditorView.theme({
   },
   '.cm-gutters': {
     backgroundColor: '#e5e9f0',
-    color: '#6e7a8c',
-    borderRight: '1px solid #d8dee9',
+    color: '#67748a',
+    borderRight: '1px solid #d3dee9',
   },
   '.cm-activeLineGutter': { backgroundColor: 'rgba(94, 129, 172, 0.1)', color: '#3b4252' },
   '.cm-activeLine': { backgroundColor: 'rgba(94, 129, 172, 0.05)' },
-  '.cm-foldPlaceholder': { backgroundColor: '#d8dee9', border: 'none', color: '#4c566a' },
+  '.cm-foldPlaceholder': { backgroundColor: '#d3dee9', border: 'none', color: '#4c566a' },
   '.cm-matchingBracket': { backgroundColor: 'rgba(94, 129, 172, 0.18)', outline: '1px solid rgba(94, 129, 172, 0.35)' },
   '.cm-tooltip': {
     backgroundColor: '#ffffff',
-    border: '1px solid #d8dee9',
+    border: '1px solid #d3dee9',
     borderRadius: 'var(--radius-md)',
     boxShadow: '0 4px 16px rgba(46, 52, 64, 0.12)',
   },
@@ -101,10 +102,10 @@ const lightEditorTheme = EditorView.theme({
     '& > ul > li[aria-selected]': { backgroundColor: 'rgba(94, 129, 172, 0.14)', color: '#2e3440' },
   },
   '.cm-tooltip.cm-completionInfo': { padding: 'var(--spacing-sm)', maxWidth: '300px' },
-  '.cm-completionDetail': { color: '#6e7a8c', fontStyle: 'italic', marginLeft: '0.5em' },
+  '.cm-completionDetail': { color: '#67748a', fontStyle: 'italic', marginLeft: '0.5em' },
   '.cm-panels': { backgroundColor: '#e5e9f0', color: '#2e3440' },
-  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #d8dee9' },
-  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #d8dee9' },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid #d3dee9' },
+  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid #d3dee9' },
   '.cm-searchMatch': { backgroundColor: 'rgba(176, 131, 52, 0.22)', outline: '1px solid rgba(176, 131, 52, 0.45)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'rgba(176, 131, 52, 0.4)' },
   '.cm-selectionMatch': { backgroundColor: 'rgba(94, 129, 172, 0.1)' },

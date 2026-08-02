@@ -51,18 +51,32 @@
 }
 
 /* Footer */
+/* One line, not three stacked centred rows. The footer is chrome: it should
+   cost a line of height and be findable, not occupy the bottom sixth of every
+   page. Version left, links right, copyright folded in beside the version. */
 .app-footer {
   background: transparent;
   border-top: 1px solid var(--color-border-divider);
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
   margin-top: auto;
 }
 
 .app-footer-inner {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-sm);
+  justify-content: space-between;
+  gap: var(--spacing-xs) var(--spacing-md);
+}
+
+/* Links push right on a wide viewport and wrap under on a narrow one. */
+.app-footer-links { margin-left: auto; }
+
+/* Below the fold of a phone the three groups stack anyway; centre them so the
+   wrap does not read as a ragged left column. */
+@media (max-width: 560px) {
+  .app-footer-inner { justify-content: center; }
+  .app-footer-links { margin-left: 0; }
 }
 
 .app-footer-version {
@@ -537,6 +551,9 @@
   justify-content: center;
   flex-direction: column;
   gap: var(--spacing-xs);
+  /* The controls stack, but the row's inline padding still left them wider
+     than the collapsed rail, so their edges were clipped. */
+  padding-inline: 2px;
 }
 
 .sidebar.collapsed .theme-toggle {
@@ -1219,14 +1236,20 @@
   margin-bottom: var(--spacing-xl);
 }
 
+/* The editorial title scale from the site: larger, set tighter, and on a line
+   height near 1 so a two-word title reads as a statement rather than a label.
+   The typeface is unchanged — DESIGN.md keeps the existing type system — so the
+   whole difference is scale, tracking and leading, which is where the site gets
+   its voice from in the first place. */
 .page-title {
   font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 1.15rem + 1.4vw, var(--text-3xl));
+  font-size: clamp(1.875rem, 1.3rem + 2.2vw, 3rem);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.018em;
-  line-height: var(--leading-tight);
+  letter-spacing: -0.04em;
+  line-height: 1.02;
   margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 /* Mid hierarchy tier — between page title and the xs uppercase group labels */
@@ -2125,7 +2148,12 @@ select.input {
    Left accent bar ties the color to the metric's semantic (success/warning/
    error/primary), icon chip sits top-right, value is left-aligned and
    prominent so you can scan a row of cards without reading labels. */
-.stat-grid {
+/* Renamed off `.stat-grid` in favour of the children it actually holds. The
+   split views introduced a second, unrelated `.stat-grid` for detail panes
+   further down this file, and being later it won every shared property: these
+   cards were being laid out on that component's 120px columns and 1px hairline
+   gap, which crushed their labels at every width. */
+.stat-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--spacing-md);
@@ -3355,14 +3383,22 @@ button.collapsible-header:focus-visible {
 .chat-message {
   display: flex;
   gap: var(--spacing-sm);
-  max-width: 88%;
+  align-self: stretch;
+  max-width: 100%;
   min-width: 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-divider);
   animation: messageSlideIn 250ms ease-out;
 }
 
+/* A transcript, not bubbles. Rounded filled asymmetric bubbles fight a system
+   built on hairlines, and they carry the speaker in shape and side rather than
+   in words — which is exactly what a mono role label does better, and what
+   survives being read aloud or printed. Both roles now run full width down one
+   column, separated by a rule. */
 .chat-message-user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
+  align-self: stretch;
+  flex-direction: row;
 }
 
 .chat-message-assistant {
@@ -3385,11 +3421,9 @@ button.collapsible-header:focus-visible {
   color: var(--color-primary-text);
 }
 
-/* Assistant gets the left-border accent on the bubble; the avatar is
-   visual noise once that accent is in place. */
-.chat-message-assistant .chat-message-avatar {
-  display: none;
-}
+/* The left-edge accent plus the role label carry the speaker, so the avatar is
+   noise for both roles now that neither side has a bubble. */
+.chat-message-avatar { display: none; }
 
 .chat-message-bubble {
   display: flex;
@@ -3420,13 +3454,16 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-primary);
 }
 
+/* Same treatment as the assistant, in the action tone so the two are still
+   told apart at a glance without a fill or a corner radius. */
 .chat-message-user .chat-message-content {
-  background: var(--color-primary-light);
+  background: transparent;
   color: var(--color-text-primary);
-  border: 1px solid var(--color-primary-border);
-  border-radius: 16px 4px 16px 16px;
-  padding: var(--spacing-sm) var(--spacing-md);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: none;
+  border-left: 2px solid var(--color-primary);
+  border-radius: 0;
+  padding: 0 var(--spacing-md);
+  box-shadow: none;
 }
 
 .chat-message-content pre {
@@ -5081,6 +5118,7 @@ button.collapsible-header:focus-visible {
 /* Studio tabs */
 .studio-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-xs);
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--spacing-sm) var(--spacing-xl) 0;
@@ -5135,17 +5173,43 @@ button.collapsible-header:focus-visible {
   }
 }
 
+/* The workbench control column. A hairline field stack rather than a shadowed
+   card of boxed groups: the panel is the page's left half, not an object
+   floating on it, and the same treatment covers all six generators because they
+   share this class. */
 .media-controls {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-subtle);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border-default);
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
   position: sticky;
   top: var(--spacing-lg);
 }
+
+/* Each control is a row on the stack, separated by the same hairline the lanes
+   use, so a form and a list read as the same system. */
 .media-controls .form-group {
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 0;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+/* Uppercase micro-label, matching the eyebrow treatment used elsewhere: it
+   names the field without competing with the value. */
+.media-controls .form-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The submit row closes the stack, so it carries no divider of its own. */
+.media-controls .form-group:last-of-type,
+.media-controls > form > .btn-full:last-child {
+  border-bottom: 0;
 }
 .media-controls .form-grid-2col,
 .media-controls .form-grid-3col {
@@ -8763,7 +8827,7 @@ button.collapsible-header:focus-visible {
   outline-offset: 2px;
 }
 
-/* Manage summary marker — same .stat-grid layout. Top margin separates the
+/* Manage summary marker — same .stat-cards layout. Top margin separates the
    cards from the System Resources card above (otherwise they sit too close
    to the RAM bar) and bottom margin tightens the gap to the tabs below. */
 .manage-summary {
@@ -8900,7 +8964,16 @@ button.collapsible-header:focus-visible {
   .console-rail { position: static; flex-basis: auto; width: 100%; }
   .console-rail-toggle { display: grid; }
   .console-rail-groups { display: none; }
-  .console-rail--open .console-rail-groups { display: flex; }
+  /* Thirteen destinations stacked in one column is taller than a phone, so
+     opening the menu used to push the page's own heading past the fold: the
+     menu replaced the page rather than annotating it. Bound it and let it
+     scroll, so the content behind stays reachable. */
+  .console-rail--open .console-rail-groups {
+    display: flex;
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .console-rail.console-rail--enter { animation: none; }
@@ -12028,7 +12101,8 @@ button.collapsible-header:focus-visible {
   left: 0;
   right: 0;
   bottom: var(--discover-limit, 0);
-  border-top: 1px dashed var(--color-error-border);
+  /* Same tone as the bars that cross it: one colour, one meaning. */
+  border-top: 1px dashed var(--color-warning-border);
   pointer-events: none;
 }
 
@@ -12075,7 +12149,10 @@ button.collapsible-header:focus-visible {
   box-shadow: 0 0 0 2px var(--color-bg-secondary);
 }
 
-.discover__chart-bar--over { background: var(--color-error); }
+/* Amber, not error red. An over-limit build still installs — #11288 keeps a
+   test on exactly that — so red would overstate it. Amber is the constraint
+   tone used everywhere else here: know what you are doing, not you may not. */
+.discover__chart-bar--over { background: var(--color-warning); }
 
 .discover__chart-col:hover .discover__chart-bar { filter: brightness(1.1); }
 
@@ -12217,6 +12294,13 @@ button.collapsible-header:focus-visible {
      pushes the page taller instead of scrolling inside it. */
   min-height: 0;
   padding-bottom: var(--spacing-lg);
+  /* The shell above is overflow:hidden so the document cannot grow, which left
+     anything taller than the viewport simply unreachable — Host has a
+     resources card, four stat cards and a tab bar above its split, and at any
+     window height the bottom of the pane fell off with nothing to scroll.
+     The page scrolls inside the pinned shell; the rail and pane keep their own
+     inner scrollers for long lists and long details. */
+  overflow-y: auto;
 }
 
 /* The header, fused. A slim row that reads as the top of the view rather than
@@ -12266,6 +12350,10 @@ button.collapsible-header:focus-visible {
 }
 
 .page--app .split-view__pane {
+  /* The pane keeps its own scroller. Letting it grow instead would push the
+     document taller and stretch the rail to match, which is the regression
+     e2e/discover-height.spec.js exists to catch. Reaching tall page chrome is
+     the page's job (overflow-y above), not the pane's. */
   height: 100%;
   overflow-y: auto;
 }
@@ -12488,4 +12576,366 @@ button.collapsible-header:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .entity-rail__meta--pending { animation: none; opacity: 0.75; }
+}
+
+
+/* ─── Lanes ───────────────────────────────────────────────────────────────
+   The list idiom carried over from localai.io: full-bleed rows separated by a
+   single hairline, insetting on hover, with no card and no shadow. Used
+   wherever records are flat, uniform and read in sequence. Where an entity
+   outgrows a row and candidates get compared before acting, use SplitView
+   instead — that is the other half of the rule and they should not be mixed.
+
+   Column templates belong to the caller: `.lanes--<name> .lane { grid-template-columns: ... }`. */
+.lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.lane {
+  display: grid;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-default),
+              padding var(--duration-fast) var(--ease-default);
+}
+
+a.lane, button.lane { cursor: pointer; }
+
+a.lane:hover,
+button.lane:hover {
+  background: var(--color-bg-hover);
+  padding-inline: var(--spacing-sm);
+}
+
+.lane:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+
+/* A 33px row is fine for a mouse and too small for a thumb. Matches the rule
+   EntityRail already applies, so the two list idioms feel the same on touch. */
+@media (pointer: coarse) {
+  .lane { padding-top: 12px; padding-bottom: 12px; }
+}
+
+/* The hover inset is a position change, so it is motion. Hold the background
+   feedback and drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .lane { transition: background var(--duration-fast) var(--ease-default); }
+  a.lane:hover, button.lane:hover { padding-inline: var(--spacing-xs); }
+}
+
+/* Uppercase micro-label. Blue where it names a route, mint where it reports
+   live state — never both on one screen. */
+.lane__tag {
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lane__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lane__name { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+
+/* Identifiers are monospace, prose is not. A model id, a backend name or a
+   filename is a thing you might type or paste, and setting it in the UI face
+   makes it read as a label instead. */
+.lane__name--id { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 500; }
+.lane__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
+
+/* Identifiers and quantities are monospace; prose is not. */
+.lane__num {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane__go { color: var(--color-text-tertiary); }
+
+/* Section rhythm above a set of lanes. */
+.lane-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-2xl) 0 var(--spacing-sm);
+}
+
+/* No :first-child reset. Every <section> makes its lane-head a first child, so
+   the reset silently killed the gap between every block — "Sections" sat flush
+   against the row above it. The header supplies its own bottom margin, so a
+   uniform top margin is right everywhere. */
+.lane-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
+
+.lane-head__meta {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Standard padding for pages that are not inside a console shell, which
+   supplies its own. Without this a top-level page sits flush against the
+   sidebar and its first character is clipped. */
+.page-pad {
+  padding: var(--spacing-xl);
+  max-width: var(--page-max-medium);
+  width: 100%;
+}
+
+
+/* Home: resident models and the header figures. */
+.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) auto auto; }
+
+.home-loaded-stop {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.home-loaded-stop:hover { color: var(--color-error); background: var(--color-error-light); }
+
+.home-stat { display: flex; align-items: baseline; gap: var(--spacing-xs); }
+
+.home-stat__value {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.home-stat__value--ok { color: var(--color-success); }
+
+.home-stat__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Headline figures on the Operate overview, and the sparklines under them.
+   Hairline-gridded cells rather than cards: the same 1px grid the split-view
+   StatGrid uses, so the two read as one system. */
+.operate-headline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--spacing-xl);
+  background: var(--color-border-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.operate-headline__cell {
+  background: var(--color-bg-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: grid;
+  gap: 2px;
+}
+
+.operate-headline__cell dt {
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.operate-headline__value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.operate-headline__value--primary { color: var(--color-text-primary); }
+.operate-headline__value--success { color: var(--color-success); }
+.operate-headline__value--warning { color: var(--color-warning); }
+.operate-headline__value--muted   { color: var(--color-text-tertiary); }
+
+.sparkline { display: block; width: 100%; height: 28px; margin-top: 2px; }
+.sparkline polyline { stroke: currentColor; }
+.sparkline circle { fill: currentColor; }
+.sparkline--primary { color: var(--color-primary); }
+.sparkline--success { color: var(--color-success); }
+.sparkline--warning { color: var(--color-warning); }
+.sparkline--muted   { color: var(--color-text-disabled); }
+
+/* A signal changing as a poll lands should read as an update, not a jump cut.
+   Opacity only, so it stays on the compositor and cannot reflow the rail. */
+.nav-signal { transition: opacity var(--duration-normal) var(--ease-default); }
+
+/* The attention block is the one thing on the page that should announce
+   itself. A short, single reveal on the row's left edge, not on the text. */
+@keyframes attentionEdge {
+  from { border-left-color: transparent; }
+  to   { border-left-color: var(--color-warning); }
+}
+
+.lanes--attention .lane {
+  animation: attentionEdge var(--duration-reveal) var(--ease-reveal) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-signal { transition: none; }
+  .lanes--attention .lane { animation: none; }
+}
+
+/* The request the form just built. Sunken and monospace: it is a record of what
+   was sent, not another control. */
+.request-panel {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+}
+
+.request-panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.request-panel__title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.request-panel__copy {
+  margin-left: auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.request-panel__copy:hover { color: var(--color-primary); border-color: var(--color-primary-border); }
+.request-panel__copy:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 1px; }
+
+.request-panel__code {
+  margin: 0;
+  padding: var(--spacing-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.request-panel__method { color: var(--color-text-tertiary); }
+.request-panel__endpoint { color: var(--color-primary); font-weight: 500; }
+
+/* A row of page-header controls. Replaces the inline flex that several pages
+   had each written out longhand. */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* The file input is triggered by its label, which is styled as a button; the
+   input itself must not render or the control shows twice. */
+.agents-import-input input[type="file"] { display: none; }
+
+/* ─── Operate console: rail signals and the overview ──────────────────────
+   The signal is ambient state beside a rail label, not a badge: no pill, no
+   fill, just a dimmer tabular figure a scanning eye can ignore. The
+   alarm-shaped treatment belongs to .nav-badge on the sidebar, which stays
+   visible when this rail is collapsed or absent. */
+.nav-signal {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-item.active .nav-signal { color: var(--color-primary); }
+
+/* One line, deliberately quiet. Making "nothing is wrong" as loud as a problem
+   is how a status page teaches people to stop reading it. */
+.operate-clear {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.lanes--attention .lane { grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; }
+.lanes--sections .lane { grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; }
+
+/* Amber on the row itself rather than a status chip: these are the only things
+   on the page asking for a decision, so they can afford the one accent. */
+.lanes--attention .lane { border-left: 3px solid var(--color-warning); }
+
+/* ─── Studio: capability dots ─────────────────────────────────────────────
+   Filled means a model on this machine serves that modality. aria-hidden,
+   because the overview states the same thing in words and a dot that changes
+   as models load would otherwise interrupt a reader mid-strip. */
+.studio-tab__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  margin-left: var(--spacing-xs);
+}
+
+.studio-tab__dot--on { background: var(--color-success); }
+.studio-tab__dot--off {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+/* Room for the description to sit on one line at a comfortable width instead
+   of wrapping into a narrow column beside empty space. */
+.lanes--modality .lane { grid-template-columns: 6rem minmax(0, 1fr) minmax(0, 14rem) 5rem auto; }
+.lanes--takes .lane { grid-template-columns: minmax(0, 1fr) auto; }
+
+.studio-modality--empty { cursor: default; }
+.studio-modality__install { color: var(--color-primary); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
+.studio-modality__state { color: var(--color-success); font-size: 0.8125rem; font-weight: 600; }
+
+.studio-running__meter { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; width: 8rem; }
+.studio-running__meter i { display: block; height: 100%; background: var(--color-primary); }
+
+.studio-overview__heading { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+.studio-overview__count {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }

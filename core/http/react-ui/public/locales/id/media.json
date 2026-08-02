@@ -5,7 +5,33 @@
       "video": "Video",
       "tts": "TTS",
       "sound": "Suara",
-      "transform": "Transformasi"
+      "transform": "Transformasi",
+      "overview": "Overview"
+    },
+    "overview": {
+      "eyebrow": "{{ready}} of {{total}} modalities ready",
+      "title": "Studio",
+      "subtitle": "Generate images, video, 3D, speech and sound with the models on this machine.",
+      "canMake": "What you can make",
+      "running": "Running now",
+      "recent": "Recent outputs",
+      "noModel": "No model installed",
+      "install": "Install a model",
+      "ready": "Ready",
+      "seconds": "{{seconds}}s",
+      "describe": {
+        "images": "Text to image, image to image, reference images",
+        "video": "Text to video and image to video",
+        "threed": "Image to mesh reconstruction",
+        "tts": "Text to speech using your voice library",
+        "sound": "Music and sound effects from a prompt",
+        "transform": "Separation, enhancement and voice conversion"
+      }
+    },
+    "groups": {
+      "create": "Create",
+      "voice": "Voice",
+      "transform": "Transform"
     }
   },
   "image": {
@@ -204,5 +230,10 @@
     "clearMessage": "Hapus semua entri riwayat? Tindakan ini tidak dapat dibatalkan.",
     "clearConfirm": "Hapus",
     "cleared": "Riwayat dihapus"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

@@ -186,18 +186,20 @@ export default function Agents() {
         title={t('title')}
         supporting={t('subtitle')}
         actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+          <div className="header-actions">
             {agentHubURL && (
-              <a className="btn btn-secondary fas fa-store fa-file-import agents-import-input btn-primary fa-plus" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-                <i /> {t('actions.agentHub')}
+              <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
+                <i className="fas fa-store" /> {t('actions.agentHub')}
               </a>
             )}
-            <label>
-              <i /> {t('actions.import')}
+            {/* A label styled as a button, wrapping the file input it triggers,
+                so the control looks and behaves like its neighbours. */}
+            <label className="btn btn-secondary agents-import-input">
+              <i className="fas fa-file-import" /> {t('actions.import')}
               <input type="file" accept=".json" onChange={handleImport} />
             </label>
-            <button onClick={() => navigate('/app/agents/new')}>
-              <i /> {t('actions.createAgent')}
+            <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
+              <i className="fas fa-plus" /> {t('actions.createAgent')}
             </button>
           </div>
         }

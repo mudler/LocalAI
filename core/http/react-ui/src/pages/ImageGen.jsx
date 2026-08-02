@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
@@ -36,6 +37,9 @@ export default function ImageGen() {
   const refRef = useRef(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('image')
   const [lightboxIdx, setLightboxIdx] = useState(null)
+  // The body of the last request, kept so the panel can show what was actually
+  // sent rather than what the form currently holds.
+  const [lastRequest, setLastRequest] = useState(null)
 
   // The images currently on screen (a picked history entry, else the latest run).
   const displayImages = selectedEntry
@@ -59,6 +63,8 @@ export default function ImageGen() {
     if (seed) body.seed = parseInt(seed)
     if (sourceImage) body.file = sourceImage
     if (refImages.length > 0) body.ref_images = refImages
+
+    setLastRequest(body)
 
     try {
       const data = await imageApi.generate(body)
@@ -154,6 +160,7 @@ export default function ImageGen() {
       </div>
 
       <div className="media-preview">
+        <RequestPanel endpoint="/v1/images/generations" body={lastRequest} />
         <div className="media-result">
           {loading ? (
             <GenerationProgress count={count} label={t('image.actions.generating')} />

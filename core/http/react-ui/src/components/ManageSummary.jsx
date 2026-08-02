@@ -15,7 +15,7 @@ export default function ManageSummary({
   const click = (tab, filter) => onCardClick && onCardClick(tab, filter)
 
   return (
-    <div className="stat-grid manage-summary">
+    <div className="stat-cards manage-summary">
       <StatCard
         icon="fas fa-brain"
         label="Models Installed"

@@ -118,5 +118,8 @@
     "newChat": "Neuer Chat",
     "clearAll": "Alle löschen",
     "deleteAllTitle": "Alle Unterhaltungen löschen"
+  },
+  "message": {
+    "you": "You"
   }
 }

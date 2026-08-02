@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import RequestPanel from '../components/RequestPanel'
 import { Link, useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
@@ -33,6 +34,8 @@ export default function TTS() {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // What was actually sent, so the request panel records rather than predicts.
+  const [lastRequest, setLastRequest] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
   const appliedVoiceLinkRef = useRef('')
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('tts')
@@ -72,6 +75,7 @@ export default function TTS() {
       const selectedVoice = supportsVoiceProfiles ? selectedProfile?.voice : manualVoice.trim()
       const request = { model, input: text.trim() }
       if (selectedVoice) request.voice = selectedVoice
+      setLastRequest(request)
       const { blob, serverUrl } = await ttsApi.generate(request)
       const url = URL.createObjectURL(blob)
       setAudioUrl(url)
@@ -172,6 +176,7 @@ export default function TTS() {
       </div>
 
       <div className="media-preview">
+        <RequestPanel endpoint="/v1/audio/speech" body={lastRequest} />
         <div className="media-result">
           {loading ? (
             <GenerationProgress label={t('tts.actions.generating')} />

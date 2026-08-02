@@ -231,6 +231,8 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
+  // Counted totals, so a dashboard does not fetch the whole list to size it.
+  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),

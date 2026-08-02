@@ -19,6 +19,7 @@ const PAGES = [
   ['/app/account', 'Account'],
   ['/app/studio', 'Studio'],
   ['/app/manage', 'Manage'],
+  ['/app/operate', 'Operate overview'],
   ['/app/backends', 'Backends'],
   ['/app/activity', 'Activity'],
   ['/app/settings', 'Settings'],

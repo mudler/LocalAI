@@ -24,7 +24,9 @@
     "observability": "Observabilitas",
     "access": "Akses",
     "system": "Sistem",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "Runtime",
+    "administration": "Administrasi"
   },
   "items": {
     "home": "Beranda",
@@ -57,7 +59,8 @@
     "system": "Sistem",
     "settings": "Pengaturan",
     "api": "API",
-    "activity": "Aktivitas"
+    "activity": "Aktivitas",
+    "overview": "Ikhtisar"
   },
   "footer": {
     "github": "GitHub",
