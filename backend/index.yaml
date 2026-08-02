@@ -1518,6 +1518,25 @@
     nvidia-cuda-12: "cuda12-faster-whisper"
     nvidia-l4t: "nvidia-l4t-arm64-faster-whisper"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-faster-whisper"
+- &whisper-medusa
+  description: |
+    Whisper-Medusa accelerates Whisper transcription by predicting multiple tokens per decoding step.
+    The upstream checkpoints use custom Transformers generation code and accept audio clips up to 30 seconds.
+  urls:
+    - https://github.com/aiola-lab/whisper-medusa
+    - https://huggingface.co/collections/aiola/whisper-medusa
+  tags:
+    - speech-to-text
+    - transcription
+    - Whisper
+    - Medusa
+  license: MIT
+  name: "whisper-medusa"
+  alias: "whisper-medusa"
+  capabilities:
+    default: "cpu-whisper-medusa"
+    nvidia: "cuda12-whisper-medusa"
+    nvidia-cuda-12: "cuda12-whisper-medusa"
 - &moonshine
   description: |
     Moonshine is a fast, accurate, and efficient speech-to-text transcription model using ONNX Runtime.
@@ -6368,6 +6387,34 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-faster-qwen3-tts
+## whisper-medusa
+- !!merge <<: *whisper-medusa
+  name: "whisper-medusa-development"
+  capabilities:
+    default: "cpu-whisper-medusa-development"
+    nvidia: "cuda12-whisper-medusa-development"
+    nvidia-cuda-12: "cuda12-whisper-medusa-development"
+- !!merge <<: *whisper-medusa
+  name: "cpu-whisper-medusa"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-whisper-medusa"
+  mirrors:
+    - localai/localai-backends:latest-cpu-whisper-medusa
+- !!merge <<: *whisper-medusa
+  name: "cpu-whisper-medusa-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-whisper-medusa"
+  mirrors:
+    - localai/localai-backends:master-cpu-whisper-medusa
+- !!merge <<: *whisper-medusa
+  name: "cuda12-whisper-medusa"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-whisper-medusa"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-whisper-medusa
+- !!merge <<: *whisper-medusa
+  name: "cuda12-whisper-medusa-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-whisper-medusa"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-whisper-medusa
+
 ## qwen-asr
 - !!merge <<: *qwen-asr
   name: "qwen-asr-development"
