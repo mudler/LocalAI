@@ -80,13 +80,17 @@ var DefaultEstimateWarmConfig = EstimateWarmConfig{
 	Contexts:    []uint32{8192, 16384, 32768, 65536, 131072, 262144},
 }
 
-// WarmEstimateCache fills the VRAM estimate caches in the background.
+// WarmEstimateCache fills the gallery's derived caches in the background.
 //
+// Two things are warmed, and they are the same cost wearing different hats.
 // An estimate for an entry the server has never seen costs a network probe of
-// its weight files, seconds of it, and the UI asks for one per row. Doing that
-// work at startup rather than on the first click is the difference between a
-// gallery that reads instantly and one that spends ten seconds filling in its
-// own sizes while somebody watches.
+// its weight files, and describing an entry's variants costs one probe per
+// build it offers. The UI asks for an estimate per row and a variant
+// description per model opened, so without this the first visitor pays for
+// both: ten seconds of a page filling in its own sizes, then another second
+// and a half the first time they click anything.
+//
+// Both land in the same caches underneath, which is why one pass covers them.
 //
 // It returns immediately; the work happens on its own goroutine and stops when
 // ctx is done. Failures are logged at debug and otherwise ignored: a warm-up
@@ -112,11 +116,17 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 			return
 		}
 
+		// The host gate the variant picker resolves against. Derived once: it
+		// describes this machine, not this entry, and HostResolveEnv reads the
+		// system state to build it.
+		env := HostResolveEnv(ctx, systemState)
+
 		var (
-			wg     sync.WaitGroup
-			cursor = make(chan *GalleryModel)
-			warmed int
-			mu     sync.Mutex
+			wg             sync.WaitGroup
+			cursor         = make(chan *GalleryModel)
+			warmed         int
+			warmedVariants int
+			mu             sync.Mutex
 		)
 
 		for i := 0; i < cfg.Concurrency; i++ {
@@ -124,22 +134,35 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 			go func() {
 				defer wg.Done()
 				for m := range cursor {
-					input := EstimateInput(m)
-					if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
-						continue
-					}
 					// Per entry, not for the run: one unreachable weight file
 					// must not hold a worker for the whole warm-up.
 					entryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-					_, err := vram.EstimateModelMultiContext(entryCtx, input, cfg.Contexts)
-					cancel()
-					if err != nil {
-						xlog.Debug("VRAM estimate warm-up failed for entry", "model", m.GetName(), "error", err)
-						continue
+
+					input := EstimateInput(m)
+					if len(input.Files) > 0 || input.HFRepo != "" || input.Size != "" {
+						if _, err := vram.EstimateModelMultiContext(entryCtx, input, cfg.Contexts); err != nil {
+							xlog.Debug("VRAM estimate warm-up failed for entry", "model", m.GetName(), "error", err)
+						} else {
+							mu.Lock()
+							warmed++
+							mu.Unlock()
+						}
 					}
-					mu.Lock()
-					warmed++
-					mu.Unlock()
+
+					// Describing variants probes each build the entry offers.
+					// An entry that declares none costs nothing here, so this is
+					// gated rather than attempted and discarded.
+					if m.HasVariants() {
+						if _, err := DescribeVariants(models, m, env); err != nil {
+							xlog.Debug("variant warm-up failed for entry", "model", m.GetName(), "error", err)
+						} else {
+							mu.Lock()
+							warmedVariants++
+							mu.Unlock()
+						}
+					}
+
+					cancel()
 				}
 			}()
 		}
@@ -156,10 +179,10 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 		wg.Wait()
 
 		if ctx.Err() != nil {
-			xlog.Debug("VRAM estimate warm-up stopped", "warmed", warmed)
+			xlog.Debug("gallery warm-up stopped", "estimates", warmed, "variants", warmedVariants)
 			return
 		}
-		xlog.Info("VRAM estimate cache warmed", "entries", warmed, "of", len(models), "took", time.Since(started).Round(time.Second))
+		xlog.Info("gallery caches warmed", "estimates", warmed, "variants", warmedVariants, "of", len(models), "took", time.Since(started).Round(time.Second))
 	}()
 }
 

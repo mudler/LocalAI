@@ -463,13 +463,18 @@ takes a second or two the first time, and the gallery needs one per row. LocalAI
 caches the result, and warms that cache in the background at startup so the
 gallery reads instantly rather than filling in its own numbers while you watch.
 
+The same warm-up also describes each entry's **variants** - the alternative
+builds of the same weights that the picker offers - because that costs the same
+kind of probe and lands in the same cache. Without it, the first model you open
+pays for it again.
+
 The warm-up is bounded, and covers the entries at the top of the gallery: the
 ones you see first. Anything past it is estimated on first view and cached from
 then on.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LOCALAI_VRAM_WARM_LIMIT` | `300` | How many gallery entries to warm at startup. Set to `0` to disable the warm-up entirely. |
+| `LOCALAI_VRAM_WARM_LIMIT` | `300` | How many gallery entries to warm at startup, estimates and variants alike. Set to `0` to disable the warm-up entirely. |
 | `LOCALAI_VRAM_WARM_CONCURRENCY` | `4` | How many estimates to run at once. |
 
 ```bash
