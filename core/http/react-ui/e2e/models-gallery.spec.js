@@ -1786,6 +1786,19 @@ test.describe("Models Gallery - Discover split view", () => {
     );
   });
 
+  test("a build that fits at some context sizes warns rather than erroring", async ({
+    page,
+  }) => {
+    await railItem(page, "llama-model").click();
+    const verdict = page.locator(".discover__chart-verdict");
+    await expect(verdict).toBeVisible();
+    // A model that fits at 32k but not 64k is a trade-off, and #11288 keeps a
+    // test on such a build still being installable. Only "fits nowhere" earns
+    // the error tone; anything short of that warns.
+    await expect(verdict).toHaveClass(/discover__chart-verdict--warn/);
+    await expect(verdict).not.toHaveClass(/discover__chart-verdict--bad/);
+  });
+
   test("a host with no GPU gets no chart rather than an unanchored one", async ({
     page,
   }) => {

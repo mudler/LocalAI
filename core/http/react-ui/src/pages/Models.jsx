@@ -1244,7 +1244,10 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
     verdictClass = 'bad'
     verdict = t('chart.fitsNowhere')
   } else if (over > 0) {
-    verdictClass = over === 1 ? 'warn' : 'bad'
+    // Warn, however many sizes are over. A model that fits at 8k but not 32k is
+    // a trade-off, not a fault, and it stays installable — reserving the error
+    // tone for "fits nowhere" keeps that distinction legible.
+    verdictClass = 'warn'
     verdict = t('chart.fitsUpTo', { context: lastFitting.label })
   }
 

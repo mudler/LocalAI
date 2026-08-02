@@ -12060,7 +12060,8 @@ button.collapsible-header:focus-visible {
   left: 0;
   right: 0;
   bottom: var(--discover-limit, 0);
-  border-top: 1px dashed var(--color-error-border);
+  /* Same tone as the bars that cross it: one colour, one meaning. */
+  border-top: 1px dashed var(--color-warning-border);
   pointer-events: none;
 }
 
@@ -12107,7 +12108,10 @@ button.collapsible-header:focus-visible {
   box-shadow: 0 0 0 2px var(--color-bg-secondary);
 }
 
-.discover__chart-bar--over { background: var(--color-error); }
+/* Amber, not error red. An over-limit build still installs — #11288 keeps a
+   test on exactly that — so red would overstate it. Amber is the constraint
+   tone used everywhere else here: know what you are doing, not you may not. */
+.discover__chart-bar--over { background: var(--color-warning); }
 
 .discover__chart-col:hover .discover__chart-bar { filter: brightness(1.1); }
 
