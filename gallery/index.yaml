@@ -24,7 +24,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
-      sha256: 7ab5e306300dd16d237d0f5ff07ee968d02be5c47afc87282778f4ec6b0f54a7
+      sha256: ef1940d5a91c294393c60b4083b497a05f6df1174e9a12225843945b228c5d20
 - name: "parable-granite-4.1-3b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1681,7 +1681,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: efb3e92a73b877e69e1754212e132d90963ce9ced4f0b68f9173723fee7f85a4
+      sha256: 856c407993ccffa9ad52e23fbef8bb7b458c792a52278f4ca7931741b0c20ce2
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
