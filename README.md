@@ -161,7 +161,7 @@ local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
 local-ai run oci://localai/phi-2:latest
 ```
 
-To test a running LocalAI server from the terminal, open an interactive chat session from another shell. Inside the prompt, `/models` lists installed models and `/model <name>` switches between them.
+To work with a running LocalAI server from the terminal, start the built-in agent from another shell. It answers questions, reads your files and runs commands on your machine, asking you to approve anything that changes state. Inside a session, `/models` lists installed models and `/model <name>` switches between them. See the [Terminal agent](https://localai.io/docs/features/terminal-agent/) docs.
 
 ```bash
 # Terminal 1

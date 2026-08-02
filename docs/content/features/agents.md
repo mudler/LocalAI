@@ -11,13 +11,7 @@ LocalAI includes a built-in agent platform powered by [LocalAGI](https://github.
 
 LocalAGI is embedded in LocalAI. There is nothing separate to install or run.
 
-{{% notice info %}}
-**Looking for something else?** LocalAI has three related agentic features that are easy to confuse:
-
-- **Agents** (this page): autonomous agents you build that reason, use tools, and act on their own. Start here if you want to create an agent.
-- **LocalAI Assistant** ({{% relref "features/localai-assistant" %}}): an admin chat modality for administering LocalAI itself (install models, manage backends) by chatting.
-- **MCP** ({{% relref "features/mcp" %}}): a way to give a model external tools through the Model Context Protocol.
-{{% /notice %}}
+{{< agentic-routing current="agents" >}}
 
 {{% notice tip %}}
 New to agents? The [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough takes you from an empty Agents page to an agent that answers a message and uses one tool.
