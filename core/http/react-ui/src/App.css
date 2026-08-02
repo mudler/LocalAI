@@ -551,6 +551,9 @@
   justify-content: center;
   flex-direction: column;
   gap: var(--spacing-xs);
+  /* The controls stack, but the row's inline padding still left them wider
+     than the collapsed rail, so their edges were clipped. */
+  padding-inline: 2px;
 }
 
 .sidebar.collapsed .theme-toggle {
