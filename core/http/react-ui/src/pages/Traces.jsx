@@ -28,6 +28,26 @@ function formatDuration(ns) {
   return `${(ns / 1_000_000_000).toFixed(2)}s`
 }
 
+// Latency as a bar as well as a figure. Scaled against the slowest request
+// currently in view rather than an absolute ceiling: what matters when scanning
+// a page of traces is which ones are the outliers here, and an absolute scale
+// would flatten every row on a fast installation into nothing.
+const SLOW_NS = 2_000_000_000
+
+function LatencyCell({ ns, max }) {
+  if (!ns && ns !== 0) return <span className="text-sub">-</span>
+  const pct = max > 0 ? Math.max(2, Math.round((ns / max) * 100)) : 2
+  const slow = ns >= SLOW_NS
+  return (
+    <span className="lat">
+      <span className={`lat__bar${slow ? ' lat__bar--slow' : ''}`}>
+        <i style={{ width: `${pct}%` }} />
+      </span>
+      <b>{formatDuration(ns)}</b>
+    </span>
+  )
+}
+
 function decodeTraceBody(body) {
   if (!body) return ''
   try {
@@ -506,6 +526,8 @@ export default function Traces() {
     ? [...traces].sort((a, b) => sort.dir === 'asc' ? TRACE_SORT[sort.key](a, b) : TRACE_SORT[sort.key](b, a))
     : traces
 
+  const slowestTrace = traces.reduce((m, t) => Math.max(m, t.duration || 0), 0)
+
   return (
     <div className="page page--wide">
       <PageHeader title={t('traces.title')} supporting={t('traces.subtitle')} />
@@ -630,6 +652,7 @@ export default function Traces() {
                 {sortableTh('path', 'Path')}
                 {sortableTh('user', 'User')}
                 {sortableTh('status', 'Status')}
+                {sortableTh('duration', 'Latency')}
                 <th className="col-w-40">Result</th>
               </tr>
             </thead>
@@ -642,6 +665,7 @@ export default function Traces() {
                     <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
                     <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
                     <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
+                    <td><LatencyCell ns={trace.duration} max={slowestTrace} /></td>
                     <td className="text-center">
                       {trace.error
                         ? <i className="fas fa-times-circle text-error" title={trace.error} />
@@ -650,7 +674,7 @@ export default function Traces() {
                   </tr>
                   {expandedRow === i && (
                     <tr>
-                      <td colSpan="6" className="p-0">
+                      <td colSpan="7" className="p-0">
                         <ApiTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
                       </td>
                     </tr>

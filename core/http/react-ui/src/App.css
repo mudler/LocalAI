@@ -12870,6 +12870,22 @@ button.lane:hover {
    input itself must not render or the control shows twice. */
 .agents-import-input input[type="file"] { display: none; }
 
+/* Latency in a trace row: a bar plus the figure. The bar is scaled against the
+   slowest request in view so the tail is visible while scanning, and it turns
+   amber past the slow threshold — the same constraint tone used elsewhere. */
+.lat { display: grid; grid-template-columns: minmax(2.5rem, 1fr) auto; align-items: center; gap: var(--spacing-xs); }
+.lat__bar { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; }
+.lat__bar i { display: block; height: 100%; background: var(--color-primary); }
+.lat__bar--slow i { background: var(--color-warning); }
+.lat b {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no
    fill, just a dimmer tabular figure a scanning eye can ignore. The

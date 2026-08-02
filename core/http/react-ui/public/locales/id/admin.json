@@ -179,13 +179,13 @@
       "sections": {
         "heading": "Sections",
         "runtime": "Runtime",
-        "runtimeSummary": "{{updates}} backend updates · {{running}} operations running",
+        "runtimeSummary": "{{backends}} backends · {{models}} models · {{updates}} updates · {{running}} running",
         "cluster": "Cluster",
         "clusterSummary": "{{nodes}} nodes",
         "observability": "Observability",
         "observabilitySummary": "Usage and traces",
         "administration": "Administration",
-        "administrationSummary": "Users, middleware, host and settings",
+        "administrationSummary": "Users, middleware and settings · {{memory}} memory in use",
         "clusterSingle": "Single node",
         "observabilityCounted": "{{requests}} requests · {{errors}} failed · p95 {{p95}} ms"
       },
@@ -193,7 +193,8 @@
         "requests": "Requests · {{hours}}h",
         "errors": "Failed requests",
         "p95": "p95 latency",
-        "quiet": "Nothing has been served yet. Totals appear once requests start arriving."
+        "quiet": "No requests served in this window yet.",
+        "host": "Host memory"
       }
     }
   }
