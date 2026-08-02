@@ -163,7 +163,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /backends`, `GET /backends/available`, `GET /backends/galleries`
 
 **System & Monitoring:**
-- `GET /api/traces`, `GET /api/traces/{id}`, `POST /api/traces/clear`
+- `GET /api/traces`, `GET /api/traces/summary`, `GET /api/traces/{id}`, `POST /api/traces/clear`
 - `GET /api/backend-traces`, `GET /api/backend-traces/{id}`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`

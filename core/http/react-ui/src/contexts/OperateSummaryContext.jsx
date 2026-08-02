@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
-import { backendsApi, nodesApi, resourcesApi } from '../utils/api'
+import { backendsApi, nodesApi, resourcesApi, tracesApi } from '../utils/api'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
@@ -40,6 +40,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const [upgrades, setUpgrades] = useState({})
   const [nodes, setNodes] = useState([])
   const [resources, setResources] = useState(null)
+  const [traces, setTraces] = useState(null)
   const { operations } = useOperations()
   // The cluster API answers 503 when distributed mode is off, so asking for it
   // on a single-node install is a guaranteed miss on every tick. The rail gates
@@ -47,17 +48,19 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const { enabled: distributed } = useDistributedMode()
 
   const fetchSummary = useCallback(async () => {
-    const [u, n, r] = await Promise.all([
+    const [u, n, r, tr] = await Promise.all([
       // GET /api/backends/upgrades returns the upgrade checker's cached view.
       // Never POST /upgrades/check on a timer — that forces a real registry
       // check.
       settle(backendsApi.checkUpgrades(), {}),
       distributed ? settle(nodesApi.list(), []) : Promise.resolve([]),
       settle(resourcesApi.get(), null),
+      settle(tracesApi.summary(), null),
     ])
     setUpgrades(u && typeof u === 'object' ? u : {})
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
     setResources(r)
+    setTraces(tr)
   }, [distributed])
 
   usePolling(fetchSummary, pollInterval)
@@ -97,6 +100,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       nodes,
       resources,
       operations,
+      traces,
       attention,
       signals: {
         attention: attention.length || null,
@@ -104,9 +108,11 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         activity: operations.length || null,
         nodes: nodes.length ? `${nodes.length - unhealthyNodes.length}/${nodes.length}` : null,
         host: memoryPercent(resources),
+        traces: traces?.errors || null,
+        usage: traces?.total ? compact(traces.total) : null,
       },
     }
-  }, [upgrades, nodes, resources, operations])
+  }, [upgrades, nodes, resources, operations, traces])
 
   return (
     <OperateSummaryContext.Provider value={value}>
@@ -124,6 +130,13 @@ function nodeUnhealthy(node) {
     return ['unhealthy', 'down', 'offline', 'error'].includes(node.status.toLowerCase())
   }
   return false
+}
+
+// 18402 -> 18.4k. A rail signal has room for a shape, not a full figure.
+function compact(n) {
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`
+  return `${(n / 1_000_000).toFixed(1)}M`
 }
 
 function memoryPercent(resources) {

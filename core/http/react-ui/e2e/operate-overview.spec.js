@@ -126,3 +126,33 @@ test.describe('Operate overview', () => {
     expect(upgradeCalls).toBe(0)
   })
 })
+
+test.describe('Operate overview headline', () => {
+  const SUMMARY = {
+    total: 18402, errors: 37, p95_ms: 842, window_hours: 24,
+    buckets: Array.from({ length: 12 }, (_, i) => ({ count: 100 + i * 10, errors: i })),
+  }
+
+  test('reports counted totals rather than fetching the trace list', async ({ page }) => {
+    let listCalls = 0
+    await page.route('**/api/traces?**', route => { listCalls += 1; route.fulfill({ json: [] }) })
+    await page.route('**/api/traces/summary', route => route.fulfill({ json: SUMMARY }))
+    await mockQuiet(page)
+    await page.goto('/app/operate')
+    const headline = page.locator('.operate-headline')
+    await expect(headline).toBeVisible()
+    await expect(headline).toContainText('18,402')
+    await expect(headline).toContainText('37')
+    await expect(headline).toContainText('842')
+    // The whole point of the endpoint: three numbers, not the buffer.
+    expect(listCalls).toBe(0)
+  })
+
+  test('an installation that has served nothing says so instead of showing zeroes', async ({ page }) => {
+    await page.route('**/api/traces/summary', route =>
+      route.fulfill({ json: { total: 0, errors: 0, p95_ms: 0, window_hours: 24, buckets: [] } }))
+    await mockQuiet(page)
+    await page.goto('/app/operate')
+    await expect(page.locator('.operate-headline')).toHaveCount(0)
+  })
+})

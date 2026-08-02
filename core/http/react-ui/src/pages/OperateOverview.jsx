@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
+import Sparkline from '../components/Sparkline'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
 
 // The front door to Operate.
@@ -28,6 +29,7 @@ export default function OperateOverview() {
   const nodes = summary?.nodes || []
   const operations = summary?.operations || []
   const upgradeCount = Object.keys(summary?.upgrades || {}).length
+  const traces = summary?.traces
 
   return (
     <div className="page-pad" data-testid="operate-overview">
@@ -35,6 +37,35 @@ export default function OperateOverview() {
         title={t('operate.overview.title')}
         supporting={t('operate.overview.subtitle')}
       />
+
+      {/* Headline numbers. Only rendered once the summary has answered — an
+          installation that has served nothing yet is told so in one line rather
+          than shown three zeroes dressed as telemetry. */}
+      {traces && (
+        traces.total > 0 ? (
+          <dl className="operate-headline">
+            <HeadlineStat
+              label={t('operate.overview.headline.requests', { hours: traces.window_hours })}
+              value={traces.total.toLocaleString()}
+              series={traces.buckets?.map(b => b.count)}
+              tone="primary"
+            />
+            <HeadlineStat
+              label={t('operate.overview.headline.errors')}
+              value={traces.errors.toLocaleString()}
+              series={traces.buckets?.map(b => b.errors)}
+              tone={traces.errors > 0 ? 'warning' : 'muted'}
+            />
+            <HeadlineStat
+              label={t('operate.overview.headline.p95')}
+              value={`${traces.p95_ms.toLocaleString()} ms`}
+              tone="success"
+            />
+          </dl>
+        ) : (
+          <p className="operate-clear">{t('operate.overview.headline.quiet')}</p>
+        )
+      )}
 
       <section>
         <div className="lane-head"><h2>{t('operate.overview.attention.heading')}</h2></div>
@@ -86,7 +117,13 @@ export default function OperateOverview() {
           <OperateSection
             to="/app/traces"
             label={t('operate.overview.sections.observability')}
-            summary={t('operate.overview.sections.observabilitySummary')}
+            summary={traces?.total
+              ? t('operate.overview.sections.observabilityCounted', {
+                requests: traces.total.toLocaleString(),
+                errors: traces.errors.toLocaleString(),
+                p95: traces.p95_ms.toLocaleString(),
+              })
+              : t('operate.overview.sections.observabilitySummary')}
           />
           <OperateSection
             to="/app/manage"
@@ -95,6 +132,16 @@ export default function OperateOverview() {
           />
         </ul>
       </section>
+    </div>
+  )
+}
+
+function HeadlineStat({ label, value, series, tone }) {
+  return (
+    <div className="operate-headline__cell">
+      <dt>{label}</dt>
+      <dd className={`operate-headline__value operate-headline__value--${tone}`}>{value}</dd>
+      {series?.length > 1 && <Sparkline points={series} tone={tone} />}
     </div>
   )
 }

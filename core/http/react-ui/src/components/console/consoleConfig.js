@@ -83,8 +83,8 @@ export const operateConsole = {
     {
       titleKey: 'operate.observability',
       items: [
-        { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', adminOnly: true },
-        { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true },
+        { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', adminOnly: true, signal: 'usage' },
+        { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true, signal: 'traces' },
       ],
     },
     {

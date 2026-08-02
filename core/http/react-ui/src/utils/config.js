@@ -38,6 +38,7 @@ export const API_CONFIG = {
 
     // Traces
     traces: '/api/traces',
+    tracesSummary: '/api/traces/summary',
     trace: (id) => `/api/traces/${encodeURIComponent(id)}`,
     clearTraces: '/api/traces/clear',
     backendTraces: '/api/backend-traces',

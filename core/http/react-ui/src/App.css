@@ -12676,6 +12676,58 @@ button.lane:hover {
   color: var(--color-text-muted);
 }
 
+/* Headline figures on the Operate overview, and the sparklines under them.
+   Hairline-gridded cells rather than cards: the same 1px grid the split-view
+   StatGrid uses, so the two read as one system. */
+.operate-headline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--spacing-xl);
+  background: var(--color-border-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.operate-headline__cell {
+  background: var(--color-bg-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: grid;
+  gap: 2px;
+}
+
+.operate-headline__cell dt {
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.operate-headline__value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.operate-headline__value--primary { color: var(--color-text-primary); }
+.operate-headline__value--success { color: var(--color-success); }
+.operate-headline__value--warning { color: var(--color-warning); }
+.operate-headline__value--muted   { color: var(--color-text-tertiary); }
+
+.sparkline { display: block; width: 100%; height: 28px; margin-top: 2px; }
+.sparkline polyline { stroke: currentColor; }
+.sparkline circle { fill: currentColor; }
+.sparkline--primary { color: var(--color-primary); }
+.sparkline--success { color: var(--color-success); }
+.sparkline--warning { color: var(--color-warning); }
+.sparkline--muted   { color: var(--color-text-disabled); }
+
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no
    fill, just a dimmer tabular figure a scanning eye can ignore. The
