@@ -232,6 +232,36 @@ func prepare(ctx context.Context, opts Options, interactive bool) (_ *preparatio
 }
 
 func runAgent(ctx context.Context, dir, model string, opts Options) error {
+	return app.Run(ctx, agentOptions(dir, model, opts))
+}
+
+// agentOptions builds the request handed to nib. It is split out of runAgent
+// because app.Run takes the terminal and cannot be called from a test, while
+// what is asked of it is exactly the part worth pinning.
+//
+// The stream fields are the interesting ones, and they are not symmetric.
+//
+// nib reads a non-nil stream as "the embedder wants this used", and refuses
+// every mode but --cli when such a stream is not a terminal, because the
+// full-screen interface renders on /dev/tty and would otherwise ignore it in
+// silence. Nil means "not injected": nib falls back to the process stream and
+// behaves as standalone nib does.
+//
+// Stdin is passed through as it comes. A piped or redirected stdin really is
+// ignored by the interface, so the refusal is the honest answer there, and it
+// is the one users meet: 'echo q | local-ai chat' says to re-run with --cli
+// rather than opening a full-screen session that will never read the question.
+//
+// Stdout is different, and the process stream is deliberately sent as nil. The
+// interface does write to stdout even when it is a pipe: that is the whole of
+// nib's shell-capture idiom, out=$(local-ai chat --height 50%), which is what
+// the Ctrl+Space widget emitted by --init is built on. Injecting os.Stdout
+// there would refuse the widget for a stream nib was going to use anyway. A
+// stdout that is genuinely someone else's, a buffer or a file a caller chose,
+// stays injected and stays subject to the refusal.
+//
+// Stderr is never gated by nib, so it is passed through unchanged.
+func agentOptions(dir, model string, opts Options) app.Options {
 	defaults := nibtypes.Config{
 		Model:    model,
 		APIKey:   opts.APIKey,
@@ -242,13 +272,7 @@ func runAgent(ctx context.Context, dir, model string, opts Options) error {
 		defaults.ApprovalMode = "auto"
 	}
 
-	// The streams are injected rather than left nil, which is what makes nib
-	// refuse to render its full-screen interface into a pipe and say to use
-	// --cli instead of writing to a terminal the caller may not own. The cost
-	// is nib's shell-capture idiom, out=$(local-ai chat), which needs a nil
-	// Stdout to work and would now be refused; that only matters once the
-	// --init snippets stop hardcoding the standalone nib binary.
-	return app.Run(ctx, app.Options{
+	return app.Options{
 		Args:        opts.Args,
 		ProgramName: "local-ai chat",
 		BaseDir:     dir,
@@ -256,9 +280,20 @@ func runAgent(ctx context.Context, dir, model string, opts Options) error {
 		SkipSetup:   true,
 		SkipBareEnv: true,
 		Stdin:       opts.In,
-		Stdout:      opts.Out,
+		Stdout:      ownStdout(opts.Out),
 		Stderr:      opts.ErrOut,
-	})
+	}
+}
+
+// ownStdout reports the writer as nib's own rather than as an injected one when
+// it is the process stdout, by answering nil for it. See agentOptions for why
+// that distinction is the difference between a working Ctrl+Space widget and a
+// refused one.
+func ownStdout(w io.Writer) io.Writer {
+	if f, ok := w.(*os.File); ok && f == os.Stdout {
+		return nil
+	}
+	return w
 }
 
 // defaultProbeTimeout bounds a check of the server. Listing models is cheap,

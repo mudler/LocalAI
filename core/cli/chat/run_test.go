@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -327,12 +328,14 @@ var _ = Describe("prepare", func() {
 		})
 	})
 
-	// Cancelling the context is not enough on its own. nib hands the TUI to
-	// bubbletea without the context, so the agent goes on running with a
-	// cancelled one, and the deferred Stop is only reached because bubbletea
-	// has a SIGINT and SIGTERM handler of its own. SIGHUP has no such backstop,
-	// and registering for it took away the default disposition that used to end
-	// the process, so on that path nothing else would ever stop the server.
+	// Cancelling the context does unwind nib's TUI since v0.5.1, but how long
+	// that takes is nib's business, and the deferred Stop in Run is only reached
+	// once the agent returns. A server this process started is ours to end, so
+	// the guarantee is made here instead, where it does not depend on the agent
+	// at all. Before v0.5.1 there was no guarantee to be had on the SIGHUP path:
+	// bubbletea's own SIGINT and SIGTERM handler was the only thing that ever
+	// quit the program, and registering for SIGHUP took away the default
+	// disposition that used to end the process.
 	Describe("runSession", func() {
 		It("stops the session's server on cancellation, without waiting for the agent", func() {
 			server, proc := stoppableServer()
@@ -378,6 +381,115 @@ var _ = Describe("prepare", func() {
 			Expect(runSession(ctx, nil, func(context.Context) error {
 				return nil
 			})).To(Succeed())
+		})
+	})
+
+	// Which streams reach nib decides two user-visible behaviours at once, and
+	// they pull in opposite directions, so both are pinned here rather than left
+	// to whoever next edits the literal.
+	//
+	// nib refuses every mode but --cli when a stream it was handed is not a
+	// terminal. That refusal is wanted for stdin, where it is what tells someone
+	// piping a question to re-run with --cli. It is not wanted for the process
+	// stdout, where it would refuse the Ctrl+Space widget that --init emits:
+	// out=$(local-ai chat --height 50%) puts a pipe on stdout by construction,
+	// and writing the chosen command into that pipe is the entire point.
+	Describe("agentOptions", func() {
+		// optionsWithStreams is a request that differs from the next only in
+		// what it was told to read and write.
+		optionsWithStreams := func(in io.Reader, out, errOut io.Writer) Options {
+			return Options{
+				BaseURL: "http://127.0.0.1:8080/v1",
+				In:      in,
+				Out:     out,
+				ErrOut:  errOut,
+			}
+		}
+
+		Describe("stdout", func() {
+			// The regression this exists to catch: reinstating
+			// 'Stdout: opts.Out' breaks Ctrl+Space and nothing else notices.
+			It("hands nib nothing for the process stdout, so the capture widget is not refused", func() {
+				o := agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr))
+				Expect(o.Stdout).To(BeNil(), "injecting os.Stdout is what refuses out=$(local-ai chat)")
+			})
+
+			It("keeps a stdout the caller chose, which the refusal still guards", func() {
+				out := &bytes.Buffer{}
+				o := agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, out, os.Stderr))
+				Expect(o.Stdout).To(BeIdenticalTo(out))
+			})
+
+			// Being an *os.File is not what makes a stream nib's own; being the
+			// process stdout is. A file a caller opened was never going to
+			// receive the interface, so it stays injected and stays refused.
+			It("keeps a file that is not the process stdout", func() {
+				f, err := os.CreateTemp(GinkgoT().TempDir(), "captured")
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(f.Close)
+
+				o := agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, f, os.Stderr))
+				Expect(o.Stdout).To(BeIdenticalTo(f))
+			})
+		})
+
+		Describe("stdin", func() {
+			// The opposite regression: nilling stdin the way stdout is nilled
+			// would silently drop the refusal that names --cli.
+			It("hands the process stdin over, so a piped session is still refused", func() {
+				o := agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr))
+				Expect(o.Stdin).To(BeIdenticalTo(os.Stdin))
+			})
+
+			It("hands over a stdin the caller chose", func() {
+				in := strings.NewReader("a question")
+				o := agentOptions(dir, "a-model", optionsWithStreams(in, os.Stdout, os.Stderr))
+				Expect(o.Stdin).To(BeIdenticalTo(in))
+			})
+		})
+
+		// nib gates stdin and stdout and nothing else, so there is no reason to
+		// hide the error stream from it.
+		It("hands the error stream over whatever it is", func() {
+			errOut := &bytes.Buffer{}
+			o := agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, errOut))
+			Expect(o.Stderr).To(BeIdenticalTo(errOut))
+
+			o = agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr))
+			Expect(o.Stderr).To(BeIdenticalTo(os.Stderr))
+		})
+
+		It("names the command a user would type, not the binary nib ships as", func() {
+			o := agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr))
+			Expect(o.ProgramName).To(Equal("local-ai chat"),
+				"the --init widget invokes this name, so a user has to be able to run it")
+		})
+
+		It("carries the resolved session through to nib", func() {
+			opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
+			opts.Args = []string{"--cli"}
+			opts.APIKey = "a-key"
+			opts.TraceDir = "/traces"
+
+			o := agentOptions(dir, "the-model", opts)
+			Expect(o.Args).To(Equal([]string{"--cli"}))
+			Expect(o.BaseDir).To(Equal(dir))
+			Expect(o.Defaults.Model).To(Equal("the-model"))
+			Expect(o.Defaults.APIKey).To(Equal("a-key"))
+			Expect(o.Defaults.BaseURL).To(Equal("http://127.0.0.1:8080/v1"))
+			Expect(o.Defaults.TraceDir).To(Equal("/traces"))
+			// The model and the server are settled before nib starts, and the
+			// bare MODEL and API_KEY variables belong to some other tool.
+			Expect(o.SkipSetup).To(BeTrue())
+			Expect(o.SkipBareEnv).To(BeTrue())
+		})
+
+		It("asks for automatic approval only when --yolo was given", func() {
+			opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
+			Expect(agentOptions(dir, "a-model", opts).Defaults.ApprovalMode).To(BeEmpty())
+
+			opts.Yolo = true
+			Expect(agentOptions(dir, "a-model", opts).Defaults.ApprovalMode).To(Equal("auto"))
 		})
 	})
 
