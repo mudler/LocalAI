@@ -183,5 +183,10 @@
     "clearMessage": "모든 기록 항목을 제거하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "clearConfirm": "지우기",
     "cleared": "기록이 지워졌습니다"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

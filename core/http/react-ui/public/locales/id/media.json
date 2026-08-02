@@ -230,5 +230,10 @@
     "clearMessage": "Hapus semua entri riwayat? Tindakan ini tidak dapat dibatalkan.",
     "clearConfirm": "Hapus",
     "cleared": "Riwayat dihapus"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

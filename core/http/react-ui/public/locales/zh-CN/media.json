@@ -183,5 +183,10 @@
     "clearMessage": "删除所有历史条目？此操作无法撤销。",
     "clearConfirm": "清除",
     "cleared": "历史已清除"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

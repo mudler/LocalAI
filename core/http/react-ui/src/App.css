@@ -5158,17 +5158,43 @@ button.collapsible-header:focus-visible {
   }
 }
 
+/* The workbench control column. A hairline field stack rather than a shadowed
+   card of boxed groups: the panel is the page's left half, not an object
+   floating on it, and the same treatment covers all six generators because they
+   share this class. */
 .media-controls {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-subtle);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border-default);
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
   position: sticky;
   top: var(--spacing-lg);
 }
+
+/* Each control is a row on the stack, separated by the same hairline the lanes
+   use, so a form and a list read as the same system. */
 .media-controls .form-group {
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 0;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+/* Uppercase micro-label, matching the eyebrow treatment used elsewhere: it
+   names the field without competing with the value. */
+.media-controls .form-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The submit row closes the stack, so it carries no divider of its own. */
+.media-controls .form-group:last-of-type,
+.media-controls > form > .btn-full:last-child {
+  border-bottom: 0;
 }
 .media-controls .form-grid-2col,
 .media-controls .form-grid-3col {
@@ -12751,6 +12777,59 @@ button.lane:hover {
   .nav-signal { transition: none; }
   .lanes--attention .lane { animation: none; }
 }
+
+/* The request the form just built. Sunken and monospace: it is a record of what
+   was sent, not another control. */
+.request-panel {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+}
+
+.request-panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.request-panel__title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.request-panel__copy {
+  margin-left: auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.request-panel__copy:hover { color: var(--color-primary); border-color: var(--color-primary-border); }
+.request-panel__copy:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 1px; }
+
+.request-panel__code {
+  margin: 0;
+  padding: var(--spacing-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.request-panel__method { color: var(--color-text-tertiary); }
+.request-panel__endpoint { color: var(--color-primary); font-weight: 500; }
 
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no

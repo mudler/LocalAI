@@ -183,5 +183,10 @@
     "clearMessage": "¿Eliminar todas las entradas del historial? Esto no se puede deshacer.",
     "clearConfirm": "Borrar",
     "cleared": "Historial borrado"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

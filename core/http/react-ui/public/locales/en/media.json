@@ -452,5 +452,10 @@
     "clearMessage": "Remove all history entries? This cannot be undone.",
     "clearConfirm": "Clear",
     "cleared": "History cleared"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

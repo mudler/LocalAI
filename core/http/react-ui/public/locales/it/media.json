@@ -183,5 +183,10 @@
     "clearMessage": "Rimuovere tutte le voci della cronologia? Questa azione non può essere annullata.",
     "clearConfirm": "Cancella",
     "cleared": "Cronologia cancellata"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

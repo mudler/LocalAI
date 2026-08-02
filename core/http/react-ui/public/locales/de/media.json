@@ -183,5 +183,10 @@
     "clearMessage": "Alle Verlaufseinträge entfernen? Diese Aktion kann nicht rückgängig gemacht werden.",
     "clearConfirm": "Löschen",
     "cleared": "Verlauf gelöscht"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }
