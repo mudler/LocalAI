@@ -12562,6 +12562,19 @@ button.lane:hover {
 
 .lane:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 
+/* A 33px row is fine for a mouse and too small for a thumb. Matches the rule
+   EntityRail already applies, so the two list idioms feel the same on touch. */
+@media (pointer: coarse) {
+  .lane { padding-top: 12px; padding-bottom: 12px; }
+}
+
+/* The hover inset is a position change, so it is motion. Hold the background
+   feedback and drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .lane { transition: background var(--duration-fast) var(--ease-default); }
+  a.lane:hover, button.lane:hover { padding-inline: var(--spacing-xs); }
+}
+
 /* Uppercase micro-label. Blue where it names a route, mint where it reports
    live state — never both on one screen. */
 .lane__tag {

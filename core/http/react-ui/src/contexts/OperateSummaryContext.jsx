@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useMemo } from 'react
 import { backendsApi, nodesApi, resourcesApi } from '../utils/api'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
+import { useDistributedMode } from '../hooks/useDistributedMode'
 
 // The state of the installation, assembled once for everything in the Operate
 // console: the rail's per-item signals and the overview's attention list.
@@ -40,6 +41,10 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const [nodes, setNodes] = useState([])
   const [resources, setResources] = useState(null)
   const { operations } = useOperations()
+  // The cluster API answers 503 when distributed mode is off, so asking for it
+  // on a single-node install is a guaranteed miss on every tick. The rail gates
+  // the Nodes entry the same way.
+  const { enabled: distributed } = useDistributedMode()
 
   const fetchSummary = useCallback(async () => {
     const [u, n, r] = await Promise.all([
@@ -47,13 +52,13 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       // Never POST /upgrades/check on a timer — that forces a real registry
       // check.
       settle(backendsApi.checkUpgrades(), {}),
-      settle(nodesApi.list(), []),
+      distributed ? settle(nodesApi.list(), []) : Promise.resolve([]),
       settle(resourcesApi.get(), null),
     ])
     setUpgrades(u && typeof u === 'object' ? u : {})
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
     setResources(r)
-  }, [])
+  }, [distributed])
 
   usePolling(fetchSummary, pollInterval)
 

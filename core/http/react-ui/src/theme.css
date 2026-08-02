@@ -24,7 +24,7 @@
   --color-primary: #4f8cff;
   --color-primary-hover: #70a2ff;
   --color-primary-active: #3d78e8;
-  --color-primary-text: #ffffff;
+  --color-primary-text: #0d1117;        /* 5.88:1 on the blue; white would be 3.22:1 */
   --color-primary-light: rgba(79, 140, 255, 0.14);
   --color-primary-border: rgba(79, 140, 255, 0.34);
 
@@ -65,9 +65,9 @@
   --color-warning: #f1b95d;              /* the evidence accent, spent sparingly */
   --color-warning-light: rgba(241, 185, 93, 0.14);
   --color-warning-border: rgba(241, 185, 93, 0.32);
-  --color-error: #bf616a;                /* nord11 */
-  --color-error-light: rgba(191, 97, 106, 0.14);
-  --color-error-border: rgba(191, 97, 106, 0.32);
+  --color-error: #c96f78;                /* 5.02:1 on raised surfaces; #bf616a was 4.28 */
+  --color-error-light: rgba(201, 111, 120, 0.14);
+  --color-error-border: rgba(201, 111, 120, 0.32);
   --color-info: #7aa7e8;
   --color-info-light: rgba(122, 167, 232, 0.14);
   --color-info-border: rgba(122, 167, 232, 0.32);
@@ -79,7 +79,7 @@
 
   /* Data viz — full aurora + frost palette */
   --color-data-1: #4f8cff;   /* action blue */
-  --color-data-2: #bf616a;   /* red */
+  --color-data-2: #c96f78;   /* red */
   --color-data-3: #b48ead;   /* purple */
   --color-data-4: #f1b95d;   /* amber */
   --color-data-5: #56d6a4;   /* mint */
@@ -89,7 +89,7 @@
 
   /* Log streams — tuned to Nord aurora */
   --color-log-stdout: #d3dee9;
-  --color-log-stderr: #bf616a;
+  --color-log-stderr: #c96f78;
   --color-log-info: #4f8cff;
   --color-log-warn: #f1b95d;
 
@@ -220,9 +220,9 @@
   --color-border-focus: rgba(47, 98, 216, 0.45);
 
   /* Mint and amber darkened to clear 4.5:1 on paper. Same roles, new values. */
-  --color-success: #0d8b60;
-  --color-success-light: rgba(13, 139, 96, 0.12);
-  --color-success-border: rgba(13, 139, 96, 0.3);
+  --color-success: #0a734f;              /* 5.56:1 on paper; #0d8b60 was only 4.08 */
+  --color-success-light: rgba(10, 115, 79, 0.12);
+  --color-success-border: rgba(10, 115, 79, 0.3);
   --color-warning: #8a5d0b;
   --color-warning-light: rgba(138, 93, 11, 0.12);
   --color-warning-border: rgba(138, 93, 11, 0.3);
@@ -236,14 +236,14 @@
   --color-modal-backdrop: rgba(13, 17, 23, 0.38);
 
   --color-focus-ring: rgba(47, 98, 216, 0.6);
-  --color-eyebrow: #0d8b60;  /* mint, darkened for paper */
+  --color-eyebrow: #0a734f;  /* mint, darkened until it clears AA on paper */
 
   /* Data viz — darkened for light mode */
   --color-data-1: #2f62d8;
   --color-data-2: #a13e47;
   --color-data-3: #8b5a92;
   --color-data-4: #8a5d0b;
-  --color-data-5: #0d8b60;
+  --color-data-5: #0a734f;
   --color-data-6: #b8684f;
   --color-data-7: #4c6d92;
   --color-data-8: #5a9090;
