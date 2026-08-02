@@ -118,7 +118,8 @@
     "fitsSize": "{{size}} · 실행 가능",
     "previousPage": "이전 페이지",
     "nextPage": "다음 페이지",
-    "showingCount": "{{total}}개 중 {{shown}}개"
+    "showingCount": "{{total}}개 중 {{shown}}개",
+    "sizing": "계산 중…"
   },
   "groups": {
     "text": "텍스트 및 추론",

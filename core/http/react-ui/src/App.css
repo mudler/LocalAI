@@ -12471,3 +12471,21 @@ button.collapsible-header:focus-visible {
   min-height: 280px;
   gap: var(--spacing-lg);
 }
+
+/* An estimate still in flight. Muted and gently pulsing, so the row reads as
+   working rather than as missing a value: what is pending is the "will it fit"
+   answer, not the entry itself, which is installable already. */
+.entity-rail__meta--pending {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  animation: entity-rail-pending 1.6s var(--ease-default) infinite;
+}
+
+@keyframes entity-rail-pending {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-rail__meta--pending { animation: none; opacity: 0.75; }
+}

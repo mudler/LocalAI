@@ -134,7 +134,8 @@
     "fitsSize": "{{size}} · passt",
     "previousPage": "Vorherige Seite",
     "nextPage": "Nächste Seite",
-    "showingCount": "{{shown}} von {{total}}"
+    "showingCount": "{{shown}} von {{total}}",
+    "sizing": "wird berechnet…"
   },
   "groups": {
     "text": "Text und Reasoning",

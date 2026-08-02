@@ -134,7 +134,8 @@
     "fitsSize": "{{size}} · 可运行",
     "previousPage": "上一页",
     "nextPage": "下一页",
-    "showingCount": "{{total}} 个中的 {{shown}} 个"
+    "showingCount": "{{total}} 个中的 {{shown}} 个",
+    "sizing": "计算中…"
   },
   "groups": {
     "text": "文本与推理",

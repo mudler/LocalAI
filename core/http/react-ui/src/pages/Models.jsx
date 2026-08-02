@@ -29,6 +29,10 @@ import React from 'react'
 // to read as structure rather than noise, and there are five times fewer pages.
 const RAIL_PAGE_SIZE = 30
 
+// How many estimates to have in flight at once. See the fetch effect: this
+// exists to leave connections free for whatever the user clicks next.
+const ESTIMATE_CONCURRENCY = 4
+
 const CHART_HEIGHT = 96
 const CHART_LABEL_ROOM = 15
 
@@ -136,6 +140,9 @@ export default function Models() {
   const [allBackends, setAllBackends] = useState([])
   const [backendUsecases, setBackendUsecases] = useState({})
   const [estimates, setEstimates] = useState({})
+  // Models whose estimate is in flight, so a row can say it is still working
+  // rather than silently showing nothing where a size will appear.
+  const [pendingEstimates, setPendingEstimates] = useState(() => new Set())
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
@@ -251,21 +258,62 @@ export default function Models() {
     fetchModels({ search: value, page: 1 })
   })
 
-  // Fetch VRAM/size estimates asynchronously for visible models.
+  // Fetch VRAM/size estimates for the loaded page, a few at a time.
+  //
+  // A browser allows around six connections per host, and an estimate against
+  // a cold server cache takes seconds. Firing one per row took every slot, so
+  // the request behind a click - the variant list, an install - waited behind a
+  // queue of work the user never asked for, and the page felt frozen while the
+  // list was in fact already usable. Four leaves room for the interactive
+  // request to overtake.
   useEffect(() => {
     if (models.length === 0) return
+    const queue = models
+      .map(m => m.name || m.id)
+      .filter(id => !estimates[id])
+    if (queue.length === 0) return
+
     let cancelled = false
-    models.forEach(model => {
-      const id = model.name || model.id
-      if (estimates[id]) return
-      modelsApi.estimate(id, CONTEXT_SIZES).then(est => {
-        if (cancelled) return
-        if (est && (est.sizeBytes || est.estimates)) {
-          setEstimates(prev => ({ ...prev, [id]: est }))
-        }
-      }).catch(() => {})
+    setPendingEstimates(prev => {
+      const next = new Set(prev)
+      queue.forEach(id => next.add(id))
+      return next
     })
-    return () => { cancelled = true }
+
+    const settle = (id) => setPendingEstimates(prev => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+
+    let cursor = 0
+    const worker = async () => {
+      while (!cancelled && cursor < queue.length) {
+        const id = queue[cursor++]
+        try {
+          const est = await modelsApi.estimate(id, CONTEXT_SIZES)
+          if (!cancelled && est && (est.sizeBytes || est.estimates)) {
+            setEstimates(prev => ({ ...prev, [id]: est }))
+          }
+        } catch {
+          // An estimate is a nicety. The row names the model and installs it
+          // either way, so a failure must not stop the queue behind it.
+        }
+        if (!cancelled) settle(id)
+      }
+    }
+    Promise.all(Array.from({ length: Math.min(ESTIMATE_CONCURRENCY, queue.length) }, worker))
+
+    return () => {
+      cancelled = true
+      setPendingEstimates(prev => {
+        if (prev.size === 0) return prev
+        const next = new Set(prev)
+        queue.forEach(id => next.delete(id))
+        return next
+      })
+    }
   }, [models])
 
   const handleSearch = (value) => {
@@ -647,7 +695,7 @@ export default function Models() {
               {/* Grouped while browsing, flat while searching: once a term is
                   typed the buckets stand between the reader and the answer. */}
               <EntityRail
-                items={visibleModels.map(m => railItemFor(m, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
+                items={visibleModels.map(m => railItemFor(m, { estimates, pendingEstimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
                 groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
                 grouped={!search.trim()}
                 collapsedGroups={collapsedGroups}
@@ -1116,7 +1164,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
 // The rail line gets exactly one fact beyond the name, and it is spent on
 // whether the thing will run here. Descriptions belong in the pane; two lines
 // is the budget and the second one is worth more as an answer than as prose.
-function railItemFor(model, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }) {
+function railItemFor(model, { estimates, pendingEstimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }) {
   const name = model.name || model.id
   const est = estimates[name]
   const sizeDisplay = est?.sizeDisplay
@@ -1141,6 +1189,11 @@ function railItemFor(model, { estimates, contextSize, fitsGpu, isInstalling, get
     meta = t('rail.fitsSize', { size: sizeDisplay })
   } else if (hasSize) {
     meta = sizeDisplay
+  } else if (pendingEstimates?.has(name)) {
+    // Say the size is coming rather than leaving the line to fill in silently.
+    // The row is usable now; only the "will it fit" answer is still on its way.
+    meta = t('rail.sizing')
+    metaTone = 'pending'
   }
 
   return { id: name, name, icon: groupForEntity(model).icon, meta, metaTone, groupId: groupForEntity(model).id }

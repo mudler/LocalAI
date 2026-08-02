@@ -134,7 +134,8 @@
     "fitsSize": "{{size}} · compatibile",
     "previousPage": "Pagina precedente",
     "nextPage": "Pagina successiva",
-    "showingCount": "{{shown}} di {{total}}"
+    "showingCount": "{{shown}} di {{total}}",
+    "sizing": "calcolo…"
   },
   "groups": {
     "text": "Testo e ragionamento",

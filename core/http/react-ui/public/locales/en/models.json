@@ -150,7 +150,8 @@
     "fitsSize": "{{size}} · fits",
     "previousPage": "Previous page",
     "nextPage": "Next page",
-    "showingCount": "{{shown}} of {{total}}"
+    "showingCount": "{{shown}} of {{total}}",
+    "sizing": "sizing…"
   },
   "groups": {
     "text": "Text and reasoning",

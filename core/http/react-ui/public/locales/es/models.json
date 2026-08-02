@@ -134,7 +134,8 @@
     "fitsSize": "{{size}} · cabe",
     "previousPage": "Página anterior",
     "nextPage": "Página siguiente",
-    "showingCount": "{{shown}} de {{total}}"
+    "showingCount": "{{shown}} de {{total}}",
+    "sizing": "calculando…"
   },
   "groups": {
     "text": "Texto y razonamiento",

@@ -147,7 +147,8 @@
     "fitsSize": "{{size}} · muat",
     "previousPage": "Halaman sebelumnya",
     "nextPage": "Halaman berikutnya",
-    "showingCount": "{{shown}} dari {{total}}"
+    "showingCount": "{{shown}} dari {{total}}",
+    "sizing": "menghitung…"
   },
   "groups": {
     "text": "Teks dan penalaran",
