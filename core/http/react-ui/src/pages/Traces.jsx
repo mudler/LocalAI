@@ -441,13 +441,14 @@ export default function Traces() {
 
   // Expanding a row pulls the full record (bodies, data fields, audio
   // snippets) that the list response deliberately omits.
-  const toggleRow = useCallback(async (row) => {
-    if (expandedTraceId === row?.id) {
+  const toggleRow = useCallback(async (row, index) => {
+    const traceKey = row?.id ?? index
+    if (expandedTraceId === traceKey) {
       setExpandedTraceId(null)
       setDetail(null)
       return
     }
-    setExpandedTraceId(row?.id ?? null)
+    setExpandedTraceId(traceKey)
     setDetail(null)
     if (!row?.id) return
     try {
@@ -637,8 +638,8 @@ export default function Traces() {
             <tbody>
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={trace.id ?? i}>
-                  <tr onClick={() => toggleRow(trace)} className="clickable">
-                    <td><i className={`fas fa-chevron-${expandedTraceId === trace.id ? 'down' : 'right'} text-xs`} /></td>
+                  <tr onClick={() => toggleRow(trace, i)} className="clickable">
+                    <td><i className={`fas fa-chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'} text-xs`} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
                     <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
@@ -649,7 +650,7 @@ export default function Traces() {
                         : <i className="fas fa-check-circle text-success" />}
                     </td>
                   </tr>
-                  {expandedTraceId === trace.id && (
+                  {expandedTraceId === (trace.id ?? i) && (
                     <tr>
                       <td colSpan="6" className="p-0">
                         <ApiTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
@@ -676,8 +677,8 @@ export default function Traces() {
             <tbody>
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={trace.id ?? i}>
-                  <tr onClick={() => toggleRow(trace)} className="clickable">
-                    <td><i className={`fas fa-chevron-${expandedTraceId === trace.id ? 'down' : 'right'} text-xs`} /></td>
+                  <tr onClick={() => toggleRow(trace, i)} className="clickable">
+                    <td><i className={`fas fa-chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'} text-xs`} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
                     <td className="text-sub nowrap">{formatDateTime(trace.timestamp)}</td>
                     <td className="text-mono text-sm">{trace.model_name || '-'}</td>
@@ -691,7 +692,7 @@ export default function Traces() {
                         : <i className="fas fa-check-circle text-success" />}
                     </td>
                   </tr>
-                  {expandedTraceId === trace.id && (
+                  {expandedTraceId === (trace.id ?? i) && (
                     <tr>
                       <td colSpan="7" className="p-0">
                         <BackendTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
