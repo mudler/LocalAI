@@ -8833,6 +8833,11 @@ button.collapsible-header:focus-visible {
 .manage-summary {
   margin-top: var(--spacing-xl);
   margin-bottom: var(--spacing-lg);
+  /* .page--app is a flex column whose split view takes flex:1, so a child with
+     no intrinsic minimum gets shrunk to nothing. The old cards survived only
+     because .stat-card carried min-height:96px; the figure cells do not, so the
+     strip has to decline to shrink. */
+  flex: none;
 }
 
 /* Screen-reader-only label, used for table headers whose visual cell needs
@@ -12754,6 +12759,11 @@ button.lane:hover {
 /* Headline figures on the Operate overview, and the sparklines under them.
    Hairline-gridded cells rather than cards: the same 1px grid the split-view
    StatGrid uses, so the two read as one system. */
+/* A row of headline figures on a hairline grid. Shared by the Operate overview
+   and the Host page so the two read as one system: same cell, same figure
+   scale, same tone vocabulary. Replaces Host's shadowed clickable cards, which
+   were a second dashboard language on a page that already had one. */
+.stat-strip,
 .operate-headline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -12765,6 +12775,7 @@ button.lane:hover {
   overflow: hidden;
 }
 
+.stat-strip__cell,
 .operate-headline__cell {
   background: var(--color-bg-primary);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -12772,6 +12783,8 @@ button.lane:hover {
   gap: 2px;
 }
 
+.stat-strip__label,
+.stat-strip__cell dt,
 .operate-headline__cell dt {
   color: var(--color-text-muted);
   font-size: 0.625rem;
@@ -12780,6 +12793,7 @@ button.lane:hover {
   text-transform: uppercase;
 }
 
+.stat-strip__value,
 .operate-headline__value {
   margin: 0;
   font-family: var(--font-mono);
@@ -12790,10 +12804,24 @@ button.lane:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.stat-strip__value--primary,
 .operate-headline__value--primary { color: var(--color-text-primary); }
+.stat-strip__value--success,
 .operate-headline__value--success { color: var(--color-success); }
+.stat-strip__value--warning,
 .operate-headline__value--warning { color: var(--color-warning); }
 .operate-headline__value--muted   { color: var(--color-text-tertiary); }
+
+button.stat-strip__cell {
+  border: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+button.stat-strip__cell:hover { background: var(--color-bg-hover); }
+button.stat-strip__cell:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 
 .sparkline { display: block; width: 100%; height: 28px; margin-top: 2px; }
 .sparkline polyline { stroke: currentColor; }
