@@ -421,8 +421,10 @@ var _ = Describe("prepare", func() {
 			})
 
 			// Being an *os.File is not what makes a stream nib's own; being the
-			// process stdout is. A file a caller opened was never going to
-			// receive the interface, so it stays injected and stays refused.
+			// process stdout is. This is a file an in-process caller opened for
+			// itself, not one a shell redirect handed over as stdout, which
+			// still arrives as os.Stdout and is still nil-ed. It was never going
+			// to receive the interface, so it stays injected and stays refused.
 			It("keeps a file that is not the process stdout", func() {
 				f, err := os.CreateTemp(GinkgoT().TempDir(), "captured")
 				Expect(err).ToNot(HaveOccurred())
@@ -495,9 +497,9 @@ var _ = Describe("prepare", func() {
 
 	// nib reports its own failures on the error stream and returns nothing but
 	// a status, so anything that reaches here as one has already been explained
-	// once. The refusal to render the full-screen interface into a pipe is the
-	// one users meet: it names --cli, and a second message on top would bury
-	// the fix.
+	// once. The refusal to open a full-screen session on a stdin that cannot be
+	// read is the one users meet: 'echo q | local-ai chat' names --cli, and a
+	// second message on top would bury the fix.
 	Describe("ExitStatus", func() {
 		It("recognises a status the agent already explained", func() {
 			code, reported := ExitStatus(app.ExitError{Code: 2})

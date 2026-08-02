@@ -44,10 +44,10 @@ type Options struct {
 //
 // nib writes what went wrong to the error stream itself and hands back nothing
 // but a code, so an error that satisfies this has already been explained to the
-// user and must not be reported a second time. The refusal to render the
-// full-screen interface into a pipe arrives this way, and it is the one a user
-// is most likely to meet: it names --cli, and burying that under a second
-// message would hide the fix.
+// user and must not be reported a second time. The refusal to open a
+// full-screen session on a stdin that cannot be read arrives this way, and it
+// is the one a user is most likely to meet: 'echo q | local-ai chat' names
+// --cli, and burying that under a second message would hide the fix.
 func ExitStatus(err error) (int, bool) {
 	var exit app.ExitError
 	if errors.As(err, &exit) {
@@ -256,9 +256,19 @@ func runAgent(ctx context.Context, dir, model string, opts Options) error {
 // interface does write to stdout even when it is a pipe: that is the whole of
 // nib's shell-capture idiom, out=$(local-ai chat --height 50%), which is what
 // the Ctrl+Space widget emitted by --init is built on. Injecting os.Stdout
-// there would refuse the widget for a stream nib was going to use anyway. A
-// stdout that is genuinely someone else's, a buffer or a file a caller chose,
-// stays injected and stays subject to the refusal.
+// there would refuse the widget for a stream nib was going to use anyway.
+//
+// The test is identity with os.Stdout rather than whether it happens to be a
+// terminal, which means a shell redirect goes the same way as the widget:
+// 'local-ai chat > out.txt' no longer refuses either, and renders on /dev/tty
+// with the capture line landing in the file. That is not a second decision, it
+// is the same one. Both are the process stdout as the shell handed it over,
+// differing only in being a pipe rather than a regular file, which nib's gate
+// does not look at and should not. Refusing one would refuse the other.
+//
+// What stays injected, and so stays subject to the refusal, is a writer some
+// in-process caller chose for itself rather than inherited: a bytes.Buffer, or
+// an *os.File it opened. The specs rely on that.
 //
 // Stderr is never gated by nib, so it is passed through unchanged.
 func agentOptions(dir, model string, opts Options) app.Options {
