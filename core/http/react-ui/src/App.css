@@ -12732,6 +12732,26 @@ button.lane:hover {
 .sparkline--warning { color: var(--color-warning); }
 .sparkline--muted   { color: var(--color-text-disabled); }
 
+/* A signal changing as a poll lands should read as an update, not a jump cut.
+   Opacity only, so it stays on the compositor and cannot reflow the rail. */
+.nav-signal { transition: opacity var(--duration-normal) var(--ease-default); }
+
+/* The attention block is the one thing on the page that should announce
+   itself. A short, single reveal on the row's left edge, not on the text. */
+@keyframes attentionEdge {
+  from { border-left-color: transparent; }
+  to   { border-left-color: var(--color-warning); }
+}
+
+.lanes--attention .lane {
+  animation: attentionEdge var(--duration-reveal) var(--ease-reveal) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-signal { transition: none; }
+  .lanes--attention .lane { animation: none; }
+}
+
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no
    fill, just a dimmer tabular figure a scanning eye can ignore. The

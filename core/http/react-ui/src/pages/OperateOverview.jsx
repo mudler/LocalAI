@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
 import Sparkline from '../components/Sparkline'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
+import { staggerStyle } from '../hooks/useStagger'
 
 // The front door to Operate.
 //
@@ -43,7 +44,7 @@ export default function OperateOverview() {
           than shown three zeroes dressed as telemetry. */}
       {traces && (
         traces.total > 0 ? (
-          <dl className="operate-headline">
+          <dl className="operate-headline reveal-stagger">
             <HeadlineStat
               label={t('operate.overview.headline.requests', { hours: traces.window_hours })}
               value={traces.total.toLocaleString()}
@@ -76,9 +77,9 @@ export default function OperateOverview() {
             {t('operate.overview.attention.clear')}
           </p>
         ) : (
-          <ul className="lanes lanes--attention">
-            {attention.map(item => (
-              <li key={item.id} data-testid="operate-attention-item">
+          <ul className="lanes lanes--attention reveal-stagger">
+            {attention.map((item, i) => (
+              <li key={item.id} data-testid="operate-attention-item" style={staggerStyle(i)}>
                 <Link to={ATTENTION_ROUTE[item.kind] || '/app/operate'} className="lane">
                   <span className="lane__name">{item.name}</span>
                   <span className="lane__desc">
@@ -96,8 +97,9 @@ export default function OperateOverview() {
 
       <section>
         <div className="lane-head"><h2>{t('operate.overview.sections.heading')}</h2></div>
-        <ul className="lanes lanes--sections">
+        <ul className="lanes lanes--sections reveal-stagger">
           <OperateSection
+            index={0}
             to="/app/backends"
             label={t('operate.overview.sections.runtime')}
             summary={t('operate.overview.sections.runtimeSummary', {
@@ -106,6 +108,7 @@ export default function OperateOverview() {
             })}
           />
           <OperateSection
+            index={1}
             to="/app/nodes"
             label={t('operate.overview.sections.cluster')}
             summary={nodes.length
@@ -115,6 +118,7 @@ export default function OperateOverview() {
               : t('operate.overview.sections.clusterSingle')}
           />
           <OperateSection
+            index={2}
             to="/app/traces"
             label={t('operate.overview.sections.observability')}
             summary={traces?.total
@@ -126,6 +130,7 @@ export default function OperateOverview() {
               : t('operate.overview.sections.observabilitySummary')}
           />
           <OperateSection
+            index={3}
             to="/app/manage"
             label={t('operate.overview.sections.administration')}
             summary={t('operate.overview.sections.administrationSummary')}
@@ -146,9 +151,9 @@ function HeadlineStat({ label, value, series, tone }) {
   )
 }
 
-function OperateSection({ to, label, summary }) {
+function OperateSection({ to, label, summary, index = 0 }) {
   return (
-    <li>
+    <li style={staggerStyle(index)}>
       <Link to={to} className="lane">
         <span className="lane__tag">{label}</span>
         <span className="lane__desc">{summary}</span>

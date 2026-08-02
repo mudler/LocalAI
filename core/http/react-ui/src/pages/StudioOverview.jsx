@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
 import { formatBytes } from '../utils/format'
+import { staggerStyle } from '../hooks/useStagger'
 
 // What this machine can actually make.
 //
@@ -38,9 +39,9 @@ export default function StudioOverview({ modalities, recent, running, onPick }) 
           {t('studio.overview.eyebrow', { ready, total: modalities.length })}
         </span>
       </div>
-      <ul className="lanes lanes--modality">
-        {modalities.map(m => (
-          <li key={m.key} data-testid="studio-modality" data-modality={m.key}>
+      <ul className="lanes lanes--modality reveal-stagger">
+        {modalities.map((m, i) => (
+          <li key={m.key} data-testid="studio-modality" data-modality={m.key} style={staggerStyle(i)}>
             <ModalityLane modality={m} onPick={onPick} t={t} />
           </li>
         ))}
@@ -68,9 +69,9 @@ export default function StudioOverview({ modalities, recent, running, onPick }) 
       {recent.length > 0 && (
         <>
           <div className="lane-head"><h2>{t('studio.overview.recent')}</h2></div>
-          <ul className="lanes lanes--takes" data-testid="studio-recent">
-            {recent.map(entry => (
-              <li key={entry.id}>
+          <ul className="lanes lanes--takes reveal-stagger" data-testid="studio-recent">
+            {recent.map((entry, i) => (
+              <li key={entry.id} style={staggerStyle(i)}>
                 <button type="button" className="lane" onClick={() => onPick(entry.modality)}>
                   <span className="lane__name">{entry.model || entry.modality}</span>
                   <span className="lane__num">{describeEntry(entry, t)}</span>
