@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=59343930f37ba08abfccb8de544bc51fc3828b16
+VLLM_CPP_VERSION?=9e1c9025ae61167a3335454d7cc0de6093c21845
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
@@ -71,7 +71,7 @@ ifeq ($(BUILD_TYPE),cublas)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DVLLM_CPP_VULKAN=ON -DVLLM_CPP_CUDA=OFF
 else ifeq ($(BUILD_TYPE),metal)
-	CMAKE_ARGS+=-DVLLM_CPP_METAL=ON
+	CMAKE_ARGS+=-DVLLM_CPP_METAL=ON -DCMAKE_OBJCXX_FLAGS=-Wno-gnu-folding-constant
 	# The optional MLX GEMM provider. vllm.cpp keeps it OFF by default because it
 	# is a ~19 MB libmlx.dylib plus a ~105 MB mlx.metallib, and upstream's
 	# position is that it must earn that cost by measurement. It does, on the
