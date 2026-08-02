@@ -105,6 +105,11 @@ so a script can tell "I refused to act" apart from "I crashed".
 Pipe a question in without `--cli` and the agent refuses, with a message naming `--cli`. It
 will not render a full-screen interface into a pipe that cannot show it.
 
+Redirecting the output is not the same thing and is not refused: `local-ai chat > out.txt`
+from a terminal draws the interface on `/dev/tty` and writes only the command you pick with
+`Ctrl+Y` to the file. That is the same capture the `Ctrl+Space` widget is built on, so both
+work. It is the stdin that has to be a terminal.
+
 ## Where the agent keeps its state
 
 Config, plugins and skills live in `~/.config/localai/chat/`, or under `$XDG_CONFIG_HOME`
@@ -134,9 +139,11 @@ conversion.
 
 {{% notice warning %}}
 **Pass `--yes` in scripts.** The management commands do not read the streams LocalAI hands
-them, so `plugin install` without `--yes` in a non-interactive context installs the plugin,
-leaves it **disabled**, and still exits `0`. Nothing tells you it did not finish the job.
-Always pass `--yes` when you are not at a terminal.
+them, so `plugin install` without `--yes` in a non-interactive context installs the plugin
+and leaves it **disabled**. It prints that it did, on the line
+`Plugin "name" installed but left disabled`, but it exits `0` either way, so a script that
+only checks the exit code cannot tell the two outcomes apart. Always pass `--yes` when you
+are not at a terminal.
 {{% /notice %}}
 
 ## Flags

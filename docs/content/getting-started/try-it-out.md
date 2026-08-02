@@ -30,7 +30,7 @@ local-ai run
 local-ai chat --model qwen3-4b
 ```
 
-`local-ai chat` connects to a running LocalAI server and opens the built-in terminal agent. It is more than a chat prompt: it can read your files and run commands on your machine, so the first time it wants to do something that changes state it stops and asks you to approve the call. Reads and searches run without asking. Press `Ctrl+D` to end the session.
+`local-ai chat` connects to a running LocalAI server and opens the built-in terminal agent. It is more than a chat prompt: it can read your files and run commands on your machine, so the first time it wants to do something that changes state it stops and asks you to approve the call. Reads and searches run without asking. Press `Esc` or `Ctrl+C` to end the session. `Esc` is a key of the full-screen interface: in the plain `--cli` mode, leave with `Ctrl+C`, `Ctrl+D`, or by typing `exit`.
 
 Use `/models` to list installed models, `/model <name>` to switch models while keeping the conversation, and `/compact` to summarize the history so far when the context fills up. The full picture is on the [Terminal agent]({{% relref "features/terminal-agent" %}}) page.
 
