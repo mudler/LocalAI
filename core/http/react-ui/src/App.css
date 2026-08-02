@@ -51,18 +51,32 @@
 }
 
 /* Footer */
+/* One line, not three stacked centred rows. The footer is chrome: it should
+   cost a line of height and be findable, not occupy the bottom sixth of every
+   page. Version left, links right, copyright folded in beside the version. */
 .app-footer {
   background: transparent;
   border-top: 1px solid var(--color-border-divider);
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
   margin-top: auto;
 }
 
 .app-footer-inner {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-sm);
+  justify-content: space-between;
+  gap: var(--spacing-xs) var(--spacing-md);
+}
+
+/* Links push right on a wide viewport and wrap under on a narrow one. */
+.app-footer-links { margin-left: auto; }
+
+/* Below the fold of a phone the three groups stack anyway; centre them so the
+   wrap does not read as a ragged left column. */
+@media (max-width: 560px) {
+  .app-footer-inner { justify-content: center; }
+  .app-footer-links { margin-left: 0; }
 }
 
 .app-footer-version {
@@ -12560,6 +12574,11 @@ button.lane:hover {
 
 .lane__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .lane__name { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+
+/* Identifiers are monospace, prose is not. A model id, a backend name or a
+   filename is a thing you might type or paste, and setting it in the UI face
+   makes it read as a label instead. */
+.lane__name--id { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 500; }
 .lane__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
 
 /* Identifiers and quantities are monospace; prose is not. */
@@ -12600,6 +12619,42 @@ button.lane:hover {
   padding: var(--spacing-xl);
   max-width: var(--page-max-medium);
   width: 100%;
+}
+
+
+/* Home: resident models and the header figures. */
+.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) auto auto; }
+
+.home-loaded-stop {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.home-loaded-stop:hover { color: var(--color-error); background: var(--color-error-light); }
+
+.home-stat { display: flex; align-items: baseline; gap: var(--spacing-xs); }
+
+.home-stat__value {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.home-stat__value--ok { color: var(--color-success); }
+
+.home-stat__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 /* ─── Operate console: rail signals and the overview ──────────────────────
