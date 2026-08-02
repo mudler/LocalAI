@@ -77,7 +77,11 @@ export default function OperateOverview() {
           <OperateSection
             to="/app/nodes"
             label={t('operate.overview.sections.cluster')}
-            summary={t('operate.overview.sections.clusterSummary', { nodes: nodes.length })}
+            summary={nodes.length
+              ? t('operate.overview.sections.clusterSummary', { nodes: nodes.length })
+              // "0 nodes" reads as a fault on a single-node install, where the
+              // cluster API is simply switched off.
+              : t('operate.overview.sections.clusterSingle')}
           />
           <OperateSection
             to="/app/traces"

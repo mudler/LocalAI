@@ -12614,7 +12614,10 @@ button.lane:hover {
   margin: var(--spacing-2xl) 0 var(--spacing-sm);
 }
 
-.lane-head:first-child { margin-top: 0; }
+/* No :first-child reset. Every <section> makes its lane-head a first child, so
+   the reset silently killed the gap between every block — "Sections" sat flush
+   against the row above it. The header supplies its own bottom margin, so a
+   uniform top margin is right everywhere. */
 .lane-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
 
 .lane-head__meta {

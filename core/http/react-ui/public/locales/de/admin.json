@@ -162,7 +162,8 @@
         "observability": "Observability",
         "observabilitySummary": "Usage and traces",
         "administration": "Administration",
-        "administrationSummary": "Users, middleware, host and settings"
+        "administrationSummary": "Users, middleware, host and settings",
+        "clusterSingle": "Single node"
       }
     }
   }
