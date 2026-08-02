@@ -71,14 +71,12 @@ var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
 // group and the terminal signals all of it, but a SIGTERM from a supervisor or
 // a script reaches only this process.
 //
-// What cancelling this context does NOT do, on its own, is end the session.
-// bubbletea installs its own SIGINT and SIGTERM handler and quits the program,
-// and that is what actually unwinds a running TUI today; nib's RunTUI does not
-// yet pass the context to bubbletea, so a cancelled context leaves the
-// interface on screen. Registering here also removes SIGHUP's default
-// terminate disposition, which would otherwise have ended the process outright.
-// So the guarantee cannot rest on the agent returning: see runSession, which
-// stops the server on cancellation rather than on the way out.
+// Since nib v0.5.1 cancelling this context does end the session: RunTUI passes
+// it to bubbletea, which unwinds the program and reports the context's own
+// error. The server is still stopped on cancellation rather than on the way
+// out (see runSession), because registering here removes SIGHUP's default
+// terminate disposition, and a guarantee about a server this process owns is
+// not worth resting on how promptly a third party unwinds its interface.
 //
 // A handler rather than SysProcAttr.Pdeathsig on the child: Pdeathsig is
 // Linux-only, and in Go it is delivered when the OS thread that forked exits
@@ -114,14 +112,14 @@ func Run(ctx context.Context, opts Options) error {
 // runSession hands the terminal to agent, and stops a server started for this
 // session as soon as the context is cancelled rather than when agent returns.
 //
-// The difference matters because agent may not return at all. nib hands the
-// TUI to bubbletea without the context, so a cancelled context does not unwind
-// it, and the deferred Stop in Run is only reached if something else quits the
-// program: bubbletea's own SIGINT and SIGTERM handler, in practice. A SIGHUP
-// has no such backstop, and registering for it removed the default disposition
-// that used to end the process, so on that path nothing would ever stop the
-// server. Watching the context instead makes the guarantee independent of what
-// the agent does with it.
+// The difference matters because the deferred Stop in Run is only reached once
+// agent returns, and how long that takes is nib's business rather than ours.
+// nib v0.5.1 does unwind the TUI on a cancelled context, so it does return; a
+// SIGHUP no longer leaves the interface on screen with the server behind it,
+// which it did before, when bubbletea's own SIGINT and SIGTERM handler was the
+// only thing that ever quit the program and registering for SIGHUP had removed
+// the default disposition that used to end the process. Watching the context
+// keeps the guarantee independent of what the agent does with it.
 func runSession(ctx context.Context, server *StartedServer, agent func(context.Context) error) error {
 	returned := make(chan struct{})
 	defer close(returned)
