@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/mudler/nib/app"
+	nibconfig "github.com/mudler/nib/config"
+	nibtypes "github.com/mudler/nib/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -476,22 +478,112 @@ var _ = Describe("prepare", func() {
 			o := agentOptions(dir, "the-model", opts)
 			Expect(o.Args).To(Equal([]string{"--cli"}))
 			Expect(o.BaseDir).To(Equal(dir))
-			Expect(o.Defaults.Model).To(Equal("the-model"))
-			Expect(o.Defaults.APIKey).To(Equal("a-key"))
-			Expect(o.Defaults.BaseURL).To(Equal("http://127.0.0.1:8080/v1"))
-			Expect(o.Defaults.TraceDir).To(Equal("/traces"))
+			Expect(o.Overrides.Model).To(Equal("the-model"))
+			Expect(o.Overrides.APIKey).To(Equal("a-key"))
+			Expect(o.Overrides.BaseURL).To(Equal("http://127.0.0.1:8080/v1"))
+			Expect(o.Overrides.TraceDir).To(Equal("/traces"))
 			// The model and the server are settled before nib starts, and the
 			// bare MODEL and API_KEY variables belong to some other tool.
 			Expect(o.SkipSetup).To(BeTrue())
 			Expect(o.SkipBareEnv).To(BeTrue())
 		})
 
+		// Defaults sit beneath the config file. Anything routed through them is
+		// accepted from the command line and then thrown away the moment the
+		// file carries the same key, which is the normal state rather than an
+		// edge case. Nothing this command resolves belongs there, so the channel
+		// stays empty and this says so: it is what fails if the block is moved
+		// back a rung.
+		It("seeds nothing, because a seed is not a flag", func() {
+			opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
+			opts.APIKey = "a-key"
+			opts.TraceDir = "/traces"
+			opts.Yolo = true
+
+			Expect(agentOptions(dir, "the-model", opts).Defaults).To(Equal(nibtypes.Config{}),
+				"Defaults lose to the config file, so a value placed there is a flag that does nothing")
+		})
+
 		It("asks for automatic approval only when --yolo was given", func() {
 			opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
-			Expect(agentOptions(dir, "a-model", opts).Defaults.ApprovalMode).To(BeEmpty())
+			Expect(agentOptions(dir, "a-model", opts).Overrides.ApprovalMode).To(BeEmpty())
 
 			opts.Yolo = true
-			Expect(agentOptions(dir, "a-model", opts).Defaults.ApprovalMode).To(Equal("auto"))
+			Expect(agentOptions(dir, "a-model", opts).Overrides.ApprovalMode).To(Equal("auto"))
+		})
+
+		// The specs above pin what is handed over. These pin what nib does with
+		// it, which is the part that was wrong: every value below reached
+		// app.Options intact and was then discarded by the config load, so a
+		// spec that stops at the struct cannot see the bug. Resolving the config
+		// the way app.Run resolves it can.
+		Describe("the config nib actually resolves", func() {
+			// writeConfig puts a config file where nib will read it, with values
+			// that disagree with every flag under test.
+			writeConfig := func(body string) {
+				Expect(os.WriteFile(ConfigPath(dir), []byte(body), 0o600)).To(Succeed())
+			}
+
+			// resolve loads the config exactly as app.Run does, so the precedence
+			// under test is nib's own rather than a restatement of it here.
+			resolve := func(o app.Options) nibtypes.Config {
+				return nibconfig.LoadWith(nibconfig.LoadOptions{
+					BaseDir:     o.BaseDir,
+					Defaults:    o.Defaults,
+					Overrides:   o.Overrides,
+					SkipBareEnv: o.SkipBareEnv,
+				})
+			}
+
+			It("sends the requests to the endpoint the flag named, not the one on disk", func() {
+				writeConfig("base_url: http://127.0.0.1:9999/v1\n")
+
+				opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
+				opts.BaseURL = "http://127.0.0.1:8080/v1"
+
+				cfg := resolve(agentOptions(dir, "a-model", opts))
+				Expect(cfg.BaseURL).To(Equal("http://127.0.0.1:8080/v1"),
+					"--endpoint probed 8080; every turn has to go there too")
+			})
+
+			It("uses the model the flag named, not the one the picker recorded", func() {
+				writeConfig("model: recorded-model\n")
+
+				cfg := resolve(agentOptions(dir, "flag-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)))
+				Expect(cfg.Model).To(Equal("flag-model"))
+			})
+
+			It("uses the key the flag named, not the one nib saved", func() {
+				writeConfig("api_key: saved-key\n")
+
+				opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
+				opts.APIKey = "flag-key"
+
+				cfg := resolve(agentOptions(dir, "a-model", opts))
+				Expect(cfg.APIKey).To(Equal("flag-key"))
+			})
+
+			It("turns approval off for --yolo even when the file demands it", func() {
+				writeConfig("approval_mode: prompt\n")
+
+				opts := optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)
+				opts.Yolo = true
+
+				cfg := resolve(agentOptions(dir, "a-model", opts))
+				Expect(cfg.ApprovalMode).To(Equal("auto"))
+			})
+
+			// The other half of the same rule, and the reason an unset flag is
+			// not a demand for the empty string: an override only ever raises a
+			// field, so what the user configured survives a run that said
+			// nothing about it.
+			It("leaves what the file configured alone when no flag was given", func() {
+				writeConfig("api_key: saved-key\napproval_mode: prompt\n")
+
+				cfg := resolve(agentOptions(dir, "a-model", optionsWithStreams(os.Stdin, os.Stdout, os.Stderr)))
+				Expect(cfg.APIKey).To(Equal("saved-key"))
+				Expect(cfg.ApprovalMode).To(Equal("prompt"))
+			})
 		})
 	})
 

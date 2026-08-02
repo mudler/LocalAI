@@ -271,22 +271,57 @@ func runAgent(ctx context.Context, dir, model string, opts Options) error {
 // an *os.File it opened. The specs rely on that.
 //
 // Stderr is never gated by nib, so it is passed through unchanged.
+//
+// The config values go through Overrides rather than Defaults, and that is not
+// a detail. Defaults are seeds: they sit BENEATH the config file, so the file
+// silently undoes them. Everything here is a decision this invocation already
+// made on the user's behalf, and a flag that the file can undo is not a flag.
+// It was not a rare case either, since EnsureStateDir writes base_url on the
+// first run and an interactive choice writes model, so from the second run on
+// the file carried a value for both and --endpoint and --model did nothing.
+//
+// The one asymmetry to plan around is that nib cannot tell "set to the zero
+// value" from "not set", so an override only ever raises a field. --yolo can
+// turn approval off, but nothing on the command line can turn it back on over
+// an approval_mode: auto in the file; that needs a config edit. Same shape for
+// the strings, which is what makes an unset --api-key or --trace-dir leave the
+// file's value standing, as it should.
+//
+// nib's own --trace-dir and --yolo, and their NIB_TRACE_DIR and NIB_YOLO twins,
+// are resolved after the config load and so still outrank these. That is
+// deliberate upstream: they are instructions to nib rather than ambient
+// environment.
 func agentOptions(dir, model string, opts Options) app.Options {
-	defaults := nibtypes.Config{
+	// Model is the model this run resolved, which already prefers --model and
+	// falls back to the file's own model, so the override restates the file's
+	// value rather than fighting it whenever no flag was given.
+	//
+	// BaseURL is the endpoint this run probed, offered to start a server for,
+	// and seeded the config with. Handing nib a different one is precisely the
+	// split that made --endpoint a no-op, so the agent talks to the server
+	// LocalAI checked. Pointing somewhere else for good is LOCALAI_CHAT_ENDPOINT
+	// or --endpoint, not a hand-edited base_url the probe never reads.
+	//
+	// APIKey and TraceDir are the flags as given, empty when they were not, and
+	// an empty override leaves the file alone. TraceDir is runtime-only in nib
+	// (yaml:"-"), so no file value exists for it to beat today; it belongs here
+	// with the other flags rather than one rung down for a reason that could
+	// quietly stop being true.
+	overrides := nibtypes.Config{
 		Model:    model,
 		APIKey:   opts.APIKey,
 		BaseURL:  opts.BaseURL,
 		TraceDir: opts.TraceDir,
 	}
 	if opts.Yolo {
-		defaults.ApprovalMode = "auto"
+		overrides.ApprovalMode = "auto"
 	}
 
 	return app.Options{
 		Args:        opts.Args,
 		ProgramName: "local-ai chat",
 		BaseDir:     dir,
-		Defaults:    defaults,
+		Overrides:   overrides,
 		SkipSetup:   true,
 		SkipBareEnv: true,
 		Stdin:       opts.In,
