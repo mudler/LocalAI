@@ -610,13 +610,13 @@ export default function Manage() {
         {modelsLoading ? (
           <GalleryLoader />
         ) : models.length === 0 ? (
-          <div className="card loading-center text-center">
-            <i className="fas fa-exclamation-triangle" style={{ fontSize: '2rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
-            <h3 className="mb-sm">No models installed yet</h3>
-            <p className="text-base text-secondary mb-md">
-              Install a model from the gallery to get started.
+          <div className="empty-state empty-state--page">
+            <div className="empty-state-icon"><i className="fas fa-brain" /></div>
+            <h2 className="empty-state-title">No models installed yet</h2>
+            <p className="empty-state-text">
+              Install a model from the gallery to get started, or import one you already have on disk.
             </p>
-            <div className="hstack hstack--center">
+            <div className="empty-state__actions">
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/models')}>
                 <i className="fas fa-store" /> Browse Gallery
               </button>
@@ -810,13 +810,13 @@ export default function Manage() {
         {backendsLoading ? (
           <GalleryLoader />
         ) : backends.length === 0 ? (
-          <div className="card loading-center text-center">
-            <i className="fas fa-server" style={{ fontSize: '2rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }} />
-            <h3 className="mb-sm">No backends installed yet</h3>
-            <p className="text-base text-secondary mb-md">
-              Install backends from the gallery to extend functionality.
+          <div className="empty-state empty-state--page">
+            <div className="empty-state-icon"><i className="fas fa-server" /></div>
+            <h2 className="empty-state-title">No backends installed yet</h2>
+            <p className="empty-state-text">
+              A backend is the runtime that actually runs a model. Install one from the gallery to give this host something to run with.
             </p>
-            <div className="hstack hstack--center">
+            <div className="empty-state__actions">
               <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/backends')}>
                 <i className="fas fa-server" /> Browse Backend Gallery
               </button>

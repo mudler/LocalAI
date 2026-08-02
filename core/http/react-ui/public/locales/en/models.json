@@ -50,7 +50,8 @@
     "searchBackends": "Search backends...",
     "contextSize": "Context:",
     "useCaseLabel": "Filter by use case",
-    "unavailableForBackend": "Not available for the selected backend"
+    "unavailableForBackend": "Not available for the selected backend",
+    "someSelected": "{{count}} selected"
   },
   "search": {
     "placeholder": "Search models...",

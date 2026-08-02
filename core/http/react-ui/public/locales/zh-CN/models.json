@@ -40,7 +40,8 @@
     "searchBackends": "搜索后端...",
     "contextSize": "上下文：",
     "useCaseLabel": "按用例筛选",
-    "unavailableForBackend": "所选后端不支持"
+    "unavailableForBackend": "所选后端不支持",
+    "someSelected": "已选 {{count}} 项"
   },
   "search": {
     "placeholder": "搜索模型...",

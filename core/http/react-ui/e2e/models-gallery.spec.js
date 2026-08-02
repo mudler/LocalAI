@@ -106,6 +106,13 @@ const MOCK_ESTIMATES = {
 const PANE = '[data-testid="discover-pane"]';
 const railItems = (page) => page.locator('[data-testid="discover-rail-item"]');
 const railItem = (page, name) => page.locator(`[data-entity="${name}"]`);
+// The use-case chips live in a popover now; opening it is idempotent so tests
+// can call this without tracking whether it is already up.
+const openUseCases = async (page) => {
+  const trigger = page.locator(".models-filters__usecase-trigger");
+  if ((await page.locator(".filter-btn").count()) === 0) await trigger.click();
+  await expect(page.locator(".filter-btn").first()).toBeVisible();
+};
 // Rendered means the rail has entries. The old gate waited on a column header.
 const railReady = (page) =>
   expect(railItems(page).first()).toBeVisible({ timeout: 10_000 });
@@ -227,6 +234,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   test("multi-select toggle: click Chat, TTS, then Chat again", async ({
     page,
   }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
 
@@ -244,6 +252,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test('"All" clears selection', async ({ page }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const allBtn = page.locator(".filter-btn", { hasText: "All" });
 
@@ -256,6 +265,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("query param sent correctly with multiple filters", async ({ page }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
 
@@ -280,6 +290,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("backend greys out unavailable filters", async ({ page }) => {
+    await openUseCases(page);
     // Select llama-cpp backend via dropdown
     await page.locator("button", { hasText: "All Backends" }).click();
     const dropdown = page
@@ -310,6 +321,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("backend clears incompatible filters", async ({ page }) => {
+    await openUseCases(page);
     // Select TTS filter first
     const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
     await ttsBtn.click();
@@ -418,6 +430,7 @@ test.describe("Models Gallery - Empty State", () => {
   test("shows empty state for filtered-out results and clear filters restores the gallery", async ({
     page,
   }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const allBtn = page.locator(".filter-btn", { hasText: "All" });
 
@@ -1253,6 +1266,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("the empty state does not blame the collapse for a chip", async ({
     page,
   }) => {
+    await openUseCases(page);
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
 
     await expect(page.locator(".empty-state-title")).toHaveText(
@@ -1283,6 +1297,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clear filters returns to the collapsed browsing view", async ({
     page,
   }) => {
+    await openUseCases(page);
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
     await expect(page.locator(".empty-state")).toBeVisible();
 
@@ -1297,6 +1312,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clear filters resets the collapse toggle to its default", async ({
     page,
   }) => {
+    await openUseCases(page);
     // It is a filter like the others, so leaving it behind would make "clear
     // filters" a half-truth.
     await flipCollapse(page);
@@ -1313,6 +1329,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   });
 
   test("the clear button appears for the toggle alone", async ({ page }) => {
+    await openUseCases(page);
     // Turning the collapse off is a filter change with nothing else set, so
     // the empty state must still offer a way back.
     await flipCollapse(page);
@@ -1522,6 +1539,7 @@ test.describe("Models Gallery - Filter layout structure", () => {
   });
 
   test("the chip row contains only use-case chips", async ({ page }) => {
+    await openUseCases(page);
     const chipRow = page.locator(".filter-bar");
     await expect(chipRow).toHaveCount(1);
     // Nothing but .filter-btn children: no toggle, no select, no slider.
@@ -1553,20 +1571,18 @@ test.describe("Models Gallery - Filter layout structure", () => {
     expect(nested).toBe(0);
   });
 
-  test("the backend select sits in the query band above the chips", async ({
+  test("the backend select sits above the use-case control it gates", async ({
     page,
   }) => {
     const selectBtn = page.locator("button", { hasText: "All Backends" });
     await expect(selectBtn).toBeVisible();
-    const inChipRow = await page
-      .locator(".filter-bar")
-      .locator("button", { hasText: "All Backends" })
-      .count();
-    expect(inChipRow).toBe(0);
-    // Reads above the chips it gates.
+    const trigger = page.locator(".models-filters__usecase-trigger");
+    await expect(trigger).toBeVisible();
+    // Picking a backend disables the use cases it cannot serve, so it still
+    // reads first even though both are now stacked in the rail column.
     const selectBox = await selectBtn.boundingBox();
-    const chipBox = await page.locator(".filter-bar").boundingBox();
-    expect(selectBox.y).toBeLessThan(chipBox.y);
+    const triggerBox = await trigger.boundingBox();
+    expect(selectBox.y).toBeLessThan(triggerBox.y);
   });
 
   test("refinements stay grouped and on one band at a narrow width", async ({
@@ -1575,10 +1591,10 @@ test.describe("Models Gallery - Filter layout structure", () => {
     await page.setViewportSize({ width: 900, height: 900 });
     const refine = page.getByTestId("models-filters-refine");
     await expect(refine).toBeVisible();
-    const chipBox = await page.locator(".filter-bar").boundingBox();
+    const triggerBox = await page.locator(".models-filters__usecase-trigger").boundingBox();
     const refineBox = await refine.boundingBox();
-    // Below the chip row, not interleaved with it.
-    expect(refineBox.y).toBeGreaterThanOrEqual(chipBox.y + chipBox.height - 1);
+    // Below the use-case control, not interleaved with it.
+    expect(refineBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
     await expect(refine.getByText("Fits in GPU")).toBeVisible();
     await expect(refine.locator("#models-context-size")).toBeVisible();
   });
@@ -1586,6 +1602,7 @@ test.describe("Models Gallery - Filter layout structure", () => {
   test("chips expose pressed state and the context slider is labelled", async ({
     page,
   }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     await expect(chatBtn).toHaveAttribute("aria-pressed", "false");
     await chatBtn.click();
@@ -1598,11 +1615,13 @@ test.describe("Models Gallery - Filter layout structure", () => {
   });
 
   test("a keyboard-focused chip shows a focus ring", async ({ page }) => {
+    await openUseCases(page);
     // The global :focus-visible rule is wrapped in :where(), so it ties with
     // .filter-btn on specificity and loses on order. Without an explicit rule
     // the chips render their resting shadow while focused, i.e. no indicator.
     await page.locator(".filter-bar-group__search input").click();
     await page.keyboard.press("Tab"); // backend select
+    await page.keyboard.press("Tab"); // use-case disclosure
     await page.keyboard.press("Tab"); // first chip
     const focused = page.locator(".filter-btn:focus-visible");
     await expect(focused).toHaveCount(1);
@@ -1710,29 +1729,12 @@ test.describe("Models Gallery - Discover split view", () => {
     await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
   });
 
-  test("the rail groups while browsing", async ({ page }) => {
-    await expect(page.locator('[data-testid="discover-rail-group-text"]')).toBeVisible();
-    await expect(page.locator('[data-testid="discover-rail-group-audio"]')).toBeVisible();
-  });
-
-  test("collapsing a group hides its entries and keeps the others", async ({
-    page,
-  }) => {
-    const text = page.locator('[data-testid="discover-rail-group-text"]');
-    await expect(railItem(page, "llama-model")).toBeVisible();
-    await text.click();
-    await expect(text).toHaveAttribute("aria-expanded", "false");
-    await expect(railItem(page, "llama-model")).toHaveCount(0);
-    await expect(railItem(page, "whisper-model")).toBeVisible();
-  });
-
-  test("a query flattens the rail to results", async ({ page }) => {
-    // Not a toggle the user has to find: once a term is typed the buckets are
-    // between them and the answer, so they go away on their own.
-    await expect(page.locator('[data-testid="discover-rail-group-text"]')).toBeVisible();
-    await page.locator('input[type="text"]').first().fill("llama");
-    await expect(page.locator('[data-testid="discover-rail-group-text"]')).toHaveCount(0);
+  test("the rail is one flat list, whatever page you are on", async ({ page }) => {
+    // The reason grouping went: a bucket over nine server-paginated rows
+    // described the page rather than the catalog, so turning a page reshuffled
+    // the sections under the reader. The chips do this job over all of it.
     await expect(railItems(page).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="discover-rail-group-"]')).toHaveCount(0);
   });
 
   test("the detail plots VRAM against what the host actually has", async ({

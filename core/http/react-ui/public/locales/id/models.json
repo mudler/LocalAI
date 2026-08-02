@@ -47,7 +47,8 @@
     "searchBackends": "Cari backends...",
     "contextSize": "Konteks:",
     "useCaseLabel": "Filter berdasarkan kasus penggunaan",
-    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih"
+    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih",
+    "someSelected": "{{count}} dipilih"
   },
   "search": {
     "placeholder": "Cari model...",

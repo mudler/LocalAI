@@ -40,7 +40,8 @@
     "searchBackends": "Buscar backends...",
     "contextSize": "Contexto:",
     "useCaseLabel": "Filtrar por caso de uso",
-    "unavailableForBackend": "No disponible para el backend seleccionado"
+    "unavailableForBackend": "No disponible para el backend seleccionado",
+    "someSelected": "{{count}} seleccionados"
   },
   "search": {
     "placeholder": "Buscar modelos...",

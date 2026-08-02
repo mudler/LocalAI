@@ -133,10 +133,11 @@ test.describe('Backends gallery - split view', () => {
     await expect(page.locator('[data-testid="backends-back"]')).toBeVisible()
   })
 
-  test('the rail groups while browsing and flattens on a query', async ({ page }) => {
-    await expect(page.locator('[data-testid="backends-rail-group-text"]')).toBeVisible()
-    await page.locator('input[placeholder*="Search backends"]').fill('llama')
-    await expect(page.locator('[data-testid="backends-rail-group-text"]')).toHaveCount(0)
+
+  test('the rail is one flat list', async ({ page }) => {
+    // Same reason as Discover: the backend listing paginates too, so a bucket
+    // described 21 rows out of 1,012 and the chips filter the same axis.
+    await expect(page.locator('[data-testid^="backends-rail-group-"]')).toHaveCount(0)
   })
 
   test('an installed backend states its version, an absent one says so', async ({ page }) => {

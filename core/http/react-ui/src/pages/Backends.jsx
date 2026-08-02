@@ -20,7 +20,7 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { useResources } from '../hooks/useResources'
-import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
+import { groupForEntity } from '../utils/entityGroups'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -74,16 +74,6 @@ export default function Backends() {
     }, { replace: !name })
     setSplitMenuOpen(false)
   }, [setSearchParams])
-
-  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
-  const toggleGroup = useCallback((id) => {
-    setCollapsedGroups(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
 
   const selectedBackend = selectedName
     ? (allBackends.find(b => (b.name || b.id) === selectedName) || null)
@@ -506,10 +496,6 @@ export default function Backends() {
             <>
               <EntityRail
                 items={backends.map(b => railItemForBackend(b, { getBackendOp, upgrades }))}
-                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: BACKEND_GROUP_LABELS[g.id], icon: g.icon }))}
-                grouped={!search.trim()}
-                collapsedGroups={collapsedGroups}
-                onToggleGroup={toggleGroup}
                 selectedId={selectedName}
                 onSelect={selectBackend}
                 countLabel={`${backends.length} of ${allBackends.length}`}
@@ -922,12 +908,3 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
   )
 }
 
-// Backends is not translated (6 t() calls in the whole page), so the shared
-// group ids get literal labels here rather than i18n keys.
-const BACKEND_GROUP_LABELS = {
-  text: 'Text and reasoning',
-  vision: 'Vision',
-  audio: 'Speech and audio',
-  visual: 'Image and video',
-  other: 'Everything else',
-}

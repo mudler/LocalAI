@@ -46,7 +46,8 @@
     "searchBackends": "백엔드 검색...",
     "contextSize": "컨텍스트:",
     "useCaseLabel": "사용 사례로 필터링",
-    "unavailableForBackend": "선택한 백엔드에서 사용할 수 없음"
+    "unavailableForBackend": "선택한 백엔드에서 사용할 수 없음",
+    "someSelected": "{{count}}개 선택됨"
   },
   "search": {
     "placeholder": "모델 검색...",

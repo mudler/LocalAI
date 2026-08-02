@@ -11608,7 +11608,7 @@ button.collapsible-header:focus-visible {
 
 .split-view {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
   gap: var(--spacing-md);
   align-items: start;
 }
@@ -12138,3 +12138,81 @@ button.collapsible-header:focus-visible {
 }
 
 .rowline__num { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* A first run is a whole screen, not a card wedged under a filter bar. These
+   two states are the only thing on the page, so they get the height to say so.
+
+   They previously wore .loading-center, which is display:flex with the default
+   row direction because it exists to centre one spinner. With four children
+   that put the icon, the heading, the sentence and the buttons on a single
+   line with no gap between them. */
+.empty-state--page {
+  min-height: 52vh;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-block: var(--spacing-3xl);
+}
+
+.empty-state--page .empty-state-icon { font-size: 2rem; }
+.empty-state--page .empty-state-text { text-wrap: balance; }
+
+/* The filter band moved into the rail column, so it stacks instead of laying
+   out three horizontal bands across the page. It sits there because it narrows
+   the rail and nothing else: one column to say what you want, one to show what
+   you got. */
+.split-view__rail-col .models-filters {
+  margin-bottom: 0;
+}
+
+.split-view__rail-col .models-filters__query,
+.split-view__rail-col .models-filters__refine {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+}
+
+.split-view__rail-col .models-filters__backend { width: 100%; }
+
+/* Nineteen chips do not fit beside a 360px rail. The trigger states the
+   selection and the popover carries the full set, which also stops the chip
+   row and the rail competing to be the same control. */
+.models-filters__usecase-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.models-filters__usecase-trigger:hover { border-color: var(--color-border-strong); }
+.models-filters__usecase-caret { margin-left: auto; font-size: 0.625rem; color: var(--color-text-muted); }
+
+.models-filters__usecases {
+  margin: 0;
+  padding: var(--spacing-xs) 0 0;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+/* The zero state carries the creation actions, so its eyebrow shares a row
+   with them rather than the page header holding them at arm's length. */
+.zero-pane__hero-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.zero-pane__hero-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-left: auto;
+}

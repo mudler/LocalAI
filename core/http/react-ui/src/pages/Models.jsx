@@ -18,7 +18,7 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { formatBytes } from '../utils/format'
-import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
+import { groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 
@@ -102,8 +102,6 @@ export default function Models() {
   // never do.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedName = searchParams.get('model')
-  // Rail groups the user has folded away.
-  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   // Distinguishes "nothing installed" from "not asked yet". The recommendations
   // panel defaults off the installed count, so it must not read the initial 0.
@@ -136,6 +134,10 @@ export default function Models() {
   // because the listing paginates and a client-side narrowing would leave the
   // page count describing the unfiltered set.
   const [collapseVariants, setCollapseVariants] = useState(readCollapseVariantsPreference)
+  // The use-case chips do not fit beside a 320px rail, so they live in a
+  // popover that states the current selection rather than spelling out
+  // nineteen options nobody is reading.
+  const [useCaseOpen, setUseCaseOpen] = useState(false)
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
   // gpu_count is 0 and gpus is null on a CPU-only host, where total_memory is
@@ -390,6 +392,12 @@ export default function Models() {
     }
   }, [collapseVariants])
 
+  const useCaseLabel = filters.length === 0
+    ? t('filters.all')
+    : filters.length === 1
+      ? t(FILTERS.find(f => f.key === filters[0])?.labelKey || 'filters.all')
+      : t('filters.someSelected', { count: filters.length })
+
   const visibleModels = models.filter((model) => {
     if (!fitsFilter) return true
     const name = model.name || model.id
@@ -399,12 +407,6 @@ export default function Models() {
     return fit !== false
   })
 
-  // Grouping is for browsing, not for searching. Once someone types a term they
-  // have already said what they are looking for, and the buckets only stand
-  // between them and the answer, so a query flattens the rail to ranked
-  // results. That is a rule rather than a toggle: making the user pick would be
-  // handing them our problem.
-  const grouped = !search.trim()
   const selectedModel = selectedName
     ? visibleModels.find(m => (m.name || m.id) === selectedName) || null
     : null
@@ -421,15 +423,6 @@ export default function Models() {
     setExpandedFiles(false)
   }, [setSearchParams])
 
-  const toggleGroup = useCallback((id) => {
-    setCollapsedGroups(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
   // The detail pane lists variants, so opening a model is the ask that pays for
   // the describe call. loadVariants is idempotent per name.
   useEffect(() => {
@@ -438,32 +431,12 @@ export default function Models() {
 
   return (
     <div className="page page--wide">
-      <PageHeader
-        title={t('title')}
-        supporting={t('subtitle')}
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.8125rem' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>{stats.total}</div>
-                <div style={{ color: 'var(--color-text-muted)' }}>{t('stats.available')}</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <a onClick={() => navigate('/app/manage')} style={{ cursor: 'pointer' }}>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{stats.installed}</div>
-                  <div style={{ color: 'var(--color-text-muted)' }}>{t('stats.installed')}</div>
-                </a>
-              </div>
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
-              <i className="fas fa-plus" /> {t('actions.addModel')}
-            </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-              <i className="fas fa-upload" /> {t('actions.importModel')}
-            </button>
-          </div>
-        }
-      />
+      {/* Title only. The two counts used to live here as well, which meant the
+          screen stated "1,247 available" three times: once in this header, once
+          as the rail's "9 of 1,247", and once in the pane's own headline. The
+          rail and the pane are describing what you are looking at; the header
+          was just repeating them from a distance. */}
+      <PageHeader title={t('title')} supporting={t('subtitle')} />
 
       {/* Filters, in three deliberate bands.
           1. Query scope: free-text search plus the backend select. The backend
@@ -480,98 +453,6 @@ export default function Models() {
              fits filter tests against.
           Each band owns its container, so how many chips happen to wrap at a
           given width can no longer decide where the other controls land. */}
-      <div className="filter-bar-group models-filters">
-        <div className="filter-bar-group__row models-filters__query">
-          <div className="search-bar filter-bar-group__search">
-            <i className="fas fa-search search-icon" aria-hidden="true" />
-            <input
-              className="input"
-              type="text"
-              placeholder={t('search.placeholder')}
-              aria-label={t('search.placeholder')}
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-          </div>
-          {allBackends.length > 0 && (
-            <div className="models-filters__backend">
-              <SearchableSelect
-                value={backendFilter}
-                onChange={(v) => { setBackendFilter(v); setPage(1) }}
-                options={allBackends}
-                placeholder={t('filters.allBackends')}
-                allOption={t('filters.allBackends')}
-                searchPlaceholder={t('filters.searchBackends')}
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="filter-bar" role="group" aria-label={t('filters.useCaseLabel')}>
-          {FILTERS.map(f => {
-            const isAll = f.key === ''
-            const active = isAll ? filters.length === 0 : filters.includes(f.key)
-            const available = isFilterAvailable(f.key)
-            return (
-              <button
-                key={f.key}
-                type="button"
-                className={`filter-btn ${active ? 'active' : ''}`}
-                disabled={!available}
-                aria-pressed={active}
-                title={!available ? t('filters.unavailableForBackend') : undefined}
-                onClick={() => toggleFilter(f.key)}
-              >
-                <i className={`fas ${f.icon}`} aria-hidden="true" style={{ marginRight: 4 }} />
-                {t(f.labelKey)}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="models-filters__refine" data-testid="models-filters-refine">
-          {/* Leads the band because it decides how many rows the other two
-              refine over, and because unlike fits-in-GPU it is always present:
-              a host with no GPU still browses builds. Turning it off is the
-              only way to page through every build the gallery holds; searching
-              reaches a specific one but cannot enumerate them. */}
-          <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
-            <Toggle
-              checked={collapseVariants}
-              onChange={(v) => { setCollapseVariants(v); setPage(1) }}
-            />
-            <i className="fas fa-layer-group" aria-hidden="true" />
-            <span>{t('filters.collapseVariants')}</span>
-          </label>
-          {totalGpuMemory > 0 && (
-            <label className="filter-bar-group__toggle">
-              <Toggle checked={fitsFilter} onChange={setFitsFilter} />
-              <i className="fas fa-microchip" aria-hidden="true" />
-              <span>{t('filters.fitsGpu')}</span>
-            </label>
-          )}
-          <div className="models-filters__context">
-            <label htmlFor="models-context-size">
-              <i className="fas fa-memory" aria-hidden="true" />
-              {t('filters.contextSize')}
-            </label>
-            <input
-              id="models-context-size"
-              type="range"
-              min={0}
-              max={CONTEXT_SIZES.length - 1}
-              value={CONTEXT_SIZES.indexOf(contextSize)}
-              // The slider steps over an index, so the raw value ("2") is
-              // meaningless to a screen reader; announce the size instead.
-              aria-valuetext={CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
-              onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
-            />
-            <span className="models-filters__context-value">
-              {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* The gallery, as a rail to scan and a pane that answers.
           The pane has two jobs and no third: with nothing selected it is the
@@ -614,12 +495,118 @@ export default function Models() {
           detail={!!selectedModel}
           rail={
             <>
+              <div className="filter-bar-group models-filters">
+                <div className="filter-bar-group__row models-filters__query">
+                  <div className="search-bar filter-bar-group__search">
+                    <i className="fas fa-search search-icon" aria-hidden="true" />
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder={t('search.placeholder')}
+                      aria-label={t('search.placeholder')}
+                      value={search}
+                      onChange={(e) => handleSearch(e.target.value)}
+                    />
+                  </div>
+                  {allBackends.length > 0 && (
+                    <div className="models-filters__backend">
+                      <SearchableSelect
+                        value={backendFilter}
+                        onChange={(v) => { setBackendFilter(v); setPage(1) }}
+                        options={allBackends}
+                        placeholder={t('filters.allBackends')}
+                        allOption={t('filters.allBackends')}
+                        searchPlaceholder={t('filters.searchBackends')}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button
+          type="button"
+          className="models-filters__usecase-trigger"
+          aria-haspopup="dialog"
+          aria-expanded={useCaseOpen}
+          onClick={() => setUseCaseOpen(v => !v)}
+        >
+          <i className="fas fa-layer-group" aria-hidden="true" />
+          <span>{useCaseLabel}</span>
+          <i className={`fas fa-chevron-${useCaseOpen ? 'up' : 'down'} models-filters__usecase-caret`} aria-hidden="true" />
+        </button>
+
+        {/* An inline disclosure rather than a popover. Picking use cases is
+            multi-select and interleaves with the backend select and the
+            refinements below, and a popover dismisses itself the moment you
+            touch either of those, which turns one decision into three. */}
+        {useCaseOpen && (
+        <div className="filter-bar models-filters__usecases" role="group" aria-label={t('filters.useCaseLabel')}>
+                  {FILTERS.map(f => {
+                    const isAll = f.key === ''
+                    const active = isAll ? filters.length === 0 : filters.includes(f.key)
+                    const available = isFilterAvailable(f.key)
+                    return (
+                      <button
+                        key={f.key}
+                        type="button"
+                        className={`filter-btn ${active ? 'active' : ''}`}
+                        disabled={!available}
+                        aria-pressed={active}
+                        title={!available ? t('filters.unavailableForBackend') : undefined}
+                        onClick={() => toggleFilter(f.key)}
+                      >
+                        <i className={`fas ${f.icon}`} aria-hidden="true" style={{ marginRight: 4 }} />
+                        {t(f.labelKey)}
+                      </button>
+                    )
+                  })}
+                </div>
+                )}
+
+                <div className="models-filters__refine" data-testid="models-filters-refine">
+                  {/* Leads the band because it decides how many rows the other two
+                      refine over, and because unlike fits-in-GPU it is always present:
+                      a host with no GPU still browses builds. Turning it off is the
+                      only way to page through every build the gallery holds; searching
+                      reaches a specific one but cannot enumerate them. */}
+                  <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
+                    <Toggle
+                      checked={collapseVariants}
+                      onChange={(v) => { setCollapseVariants(v); setPage(1) }}
+                    />
+                    <i className="fas fa-layer-group" aria-hidden="true" />
+                    <span>{t('filters.collapseVariants')}</span>
+                  </label>
+                  {totalGpuMemory > 0 && (
+                    <label className="filter-bar-group__toggle">
+                      <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+                      <i className="fas fa-microchip" aria-hidden="true" />
+                      <span>{t('filters.fitsGpu')}</span>
+                    </label>
+                  )}
+                  <div className="models-filters__context">
+                    <label htmlFor="models-context-size">
+                      <i className="fas fa-memory" aria-hidden="true" />
+                      {t('filters.contextSize')}
+                    </label>
+                    <input
+                      id="models-context-size"
+                      type="range"
+                      min={0}
+                      max={CONTEXT_SIZES.length - 1}
+                      value={CONTEXT_SIZES.indexOf(contextSize)}
+                      // The slider steps over an index, so the raw value ("2") is
+                      // meaningless to a screen reader; announce the size instead.
+                      aria-valuetext={CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
+                      onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
+                    />
+                    <span className="models-filters__context-value">
+                      {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
+                    </span>
+                  </div>
+                </div>
+              </div>
               <EntityRail
                 items={visibleModels.map(m => railItemFor(m, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
-                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
-                grouped={grouped}
-                collapsedGroups={collapsedGroups}
-                onToggleGroup={toggleGroup}
                 selectedId={selectedName}
                 onSelect={selectModel}
                 countLabel={t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}
@@ -670,7 +657,17 @@ export default function Models() {
             ) : (
               <div className="zero-pane">
                 <div className="zero-pane__hero">
-                  <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
+                  <div className="zero-pane__hero-row">
+                    <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
+                    <div className="zero-pane__hero-actions">
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
+                        <i className="fas fa-plus" /> {t('actions.addModel')}
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
+                        <i className="fas fa-upload" /> {t('actions.importModel')}
+                      </button>
+                    </div>
+                  </div>
                   <h2 className="zero-pane__title">
                     {/* The resources endpoint reports system RAM when there is
                         no accelerator, so calling it "GPU memory" was a claim
