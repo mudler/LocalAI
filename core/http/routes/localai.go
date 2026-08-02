@@ -30,6 +30,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	mcpJobsMw echo.MiddlewareFunc,
 	mcpMw echo.MiddlewareFunc) {
 
+	// Themed index first, then the library's wildcard for its own assets.
+	RegisterSwaggerTheme(router)
 	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
 		c.URLs = []string{"doc.json"}
 	}))
