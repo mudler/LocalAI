@@ -1236,14 +1236,20 @@
   margin-bottom: var(--spacing-xl);
 }
 
+/* The editorial title scale from the site: larger, set tighter, and on a line
+   height near 1 so a two-word title reads as a statement rather than a label.
+   The typeface is unchanged — DESIGN.md keeps the existing type system — so the
+   whole difference is scale, tracking and leading, which is where the site gets
+   its voice from in the first place. */
 .page-title {
   font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 1.15rem + 1.4vw, var(--text-3xl));
+  font-size: clamp(1.875rem, 1.3rem + 2.2vw, 3rem);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.018em;
-  line-height: var(--leading-tight);
+  letter-spacing: -0.04em;
+  line-height: 1.02;
   margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 /* Mid hierarchy tier — between page title and the xs uppercase group labels */
@@ -12288,6 +12294,13 @@ button.collapsible-header:focus-visible {
      pushes the page taller instead of scrolling inside it. */
   min-height: 0;
   padding-bottom: var(--spacing-lg);
+  /* The shell above is overflow:hidden so the document cannot grow, which left
+     anything taller than the viewport simply unreachable — Host has a
+     resources card, four stat cards and a tab bar above its split, and at any
+     window height the bottom of the pane fell off with nothing to scroll.
+     The page scrolls inside the pinned shell; the rail and pane keep their own
+     inner scrollers for long lists and long details. */
+  overflow-y: auto;
 }
 
 /* The header, fused. A slim row that reads as the top of the view rather than
@@ -12337,6 +12350,10 @@ button.collapsible-header:focus-visible {
 }
 
 .page--app .split-view__pane {
+  /* The pane keeps its own scroller. Letting it grow instead would push the
+     document taller and stretch the rail to match, which is the regression
+     e2e/discover-height.spec.js exists to catch. Reaching tall page chrome is
+     the page's job (overflow-y above), not the pane's. */
   height: 100%;
   overflow-y: auto;
 }
@@ -12839,6 +12856,19 @@ button.lane:hover {
 
 .request-panel__method { color: var(--color-text-tertiary); }
 .request-panel__endpoint { color: var(--color-primary); font-weight: 500; }
+
+/* A row of page-header controls. Replaces the inline flex that several pages
+   had each written out longhand. */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* The file input is triggered by its label, which is styled as a button; the
+   input itself must not render or the control shows twice. */
+.agents-import-input input[type="file"] { display: none; }
 
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no
