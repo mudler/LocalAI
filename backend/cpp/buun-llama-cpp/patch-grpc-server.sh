@@ -6,8 +6,9 @@
 #      fork-specific `turbo2` / `turbo3` / `turbo4` cache types plus the buun
 #      additions `turbo2_tcq` / `turbo3_tcq`.
 #
-#   2. Wire up buun-exclusive speculative-decoding option handlers
-#      (tree_budget / draft_topk) alongside the existing spec_* handlers.
+#   2. Adapt the post-refactor speculative-decoding fields and option handlers
+#      to the fork's legacy flat common_params_speculative layout, while adding
+#      buun-exclusive tree_budget / draft_topk support.
 #      These reference struct fields (common_params.speculative.tree_budget
 #      and .draft_topk) that only exist in buun's common/common.h — adding
 #      them to the shared backend/cpp/llama-cpp/grpc-server.cpp would break
@@ -76,53 +77,86 @@ else
     echo "==> KV allow-list patch OK"
 fi
 
-if grep -q 'optname, "tree_budget"' "$SRC"; then
-    echo "==> $SRC already has DFlash option handlers, skipping"
+if grep -q 'buun-llama-cpp legacy speculative options' "$SRC"; then
+    echo "==> $SRC already has legacy speculative option handlers, skipping"
 else
-    echo "==> patching $SRC to add tree_budget / draft_topk option handlers"
+    echo "==> replacing modern speculative option handlers with the fork-compatible set"
 
-    # Insert two new `else if` handlers between the inner close-brace of the
-    # `spec_p_split` block and the next `} else if (…spec_ngram_size_n…)` line.
-    # Upstream writes each `} else if` as a single physical line, so we don't
-    # emit an outer `}` ourselves — the existing next line provides both the
-    # close of our `draft_topk` block and the open of `spec_ngram_size_n`.
-    # Anchor on the exact 3-line body of spec_p_split so we can't drift.
+    # Replace the whole speculative option section. The fork predates chained
+    # speculative types and the nested draft/ngram families, so retaining any
+    # modern-only handler makes the copied server fail at compile time.
     awk '
-        prev2 == "        } else if (!strcmp(optname, \"spec_p_split\")) {" &&
-        prev1 ~ /^ +if \(optval != NULL\) \{$/ &&
-        $0    ~ /^ +try \{ params\.speculative\.draft\.p_split = std::stof\(optval_str\); \} catch \(\.\.\.\) \{\}$/ &&
-        !done {
-            print                        # print the try-line itself
-            getline inner_close          # read "            }" closing the inner if
-            print inner_close            # print it — this closes spec_p_split body
-            print "        // buun-llama-cpp DFlash options — added by patch-grpc-server.sh"
+        /} else if \(!strcmp\(optname, "spec_type"\)/ && !done {
+            print "        // buun-llama-cpp legacy speculative options"
+            print "        } else if (!strcmp(optname, \"spec_type\") || !strcmp(optname, \"speculative_type\")) {"
+            print "            auto type = common_speculative_type_from_name(optval_str.substr(0, optval_str.find(\",\")));"
+            print "            if (type != COMMON_SPECULATIVE_TYPE_COUNT) params.speculative.type = type;"
+            print "        } else if (!strcmp(optname, \"spec_n_max\") || !strcmp(optname, \"draft_max\")) {"
+            print "            if (optval != NULL) { try { params.speculative.n_max = std::stoi(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"spec_n_min\") || !strcmp(optname, \"draft_min\")) {"
+            print "            if (optval != NULL) { try { params.speculative.n_min = std::stoi(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"spec_p_min\") || !strcmp(optname, \"draft_p_min\")) {"
+            print "            if (optval != NULL) { try { params.speculative.p_min = std::stof(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"spec_p_split\")) {"
+            print "            if (optval != NULL) { try { params.speculative.p_split = std::stof(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"spec_ngram_size_n\") || !strcmp(optname, \"ngram_size_n\")) {"
+            print "            if (optval != NULL) { try { params.speculative.ngram_size_n = (uint16_t)std::stoi(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"spec_ngram_size_m\") || !strcmp(optname, \"ngram_size_m\")) {"
+            print "            if (optval != NULL) { try { params.speculative.ngram_size_m = (uint16_t)std::stoi(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"spec_ngram_min_hits\") || !strcmp(optname, \"ngram_min_hits\")) {"
+            print "            if (optval != NULL) { try { params.speculative.ngram_min_hits = (uint16_t)std::stoi(optval_str); } catch (...) {} }"
+            print "        } else if (!strcmp(optname, \"draft_gpu_layers\")) {"
+            print "            if (optval != NULL) { try { params.speculative.n_gpu_layers = std::stoi(optval_str); } catch (...) {} }"
             print "        } else if (!strcmp(optname, \"tree_budget\")) {"
-            print "            if (optval != NULL) {"
-            print "                try { params.speculative.tree_budget = std::stoi(optval_str); } catch (...) {}"
-            print "            }"
+            print "            if (optval != NULL) { try { params.speculative.tree_budget = std::stoi(optval_str); } catch (...) {} }"
             print "        } else if (!strcmp(optname, \"draft_topk\")) {"
-            print "            if (optval != NULL) {"
-            print "                try { params.speculative.draft_topk = std::stoi(optval_str); } catch (...) {}"
-            print "            }"
-            # The next source line (`} else if (…spec_ngram_size_n…) {`) closes
-            # our draft_topk block and continues the chain naturally; fall back
-            # into the main loop to emit it and everything after.
-            done = 1
-            prev2 = prev1
-            prev1 = inner_close
+            print "            if (optval != NULL) { try { params.speculative.draft_topk = std::stoi(optval_str); } catch (...) {} }"
+            skipping = 1
             next
         }
-        { print; prev2 = prev1; prev1 = $0 }
+        skipping && /^    }$/ { skipping = 0; done = 1; print; next }
+        !skipping { print }
         END {
             if (!done) {
-                print "patch-grpc-server.sh: spec_p_split anchor not found" > "/dev/stderr"
+                print "patch-grpc-server.sh: speculative option section not found" > "/dev/stderr"
                 exit 1
             }
         }
     ' "$SRC" > "$SRC.tmp"
     mv "$SRC.tmp" "$SRC"
 
-    echo "==> DFlash option-handler patch OK"
+    echo "==> legacy speculative option-handler patch OK"
+fi
+
+# The modern server initializes a vector of speculative types when DraftModel
+# is present. The fork still exposes a single enum value.
+awk '
+    /const bool no_spec_type = params\.speculative\.types\.empty\(\)/ && !done {
+        print "        if (params.speculative.type == COMMON_SPECULATIVE_TYPE_NONE) {"
+        print "            params.speculative.type = COMMON_SPECULATIVE_TYPE_DRAFT;"
+        print "        }"
+        skipping = 1
+        next
+    }
+    skipping && /^        }$/ { skipping = 0; done = 1; next }
+    !skipping { print }
+' "$SRC" > "$SRC.tmp"
+mv "$SRC.tmp" "$SRC"
+
+# Map supported post-refactor fields back to the names used by the pinned fork.
+sed -E \
+    -e 's/params\.speculative\.draft\.mparams\.path/params.speculative.mparams_dft.path/g' \
+    -e 's/params\.speculative\.draft\.n_gpu_layers/params.speculative.n_gpu_layers/g' \
+    -e 's/ctx_server\.impl->model_tgt/ctx_server.impl->model/g' \
+    -e '/params\.cache_idle_slots =/d' \
+    -e '/params\.split_mode = LLAMA_SPLIT_MODE_TENSOR;/d' \
+    -e '/params\.speculative\.draft\.tensor_buft_overrides/d' \
+    "$SRC" > "$SRC.tmp"
+mv "$SRC.tmp" "$SRC"
+
+if ! grep -q '^#define LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP' "$SRC"; then
+    sed '0,/^#include/{s/^#include/#define LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP 1\n\n#include/}' "$SRC" > "$SRC.tmp"
+    mv "$SRC.tmp" "$SRC"
 fi
 
 if grep -qE 'ctx_server\.get_meta\(\)\.logit_bias_eog|params_base\.sampling\.logit_bias_eog,' "$SRC"; then

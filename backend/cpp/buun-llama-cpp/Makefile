@@ -50,6 +50,7 @@ define buun-llama-cpp-build
 	# *copy*, never the original under backend/cpp/llama-cpp/, so the stock
 	# llama-cpp build stays compiling against vanilla upstream.
 	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build/grpc-server.cpp
+	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build/grpc-server.cpp
 	$(info $(GREEN)I buun-llama-cpp build info:$(1)$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BUUN_LLAMA_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-$(1)-build llama.cpp
@@ -80,6 +81,9 @@ buun-llama-cpp-rpc-server: buun-llama-cpp-grpc
 
 package:
 	bash package.sh
+
+test:
+	bash test-patch-grpc-server.sh
 
 purge:
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../buun-llama-cpp-*-build
