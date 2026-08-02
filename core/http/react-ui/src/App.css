@@ -5086,6 +5086,7 @@ button.collapsible-header:focus-visible {
 /* Studio tabs */
 .studio-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-xs);
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--spacing-sm) var(--spacing-xl) 0;
@@ -12504,9 +12505,106 @@ button.collapsible-header:focus-visible {
   .entity-rail__meta--pending { animation: none; opacity: 0.75; }
 }
 
+
+/* ─── Lanes ───────────────────────────────────────────────────────────────
+   The list idiom carried over from localai.io: full-bleed rows separated by a
+   single hairline, insetting on hover, with no card and no shadow. Used
+   wherever records are flat, uniform and read in sequence. Where an entity
+   outgrows a row and candidates get compared before acting, use SplitView
+   instead — that is the other half of the rule and they should not be mixed.
+
+   Column templates belong to the caller: `.lanes--<name> .lane { grid-template-columns: ... }`. */
+.lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.lane {
+  display: grid;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-default),
+              padding var(--duration-fast) var(--ease-default);
+}
+
+a.lane, button.lane { cursor: pointer; }
+
+a.lane:hover,
+button.lane:hover {
+  background: var(--color-bg-hover);
+  padding-inline: var(--spacing-sm);
+}
+
+.lane:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+
+/* Uppercase micro-label. Blue where it names a route, mint where it reports
+   live state — never both on one screen. */
+.lane__tag {
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lane__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lane__name { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+.lane__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
+
+/* Identifiers and quantities are monospace; prose is not. */
+.lane__num {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane__go { color: var(--color-text-tertiary); }
+
+/* Section rhythm above a set of lanes. */
+.lane-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-2xl) 0 var(--spacing-sm);
+}
+
+.lane-head:first-child { margin-top: 0; }
+.lane-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
+
+.lane-head__meta {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Standard padding for pages that are not inside a console shell, which
+   supplies its own. Without this a top-level page sits flush against the
+   sidebar and its first character is clipped. */
+.page-pad {
+  padding: var(--spacing-xl);
+  max-width: var(--page-max-medium);
+  width: 100%;
+}
+
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no
-   fill, just a dimmer tabular figure that a scanning eye can ignore. The
+   fill, just a dimmer tabular figure a scanning eye can ignore. The
    alarm-shaped treatment belongs to .nav-badge on the sidebar, which stays
    visible when this rail is collapsed or absent. */
 .nav-signal {
@@ -12520,8 +12618,6 @@ button.collapsible-header:focus-visible {
 
 .nav-item.active .nav-signal { color: var(--color-primary); }
 
-.operate-block { margin-bottom: var(--spacing-2xl); }
-
 /* One line, deliberately quiet. Making "nothing is wrong" as loud as a problem
    is how a status page teaches people to stop reading it. */
 .operate-clear {
@@ -12530,69 +12626,17 @@ button.collapsible-header:focus-visible {
   font-size: 0.875rem;
 }
 
-.operate-attention,
-.operate-sections {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--color-border-default);
-}
+.lanes--attention .lane { grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; }
+.lanes--sections .lane { grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; }
 
-.operate-attention__row,
-.operate-section {
-  display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-xs);
-  border-bottom: 1px solid var(--color-border-default);
-  color: inherit;
-  text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-default),
-              padding var(--duration-fast) var(--ease-default);
-}
+/* Amber on the row itself rather than a status chip: these are the only things
+   on the page asking for a decision, so they can afford the one accent. */
+.lanes--attention .lane { border-left: 3px solid var(--color-warning); }
 
-.operate-attention__row:hover,
-.operate-section:hover {
-  background: var(--color-bg-hover);
-  padding-inline: var(--spacing-sm);
-}
-
-.operate-attention__row:focus-visible,
-.operate-section:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: -2px;
-}
-
-/* Amber on the row itself rather than a status chip: an update is the only
-   thing on the page asking for a decision, so it can afford the one accent. */
-.operate-attention__row { border-left: 3px solid var(--color-warning); }
-
-.operate-attention__name,
-.operate-section__label {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-
-.operate-attention__name { font-family: var(--font-mono); font-size: 0.875rem; }
-
-.operate-attention__detail,
-.operate-section__summary {
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.operate-attention__go,
-.operate-section__go { color: var(--color-text-tertiary); }
-
-/* ─── Studio: capability dots and the overview ────────────────────────────
-   The dot is the whole feature in one detail: filled means a model on this
-   machine serves that modality. It is aria-hidden because the overview states
-   the same thing in words, and a dot that changes as models load would
-   otherwise interrupt a reader mid-strip. */
+/* ─── Studio: capability dots ─────────────────────────────────────────────
+   Filled means a model on this machine serves that modality. aria-hidden,
+   because the overview states the same thing in words and a dot that changes
+   as models load would otherwise interrupt a reader mid-strip. */
 .studio-tab__dot {
   width: 6px;
   height: 6px;
@@ -12607,111 +12651,17 @@ button.collapsible-header:focus-visible {
   box-shadow: inset 0 0 0 1px var(--color-border-strong);
 }
 
-.studio-overview { max-width: 72ch; }
-
-.studio-overview__eyebrow {
-  margin: 0;
-  color: var(--color-eyebrow);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.studio-overview__title { margin: var(--spacing-xs) 0 0; letter-spacing: -0.02em; }
-
-.studio-overview__lede {
-  margin: var(--spacing-xs) 0 var(--spacing-xl);
-  color: var(--color-text-muted);
-}
-
-.studio-modalities,
-.studio-recent,
-.studio-running {
-  list-style: none;
-  margin: 0 0 var(--spacing-xl);
-  padding: 0;
-  border-top: 1px solid var(--color-border-default);
-}
-
-.studio-modality {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr) minmax(0, 10rem) 4.5rem auto;
-  align-items: center;
-  gap: var(--spacing-md);
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-xs);
-  border: 0;
-  border-bottom: 1px solid var(--color-border-default);
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-default);
-}
+/* Room for the description to sit on one line at a comfortable width instead
+   of wrapping into a narrow column beside empty space. */
+.lanes--modality .lane { grid-template-columns: 6rem minmax(0, 1fr) minmax(0, 14rem) 5rem auto; }
+.lanes--takes .lane { grid-template-columns: minmax(0, 1fr) auto; }
 
 .studio-modality--empty { cursor: default; }
-.studio-modality:hover:not(.studio-modality--empty) { background: var(--color-bg-hover); }
-.studio-modality:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+.studio-modality__install { color: var(--color-primary); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
+.studio-modality__state { color: var(--color-success); font-size: 0.8125rem; font-weight: 600; }
 
-.studio-modality__group {
-  color: var(--color-primary);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.studio-modality__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.studio-modality__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
-
-.studio-modality__model,
-.studio-modality__typical {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--color-text-tertiary);
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.studio-modality__state { color: var(--color-success); font-size: 0.75rem; font-weight: 600; }
-.studio-modality__install { color: var(--color-primary); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
-
-.studio-running li,
-.studio-recent li { border-bottom: 1px solid var(--color-border-default); }
-
-.studio-running li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 8rem;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-xs);
-}
-
-.studio-running__name { font-family: var(--font-mono); font-size: 0.8125rem; }
-.studio-running__meter { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; }
+.studio-running__meter { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; width: 8rem; }
 .studio-running__meter i { display: block; height: 100%; background: var(--color-primary); }
-
-.studio-recent__item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: var(--spacing-md);
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-xs);
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-}
-
-.studio-recent__item:hover { background: var(--color-bg-hover); }
-.studio-recent__model { font-family: var(--font-mono); font-size: 0.8125rem; }
-.studio-recent__meta { color: var(--color-text-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 
 .studio-overview__heading { display: flex; align-items: baseline; gap: var(--spacing-sm); }
 .studio-overview__count {

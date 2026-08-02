@@ -30,14 +30,14 @@ export default function OperateOverview() {
   const upgradeCount = Object.keys(summary?.upgrades || {}).length
 
   return (
-    <div data-testid="operate-overview">
+    <div className="page-pad" data-testid="operate-overview">
       <PageHeader
         title={t('operate.overview.title')}
         supporting={t('operate.overview.subtitle')}
       />
 
-      <section className="operate-block">
-        <h2 className="section-heading">{t('operate.overview.attention.heading')}</h2>
+      <section>
+        <div className="lane-head"><h2>{t('operate.overview.attention.heading')}</h2></div>
         {attention.length === 0 ? (
           // One line, not a panel. A green reassurance card would make "fine"
           // as loud as "broken", which is the opposite of the point.
@@ -45,17 +45,17 @@ export default function OperateOverview() {
             {t('operate.overview.attention.clear')}
           </p>
         ) : (
-          <ul className="operate-attention">
+          <ul className="lanes lanes--attention">
             {attention.map(item => (
               <li key={item.id} data-testid="operate-attention-item">
-                <Link to={ATTENTION_ROUTE[item.kind] || '/app/operate'} className="operate-attention__row">
-                  <span className="operate-attention__name">{item.name}</span>
-                  <span className="operate-attention__detail">
+                <Link to={ATTENTION_ROUTE[item.kind] || '/app/operate'} className="lane">
+                  <span className="lane__name">{item.name}</span>
+                  <span className="lane__desc">
                     {item.kind === 'backend-update'
                       ? t('operate.overview.attention.backendUpdate', { from: item.from, to: item.to })
                       : item.detail}
                   </span>
-                  <span className="operate-attention__go" aria-hidden="true">→</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
                 </Link>
               </li>
             ))}
@@ -63,9 +63,9 @@ export default function OperateOverview() {
         )}
       </section>
 
-      <section className="operate-block">
-        <h2 className="section-heading">{t('operate.overview.sections.heading')}</h2>
-        <ul className="operate-sections">
+      <section>
+        <div className="lane-head"><h2>{t('operate.overview.sections.heading')}</h2></div>
+        <ul className="lanes lanes--sections">
           <OperateSection
             to="/app/backends"
             label={t('operate.overview.sections.runtime')}
@@ -98,10 +98,10 @@ export default function OperateOverview() {
 function OperateSection({ to, label, summary }) {
   return (
     <li>
-      <Link to={to} className="operate-section">
-        <span className="operate-section__label">{label}</span>
-        <span className="operate-section__summary">{summary}</span>
-        <span className="operate-section__go" aria-hidden="true">→</span>
+      <Link to={to} className="lane">
+        <span className="lane__tag">{label}</span>
+        <span className="lane__desc">{summary}</span>
+        <span className="lane__go" aria-hidden="true">→</span>
       </Link>
     </li>
   )

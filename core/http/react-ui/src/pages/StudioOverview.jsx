@@ -23,7 +23,7 @@ export default function StudioOverview({ modalities, recent, running, onPick }) 
   const ready = modalities.filter(m => m.installed.length > 0).length
 
   return (
-    <div data-testid="studio-overview" className="studio-overview">
+    <div data-testid="studio-overview" className="page-pad">
       {/* The shared header, not a bespoke one: every other page in the app
           announces itself with .page-title, and the render-smoke gate looks
           for exactly that. */}
@@ -32,13 +32,13 @@ export default function StudioOverview({ modalities, recent, running, onPick }) 
         supporting={t('studio.overview.subtitle')}
       />
 
-      <div className="studio-overview__heading">
-        <h2 className="section-heading">{t('studio.overview.canMake')}</h2>
-        <span className="studio-overview__count">
+      <div className="lane-head">
+        <h2>{t('studio.overview.canMake')}</h2>
+        <span className="lane-head__meta">
           {t('studio.overview.eyebrow', { ready, total: modalities.length })}
         </span>
       </div>
-      <ul className="studio-modalities">
+      <ul className="lanes lanes--modality">
         {modalities.map(m => (
           <li key={m.key} data-testid="studio-modality" data-modality={m.key}>
             <ModalityLane modality={m} onPick={onPick} t={t} />
@@ -48,11 +48,11 @@ export default function StudioOverview({ modalities, recent, running, onPick }) 
 
       {running.length > 0 && (
         <>
-          <h2 className="section-heading">{t('studio.overview.running')}</h2>
-          <ul className="studio-running" data-testid="studio-running">
+          <div className="lane-head"><h2>{t('studio.overview.running')}</h2></div>
+          <ul className="lanes lanes--takes" data-testid="studio-running">
             {running.map(op => (
-              <li key={op.id || op.name}>
-                <span className="studio-running__name">{op.name || op.id}</span>
+              <li key={op.id || op.name} className="lane">
+                <span className="lane__name">{op.name || op.id}</span>
                 {typeof op.progress === 'number' && (
                   <span className="studio-running__meter">
                     <i style={{ width: `${Math.max(0, Math.min(100, op.progress))}%` }} />
@@ -67,13 +67,13 @@ export default function StudioOverview({ modalities, recent, running, onPick }) 
       {/* Absent rather than empty. A shelf with nothing on it is furniture. */}
       {recent.length > 0 && (
         <>
-          <h2 className="section-heading">{t('studio.overview.recent')}</h2>
-          <ul className="studio-recent" data-testid="studio-recent">
+          <div className="lane-head"><h2>{t('studio.overview.recent')}</h2></div>
+          <ul className="lanes lanes--takes" data-testid="studio-recent">
             {recent.map(entry => (
               <li key={entry.id}>
-                <button type="button" className="studio-recent__item" onClick={() => onPick(entry.modality)}>
-                  <span className="studio-recent__model">{entry.model || entry.modality}</span>
-                  <span className="studio-recent__meta">{describeEntry(entry, t)}</span>
+                <button type="button" className="lane" onClick={() => onPick(entry.modality)}>
+                  <span className="lane__name">{entry.model || entry.modality}</span>
+                  <span className="lane__num">{describeEntry(entry, t)}</span>
                 </button>
               </li>
             ))}
@@ -90,24 +90,24 @@ function ModalityLane({ modality, onPick, t }) {
 
   const body = (
     <>
-      <span className="studio-modality__group">{t(`studio.groups.${modality.group}`)}</span>
-      <span className="studio-modality__main">
-        <b>{t(`studio.tabs.${key}`)}</b>
-        <span className="studio-modality__desc">{t(`studio.overview.describe.${key}`)}</span>
+      <span className="lane__tag">{t(`studio.groups.${modality.group}`)}</span>
+      <span className="lane__main">
+        <b className="lane__name">{t(`studio.tabs.${key}`)}</b>
+        <span className="lane__desc">{t(`studio.overview.describe.${key}`)}</span>
       </span>
-      <span className="studio-modality__model">
+      <span className="lane__num">
         {hasModel
           ? installed[0] + (installed.length > 1 ? ` +${installed.length - 1}` : '')
           : t('studio.overview.noModel')}
       </span>
       {/* Dash, not a guess. Cost is measured from this machine's own history. */}
-      <span className="studio-modality__typical">{typical || '—'}</span>
+      <span className="lane__num">{typical || '—'}</span>
     </>
   )
 
   if (!hasModel) {
     return (
-      <span className="studio-modality studio-modality--empty">
+      <span className="lane studio-modality--empty">
         {body}
         <Link className="studio-modality__install" to={`/app/models?capability=${key}`}>
           {t('studio.overview.install')}
@@ -117,7 +117,7 @@ function ModalityLane({ modality, onPick, t }) {
   }
 
   return (
-    <button type="button" className="studio-modality" onClick={() => onPick(key)}>
+    <button type="button" className="lane" onClick={() => onPick(key)}>
       {body}
       <span className="studio-modality__state">{t('studio.overview.ready')}</span>
     </button>
