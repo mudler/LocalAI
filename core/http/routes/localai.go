@@ -414,7 +414,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		})
 	})
 
-	router.GET("/system", localai.SystemInformations(ml, appConfig), adminMiddleware)
+	router.GET("/system", localai.SystemInformations(cl, ml, appConfig), adminMiddleware)
 
 	// misc
 	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)

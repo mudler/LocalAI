@@ -4,7 +4,10 @@ import { test, expect } from './coverage-fixtures.js'
 
 const SYS_INFO = {
   backends: ['llama-cpp'],
-  loaded_models: [{ id: 'qwen3-8b-instruct' }, { id: 'parakeet-tdt-0.6b' }],
+  loaded_models: [
+    { id: 'qwen3-8b-instruct', backend: 'llama-cpp' },
+    { id: 'parakeet-tdt-0.6b' },
+  ],
 }
 
 async function mockLoaded(page) {
@@ -43,6 +46,30 @@ test.describe('Home resident models', () => {
     const numeric = await stat.locator('.home-stat__value').evaluate(
       el => getComputedStyle(el).fontVariantNumeric)
     expect(numeric).toContain('tabular-nums')
+  })
+
+  test('a resident model names the engine serving it', async ({ page }) => {
+    await mockLoaded(page)
+    await page.goto('/app')
+    // Lanes are sorted by id, so target by content rather than position.
+    const qwen = page.locator('.home-loaded .lane', { hasText: 'qwen3-8b-instruct' })
+    await expect(qwen).toContainText('llama-cpp')
+  })
+
+  test('a model without a config shows no engine rather than a guess', async ({ page }) => {
+    await mockLoaded(page)
+    await page.goto('/app')
+    // parakeet has no backend in the payload; the column stays blank.
+    const parakeet = page.locator('.home-loaded .lane', { hasText: 'parakeet-tdt-0.6b' })
+    await expect(parakeet).not.toContainText('llama-cpp')
+  })
+
+  test('jump-back-in offers the three places worth returning to', async ({ page }) => {
+    await mockLoaded(page)
+    await page.goto('/app')
+    const lanes = page.locator('.lanes--jump .lane')
+    await expect(lanes).toHaveCount(3)
+    await expect(lanes.first()).toContainText('Discover')
   })
 
   test('nothing resident still says so', async ({ page }) => {

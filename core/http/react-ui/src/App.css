@@ -12698,7 +12698,9 @@ button.lane:hover {
 
 
 /* Home: resident models and the header figures. */
-.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) auto auto; }
+.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) minmax(0, 9rem) auto auto; }
+.lanes--jump .lane { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto; }
+.home-jump { margin-bottom: var(--spacing-2xl); }
 
 .home-loaded-stop {
   border: 0;

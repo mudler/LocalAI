@@ -200,6 +200,10 @@ type P2PNodesResponse struct {
 
 type SysInfoModel struct {
 	ID string `json:"id"`
+	// Backend is the engine serving this model. The loader knows only the ID,
+	// so it is resolved from the model's config; empty when the model was
+	// loaded without one (a loose file, or a config since removed).
+	Backend string `json:"backend,omitempty"`
 }
 
 type SystemInformationResponse struct {
