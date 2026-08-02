@@ -9,4 +9,5 @@ else
 fi
 
 PYTHON_VERSION="3.11"
+PYTHON_PATCH="13"
 installRequirements
