@@ -1,6 +1,7 @@
 package modelartifacts_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -110,6 +112,77 @@ var _ = Describe("controller artifact materializer", func() {
 		// Multi-file snapshots are consumed as a directory (e.g. transformers), so
 		// no single file is promoted.
 		Expect(result.Spec.Resolved.PrimaryFile).To(BeEmpty())
+	})
+
+	It("materializes a snapshot concurrently with ordered manifests and monotonic aggregate progress", func() {
+		contents := map[string][]byte{
+			"slow.bin": bytes.Repeat([]byte("s"), 64*1024),
+			"fast.bin": bytes.Repeat([]byte("f"), 8*1024),
+			"mid.bin":  bytes.Repeat([]byte("m"), 24*1024),
+		}
+		order := []string{"slow.bin", "fast.bin", "mid.bin"}
+		var active atomic.Int32
+		var maximum atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			current := active.Add(1)
+			defer active.Add(-1)
+			for {
+				previous := maximum.Load()
+				if current <= previous || maximum.CompareAndSwap(previous, current) {
+					break
+				}
+			}
+			name := strings.TrimPrefix(r.URL.Path, "/")
+			body := contents[name]
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			for offset := 0; offset < len(body); offset += 4096 {
+				end := min(offset+4096, len(body))
+				_, _ = w.Write(body[offset:end])
+				w.(http.Flusher).Flush()
+				time.Sleep(time.Millisecond)
+			}
+		}))
+		DeferCleanup(server.Close)
+
+		files := make([]hfapi.SnapshotFile, 0, len(order))
+		var total int64
+		for _, name := range order {
+			sum := sha256.Sum256(contents[name])
+			files = append(files, hfapi.SnapshotFile{Path: name, Size: int64(len(contents[name])), LFSOID: hex.EncodeToString(sum[:]), URL: server.URL + "/" + name})
+			total += int64(len(contents[name]))
+		}
+		resolver := &fakeSnapshotResolver{snapshot: hfapi.Snapshot{
+			Endpoint: "https://huggingface.co", Repo: "owner/repo",
+			ResolvedRevision: "0123456789abcdef0123456789abcdef01234567", Files: files,
+		}}
+		var progressMu sync.Mutex
+		var progress []int64
+		ctx := modelartifacts.WithProgressSink(context.Background(), func(event modelartifacts.ProgressEvent) {
+			if event.Phase == modelartifacts.PhaseDownloading || event.Phase == modelartifacts.PhaseVerifying {
+				progressMu.Lock()
+				progress = append(progress, event.CurrentBytes)
+				progressMu.Unlock()
+			}
+		})
+		result, err := modelartifacts.NewManager(resolver, modelartifacts.WithDownloadConcurrency(2)).Ensure(ctx, GinkgoT().TempDir(),
+			modelartifacts.Spec{Source: modelartifacts.Source{Type: "huggingface", Repo: "owner/repo"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(maximum.Load()).To(Equal(int32(2)))
+		Expect(result.Manifest.Files).To(HaveLen(len(order)))
+		for index, entry := range result.Manifest.Files {
+			Expect(entry.Path).To(Equal(order[index]))
+			sum := sha256.Sum256(contents[entry.Path])
+			Expect(entry.SHA256).To(Equal(hex.EncodeToString(sum[:])))
+		}
+		progressMu.Lock()
+		defer progressMu.Unlock()
+		Expect(progress).NotTo(BeEmpty())
+		for index, current := range progress {
+			Expect(current).To(BeNumerically("<=", total))
+			if index > 0 {
+				Expect(current).To(BeNumerically(">=", progress[index-1]))
+			}
+		}
 	})
 
 	It("rejects a path escape before opening a destination", func() {

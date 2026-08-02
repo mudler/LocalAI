@@ -21,13 +21,14 @@ import (
 )
 
 type ModelsCMDFlags struct {
-	Galleries        string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
-	BackendGalleries string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
-	ModelsPath       string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	BackendsPath     string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
-	Color            string `env:"COLOR" hidden:""`
-	NoColor          string `env:"NO_COLOR" hidden:""`
-	HFToken          string `env:"HF_TOKEN" hidden:""`
+	Galleries                   string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
+	BackendGalleries            string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
+	ModelsPath                  string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	BackendsPath                string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
+	Color                       string `env:"COLOR" hidden:""`
+	NoColor                     string `env:"NO_COLOR" hidden:""`
+	HFToken                     string `env:"HF_TOKEN" hidden:""`
+	ArtifactDownloadConcurrency int    `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" name:"artifact-download-concurrency" default:"1" help:"Maximum number of model artifact files downloaded concurrently" group:"models"`
 }
 
 type ModelsList struct {
@@ -87,6 +88,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 
 	artifactMaterializer := modelartifacts.NewDefaultManager(
 		modelartifacts.WithHuggingFaceToken(mi.HFToken),
+		modelartifacts.WithDownloadConcurrency(mi.ArtifactDownloadConcurrency),
 	)
 	galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
 		SystemState:               systemState,

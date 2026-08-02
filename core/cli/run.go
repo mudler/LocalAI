@@ -30,10 +30,11 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
-	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
-	Color     string   `env:"COLOR" hidden:""`
-	NoColor   string   `env:"NO_COLOR" hidden:""`
-	HFToken   string   `env:"HF_TOKEN" hidden:""`
+	ModelArgs                   []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	Color                       string   `env:"COLOR" hidden:""`
+	NoColor                     string   `env:"NO_COLOR" hidden:""`
+	HFToken                     string   `env:"HF_TOKEN" hidden:""`
+	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" name:"artifact-download-concurrency" default:"1" help:"Maximum number of model artifact files downloaded concurrently" group:"models"`
 
 	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
 	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
@@ -280,6 +281,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithContext(context.Background()),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
+			modelartifacts.WithDownloadConcurrency(r.ArtifactDownloadConcurrency),
 		)),
 		config.WithModelPreloadDisplay(r.Color, r.NoColor != ""),
 		config.WithConfigFile(r.ModelsConfigFile),

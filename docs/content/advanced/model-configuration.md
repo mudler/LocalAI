@@ -139,6 +139,13 @@ locally. `parameters.model` remains the logical repository ID. Once
 Configurations without `artifacts` keep the existing lazy repository-ID
 behavior.
 
+Artifact files download sequentially by default. Set
+`--artifact-download-concurrency` or
+`LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` to increase the bounded concurrency.
+Start conservatively with `2` or `4`; higher values increase bandwidth use,
+open file descriptors, and pressure on the remote server. Values below `1`
+are treated as `1`.
+
 The initially migrated backend families are `transformers` and its aliases,
 `diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
 `liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add

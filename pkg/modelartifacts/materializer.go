@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -56,10 +57,11 @@ const (
 )
 
 type Manager struct {
-	resolver         SnapshotResolver
-	huggingFaceToken string
-	newLocker        func(string) Locker
-	lockWait         time.Duration
+	resolver            SnapshotResolver
+	huggingFaceToken    string
+	newLocker           func(string) Locker
+	lockWait            time.Duration
+	downloadConcurrency int
 	// writerID names this manager's staging trees. It is drawn once, at
 	// construction, and deliberately never persisted: a partial tree belongs to
 	// the process run that created it, and outliving that run is precisely what
@@ -100,12 +102,23 @@ func WithLockWait(wait time.Duration) ManagerOption {
 	}
 }
 
+// WithDownloadConcurrency bounds the number of artifact files downloaded at once.
+func WithDownloadConcurrency(limit int) ManagerOption {
+	return func(manager *Manager) {
+		if limit < 1 {
+			limit = 1
+		}
+		manager.downloadConcurrency = limit
+	}
+}
+
 func NewManager(resolver SnapshotResolver, options ...ManagerOption) *Manager {
 	manager := &Manager{
-		resolver:  resolver,
-		newLocker: func(path string) Locker { return flock.New(path) },
-		lockWait:  DefaultLockWait,
-		writerID:  newWriterID(),
+		resolver:            resolver,
+		newLocker:           func(path string) Locker { return flock.New(path) },
+		lockWait:            DefaultLockWait,
+		downloadConcurrency: 1,
+		writerID:            newWriterID(),
 	}
 	for _, option := range options {
 		option(manager)
@@ -377,6 +390,9 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 	// corrupt tree look valid.
 	manifest := Manifest{Version: ManifestVersion, Artifact: spec, Files: make([]ManifestFile, len(snapshot.Files))}
 	completedBytes := int64(0)
+	completedFiles := 0
+	writtenByFile := make([]int64, len(snapshot.Files))
+	var bookkeeping sync.Mutex
 	skippedFiles := 0
 	skippedBytes := int64(0)
 	tasks := make([]downloader.FileTask, 0, len(snapshot.Files))
@@ -399,6 +415,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 		if entry, ok := reuseMaterializedFile(snapshotAbs, file); ok {
 			manifest.Files[taskIndex] = entry
 			completedBytes += file.Size
+			completedFiles++
 			skippedFiles++
 			skippedBytes += file.Size
 			continue
@@ -415,27 +432,44 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 			Options: []downloader.DownloadOption{
 				downloader.WithBearerToken(token),
 				downloader.WithTransferProgress(func(event downloader.TransferProgress) {
+					bookkeeping.Lock()
+					defer bookkeeping.Unlock()
+					if event.Written > writtenByFile[taskIndex] {
+						writtenByFile[taskIndex] = event.Written
+					}
+					currentBytes := completedBytes
+					for _, written := range writtenByFile {
+						currentBytes += written
+					}
+					currentBytes = min(currentBytes, totalBytes)
 					ReportProgress(ctx, ProgressEvent{
 						Phase:          PhaseDownloading,
 						Artifact:       spec.Name,
 						File:           file.Path,
-						CurrentBytes:   completedBytes + event.Written,
+						CurrentBytes:   currentBytes,
 						TotalBytes:     totalBytes,
-						CompletedFiles: taskIndex,
+						CompletedFiles: completedFiles,
 						TotalFiles:     len(snapshot.Files),
 					})
 				}),
 			},
 			AfterDownload: func(string) error {
+				bookkeeping.Lock()
+				currentBytes := completedBytes
+				for _, written := range writtenByFile {
+					currentBytes += written
+				}
+				currentBytes = min(currentBytes, totalBytes)
 				ReportProgress(ctx, ProgressEvent{
 					Phase:          PhaseVerifying,
 					Artifact:       spec.Name,
 					File:           file.Path,
-					CurrentBytes:   completedBytes + file.Size,
+					CurrentBytes:   currentBytes,
 					TotalBytes:     totalBytes,
-					CompletedFiles: taskIndex,
+					CompletedFiles: completedFiles,
 					TotalFiles:     len(snapshot.Files),
 				})
+				bookkeeping.Unlock()
 				entry, err := verifyDownloadedFile(blobAbs, file)
 				if err != nil {
 					_ = root.Remove(blobRel)
@@ -453,8 +487,12 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 				if err := root.Rename(blobRel, destination); err != nil {
 					return err
 				}
+				bookkeeping.Lock()
 				manifest.Files[taskIndex] = entry
+				writtenByFile[taskIndex] = 0
 				completedBytes += file.Size
+				completedFiles++
+				bookkeeping.Unlock()
 				return nil
 			},
 		}
@@ -471,7 +509,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 			"remaining_files", len(tasks),
 			"total_files", len(snapshot.Files))
 	}
-	if err := downloader.DownloadFilesWithContext(ctx, tasks, nil); err != nil {
+	if err := downloader.DownloadFilesWithContext(ctx, tasks, nil, downloader.WithFileConcurrency(m.downloadConcurrency)); err != nil {
 		return Result{}, err
 	}
 	if err := root.RemoveAll(".downloads"); err != nil {

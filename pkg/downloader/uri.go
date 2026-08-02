@@ -69,6 +69,7 @@ type downloadOptions struct {
 	verifier         ImageVerifier
 	bearerToken      string
 	transferProgress TransferProgressSink
+	fileConcurrency  int
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -94,6 +95,17 @@ func WithBearerToken(token string) DownloadOption {
 // WithTransferProgress attaches a sink for raw HTTP download byte progress.
 func WithTransferProgress(sink TransferProgressSink) DownloadOption {
 	return func(o *downloadOptions) { o.transferProgress = sink }
+}
+
+// WithFileConcurrency bounds concurrent work when an option is passed to
+// DownloadFilesWithContext. Individual file downloads safely ignore it.
+func WithFileConcurrency(limit int) DownloadOption {
+	return func(o *downloadOptions) {
+		if limit < 1 {
+			limit = 1
+		}
+		o.fileConcurrency = limit
+	}
 }
 
 func applyDownloadOptions(opts []DownloadOption) downloadOptions {

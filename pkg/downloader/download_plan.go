@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/errgroup"
 )
 
 // FileTask describes one download operation and an optional post-download
@@ -19,27 +20,34 @@ type FileTask struct {
 	Options       []DownloadOption
 }
 
-// DownloadFilesWithContext executes a set of file downloads sequentially.
+// DownloadFilesWithContext executes a set of file downloads with bounded concurrency.
 // The helper centralizes the shared download path so callers only provide
 // source/destination metadata and any post-download hook they need.
 func DownloadFilesWithContext(ctx context.Context, tasks []FileTask, status func(string, string, string, float64), opts ...DownloadOption) error {
+	limit := applyDownloadOptions(opts).fileConcurrency
+	if limit < 1 {
+		limit = 1
+	}
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(limit)
 	for i := range tasks {
 		task := tasks[i]
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		taskOpts := append([]DownloadOption{}, opts...)
-		taskOpts = append(taskOpts, task.Options...)
-		if err := downloadTaskWithRetry(ctx, task, status, taskOpts); err != nil {
-			return err
-		}
-		if task.AfterDownload != nil {
-			if err := task.AfterDownload(task.Destination); err != nil {
+		group.Go(func() error {
+			if err := groupCtx.Err(); err != nil {
 				return err
 			}
-		}
+			taskOpts := append([]DownloadOption{}, opts...)
+			taskOpts = append(taskOpts, task.Options...)
+			if err := downloadTaskWithRetry(groupCtx, task, status, taskOpts); err != nil {
+				return err
+			}
+			if task.AfterDownload != nil {
+				return task.AfterDownload(task.Destination)
+			}
+			return nil
+		})
 	}
-	return nil
+	return group.Wait()
 }
 
 // downloadTaskWithRetry fetches one file, retrying transient failures. Without
