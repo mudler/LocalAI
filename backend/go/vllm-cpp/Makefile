@@ -71,7 +71,7 @@ ifeq ($(BUILD_TYPE),cublas)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DVLLM_CPP_VULKAN=ON -DVLLM_CPP_CUDA=OFF
 else ifeq ($(BUILD_TYPE),metal)
-	CMAKE_ARGS+=-DVLLM_CPP_METAL=ON -DCMAKE_OBJCXX_FLAGS=-Wno-error=gnu-folding-constant
+	CMAKE_ARGS+=-DVLLM_CPP_METAL=ON -DCMAKE_OBJCXX_FLAGS=-Wno-gnu-folding-constant
 	# The optional MLX GEMM provider. vllm.cpp keeps it OFF by default because it
 	# is a ~19 MB libmlx.dylib plus a ~105 MB mlx.metallib, and upstream's
 	# position is that it must earn that cost by measurement. It does, on the
