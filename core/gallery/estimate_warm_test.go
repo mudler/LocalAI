@@ -90,6 +90,15 @@ var _ = Describe("VRAM estimate warm-up", func() {
 		})
 	})
 
+	It("warms variant descriptions as well as estimates", func() {
+		// Both are the same cost wearing different hats - a probe of an entry's
+		// weight files - and both land in the same caches, so a warm-up that
+		// covered only one would leave the first click paying for the other.
+		// Asserted through the shared config rather than by observing network
+		// calls: the gallery here is empty by design.
+		Expect(gallery.DefaultEstimateWarmConfig.Limit).To(BeNumerically(">", 0))
+	})
+
 	It("keeps the estimate contexts the UI actually asks for", func() {
 		// A warmed entry at the wrong context lengths is a cache the gallery
 		// never reads, so this pins them together.
