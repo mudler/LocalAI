@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -107,6 +108,13 @@ For documentation and support:
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
 	if err != nil {
+		// A command that has already told the user what went wrong returns
+		// only a status. Logging it as well would print a bare "exit status 1"
+		// underneath the explanation they just read.
+		var reported cli.ExitCodeError
+		if errors.As(err, &reported) {
+			os.Exit(reported.Code)
+		}
 		xlog.Fatal("Error running the application", "error", err)
 	}
 }
