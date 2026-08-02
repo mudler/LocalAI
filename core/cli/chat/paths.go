@@ -80,6 +80,8 @@ func PersistModel(dir, model string) error {
 	path := ConfigPath(dir)
 
 	values := map[string]any{}
+	// #nosec G304 -- path is the fixed config.yaml name under the user-selected
+	// chat state directory; selecting that directory is the documented override.
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("reading agent config %s: %w", path, err)
