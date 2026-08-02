@@ -325,9 +325,31 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 var (
 	availableModelsMu    sync.RWMutex
 	availableModelsCache GalleryElements[*GalleryModel]
-	refreshing           atomic.Bool
-	galleryGeneration    atomic.Uint64
+	// Whether a load has happened, tracked apart from the slice itself. A
+	// gallery that legitimately holds nothing caches as an empty (often nil)
+	// slice, and testing the slice for nil read that as "never loaded": every
+	// call then took the blocking path and bumped the generation, which is the
+	// same cache-defeating loop the refresh interval exists to stop.
+	availableModelsLoaded bool
+	refreshing            atomic.Bool
+	galleryGeneration     atomic.Uint64
+	lastRefreshUnixNano   atomic.Int64
 )
+
+// How often the cached model list may be refreshed from upstream.
+//
+// This is a floor on refresh frequency, not a TTL: the cache is served
+// regardless, and this only decides how often a background re-fetch is worth
+// starting. It matters far more than it looks, because a refresh bumps
+// galleryGeneration, and that invalidates every VRAM estimate cache in
+// pkg/vram. Refreshing on every call therefore kept those caches permanently
+// cold: the gallery listing is one request but the UI asks for one VRAM
+// estimate per row, so a single page view triggered dozens of refreshes and
+// every estimate paid full price for a remote probe it had already made.
+//
+// A package variable rather than a constant so tests can drive refreshes
+// without waiting.
+var GalleryRefreshInterval = 5 * time.Minute
 
 // GalleryGeneration returns a counter that increments each time the gallery
 // model list is refreshed from upstream. VRAM estimation caches use this to
@@ -352,7 +374,11 @@ func ResetGalleryModelCache() {
 	}
 	availableModelsMu.Lock()
 	availableModelsCache = nil
+	availableModelsLoaded = false
 	availableModelsMu.Unlock()
+	// Also clear the refresh stamp, or a suite that reset the cache would find
+	// the next refresh throttled by the previous spec's clock.
+	lastRefreshUnixNano.Store(0)
 }
 
 // AvailableGalleryModelsCached returns gallery models from an in-memory cache.
@@ -363,9 +389,10 @@ func ResetGalleryModelCache() {
 func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryModel], error) {
 	availableModelsMu.RLock()
 	cached := availableModelsCache
+	loaded := availableModelsLoaded
 	availableModelsMu.RUnlock()
 
-	if cached != nil {
+	if loaded {
 		// Refresh installed status under write lock to avoid races with
 		// concurrent readers and the background refresh goroutine.
 		availableModelsMu.Lock()
@@ -387,8 +414,10 @@ func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *syste
 
 	availableModelsMu.Lock()
 	availableModelsCache = models
+	availableModelsLoaded = true
 	galleryGeneration.Add(1)
 	availableModelsMu.Unlock()
+	lastRefreshUnixNano.Store(time.Now().UnixNano())
 
 	return models, nil
 }
@@ -397,9 +426,18 @@ func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *syste
 // gallery model cache. Only one refresh runs at a time; concurrent calls
 // are no-ops.
 func triggerGalleryRefresh(galleries []config.Gallery, systemState *system.SystemState) {
+	if GalleryRefreshInterval > 0 {
+		last := lastRefreshUnixNano.Load()
+		if last != 0 && time.Since(time.Unix(0, last)) < GalleryRefreshInterval {
+			return
+		}
+	}
 	if !refreshing.CompareAndSwap(false, true) {
 		return
 	}
+	// Stamped before the fetch rather than after, so a slow upstream cannot
+	// let a queue of callers each start their own refresh behind this one.
+	lastRefreshUnixNano.Store(time.Now().UnixNano())
 	go func() {
 		defer refreshing.Store(false)
 		models, err := AvailableGalleryModels(galleries, systemState)
@@ -408,10 +446,35 @@ func triggerGalleryRefresh(galleries []config.Gallery, systemState *system.Syste
 			return
 		}
 		availableModelsMu.Lock()
+		changed := !sameModelSet(availableModelsCache, models)
 		availableModelsCache = models
-		galleryGeneration.Add(1)
+		availableModelsLoaded = true
+		// Only a real change invalidates the VRAM caches. An unchanged gallery
+		// re-fetched on schedule must not throw away work that is still valid,
+		// which is the difference between an estimate costing nothing and
+		// costing a network round trip.
+		if changed {
+			galleryGeneration.Add(1)
+		}
 		availableModelsMu.Unlock()
 	}()
+}
+
+// sameModelSet reports whether two model lists describe the same gallery, for
+// the purpose of deciding whether derived caches are still valid. Names and
+// order are enough: a change to an entry's files or size arrives with a new
+// gallery index, and comparing every field on every entry would cost more than
+// the caches save.
+func sameModelSet(a, b GalleryElements[*GalleryModel]) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].GetName() != b[i].GetName() {
+			return false
+		}
+	}
+	return true
 }
 
 // List available backends
