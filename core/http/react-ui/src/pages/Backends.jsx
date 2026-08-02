@@ -335,7 +335,7 @@ export default function Backends() {
   ]
 
   return (
-    <div className="page page--wide">
+    <div className="page page--wide page--app">
       {/* Target-node banner: when this gallery is scoped to one node via
           ?target=<id> (entered from /app/nodes), show the scope clearly and
           give a fast way to clear it. Visually a primary-tinted strip so the
@@ -354,37 +354,20 @@ export default function Backends() {
       )}
 
       {/* Header */}
-      <PageHeader
-        title={t('backends.title')}
-        supporting={t('backends.subtitle')}
-        actions={
-        <div className="hstack hstack--md">
-          <div className="bk-counts">
-            <div style={{ textAlign: 'center' }}>
-              <div className="bk-count tone-primary">{filteredBackends.length}</div>
-              <div style={{ color: 'var(--color-text-muted)' }}>Available</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <a onClick={() => navigate('/app/manage')} style={{ cursor: 'pointer' }}>
-                <div className="bk-count tone-success">{installedCount}</div>
-                <div style={{ color: 'var(--color-text-muted)' }}>Installed</div>
-              </a>
-            </div>
-            {Object.keys(upgrades).length > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <div className="bk-count tone-warning">
-                  {Object.keys(upgrades).length}
-                </div>
-                <div style={{ color: 'var(--color-text-muted)' }}>Updates</div>
-              </div>
-            )}
-          </div>
-          <a className="btn btn-secondary btn-sm" href="https://localai.io/docs/getting-started/manual/" target="_blank" rel="noopener noreferrer">
-            <i className="fas fa-book" /> Docs
-          </a>
+      <div className="view-bar">
+        <h1 className="view-bar__title">{t('backends.title')}</h1>
+        <span className="view-bar__count">{backends.length} of {allBackends.length}</span>
+        <div className="view-bar__actions">
+          {Object.keys(upgrades).length > 0 && (
+            <button className="btn btn-primary btn-sm" onClick={handleUpgradeAll} disabled={upgradingAll}>
+              <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} /> Upgrade all ({Object.keys(upgrades).length})
+            </button>
+          )}
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowManualInstall(!showManualInstall)}>
+            <i className={`fas ${showManualInstall ? 'fa-chevron-up' : 'fa-plus'}`} /> Manual Install
+          </button>
         </div>
-        }
-      />
+      </div>
 
       {/* Upgrade Banner */}
       {Object.keys(upgrades).length > 0 && (
@@ -405,13 +388,6 @@ export default function Backends() {
           </button>
         </div>
       )}
-
-      {/* Manual Install */}
-      <div style={{ marginBottom: 'var(--spacing-md)' }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => setShowManualInstall(!showManualInstall)}>
-          <i className={`fas ${showManualInstall ? 'fa-chevron-up' : 'fa-plus'}`} /> Manual Install
-        </button>
-      </div>
 
       {showManualInstall && (
         <form onSubmit={handleManualInstall} className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -439,61 +415,53 @@ export default function Backends() {
         </form>
       )}
 
-      {/* Search + Filters */}
-      <div className="hstack mb-md">
-        <div className="search-bar search-grow">
-          <i className="fas fa-search search-icon" />
-          <input className="input" placeholder="Search backends by name, description, or type..." value={search} onChange={(e) => handleSearch(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="hstack hstack--md mb-md">
-        <div className="filter-bar m-0 flex-1">
-          {FILTERS.map(f => (
-            <button
-              key={f.key}
-              className={`filter-btn ${filter === f.key ? 'active' : ''}`}
-              onClick={() => { setFilter(f.key); setPage(1) }}
-            >
-            <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
-            {f.label}
-          </button>
-        ))}
-        </div>
-
-        <div className="bk-toggles">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-            <Toggle checked={showAllBackends} onChange={handleToggleAllBackends} />
-            <i className="fas fa-cubes" style={{ fontSize: '0.625rem' }} />
-            Show all
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-            <Toggle checked={showDevelopment} onChange={handleToggleDev} />
-            <i className="fas fa-flask" style={{ fontSize: '0.625rem' }} />
-            Development
-          </label>
-        </div>
-      </div>
-
       {/* The gallery, as a rail and a pane. Same shell as Discover, because it
           is the same defect: a seven-column table whose expand-row was the
           only place the repository, licence, tags and links could go. */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
-      ) : backends.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-server" /></div>
-          <h2 className="empty-state-title">No backends found</h2>
-          <p className="empty-state-text">
-            {search || filter ? 'Try adjusting your search or filters.' : 'No backends available in the gallery.'}
-          </p>
-        </div>
       ) : (
         <SplitView
           testId="backends"
           detail={!!selectedBackend}
           rail={
             <>
+            {/* The filters narrow the rail and nothing else, so they live with it. */}
+            <div className="bk-filters">
+              <div className="search-bar search-grow">
+                <i className="fas fa-search search-icon" />
+                <input className="input" placeholder="Search backends by name, description, or type..." value={search} onChange={(e) => handleSearch(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="bk-filters">
+              <div className="filter-bar m-0 flex-1">
+                {FILTERS.map(f => (
+                  <button
+                    key={f.key}
+                    className={`filter-btn ${filter === f.key ? 'active' : ''}`}
+                    onClick={() => { setFilter(f.key); setPage(1) }}
+                  >
+                  <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
+                  {f.label}
+                </button>
+              ))}
+              </div>
+
+              <span className="models-filters__refine-label">Refine</span>
+              <div className="bk-toggles">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  <Toggle checked={showAllBackends} onChange={handleToggleAllBackends} />
+                  <i className="fas fa-cubes" style={{ fontSize: '0.625rem' }} />
+                  Show all
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  <Toggle checked={showDevelopment} onChange={handleToggleDev} />
+                  <i className="fas fa-flask" style={{ fontSize: '0.625rem' }} />
+                  Development
+                </label>
+              </div>
+            </div>
               <EntityRail
                 items={backends.map(b => railItemForBackend(b, { getBackendOp, upgrades }))}
                 selectedId={selectedName}
@@ -522,7 +490,15 @@ export default function Backends() {
               )}
             </>
           }
-          pane={selectedBackend ? (() => {
+          pane={backends.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon"><i className="fas fa-server" /></div>
+              <h2 className="empty-state-title">No backends found</h2>
+              <p className="empty-state-text">
+                {search || filter ? 'Try adjusting your search or filters.' : 'No backends available in the gallery.'}
+              </p>
+            </div>
+          ) : selectedBackend ? (() => {
             const b = selectedBackend
             const name = b.name || b.id
             const op = getBackendOp(b)

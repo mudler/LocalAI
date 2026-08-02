@@ -493,33 +493,6 @@ export default function Models() {
           <tr> in the first place. */}
       {loading ? (
         <GalleryLoader />
-      ) : visibleModels.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-search" /></div>
-          <h2 className="empty-state-title">{t('empty.title')}</h2>
-          <p className="empty-state-text">
-            {search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants ? t('empty.withFilters') : t('empty.noFilters')}
-          </p>
-          {/* Only the fits filter can leave the collapse to blame. The term,
-              the chips and the backend are applied server-side over every build
-              the gallery holds, and a match there is always reported as some
-              row, so those three can no longer come back empty on account of
-              the collapse. Fits runs here in the browser, after the server
-              substituted a matching build for the entry that offers it, and
-              judges that entry's own size: the build that fits can still be
-              filtered out along with a parent that does not. */}
-          {collapseVariants && fitsFilter && (
-            <p className="empty-state-hint">{t('empty.collapsedVariantsHint')}</p>
-          )}
-          {(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants) && (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
-            >
-              <i className="fas fa-times" /> {t('search.clearFilters')}
-            </button>
-          )}
-        </div>
       ) : (
         <SplitView
           testId="discover"
@@ -679,7 +652,34 @@ export default function Models() {
             </>
           }
           pane={
-            selectedModel ? (
+            visibleModels.length === 0 ? (
+    <div className="empty-state">
+              <div className="empty-state-icon"><i className="fas fa-search" /></div>
+              <h2 className="empty-state-title">{t('empty.title')}</h2>
+              <p className="empty-state-text">
+                {search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants ? t('empty.withFilters') : t('empty.noFilters')}
+              </p>
+              {/* Only the fits filter can leave the collapse to blame. The term,
+                  the chips and the backend are applied server-side over every build
+                  the gallery holds, and a match there is always reported as some
+                  row, so those three can no longer come back empty on account of
+                  the collapse. Fits runs here in the browser, after the server
+                  substituted a matching build for the entry that offers it, and
+                  judges that entry's own size: the build that fits can still be
+                  filtered out along with a parent that does not. */}
+              {collapseVariants && fitsFilter && (
+                <p className="empty-state-hint">{t('empty.collapsedVariantsHint')}</p>
+              )}
+              {(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
+                >
+                  <i className="fas fa-times" /> {t('search.clearFilters')}
+                </button>
+              )}
+            </div>
+            ) : selectedModel ? (
               <DiscoverDetail
                 model={selectedModel}
                 estimate={estimates[selectedName]}

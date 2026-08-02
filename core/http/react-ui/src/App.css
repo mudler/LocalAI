@@ -12365,3 +12365,55 @@ button.collapsible-header:focus-visible {
     overflow: visible;
   }
 }
+
+/* Backends: the filters stack in the rail column the way Discover's do. Seven
+   chips fit at this width, so they need no disclosure. */
+.bk-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.bk-filters .search-bar { width: 100%; }
+.bk-filters .filter-bar { margin: 0; }
+
+.split-view__rail-col .bk-toggles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+/* Host keeps its resource monitor, summary cards and tabs above the split, so
+   only what is left after them is pinned. Those are the page's own chrome and
+   they are read once, unlike the rail and the pane, which are worked in. */
+.page--app > .tabs { flex: none; }
+.page--app > .view-bar { flex: none; }
+
+/* The console layout is a flex row with align-items:flex-start, so its body
+   sizes to content. That is right for the pages it was built for and wrong for
+   a split view, which needs a ceiling to scroll inside: without it the rail ran
+   past the viewport and over the footer.
+
+   Scoped with :has() so only the split-view routes are pinned; every other
+   console page keeps sizing to its content. */
+.console-layout:has(.page--app) {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.console-layout:has(.page--app) > .console-body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .console-layout:has(.page--app) {
+    flex: none;
+    align-items: flex-start;
+  }
+  .console-layout:has(.page--app) > .console-body { display: block; }
+}

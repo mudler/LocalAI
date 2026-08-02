@@ -523,8 +523,13 @@ export default function Manage() {
     : null
 
   return (
-    <div className="page page--wide">
-      <PageHeader title={t('manage.title')} supporting={t('manage.subtitle')} />
+    <div className="page page--wide page--app">
+      <div className="view-bar">
+        <h1 className="view-bar__title">{t('manage.title')}</h1>
+        <span className="view-bar__count">
+          {modelsLoading ? '—' : models.length} models · {backendsLoading ? '—' : backends.length} backends
+        </span>
+      </div>
 
       {/* Resource Monitor */}
       <ResourceMonitor />
@@ -594,14 +599,21 @@ export default function Manage() {
           onFilterChange={setModelsFilter}
           rightSlot={(
             <>
+              {/* A status line, not a control. It had picked up btn classes and
+                  two copies of `fas`, so it rendered as a button you cannot
+                  press next to a button that looked like text. */}
               {distributedMode && (
-                <span className={`cell-muted fas fa-rotate btn btn-secondary btn-sm fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly">
-                  <i /> Last synced {lastSyncedAgo}
+                <span
+                  className="cell-muted text-xs nowrap"
+                  title="Auto-refreshes every 10s in distributed mode so ghost models clear promptly"
+                >
+                  <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'} icon-before`} aria-hidden="true" />
+                  Last synced {lastSyncedAgo}
                 </span>
               )}
-              <button onClick={handleReload} disabled={reloading}>
-                <i />
-                {reloading ? ' Updating...' : ' Update'}
+              <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={reloading}>
+                <i className={`fas ${reloading ? 'fa-spinner fa-spin' : 'fa-rotate'}`} aria-hidden="true" />
+                {reloading ? 'Updating…' : 'Update'}
               </button>
             </>
           )}
