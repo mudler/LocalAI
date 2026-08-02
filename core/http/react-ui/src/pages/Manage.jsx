@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
@@ -144,6 +144,9 @@ export default function Manage() {
   const [aliasTargets, setAliasTargets] = useState({})
   const [backends, setBackends] = useState([])
   const [backendsLoading, setBackendsLoading] = useState(true)
+  // See Models.jsx: a cold start has nothing to keep, a refetch does.
+  const modelsLoadedOnce = useRef(false)
+  const backendsLoadedOnce = useRef(false)
   const [reloading, setReloading] = useState(false)
   const [reinstallingBackends, setReinstallingBackends] = useState(new Set())
   const [upgrades, setUpgrades] = useState({})
@@ -250,6 +253,7 @@ export default function Manage() {
     } catch {
       setBackends([])
     } finally {
+      backendsLoadedOnce.current = true
       setBackendsLoading(false)
     }
   }, [])
@@ -501,6 +505,10 @@ export default function Manage() {
   }
 
   // Counts for the summary header — derived in-memory; no extra API calls.
+  useEffect(() => {
+    if (!modelsLoading) modelsLoadedOnce.current = true
+  }, [modelsLoading])
+
   const runningCount = models.filter(m =>
     !m.disabled && (loadedModelIds.has(m.id) || (Array.isArray(m.loaded_on) && m.loaded_on.length > 0))
   ).length
@@ -619,7 +627,7 @@ export default function Manage() {
           )}
         />
 
-        {modelsLoading ? (
+        {modelsLoading && !modelsLoadedOnce.current ? (
           <GalleryLoader />
         ) : models.length === 0 ? (
           <div className="empty-state empty-state--page">
@@ -657,6 +665,7 @@ export default function Manage() {
                 grouped={!modelsSearch.trim()}
                 collapsedGroups={collapsedGroups}
                 onToggleGroup={toggleGroup}
+                busy={modelsLoading}
                 selectedId={selectedId}
                 onSelect={selectEntity}
                 countLabel={`${visibleModels.length} of ${models.length}`}
@@ -819,7 +828,7 @@ export default function Manage() {
           </div>
         )}
 
-        {backendsLoading ? (
+        {backendsLoading && !backendsLoadedOnce.current ? (
           <GalleryLoader />
         ) : backends.length === 0 ? (
           <div className="empty-state empty-state--page">
@@ -966,6 +975,7 @@ export default function Manage() {
                   grouped={!backendsSearch.trim()}
                   collapsedGroups={collapsedGroups}
                   onToggleGroup={toggleGroup}
+                  busy={backendsLoading}
                   selectedId={selectedId}
                   onSelect={selectEntity}
                   countLabel={`${visibleBackends.length} of ${backends.length}`}

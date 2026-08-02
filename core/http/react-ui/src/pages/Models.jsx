@@ -18,10 +18,16 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { formatBytes } from '../utils/format'
-import { groupForEntity } from '../utils/entityGroups'
+import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 
+
+// The rail groups what it has, so it needs enough rows for the groups to mean
+// something. At nine a page rarely held more than one bucket, so turning one
+// rebuilt the rail's whole structure; at thirty the sections are stable enough
+// to read as structure rather than noise, and there are five times fewer pages.
+const RAIL_PAGE_SIZE = 30
 
 const CHART_HEIGHT = 96
 const CHART_LABEL_ROOM = 15
@@ -131,6 +137,9 @@ export default function Models() {
   const [backendUsecases, setBackendUsecases] = useState({})
   const [estimates, setEstimates] = useState({})
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
+  // True once any listing has come back. Distinguishes a cold start, which has
+  // nothing to keep on screen, from a refetch, which does.
+  const loadedOnce = useRef(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   // Variant descriptions, keyed by model name. The listing only tells us
   // whether an entry declares any; describing them costs the server a network
@@ -158,6 +167,8 @@ export default function Models() {
   // popover that states the current selection rather than spelling out
   // nineteen options nobody is reading.
   const [useCaseOpen, setUseCaseOpen] = useState(false)
+  // Rail groups the user has folded away.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   // Total GPU memory for "fits" check
   const totalGpuMemory = resources?.aggregate?.total_memory || 0
   // gpu_count is 0 and gpus is null on a CPU-only host, where total_memory is
@@ -175,7 +186,7 @@ export default function Models() {
       const collapseVal = params.collapseVariants !== undefined ? params.collapseVariants : collapseVariants
       const queryParams = {
         page: params.page || page,
-        items: 9,
+        items: RAIL_PAGE_SIZE,
       }
       // Omitted entirely when off rather than sent as false, so opting out asks
       // for exactly the listing every other API client gets.
@@ -205,6 +216,7 @@ export default function Models() {
     } catch (err) {
       addToast(t('errors.loadFailed', { message: err.message }), 'error')
     } finally {
+      loadedOnce.current = true
       setLoading(false)
     }
   }, [page, search, filters, sort, order, backendFilter, collapseVariants, addToast, t])
@@ -431,6 +443,15 @@ export default function Models() {
     ? visibleModels.find(m => (m.name || m.id) === selectedName) || null
     : null
 
+  const toggleGroup = useCallback((id) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
   const selectModel = useCallback((name) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -491,7 +512,7 @@ export default function Models() {
           This is what replaces the click-to-expand row, which existed only
           because variants, files and a VRAM estimate never fitted inside a
           <tr> in the first place. */}
-      {loading ? (
+      {loading && !loadedOnce.current ? (
         <GalleryLoader />
       ) : (
         <SplitView
@@ -623,8 +644,15 @@ export default function Models() {
                   </div>
                 </div>
               </div>
+              {/* Grouped while browsing, flat while searching: once a term is
+                  typed the buckets stand between the reader and the answer. */}
               <EntityRail
                 items={visibleModels.map(m => railItemFor(m, { estimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
+                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
+                grouped={!search.trim()}
+                collapsedGroups={collapsedGroups}
+                onToggleGroup={toggleGroup}
+                busy={loading}
                 selectedId={selectedName}
                 onSelect={selectModel}
                 countLabel={t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}

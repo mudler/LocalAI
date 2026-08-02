@@ -1044,7 +1044,11 @@ test.describe("Models Gallery - Collapsed Listing", () => {
       // narrowed bodies below.
       const isListing =
         url.pathname.endsWith("/api/models") &&
-        url.searchParams.get("items") === "9";
+        // Mirrors RAIL_PAGE_SIZE in Models.jsx. The rail groups what it has,
+        // so the page has to be big enough for the groups to mean something;
+        // this fixture only needs the number to tell the gallery's own listing
+        // apart from the recommended panel's.
+        url.searchParams.get("items") === "30";
       if (isListing) {
         listingUrls.push(url);
       }
@@ -1739,12 +1743,26 @@ test.describe("Models Gallery - Discover split view", () => {
     await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
   });
 
-  test("the rail is one flat list, whatever page you are on", async ({ page }) => {
-    // The reason grouping went: a bucket over nine server-paginated rows
-    // described the page rather than the catalog, so turning a page reshuffled
-    // the sections under the reader. The chips do this job over all of it.
+  test("the rail groups while browsing", async ({ page }) => {
     await expect(railItems(page).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="discover-rail-group-"]').first()).toBeVisible();
+  });
+
+  test("collapsing a group hides its entries and keeps the others", async ({ page }) => {
+    const group = page.locator('[data-testid^="discover-rail-group-"]').first();
+    const before = await railItems(page).count();
+    await group.click();
+    await expect(group).toHaveAttribute("aria-expanded", "false");
+    expect(await railItems(page).count()).toBeLessThan(before);
+  });
+
+  test("a query flattens the rail to results", async ({ page }) => {
+    // Once a term is typed the buckets stand between the reader and the answer,
+    // so they go. A rule rather than a toggle.
+    await expect(page.locator('[data-testid^="discover-rail-group-"]').first()).toBeVisible();
+    await page.locator(".filter-bar-group__search input").fill("llama");
     await expect(page.locator('[data-testid^="discover-rail-group-"]')).toHaveCount(0);
+    await expect(railItems(page).first()).toBeVisible();
   });
 
   test("the detail plots VRAM against what the host actually has", async ({

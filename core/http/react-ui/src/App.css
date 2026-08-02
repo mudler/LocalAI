@@ -12417,3 +12417,57 @@ button.collapsible-header:focus-visible {
   }
   .console-layout:has(.page--app) > .console-body { display: block; }
 }
+
+/* Refetching is not the same event as first load. A first load has nothing to
+   show, so it gets a skeleton; a refetch already has a list on screen and must
+   keep it, because the search box lives in this column and unmounting it drops
+   the field mid-keystroke along with the focus. */
+.entity-rail__progress {
+  height: 2px;
+  background: transparent;
+  overflow: hidden;
+  flex: none;
+}
+
+.entity-rail--busy .entity-rail__progress {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-primary) 40%,
+    var(--color-primary) 60%,
+    transparent 100%
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: entity-rail-sweep 1.1s var(--ease-default) infinite;
+}
+
+@keyframes entity-rail-sweep {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+/* The stale list recedes rather than disappearing, so the eye knows the answer
+   is being replaced without losing the place it was reading. */
+.entity-rail--busy .entity-rail__list {
+  opacity: 0.55;
+  transition: opacity var(--duration-normal) var(--ease-default);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-rail--busy .entity-rail__progress { animation: none; background-size: 100% 100%; }
+  .entity-rail--busy .entity-rail__list { transition: none; }
+}
+
+/* The first-load skeleton. It was six inline style declarations on a bare div,
+   which is also why nothing could reliably select it. */
+.gallery-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+  min-height: 280px;
+  gap: var(--spacing-lg);
+}

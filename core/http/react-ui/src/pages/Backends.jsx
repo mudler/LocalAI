@@ -20,7 +20,7 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { useResources } from '../hooks/useResources'
-import { groupForEntity } from '../utils/entityGroups'
+import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -44,6 +44,9 @@ export default function Backends() {
   // Which backend the pane is showing, or null for the host page. In the URL
   // for the same reasons as Discover: a backend is linkable, and Back leaves
   // the detail rather than the page.
+  // True once any listing has come back. Distinguishes a cold start, which has
+  // nothing to keep on screen, from a refetch, which does.
+  const loadedOnce = useRef(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [allBackends, setAllBackends] = useState([])
   const [upgrades, setUpgrades] = useState({})
@@ -79,6 +82,16 @@ export default function Backends() {
     ? (allBackends.find(b => (b.name || b.id) === selectedName) || null)
     : null
 
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
+  const toggleGroup = useCallback((id) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
   const targetNodeId = searchParams.get('target') || ''
   const targetNode = targetNodeId
     ? clusterNodes.find(n => n.id === targetNodeId) || null
@@ -110,6 +123,7 @@ export default function Backends() {
     } catch (err) {
       addToast(`Failed to load backends: ${err.message}`, 'error')
     } finally {
+      loadedOnce.current = true
       setLoading(false)
     }
   }, [search, sortBy, sortOrder, addToast])
@@ -161,7 +175,7 @@ export default function Backends() {
   })()
 
   // Client-side pagination
-  const ITEMS_PER_PAGE = 21
+  const ITEMS_PER_PAGE = 60
   const totalPages = Math.max(1, Math.ceil(filteredBackends.length / ITEMS_PER_PAGE))
   const backends = filteredBackends.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
@@ -418,7 +432,7 @@ export default function Backends() {
       {/* The gallery, as a rail and a pane. Same shell as Discover, because it
           is the same defect: a seven-column table whose expand-row was the
           only place the repository, licence, tags and links could go. */}
-      {loading ? (
+      {loading && !loadedOnce.current ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
       ) : (
         <SplitView
@@ -464,6 +478,11 @@ export default function Backends() {
             </div>
               <EntityRail
                 items={backends.map(b => railItemForBackend(b, { getBackendOp, upgrades }))}
+                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: BACKEND_GROUP_LABELS[g.id], icon: g.icon }))}
+                grouped={!search.trim()}
+                collapsedGroups={collapsedGroups}
+                onToggleGroup={toggleGroup}
+                busy={loading}
                 selectedId={selectedName}
                 onSelect={selectBackend}
                 countLabel={`${backends.length} of ${allBackends.length}`}
@@ -884,3 +903,12 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
   )
 }
 
+// Backends is not translated (6 t() calls in the whole page), so the shared
+// group ids get literal labels here rather than i18n keys.
+const BACKEND_GROUP_LABELS = {
+  text: 'Text and reasoning',
+  vision: 'Vision',
+  audio: 'Speech and audio',
+  visual: 'Image and video',
+  other: 'Everything else',
+}

@@ -44,7 +44,9 @@ test.describe('Discover - the view scrolls, not the page', () => {
     // Selecting something must not make the document taller, and must not
     // stretch the rail to match the pane.
     expect(await pageHeight()).toBe(beforePage)
-    expect(await railHeight()).toBe(beforeRail)
+    // Sub-pixel: layout can settle a fraction differently without the rail
+    // having grown. A pixel of tolerance keeps this about the bug it guards.
+    expect(Math.abs((await railHeight()) - beforeRail)).toBeLessThan(1)
 
     // The pane is the thing that scrolls.
     const paneOverflows = await page.evaluate(() => {

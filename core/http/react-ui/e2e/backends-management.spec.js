@@ -134,9 +134,9 @@ test.describe('Backends gallery - split view', () => {
   })
 
 
-  test('the rail is one flat list', async ({ page }) => {
-    // Same reason as Discover: the backend listing paginates too, so a bucket
-    // described 21 rows out of 1,012 and the chips filter the same axis.
+  test('the rail groups while browsing and flattens on a query', async ({ page }) => {
+    await expect(page.locator('[data-testid^="backends-rail-group-"]').first()).toBeVisible()
+    await page.locator('input[placeholder*="Search backends"]').fill('llama')
     await expect(page.locator('[data-testid^="backends-rail-group-"]')).toHaveCount(0)
   })
 

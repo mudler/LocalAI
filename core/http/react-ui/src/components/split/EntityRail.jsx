@@ -30,6 +30,7 @@ export default function EntityRail({
   actions = null,
   ariaLabel,
   testId = 'entity-rail',
+  busy = false,
 }) {
   const railRef = useRef(null)
 
@@ -84,11 +85,15 @@ export default function EntityRail({
   const useGroups = grouped && Array.isArray(groups) && groups.length > 0
 
   return (
-    <div className="entity-rail">
+    <div className={`entity-rail${busy ? ' entity-rail--busy' : ''}`}>
       <div className="entity-rail__head">
         <span className="entity-rail__count">{countLabel}</span>
         {actions}
       </div>
+      {/* A refetch dims and bars the list it is replacing rather than
+          unmounting the view. Unmounting took the search box with it, so the
+          field you were typing into vanished and focus went to the body. */}
+      <div className="entity-rail__progress" aria-hidden={!busy} />
 
       {/* Not role="listbox". A listbox may only contain options and groups, and
           the collapse control for each group is a button that has to live
@@ -99,6 +104,7 @@ export default function EntityRail({
         className="entity-rail__list"
         role="group"
         aria-label={ariaLabel}
+        aria-busy={busy || undefined}
         ref={railRef}
         onKeyDown={onKeyDown}
       >
