@@ -10,7 +10,9 @@
     "installStarted": "Installazione di {{model}}…",
     "installFailed": "Installazione non riuscita: {{message}}",
     "dismiss": "Nascondi i consigli",
-    "summary": "{{n}} modelli suggeriti"
+    "summary": "{{n}} modelli suggeriti",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Disponibili",

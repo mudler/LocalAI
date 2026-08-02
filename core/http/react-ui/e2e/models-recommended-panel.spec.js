@@ -141,11 +141,23 @@ test.describe("Models gallery - recommended panel prominence", () => {
     });
     await gotoModels(page);
 
-    const card = grid(page).locator(".rec-models-item", { hasText: "tiny-chat" });
-    await expect(card).toBeVisible();
-    await expect(card.getByText("512.0 MB")).toBeVisible();
-    await card.getByRole("button", { name: "Install" }).click();
+    // Ranked candidates read in fit order, so these are lanes now rather than
+    // a grid of equal cards.
+    const row = grid(page).locator(".lane", { hasText: "tiny-chat" });
+    await expect(row).toBeVisible();
+    await expect(row.getByText("512.0 MB")).toBeVisible();
+    await row.getByRole("button", { name: "Install" }).click();
 
     await expect.poll(() => installed).toBe("tiny-chat");
+  });
+
+  test("the best fit is called out, the rest are alternatives", async ({ page }) => {
+    await mockGallery(page, 0);
+    await gotoModels(page);
+    const rows = grid(page).locator(".lane");
+    await expect(rows.first().locator(".lane__tag--evidence")).toHaveText("Best fit");
+    // One opinion per page: the others are alternatives, not runners-up worth
+    // their own colour.
+    await expect(grid(page).locator(".lane__tag--evidence")).toHaveCount(1);
   });
 });

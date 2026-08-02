@@ -11,7 +11,9 @@
     "installStarted": "Installing {{model}}…",
     "installFailed": "Install failed: {{message}}",
     "dismiss": "Dismiss recommendations",
-    "summary": "{{n}} models suggested"
+    "summary": "{{n}} models suggested",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Available",

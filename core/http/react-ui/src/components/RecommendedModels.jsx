@@ -109,19 +109,27 @@ export default function RecommendedModels({ addToast, installedCount = null }) {
           <i className="fas fa-times" aria-hidden="true" />
         </button>
       </div>
-      <div className="rec-models-grid" id={CONTENT_ID} hidden={collapsed}>
-        {recommended.map(m => {
+      {/* Lanes, not tiles. These are ranked candidates read in order — the list
+          is already sorted by fit — and a grid of equal cards throws that order
+          away. The leader is called out in amber because it is the one opinion
+          the page is offering; the rest are alternatives, not runners-up worth
+          their own colour. */}
+      <ul className="lanes lanes--recommended" id={CONTENT_ID} hidden={collapsed}>
+        {recommended.map((m, i) => {
           const busy = installing.has(m.name)
           return (
-            <div key={m.name} className="rec-models-item">
-              <div className="rec-models-item-name">{m.name}</div>
-              <div className="rec-models-item-meta">
+            <li key={m.name} className="lane">
+              <span className={`lane__tag${i === 0 ? ' lane__tag--evidence' : ''}`}>
+                {i === 0 ? t('recommended.bestFit') : t('recommended.alternative')}
+              </span>
+              <span className="lane__name lane__name--id">{m.name}</span>
+              <span className="lane__num">
                 {isNvfp4Name(m.name) && <span className="badge badge-info">NVFP4</span>}
-                {m.sizeDisplay && <span>{m.sizeDisplay}</span>}
-                {isGpu && m.vramDisplay && (
-                  <span className="rec-models-item-fit"><i className="fas fa-microchip" aria-hidden="true" /> {m.vramDisplay}</span>
-                )}
-              </div>
+                {m.sizeDisplay}
+              </span>
+              <span className="lane__num">
+                {isGpu && m.vramDisplay ? m.vramDisplay : ''}
+              </span>
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -132,10 +140,10 @@ export default function RecommendedModels({ addToast, installedCount = null }) {
                   ? (<><i className="fas fa-spinner fa-spin" aria-hidden="true" /> {t('recommended.installing')}</>)
                   : (<><i className="fas fa-download" aria-hidden="true" /> {t('recommended.install')}</>)}
               </button>
-            </div>
+            </li>
           )
         })}
-      </div>
+      </ul>
     </div>
   )
 }

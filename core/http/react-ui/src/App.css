@@ -12888,6 +12888,19 @@ button.lane:hover {
   white-space: nowrap;
 }
 
+/* Recommended models: ranked candidates, so lanes in fit order rather than a
+   grid of equal cards. The leader carries the one amber label on the page. */
+.lanes--recommended .lane {
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) minmax(0, 7rem) minmax(0, 6rem) auto;
+}
+
+.lane__tag--evidence { color: var(--color-warning); }
+
+@media (max-width: 720px) {
+  .lanes--recommended .lane { grid-template-columns: minmax(0, 1fr) auto; }
+  .lanes--recommended .lane__num { display: none; }
+}
+
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no
    fill, just a dimmer tabular figure a scanning eye can ignore. The
