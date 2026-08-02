@@ -118,5 +118,8 @@
     "newChat": "Obrolan baru",
     "clearAll": "Hapus semua",
     "deleteAllTitle": "Hapus semua percakapan"
+  },
+  "message": {
+    "you": "You"
   }
 }

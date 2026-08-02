@@ -3377,14 +3377,22 @@ button.collapsible-header:focus-visible {
 .chat-message {
   display: flex;
   gap: var(--spacing-sm);
-  max-width: 88%;
+  align-self: stretch;
+  max-width: 100%;
   min-width: 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-divider);
   animation: messageSlideIn 250ms ease-out;
 }
 
+/* A transcript, not bubbles. Rounded filled asymmetric bubbles fight a system
+   built on hairlines, and they carry the speaker in shape and side rather than
+   in words — which is exactly what a mono role label does better, and what
+   survives being read aloud or printed. Both roles now run full width down one
+   column, separated by a rule. */
 .chat-message-user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
+  align-self: stretch;
+  flex-direction: row;
 }
 
 .chat-message-assistant {
@@ -3407,11 +3415,9 @@ button.collapsible-header:focus-visible {
   color: var(--color-primary-text);
 }
 
-/* Assistant gets the left-border accent on the bubble; the avatar is
-   visual noise once that accent is in place. */
-.chat-message-assistant .chat-message-avatar {
-  display: none;
-}
+/* The left-edge accent plus the role label carry the speaker, so the avatar is
+   noise for both roles now that neither side has a bubble. */
+.chat-message-avatar { display: none; }
 
 .chat-message-bubble {
   display: flex;
@@ -3442,13 +3448,16 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-primary);
 }
 
+/* Same treatment as the assistant, in the action tone so the two are still
+   told apart at a glance without a fill or a corner radius. */
 .chat-message-user .chat-message-content {
-  background: var(--color-primary-light);
+  background: transparent;
   color: var(--color-text-primary);
-  border: 1px solid var(--color-primary-border);
-  border-radius: 16px 4px 16px 16px;
-  padding: var(--spacing-sm) var(--spacing-md);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: none;
+  border-left: 2px solid var(--color-primary);
+  border-radius: 0;
+  padding: 0 var(--spacing-md);
+  box-shadow: none;
 }
 
 .chat-message-content pre {

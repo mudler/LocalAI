@@ -118,5 +118,8 @@
     "newChat": "新对话",
     "clearAll": "清除全部",
     "deleteAllTitle": "删除所有对话"
+  },
+  "message": {
+    "you": "You"
   }
 }

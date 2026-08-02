@@ -124,5 +124,8 @@
     "newChat": "New chat",
     "clearAll": "Clear all",
     "deleteAllTitle": "Delete all conversations"
+  },
+  "message": {
+    "you": "You"
   }
 }

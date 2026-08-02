@@ -118,5 +118,8 @@
     "newChat": "새 채팅",
     "clearAll": "모두 지우기",
     "deleteAllTitle": "모든 대화 삭제"
+  },
+  "message": {
+    "you": "You"
   }
 }
