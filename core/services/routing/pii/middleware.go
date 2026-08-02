@@ -194,7 +194,16 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 
 			texts := adapter.Scan(parsed)
 			updates := make([]ScannedText, 0, len(texts))
-			pseudonyms := newPseudonymizer()
+			prefix, suffix := defaultReversibleTokenPrefix, defaultReversibleTokenSuffix
+			if cfg, ok := rawCfg.(responsePIIConfig); ok {
+				if cfg.PIIReversibleTokenPrefix() != "" {
+					prefix = cfg.PIIReversibleTokenPrefix()
+				}
+				if cfg.PIIReversibleTokenSuffix() != "" {
+					suffix = cfg.PIIReversibleTokenSuffix()
+				}
+			}
+			pseudonyms := newPseudonymizer(prefix, suffix)
 			var blocked bool
 			var firstEventID string
 
@@ -261,7 +270,7 @@ func RequestMiddleware(redactor *Redactor, store EventStore, adapter Adapter, fa
 					blocked = true
 				}
 				redacted := res.Redacted
-				if cfg, ok := rawCfg.(responsePIIConfig); ok && cfg.PIIReverseInResponse() {
+				if cfg, ok := rawCfg.(responsePIIConfig); ok && cfg.PIIReversibleRedactions() {
 					redacted = pseudonyms.replace(st.Text, res.Spans)
 				}
 				updates = append(updates, ScannedText{Index: st.Index, Text: redacted})

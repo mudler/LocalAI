@@ -441,12 +441,16 @@ type PIIConfig struct {
 	// their hits; overlapping spans resolve to the strongest action.
 	Detectors []string `yaml:"detectors,omitempty" json:"detectors,omitempty"`
 
-	// ReverseInResponse replaces request PII with stable, request-scoped
-	// pseudonyms and restores those values when they appear in the response.
-	ReverseInResponse bool `yaml:"reverse_in_response,omitempty" json:"reverse_in_response,omitempty"`
+	// ReversibleRedactions replaces request PII with stable, request-scoped
+	// tokens and restores those values when the wrapped tokens appear in the response.
+	ReversibleRedactions  bool   `yaml:"reversible_redactions,omitempty" json:"reversible_redactions,omitempty"`
+	ReversibleTokenPrefix string `yaml:"reversible_token_prefix,omitempty" json:"reversible_token_prefix,omitempty"`
+	ReversibleTokenSuffix string `yaml:"reversible_token_suffix,omitempty" json:"reversible_token_suffix,omitempty"`
 }
 
-func (c ModelConfig) PIIReverseInResponse() bool { return c.PII.ReverseInResponse }
+func (c ModelConfig) PIIReversibleRedactions() bool    { return c.PII.ReversibleRedactions }
+func (c ModelConfig) PIIReversibleTokenPrefix() string { return c.PII.ReversibleTokenPrefix }
+func (c ModelConfig) PIIReversibleTokenSuffix() string { return c.PII.ReversibleTokenSuffix }
 
 // @Description Detection policy for a token-classification (NER) model
 // used as a PII detector. Lives on the detector model's own config so the

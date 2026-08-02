@@ -9,20 +9,31 @@ import (
 )
 
 type responsePIIConfig interface {
-	PIIReverseInResponse() bool
+	PIIReversibleRedactions() bool
+	PIIReversibleTokenPrefix() string
+	PIIReversibleTokenSuffix() string
 }
+
+const (
+	defaultReversibleTokenPrefix = "[REDACTED:"
+	defaultReversibleTokenSuffix = "]"
+)
 
 type pseudonymizer struct {
 	byValue  map[string]string
 	original map[string]string
 	counts   map[string]int
+	prefix   string
+	suffix   string
 }
 
-func newPseudonymizer() *pseudonymizer {
+func newPseudonymizer(prefix, suffix string) *pseudonymizer {
 	return &pseudonymizer{
 		byValue:  map[string]string{},
 		original: map[string]string{},
 		counts:   map[string]int{},
+		prefix:   prefix,
+		suffix:   suffix,
 	}
 }
 
@@ -39,7 +50,7 @@ func (p *pseudonymizer) replace(text string, spans []Span) string {
 		if !ok {
 			group := pseudonymGroup(span.Pattern)
 			p.counts[group]++
-			token = fmt.Sprintf("%s_%03d", group, p.counts[group])
+			token = fmt.Sprintf("%s%s_%03d%s", p.prefix, group, p.counts[group], p.suffix)
 			p.byValue[value] = token
 			p.original[token] = value
 		}
