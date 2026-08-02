@@ -1,14 +1,14 @@
 ---
 title: "What landed in LocalAI 4.8"
-date: 2026-07-28
+date: 2026-08-01
 author: "Ettore Di Giacinto"
 category: "Release"
-tags: ["release", "vllm.cpp", "gallery", "distributed", "performance"]
-summary: "The web interface got 3.48x lighter, gallery entries now install the build your hardware can actually run, and there is a new inference engine in the box. 214 pull requests in thirteen days."
+tags: ["release", "vllm.cpp", "audio.cpp", "3d", "gallery", "distributed", "performance"]
+summary: "A new inference engine, 3D generation, one backend that serves six audio endpoints, and a web interface 3.48x lighter. 321 pull requests in eighteen days."
 extracss: ["blog.css"]
 ---
 
-LocalAI 4.8.0 is out. It took thirteen days and 214 merged pull requests, and the changes you will notice first are the boring ones: the web interface loads faster, model installs stop asking you to pick a quantization, and a cluster no longer reports models as loaded when they are gone.
+LocalAI 4.8.0 is out. It took eighteen days and 321 merged pull requests, and it pulls in two directions at once: three new things LocalAI can do that it could not do before, and a long list of places where it now does the old things without lying to you.
 
 The full notes list everything. This post covers the parts that change what you do day to day, with the pull request numbers so you can read the diffs.
 
@@ -77,6 +77,67 @@ The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with th
 
 > The GPU images build and ship, but their runtime behavior has not been through the same e2e gate yet. This is a first release of a young engine: no throughput comparison against upstream vLLM is claimed here, and `llama-cpp` remains the default recommendation for general use. Try it, and please report what breaks.
 
+<figure>
+<video src="/media/vllm-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="vllm.cpp generating tokens"></video>
+<figcaption>vllm.cpp serving a GGUF checkpoint with no Python in the process.</figcaption>
+</figure>
+
+## LocalAI generates 3D models now
+
+This is a new modality rather than a new backend under an existing one, so it goes through the whole stack: a `Generate3D` RPC in `backend.proto`, a `FLAG_3D` capability so the loader knows which backends can serve it, and `POST /v1/3d/generations`.
+
+The first engine behind it is `trellis2cpp`, an image-to-3D backend over TRELLIS.2. You give it an image, you get a GLB back. The web UI has a page for it with a native GLB viewer, so you can turn the result around in the browser instead of downloading it to find out whether it worked, history kept in IndexedDB so a reload does not lose your generations, and previewable print remeshing for output you actually intend to send to a printer ([#10979](https://github.com/mudler/LocalAI/pull/10979)).
+
+<figure>
+<video src="/media/3d-generation.mp4" muted loop playsinline preload="none" data-lazy aria-label="A generated 3D llama rotating in the LocalAI GLB viewer"></video>
+<figcaption>trellis2-4b, 2,502,928 vertices and 5,012,118 triangles, turning in the browser. The remesh slider below it is the print path.</figcaption>
+</figure>
+
+## One backend, six audio endpoints
+
+The usual shape for audio is one backend per model family, which means a process per capability and a config file for each. `audio-cpp` wraps [audio.cpp](https://github.com/0xShug0/audio.cpp), a multi-family ggml audio engine, and inverts that: one backend process serves several unrelated families through a single runtime vocabulary, and works out which family a checkpoint belongs to from the GGUF's own `audiocpp.model_spec.family` metadata key. There is nothing backend-specific to write in the model config.
+
+<div class="tw">
+<table>
+<thead><tr><th>Endpoint</th><th>Families</th></tr></thead>
+<tbody>
+<tr><td><code>/v1/audio/speech</code></td><td>supertonic, chatterbox (voice cloning), irodori-voicedesign</td></tr>
+<tr><td><code>/v1/audio/transcriptions</code></td><td>citrinet, nemotron, forced-aligner</td></tr>
+<tr><td><code>/v1/audio/vad</code></td><td>silero-vad, marblenet-vad</td></tr>
+<tr><td><code>/v1/audio/diarize</code></td><td>sortformer</td></tr>
+<tr><td><code>/audio/transform</code></td><td>htdemucs (4-stem separation), voice conversion, speech to speech</td></tr>
+<tr><td><code>/v1/sound-generation</code></td><td>stable-audio-sfx</td></tr>
+</tbody>
+</table>
+</div>
+
+Thirteen gallery entries ship with it, one per task kind the engine can actually serve. Where it cannot honestly back an RPC it returns `UNIMPLEMENTED` with a reason rather than an empty success, and a failed load is a gRPC error rather than `success: false`, which matters because the loader's greedy backend probe would otherwise pick it for a model it cannot serve.
+
+Two changes reach past the backend itself. `AudioTransformResult` gained a `stems` field, so source separation can return the whole stem set instead of one mixdown. And `/audio/transform` no longer folds every upload to 16 kHz mono: that fold made 4-stem separation unreachable by construction, so it became a per-backend capability, with the existing backends keeping it explicitly and the default for an unregistered backend being to leave the upload alone ([#11141](https://github.com/mudler/LocalAI/pull/11141)).
+
+## Three new backends for speech and small quants
+
+`magpie-tts-cpp` wraps [magpie-tts.cpp](https://github.com/mudler/magpie-tts.cpp), a C++17 and ggml port of NVIDIA Magpie TTS Multilingual 357M with the NanoCodec vocoder embedded. Five voices, nine or more languages, 22.05 kHz mono, out of one self-contained GGUF. The upstream engine is parity-gated against NeMo per component, with a teacher-forced replay maximum absolute difference of 3.6e-5.
+
+`moss-tts-cpp` wraps [moss-tts.cpp](https://github.com/mudler/moss-tts.cpp) and serves MOSS-TTS-Local v1.5 at 48 kHz stereo, with optional reference-audio voice cloning. Images cover CPU, CUDA 12 and 13, Intel SYCL, Vulkan, ROCm, L4T and Darwin Metal. Both landed in [#11115](https://github.com/mudler/LocalAI/pull/11115), [#10860](https://github.com/mudler/LocalAI/pull/10860) and [#10877](https://github.com/mudler/LocalAI/pull/10877).
+
+<figure>
+<video src="/media/magpie.mp4" muted loop playsinline preload="none" data-lazy aria-label="magpie-tts-cpp synthesising multilingual speech"></video>
+<figcaption>magpie-tts-cpp, five voices and nine languages out of a single GGUF.</figcaption>
+</figure>
+
+The `bonsai` backend serves the 1-bit (Q1_0) and ternary (Q2_0) Bonsai quantizations of Qwen3 8B and Qwen3.6-27B, from about 1.15 GB. Stock llama.cpp has no kernels for those formats, so the backend builds against the PrismML fork through a wrapper Makefile that swaps only `LLAMA_REPO` and `LLAMA_VERSION`, reusing the same `grpc-server.cpp` with zero skew patches. Eight gallery entries ship with it. If Q1_0 and Q2_0 reach mainline llama.cpp, this backend retires into a routine version bump ([#10834](https://github.com/mudler/LocalAI/pull/10834), [#10866](https://github.com/mudler/LocalAI/pull/10866)).
+
+## The operations bar became a page
+
+The old operations bar rendered one row per in-flight operation above every page. Queue four model installs and a backend and it took most of the viewport, on every route, until the last one finished. Two things were conflated there: a global "something is happening" signal, which needs one line, and the detail of what is happening, which needs somewhere to put it.
+
+The strip is now one line, permanently, showing a failure first and otherwise the least-advanced running operation, with a `+N more` pill. Its `✕` hides the strip and no longer cancels anything. That is a deliberate behavior change worth knowing about before you click it out of habit: the same glyph used to cancel a 17 GB download in one row and dismiss a message in the next. Cancelling moved to the new page, behind a button that says so.
+
+The Activity page at `/app/activity` is admin only and carries what the strip has to drop: phase, bytes, a derived time remaining, and a per-node breakdown for cluster installs. It also keeps a record. `/api/operations` dropped an operation the moment it succeeded, so if you started a large install and walked away there was no way to find out afterwards whether it finished, failed, or never started. That record is a bounded 50-entry ring, and dismissing a failure moves it into the record instead of deleting it.
+
+Several long-standing UI bugs fell out of the rewrite: retrying a failed removal re-downloaded the model, queued operations rendered as "Installing" with a spinner, a long error message pushed every page about 270px past the viewport and gave the whole app a horizontal scrollbar, and the ETA blanked for every operation whenever any one of them was verifying ([#11163](https://github.com/mudler/LocalAI/pull/11163)).
+
 ## VRAM budgets, per node
 
 You can now cap how much of a card LocalAI is allowed to use, as a percentage or an absolute amount ([#10833](https://github.com/mudler/LocalAI/pull/10833)):
@@ -87,14 +148,6 @@ LOCALAI_VRAM_BUDGET=12GB
 ```
 
 Everywhere LocalAI reads VRAM to make an allocation decision it now uses `min(detected, budget)`. Percentages above 100 are rejected and absolute values above physical are clamped, so the ceiling can only ever lower usable VRAM. Standalone it is a hard per-process cap that hardware defaults, context auto-fit, GGUF warnings and the watchdog all inherit. Distributed it is a placement ceiling: the worker reports raw VRAM plus its budget string, the node registry resolves it to a byte ceiling on registration and heartbeat, and the SQL scheduler needed no query change. Admin overrides through `PUT` and `DELETE /api/nodes/:id/vram-budget` survive worker restarts, and the same thing is available as the `set_node_vram_budget` MCP tool. Unset means all detected VRAM, so existing deployments do not change.
-
-## Three new backends for speech and small quants
-
-`magpie-tts-cpp` wraps [magpie-tts.cpp](https://github.com/mudler/magpie-tts.cpp), a C++17 and ggml port of NVIDIA Magpie TTS Multilingual 357M with the NanoCodec vocoder embedded. Five voices, nine or more languages, 22.05 kHz mono, out of one self-contained GGUF. The upstream engine is parity-gated against NeMo per component, with a teacher-forced replay maximum absolute difference of 3.6e-5.
-
-`moss-tts-cpp` wraps [moss-tts.cpp](https://github.com/mudler/moss-tts.cpp) and serves MOSS-TTS-Local v1.5 at 48 kHz stereo, with optional reference-audio voice cloning. Images cover CPU, CUDA 12 and 13, Intel SYCL, Vulkan, ROCm, L4T and Darwin Metal. Both landed in [#11115](https://github.com/mudler/LocalAI/pull/11115), [#10860](https://github.com/mudler/LocalAI/pull/10860) and [#10877](https://github.com/mudler/LocalAI/pull/10877).
-
-The `bonsai` backend serves the 1-bit (Q1_0) and ternary (Q2_0) Bonsai quantizations of Qwen3 8B and Qwen3.6-27B, from about 1.15 GB. Stock llama.cpp has no kernels for those formats, so the backend builds against the PrismML fork through a wrapper Makefile that swaps only `LLAMA_REPO` and `LLAMA_VERSION`, reusing the same `grpc-server.cpp` with zero skew patches. Eight gallery entries ship with it. If Q1_0 and Q2_0 reach mainline llama.cpp, this backend retires into a routine version bump ([#10834](https://github.com/mudler/LocalAI/pull/10834), [#10866](https://github.com/mudler/LocalAI/pull/10866)).
 
 ## Distributed mode stops reaping live backends
 
@@ -110,7 +163,9 @@ Alongside those, `in_flight` counters no longer leak high and pin a replica's VR
 
 `POST /api/fine-tuning/jobs` accepted `reward_functions[].code`, an inline Python body that ran against a hand-rolled builtin allowlist. That allowlist was not a security boundary. Standard CPython introspection reaches the real `os` module from inside it, which is arbitrary code execution on the host, and the execution happened during a smoke test at job start on an endpoint that is unauthenticated by default.
 
-Inline reward code is now refused unless the operator sets `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend. Builtin reward functions are unaffected and need no configuration. The documentation no longer describes the allowlist as a sandbox ([#11068](https://github.com/mudler/LocalAI/pull/11068)). This release also picks up hono 4.12.25 for CVE-2026-54290 ([#11023](https://github.com/mudler/LocalAI/pull/11023)).
+Inline reward code is now refused unless the operator sets `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend. Builtin reward functions are unaffected and need no configuration. The documentation no longer describes the allowlist as a sandbox ([#11068](https://github.com/mudler/LocalAI/pull/11068)).
+
+Two more hardening fixes landed in the same cycle. Tar hardlinks that escape the extraction root are now rejected: the archive extractor pre-scanned members and rejected symlinks, but a tar hardlink entry carries a regular file mode and passed that check, and `Header.Linkname` was never validated, so an archive could link to a path outside the destination ([#11266](https://github.com/mudler/LocalAI/pull/11266)). And a cyclic `$ref` in a JSON-schema grammar is now rejected rather than recursing into a stack overflow ([#11041](https://github.com/mudler/LocalAI/pull/11041)). This release also picks up hono 4.12.25 for CVE-2026-54290 ([#11023](https://github.com/mudler/LocalAI/pull/11023)).
 
 ## The rest, briefly
 
@@ -120,6 +175,10 @@ The traces panel gained a sortable User column, plus client IP and user agent in
 
 Documentation got an onboarding overhaul driven by a per-page audit: one model, `qwen3-4b`, now carries through install, the web UI and a curl call; there is a new walkthrough for building your first agent; and a new runtime-errors reference is keyed on the literal error strings users actually see.
 
-Fifteen people contributed to this release, five of them for the first time. The gallery went from 1,221 entries to 1,476.
+Valkey Search joins the vector store options as the `valkey-store` backend ([#11196](https://github.com/mudler/LocalAI/pull/11196)). `local-ai` can be started on demand through systemd socket activation, taking a listener it inherits rather than binding one, with ordinary `--address` behavior unchanged when no activation listener is present ([#11169](https://github.com/mudler/LocalAI/pull/11169)). Trace history now survives a restart, stored as bounded per-record JSON under the data path with no database dependency ([#11203](https://github.com/mudler/LocalAI/pull/11203)). You can edit saved chat messages in place without triggering a new inference request ([#11189](https://github.com/mudler/LocalAI/pull/11189)). And the Intel SYCL llama.cpp backend is now self-contained, so it runs without a matching oneAPI runtime on the host ([#10991](https://github.com/mudler/LocalAI/pull/10991)).
 
-To upgrade, pull `localai/localai:latest` or re-run the install script. The [full changelog](https://github.com/mudler/LocalAI/compare/v4.7.1...v4.8.0) has the other 180 pull requests.
+This is also the release where localai.io split in two: the project site at the root, and the documentation under `/docs/`. Every URL that was published before still resolves, through 214 generated redirect stubs, because GitHub Pages has no server-side rewrites to do it properly ([#11243](https://github.com/mudler/LocalAI/pull/11243)).
+
+Twenty-four people contributed to this release, eleven of them for the first time. The gallery went from 1,221 entries to 1,505.
+
+To upgrade, pull `localai/localai:latest` or re-run the install script. The [full changelog](https://github.com/mudler/LocalAI/compare/v4.7.1...v4.8.0) has everything this post left out.

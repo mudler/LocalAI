@@ -99,7 +99,10 @@
 .bp-body hr{margin:2.8rem 0;border:0;border-top:1px solid var(--line2)}
 
 .bp-body figure{margin:2.2rem 0}
-.bp-body figure img{width:100%;border:1px solid var(--line);border-radius:11px;background:var(--deep)}
+/* video matches img: release posts embed the same demo clips the home page
+   and engines pages play, so they have to sit in the same card */
+.bp-body figure img,
+.bp-body figure video{width:100%;border:1px solid var(--line);border-radius:11px;background:var(--deep)}
 .bp-body figcaption{margin-top:.7rem;font-family:'Geist Mono',monospace;font-size:.64rem;
   line-height:1.6;color:var(--faint)}
 

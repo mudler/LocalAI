@@ -12,13 +12,7 @@ categories = ["Features"]
 
 LocalAI now supports the **Model Context Protocol (MCP)**, enabling powerful agentic capabilities by connecting AI models to external tools and services. This feature allows your LocalAI models to interact with various MCP servers, providing access to real-time data, APIs, and specialized tools.
 
-{{% notice info %}}
-**Looking for something else?** LocalAI has three related agentic features that are easy to confuse:
-
-- **MCP** (this page): a way to give a model external tools through the Model Context Protocol.
-- **Agents** ({{% relref "features/agents" %}}): autonomous agents you build that reason, use tools, and act on their own.
-- **LocalAI Assistant** ({{% relref "features/localai-assistant" %}}): an admin chat modality for administering LocalAI itself (install models, manage backends) by chatting.
-{{% /notice %}}
+{{< agentic-routing current="mcp" >}}
 
 ## What is MCP?
 
