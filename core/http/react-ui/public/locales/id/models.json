@@ -11,7 +11,9 @@
     "installStarted": "Menginstal {{model}}…",
     "installFailed": "Instalasi gagal: {{message}}",
     "dismiss": "Tutup rekomendasi",
-    "summary": "{{n}} model disarankan"
+    "summary": "{{n}} model disarankan",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Tersedia",

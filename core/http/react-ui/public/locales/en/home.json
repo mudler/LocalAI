@@ -106,5 +106,14 @@
     "browse": "Browse the API",
     "hide": "Hide endpoints",
     "dismiss": "Dismiss"
+  },
+  "jump": {
+    "heading": "Jump back in",
+    "discover": "Discover",
+    "discoverSummary": "Browse the gallery and install models",
+    "create": "Create",
+    "createSummary": "Open a chat, image or voice session",
+    "operate": "Operate",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces"
   }
 }

@@ -148,11 +148,25 @@ test.describe('Operate overview headline', () => {
     expect(listCalls).toBe(0)
   })
 
-  test('an installation that has served nothing says so instead of showing zeroes', async ({ page }) => {
+  test('a quiet installation keeps the grid and says why it is empty', async ({ page }) => {
+    // Hiding the grid removed the page's structure exactly when someone was
+    // most likely to be looking at it, and "0 failed" is information.
     await page.route('**/api/traces/summary', route =>
       route.fulfill({ json: { total: 0, errors: 0, p95_ms: 0, window_hours: 24, buckets: [] } }))
     await mockQuiet(page)
     await page.goto('/app/operate')
-    await expect(page.locator('.operate-headline')).toHaveCount(0)
+    await expect(page.locator('.operate-headline')).toBeVisible()
+    await expect(page.locator('.operate-headline__cell')).toHaveCount(4)
+    await expect(page.locator('.operate-headline__note')).toBeVisible()
+  })
+
+  test('the sections state counts rather than listing their destinations', async ({ page }) => {
+    await page.route('**/api/traces/summary', route =>
+      route.fulfill({ json: { total: 18402, errors: 37, p95_ms: 842, window_hours: 24, buckets: [] } }))
+    await mockQuiet(page)
+    await page.goto('/app/operate')
+    const runtime = page.locator('.lanes--sections .lane').first()
+    await expect(runtime).toContainText('backends')
+    await expect(runtime).toContainText('running')
   })
 })

@@ -38,31 +38,64 @@ test.describe('Operate console on a narrow screen', () => {
   })
 })
 
-test.describe('Dashboard stat cards', () => {
-  // Two components both claimed `.stat-grid`: the dashboard card strip and the
-  // detail-pane StatGrid added with the split views. The later rule won, so the
-  // cards were laid out on 120px columns with a 1px gap meant for something
-  // else, and their labels were clipped.
+test.describe('Headline figures', () => {
+  // Host used shadowed StatCards; it now shares the Operate overview's hairline
+  // figure strip, so the guard is that its labels stay legible, not that it
+  // keeps a card gap.
   for (const width of [768, 1024]) {
-    test(`labels are not clipped at ${width}px`, async ({ page }) => {
+    test(`Host figure labels are not clipped at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 1000 })
       await page.goto('/app/manage')
-      const labels = page.locator('.stat-card__label')
+      const labels = page.locator('.stat-strip__label')
       await expect(labels.first()).toBeVisible()
-
       const clipped = await labels.evaluateAll(els =>
         els.filter(el => el.scrollWidth > el.clientWidth + 1).map(el => el.textContent))
       expect(clipped).toEqual([])
     })
   }
 
-  test('cards keep the card gap, not the hairline gap of the detail pane grid', async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 1000 })
+  test('a Host figure routes into the thing it counts', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 })
+    await page.goto('/app/manage')
+    const cell = page.locator('.stat-strip__cell').first()
+    await expect(cell).toBeVisible()
+    // A count is worth more when it is also the way to what it counted.
+    await expect(cell).toHaveJSProperty('tagName', 'BUTTON')
+  })
+
+  test('the figure strip keeps its height inside the flex column', async ({ page }) => {
+    // .page--app is a flex column whose split view takes flex:1, so a child
+    // with no intrinsic minimum gets shrunk to nothing. This strip did exactly
+    // that and rendered 2px tall with four invisible cells.
+    await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/app/manage')
     const strip = page.locator('.manage-summary')
     await expect(strip).toBeVisible()
-    const gap = await strip.evaluate(el => parseFloat(getComputedStyle(el).columnGap))
-    // 1px is the detail-pane StatGrid's hairline; the card strip wants real space.
-    expect(gap).toBeGreaterThan(4)
+    const h = await strip.evaluate(el => el.getBoundingClientRect().height)
+    expect(h).toBeGreaterThan(40)
+  })
+})
+
+test.describe('Headline figure contrast', () => {
+  test('every figure is legible against the cell it sits on', async ({ page }) => {
+    // A <button> does not inherit colour, so a value with no tone rule fell
+    // back to the UA's `buttontext` — pure black on the dark ground, invisible.
+    await page.setViewportSize({ width: 1440, height: 950 })
+    await page.goto('/app/manage')
+    const bad = await page.locator('.stat-strip__value').evaluateAll(els => els
+      .map(el => ({ text: el.textContent, color: getComputedStyle(el).color }))
+      .filter(v => v.color === 'rgb(0, 0, 0)'))
+    expect(bad).toEqual([])
+  })
+
+  test('the strip keeps its top margin against the shared shorthand', async ({ page }) => {
+    // `.stat-strip` declares `margin: 0 0 ...` later in the file, which was
+    // silently resetting this element's top margin and leaving it flush
+    // against the resources panel above it.
+    await page.setViewportSize({ width: 1440, height: 950 })
+    await page.goto('/app/manage')
+    const top = await page.locator('.manage-summary')
+      .evaluate(el => parseFloat(getComputedStyle(el).marginTop))
+    expect(top).toBeGreaterThan(12)
   })
 })

@@ -455,6 +455,36 @@ export default function Home() {
             </a>
           </div>
 
+          {/* Jump back in. The quick-links row above is a set of first-run
+              actions; these are the three places someone returns to, stated
+              with what they currently hold rather than as bare labels. */}
+          <section className="home-jump">
+            <div className="lane-head"><h2>{t('jump.heading')}</h2></div>
+            <ul className="lanes lanes--jump reveal-stagger">
+              <li style={staggerStyle(0)}>
+                <button type="button" className="lane" onClick={() => navigate('/app/models')}>
+                  <span className="lane__tag">{t('jump.discover')}</span>
+                  <span className="lane__desc">{t('jump.discoverSummary')}</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
+                </button>
+              </li>
+              <li style={staggerStyle(1)}>
+                <button type="button" className="lane" onClick={() => navigate('/app/studio')}>
+                  <span className="lane__tag">{t('jump.create')}</span>
+                  <span className="lane__desc">{t('jump.createSummary')}</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
+                </button>
+              </li>
+              <li style={staggerStyle(2)}>
+                <button type="button" className="lane" onClick={() => navigate('/app/operate')}>
+                  <span className="lane__tag">{t('jump.operate')}</span>
+                  <span className="lane__desc">{t('jump.operateSummary', { models: configuredModels?.length ?? 0 })}</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
           {/* Loaded models status */}
           <section className="home-loaded">
             <SectionHeading>{t('loadedModels.heading')}</SectionHeading>
@@ -471,6 +501,12 @@ export default function Home() {
                   {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map((m, i) => (
                     <li key={m.id} className="lane" style={staggerStyle(i)}>
                       <span className="lane__name lane__name--id">{m.id}</span>
+                      {/* Which engine is serving it — the first thing worth
+                          knowing beside the name. Omitted rather than faked
+                          when the model has no config to read it from. */}
+                      {m.backend
+                        ? <span className="lane__num">{m.backend}</span>
+                        : <span className="lane__num" />}
                       <StatusPill status="healthy" label={t('loadedModels.serving')} />
                       <button
                         type="button"

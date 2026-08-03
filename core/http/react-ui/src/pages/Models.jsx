@@ -796,7 +796,7 @@ export default function Models() {
                     gets the width to argue for a model rather than list one.
                     It keeps its own dismissal and collapse state, so someone
                     who closed it still lands on the pane below. */}
-                <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
+                <RecommendedModels addToast={addToast} />
 
                 {/* Somewhere to start when the recommendations are not it.
                     These set the use-case filter rather than fetching a second
@@ -805,22 +805,26 @@ export default function Models() {
                   <div className="zero-pane__shelf-head">
                     <h3 className="zero-pane__shelf-title">{t('shelves.byUseCase')}</h3>
                   </div>
-                  <div className="zero-pane__tiles">
+                  {/* Lanes, not tiles. These are a list of ways in, read in
+                      order — a grid of equal cards asks the reader to compare
+                      them, which is not the choice being offered. */}
+                  <ul className="lanes lanes--usecase">
                     {FILTER_SECTIONS.filter(sec => sec.pick).map(sec => (
-                      <button
-                        type="button"
-                        key={sec.id}
-                        className="zero-pane__tile"
-                        onClick={() => { setFilters([sec.pick]); setPage(1); setUseCaseOpen(false) }}
-                      >
-                        <span className="hstack hstack--xs">
-                          <i className={`fas ${sec.icon}`} aria-hidden="true" />
-                          <span className="zero-pane__tile-name">{t(sec.labelKey)}</span>
-                        </span>
-                        <span className="text-sm text-muted">{t(sec.blurbKey)}</span>
-                      </button>
+                      <li key={sec.id}>
+                        <button
+                          type="button"
+                          className="lane"
+                          onClick={() => { setFilters([sec.pick]); setPage(1); setUseCaseOpen(false) }}
+                        >
+                          <span className="lane__tag">
+                            <i className={`fas ${sec.icon}`} aria-hidden="true" /> {t(sec.labelKey)}
+                          </span>
+                          <span className="lane__desc">{t(sec.blurbKey)}</span>
+                          <span className="lane__go" aria-hidden="true">→</span>
+                        </button>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               </div>
             )

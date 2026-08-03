@@ -10,7 +10,9 @@
     "installStarted": "正在安装 {{model}}…",
     "installFailed": "安装失败：{{message}}",
     "dismiss": "关闭推荐",
-    "summary": "已推荐 {{n}} 个模型"
+    "summary": "已推荐 {{n}} 个模型",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "可用",

@@ -139,7 +139,7 @@ export default function VoiceProfileCreate() {
         eyebrow={t('voiceCreate.eyebrow')}
         title={<><i className="fas fa-microphone-lines btn btn-secondary fa-arrow-left" aria-hidden="true" /> {t('voiceCreate.title')}</>}
         supporting={t('voiceCreate.subtitle')}
-        actions={<Link to="/app/voice-library"><i aria-hidden="true" /> {t('voiceCreate.actions.back')}</Link>}
+        actions={<Link to="/app/voice-library"><i className="fas fa-plus" aria-hidden="true" /> {t('voiceCreate.actions.back')}</Link>}
       />
 
       <form className="voice-create-grid" onSubmit={submit}>

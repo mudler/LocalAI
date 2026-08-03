@@ -56,81 +56,23 @@ async function gotoModels(page) {
 }
 
 test.describe("Models gallery - recommended panel prominence", () => {
-  test("first visit with nothing installed shows the panel expanded", async ({ page }) => {
+  test("it is a section in the flow, not a dismissable card", async ({ page }) => {
     await mockGallery(page, 0);
     await gotoModels(page);
-
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    await expect(grid(page)).toBeVisible();
-    await expect(grid(page).getByText("tiny-chat")).toBeVisible();
+    await expect(panel(page)).toBeVisible();
+    // No close button and no collapse: this is the one thing the page has to
+    // say about the machine it runs on, not an interruption to be shut.
+    await expect(panel(page).locator("button[aria-expanded]")).toHaveCount(0);
+    await expect(panel(page).getByRole("button", { name: /dismiss|close/i })).toHaveCount(0);
+    // And no card chrome, so it sits in the pane rather than on top of it.
+    const border = await panel(page).evaluate((el) => getComputedStyle(el).borderTopWidth);
+    expect(parseFloat(border)).toBe(0);
   });
 
-  test("a user with models installed gets it collapsed by default", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
 
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-    await expect(grid(page)).toBeHidden();
-    // Collapsed is a summary, not a removal: the heading stays on the page.
-    await expect(panel(page).getByText("Recommended for your hardware")).toBeVisible();
-    await expect(panel(page).getByText("2 models suggested")).toBeVisible();
-  });
 
-  test("the collapsed summary expands again on activation", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
 
-    await expect(grid(page)).toBeHidden();
-    await toggle(page).click();
 
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    await expect(grid(page)).toBeVisible();
-    await expect(page.evaluate((k) => localStorage.getItem(k), COLLAPSE_KEY)).resolves.toBe("0");
-  });
-
-  test("the collapse choice persists across a reload", async ({ page }) => {
-    await mockGallery(page, 0);
-    await gotoModels(page);
-    await expect(grid(page)).toBeVisible();
-
-    await toggle(page).click();
-    await expect(grid(page)).toBeHidden();
-
-    await page.reload();
-    await expect(panel(page)).toBeVisible({ timeout: 20_000 });
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-    await expect(grid(page)).toBeHidden();
-  });
-
-  test("dismissing it persists across a reload", async ({ page }) => {
-    await mockGallery(page, 0);
-    await gotoModels(page);
-
-    await panel(page).getByRole("button", { name: "Dismiss recommendations" }).click();
-    await expect(panel(page)).toHaveCount(0);
-    await expect(page.evaluate((k) => localStorage.getItem(k), DISMISS_KEY)).resolves.toBe("1");
-
-    await page.reload();
-    // The rail having entries is the marker that the page finished rendering
-    // without the panel. It used to be the table, which no longer exists.
-    await expect(
-      page.locator('[data-testid="discover-rail-item"]').first(),
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(panel(page)).toHaveCount(0);
-  });
-
-  test("the toggle is keyboard operable and exposes its state", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
-
-    await toggle(page).focus();
-    await expect(toggle(page)).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    // aria-controls must resolve to the region it actually shows and hides.
-    await expect(toggle(page)).toHaveAttribute("aria-controls", "rec-models-content");
-    await expect(grid(page)).toBeVisible();
-  });
 
   test("recommendations render and their install buttons still work", async ({ page }) => {
     await mockGallery(page, 0);
@@ -141,11 +83,23 @@ test.describe("Models gallery - recommended panel prominence", () => {
     });
     await gotoModels(page);
 
-    const card = grid(page).locator(".rec-models-item", { hasText: "tiny-chat" });
-    await expect(card).toBeVisible();
-    await expect(card.getByText("512.0 MB")).toBeVisible();
-    await card.getByRole("button", { name: "Install" }).click();
+    // Ranked candidates read in fit order, so these are lanes now rather than
+    // a grid of equal cards.
+    const row = grid(page).locator(".lane", { hasText: "tiny-chat" });
+    await expect(row).toBeVisible();
+    await expect(row.getByText("512.0 MB")).toBeVisible();
+    await row.getByRole("button", { name: "Install" }).click();
 
     await expect.poll(() => installed).toBe("tiny-chat");
+  });
+
+  test("the best fit is called out, the rest are alternatives", async ({ page }) => {
+    await mockGallery(page, 0);
+    await gotoModels(page);
+    const rows = grid(page).locator(".lane");
+    await expect(rows.first().locator(".lane__tag--evidence")).toHaveText("Best fit");
+    // One opinion per page: the others are alternatives, not runners-up worth
+    // their own colour.
+    await expect(grid(page).locator(".lane__tag--evidence")).toHaveCount(1);
   });
 });

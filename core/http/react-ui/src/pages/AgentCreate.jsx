@@ -943,7 +943,7 @@ export default function AgentCreate() {
         title={isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}
         actions={
           <button className="btn btn-secondary btn-sm fas fa-arrow-left" onClick={() => navigate('/app/agents')}>
-            <i /> Back
+            <i className="fas fa-arrow-left" aria-hidden="true" /> Back
           </button>
         }
       />

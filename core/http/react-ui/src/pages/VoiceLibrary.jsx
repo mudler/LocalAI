@@ -198,7 +198,7 @@ JSON` : ''
         supporting={t('voiceLibrary.subtitle')}
         actions={(
           <Link to="/app/voice-library/new">
-            <i aria-hidden="true" /> {t('voiceLibrary.actions.create')}
+            <i className="fas fa-plus" aria-hidden="true" /> {t('voiceLibrary.actions.create')}
           </Link>
         )}
       />
@@ -248,18 +248,20 @@ JSON` : ''
             )}
             {!loading && !error && profiles.length === 0 && (
               <EmptyState
+                className="voice-library-empty"
                 icon="fa-microphone-lines"
                 title={t('voiceLibrary.empty.title')}
                 body={t('voiceLibrary.empty.body')}
-                actions={<Link className="btn btn-primary voice-library-empty" to="/app/voice-library/new">{t('voiceLibrary.actions.createFirst')}</Link>}
+                actions={<Link className="btn btn-primary" to="/app/voice-library/new">{t('voiceLibrary.actions.createFirst')}</Link>}
               />
             )}
             {!loading && !error && profiles.length > 0 && filteredProfiles.length === 0 && (
               <EmptyState
+                className="voice-library-empty"
                 icon="fa-filter-circle-xmark"
                 title={t('voiceLibrary.noResults.title')}
                 body={t('voiceLibrary.noResults.body')}
-                actions={<button type="button" className="btn btn-secondary voice-library-empty" onClick={() => { setSearch(''); setLanguage('all') }}>{t('voiceLibrary.actions.clearFilters')}</button>}
+                actions={<button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setLanguage('all') }}>{t('voiceLibrary.actions.clearFilters')}</button>}
               />
             )}
             {!loading && !error && filteredProfiles.map(profile => (

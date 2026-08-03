@@ -31,6 +31,7 @@ export default function OperateOverview() {
   const operations = summary?.operations || []
   const upgradeCount = Object.keys(summary?.upgrades || {}).length
   const traces = summary?.traces
+  const installed = summary?.installed || { backends: null, models: null }
 
   return (
     <div className="page-pad" data-testid="operate-overview">
@@ -39,33 +40,41 @@ export default function OperateOverview() {
         supporting={t('operate.overview.subtitle')}
       />
 
-      {/* Headline numbers. Only rendered once the summary has answered — an
-          installation that has served nothing yet is told so in one line rather
-          than shown three zeroes dressed as telemetry. */}
-      {traces && (
-        traces.total > 0 ? (
-          <dl className="operate-headline reveal-stagger">
-            <HeadlineStat
-              label={t('operate.overview.headline.requests', { hours: traces.window_hours })}
-              value={traces.total.toLocaleString()}
-              series={traces.buckets?.map(b => b.count)}
-              tone="primary"
-            />
-            <HeadlineStat
-              label={t('operate.overview.headline.errors')}
-              value={traces.errors.toLocaleString()}
-              series={traces.buckets?.map(b => b.errors)}
-              tone={traces.errors > 0 ? 'warning' : 'muted'}
-            />
-            <HeadlineStat
-              label={t('operate.overview.headline.p95')}
-              value={`${traces.p95_ms.toLocaleString()} ms`}
-              tone="success"
-            />
-          </dl>
-        ) : (
-          <p className="operate-clear">{t('operate.overview.headline.quiet')}</p>
-        )
+      {/* Always rendered, including at zero. Hiding the grid on a quiet
+          installation removed the page's structure exactly when someone was
+          most likely to be looking at it, and "0 failed" is information — an
+          absent panel is not. The quiet case is said in a line underneath
+          rather than by showing nothing. */}
+      <dl className="operate-headline reveal-stagger">
+        <HeadlineStat
+          index={0}
+          label={t('operate.overview.headline.requests', { hours: traces?.window_hours || 24 })}
+          value={(traces?.total ?? 0).toLocaleString()}
+          series={traces?.buckets?.map(b => b.count)}
+          tone={traces?.total ? 'primary' : 'muted'}
+        />
+        <HeadlineStat
+          index={1}
+          label={t('operate.overview.headline.errors')}
+          value={(traces?.errors ?? 0).toLocaleString()}
+          series={traces?.buckets?.map(b => b.errors)}
+          tone={traces?.errors > 0 ? 'warning' : 'muted'}
+        />
+        <HeadlineStat
+          index={2}
+          label={t('operate.overview.headline.p95')}
+          value={traces?.total ? `${traces.p95_ms.toLocaleString()} ms` : '—'}
+          tone={traces?.total ? 'success' : 'muted'}
+        />
+        <HeadlineStat
+          index={3}
+          label={t('operate.overview.headline.host')}
+          value={summary?.signals?.host || '—'}
+          tone={summary?.signals?.host ? 'primary' : 'muted'}
+        />
+      </dl>
+      {traces && traces.total === 0 && (
+        <p className="operate-clear operate-headline__note">{t('operate.overview.headline.quiet')}</p>
       )}
 
       <section>
@@ -103,6 +112,8 @@ export default function OperateOverview() {
             to="/app/backends"
             label={t('operate.overview.sections.runtime')}
             summary={t('operate.overview.sections.runtimeSummary', {
+              backends: installed.backends ?? 0,
+              models: installed.models ?? 0,
               updates: upgradeCount,
               running: operations.length,
             })}
@@ -133,7 +144,9 @@ export default function OperateOverview() {
             index={3}
             to="/app/manage"
             label={t('operate.overview.sections.administration')}
-            summary={t('operate.overview.sections.administrationSummary')}
+            summary={t('operate.overview.sections.administrationSummary', {
+              memory: summary?.signals?.host || '—',
+            })}
           />
         </ul>
       </section>
@@ -141,9 +154,9 @@ export default function OperateOverview() {
   )
 }
 
-function HeadlineStat({ label, value, series, tone }) {
+function HeadlineStat({ label, value, series, tone, index = 0 }) {
   return (
-    <div className="operate-headline__cell">
+    <div className="operate-headline__cell" style={staggerStyle(index)}>
       <dt>{label}</dt>
       <dd className={`operate-headline__value operate-headline__value--${tone}`}>{value}</dd>
       {series?.length > 1 && <Sparkline points={series} tone={tone} />}

@@ -10,7 +10,9 @@
     "installStarted": "{{model}} 설치 중…",
     "installFailed": "설치 실패: {{message}}",
     "dismiss": "추천 닫기",
-    "summary": "추천 모델 {{n}}개"
+    "summary": "추천 모델 {{n}}개",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "사용 가능",

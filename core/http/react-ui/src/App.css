@@ -783,7 +783,7 @@
   flex: none;
   min-height: 28px;
   padding: 0 var(--spacing-sm);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-primary-border);
   background: var(--color-primary-light);
   color: var(--color-primary);
@@ -2134,7 +2134,7 @@ select.input {
   gap: 3px;
   margin-left: 6px;
   padding: 1px 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.4;
@@ -2859,7 +2859,7 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
@@ -3363,7 +3363,7 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
@@ -4033,7 +4033,7 @@ button.collapsible-header:focus-visible {
   padding: 8px var(--spacing-md);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
@@ -5006,7 +5006,7 @@ button.collapsible-header:focus-visible {
   background: rgba(59, 130, 246, 0.15);
   color: var(--color-primary);
   padding: 1px 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: 0.7rem;
 }
@@ -5083,7 +5083,7 @@ button.collapsible-header:focus-visible {
   padding: 2px 8px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   max-width: 220px;
@@ -6437,7 +6437,7 @@ button.collapsible-header:focus-visible {
   padding: 4px 10px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
@@ -6556,7 +6556,7 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
@@ -6597,7 +6597,7 @@ button.collapsible-header:focus-visible {
   padding: 3px 6px 3px 10px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-divider);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
 }
 .home-loaded-item button {
@@ -6743,73 +6743,14 @@ button.collapsible-header:focus-visible {
 /* ──────────────────── Models gallery: recommended-for-your-hardware strip ──────────────────── */
 
 .rec-models {
-  margin-bottom: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
+  /* A section in the flow, not a card on top of it. */
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 /* Collapsed keeps the strip and its heading, only dropping the cards, so the
    panel is recoverable in place rather than gone. Tighter block padding is
    what actually returns vertical space to the gallery. */
-.rec-models--collapsed {
-  padding-top: var(--spacing-sm);
-  padding-bottom: var(--spacing-sm);
-}
-.rec-models-head {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm) var(--spacing-md);
-  flex-wrap: wrap;
-}
-.rec-models-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  text-align: left;
-}
-.rec-models-toggle i {
-  color: var(--color-primary);
-}
-.rec-models-chevron {
-  font-size: 0.75rem;
-  transition: transform 150ms ease;
-}
-.rec-models--collapsed .rec-models-chevron {
-  transform: rotate(-90deg);
-}
-.rec-models-note {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-.rec-models-dismiss {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px;
-  flex-shrink: 0;
-}
-.rec-models-dismiss:hover {
-  color: var(--color-text-primary);
-}
-.rec-models-grid {
-  display: grid;
-  /* min() keeps the 220px track from forcing horizontal overflow on narrow
-     phones, where one column is all that fits anyway. */
-  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-md);
-  /* Reveal animates opacity and transform only; the collapsed state is the
-     [hidden] attribute, so no height is being animated. */
-  animation: rec-models-reveal 180ms ease-out;
-}
 /* The class sets display:grid, which would otherwise beat the UA [hidden] rule. */
 .rec-models-grid[hidden] {
   display: none;
@@ -6828,10 +6769,7 @@ button.collapsible-header:focus-visible {
   .rec-models-grid {
     animation: none;
   }
-  .rec-models-chevron {
-    transition: none;
   }
-}
 .rec-models-item {
   display: flex;
   flex-direction: column;
@@ -7360,7 +7298,7 @@ button.collapsible-header:focus-visible {
   gap: 6px;
   padding: 6px 12px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -7496,7 +7434,7 @@ button.collapsible-header:focus-visible {
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-secondary);
   padding: 4px 12px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--text-xs);
   font: inherit;
@@ -7632,7 +7570,7 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   border: 1px solid var(--color-border-subtle);
@@ -8240,7 +8178,7 @@ button.collapsible-header:focus-visible {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   padding: 2px 8px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   margin-left: var(--spacing-xs);
 }
 
@@ -8830,9 +8768,18 @@ button.collapsible-header:focus-visible {
 /* Manage summary marker — same .stat-cards layout. Top margin separates the
    cards from the System Resources card above (otherwise they sit too close
    to the RAM bar) and bottom margin tightens the gap to the tabs below. */
-.manage-summary {
+/* Two class names, so this beats the shared .stat-strip shorthand regardless
+   of which rule the file happens to declare later. The single-class version
+   was silently losing its top margin to `margin: 0 0 …`, leaving the strip
+   flush against the resources card above it. */
+.stat-strip.manage-summary {
   margin-top: var(--spacing-xl);
   margin-bottom: var(--spacing-lg);
+  /* .page--app is a flex column whose split view takes flex:1, so a child with
+     no intrinsic minimum gets shrunk to nothing. The old cards survived only
+     because .stat-card carried min-height:96px; the figure cells do not, so the
+     strip has to decline to shrink. */
+  flex: none;
 }
 
 /* Screen-reader-only label, used for table headers whose visual cell needs
@@ -9124,7 +9071,18 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
-.voice-library-empty { min-height: 430px; border: 0; background: transparent; }
+/* The empty PANEL, not the button inside it. This was attached to the action
+   for a while, which made the button a 430px transparent box that pushed
+   itself out of view. */
+.voice-library-empty {
+  min-height: 430px;
+  border: 0;
+  background: transparent;
+  /* Keep the action inside the panel it belongs to. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
 .voice-row {
   appearance: none;
@@ -9971,7 +9929,7 @@ button.collapsible-header:focus-visible {
 .activity-chip {
   min-height: 28px;
   padding: 0 var(--spacing-sm);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-default);
   background: transparent;
   color: var(--color-text-muted);
@@ -10043,7 +10001,7 @@ button.collapsible-header:focus-visible {
   min-width: 18px;
   height: 18px;
   padding: 0 var(--spacing-xs);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--color-primary);
   color: var(--color-primary-text);
   font-family: var(--font-mono);
@@ -10647,7 +10605,19 @@ button.collapsible-header:focus-visible {
   word-break: break-all;
   overflow: auto;
 }
-.p2p-cmd__copy { position: absolute; top: 8px; right: 8px; }
+/* .btn alone leaves the background to the user agent, which paints
+   `buttonface` — a light grey. Fine on a light theme, a pale chip on a dark
+   command block. State it. */
+.p2p-cmd__copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-default);
+}
+
+.p2p-cmd__copy:hover { color: var(--color-primary); border-color: var(--color-primary-border); }
 
 /* Numbered setup steps */
 .p2p-step {
@@ -11167,20 +11137,33 @@ button.collapsible-header:focus-visible {
    Tinted notice banners, the summary counters, the backend table's icon /
    description / badge cells and the detail table under an expanded row.
    =========================================================================== */
+/* A hairline with a coloured left edge, not a tinted card. Same treatment as
+   the Operate overview's attention rows, so "this wants a decision" looks the
+   same wherever it appears. A filled panel makes every notice shout at the
+   weight of an error, which is how notices stop being read. */
 .bk-notice {
   padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
-  background: var(--tone-soft);
-  border: 1px solid var(--tone-line);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-left: 3px solid var(--tone, var(--color-primary));
 }
 .bk-notice--between { justify-content: space-between; }
+.hstack--sm { display: flex; align-items: center; gap: var(--spacing-sm); }
+.bk-notice__icon { color: var(--tone, var(--color-primary)); }
 .bk-notice__text { color: var(--tone); font-weight: var(--font-weight-medium); font-size: var(--text-sm); }
 .bk-counts { display: flex; gap: var(--spacing-md); font-size: var(--text-sm); }
-.bk-count { font-size: var(--text-xl); font-weight: var(--font-weight-bold, 700); color: var(--tone, var(--color-primary)); }
+.bk-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone, var(--color-primary));
+}
 .bk-icon-fallback {
   width: 28px; height: 28px;
   border-radius: var(--radius-sm);
@@ -11917,7 +11900,14 @@ button.collapsible-header:focus-visible {
 
 .zero-pane__text { font-size: 0.8125rem; color: var(--color-text-muted); }
 
-.zero-pane__shelf-head { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+/* The heading needs air under it. Sitting a line's width from the text it
+   introduces made the two read as one paragraph. */
+.zero-pane__shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
 .zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
 .zero-pane__shelf-meta {
   margin-left: auto;
@@ -11925,7 +11915,12 @@ button.collapsible-header:focus-visible {
   font-size: 0.6875rem;
   color: var(--color-text-muted);
 }
-.zero-pane__shelf-hint { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 4px; }
+.zero-pane__shelf-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+}
 
 /* Curated tiles. A catalog spends its zero state arguing for something; the
    tile is where that argument gets the width a rail line never has. */
@@ -12579,6 +12574,12 @@ button.collapsible-header:focus-visible {
 }
 
 
+/* Pills are gone. A capsule radius reads as a tag floating on the surface,
+   which fights a system whose structure is hairlines and square corners — and
+   with chips on Discover, Host, Activity and the biometrics pages, "some pages
+   have pills" was the actual inconsistency. Round buttons keep their radius:
+   .lightbox__nav and .home-send-btn are circles, not capsules. */
+
 /* ─── Lanes ───────────────────────────────────────────────────────────────
    The list idiom carried over from localai.io: full-bleed rows separated by a
    single hairline, insetting on hover, with no card and no shadow. Used
@@ -12698,7 +12699,11 @@ button.lane:hover {
 
 
 /* Home: resident models and the header figures. */
-.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) auto auto; }
+.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) minmax(0, 9rem) auto auto; }
+.lanes--jump .lane { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto; }
+.lanes--usecase .lane { grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; }
+.lanes--usecase .lane__tag { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.home-jump { margin-bottom: var(--spacing-2xl); }
 
 .home-loaded-stop {
   border: 0;
@@ -12735,6 +12740,11 @@ button.lane:hover {
 /* Headline figures on the Operate overview, and the sparklines under them.
    Hairline-gridded cells rather than cards: the same 1px grid the split-view
    StatGrid uses, so the two read as one system. */
+/* A row of headline figures on a hairline grid. Shared by the Operate overview
+   and the Host page so the two read as one system: same cell, same figure
+   scale, same tone vocabulary. Replaces Host's shadowed clickable cards, which
+   were a second dashboard language on a page that already had one. */
+.stat-strip,
 .operate-headline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -12746,6 +12756,7 @@ button.lane:hover {
   overflow: hidden;
 }
 
+.stat-strip__cell,
 .operate-headline__cell {
   background: var(--color-bg-primary);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -12753,6 +12764,8 @@ button.lane:hover {
   gap: 2px;
 }
 
+.stat-strip__label,
+.stat-strip__cell dt,
 .operate-headline__cell dt {
   color: var(--color-text-muted);
   font-size: 0.625rem;
@@ -12761,6 +12774,7 @@ button.lane:hover {
   text-transform: uppercase;
 }
 
+.stat-strip__value,
 .operate-headline__value {
   margin: 0;
   font-family: var(--font-mono);
@@ -12771,10 +12785,26 @@ button.lane:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.stat-strip__value--primary,
 .operate-headline__value--primary { color: var(--color-text-primary); }
+.stat-strip__value--success,
 .operate-headline__value--success { color: var(--color-success); }
+.stat-strip__value--warning,
 .operate-headline__value--warning { color: var(--color-warning); }
-.operate-headline__value--muted   { color: var(--color-text-tertiary); }
+.stat-strip__value--muted,
+.operate-headline__value--muted { color: var(--color-text-tertiary); }
+
+button.stat-strip__cell {
+  border: 0;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+button.stat-strip__cell:hover { background: var(--color-bg-hover); }
+button.stat-strip__cell:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 
 .sparkline { display: block; width: 100%; height: 28px; margin-top: 2px; }
 .sparkline polyline { stroke: currentColor; }
@@ -12869,6 +12899,35 @@ button.lane:hover {
 /* The file input is triggered by its label, which is styled as a button; the
    input itself must not render or the control shows twice. */
 .agents-import-input input[type="file"] { display: none; }
+
+/* Latency in a trace row: a bar plus the figure. The bar is scaled against the
+   slowest request in view so the tail is visible while scanning, and it turns
+   amber past the slow threshold — the same constraint tone used elsewhere. */
+.lat { display: grid; grid-template-columns: minmax(2.5rem, 1fr) auto; align-items: center; gap: var(--spacing-xs); }
+.lat__bar { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; }
+.lat__bar i { display: block; height: 100%; background: var(--color-primary); }
+.lat__bar--slow i { background: var(--color-warning); }
+.lat b {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Recommended models: ranked candidates, so lanes in fit order rather than a
+   grid of equal cards. The leader carries the one amber label on the page. */
+.lanes--recommended .lane {
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) minmax(0, 7rem) minmax(0, 6rem) auto;
+}
+
+.lane__tag--evidence { color: var(--color-warning); }
+
+@media (max-width: 720px) {
+  .lanes--recommended .lane { grid-template-columns: minmax(0, 1fr) auto; }
+  .lanes--recommended .lane__num { display: none; }
+}
 
 /* ─── Operate console: rail signals and the overview ──────────────────────
    The signal is ambient state beside a rail label, not a badge: no pill, no

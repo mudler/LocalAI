@@ -381,31 +381,31 @@ export default function Agents() {
                               onClick={() => handlePauseResume(a, userId)}
                               title={isActive ? t('actions.pause') : t('actions.resume')}
                             >
-                              <i />
+                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} aria-hidden="true" />
                             </button>
                             <button
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/edit?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.edit')}
                             >
-                              <i />
+                              <i className="fas fa-pen" aria-hidden="true" />
                             </button>
                             <button
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.chat')}
                             >
-                              <i />
+                              <i className="fas fa-comments" aria-hidden="true" />
                             </button>
                             <button
                               onClick={() => handleExport(a.name, userId)}
                               title={t('actions.export')}
                             >
-                              <i />
+                              <i className="fas fa-file-export" aria-hidden="true" />
                             </button>
                             <button
                               onClick={() => handleDelete(a.name, userId)}
                               title={t('actions.delete')}
                             >
-                              <i />
+                              <i className="fas fa-trash" aria-hidden="true" />
                             </button>
                           </div>
                         </td>

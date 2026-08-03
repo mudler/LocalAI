@@ -1046,11 +1046,11 @@ export default function FineTune() {
         supporting="Create and manage fine-tuning jobs"
         actions={
           <div>
-            <button onClick={handleImportConfig}>
-              <i /> Import config
+            <button className="btn btn-secondary" onClick={handleImportConfig}>
+              <i className="fas fa-file-import" aria-hidden="true" /> Import config
             </button>
-            <button onClick={() => setShowForm(!showForm)}>
-              <i />
+            <button className="btn btn-secondary" onClick={() => setShowForm(!showForm)}>
+              <i className={`fas ${showForm ? 'fa-xmark' : 'fa-plus'}`} aria-hidden="true" />
               {showForm ? 'Cancel' : 'New job'}
             </button>
           </div>
@@ -1518,8 +1518,8 @@ export default function FineTune() {
               title="No fine-tuning jobs yet"
               body="Start one to train an adapter on your own data, then export it as a model you can chat with."
               actions={
-                <button className="btn btn-primary fas fa-plus" onClick={() => setShowForm(true)}>
-                  <i /> New job
+                <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+                  <i className="fas fa-plus" aria-hidden="true" /> New job
                 </button>
               }
             />

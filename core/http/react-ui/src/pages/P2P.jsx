@@ -251,7 +251,7 @@ export default function P2P() {
             {t('p2p.subtitle')}
             {' '}
             <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer">
-              <i />
+              <i className="fas fa-up-right-from-square" aria-hidden="true" />
             </a>
           </>
         }
