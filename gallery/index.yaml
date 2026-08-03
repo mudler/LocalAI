@@ -189,7 +189,7 @@
   files:
     - filename: DeepSeek-V4-Flash-0731-MXFP4.gguf
       uri: huggingface://ggml-org/DeepSeek-V4-Flash-0731-GGUF/DeepSeek-V4-Flash-0731-MXFP4.gguf
-      sha256: c8b46876c3939a6e141f9e4d4aa422981df4a9b84f19e9bb4e1c9a28be31e484
+      sha256: 65f73494afaf27d3add0751a5b716dd2d3e012c66ae0dbbcc1bf8477f92b3ab7
 - name: instella-moe-16b-a3b-think
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -311,7 +311,7 @@
   files:
     - filename: llama-cpp/models/Parable-Granite-4.1-3B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: 67dc7695d92939c713165761f115c9d892fdff74fcbd987c8bb453b9b8ab645d
+      sha256: dbf202638af23e72508d8316577655d24ba2037fda51ce802b8996977e290bce
 - name: "parable-qwen3-4b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -345,7 +345,7 @@
   files:
     - filename: llama-cpp/models/Parable-Qwen3-4B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Qwen3-4B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-4B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: c94b06a912aa901f3da5689754577ad534415efafc50dcee3f389594a153bf38
+      sha256: 65cc4824fb78ecaf55afdfcdb6dd2e27e1aa805d289db89eae94d32d450403f0
 - name: "parable-granite-4.1-8b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -381,7 +381,7 @@
   files:
     - filename: llama-cpp/models/Parable-Granite-4.1-8B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: 61a8133c344a0d0a00188395afe33c803e3b973cb4bbfd5ef1fa7110e80bc1c3
+      sha256: 57e464ae3d35253d4351639757dc35e71bab8324d12d49a5870695ce73dc19cf
 - name: "parable-qwen3-8b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -415,7 +415,7 @@
   files:
     - filename: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: 956070afc8023b8665fe450842f7be76b505b53d142460fd9b588222f4e16112
+      sha256: 4532d2379d38a37279866a030e51d419561f9d4d22fee00d2a33647d66f05065
 - &pocket-35b
   name: "pocket-35b"
   variants:
@@ -2009,7 +2009,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 856c407993ccffa9ad52e23fbef8bb7b458c792a52278f4ca7931741b0c20ce2
+      sha256: 1bfdafd1c288eb1b2bcb629ee9e1b7567dcf0abbe4d20995905a3c3465e9bd1e
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
