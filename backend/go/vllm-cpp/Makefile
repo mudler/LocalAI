@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=9e1c9025ae61167a3335454d7cc0de6093c21845
+VLLM_CPP_VERSION?=a42b8187caff02c570c28e19e4dc2b1d7f55ed14
 
 # The backend consumes only the stable C ABI (libvllm + include/vllm.h), so the
 # server, examples and tests of the engine are never built here.
