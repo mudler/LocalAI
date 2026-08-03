@@ -154,22 +154,6 @@ func (stubClient) GetRouterDecisions(_ context.Context, _ localaitools.RouterDec
 	return []localaitools.RouterDecision{}, nil
 }
 
-func (stubClient) ListScheduling(_ context.Context) ([]localaitools.ModelSchedulingConfig, error) {
-	return []localaitools.ModelSchedulingConfig{}, nil
-}
-
-func (stubClient) GetScheduling(_ context.Context, _ string) (*localaitools.ModelSchedulingConfig, error) {
-	return &localaitools.ModelSchedulingConfig{}, nil
-}
-
-func (stubClient) SetScheduling(_ context.Context, _ localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
-	return &localaitools.ModelSchedulingConfig{}, nil
-}
-
-func (stubClient) DeleteScheduling(_ context.Context, _ string) error {
-	return nil
-}
-
 var _ = Describe("LocalAIAssistantHolder", func() {
 	var ctx context.Context
 
