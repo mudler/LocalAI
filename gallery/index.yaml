@@ -1,4 +1,113 @@
 ---
+- &grug-27b
+  name: "grug-27b"
+  variants:
+    - model: grug-27b-q8
+    - model: grug-27b-mtp
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ProCreations/grug-27b
+    - https://huggingface.co/ProCreations/grug-27b-qat-q4-gguf
+  description: |
+    Grug 27B is a multimodal Qwen3.5-derived model for chat, reasoning, vision,
+    and tool use. This entry uses the QAT Q4_K_M GGUF build.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/grug-27b/mmproj-grug-27b-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/grug-27b/grug-27b-qat-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/grug-27b/grug-27b-qat-Q4_K_M.gguf
+      uri: huggingface://ProCreations/grug-27b-qat-q4-gguf/grug-27b-qat-Q4_K_M.gguf
+      sha256: 777df9862d6e884ce006a5b13f77f99b56a4dd7c79bf1386af8a826875d7223e
+    - filename: llama-cpp/mmproj/grug-27b/mmproj-grug-27b-f16.gguf
+      uri: huggingface://ProCreations/grug-27b-gguf/mmproj-grug-27b-f16.gguf
+      sha256: abec0c68ae222300197d247bc9bb2e72f0e7b285d38eb49265a2fc28c952550d
+- !!merge <<: *grug-27b
+  name: "grug-27b-q8"
+  variants: []
+  urls:
+    - https://huggingface.co/ProCreations/grug-27b
+    - https://huggingface.co/ProCreations/grug-27b-gguf
+  description: |
+    Grug 27B Q8 is the higher-precision Q8_0 GGUF build for multimodal chat,
+    reasoning, vision, and tool use.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/grug-27b-q8/mmproj-grug-27b-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/grug-27b-q8/grug-27b-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/grug-27b-q8/grug-27b-Q8_0.gguf
+      uri: huggingface://ProCreations/grug-27b-gguf/grug-27b-Q8_0.gguf
+      sha256: fe2714d8770ef1b5fe4cd960d07e781fabf6f4bd028c3d202cb512565202187f
+    - filename: llama-cpp/mmproj/grug-27b-q8/mmproj-grug-27b-f16.gguf
+      uri: huggingface://ProCreations/grug-27b-gguf/mmproj-grug-27b-f16.gguf
+      sha256: abec0c68ae222300197d247bc9bb2e72f0e7b285d38eb49265a2fc28c952550d
+- !!merge <<: *grug-27b
+  name: "grug-27b-mtp"
+  variants: []
+  urls:
+    - https://huggingface.co/ProCreations/grug-27b
+    - https://huggingface.co/ProCreations/grug-27b-mtp-gguf
+  description: |
+    Grug 27B MTP is the Q4_K_M GGUF build with multi-token prediction enabled
+    for speculative decoding, plus the shared vision projector.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/grug-27b-mtp/mmproj-grug-27b-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/models/grug-27b-mtp/grug-27b-mtp-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/grug-27b-mtp/grug-27b-mtp-Q4_K_M.gguf
+      uri: huggingface://ProCreations/grug-27b-mtp-gguf/grug-27b-mtp-Q4_K_M.gguf
+      sha256: 9442fabb262a54e4a3441ce00e764b6dd334c7ee57548ef86b274eeedb30b0b4
+    - filename: llama-cpp/mmproj/grug-27b-mtp/mmproj-grug-27b-f16.gguf
+      uri: huggingface://ProCreations/grug-27b-gguf/mmproj-grug-27b-f16.gguf
+      sha256: abec0c68ae222300197d247bc9bb2e72f0e7b285d38eb49265a2fc28c952550d
 - name: "deepseek-v4-flash-0731"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
