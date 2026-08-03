@@ -4,6 +4,7 @@ export const API_CONFIG = {
     operations: '/api/operations',
     operationsHistory: '/api/operations/history',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
+    pauseOperation: (jobID) => `/api/operations/${jobID}/pause`,
     dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
     // Models gallery

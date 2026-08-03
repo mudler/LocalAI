@@ -339,6 +339,33 @@ var _ = Describe("/api/operations with node-scoped backend ops", func() {
 		Expect(envelope.Operations[0]).ToNot(HaveKey("isCancelled"))
 	})
 
+	It("pauses through the resume-safe operation callback", func() {
+		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
+		Expect(err).NotTo(HaveOccurred())
+		appCfg := &config.ApplicationConfig{SystemState: state}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+		opcache.Set("localai@gemma", "job-pause")
+
+		var cancelled, paused bool
+		galleryService.StoreCancellationActions(
+			"job-pause",
+			func() { cancelled = true },
+			func() { paused = true },
+		)
+
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, &application.Application{}, noopMw)
+		req := httptest.NewRequest(http.MethodPost, "/api/operations/job-pause/pause", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(paused).To(BeTrue())
+		Expect(cancelled).To(BeFalse())
+		Expect(opcache.Get("localai@gemma")).To(BeEmpty())
+	})
+
 	It("reports a running removal as a deletion", func() {
 		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())

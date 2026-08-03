@@ -137,6 +137,16 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     }
   }, [fetchOperations])
 
+  const pauseOperation = useCallback(async (jobID) => {
+    try {
+      await operationsApi.pause(jobID)
+      cancelledRef.current.set(jobID, Date.now())
+      await fetchOperations()
+    } catch (err) {
+      setError(err.message)
+    }
+  }, [fetchOperations])
+
   // Whether this tab cancelled the job. Read by the strip to tell "the last
   // operation finished" from "the user called it off": both look identical in
   // /api/operations, which lists neither.
@@ -226,6 +236,7 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     fetchHistory,
     clearHistory,
     cancelOperation,
+    pauseOperation,
     wasCancelled,
     dismissFailedOp,
     refetch: fetchOperations,
