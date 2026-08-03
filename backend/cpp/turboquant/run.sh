@@ -12,11 +12,12 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=turboquant-fallback
 
-# CPU images and x86 GPU images ship a single turboquant-cpu-all built with ggml
+# CPU images and most x86 GPU images ship a single turboquant-cpu-all built with ggml
 # CPU_ALL_VARIANTS: ggml's
 # backend registry dlopens the best libggml-cpu-*.so for this host, so no shell-side
 # probing. GPU arm64 images still ship turboquant-fallback until their builder toolchains
-# support ggml's complete arm variant matrix.
+# support ggml's complete arm variant matrix, and so do the SYCL images, whose icpx
+# compiler hangs on the sapphirerapids variant.
 if [ -e "$CURDIR"/turboquant-cpu-all ]; then
 	BINARY=turboquant-cpu-all
 fi

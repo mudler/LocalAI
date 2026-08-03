@@ -12,10 +12,11 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=llama-cpp-fallback
 
-# CPU images and x86 GPU images ship a single llama-cpp-cpu-all built with ggml
+# CPU images and most x86 GPU images ship a single llama-cpp-cpu-all built with ggml
 # CPU_ALL_VARIANTS: ggml's backend registry dlopens the best libggml-cpu-*.so for this
 # host, so no shell-side AVX probing. GPU arm64 images still ship llama-cpp-fallback
-# until their builder toolchains support ggml's complete arm variant matrix.
+# until their builder toolchains support ggml's complete arm variant matrix, and so do
+# the SYCL images, whose icpx compiler hangs on the sapphirerapids variant.
 if [ -e "$CURDIR"/llama-cpp-cpu-all ]; then
 	BINARY=llama-cpp-cpu-all
 fi

@@ -23,4 +23,10 @@ assert_target amd64 "" llama-cpp-cpu-all
 assert_target arm64 cublas llama-cpp-fallback
 assert_target arm64 "" llama-cpp-cpu-all
 
+# SYCL builds the whole tree with icpx -fsycl, and icpx never finishes
+# ggml-cpu/arch/x86/repack.cpp at -march=sapphirerapids: every sycl job sat on
+# that one translation unit until GitHub killed it at its 6h limit.
+assert_target amd64 sycl_f16 llama-cpp-fallback
+assert_target amd64 sycl_f32 llama-cpp-fallback
+
 echo "PASS: llama.cpp build target preserves CPU variants where supported"
