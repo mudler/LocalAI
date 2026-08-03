@@ -34,16 +34,16 @@ test.describe('Studio overview', () => {
     await expect(page.locator(OVERVIEW)).toBeVisible()
   })
 
-  test('an explicit tab still wins, so existing deep links keep working', async ({ page }) => {
+  test('a generator path opens that generator', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio?tab=images')
+    await page.goto('/app/studio/images')
     await expect(page.locator(OVERVIEW)).toHaveCount(0)
     await expect(page.locator('.media-layout')).toBeVisible()
   })
 
   test('an unrecognised tab falls back to the overview, not to Images', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio?tab=nonsense')
+    await page.goto('/app/studio/nonsense')
     await expect(page.locator(OVERVIEW)).toBeVisible()
   })
 
@@ -139,8 +139,17 @@ test.describe('Studio overview', () => {
 
   test('the overview is reachable back from a generator tab', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio?tab=images')
+    await page.goto('/app/studio/images')
     await tabFor(page, 'overview').click()
     await expect(page.locator(OVERVIEW)).toBeVisible()
+  })
+
+  test('a legacy ?tab= link is redirected to its path', async ({ page }) => {
+    // Bookmarks and older docs still use the query form; they must keep working
+    // and must land on the canonical URL rather than a second spelling of it.
+    await mockCapabilities(page)
+    await page.goto('/app/studio?tab=images')
+    await expect(page).toHaveURL(/\/app\/studio\/images$/)
+    await expect(page.locator('.media-layout')).toBeVisible()
   })
 })

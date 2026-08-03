@@ -276,7 +276,7 @@ test.describe('3D generation', () => {
       })
     })
 
-    await page.goto('/app/studio?tab=threed')
+    await page.goto('/app/studio/threed')
     await expect(page.getByRole('button', { name: '3D', exact: true })).toHaveCount(0)
     // Falls back to the overview rather than Images. Landing on Images was
     // never a decision, only the first entry in the tab array.

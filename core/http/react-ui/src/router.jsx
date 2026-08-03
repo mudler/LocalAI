@@ -123,6 +123,9 @@ const appChildren = [
   { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'studio', element: <Studio /> },
+  // Tabs are path segments, not a query parameter: switching generator is
+  // navigation, and ?tab= reads like a filter. Legacy ?tab= links redirect.
+  { path: 'studio/:tab', element: <Studio /> },
   { path: 'talk', element: <Talk /> },
   { path: 'account', element: <Account /> },
 

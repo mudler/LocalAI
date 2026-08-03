@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ImageGen from './ImageGen'
 import VideoGen from './VideoGen'
@@ -44,7 +44,9 @@ const TAB_COMPONENTS = {
 export default function Studio() {
   const { t } = useTranslation('media')
   const { hasFeature } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { tab: pathTab } = useParams()
+  const [searchParams] = useSearchParams()
   const { operations } = useOperations()
 
   // Once, unfiltered. useModels(capability) fetches the whole list and filters
@@ -74,12 +76,19 @@ export default function Studio() {
   })), [available, models, history, threeDEntries])
 
   const tabs = [OVERVIEW_TAB, ...available]
-  const requested = searchParams.get('tab')
+
+  // Anything still arriving with ?tab= is sent to the path form once, replacing
+  // the history entry so Back does not bounce between the two spellings.
+  const legacyTab = searchParams.get('tab')
+  useEffect(() => {
+    if (legacyTab) navigate(`/app/studio/${legacyTab}`, { replace: true })
+  }, [legacyTab, navigate])
+
   // Overview is the fallback for anything unrecognised or gated off. Landing on
   // Images was never a decision, only the first entry in an array.
-  const activeTab = tabs.some(tab => tab.key === requested) ? requested : 'overview'
+  const activeTab = tabs.some(tab => tab.key === pathTab) ? pathTab : 'overview'
 
-  const setTab = (key) => setSearchParams({ tab: key }, { replace: true })
+  const setTab = (key) => navigate(key === 'overview' ? '/app/studio' : `/app/studio/${key}`)
 
   const dotFor = (tab) => {
     if (tab.key === 'overview') return null
