@@ -84,6 +84,22 @@ func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (stubClient) ListScheduling(_ context.Context) ([]localaitools.ModelSchedulingConfig, error) {
+	return []localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) GetScheduling(_ context.Context, _ string) (*localaitools.ModelSchedulingConfig, error) {
+	return &localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) SetScheduling(_ context.Context, _ localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
+	return &localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) DeleteScheduling(_ context.Context, _ string) error {
+	return nil
+}
+
 func (stubClient) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	return nil
 }
