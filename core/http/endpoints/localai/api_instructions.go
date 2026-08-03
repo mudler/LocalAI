@@ -31,6 +31,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "Set \"stream\": true for SSE streaming. Supports tool/function calling when the model config has function templates configured.",
 	},
 	{
+		Name:        "moderation",
+		Description: "OpenAI-compatible text moderation using a local completion model",
+		Tags:        []string{"moderation"},
+		Intro:       "POST /v1/moderations accepts a text string or array plus a LocalAI completion model. LocalAI constrains the model to the OpenAI moderation category schema and returns one result per input. Multimodal moderation inputs are not yet supported.",
+	},
+	{
 		Name:        "audio",
 		Description: "Text-to-speech, voice activity detection, transcription, speaker diarization, sound classification, and sound generation",
 		Tags:        []string{"audio"},

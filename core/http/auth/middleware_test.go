@@ -91,6 +91,19 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(rec.Code).To(Equal(http.StatusOK))
 		})
 
+		It("allows authenticated users to call moderation by default", func() {
+			sessionID := createTestSession(db, user.ID)
+			rec := doRequest(app, http.MethodPost, "/v1/moderations", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+
+		It("blocks moderation when the user's feature is disabled", func() {
+			Expect(auth.UpdateUserPermissions(db, user.ID, auth.PermissionMap{auth.FeatureModeration: false})).To(Succeed())
+			sessionID := createTestSession(db, user.ID)
+			rec := doRequest(app, http.MethodPost, "/v1/moderations", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+		})
+
 		It("allows requests with valid session as Bearer token", func() {
 			sessionID := createTestSession(db, user.ID)
 			rec := doRequest(app, http.MethodGet, "/v1/models", withBearerToken(sessionID))
@@ -153,6 +166,11 @@ var _ = Describe("Auth Middleware", func() {
 
 		It("returns 401 for unauthenticated API requests", func() {
 			rec := doRequest(app, http.MethodGet, "/v1/models")
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("returns 401 for unauthenticated moderation requests", func() {
+			rec := doRequest(app, http.MethodPost, "/v1/moderations")
 			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
 
