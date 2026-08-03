@@ -10,7 +10,7 @@
     <p class="kicker fd" style="margin-top:0">Engines we build</p>
     <h1 class="eng-h1"><u><b>Eighteen engines,</b></u><u><b><s>written from scratch.</s></b></u></h1>
     <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    <p class="lede fd mt2">Most backends wrap somebody else's engine. These do not. Each one exists because the thing we needed was a multi-gigabyte Python install, or closed, or nobody had built it yet. What you get instead is a binary and a GGUF file, checked against the reference implementation in CI, running on the machine you already own.</p>
+    <p class="lede fd mt2">Most LocalAI backends wrap somebody else's engine. These were written from scratch, each one because the thing we needed was a multi-gigabyte Python install, or closed, or nobody had built it yet. What ships instead is a binary and a GGUF file, checked against the reference implementation in CI, running on the machine you already own.</p>
     <div class="acts fd">
       <a class="btn" href="/#start">Install LocalAI <span>&#8594;</span></a>
       <a class="btn btn--o" href="/docs/features/backends/">How backends work</a>
@@ -88,8 +88,8 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">The rule we hold them to</p>
-    <h2 class="rv mt1" style="max-width:20ch">A port only ships once it matches the original.</h2>
-    <p class="lede rv mt2">Every engine here is gated against the framework it replaces, on the same input, on the same machine. That means a transcript that comes out word for word identical, boxes that land on the same pixels, or a waveform inside a stated tolerance. Speed is the part we then go and win, and the numbers on this page come out of each engine's own benchmark suite, not a marketing run.</p>
+    <h2 class="rv mt1" style="max-width:20ch">We do not ship a port until it matches the original.</h2>
+    <p class="lede rv mt2">Every engine here is gated against the framework it replaces, on the same input, on the same machine. That means a transcript identical to the reference, boxes that land on the same pixels, or a waveform inside a stated tolerance. Speed work comes after that, and the numbers on this page come out of each engine's own benchmark suite.</p>
     <div class="acts rv">
       <a class="btn" href="/#start">Install LocalAI &#8594;</a>
       <a class="btn btn--o" href="https://github.com/mudler/LocalAI">LocalAI on GitHub &#8599;</a>

@@ -4,7 +4,7 @@ date: 2026-07-29
 author: "Ettore Di Giacinto"
 category: "History"
 tags: ["history", "architecture", "releases", "community"]
-summary: "Three years, 133 releases and 224 contributors later. The four changes that mattered most were making the core small, adding agents, making it a cluster, and giving it eyes and ears."
+summary: "Three years, 133 releases and 224 contributors later. Here are the four decisions that shaped it: making the core small, adding agents, making it a cluster, and giving it eyes and ears."
 extracss: ["blog.css"]
 ---
 
@@ -16,9 +16,9 @@ None of those numbers are rounded up. You can read every one of them off the rep
 
 {{< starchart >}}
 
-The curve is not the point, but it is a useful map. The four marks on it are the four decisions below, and you can see each of them in the slope afterwards.
+The four marks on it are the four decisions below, and you can see each of them in the slope afterwards.
 
-What follows is how it got here. Not the feature list, which you can read in the releases, but the four decisions that changed the shape of the thing.
+What follows is the four decisions that changed the shape of the thing. The full feature list is in the releases.
 
 ## 2023 to 2024: an API in front of llama.cpp
 
@@ -34,7 +34,7 @@ Every backend moved out of the main binary in [v3.2.0](https://github.com/mudler
 
 You install one thing and it stays small. Ask for a GGUF model and llama-cpp arrives. Ask for transcription and whisper or parakeet arrives. Nothing else is fetched, and a machine that only ever serves one model never downloads the other sixty-nine backends.
 
-That one change is what made everything after it possible. Adding a backend stopped meaning adding weight to everybody's install, so "should we support this engine" stopped being an argument about download size and went back to being an argument about whether the engine is any good. It is also the reason we can afford to maintain eighteen engines of our own, which comes later.
+Everything after it depended on that one change. Adding a backend stopped meaning adding weight to everybody's install, so "should we support this engine" stopped being an argument about download size and went back to being an argument about whether the engine is any good. It is also the reason we can afford to maintain eighteen engines of our own, which comes later.
 
 ## March 2026: agents, and a new interface
 
@@ -42,7 +42,7 @@ That one change is what made everything after it possible. Adding a backend stop
 
 The web interface was rewritten in React at the same time, with a Canvas mode, MCP Apps and client-side tools with tool streaming ([#8947](https://github.com/mudler/LocalAI/pull/8947)), and WebRTC realtime audio ([#8790](https://github.com/mudler/LocalAI/pull/8790)). MLX gained a distributed mode ([#8801](https://github.com/mudler/LocalAI/pull/8801)).
 
-The realtime audio path is the piece that changed what people built. Speech in, tool calls in the middle, speech out, over WebRTC, fast enough that it feels like a conversation rather than a walkie-talkie. It had landed as the Realtime API in February 2026 ([#6245](https://github.com/mudler/LocalAI/pull/6245)), and the interface rewrite finally gave it a face.
+The realtime audio path changed what people built with it. Speech in, tool calls in the middle, speech out, over WebRTC, fast enough that it feels like a conversation rather than a walkie-talkie. It had landed as the Realtime API in February 2026 ([#6245](https://github.com/mudler/LocalAI/pull/6245)), and the interface rewrite finally gave it a face.
 
 ## April 2026: it becomes a cluster
 
@@ -74,6 +74,6 @@ The most recent one is [vllm.cpp](https://github.com/mudler/vllm.cpp), a C++20 p
 
 ## Where it stands
 
-Still MIT, still a community project. 224 people have put code in, and the README is kept translated into eight languages because the people using this are not all in one place. The [contributors graph](https://github.com/mudler/LocalAI/graphs/contributors) is the honest picture of who actually built this, and it is not me.
+Still MIT, still a community project. 224 people have put code in, and the README is kept translated into eight languages because the people using this are not all in one place. The [contributors graph](https://github.com/mudler/LocalAI/graphs/contributors) shows who actually built this, and it is not me.
 
 If you want to add something, backends and gallery entries are the two places a first contribution lands cleanly. There is a step-by-step checklist for a new backend in `.agents/adding-backends.md`, and a gallery entry is just a YAML block. Come say hello in [Discord](https://discord.gg/uJAeKSAGDy) if you get stuck.

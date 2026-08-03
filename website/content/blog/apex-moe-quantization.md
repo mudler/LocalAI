@@ -4,13 +4,13 @@ date: 2026-04-10
 author: "Ettore Di Giacinto"
 category: "Research"
 tags: ["quantization", "APEX", "mixture-of-experts", "llama.cpp", "benchmarks"]
-summary: "Qwen3.5-35B-A3B goes from 64.6 GB to 12.2 GB and speeds up from 30.4 to 74.4 tokens per second. Perplexity moves from 6.537 to 7.088. Here is the precision assignment that does it, and where it costs you."
+summary: "Qwen3.5-35B-A3B goes from 64.6 GB to 12.2 GB and speeds up from 30.4 to 74.4 tokens per second. Perplexity moves from 6.537 to 7.088. Here is the precision assignment that does it, and where the quality drops."
 extracss: ["blog.css"]
 ---
 
 A 35B mixture-of-experts model at full precision is a 64.6 GB file, which puts it out of reach of every consumer GPU. APEX gets Qwen3.5-35B-A3B down to 12.2 GB, where it fits a 16 GB card with room for context, and it generates at 74.4 tokens per second instead of 30.4. The output is an ordinary GGUF that stock llama.cpp opens with no patches and no custom build.
 
-The compression is not free at that tier, and the numbers below say exactly what it costs. At the 21.3 GB tier it is closer to free than we expected: APEX Quality has a lower perplexity than the F16 model it was quantized from.
+At that tier the quality does drop, and the numbers below say by how much. At the 21.3 GB tier it barely drops at all: APEX Quality has a lower perplexity than the F16 model it was quantized from.
 
 ## The measurements
 
@@ -37,17 +37,17 @@ All of this is Qwen3.5-35B-A3B on an NVIDIA DGX Spark (GB10, 122 GB unified VRAM
 
 Three things in that table are worth stopping on.
 
-APEX Quality is 21.3 GB, a third of F16, and its perplexity of 6.527 is lower than F16's 6.537 and lower than Q8_0's 6.533. Quantization noise acting as mild regularization on a wikitext evaluation is a known effect and we are not claiming the quantized model is smarter. The honest reading is that at this tier the loss is below the measurement floor.
+APEX Quality is 21.3 GB, a third of F16, and its perplexity of 6.527 is lower than F16's 6.537 and lower than Q8_0's 6.533. Quantization noise acting as mild regularization on a wikitext evaluation is a known effect and we are not claiming the quantized model is smarter. At this tier the loss is below the measurement floor.
 
-Against Unsloth's UD-Q8_K_XL, APEX I-Quality is half the size (21.3 GB against 45.3 GB), one point ahead on HellaSwag (83.5% against 82.5%), within 0.016 on perplexity, and 73% faster (63.1 t/s against 36.4). That is the comparison that matters for anyone choosing a published quant today.
+Against Unsloth's UD-Q8_K_XL, APEX I-Quality is half the size (21.3 GB against 45.3 GB), one point ahead on HellaSwag (83.5% against 82.5%), within 0.016 on perplexity, and 73% faster (63.1 t/s against 36.4).
 
 At the bottom end, APEX Mini beats bartowski IQ2_M on every metric while being 0.9 GB larger: perplexity 7.088 against 7.303, HellaSwag 81.0% against 80.3%, MMLU 41.3% against 39.6%.
 
-## Why it gets faster, not just smaller
+## Why it also gets faster
 
 Token generation on a single stream is bound by memory bandwidth, not by arithmetic. Every generated token requires reading the active weights out of memory, so halving the bytes roughly halves the time spent waiting for them. Going from 64.6 GB to 12.2 GB takes throughput from 30.4 to 74.4 tokens per second, a 2.45x gain on the same hardware with the same kernels. Every APEX tier clears 60 t/s.
 
-That is also why a large well-behaved quant such as UD-Q8_K_XL is slower than a smaller one with equal quality. Size is a speed knob as much as a memory knob.
+That is also why a large well-behaved quant such as UD-Q8_K_XL is slower than a smaller one with equal quality.
 
 ## Per-tensor and per-layer precision
 
@@ -55,9 +55,9 @@ Uniform quantization gives every tensor the same bit width, which spends the sam
 
 APEX classifies every tensor into one of three roles and treats them differently.
 
-**Routed expert weights** (the gate, up and down projections inside the experts) are the bulk of the parameters, and only 8 of 256 experts are active per token. That 97% structural sparsity is what makes aggressive quantization safe here. The routing decision itself reads full-precision gate weights, so quantization noise inside an expert that was not selected never reaches the output at all. When an expert is selected, its contribution is one of eight summed paths, which further dilutes per-tensor error.
+**Routed expert weights** (the gate, up and down projections inside the experts) are the bulk of the parameters, and only 8 of 256 experts are active per token. That 97% structural sparsity is why aggressive quantization is safe here. The routing decision itself reads full-precision gate weights, so quantization noise inside an expert that was not selected never reaches the output at all. When an expert is selected, its contribution is one of eight summed paths, which further dilutes per-tensor error.
 
-**Shared expert weights** run for every single token and their weight distribution is heavy-tailed, with a kurtosis of 13.10 against 3.41 for routed experts. Those outliers carry real signal and low-bit formats clip them. Q8_0 is the minimum viable precision here, and dropping it is the fastest way to wreck a build.
+**Shared expert weights** run for every single token and their weight distribution is heavy-tailed, with a kurtosis of 13.10 against 3.41 for routed experts. Those outliers carry real signal and low-bit formats clip them. Q8_0 is the minimum viable precision here, and dropping it degrades the build quickly.
 
 **Attention and SSM weights** are dense, contribute few parameters relative to the experts, and matter for generation quality. They sit at Q6_K throughout.
 
@@ -69,23 +69,23 @@ None of this needs a patched llama.cpp. The assignments are expressed with the s
 
 Twenty-five or so systematic runs produced a few results that saved a lot of time later.
 
-Going from Q6_K to Q8_0 on routed experts costs 7.5 GB and buys zero perplexity improvement. Going below Q5_K on them causes measurable degradation. Q6_K is the ceiling worth paying for.
+Going from Q6_K to Q8_0 on routed experts costs 7.5 GB and gives zero perplexity improvement. Going below Q5_K on them causes measurable degradation. Q6_K is the ceiling.
 
 Layer position matters more than uniform bit width. A two-tier gradient of Q6_K edges and Q5_K middle matches Q8_0 quality; a uniform Q5_K assignment at a similar size does not.
 
 IQ formats underperform K-quants on MoE experts. IQ3_S gives worse perplexity than Q3_K on routed expert tensors at a similar bit rate, because the near-Gaussian expert weight distribution (kurtosis 3.41) suits the K-quant block structure better.
 
-Five C-level modifications to the quantization algorithms themselves, including error feedback, enhanced scale search, super-block refinement and Gaussian-density weighting, all showed zero improvement. Stock llama.cpp quantization is already good. The gains here come entirely from deciding where to spend bits.
+Five C-level modifications to the quantization algorithms themselves, including error feedback, enhanced scale search, super-block refinement and Gaussian-density weighting, all showed zero improvement. Stock llama.cpp quantization is already good. The gains here come entirely from deciding where to put the bits.
 
 ## The I-variants and their calibration set
 
 Standard imatrix calibration uses Wikipedia text, which is also what wikitext perplexity measures, so the calibration and the benchmark agree with each other by construction. The I-variants calibrate on a diverse set spanning chat, code, reasoning and tool-calling, with no Wikipedia in it.
 
-That trade shows up clearly. I-Compact drops perplexity from 6.783 to 6.669, cuts KL max from 7.56 to 5.50, and lifts MMLU from 40.9% to 41.7%. At the Quality tier, I-Quality gives up 0.025 perplexity against Quality and takes the highest HellaSwag score of anything tested (83.5%), the best TruthfulQA (38.4%), and a lower KL divergence. If your workload is chat, code or agents rather than encyclopedic prose, take the I variant.
+It shows up in the numbers. I-Compact drops perplexity from 6.783 to 6.669, cuts KL max from 7.56 to 5.50, and lifts MMLU from 40.9% to 41.7%. At the Quality tier, I-Quality gives up 0.025 perplexity against Quality and takes the highest HellaSwag score of anything tested (83.5%), the best TruthfulQA (38.4%), and a lower KL divergence. If your workload is chat, code or agents rather than encyclopedic prose, take the I variant.
 
-## Where it costs you
+## Where the quality drops
 
-The Compact and Mini tiers are real compression, and they are not free.
+The Compact and Mini tiers lose real quality.
 
 Compact at 16.1 GB moves perplexity from 6.537 to 6.783, a 3.8% increase, and its KL mean rises tenfold against Q8_0, from 0.0046 to 0.0469. Mini at 12.2 GB goes to 7.088, an 8.4% increase, with a KL mean of 0.0870 and HellaSwag down 1.5 points to 81.0%. Those are the numbers to weigh against the fact that the model now runs at all on a 16 GB card.
 
