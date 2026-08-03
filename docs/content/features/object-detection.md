@@ -95,7 +95,7 @@ Each detection includes:
 
 ### RF-DETR Backend
 
-The RF-DETR backend is implemented as a Python-based gRPC service that integrates seamlessly with LocalAI. It provides object detection capabilities using the RF-DETR model architecture and supports multiple hardware configurations:
+The RF-DETR backend is implemented as a Python-based gRPC service that integrates with LocalAI. It provides object detection capabilities using the RF-DETR model architecture and supports multiple hardware configurations:
 
 - **CPU**: Optimized for CPU inference
 - **NVIDIA GPU**: CUDA acceleration for NVIDIA GPUs

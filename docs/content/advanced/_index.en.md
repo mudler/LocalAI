@@ -13,7 +13,7 @@ images: []
 
 ## Overview
 
-The **Advanced** section covers in-depth topics for users who want to fully leverage LocalAI's capabilities beyond basic usage. These pages are designed for developers, DevOps engineers, and power users who need fine-grained control over model configuration, system resources, and deployment infrastructure.
+The **Advanced** section covers in-depth topics for users who want to go beyond basic usage. These pages are designed for developers, DevOps engineers, and power users who need fine-grained control over model configuration, system resources, and deployment infrastructure.
 
 ### Who Should Read This Section
 

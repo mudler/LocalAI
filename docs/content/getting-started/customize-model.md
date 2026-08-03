@@ -7,9 +7,9 @@ icon = "rocket_launch"
 
 +++
 
-To customize the prompt template or the default settings of the model, a configuration file is utilized. This file must adhere to the LocalAI YAML configuration standards. For comprehensive syntax details, refer to the [advanced documentation]({{%relref "advanced" %}}). The configuration file can be located either remotely (such as in a Github Gist) or within the local filesystem or a remote URL.
+To customize the prompt template or the default settings of the model, a configuration file is used. This file must adhere to the LocalAI YAML configuration standards. For comprehensive syntax details, refer to the [advanced documentation]({{%relref "advanced" %}}). The configuration file can be located either remotely (such as in a Github Gist) or within the local filesystem or a remote URL.
 
-LocalAI can be initiated using either its container image or binary, with a command that includes URLs of model config files or utilizes a shorthand format (like `huggingface://` or `github://`), which is then expanded into complete URLs.
+LocalAI can be initiated using either its container image or binary, with a command that includes URLs of model config files or uses a shorthand format (like `huggingface://` or `github://`), which is then expanded into complete URLs.
 
 The configuration can also be set via an environment variable. For instance:
 
