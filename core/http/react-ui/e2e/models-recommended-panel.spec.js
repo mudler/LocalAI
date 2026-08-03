@@ -65,27 +65,28 @@ test.describe("Models gallery - recommended panel prominence", () => {
     await expect(grid(page).getByText("tiny-chat")).toBeVisible();
   });
 
-  test("a user with models installed gets it collapsed by default", async ({ page }) => {
+  test("it is shown by default even with models already installed", async ({ page }) => {
     await mockGallery(page, 12);
     await gotoModels(page);
+
+    // The page's one opinion about this host. An opinion folded away by
+    // default is one the reader never gets, so we no longer make that choice
+    // for them — they can still collapse it themselves.
+    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
+    await expect(grid(page)).toBeVisible();
+    await expect(panel(page).getByText("Recommended for your hardware")).toBeVisible();
+  });
+
+  test("collapsing it is remembered", async ({ page }) => {
+    await mockGallery(page, 12);
+    await gotoModels(page);
+
+    await expect(grid(page)).toBeVisible();
+    await toggle(page).click();
 
     await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
     await expect(grid(page)).toBeHidden();
-    // Collapsed is a summary, not a removal: the heading stays on the page.
-    await expect(panel(page).getByText("Recommended for your hardware")).toBeVisible();
-    await expect(panel(page).getByText("2 models suggested")).toBeVisible();
-  });
-
-  test("the collapsed summary expands again on activation", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
-
-    await expect(grid(page)).toBeHidden();
-    await toggle(page).click();
-
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    await expect(grid(page)).toBeVisible();
-    await expect(page.evaluate((k) => localStorage.getItem(k), COLLAPSE_KEY)).resolves.toBe("0");
+    await expect(page.evaluate((k) => localStorage.getItem(k), COLLAPSE_KEY)).resolves.toBe("1");
   });
 
   test("the collapse choice persists across a reload", async ({ page }) => {
@@ -126,10 +127,11 @@ test.describe("Models gallery - recommended panel prominence", () => {
     await toggle(page).focus();
     await expect(toggle(page)).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
+    // Starts expanded now, so the keypress collapses it.
+    await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
     // aria-controls must resolve to the region it actually shows and hides.
     await expect(toggle(page)).toHaveAttribute("aria-controls", "rec-models-content");
-    await expect(grid(page)).toBeVisible();
+    await expect(grid(page)).toBeHidden();
   });
 
   test("recommendations render and their install buttons still work", async ({ page }) => {

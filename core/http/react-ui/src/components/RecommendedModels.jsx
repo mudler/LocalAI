@@ -48,11 +48,11 @@ export default function RecommendedModels({ addToast, installedCount = null }) {
 
   if (loading || dismissed) return null
   if (!recommended || recommended.length === 0) return null
-  // Wait for the installed count before committing to a default: rendering
-  // expanded and collapsing a frame later would shove the gallery around.
-  if (installedCount === null || installedCount === undefined) return null
-
-  const collapsed = collapsePref === null ? installedCount > 0 : collapsePref
+  // Shown by default, whatever is already installed. These are the page's one
+  // opinion about this host, and an opinion folded away by default is one the
+  // reader never gets. Someone who disagrees can still collapse it, and that
+  // choice is remembered; the difference is that we no longer make it for them.
+  const collapsed = collapsePref === true
 
   const dismiss = () => {
     try { localStorage.setItem(DISMISS_KEY, '1') } catch { /* ignore */ }

@@ -11946,15 +11946,28 @@ button.collapsible-header:focus-visible {
 
 .zero-pane__text { font-size: 0.8125rem; color: var(--color-text-muted); }
 
-.zero-pane__shelf-head { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+/* The heading needs air under it. Sitting a line's width from the text it
+   introduces made the two read as one paragraph. */
+.zero-pane__shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
 .zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
+.zero-pane__shelf { margin-top: var(--spacing-2xl); }
 .zero-pane__shelf-meta {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   color: var(--color-text-muted);
 }
-.zero-pane__shelf-hint { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 4px; }
+.zero-pane__shelf-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+}
 
 /* Curated tiles. A catalog spends its zero state arguing for something; the
    tile is where that argument gets the width a rail line never has. */
@@ -12735,6 +12748,8 @@ button.lane:hover {
 /* Home: resident models and the header figures. */
 .lanes--resident .lane { grid-template-columns: minmax(0, 1fr) minmax(0, 9rem) auto auto; }
 .lanes--jump .lane { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto; }
+.lanes--usecase .lane { grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; }
+.lanes--usecase .lane__tag { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
 .home-jump { margin-bottom: var(--spacing-2xl); }
 
 .home-loaded-stop {
