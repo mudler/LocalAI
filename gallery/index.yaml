@@ -1,4 +1,59 @@
 ---
+- &nemotron-3-embed-1b
+  name: "nemotron-3-embed-1b-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: nemotron-3-embed-8b-q4
+  license: openmdw-1.1
+  urls:
+    - https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16
+    - https://huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF
+  description: |
+    Nemotron-3-Embed-1B is NVIDIA's multilingual text embedding model for
+    retrieval, semantic search, and RAG. This compact Q4_K_M GGUF produces
+    2,048-dimensional normalized embeddings and supports 36 languages. Prefix
+    retrieval queries with `query: ` and documents with `passage: `.
+  tags:
+    - embeddings
+    - multilingual
+    - retrieval
+    - rag
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/nemotron-3-embed-1b-q4_k_m.gguf
+  files:
+    - filename: llama-cpp/models/nemotron-3-embed-1b-q4_k_m.gguf
+      uri: huggingface://zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF/nemotron-3-embed-1b-q4_k_m.gguf
+      sha256: 9a74166f51dbc280073748fa199bea49283bd21f7f9280f2dec2b4d975ddfd1d
+- !!merge <<: *nemotron-3-embed-1b
+  name: "nemotron-3-embed-8b-q4"
+  variants: []
+  urls:
+    - https://huggingface.co/nvidia/Nemotron-3-Embed-8B-BF16
+    - https://huggingface.co/Abiray/Nemotron-3-Embed-8B-GGUF
+  description: |
+    Nemotron-3-Embed-8B is NVIDIA's larger multilingual text embedding model
+    for retrieval, semantic search, and RAG. This Q4_K_M GGUF balances retrieval
+    quality with local resource use and supports 36 languages. Prefix retrieval
+    queries with `query: ` and documents with `passage: `.
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/Nemotron-3-Embed-8B-Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/Nemotron-3-Embed-8B-Q4_K_M.gguf
+      uri: huggingface://Abiray/Nemotron-3-Embed-8B-GGUF/Nemotron-3-Embed-8B-Q4_K_M.gguf
+      sha256: a2aa29c618da6eed10d9474e72e33188c61e5fd700aed2fe9a1d98abdc90c6fc
 - &grug-27b
   name: "grug-27b"
   variants:
