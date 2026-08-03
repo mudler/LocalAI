@@ -51,7 +51,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          # Track go.mod rather than a literal. Pinned at 1.22 this installed a
+          # toolchain older than the module's `go 1.26.0`, so the `go run` below
+          # downloaded the real one from proxy.golang.org on every run. That
+          # fetch is not always reachable from the runner and the deploy failed
+          # on five of eight consecutive master pushes with:
+          #   go: download go1.26.0: ... connect: network is unreachable
+          #   ##[error]Command failed: go env GOPATH
+          # Installing the version the module asks for removes the download
+          # instead of depending on it succeeding.
+          go-version-file: go.mod
           cache: false
 
       - name: Setup Hugo
