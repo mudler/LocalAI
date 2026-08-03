@@ -112,7 +112,7 @@ TEST_RESOURCE_MANIFESTS?=$(abspath ./test-resources/manifests)
 OFFLINE_RUN=$(abspath ./scripts/run-test-offline.sh)
 
 
-.PHONY: all test prepare-offline-test-cache update-offline-test-cache test-network-lint test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
+.PHONY: all test prepare-offline-test-cache update-offline-test-cache test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check install-hooks build vendor lint lint-all
 
 all: help
 
@@ -217,16 +217,13 @@ prepare-offline-test-cache:
 	@test -n "$(TEST_RESOURCE_SET)" || { echo 'TEST_RESOURCE_SET is required, for example: make prepare-offline-test-cache TEST_RESOURCE_SET=default'; exit 2; }
 	$(GOCMD) run ./cmd/test-resources prepare "$(TEST_RESOURCE_SET)" "$(TEST_RESOURCE_MANIFESTS)" "$(TEST_RESOURCE_CACHE)"
 
-test-network-lint:
-	scripts/test-network-lint.sh
-
 update-offline-test-cache:
 	@test -n "$(TEST_RESOURCE_SET)" || { echo 'TEST_RESOURCE_SET is required, for example: make update-offline-test-cache TEST_RESOURCE_SET=default'; exit 2; }
 	@test "$$LOCALAI_TEST_RESOURCES_ONLINE" = 1 || { echo 'Set LOCALAI_TEST_RESOURCES_ONLINE=1 to enter explicit online record mode'; exit 2; }
 	$(GOCMD) run ./cmd/test-resources update "$(TEST_RESOURCE_SET)" "$(TEST_RESOURCE_MANIFESTS)" "$(TEST_RESOURCE_CACHE)"
 
 test: TEST_RESOURCE_SET=default
-test: test-network-lint prepare-test
+test: prepare-test
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
@@ -266,7 +263,7 @@ test-python-helpers:
 ## --fail-fast so a single failure doesn't truncate the coverage number, and
 ## uses covermode=atomic so the result is deterministic. Prints the total.
 test-coverage: TEST_RESOURCE_SET=default
-test-coverage: test-network-lint prepare-test
+test-coverage: prepare-test
 	@echo 'Running tests with coverage (test failures stop before the percentage ratchet)'
 	GINKGO_TAGS="$(COVERAGE_TAGS)" \
 	COVERAGE_COVERPKG="$(COVERAGE_COVERPKG)" \

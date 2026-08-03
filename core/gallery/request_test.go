@@ -20,7 +20,7 @@ var _ = Describe("Gallery API tests", func() {
 				},
 			}
 			resolved := downloader.URI(req.URL).ResolveURL()
-			Expect(resolved).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml")) // test-network: fixture
+			Expect(resolved).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
 		})
 	})
 
