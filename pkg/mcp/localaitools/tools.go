@@ -17,6 +17,8 @@ const (
 	ToolListKnownBackends   = "list_known_backends"
 	ToolSystemInfo          = "system_info"
 	ToolListNodes           = "list_nodes"
+	ToolListScheduling      = "list_scheduling"
+	ToolGetScheduling       = "get_scheduling"
 	ToolVRAMEstimate        = "vram_estimate"
 	ToolGetBranding         = "get_branding"
 	ToolGetUsageStats       = "get_usage_stats"
@@ -42,6 +44,8 @@ const (
 	ToolCreateVoiceProfile = "create_voice_profile"
 	ToolDeleteVoiceProfile = "delete_voice_profile"
 	ToolSetNodeVRAMBudget  = "set_node_vram_budget"
+	ToolSetScheduling      = "set_scheduling"
+	ToolDeleteScheduling   = "delete_scheduling"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.

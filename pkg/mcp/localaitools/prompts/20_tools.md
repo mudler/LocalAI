@@ -14,6 +14,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `vram_estimate` — Estimate VRAM use for a model under a given config.
 - `system_info` — LocalAI version, paths, distributed flag, loaded models, installed backends.
 - `list_nodes` — List federated worker nodes (only useful in distributed mode).
+- `list_scheduling` — List distributed per-model scheduling configs.
+- `get_scheduling` — Read the distributed scheduling config for one model.
 - `list_voice_profiles` — List reusable voice-cloning profiles and their stable TTS voice URIs.
 
 ## Mutating (require user confirmation per safety rule 1)
@@ -30,3 +32,6 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `toggle_model_pinned` — Pin or unpin a model (`action`: `pin` or `unpin`).
 - `create_voice_profile` — Save a consent-confirmed base64 PCM-WAV reference and exact transcript for reuse in TTS.
 - `delete_voice_profile` — Permanently delete a saved voice profile by UUID.
+- `set_node_vram_budget` — Set or clear a federated node's VRAM budget override.
+- `set_scheduling` — Create or update a distributed per-model scheduling config.
+- `delete_scheduling` — Remove a distributed per-model scheduling config.

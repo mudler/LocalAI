@@ -35,6 +35,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolListKnownBackends:   "GET /backends/known",
 	ToolSystemInfo:          "GET / (welcome JSON)",
 	ToolListNodes:           "GET /api/nodes",
+	ToolListScheduling:      "GET /api/nodes/scheduling",
+	ToolGetScheduling:       "GET /api/nodes/scheduling/:model",
 	ToolVRAMEstimate:        "POST /api/models/vram-estimate",
 	ToolGetBranding:         "GET /api/branding",
 	ToolGetUsageStats:       "GET /api/usage (or /api/usage/all when all=true)",
@@ -60,6 +62,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolCreateVoiceProfile: "POST /api/voice-profiles",
 	ToolDeleteVoiceProfile: "DELETE /api/voice-profiles/:id",
 	ToolSetNodeVRAMBudget:  "PUT /api/nodes/:id/vram-budget",
+	ToolSetScheduling:      "POST /api/nodes/scheduling",
+	ToolDeleteScheduling:   "DELETE /api/nodes/scheduling/:model",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

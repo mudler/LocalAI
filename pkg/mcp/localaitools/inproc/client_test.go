@@ -2,6 +2,7 @@ package inproc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,8 +14,11 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	"github.com/mudler/LocalAI/pkg/system"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 // Regression spec for the bug we fixed when channel sends were
@@ -124,3 +128,88 @@ var _ = Describe("inproc.Client model aliases", func() {
 		})
 	})
 })
+
+var _ = Describe("inproc.Client model scheduling", func() {
+	var (
+		ctx      context.Context
+		registry *nodes.NodeRegistry
+		c        *Client
+		stringp  = func(s string) *string { return &s }
+		floatp   = func(f float64) *float64 { return &f }
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		db, err := gorm.Open(sqlite.Open(filepath.Join(GinkgoT().TempDir(), "nodes.db")), &gorm.Config{})
+		Expect(err).ToNot(HaveOccurred())
+		registry, err = nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+
+		tempDir := GinkgoT().TempDir()
+		systemState, err := system.GetSystemState(system.WithModelPath(tempDir))
+		Expect(err).ToNot(HaveOccurred())
+		appConfig := config.NewApplicationConfig(config.WithSystemState(systemState))
+		c = New(appConfig, systemState, config.NewModelConfigLoader(tempDir), nil, nil, registry)
+	})
+
+	It("sets, lists, gets, merges, and deletes scheduling configs through the registry", func() {
+		created, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{
+			ModelName:      "qwen",
+			NodeSelector:   map[string]string{"gpu": "nvidia"},
+			MinReplicas:    1,
+			MaxReplicas:    2,
+			RoutePolicy:    stringp("prefix_cache"),
+			MinPrefixMatch: floatp(0.4),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(created.ModelName).To(Equal("qwen"))
+		Expect(created.NodeSelector).To(Equal(`{"gpu":"nvidia"}`))
+		Expect(created.RoutePolicy).To(Equal("prefix_cache"))
+		Expect(created.MinPrefixMatch).To(Equal(0.4))
+		Expect(schedulingJSONKeys(created)).ToNot(Or(
+			HaveKey("id"),
+			HaveKey("unsatisfiable_until"),
+			HaveKey("unsatisfiable_ticks"),
+			HaveKey("created_at"),
+			HaveKey("updated_at"),
+		))
+
+		listed, err := c.ListScheduling(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(listed).To(HaveLen(1))
+		Expect(listed[0].ModelName).To(Equal("qwen"))
+
+		updated, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{
+			ModelName:   "qwen",
+			MinReplicas: 2,
+			MaxReplicas: 3,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updated.MinReplicas).To(Equal(2))
+		Expect(updated.MaxReplicas).To(Equal(3))
+		Expect(updated.RoutePolicy).To(Equal("prefix_cache"))
+		Expect(updated.MinPrefixMatch).To(Equal(0.4))
+
+		got, err := c.GetScheduling(ctx, "qwen")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).ToNot(BeNil())
+		Expect(got.MaxReplicas).To(Equal(3))
+
+		Expect(c.DeleteScheduling(ctx, "qwen")).To(Succeed())
+		missing, err := c.GetScheduling(ctx, "qwen")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(missing).To(BeNil())
+	})
+})
+
+func schedulingJSONKeys(config *localaitools.ModelSchedulingConfig) map[string]any {
+	var out map[string]any
+	Expect(json.Unmarshal([]byte(mustMarshal(config)), &out)).To(Succeed())
+	return out
+}
+
+func mustMarshal(v any) string {
+	b, err := json.Marshal(v)
+	Expect(err).ToNot(HaveOccurred())
+	return string(b)
+}

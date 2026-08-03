@@ -23,6 +23,8 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
@@ -47,6 +49,7 @@ type Client struct {
 	ConfigLoader  *config.ModelConfigLoader
 	ModelLoader   *model.ModelLoader
 	Gallery       *galleryop.GalleryService
+	NodeRegistry  *nodes.NodeRegistry
 	VoiceProfiles *voiceprofile.Store
 
 	// StatsRecorder and FallbackUser are optional — they back the
@@ -75,13 +78,18 @@ type Client struct {
 // except ModelLoader (used only for SystemInfo's loaded-models report and
 // best-effort ShutdownModel calls during config edits) and the stats
 // fields (StatsRecorder, FallbackUser) which gate get_usage_stats.
-func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService) *Client {
+func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService, registries ...*nodes.NodeRegistry) *Client {
+	var registry *nodes.NodeRegistry
+	if len(registries) > 0 {
+		registry = registries[0]
+	}
 	return &Client{
 		AppConfig:     appConfig,
 		SystemState:   systemState,
 		ConfigLoader:  cl,
 		ModelLoader:   ml,
 		Gallery:       gs,
+		NodeRegistry:  registry,
 		VoiceProfiles: voiceprofile.NewStore(appConfig.DataPath),
 		modelAdmin:    modeladmin.NewConfigService(cl, appConfig),
 	}
@@ -499,6 +507,121 @@ func (c *Client) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	// empty list is the right answer in single-process mode and a sensible
 	// stub until the Application plumbs the registry into this client.
 	return []localaitools.Node{}, nil
+}
+
+func (c *Client) ListScheduling(ctx context.Context) ([]localaitools.ModelSchedulingConfig, error) {
+	if c.NodeRegistry == nil {
+		return []localaitools.ModelSchedulingConfig{}, nil
+	}
+	configs, err := c.NodeRegistry.ListModelSchedulings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return localaitools.SchedulingConfigsFromNodes(configs), nil
+}
+
+func (c *Client) GetScheduling(ctx context.Context, modelName string) (*localaitools.ModelSchedulingConfig, error) {
+	if modelName == "" {
+		return nil, errors.New("model_name is required")
+	}
+	if c.NodeRegistry == nil {
+		return nil, errors.New("model scheduling is only available in distributed mode")
+	}
+	config, err := c.NodeRegistry.GetModelScheduling(ctx, modelName)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, nil
+	}
+	out := localaitools.SchedulingConfigFromNode(*config)
+	return &out, nil
+}
+
+func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
+	if req.ModelName == "" {
+		return nil, errors.New("model_name is required")
+	}
+	if c.NodeRegistry == nil {
+		return nil, errors.New("model scheduling is only available in distributed mode")
+	}
+
+	existing, err := c.NodeRegistry.GetModelScheduling(ctx, req.ModelName)
+	if err != nil {
+		return nil, fmt.Errorf("load existing scheduling config: %w", err)
+	}
+	routePolicy := ""
+	absThr := 0
+	relThr := 0.0
+	minMatch := 0.0
+	if existing != nil {
+		routePolicy = existing.RoutePolicy
+		absThr = existing.BalanceAbsThreshold
+		relThr = existing.BalanceRelThreshold
+		minMatch = existing.MinPrefixMatch
+	}
+	if req.RoutePolicy != nil {
+		routePolicy = *req.RoutePolicy
+	}
+	if req.BalanceAbsThreshold != nil {
+		absThr = *req.BalanceAbsThreshold
+	}
+	if req.BalanceRelThreshold != nil {
+		relThr = *req.BalanceRelThreshold
+	}
+	if req.MinPrefixMatch != nil {
+		minMatch = *req.MinPrefixMatch
+	}
+	if req.SpreadAll && (req.MinReplicas != 0 || req.MaxReplicas != 0) {
+		return nil, errors.New("spread_all and min_replicas/max_replicas are mutually exclusive")
+	}
+	if req.MinReplicas < 0 {
+		return nil, errors.New("min_replicas must be >= 0")
+	}
+	if req.MaxReplicas < 0 {
+		return nil, errors.New("max_replicas must be >= 0")
+	}
+	if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
+		return nil, errors.New("min_replicas must be <= max_replicas")
+	}
+	if err := prefixcache.ValidateThresholds(routePolicy, absThr, relThr, minMatch); err != nil {
+		return nil, err
+	}
+
+	var selectorJSON string
+	if len(req.NodeSelector) > 0 {
+		b, err := json.Marshal(req.NodeSelector)
+		if err != nil {
+			return nil, fmt.Errorf("invalid node_selector: %w", err)
+		}
+		selectorJSON = string(b)
+	}
+	config := &nodes.ModelSchedulingConfig{
+		ModelName:           req.ModelName,
+		NodeSelector:        selectorJSON,
+		MinReplicas:         req.MinReplicas,
+		MaxReplicas:         req.MaxReplicas,
+		SpreadAll:           req.SpreadAll,
+		RoutePolicy:         routePolicy,
+		BalanceAbsThreshold: absThr,
+		BalanceRelThreshold: relThr,
+		MinPrefixMatch:      minMatch,
+	}
+	if err := c.NodeRegistry.SetModelScheduling(ctx, config); err != nil {
+		return nil, err
+	}
+	out := localaitools.SchedulingConfigFromNode(*config)
+	return &out, nil
+}
+
+func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
+	if modelName == "" {
+		return errors.New("model_name is required")
+	}
+	if c.NodeRegistry == nil {
+		return errors.New("model scheduling is only available in distributed mode")
+	}
+	return c.NodeRegistry.DeleteModelScheduling(ctx, modelName)
 }
 
 func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {

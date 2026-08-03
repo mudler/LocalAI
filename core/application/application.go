@@ -553,12 +553,17 @@ func (a *Application) start() error {
 	// once at startup and reused across chat sessions that opt in via metadata.
 	if !a.applicationConfig.DisableLocalAIAssistant {
 		holder := mcpTools.NewLocalAIAssistantHolder()
+		var nodeRegistry *nodes.NodeRegistry
+		if a.distributed != nil {
+			nodeRegistry = a.distributed.Registry
+		}
 		assistantClient := localaiInproc.New(
 			a.applicationConfig,
 			a.applicationConfig.SystemState,
 			a.backendLoader,
 			a.modelLoader,
 			a.galleryService,
+			nodeRegistry,
 		)
 		// Wire usage tracking so the assistant's get_usage_stats tool
 		// returns real data; nil values keep the tool returning a clear
