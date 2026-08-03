@@ -75,3 +75,27 @@ test.describe('Headline figures', () => {
     expect(h).toBeGreaterThan(40)
   })
 })
+
+test.describe('Headline figure contrast', () => {
+  test('every figure is legible against the cell it sits on', async ({ page }) => {
+    // A <button> does not inherit colour, so a value with no tone rule fell
+    // back to the UA's `buttontext` — pure black on the dark ground, invisible.
+    await page.setViewportSize({ width: 1440, height: 950 })
+    await page.goto('/app/manage')
+    const bad = await page.locator('.stat-strip__value').evaluateAll(els => els
+      .map(el => ({ text: el.textContent, color: getComputedStyle(el).color }))
+      .filter(v => v.color === 'rgb(0, 0, 0)'))
+    expect(bad).toEqual([])
+  })
+
+  test('the strip keeps its top margin against the shared shorthand', async ({ page }) => {
+    // `.stat-strip` declares `margin: 0 0 ...` later in the file, which was
+    // silently resetting this element's top margin and leaving it flush
+    // against the resources panel above it.
+    await page.setViewportSize({ width: 1440, height: 950 })
+    await page.goto('/app/manage')
+    const top = await page.locator('.manage-summary')
+      .evaluate(el => parseFloat(getComputedStyle(el).marginTop))
+    expect(top).toBeGreaterThan(12)
+  })
+})

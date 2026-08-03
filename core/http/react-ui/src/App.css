@@ -8830,7 +8830,11 @@ button.collapsible-header:focus-visible {
 /* Manage summary marker — same .stat-cards layout. Top margin separates the
    cards from the System Resources card above (otherwise they sit too close
    to the RAM bar) and bottom margin tightens the gap to the tabs below. */
-.manage-summary {
+/* Two class names, so this beats the shared .stat-strip shorthand regardless
+   of which rule the file happens to declare later. The single-class version
+   was silently losing its top margin to `margin: 0 0 …`, leaving the strip
+   flush against the resources card above it. */
+.stat-strip.manage-summary {
   margin-top: var(--spacing-xl);
   margin-bottom: var(--spacing-lg);
   /* .page--app is a flex column whose split view takes flex:1, so a child with
@@ -11955,7 +11959,6 @@ button.collapsible-header:focus-visible {
   margin-bottom: var(--spacing-sm);
 }
 .zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
-.zero-pane__shelf { margin-top: var(--spacing-2xl); }
 .zero-pane__shelf-meta {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -12838,10 +12841,12 @@ button.lane:hover {
 .operate-headline__value--success { color: var(--color-success); }
 .stat-strip__value--warning,
 .operate-headline__value--warning { color: var(--color-warning); }
-.operate-headline__value--muted   { color: var(--color-text-tertiary); }
+.stat-strip__value--muted,
+.operate-headline__value--muted { color: var(--color-text-tertiary); }
 
 button.stat-strip__cell {
   border: 0;
+  color: inherit;
   text-align: left;
   font: inherit;
   cursor: pointer;
