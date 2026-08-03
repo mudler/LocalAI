@@ -11183,20 +11183,33 @@ button.collapsible-header:focus-visible {
    Tinted notice banners, the summary counters, the backend table's icon /
    description / badge cells and the detail table under an expanded row.
    =========================================================================== */
+/* A hairline with a coloured left edge, not a tinted card. Same treatment as
+   the Operate overview's attention rows, so "this wants a decision" looks the
+   same wherever it appears. A filled panel makes every notice shout at the
+   weight of an error, which is how notices stop being read. */
 .bk-notice {
   padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
-  background: var(--tone-soft);
-  border: 1px solid var(--tone-line);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-left: 3px solid var(--tone, var(--color-primary));
 }
 .bk-notice--between { justify-content: space-between; }
+.hstack--sm { display: flex; align-items: center; gap: var(--spacing-sm); }
+.bk-notice__icon { color: var(--tone, var(--color-primary)); }
 .bk-notice__text { color: var(--tone); font-weight: var(--font-weight-medium); font-size: var(--text-sm); }
 .bk-counts { display: flex; gap: var(--spacing-md); font-size: var(--text-sm); }
-.bk-count { font-size: var(--text-xl); font-weight: var(--font-weight-bold, 700); color: var(--tone, var(--color-primary)); }
+.bk-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone, var(--color-primary));
+}
 .bk-icon-fallback {
   width: 28px; height: 28px;
   border-radius: var(--radius-sm);

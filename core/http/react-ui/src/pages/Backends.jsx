@@ -386,8 +386,8 @@ export default function Backends() {
       {/* Upgrade Banner */}
       {Object.keys(upgrades).length > 0 && (
         <div className="card bk-notice bk-notice--between tone-warning mb-md">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-            <i className="fas fa-arrow-up" style={{ color: 'var(--color-warning)' }} />
+          <div className="hstack hstack--sm">
+            <i className="fas fa-arrow-up bk-notice__icon" />
             <span className="bk-notice__text">
               {Object.keys(upgrades).length} backend{Object.keys(upgrades).length > 1 ? 's have' : ' has'} updates available
             </span>
