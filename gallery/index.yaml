@@ -134,6 +134,90 @@
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
       sha256: ef1940d5a91c294393c60b4083b497a05f6df1174e9a12225843945b228c5d20
+- name: instella-moe-16b-a3b-think
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/amd/Instella-MoE-16B-A3B-Think
+    - https://huggingface.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF
+  description: |
+    AMD Instella-MoE-16B-A3B-Think is a reasoning and instruction-following
+    mixture-of-experts model with 16 billion total parameters and 3 billion
+    active parameters. It supports long-form reasoning, chat, coding, and tool
+    use. This entry uses the Q4_K_M GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - deepseek-v3
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - tool-use
+    - cpu
+    - gpu
+  last_checked: "2026-08-03"
+  variants:
+    - model: instella-moe-16b-a3b-think-q8
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
+      sha256: f776ddfee5dc6c808265c3f0a9c1b384c98058bfa551fe5df656fe712eb4c7f3
+      uri: huggingface://DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF/Q4_K_M/amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
+- name: instella-moe-16b-a3b-think-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/amd/Instella-MoE-16B-A3B-Think
+    - https://huggingface.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF
+  description: |
+    AMD Instella-MoE-16B-A3B-Think is a reasoning and instruction-following
+    mixture-of-experts model with 16 billion total parameters and 3 billion
+    active parameters. It supports long-form reasoning, chat, coding, and tool
+    use. This entry uses the near-lossless Q8_0 GGUF quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - deepseek-v3
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - tool-use
+    - cpu
+    - gpu
+  last_checked: "2026-08-03"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
+      sha256: 6bff0a99d06be8ecf7d9c7f65584bfc2b24526ab0bab32dbfe7dde4237cd7c33
+      uri: huggingface://DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF/Q8_0/amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
 - name: "parable-granite-4.1-3b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
