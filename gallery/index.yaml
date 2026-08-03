@@ -111,7 +111,8 @@
 - name: "deepseek-v4-flash-0731"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
-    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731
+    - https://huggingface.co/ggml-org/DeepSeek-V4-Flash-0731-GGUF
   description: "# DeepSeek-V4-Flash-0731\n\nTechnical Report\U0001F441️\n\n## Introduction\n\n**DeepSeek-V4-Flash-0731** is the official release of **DeepSeek-V4-Flash**, superseding the preview version, with substantially enhanced agentic capabilities. It has the same model structure as DeepSeek-V4-Flash-DSpark, i.e. it comes with a speculative decoding module attached.\n\nDeepSeek-V4-Flash-0731 outperforms DeepSeek-V4-Pro (Preview) on benchmarks listed below despite its far smaller activated parameter count, and is broadly competitive with the strongest proprietary models available.\n\nNotes:\n\n1. For the Code Agent tasks among the public benchmarks above, DeepSeek-V4-Flash-0731 is evaluated with the minimal mode of DeepSeek Harness (to be released) as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.\n2. † DSBench-FullStack is an internal full-stack development test set; DSBench-Hard is an internal test set of difficult coding-agent problems.\n\n## Chat Template\n\n...\n"
   license: "mit"
   tags:
@@ -120,20 +121,20 @@
     - deepseek
   icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
   overrides:
-    backend: ds4
+    backend: llama-cpp
     function:
       grammar:
         disable: true
     known_usecases:
       - chat
     parameters:
-      model: ds4flash.gguf
+      model: DeepSeek-V4-Flash-0731-MXFP4.gguf
     template:
       use_tokenizer_template: true
   files:
-    - filename: ds4flash.gguf
-      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
-      sha256: ef1940d5a91c294393c60b4083b497a05f6df1174e9a12225843945b228c5d20
+    - filename: DeepSeek-V4-Flash-0731-MXFP4.gguf
+      uri: huggingface://ggml-org/DeepSeek-V4-Flash-0731-GGUF/DeepSeek-V4-Flash-0731-MXFP4.gguf
+      sha256: c8b46876c3939a6e141f9e4d4aa422981df4a9b84f19e9bb4e1c9a28be31e484
 - name: instella-moe-16b-a3b-think
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
