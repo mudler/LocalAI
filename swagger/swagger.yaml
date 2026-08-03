@@ -438,6 +438,30 @@ definitions:
           $ref: '#/definitions/voiceprofile.Profile'
         type: array
     type: object
+  middleware.TraceBucket:
+    properties:
+      count:
+        type: integer
+      errors:
+        type: integer
+      start:
+        type: string
+    type: object
+  middleware.TraceSummary:
+    properties:
+      buckets:
+        items:
+          $ref: '#/definitions/middleware.TraceBucket'
+        type: array
+      errors:
+        type: integer
+      p95_ms:
+        type: integer
+      total:
+        type: integer
+      window_hours:
+        type: integer
+    type: object
   model.BackendLogLine:
     properties:
       stream:
@@ -1558,6 +1582,46 @@ definitions:
       object:
         type: string
     type: object
+  schema.ModerationRequest:
+    properties:
+      input:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+    type: object
+  schema.ModerationResponse:
+    properties:
+      id:
+        type: string
+      model:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/schema.ModerationResult'
+        type: array
+    type: object
+  schema.ModerationResult:
+    properties:
+      categories:
+        additionalProperties:
+          type: boolean
+        type: object
+      category_applied_input_types:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      category_scores:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      flagged:
+        type: boolean
+    type: object
   schema.MultimediaSourceConfig:
     properties:
       headers:
@@ -2337,6 +2401,12 @@ definitions:
     type: object
   schema.SysInfoModel:
     properties:
+      backend:
+        description: |-
+          Backend is the engine serving this model. The loader knows only the ID,
+          so it is resolved from the model's config; empty when the model was
+          loaded without one (a loose file, or a config since removed).
+        type: string
       id:
         type: string
     type: object
@@ -3837,6 +3907,26 @@ paths:
       summary: Clear API traces
       tags:
       - monitoring
+  /api/traces/summary:
+    get:
+      description: Returns request, failure and latency totals over a recent window,
+        plus a bucketed series for sparklines. Exists so callers wanting three numbers
+        do not have to fetch the whole trace list and count it themselves.
+      parameters:
+      - description: Window in hours (default 24, max 168)
+        in: query
+        name: hours
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Counted trace totals
+          schema:
+            $ref: '#/definitions/middleware.TraceSummary'
+      summary: Summarize recent API traces
+      tags:
+      - monitoring
   /api/voice-profiles:
     get:
       description: List saved voice-cloning references without exposing filesystem
@@ -4954,6 +5044,23 @@ paths:
       summary: List available models enriched with capabilities and input/output modalities.
       tags:
       - models
+  /v1/moderations:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModerationRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModerationResponse'
+      summary: Classify text for potentially harmful content.
+      tags:
+      - moderation
   /v1/rerank:
     post:
       parameters:

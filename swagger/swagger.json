@@ -1547,6 +1547,34 @@
                 }
             }
         },
+        "/api/traces/summary": {
+            "get": {
+                "description": "Returns request, failure and latency totals over a recent window, plus a bucketed series for sparklines. Exists so callers wanting three numbers do not have to fetch the whole trace list and count it themselves.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Summarize recent API traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Window in hours (default 24, max 168)",
+                        "name": "hours",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Counted trace totals",
+                        "schema": {
+                            "$ref": "#/definitions/middleware.TraceSummary"
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces/{id}": {
             "get": {
                 "description": "Returns a single captured API exchange, including the request and response bodies omitted from the list response",
@@ -3268,6 +3296,33 @@
                 }
             }
         },
+        "/v1/moderations": {
+            "post": {
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Classify text for potentially harmful content.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModerationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModerationResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/rerank": {
             "post": {
                 "tags": [
@@ -4351,6 +4406,43 @@
                     "items": {
                         "$ref": "#/definitions/voiceprofile.Profile"
                     }
+                }
+            }
+        },
+        "middleware.TraceBucket": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "middleware.TraceSummary": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/middleware.TraceBucket"
+                    }
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "p95_ms": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "window_hours": {
+                    "type": "integer"
                 }
             }
         },
@@ -5976,6 +6068,67 @@
                 }
             }
         },
+        "schema.ModerationRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModerationResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModerationResult"
+                    }
+                }
+            }
+        },
+        "schema.ModerationResult": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "category_applied_input_types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "category_scores": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "flagged": {
+                    "type": "boolean"
+                }
+            }
+        },
         "schema.MultimediaSourceConfig": {
             "type": "object",
             "properties": {
@@ -7065,6 +7218,10 @@
         "schema.SysInfoModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the engine serving this model. The loader knows only the ID,\nso it is resolved from the model's config; empty when the model was\nloaded without one (a loose file, or a config since removed).",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 }

@@ -12,6 +12,7 @@ You can see the release notes [here](https://github.com/mudler/LocalAI/releases)
 
 ## 2026 Highlights
 
+- **August 2026**: [Text moderation](/features/moderation/) - new OpenAI-compatible `POST /v1/moderations` endpoint. It uses any local completion model with a constrained JSON grammar and returns the standard safety categories, scores, and per-input flags.
 - **July 2026**: [LongCat video and avatar generation](/features/video-generation/) - dedicated CUDA backend for `LongCat-Video` text/image-to-video and `LongCat-Video-Avatar-1.5` speech-driven avatars. Includes multi-segment continuation, portrait and recorded-audio inputs in Studio, and an SDPA CUDA 13 ARM64 build for DGX Spark.
 - **April 2026**: [Audio Transform](/features/audio-transform/) - generic audio-in / audio-out endpoint with optional reference signal. First implementation: [LocalVQE](https://github.com/localai-org/LocalVQE) C++ backend (joint AEC + noise suppression + dereverberation, DeepVQE-style). Both batch (`POST /audio/transformations`) and bidirectional WebSocket streaming (`/audio/transformations/stream`). Studio "Transform" tab with synchronized waveform players for input / reference / output.
 - **April 2026**: [Face recognition backend](/features/face-recognition/) - `insightface`-powered 1:1 verification, 1:N identification, face embedding, face detection, and demographic analysis. Ships both a non-commercial `buffalo_l` model and an Apache 2.0 OpenCV Zoo alternative.

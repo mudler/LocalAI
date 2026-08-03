@@ -118,6 +118,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Rerank
 	{"POST", "/v1/rerank", FeatureRerank},
 
+	// Moderation
+	{"POST", "/v1/moderations", FeatureModeration},
+	{"POST", "/moderations", FeatureModeration},
+
 	// Stores
 	{"POST", "/stores/set", FeatureStores},
 	{"POST", "/stores/delete", FeatureStores},
@@ -193,6 +197,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
 		{FeatureRealtime, "Realtime", true},
+		{FeatureModeration, "Moderation", true},
 		{FeatureRerank, "Rerank", true},
 		{FeatureTokenize, "Tokenize", true},
 		{FeatureMCP, "MCP", true},
