@@ -154,6 +154,9 @@ func (c *fakeBackendClient) Predict(_ context.Context, _ *pb.PredictOptions, _ .
 func (c *fakeBackendClient) GenerateImage(_ context.Context, _ *pb.GenerateImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) UpscaleImage(_ context.Context, _ *pb.UpscaleImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) GenerateVideo(_ context.Context, _ *pb.GenerateVideoRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }

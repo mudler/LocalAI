@@ -83,6 +83,10 @@ func (f *fakeGRPCBackend) GenerateImage(_ context.Context, _ *pb.GenerateImageRe
 	return &pb.Result{}, nil
 }
 
+func (f *fakeGRPCBackend) UpscaleImage(_ context.Context, _ *pb.UpscaleImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{}, nil
+}
+
 func (f *fakeGRPCBackend) GenerateVideo(_ context.Context, _ *pb.GenerateVideoRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return &pb.Result{}, nil
 }

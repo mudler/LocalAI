@@ -164,6 +164,30 @@ By default the RPC devices join the pool and participate in placement; combine w
 ![anime_girl](https://github.com/go-skynet/LocalAI/assets/2420543/8aaca62a-e864-4011-98ae-dcc708103928)
 (Generated with [AnimagineXL](https://huggingface.co/Linaqruf/animagine-xl))
 
+#### Image upscaling
+
+LocalAI can upscale an uploaded image by a factor of 2 or 4 through
+`POST /v1/images/upscale`. Install the included Stable Diffusion x4 upscaler
+gallery model first:
+
+```bash
+local-ai models install stable-diffusion-x4-upscaler
+```
+
+Then send the model name, scale, and image as multipart form fields:
+
+```bash
+curl http://localhost:8080/v1/images/upscale \
+  -F model=stable-diffusion-x4-upscaler \
+  -F scale=4 \
+  -F image=@input.png
+```
+
+The response uses the same format as image generation and returns the generated
+image under `/generated-images`. The `diffusers` backend uses a loaded
+`StableDiffusionUpscalePipeline` or `StableDiffusionLatentUpscalePipeline` when
+configured. Other diffusers pipelines fall back to Lanczos resizing.
+
 #### Model setup
 
 The models will be downloaded the first time you use the backend from `huggingface` automatically.

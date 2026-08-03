@@ -3122,6 +3122,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/images/upscale": {
+            "post": {
+                "description": "Upscale an image using a specified model (e.g. stable-diffusion-x4-upscaler). Accepts multipart/form-data.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Image upscaling",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upscaler model identifier (e.g. stable-diffusion-x4-upscaler)",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Input image file",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Upscale factor: 2 or 4 (default 2)",
+                        "name": "scale",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/mcp/chat/completions": {
             "post": {
                 "tags": [

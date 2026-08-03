@@ -44,6 +44,7 @@ const (
 	MethodPredictStream      GRPCMethod = "PredictStream"
 	MethodEmbedding          GRPCMethod = "Embedding"
 	MethodGenerateImage      GRPCMethod = "GenerateImage"
+	MethodUpscaleImage       GRPCMethod = "UpscaleImage"
 	MethodGenerateVideo      GRPCMethod = "GenerateVideo"
 	MethodGenerate3D         GRPCMethod = "Generate3D"
 	MethodAudioTranscription GRPCMethod = "AudioTranscription"
@@ -348,7 +349,7 @@ var BackendCapabilities = map[string]BackendCapability{
 
 	// --- Image/video generation backends ---
 	"diffusers": {
-		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodGenerateVideo},
+		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage, MethodGenerateVideo},
 		PossibleUsecases: []string{UsecaseImage, UsecaseVideo},
 		DefaultUsecases:  []string{UsecaseImage},
 		Description:      "HuggingFace diffusers — Stable Diffusion, Flux, video generation",

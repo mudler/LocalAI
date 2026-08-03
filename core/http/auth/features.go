@@ -39,6 +39,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/images/generations", FeatureImages},
 	{"POST", "/v1/images/inpainting", FeatureImages},
 	{"POST", "/images/inpainting", FeatureImages},
+	{"POST", "/v1/images/upscale", FeatureImages},
+	{"POST", "/images/upscale", FeatureImages},
 
 	// Audio transcription
 	{"POST", "/v1/audio/transcriptions", FeatureAudioTranscription},

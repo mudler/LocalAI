@@ -9015,6 +9015,34 @@
     - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00029-of-00029.gguf
       sha256: 013af4e9d2f84e484f77c7bae2a02652607f0f0179bd2815ffdf401c3ada5184
       uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00029-of-00029.gguf
+- name: stable-diffusion-x4-upscaler
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/stabilityai/stable-diffusion-x4-upscaler
+  description: |
+    Stable Diffusion x4 Upscaler is Stability AI's diffusion-based super-resolution model. It enlarges low-resolution images by four times while reconstructing image detail.
+  license: openrail++
+  tags:
+    - image-upscaling
+    - super-resolution
+    - image-to-image
+    - diffusers
+  last_checked: "2026-07-30"
+  overrides:
+    backend: diffusers
+    f16: true
+    diffusers:
+      pipeline_type: StableDiffusionUpscalePipeline
+    known_usecases:
+      - image
+    parameters:
+      model: stabilityai/stable-diffusion-x4-upscaler
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: stabilityai/stable-diffusion-x4-upscaler
 - name: z-image-diffusers
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
