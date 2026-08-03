@@ -796,7 +796,7 @@ export default function Models() {
                     gets the width to argue for a model rather than list one.
                     It keeps its own dismissal and collapse state, so someone
                     who closed it still lands on the pane below. */}
-                <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : null} />
+                <RecommendedModels addToast={addToast} />
 
                 {/* Somewhere to start when the recommendations are not it.
                     These set the use-case filter rather than fetching a second
