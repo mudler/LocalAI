@@ -24,11 +24,13 @@
     "observability": "Observability",
     "access": "Access",
     "system": "System",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "런타임",
+    "administration": "관리"
   },
   "items": {
     "home": "홈",
-    "installModels": "모델 설치",
+    "discover": "둘러보기",
     "chat": "채팅",
     "studio": "스튜디오",
     "talk": "대화",
@@ -57,7 +59,8 @@
     "system": "시스템",
     "settings": "설정",
     "api": "API",
-    "activity": "활동"
+    "activity": "활동",
+    "overview": "개요"
   },
   "footer": {
     "github": "GitHub",

@@ -99,6 +99,24 @@ const MOCK_ESTIMATES = {
   },
 };
 
+// The gallery is a rail plus a pane, not a table. These three helpers are the
+// whole of that migration for the specs below: an entry is addressed by the
+// model it carries, and the detail lives in the pane rather than in a cell
+// spanning the row.
+const PANE = '[data-testid="discover-pane"]';
+const railItems = (page) => page.locator('[data-testid="discover-rail-item"]');
+const railItem = (page, name) => page.locator(`[data-entity="${name}"]`);
+// The use-case chips live in a popover now; opening it is idempotent so tests
+// can call this without tracking whether it is already up.
+const openUseCases = async (page) => {
+  const trigger = page.locator(".models-filters__usecase-trigger");
+  if ((await page.locator(".filter-btn").count()) === 0) await trigger.click();
+  await expect(page.locator(".filter-btn").first()).toBeVisible();
+};
+// Rendered means the rail has entries. The old gate waited on a column header.
+const railReady = (page) =>
+  expect(railItems(page).first()).toBeVisible({ timeout: 10_000 });
+
 test.describe("Models Gallery - Backend Features", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/models*", (route) => {
@@ -109,22 +127,18 @@ test.describe("Models Gallery - Backend Features", () => {
     });
     await page.goto("/app/models");
     // Wait for the table to render
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
-  test("backend column header is visible", async ({ page }) => {
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible();
-  });
-
-  test("backend badges shown in table rows", async ({ page }) => {
-    const table = page.locator("table");
+  test("selecting a model names its backend in the pane", async ({ page }) => {
+    await railItem(page, "llama-model").click();
     await expect(
-      table.locator(".badge", { hasText: "llama-cpp" }),
+      page.locator(PANE).locator(".badge", { hasText: "llama-cpp" }).first(),
     ).toBeVisible();
+
+    await railItem(page, "whisper-model").click();
     await expect(
-      table.locator(".badge", { hasText: /^whisper$/ }),
+      page.locator(PANE).locator(".badge", { hasText: /^whisper$/ }).first(),
     ).toBeVisible();
   });
 
@@ -164,18 +178,20 @@ test.describe("Models Gallery - Backend Features", () => {
       .locator("..");
     await dropdown.locator("text=llama-cpp").click();
 
-    // The dropdown button should now show the selected backend instead of "All Backends"
+    // Scoped to the select: the rail names a backend on its own entries when
+    // no size estimate has arrived, so an unscoped `button span` matches those
+    // too and the assertion stops being about the dropdown.
     await expect(
-      page.locator("button span", { hasText: "llama-cpp" }),
+      page.locator(".models-filters__backend button span", { hasText: "llama-cpp" }),
     ).toBeVisible();
   });
 
   test("expanded row shows backend in detail", async ({ page }) => {
     // Click the first model row to expand it
-    await page.locator("tr", { hasText: "llama-model" }).click();
+    await railItem(page, "llama-model").click();
 
     // The detail view should show Backend label and value
-    const detail = page.locator('td[colspan="8"]');
+    const detail = page.locator(PANE);
     await expect(detail.locator("text=Backend")).toBeVisible();
     // The Backend DetailRow renders before the Variants section, which lists a
     // per-variant backend badge of its own, so scope to the first match.
@@ -212,14 +228,13 @@ test.describe("Models Gallery - Multi-select Filters", () => {
       });
     });
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
   test("multi-select toggle: click Chat, TTS, then Chat again", async ({
     page,
   }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
 
@@ -237,6 +252,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test('"All" clears selection', async ({ page }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const allBtn = page.locator(".filter-btn", { hasText: "All" });
 
@@ -249,6 +265,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("query param sent correctly with multiple filters", async ({ page }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
 
@@ -273,6 +290,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("backend greys out unavailable filters", async ({ page }) => {
+    await openUseCases(page);
     // Select llama-cpp backend via dropdown
     await page.locator("button", { hasText: "All Backends" }).click();
     const dropdown = page
@@ -303,6 +321,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("backend clears incompatible filters", async ({ page }) => {
+    await openUseCases(page);
     // Select TTS filter first
     const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
     await ttsBtn.click();
@@ -347,9 +366,7 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
     });
 
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
   test("fits toggle is visible when GPU resources are available", async ({
@@ -362,7 +379,7 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
     page,
   }) => {
     await expect(
-      page.locator("tr", { hasText: "stablediffusion-model" }),
+      railItem(page, "stablediffusion-model"),
     ).toBeVisible();
 
     // The shared <Toggle> visually hides its native input (opacity:0;w:0;h:0),
@@ -373,12 +390,12 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
       .click();
 
     await expect(
-      page.locator("tr", { hasText: "stablediffusion-model" }),
+      railItem(page, "stablediffusion-model"),
     ).toHaveCount(0);
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
+    await expect(railItem(page, "llama-model")).toBeVisible();
     // Unknown estimate stays visible until an explicit non-fit verdict exists.
     await expect(
-      page.locator("tr", { hasText: "unknown-model" }),
+      railItem(page, "unknown-model"),
     ).toBeVisible();
   });
 
@@ -407,14 +424,13 @@ test.describe("Models Gallery - Empty State", () => {
     });
 
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
   test("shows empty state for filtered-out results and clear filters restores the gallery", async ({
     page,
   }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     const allBtn = page.locator(".filter-btn", { hasText: "All" });
 
@@ -429,14 +445,14 @@ test.describe("Models Gallery - Empty State", () => {
 
     const clearBtn = page.getByRole("button", { name: "Clear filters" });
     await expect(clearBtn).toBeVisible();
-    await expect(page.locator("tr", { hasText: "llama-model" })).toHaveCount(0);
+    await expect(railItem(page, "llama-model")).toHaveCount(0);
 
     await clearBtn.click();
 
     await expect(allBtn).toHaveClass(/active/);
     await expect(chatBtn).not.toHaveClass(/active/);
     await expect(page.locator(".empty-state")).toHaveCount(0);
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
+    await expect(railItem(page, "llama-model")).toBeVisible();
   });
 });
 
@@ -524,142 +540,38 @@ test.describe("Models Gallery - Variant picker", () => {
       });
     });
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
-  const variantRow = (page) => page.locator("tr", { hasText: "llama-model" }).first();
+  const variantRow = (page) => railItem(page, "llama-model");
   const plainRow = (page) =>
-    page.locator("tr", { hasText: "stablediffusion-model" }).first();
-  const openMenu = (page) =>
-    variantRow(page).getByRole("button", { name: "Choose a variant" }).click();
+    railItem(page, "stablediffusion-model");
 
   test("the listing alone fetches no variant descriptions", async ({ page }) => {
     // The whole point of the companion endpoint: a page load costs zero
     // probes no matter how many entries declare variants.
-    await expect(page.locator("tbody tr").first()).toBeVisible();
+    await expect(railItems(page).first()).toBeVisible();
     expect(variantUrls).toHaveLength(0);
   });
 
-  test("an entry that declares variants shows the split-button chevron", async ({
-    page,
-  }) => {
-    await expect(
-      variantRow(page).getByRole("button", { name: "Choose a variant" }),
-    ).toBeVisible();
-  });
-
-  test("an entry without variants renders no chevron", async ({ page }) => {
-    await expect(
-      plainRow(page).getByRole("button", { name: "Choose a variant" }),
-    ).toHaveCount(0);
-    // and still offers an ordinary install
-    await expect(
-      plainRow(page).locator("button.btn-primary"),
-    ).toHaveCount(1);
-  });
-
-  test("an entry without variants fetches nothing even when expanded", async ({
+  test("an entry without variants fetches nothing when selected", async ({
     page,
   }) => {
     await plainRow(page).click();
-    await expect(page.locator('td[colspan="8"]')).toBeVisible();
+    await expect(page.locator(PANE)).toBeVisible();
     expect(variantUrls).toHaveLength(0);
   });
 
   test("plain Install sends no variant parameter", async ({ page }) => {
-    await plainRow(page).locator("button.btn-primary").click();
+    await plainRow(page).click();
+    await page.locator('[data-testid="discover-install"]').click();
     await expect.poll(() => installUrls.length).toBe(1);
     expect(installUrls[0]).not.toContain("variant=");
   });
 
-  test("opening the menu fetches the description once and caches it", async ({
-    page,
-  }) => {
-    await openMenu(page);
-    await expect(page.locator(".action-menu")).toBeVisible();
-    await expect.poll(() => variantUrls.length).toBe(1);
-    expect(variantUrls[0]).toContain("/api/models/variants/llama-model");
-
-    // Close and reopen: the cached answer must be reused.
-    await page.keyboard.press("Escape");
-    await openMenu(page);
-    await expect(
-      page.locator(".action-menu__item", { hasText: "llama-model-q8" }),
-    ).toBeVisible();
-    expect(variantUrls).toHaveLength(1);
-  });
-
-  test("the menu shows a loading state while the description is in flight", async ({
-    page,
-  }) => {
-    let unblock;
-    releaseVariants = new Promise((resolve) => {
-      unblock = resolve;
-    });
-    await openMenu(page);
-    await expect(page.locator(".action-menu")).toContainText("Loading variants");
-    unblock();
-    await expect(
-      page.locator(".action-menu__item", { hasText: "llama-model-q8" }),
-    ).toBeVisible();
-    await expect(page.locator(".action-menu")).not.toContainText(
-      "Loading variants",
-    );
-  });
-
-  test("the auto-selected variant is marked in the menu", async ({ page }) => {
-    await openMenu(page);
-    const menu = page.locator(".action-menu");
-    await expect(menu).toBeVisible();
-    const autoItem = menu.locator(".action-menu__item", {
-      hasText: "llama-model-q8",
-    });
-    await expect(autoItem.locator(".badge", { hasText: "Auto" })).toBeVisible();
-    // the base build is identifiable too
-    await expect(
-      menu
-        .locator(".action-menu__item", { hasText: "llama-model" })
-        .first()
-        .locator(".badge", { hasText: "Base build" }),
-    ).toBeVisible();
-  });
-
-  test("a variant with no memory_bytes renders as unknown, not 0", async ({
-    page,
-  }) => {
-    await openMenu(page);
-    const mlxItem = page.locator(".action-menu__item", {
-      hasText: "llama-model-mlx",
-    });
-    await expect(mlxItem).toContainText("Unknown size");
-    await expect(mlxItem).not.toContainText("0 B");
-  });
-
-  test("a variant that does not fit is still selectable", async ({ page }) => {
-    await openMenu(page);
-    const f16 = page.locator(".action-menu__item", {
-      hasText: "llama-model-f16",
-    });
-    await expect(f16.locator(".badge", { hasText: "Does not fit" })).toBeVisible();
-    await expect(f16).toBeEnabled();
-  });
-
-  test("choosing a specific variant sends ?variant= on the install", async ({
-    page,
-  }) => {
-    await openMenu(page);
-    await page
-      .locator(".action-menu__item", { hasText: "llama-model-mlx" })
-      .click();
-    await expect.poll(() => installUrls.length).toBe(1);
-    expect(installUrls[0]).toContain("variant=llama-model-mlx");
-  });
-
   test("the expanded detail row lists every variant", async ({ page }) => {
     await variantRow(page).click();
-    const detail = page.locator('td[colspan="8"]');
+    const detail = page.locator(PANE);
     await expect(detail).toContainText("Variants");
     await expect(detail).toContainText("llama-model-q8");
     await expect(detail).toContainText("llama-model-mlx");
@@ -693,7 +605,7 @@ test.describe("Models Gallery - Variant picker", () => {
 
   test("only the informative status is badged", async ({ page }) => {
     await variantRow(page).click();
-    const detail = page.locator('td[colspan="8"]');
+    const detail = page.locator(PANE);
     await expect(detail.locator(".variant-row")).toHaveCount(4);
     // "Fits" was true of three rows out of four and said nothing; the row that
     // does not fit is the one worth marking.
@@ -708,6 +620,49 @@ test.describe("Models Gallery - Variant picker", () => {
     ).toContainText("Auto-selected");
   });
 
+  test("selecting an entry fetches its variants once and reuses them", async ({
+    page,
+  }) => {
+    // Selection is now the only trigger point, so it must pay for exactly one
+    // probe however many times the pane is opened.
+    await railItem(page, "llama-model").click();
+    await expect(page.locator(PANE)).toContainText("llama-model-q8");
+    await expect.poll(() => variantUrls.length).toBe(1);
+    expect(variantUrls[0]).toContain("/api/models/variants/llama-model");
+
+    await railItem(page, "stablediffusion-model").click();
+    await railItem(page, "llama-model").click();
+    await expect(page.locator(PANE)).toContainText("llama-model-q8");
+    expect(variantUrls).toHaveLength(1);
+  });
+
+  test("the pane says the variants are loading rather than opening empty", async ({
+    page,
+  }) => {
+    let unblock;
+    releaseVariants = new Promise((resolve) => {
+      unblock = resolve;
+    });
+    await railItem(page, "llama-model").click();
+    await expect(page.locator(PANE)).toContainText("Loading variants");
+    unblock();
+    await expect(page.locator(PANE)).toContainText("llama-model-q8");
+    await expect(page.locator(PANE)).not.toContainText("Loading variants");
+  });
+
+  test("a variant that does not fit is still installable", async ({ page }) => {
+    // Marked, not disabled: an explicit choice is an override the server
+    // honours with a warning, and only the user knows they meant it.
+    await railItem(page, "llama-model").click();
+    const unfit = page.locator(".variant-row--unfit");
+    await expect(unfit).toHaveCount(1);
+    await expect(unfit).toContainText("llama-model-f16");
+    await expect(unfit).toBeEnabled();
+    await unfit.click();
+    await expect.poll(() => installUrls.length).toBe(1);
+    expect(installUrls[0]).toContain("variant=llama-model-f16");
+  });
+
   test("clicking a variant row installs that variant", async ({ page }) => {
     await variantRow(page).click();
     await page
@@ -715,43 +670,6 @@ test.describe("Models Gallery - Variant picker", () => {
       .click();
     await expect.poll(() => installUrls.length).toBe(1);
     expect(installUrls[0]).toContain("variant=llama-model-mlx");
-  });
-
-  test("the menu names each build's quantization alongside backend and size", async ({
-    page,
-  }) => {
-    // Without it the meta line reads "llama-cpp - 8 GB" for two builds that
-    // differ entirely in precision, which describes nothing the user is
-    // choosing between.
-    await openMenu(page);
-    await expect(
-      page.locator(".action-menu__item", { hasText: "llama-model-q8" }),
-    ).toContainText("llama-cpp · Q8_0 · 8 GB");
-  });
-
-  test("the menu marks a build that serves faster", async ({ page }) => {
-    // A compact marker, not a sentence: the dropdown has room for the token
-    // and the detail row carries the spelled-out name.
-    await openMenu(page);
-    await expect(
-      page
-        .locator(".action-menu__item", { hasText: "llama-model-q8" })
-        .locator(".badge", { hasText: "DFLASH" }),
-    ).toBeVisible();
-  });
-
-  test("a build naming no quantization drops the segment rather than blanking", async ({
-    page,
-  }) => {
-    // The degrade contract in the compact surface: no empty segment, no
-    // dangling separator, and above all no "undefined".
-    await openMenu(page);
-    const item = page.locator(".action-menu__item", {
-      hasText: "llama-model-mlx",
-    });
-    await expect(item).toContainText("mlx · Unknown size");
-    await expect(item).not.toContainText("undefined");
-    await expect(item).not.toContainText("· ·");
   });
 
   test("the detail row gives quantization its own column", async ({ page }) => {
@@ -901,11 +819,9 @@ test.describe("Models Gallery - Variant details", () => {
       }),
     );
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
     // Expanding the parent is what puts the variant list on screen.
-    await page.locator("tr", { hasText: "llama-model" }).first().click();
+    await railItem(page, "llama-model").click();
     await expect(page.locator(".variant-row")).toHaveCount(4);
   });
 
@@ -1030,6 +946,11 @@ test.describe("Models Gallery - Variant details", () => {
     page,
   }) => {
     const info = infoFor(page, "llama-model-q8");
+    // The pane is opened by clicking a rail entry, which is a real <button>,
+    // so Chromium is in pointer modality and would not paint a focus ring for
+    // a programmatic focus(). One keypress puts it back in the keyboard
+    // modality this assertion is about.
+    await page.keyboard.press("Tab");
     await info.focus();
     await expect(info).toBeFocused();
     // A visible focus indicator, not merely a focused element.
@@ -1123,7 +1044,11 @@ test.describe("Models Gallery - Collapsed Listing", () => {
       // narrowed bodies below.
       const isListing =
         url.pathname.endsWith("/api/models") &&
-        url.searchParams.get("items") === "9";
+        // Mirrors RAIL_PAGE_SIZE in Models.jsx. The rail groups what it has,
+        // so the page has to be big enough for the groups to mean something;
+        // this fixture only needs the number to tell the gallery's own listing
+        // apart from the recommended panel's.
+        url.searchParams.get("items") === "30";
       if (isListing) {
         listingUrls.push(url);
       }
@@ -1150,9 +1075,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     });
 
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
   // The house pattern for these toggles: the checkbox itself is a zero-sized
@@ -1184,11 +1107,11 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   }) => {
     // Browsing, as opposed to finding. Search reaches a build whose name you
     // already know; only this enumerates every build the gallery holds.
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(0);
+    await expect(railItem(page, "whisper-model")).toHaveCount(0);
 
     await flipCollapse(page);
 
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toBeVisible();
     // Off means the parameter is absent, so opting out asks for exactly the
     // listing every other API client gets.
     await expect
@@ -1210,15 +1133,13 @@ test.describe("Models Gallery - Collapsed Listing", () => {
 
   test("the choice survives a reload", async ({ page }) => {
     await flipCollapse(page);
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toBeVisible();
 
     await page.reload();
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
 
     await expect(collapseToggle(page)).not.toBeChecked();
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toBeVisible();
   });
 
   test("browsing collapses: the parent stays, the build it offers drops", async ({
@@ -1226,12 +1147,12 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   }) => {
     // A filter that kept only the entries declaring variants would wrongly
     // drop stablediffusion-model too.
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+    await expect(railItem(page, "llama-model")).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
     await expect(
-      page.locator("tr", { hasText: "stablediffusion-model" }),
+      railItem(page, "stablediffusion-model"),
     ).toBeVisible();
 
     // Asserted over every listing request, so a first paint that fetched the
@@ -1252,8 +1173,8 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // the view the user asked for has no place for.
     await page.locator(".search-bar input").fill("whisper-model");
 
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+    await expect(railItem(page, "llama-model")).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
     await expect(page.locator(".empty-state")).toHaveCount(0);
@@ -1268,7 +1189,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await flipCollapse(page);
     await page.locator(".search-bar input").fill("whisper-model");
 
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toBeVisible();
   });
 
   test("the search term is sent alongside the collapse, not instead of it", async ({
@@ -1293,18 +1214,18 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // The search narrowed to the one surfaced row, so the other browsing rows
     // are gone and their return is what proves the term was dropped.
     await expect(
-      page.locator("tr", { hasText: "stablediffusion-model" }),
+      railItem(page, "stablediffusion-model"),
     ).toHaveCount(0);
 
     await page.locator(".search-bar input").fill("");
 
     await expect(
-      page.locator("tr", { hasText: "stablediffusion-model" }),
+      railItem(page, "stablediffusion-model"),
     ).toBeVisible();
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+    await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
+    await expect(railItem(page, "llama-model")).toBeVisible();
   });
 
   test("a legacy '0' in storage is not read as a choice", async ({ page }) => {
@@ -1315,11 +1236,9 @@ test.describe("Models Gallery - Collapsed Listing", () => {
       localStorage.setItem("localai-models-collapse-variants-filter", "0");
     });
     await page.reload();
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
 
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+    await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
     const last = listingUrls[listingUrls.length - 1];
@@ -1336,7 +1255,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
 
     await page.locator(".search-bar input").fill("whisper-model");
 
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
+    await expect(railItem(page, "llama-model")).toBeVisible();
     await expect(page.locator(".empty-state")).toHaveCount(0);
     // Still asked for collapsed: the server decides what a term means.
     await expect
@@ -1351,6 +1270,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("the empty state does not blame the collapse for a chip", async ({
     page,
   }) => {
+    await openUseCases(page);
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
 
     await expect(page.locator(".empty-state-title")).toHaveText(
@@ -1381,13 +1301,14 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clear filters returns to the collapsed browsing view", async ({
     page,
   }) => {
+    await openUseCases(page);
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
     await expect(page.locator(".empty-state")).toBeVisible();
 
     await page.getByRole("button", { name: "Clear filters" }).click();
 
-    await expect(page.locator("tr", { hasText: "llama-model" })).toBeVisible();
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+    await expect(railItem(page, "llama-model")).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
   });
@@ -1395,22 +1316,24 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clear filters resets the collapse toggle to its default", async ({
     page,
   }) => {
+    await openUseCases(page);
     // It is a filter like the others, so leaving it behind would make "clear
     // filters" a half-truth.
     await flipCollapse(page);
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toBeVisible();
+    await expect(railItem(page, "whisper-model")).toBeVisible();
     await page.locator(".filter-btn", { hasText: "Chat" }).click();
     await expect(page.locator(".empty-state")).toBeVisible();
 
     await page.getByRole("button", { name: "Clear filters" }).click();
 
     await expect(collapseToggle(page)).toBeChecked();
-    await expect(page.locator("tr", { hasText: "whisper-model" })).toHaveCount(
+    await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
   });
 
   test("the clear button appears for the toggle alone", async ({ page }) => {
+    await openUseCases(page);
     // Turning the collapse off is a filter change with nothing else set, so
     // the empty state must still offer a way back.
     await flipCollapse(page);
@@ -1466,16 +1389,14 @@ test.describe("Models Gallery - Markdown descriptions", () => {
       });
     });
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
-  test("table cell shows the description as clean text, not raw Markdown", async ({
+  test("the pane lede shows the description as clean text, not raw Markdown", async ({
     page,
   }) => {
-    const row = page.locator("tr", { hasText: "markdown-model" });
-    const cell = row.locator("div[title]", { hasText: "Qwen3.6-27B" });
+    await railItem(page, "markdown-model").click();
+    const cell = page.locator(".detail-pane__lede");
 
     await expect(cell).toHaveText(
       "Qwen3.6-27B Chat with it at the Qwen site for free.",
@@ -1489,13 +1410,13 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     await expect(cell.locator("h1")).toHaveCount(0);
   });
 
-  test("title tooltip carries the stripped text, not raw Markdown", async ({
+  test("the lede's tooltip carries the stripped text, not raw Markdown", async ({
     page,
   }) => {
-    const row = page.locator("tr", { hasText: "markdown-model" });
-    const cell = row.locator("div[title]", { hasText: "Qwen3.6-27B" });
-
-    await expect(cell).toHaveAttribute(
+    // The lede is capped, so the full stripped text has to stay reachable on
+    // hover rather than being truncated out of existence.
+    await railItem(page, "markdown-model").click();
+    await expect(page.locator(".detail-pane__lede")).toHaveAttribute(
       "title",
       "Qwen3.6-27B Chat with it at the Qwen site for free.",
     );
@@ -1504,9 +1425,9 @@ test.describe("Models Gallery - Markdown descriptions", () => {
   test("expanded detail row renders the description as real markup", async ({
     page,
   }) => {
-    await page.locator("tr", { hasText: "markdown-model" }).click();
+    await railItem(page, "markdown-model").click();
 
-    const detail = page.locator('td[colspan="8"]');
+    const detail = page.locator(PANE);
     await expect(detail.locator("h1", { hasText: "Qwen3.6-27B" })).toBeVisible();
     const link = detail.locator('a[href="https://chat.qwen.ai"]');
     await expect(link).toBeVisible();
@@ -1514,18 +1435,22 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     await expect(detail.locator("strong", { hasText: "free" })).toBeVisible();
   });
 
-  test("a model without a description still shows the placeholder", async ({
+  test("a model without a description renders no lede rather than a blank one", async ({
     page,
   }) => {
-    const row = page.locator("tr", { hasText: "no-description-model" });
-    await expect(row).toBeVisible();
-    await expect(row.locator("div[title='']")).toHaveText("—");
+    // The table needed an em-dash because an empty cell in a grid of full ones
+    // reads as a rendering fault. The pane has no grid to keep aligned, so the
+    // honest treatment is to omit the line - but never to print "undefined".
+    await railItem(page, "no-description-model").click();
+    await expect(page.locator(PANE)).toContainText("no-description-model");
+    await expect(page.locator(".detail-pane__lede")).toHaveCount(0);
+    await expect(page.locator(PANE)).not.toContainText("undefined");
   });
 
   test("a heading in the description renders on the UI type scale", async ({
     page,
   }) => {
-    await page.locator("tr", { hasText: "headings-model" }).click();
+    await railItem(page, "headings-model").click();
     const prose = page.locator(".detail-prose__body.markdown-body");
     await expect(prose).toBeVisible();
 
@@ -1552,8 +1477,12 @@ test.describe("Models Gallery - Markdown descriptions", () => {
   test("the description sits outside the label/value grid on a readable measure", async ({
     page,
   }) => {
-    await page.locator("tr", { hasText: "headings-model" }).click();
-    const detail = page.locator('td[colspan="8"]');
+    // Wide enough that the ch-based cap is the thing deciding the width. In a
+    // narrow pane the cap simply does not bind, and the ratio below would pass
+    // or fail on the viewport rather than on the rule being tested.
+    await page.setViewportSize({ width: 1800, height: 900 });
+    await railItem(page, "headings-model").click();
+    const detail = page.locator(PANE);
     // Description is no longer a row of the scalar table.
     await expect(detail.locator("table td", { hasText: "Description" })).toHaveCount(
       0,
@@ -1575,8 +1504,8 @@ test.describe("Models Gallery - Markdown descriptions", () => {
   test("a model without a description renders no prose block", async ({
     page,
   }) => {
-    await page.locator("tr", { hasText: "no-description-model" }).click();
-    const detail = page.locator('td[colspan="8"]');
+    await railItem(page, "no-description-model").click();
+    const detail = page.locator(PANE);
     await expect(detail).toBeVisible();
     await expect(detail.locator(".detail-prose")).toHaveCount(0);
     // The scalar rows still render, so the pane is not blank.
@@ -1610,25 +1539,34 @@ test.describe("Models Gallery - Filter layout structure", () => {
       });
     });
     await page.goto("/app/models");
-    await expect(page.locator("th", { hasText: "Backend" })).toBeVisible({
-      timeout: 10_000,
-    });
+    await railReady(page);
   });
 
-  test("the chip row contains only use-case chips", async ({ page }) => {
-    const chipRow = page.locator(".filter-bar");
-    await expect(chipRow).toHaveCount(1);
-    // Nothing but .filter-btn children: no toggle, no select, no slider.
-    const childClasses = await chipRow.evaluate((el) =>
-      Array.from(el.children).map((c) => c.className),
+  test("the chip rows contain only use-case chips", async ({ page }) => {
+    await openUseCases(page);
+    // One row per family now, plus the row holding "All" on its own. The
+    // contract is unchanged: a chip row carries chips and nothing else.
+    const chipRows = page.locator(".filter-bar");
+    const rowCount = await chipRows.count();
+    expect(rowCount).toBeGreaterThan(1);
+
+    const childClasses = await chipRows.evaluateAll((rows) =>
+      rows.flatMap((r) => Array.from(r.children).map((c) => c.className)),
     );
     expect(childClasses.length).toBeGreaterThan(0);
     for (const cls of childClasses) {
       expect(cls).toContain("filter-btn");
     }
-    await expect(chipRow.locator("input[type='range']")).toHaveCount(0);
-    await expect(chipRow.locator(".filter-bar-group__toggle")).toHaveCount(0);
-    await expect(chipRow.getByText("All Backends")).toHaveCount(0);
+    await expect(chipRows.locator("input[type='range']")).toHaveCount(0);
+    await expect(chipRows.locator(".filter-bar-group__toggle")).toHaveCount(0);
+    await expect(chipRows.getByText("All Backends")).toHaveCount(0);
+
+    // Every family the rail speaks is represented, and none is empty.
+    for (const label of ["Text and reasoning", "Vision", "Speech and audio", "Image and video"]) {
+      await expect(
+        page.locator(".models-filters__usecase-label", { hasText: label }),
+      ).toBeVisible();
+    }
   });
 
   test("refinements live in their own band, outside the chip row", async ({
@@ -1647,20 +1585,18 @@ test.describe("Models Gallery - Filter layout structure", () => {
     expect(nested).toBe(0);
   });
 
-  test("the backend select sits in the query band above the chips", async ({
+  test("the backend select sits above the use-case control it gates", async ({
     page,
   }) => {
     const selectBtn = page.locator("button", { hasText: "All Backends" });
     await expect(selectBtn).toBeVisible();
-    const inChipRow = await page
-      .locator(".filter-bar")
-      .locator("button", { hasText: "All Backends" })
-      .count();
-    expect(inChipRow).toBe(0);
-    // Reads above the chips it gates.
+    const trigger = page.locator(".models-filters__usecase-trigger");
+    await expect(trigger).toBeVisible();
+    // Picking a backend disables the use cases it cannot serve, so it still
+    // reads first even though both are now stacked in the rail column.
     const selectBox = await selectBtn.boundingBox();
-    const chipBox = await page.locator(".filter-bar").boundingBox();
-    expect(selectBox.y).toBeLessThan(chipBox.y);
+    const triggerBox = await trigger.boundingBox();
+    expect(selectBox.y).toBeLessThan(triggerBox.y);
   });
 
   test("refinements stay grouped and on one band at a narrow width", async ({
@@ -1669,10 +1605,10 @@ test.describe("Models Gallery - Filter layout structure", () => {
     await page.setViewportSize({ width: 900, height: 900 });
     const refine = page.getByTestId("models-filters-refine");
     await expect(refine).toBeVisible();
-    const chipBox = await page.locator(".filter-bar").boundingBox();
+    const triggerBox = await page.locator(".models-filters__usecase-trigger").boundingBox();
     const refineBox = await refine.boundingBox();
-    // Below the chip row, not interleaved with it.
-    expect(refineBox.y).toBeGreaterThanOrEqual(chipBox.y + chipBox.height - 1);
+    // Below the use-case control, not interleaved with it.
+    expect(refineBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
     await expect(refine.getByText("Fits in GPU")).toBeVisible();
     await expect(refine.locator("#models-context-size")).toBeVisible();
   });
@@ -1680,6 +1616,7 @@ test.describe("Models Gallery - Filter layout structure", () => {
   test("chips expose pressed state and the context slider is labelled", async ({
     page,
   }) => {
+    await openUseCases(page);
     const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
     await expect(chatBtn).toHaveAttribute("aria-pressed", "false");
     await chatBtn.click();
@@ -1692,11 +1629,13 @@ test.describe("Models Gallery - Filter layout structure", () => {
   });
 
   test("a keyboard-focused chip shows a focus ring", async ({ page }) => {
+    await openUseCases(page);
     // The global :focus-visible rule is wrapped in :where(), so it ties with
     // .filter-btn on specificity and loses on order. Without an explicit rule
     // the chips render their resting shadow while focused, i.e. no indicator.
     await page.locator(".filter-bar-group__search input").click();
     await page.keyboard.press("Tab"); // backend select
+    await page.keyboard.press("Tab"); // use-case disclosure
     await page.keyboard.press("Tab"); // first chip
     const focused = page.locator(".filter-btn:focus-visible");
     await expect(focused).toHaveCount(1);
@@ -1719,5 +1658,177 @@ test.describe("Models Gallery - Filter layout structure", () => {
     await page.keyboard.press("ArrowRight");
     await expect(slider).not.toHaveValue(before);
     await expect(slider).toHaveAttribute("aria-valuetext", /^\d+K$/);
+  });
+});
+
+// Estimates across several context lengths, which is what the VRAM readout
+// plots. The other describes mock a single length, and one point is not a
+// comparison, so the chart correctly declines to render there.
+const MOCK_MULTI_CONTEXT_ESTIMATES = {
+  "llama-model": {
+    sizeBytes: 4 * 1024 * 1024 * 1024,
+    sizeDisplay: "4.00 GB",
+    estimates: {
+      8192: { vramBytes: 5 * 1024 * 1024 * 1024, vramDisplay: "5.00 GB" },
+      16384: { vramBytes: 7 * 1024 * 1024 * 1024, vramDisplay: "7.00 GB" },
+      32768: { vramBytes: 11 * 1024 * 1024 * 1024, vramDisplay: "11.00 GB" },
+      65536: { vramBytes: 20 * 1024 * 1024 * 1024, vramDisplay: "20.00 GB" },
+    },
+  },
+};
+
+test.describe("Models Gallery - Discover split view", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/models*", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_MODELS_RESPONSE),
+      });
+    });
+    await page.route("**/api/resources", (route) => {
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_GPU_RESOURCES_RESPONSE),
+      });
+    });
+    await page.route("**/api/models/estimate/*", (route) => {
+      const url = new URL(route.request().url());
+      const id = decodeURIComponent(url.pathname.split("/").pop() || "");
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_MULTI_CONTEXT_ESTIMATES[id] || {}),
+      });
+    });
+    await page.goto("/app/models");
+    await railReady(page);
+  });
+
+  test("the gallery renders no table", async ({ page }) => {
+    // The point of the change, asserted directly: the eight-column table and
+    // the row that expanded underneath it are both gone.
+    await expect(page.locator('[data-testid="discover"]')).toBeVisible();
+    await expect(page.locator("table thead th")).toHaveCount(0);
+    await expect(page.locator('td[colspan="8"]')).toHaveCount(0);
+  });
+
+  test("with nothing selected the pane is the discovery page", async ({
+    page,
+  }) => {
+    await expect(page.locator(PANE)).toContainText("Your host");
+    await expect(page.locator('[data-testid="discover-back"]')).toHaveCount(0);
+  });
+
+  test("choosing a model turns the pane into its detail, and back returns", async ({
+    page,
+  }) => {
+    await railItem(page, "llama-model").click();
+    await expect(page.locator(PANE)).toContainText("llama-model");
+    await expect(page.locator(PANE)).toContainText("Headroom");
+    await expect(page.locator(PANE)).not.toContainText("Your host");
+
+    await page.locator('[data-testid="discover-back"]').click();
+    await expect(page.locator(PANE)).toContainText("Your host");
+  });
+
+  test("the selection lives in the URL and survives a reload", async ({
+    page,
+  }) => {
+    await railItem(page, "whisper-model").click();
+    await expect(page).toHaveURL(/[?&]model=whisper-model/);
+
+    // A deep link is the same state, which the expanded row could never be.
+    await page.reload();
+    await railReady(page);
+    await expect(page.locator(PANE)).toContainText("whisper-model");
+    await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
+  });
+
+  test("the rail groups while browsing", async ({ page }) => {
+    await expect(railItems(page).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="discover-rail-group-"]').first()).toBeVisible();
+  });
+
+  test("collapsing a group hides its entries and keeps the others", async ({ page }) => {
+    const group = page.locator('[data-testid^="discover-rail-group-"]').first();
+    const before = await railItems(page).count();
+    await group.click();
+    await expect(group).toHaveAttribute("aria-expanded", "false");
+    expect(await railItems(page).count()).toBeLessThan(before);
+  });
+
+  test("a query flattens the rail to results", async ({ page }) => {
+    // Once a term is typed the buckets stand between the reader and the answer,
+    // so they go. A rule rather than a toggle.
+    await expect(page.locator('[data-testid^="discover-rail-group-"]').first()).toBeVisible();
+    await page.locator(".filter-bar-group__search input").fill("llama");
+    await expect(page.locator('[data-testid^="discover-rail-group-"]')).toHaveCount(0);
+    await expect(railItems(page).first()).toBeVisible();
+  });
+
+  test("the detail plots VRAM against what the host actually has", async ({
+    page,
+  }) => {
+    await railItem(page, "llama-model").click();
+    const chart = page.locator(".discover__chart");
+    await expect(chart).toBeVisible();
+    // One bar per context length the page asked the server about.
+    await expect(chart.locator(".discover__chart-col")).toHaveCount(4);
+    // 12 GB of GPU, so the 20 GB estimate at 64k is the one over the line.
+    await expect(chart.locator(".discover__chart-bar--over")).toHaveCount(1);
+    await expect(chart.locator(".discover__chart-limit-label")).toBeVisible();
+  });
+
+  test("the verdict is words, not only a colour", async ({ page }) => {
+    await railItem(page, "llama-model").click();
+    // Colour alone would exclude a colour-blind reader and die in print.
+    await expect(page.locator(".discover__chart-verdict")).toContainText(
+      "Fits up to a 32K context",
+    );
+  });
+
+  test("a build that fits at some context sizes warns rather than erroring", async ({
+    page,
+  }) => {
+    await railItem(page, "llama-model").click();
+    const verdict = page.locator(".discover__chart-verdict");
+    await expect(verdict).toBeVisible();
+    // A model that fits at 32k but not 64k is a trade-off, and #11288 keeps a
+    // test on such a build still being installable. Only "fits nowhere" earns
+    // the error tone; anything short of that warns.
+    await expect(verdict).toHaveClass(/discover__chart-verdict--warn/);
+    await expect(verdict).not.toHaveClass(/discover__chart-verdict--bad/);
+  });
+
+  test("a host with no GPU gets no chart rather than an unanchored one", async ({
+    page,
+  }) => {
+    // The limit line is what makes the bars mean anything.
+    await page.route("**/api/resources", (route) => {
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ available: false }) });
+    });
+    await page.reload();
+    await railReady(page);
+    await railItem(page, "llama-model").click();
+    await expect(page.locator(PANE)).toContainText("llama-model");
+    await expect(page.locator(".discover__chart")).toHaveCount(0);
+  });
+
+  test("the rail moves the selection from the keyboard", async ({ page }) => {
+    await railItem(page, "llama-model").click();
+    await expect(page).toHaveURL(/[?&]model=llama-model(&|$)/);
+    // Wait for the pane to actually be the detail, not merely for the URL to
+    // say so. The URL changes in the same tick as the state update, so pressing
+    // a key on the strength of it races the render that follows.
+    await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
+    // Focus is on the entry just clicked, which carries the key handler.
+    // Which entry is adjacent depends on how the rail groups, so the contract
+    // is that the selection moves and comes back, not that a named model is
+    // next. Naming one made this test a hostage of the grouping table.
+    await page.keyboard.press("ArrowDown");
+    await expect(page).not.toHaveURL(/[?&]model=llama-model(&|$)/);
+    await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
+
+    await page.keyboard.press("ArrowUp");
+    await expect(page).toHaveURL(/[?&]model=llama-model(&|$)/);
   });
 });

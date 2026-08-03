@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import PageHeader from '../components/PageHeader'
@@ -34,6 +35,8 @@ export default function AudioTransform() {
   const [paramsText, setParamsText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // What was actually sent, so the panel records rather than predicts.
+  const [lastRequest, setLastRequest] = useState(null)
 
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('audio-transform')
 
@@ -75,6 +78,10 @@ export default function AudioTransform() {
     setLoading(true)
     setError(null)
     if (outputUrl) { URL.revokeObjectURL(outputUrl); setOutputUrl(null) }
+
+    // The audio itself is multipart, not JSON, so the panel records the fields
+    // that shape the request rather than the bytes.
+    setLastRequest({ model, format: 'wav', params: parseParams() })
 
     try {
       const { blob, serverUrl, inputUrl, referenceUrl: refServerUrl } = await audioTransformApi.process({
@@ -242,6 +249,7 @@ export default function AudioTransform() {
       </div>
 
       <div className="media-preview">
+        <RequestPanel endpoint="/v1/audio/transform" body={lastRequest} />
         <div className="media-result">
           {error ? (
             <ErrorWithTraceLink message={error} />

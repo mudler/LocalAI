@@ -276,9 +276,11 @@ test.describe('3D generation', () => {
       })
     })
 
-    await page.goto('/app/studio?tab=threed')
+    await page.goto('/app/studio/threed')
     await expect(page.getByRole('button', { name: '3D', exact: true })).toHaveCount(0)
-    await expect(page.locator('.studio-tab', { hasText: 'Images' })).toHaveClass(/studio-tab-active/)
+    // Falls back to the overview rather than Images. Landing on Images was
+    // never a decision, only the first entry in the tab array.
+    await expect(page.locator('.studio-tab[data-tab="overview"]')).toHaveClass(/studio-tab-active/)
 
     await page.goto('/app/3d')
     await expect(page).toHaveURL(/\/app\/?$/)

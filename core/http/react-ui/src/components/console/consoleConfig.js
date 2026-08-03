@@ -44,28 +44,38 @@ export const buildConsole = {
   ],
 }
 
+// Four groups, not six. Inference and Activity were both "the runtime right
+// now"; Access and System were both administration. Six headings over thirteen
+// items is a list with extra steps. Nothing is removed and no gate changes —
+// the heading an item sits under is the only thing that moves.
+//
+// Overview leads the first group so firstVisiblePath() returns it without
+// needing to know it exists. Before it, opening Operate landed on Backends
+// because Backends happened to be written first.
+//
+// `signal` names a value the rail renders beside the label (see
+// OperateSummaryContext). It is orientation while inside Operate, NOT an
+// alarm: the rail exists only on Operate routes and can be collapsed, which is
+// precisely why the operations badge stays on the sidebar entry. Nothing
+// urgent may depend on a rail signal alone.
 export const operateConsole = {
   id: 'operate',
   titleKey: 'sections.operate',
   icon: 'fas fa-sliders',
   groups: [
     {
-      titleKey: 'operate.inference',
+      titleKey: 'operate.runtime',
       items: [
-        { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true },
+        { path: '/app/operate', icon: 'fas fa-gauge-high', labelKey: 'items.overview', adminOnly: true, signal: 'attention' },
+        { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true, signal: 'backends' },
         { path: '/app/voice-library', icon: 'fas fa-wave-square', labelKey: 'items.voiceLibrary', adminOnly: true },
-      ],
-    },
-    {
-      titleKey: 'operate.activity',
-      items: [
-        { path: '/app/activity', icon: 'fas fa-download', labelKey: 'items.activity', adminOnly: true, badge: 'operations' },
+        { path: '/app/activity', icon: 'fas fa-download', labelKey: 'items.activity', adminOnly: true, badge: 'operations', signal: 'activity' },
       ],
     },
     {
       titleKey: 'operate.cluster',
       items: [
-        { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },
+        { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed', signal: 'nodes' },
         { path: '/app/scheduling', icon: 'fas fa-calendar-alt', labelKey: 'items.scheduling', adminOnly: true, feature: 'distributed' },
         { path: '/app/p2p', icon: 'fas fa-circle-nodes', labelKey: 'items.swarm', adminOnly: true },
       ],
@@ -73,21 +83,16 @@ export const operateConsole = {
     {
       titleKey: 'operate.observability',
       items: [
-        { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', adminOnly: true },
-        { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true },
+        { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', adminOnly: true, signal: 'usage' },
+        { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true, signal: 'traces' },
       ],
     },
     {
-      titleKey: 'operate.access',
+      titleKey: 'operate.administration',
       items: [
         { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
         { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
-      ],
-    },
-    {
-      titleKey: 'operate.system',
-      items: [
-        { path: '/app/manage', icon: 'fas fa-desktop', labelKey: 'items.host', adminOnly: true },
+        { path: '/app/manage', icon: 'fas fa-desktop', labelKey: 'items.host', adminOnly: true, signal: 'host' },
         { path: '/app/settings', icon: 'fas fa-cog', labelKey: 'items.settings', adminOnly: true },
         { href: '/swagger/index.html', icon: 'fas fa-code', labelKey: 'items.api', external: true, adminOnly: true },
       ],

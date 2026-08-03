@@ -19,6 +19,7 @@ const PAGES = [
   ['/app/account', 'Account'],
   ['/app/studio', 'Studio'],
   ['/app/manage', 'Manage'],
+  ['/app/operate', 'Operate overview'],
   ['/app/backends', 'Backends'],
   ['/app/activity', 'Activity'],
   ['/app/settings', 'Settings'],
@@ -38,7 +39,7 @@ test.describe('Page render smoke', () => {
       await page.goto(path)
       // .page-title for the normal header; .empty-state-title for pages that
       // render a gated/empty state (e.g. Account when auth is disabled).
-      await expect(page.locator('.page-title, .empty-state-title').first()).toBeVisible({ timeout: 15_000 })
+      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title').first()).toBeVisible({ timeout: 15_000 })
       await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/') + '$'))
     })
   }

@@ -51,18 +51,32 @@
 }
 
 /* Footer */
+/* One line, not three stacked centred rows. The footer is chrome: it should
+   cost a line of height and be findable, not occupy the bottom sixth of every
+   page. Version left, links right, copyright folded in beside the version. */
 .app-footer {
   background: transparent;
   border-top: 1px solid var(--color-border-divider);
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
   margin-top: auto;
 }
 
 .app-footer-inner {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-sm);
+  justify-content: space-between;
+  gap: var(--spacing-xs) var(--spacing-md);
+}
+
+/* Links push right on a wide viewport and wrap under on a narrow one. */
+.app-footer-links { margin-left: auto; }
+
+/* Below the fold of a phone the three groups stack anyway; centre them so the
+   wrap does not read as a ragged left column. */
+@media (max-width: 560px) {
+  .app-footer-inner { justify-content: center; }
+  .app-footer-links { margin-left: 0; }
 }
 
 .app-footer-version {
@@ -537,6 +551,9 @@
   justify-content: center;
   flex-direction: column;
   gap: var(--spacing-xs);
+  /* The controls stack, but the row's inline padding still left them wider
+     than the collapsed rail, so their edges were clipped. */
+  padding-inline: 2px;
 }
 
 .sidebar.collapsed .theme-toggle {
@@ -766,7 +783,7 @@
   flex: none;
   min-height: 28px;
   padding: 0 var(--spacing-sm);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-primary-border);
   background: var(--color-primary-light);
   color: var(--color-primary);
@@ -1219,14 +1236,20 @@
   margin-bottom: var(--spacing-xl);
 }
 
+/* The editorial title scale from the site: larger, set tighter, and on a line
+   height near 1 so a two-word title reads as a statement rather than a label.
+   The typeface is unchanged — DESIGN.md keeps the existing type system — so the
+   whole difference is scale, tracking and leading, which is where the site gets
+   its voice from in the first place. */
 .page-title {
   font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 1.15rem + 1.4vw, var(--text-3xl));
+  font-size: clamp(1.875rem, 1.3rem + 2.2vw, 3rem);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.018em;
-  line-height: var(--leading-tight);
+  letter-spacing: -0.04em;
+  line-height: 1.02;
   margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 /* Mid hierarchy tier — between page title and the xs uppercase group labels */
@@ -2111,7 +2134,7 @@ select.input {
   gap: 3px;
   margin-left: 6px;
   padding: 1px 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.4;
@@ -2125,7 +2148,12 @@ select.input {
    Left accent bar ties the color to the metric's semantic (success/warning/
    error/primary), icon chip sits top-right, value is left-aligned and
    prominent so you can scan a row of cards without reading labels. */
-.stat-grid {
+/* Renamed off `.stat-grid` in favour of the children it actually holds. The
+   split views introduced a second, unrelated `.stat-grid` for detail panes
+   further down this file, and being later it won every shared property: these
+   cards were being laid out on that component's 120px columns and 1px hairline
+   gap, which crushed their labels at every width. */
+.stat-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--spacing-md);
@@ -2831,7 +2859,7 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
@@ -3335,7 +3363,7 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
@@ -3355,14 +3383,22 @@ button.collapsible-header:focus-visible {
 .chat-message {
   display: flex;
   gap: var(--spacing-sm);
-  max-width: 88%;
+  align-self: stretch;
+  max-width: 100%;
   min-width: 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-divider);
   animation: messageSlideIn 250ms ease-out;
 }
 
+/* A transcript, not bubbles. Rounded filled asymmetric bubbles fight a system
+   built on hairlines, and they carry the speaker in shape and side rather than
+   in words — which is exactly what a mono role label does better, and what
+   survives being read aloud or printed. Both roles now run full width down one
+   column, separated by a rule. */
 .chat-message-user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
+  align-self: stretch;
+  flex-direction: row;
 }
 
 .chat-message-assistant {
@@ -3385,11 +3421,9 @@ button.collapsible-header:focus-visible {
   color: var(--color-primary-text);
 }
 
-/* Assistant gets the left-border accent on the bubble; the avatar is
-   visual noise once that accent is in place. */
-.chat-message-assistant .chat-message-avatar {
-  display: none;
-}
+/* The left-edge accent plus the role label carry the speaker, so the avatar is
+   noise for both roles now that neither side has a bubble. */
+.chat-message-avatar { display: none; }
 
 .chat-message-bubble {
   display: flex;
@@ -3420,13 +3454,16 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-primary);
 }
 
+/* Same treatment as the assistant, in the action tone so the two are still
+   told apart at a glance without a fill or a corner radius. */
 .chat-message-user .chat-message-content {
-  background: var(--color-primary-light);
+  background: transparent;
   color: var(--color-text-primary);
-  border: 1px solid var(--color-primary-border);
-  border-radius: 16px 4px 16px 16px;
-  padding: var(--spacing-sm) var(--spacing-md);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: none;
+  border-left: 2px solid var(--color-primary);
+  border-radius: 0;
+  padding: 0 var(--spacing-md);
+  box-shadow: none;
 }
 
 .chat-message-content pre {
@@ -3996,7 +4033,7 @@ button.collapsible-header:focus-visible {
   padding: 8px var(--spacing-md);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
@@ -4969,7 +5006,7 @@ button.collapsible-header:focus-visible {
   background: rgba(59, 130, 246, 0.15);
   color: var(--color-primary);
   padding: 1px 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: 0.7rem;
 }
@@ -5046,7 +5083,7 @@ button.collapsible-header:focus-visible {
   padding: 2px 8px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   max-width: 220px;
@@ -5081,6 +5118,7 @@ button.collapsible-header:focus-visible {
 /* Studio tabs */
 .studio-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-xs);
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--spacing-sm) var(--spacing-xl) 0;
@@ -5135,17 +5173,43 @@ button.collapsible-header:focus-visible {
   }
 }
 
+/* The workbench control column. A hairline field stack rather than a shadowed
+   card of boxed groups: the panel is the page's left half, not an object
+   floating on it, and the same treatment covers all six generators because they
+   share this class. */
 .media-controls {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-subtle);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border-default);
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
   position: sticky;
   top: var(--spacing-lg);
 }
+
+/* Each control is a row on the stack, separated by the same hairline the lanes
+   use, so a form and a list read as the same system. */
 .media-controls .form-group {
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 0;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+/* Uppercase micro-label, matching the eyebrow treatment used elsewhere: it
+   names the field without competing with the value. */
+.media-controls .form-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The submit row closes the stack, so it carries no divider of its own. */
+.media-controls .form-group:last-of-type,
+.media-controls > form > .btn-full:last-child {
+  border-bottom: 0;
 }
 .media-controls .form-grid-2col,
 .media-controls .form-grid-3col {
@@ -6373,7 +6437,7 @@ button.collapsible-header:focus-visible {
   padding: 4px 10px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
@@ -6492,7 +6556,7 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
@@ -6533,7 +6597,7 @@ button.collapsible-header:focus-visible {
   padding: 3px 6px 3px 10px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-divider);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
 }
 .home-loaded-item button {
@@ -6679,73 +6743,14 @@ button.collapsible-header:focus-visible {
 /* ──────────────────── Models gallery: recommended-for-your-hardware strip ──────────────────── */
 
 .rec-models {
-  margin-bottom: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
+  /* A section in the flow, not a card on top of it. */
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 /* Collapsed keeps the strip and its heading, only dropping the cards, so the
    panel is recoverable in place rather than gone. Tighter block padding is
    what actually returns vertical space to the gallery. */
-.rec-models--collapsed {
-  padding-top: var(--spacing-sm);
-  padding-bottom: var(--spacing-sm);
-}
-.rec-models-head {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm) var(--spacing-md);
-  flex-wrap: wrap;
-}
-.rec-models-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  text-align: left;
-}
-.rec-models-toggle i {
-  color: var(--color-primary);
-}
-.rec-models-chevron {
-  font-size: 0.75rem;
-  transition: transform 150ms ease;
-}
-.rec-models--collapsed .rec-models-chevron {
-  transform: rotate(-90deg);
-}
-.rec-models-note {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-.rec-models-dismiss {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px;
-  flex-shrink: 0;
-}
-.rec-models-dismiss:hover {
-  color: var(--color-text-primary);
-}
-.rec-models-grid {
-  display: grid;
-  /* min() keeps the 220px track from forcing horizontal overflow on narrow
-     phones, where one column is all that fits anyway. */
-  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-md);
-  /* Reveal animates opacity and transform only; the collapsed state is the
-     [hidden] attribute, so no height is being animated. */
-  animation: rec-models-reveal 180ms ease-out;
-}
 /* The class sets display:grid, which would otherwise beat the UA [hidden] rule. */
 .rec-models-grid[hidden] {
   display: none;
@@ -6764,10 +6769,7 @@ button.collapsible-header:focus-visible {
   .rec-models-grid {
     animation: none;
   }
-  .rec-models-chevron {
-    transition: none;
   }
-}
 .rec-models-item {
   display: flex;
   flex-direction: column;
@@ -7296,7 +7298,7 @@ button.collapsible-header:focus-visible {
   gap: 6px;
   padding: 6px 12px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -7432,7 +7434,7 @@ button.collapsible-header:focus-visible {
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-secondary);
   padding: 4px 12px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--text-xs);
   font: inherit;
@@ -7568,7 +7570,7 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   border: 1px solid var(--color-border-subtle);
@@ -8176,7 +8178,7 @@ button.collapsible-header:focus-visible {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   padding: 2px 8px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   margin-left: var(--spacing-xs);
 }
 
@@ -8763,12 +8765,21 @@ button.collapsible-header:focus-visible {
   outline-offset: 2px;
 }
 
-/* Manage summary marker — same .stat-grid layout. Top margin separates the
+/* Manage summary marker — same .stat-cards layout. Top margin separates the
    cards from the System Resources card above (otherwise they sit too close
    to the RAM bar) and bottom margin tightens the gap to the tabs below. */
-.manage-summary {
+/* Two class names, so this beats the shared .stat-strip shorthand regardless
+   of which rule the file happens to declare later. The single-class version
+   was silently losing its top margin to `margin: 0 0 …`, leaving the strip
+   flush against the resources card above it. */
+.stat-strip.manage-summary {
   margin-top: var(--spacing-xl);
   margin-bottom: var(--spacing-lg);
+  /* .page--app is a flex column whose split view takes flex:1, so a child with
+     no intrinsic minimum gets shrunk to nothing. The old cards survived only
+     because .stat-card carried min-height:96px; the figure cells do not, so the
+     strip has to decline to shrink. */
+  flex: none;
 }
 
 /* Screen-reader-only label, used for table headers whose visual cell needs
@@ -8900,7 +8911,16 @@ button.collapsible-header:focus-visible {
   .console-rail { position: static; flex-basis: auto; width: 100%; }
   .console-rail-toggle { display: grid; }
   .console-rail-groups { display: none; }
-  .console-rail--open .console-rail-groups { display: flex; }
+  /* Thirteen destinations stacked in one column is taller than a phone, so
+     opening the menu used to push the page's own heading past the fold: the
+     menu replaced the page rather than annotating it. Bound it and let it
+     scroll, so the content behind stays reachable. */
+  .console-rail--open .console-rail-groups {
+    display: flex;
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .console-rail.console-rail--enter { animation: none; }
@@ -9051,7 +9071,18 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
-.voice-library-empty { min-height: 430px; border: 0; background: transparent; }
+/* The empty PANEL, not the button inside it. This was attached to the action
+   for a while, which made the button a 430px transparent box that pushed
+   itself out of view. */
+.voice-library-empty {
+  min-height: 430px;
+  border: 0;
+  background: transparent;
+  /* Keep the action inside the panel it belongs to. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
 .voice-row {
   appearance: none;
@@ -9898,7 +9929,7 @@ button.collapsible-header:focus-visible {
 .activity-chip {
   min-height: 28px;
   padding: 0 var(--spacing-sm);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-default);
   background: transparent;
   color: var(--color-text-muted);
@@ -9970,7 +10001,7 @@ button.collapsible-header:focus-visible {
   min-width: 18px;
   height: 18px;
   padding: 0 var(--spacing-xs);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--color-primary);
   color: var(--color-primary-text);
   font-family: var(--font-mono);
@@ -10574,7 +10605,19 @@ button.collapsible-header:focus-visible {
   word-break: break-all;
   overflow: auto;
 }
-.p2p-cmd__copy { position: absolute; top: 8px; right: 8px; }
+/* .btn alone leaves the background to the user agent, which paints
+   `buttonface` — a light grey. Fine on a light theme, a pale chip on a dark
+   command block. State it. */
+.p2p-cmd__copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-default);
+}
+
+.p2p-cmd__copy:hover { color: var(--color-primary); border-color: var(--color-primary-border); }
 
 /* Numbered setup steps */
 .p2p-step {
@@ -11094,20 +11137,33 @@ button.collapsible-header:focus-visible {
    Tinted notice banners, the summary counters, the backend table's icon /
    description / badge cells and the detail table under an expanded row.
    =========================================================================== */
+/* A hairline with a coloured left edge, not a tinted card. Same treatment as
+   the Operate overview's attention rows, so "this wants a decision" looks the
+   same wherever it appears. A filled panel makes every notice shout at the
+   weight of an error, which is how notices stop being read. */
 .bk-notice {
   padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
-  background: var(--tone-soft);
-  border: 1px solid var(--tone-line);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-left: 3px solid var(--tone, var(--color-primary));
 }
 .bk-notice--between { justify-content: space-between; }
+.hstack--sm { display: flex; align-items: center; gap: var(--spacing-sm); }
+.bk-notice__icon { color: var(--tone, var(--color-primary)); }
 .bk-notice__text { color: var(--tone); font-weight: var(--font-weight-medium); font-size: var(--text-sm); }
 .bk-counts { display: flex; gap: var(--spacing-md); font-size: var(--text-sm); }
-.bk-count { font-size: var(--text-xl); font-weight: var(--font-weight-bold, 700); color: var(--tone, var(--color-primary)); }
+.bk-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone, var(--color-primary));
+}
 .bk-icon-fallback {
   width: 28px; height: 28px;
   border-radius: var(--radius-sm);
@@ -11595,3 +11651,1350 @@ button.collapsible-header:focus-visible {
 .ajd-code--tall { max-height: 300px; }
 .ajd-code--taller { max-height: 500px; }
 .ajd-code--error { background: var(--color-error-light); color: var(--color-error); max-height: none; }
+
+/* ==========================================================================
+   SplitView: the shell shared by Discover, Backends and Host.
+
+   The rail is scanned, the pane answers. The pane has exactly two states -
+   a zero state with nothing selected and one entity's detail with something
+   selected - which is what replaces the click-to-expand table row. What the
+   zero state says is the surface's business: a catalog offers what to install,
+   an inventory reports what is running.
+   ========================================================================== */
+
+.split-view {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: var(--spacing-md);
+  align-items: start;
+}
+
+.split-view__rail-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.entity-rail {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.entity-rail__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-wrap: wrap;
+}
+
+.entity-rail__count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.entity-rail__sort {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Sorting lost its home when the column headers went. It reappears here rather
+   than in the filter band above, because it orders this list and nothing else. */
+.entity-rail__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.entity-rail__sort-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.entity-rail__sort-btn.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-light);
+}
+
+.entity-rail__list {
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.entity-rail__list:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.entity-rail__group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: var(--color-surface-sunken);
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.entity-rail__group:first-child .entity-rail__group-head { border-top: 0; }
+
+.entity-rail__caret { font-size: 0.5625rem; color: var(--color-text-muted); width: 10px; }
+.entity-rail__group-icon { font-size: 0.6875rem; color: var(--color-text-muted); }
+
+.entity-rail__group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.entity-rail__group-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.entity-rail__item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: 7px var(--spacing-sm);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border-divider);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entity-rail__item:hover { background: var(--color-bg-hover); }
+
+/* The rail rounds its corners with overflow:hidden, which clips an outline
+   drawn outside the element. Inset it so the first and last entries keep a
+   visible focus ring. */
+.entity-rail__item:focus-visible,
+.entity-rail__group-head:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Touch. A 30px row is fine for a mouse and too small for a thumb, so coarse
+   pointers get the 44px target without costing density on a desktop. */
+@media (pointer: coarse) {
+  .entity-rail__item { padding-top: 12px; padding-bottom: 12px; }
+  .entity-rail__group-head { padding-top: 10px; padding-bottom: 10px; }
+}
+
+.entity-rail__item--on {
+  background: var(--color-primary-light);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.entity-rail__icon {
+  flex: none;
+  width: 16px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.entity-rail__item--on .entity-rail__icon { color: var(--color-primary); }
+
+.entity-rail__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+
+.entity-rail__name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-rail__meta {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A left edge for surfaces read by condition before they are read by name. An
+   inventory has one; a catalog does not, because "available" is not a state
+   worth a colour on every row. */
+.entity-rail__stripe {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex: none;
+}
+
+.entity-rail__stripe--run { background: var(--color-success); }
+.entity-rail__stripe--idle { background: var(--color-border-strong); }
+.entity-rail__stripe--err { background: var(--color-error); }
+.entity-rail__stripe--off { background: transparent; }
+
+
+.entity-rail__meta--bad { color: var(--color-error); }
+.entity-rail__meta--ok { color: var(--color-success); }
+.entity-rail__meta--busy { color: var(--color-primary); }
+
+.split-view__pager { margin: 0; }
+.split-view__pager-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  padding: 0 var(--spacing-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pane ---------------------------------------------------------------- */
+
+.split-view__pane {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  min-height: 420px;
+  padding: var(--spacing-md);
+}
+
+.zero-pane { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+
+.zero-pane__hero { display: flex; flex-direction: column; gap: 4px; }
+
+.zero-pane__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-eyebrow);
+}
+
+.zero-pane__title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.zero-pane__text { font-size: 0.8125rem; color: var(--color-text-muted); }
+
+/* The heading needs air under it. Sitting a line's width from the text it
+   introduces made the two read as one paragraph. */
+.zero-pane__shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+.zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
+.zero-pane__shelf-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+}
+.zero-pane__shelf-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Curated tiles. A catalog spends its zero state arguing for something; the
+   tile is where that argument gets the width a rail line never has. */
+.zero-pane__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.zero-pane__tile {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.zero-pane__tile:hover { border-color: var(--color-border-strong); background: var(--color-bg-hover); }
+
+.zero-pane__tile--feat {
+  border-color: var(--color-primary-border);
+  background: linear-gradient(150deg, var(--color-primary-light), transparent 68%), var(--color-bg-primary);
+}
+
+.zero-pane__tile-name { font-size: 0.8125rem; font-weight: 550; }
+.zero-pane__tile-foot { display: flex; align-items: center; gap: var(--spacing-xs); margin-top: auto; }
+
+/* One line that changes what you would do next. Reserved for that; a pane of
+   these has no emphasis left. */
+.zero-pane__alert {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.8125rem;
+  padding: 6px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.zero-pane__alert--warn { color: var(--color-warning); background: var(--color-warning-light); border-color: var(--color-warning-border); }
+.zero-pane__alert--bad { color: var(--color-error); background: var(--color-error-light); border-color: var(--color-error-border); }
+.zero-pane__alert > :last-child { margin-left: auto; }
+
+.detail-pane__label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+/* --- Detail -------------------------------------------------------------- */
+
+.detail-pane { display: flex; flex-direction: column; gap: var(--spacing-md); }
+
+.detail-pane__back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.detail-pane__back:hover { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+
+.detail-pane__head { display: flex; gap: var(--spacing-sm); align-items: flex-start; flex-wrap: wrap; }
+
+.detail-pane__icon {
+  flex: none;
+  font-size: 1.25rem;
+  color: var(--color-primary);
+  padding-top: 2px;
+}
+
+.detail-pane__title { flex: 1 1 260px; min-width: 0; }
+
+.detail-pane__name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  word-break: break-word;
+}
+
+.detail-pane__lede { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 2px; }
+
+.detail-pane__actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
+
+.discover__progress { flex: none; width: 120px; margin-top: 4px; }
+
+.detail-pane__warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--color-error);
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--spacing-sm);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px;
+  background: var(--color-border-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.stat-grid__item { background: var(--color-surface-sunken); padding: 6px var(--spacing-sm); }
+
+.stat-grid__item dt {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.stat-grid__item dd {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+.stat-grid__value--ok { color: var(--color-success); }
+.stat-grid__value--bad { color: var(--color-error); }
+.stat-grid__value--warn { color: var(--color-warning); }
+
+/* --- VRAM by context ----------------------------------------------------- */
+
+.discover__chart { display: flex; flex-direction: column; gap: 6px; }
+
+.discover__chart-title {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.discover__chart-plot {
+  /* Matches CHART_HEIGHT in Models.jsx: the bars and the limit line are both
+     resolved in pixels against this, so they share one scale. */
+  position: relative;
+  height: 96px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 15px;
+}
+
+/* The limit is what makes the bars mean anything, so it is drawn across all of
+   them rather than annotated on each. */
+.discover__chart-limit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--discover-limit, 0);
+  /* Same tone as the bars that cross it: one colour, one meaning. */
+  border-top: 1px dashed var(--color-warning-border);
+  pointer-events: none;
+}
+
+.discover__chart-limit-label {
+  position: absolute;
+  right: 0;
+  top: -1.05rem;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.05em;
+  color: var(--color-error);
+  background: var(--color-bg-secondary);
+  padding: 0 3px;
+}
+
+.discover__chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.discover__chart-value {
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.discover__chart-bar {
+  height: var(--discover-bar, 0);
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  background: var(--color-success);
+  /* A surface-coloured ring keeps adjacent bars from reading as one block. */
+  box-shadow: 0 0 0 2px var(--color-bg-secondary);
+}
+
+/* Amber, not error red. An over-limit build still installs — #11288 keeps a
+   test on exactly that — so red would overstate it. Amber is the constraint
+   tone used everywhere else here: know what you are doing, not you may not. */
+.discover__chart-bar--over { background: var(--color-warning); }
+
+.discover__chart-col:hover .discover__chart-bar { filter: brightness(1.1); }
+
+/* Its own row rather than a third line inside each column: one baseline for
+   every label, whatever the values above them do. */
+.discover__chart-axis {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--color-border-default);
+  padding-top: 3px;
+}
+
+.discover__chart-axis span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.discover__chart-axis-on { color: var(--color-primary); font-weight: 600; }
+
+.discover__chart-col--on .discover__chart-value {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.discover__chart-verdict { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; }
+.discover__chart-verdict--ok { color: var(--color-success); }
+.discover__chart-verdict--warn { color: var(--color-warning); }
+.discover__chart-verdict--bad { color: var(--color-error); }
+
+/* --- Narrow ------------------------------------------------------------- */
+
+/* Below this the two columns stop being two columns. With a model selected the
+   pane becomes the page and the rail steps aside, which is the same trade a
+   pushed route would make without the routing. */
+@media (max-width: 900px) {
+  .split-view { grid-template-columns: minmax(0, 1fr); }
+  .entity-rail__list { max-height: 320px; }
+  .split-view--detail .split-view__rail-col { display: none; }
+}
+
+/* Compact list rows inside a pane: a state chip, a name, and one number. Used
+   by the Host status page for "loaded now" and by detail panes for anything
+   that is a list of facts rather than a table. */
+.rowlist { display: flex; flex-direction: column; gap: 4px; }
+
+.rowline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 5px var(--spacing-sm);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.rowline__num { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* A first run is a whole screen, not a card wedged under a filter bar. These
+   two states are the only thing on the page, so they get the height to say so.
+
+   They previously wore .loading-center, which is display:flex with the default
+   row direction because it exists to centre one spinner. With four children
+   that put the icon, the heading, the sentence and the buttons on a single
+   line with no gap between them. */
+.empty-state--page {
+  min-height: 52vh;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-block: var(--spacing-3xl);
+}
+
+.empty-state--page .empty-state-icon { font-size: 2rem; }
+.empty-state--page .empty-state-text { text-wrap: balance; }
+
+/* The filter band moved into the rail column, so it stacks instead of laying
+   out three horizontal bands across the page. It sits there because it narrows
+   the rail and nothing else: one column to say what you want, one to show what
+   you got. */
+.split-view__rail-col .models-filters {
+  margin-bottom: 0;
+}
+
+.split-view__rail-col .models-filters__query,
+.split-view__rail-col .models-filters__refine {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+}
+
+.split-view__rail-col .models-filters__backend { width: 100%; }
+
+/* Nineteen chips do not fit beside a 360px rail. The trigger states the
+   selection and the popover carries the full set, which also stops the chip
+   row and the rail competing to be the same control. */
+.models-filters__usecase-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: 6px var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.models-filters__usecase-trigger:hover { border-color: var(--color-border-strong); }
+.models-filters__usecase-caret { margin-left: auto; font-size: 0.625rem; color: var(--color-text-muted); }
+
+.models-filters__usecases {
+  margin: 0;
+  padding: var(--spacing-xs) 0 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+
+/* ==========================================================================
+   Full-height view: the split fills the window instead of sitting in a
+   document that scrolls. Rail and pane scroll independently, so the filters
+   and the pane's headline both stay put while a long list moves under them.
+   ========================================================================== */
+
+.page--app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* A flex item's automatic minimum is its content, so without this the list
+     pushes the page taller instead of scrolling inside it. */
+  min-height: 0;
+  padding-bottom: var(--spacing-lg);
+  /* The shell above is overflow:hidden so the document cannot grow, which left
+     anything taller than the viewport simply unreachable — Host has a
+     resources card, four stat cards and a tab bar above its split, and at any
+     window height the bottom of the pane fell off with nothing to scroll.
+     The page scrolls inside the pinned shell; the rail and pane keep their own
+     inner scrollers for long lists and long details. */
+  overflow-y: auto;
+}
+
+/* The header, fused. A slim row that reads as the top of the view rather than
+   a title block the view happens to sit under. */
+.view-bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.view-bar__title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.view-bar__count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.view-bar__actions { display: flex; gap: var(--spacing-xs); margin-left: auto; }
+
+.page--app .split-view { flex: 1; min-height: 0; }
+
+.page--app .split-view__rail-col {
+  height: 100%;
+  min-height: 0;
+}
+
+/* The filters keep their height; the list absorbs the rest and scrolls. */
+.page--app .entity-rail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page--app .entity-rail__list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.page--app .split-view__pane {
+  /* The pane keeps its own scroller. Letting it grow instead would push the
+     document taller and stretch the rail to match, which is the regression
+     e2e/discover-height.spec.js exists to catch. Reaching tall page chrome is
+     the page's job (overflow-y above), not the pane's. */
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Grouped chips. Four families and a reset, rather than nineteen in a row. */
+.models-filters__usecase-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.models-filters__usecase-group + .models-filters__usecase-group {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-divider);
+}
+
+.models-filters__usecase-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.models-filters__usecases .filter-bar { margin: 0; }
+
+/* The refinements read as a section with a name, not three controls left where
+   they landed when the band became a column. */
+.split-view__rail-col .models-filters__refine {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-divider);
+  gap: 6px;
+}
+
+.models-filters__refine-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.split-view__rail-col .filter-bar-group__toggle {
+  justify-content: flex-start;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.split-view__rail-col .models-filters__context {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+
+.split-view__rail-col .models-filters__context input[type='range'] { flex: 1; min-width: 0; }
+
+@media (max-width: 900px) {
+  /* Stacked, the view cannot be height-constrained without trapping the list
+     in a short scroller, so it goes back to scrolling with the document. */
+  .page--app { display: block; }
+  .page--app .split-view__pane { height: auto; overflow: visible; }
+  .page--app .entity-rail__list { max-height: 320px; }
+}
+
+/* Pin the layout for split-view routes, the way the chat route already does.
+   .app-layout and .main-content are min-height:100dvh, which is a floor, not a
+   ceiling: a tall pane grew the whole column past the viewport, so selecting a
+   model with a long detail pushed the page down and the rail grew with it. The
+   "full height" view was scrolling the document instead of scrolling inside
+   itself.
+
+   :has() rather than a route flag in App.jsx, so the shell stays unaware of
+   which pages happen to be split views. */
+.app-layout:has(.page--app) {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-layout:has(.page--app) .main-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Below the split's breakpoint the two columns stack, and a stacked view
+   cannot be height-pinned without trapping both halves in short scrollers. It
+   goes back to scrolling with the document. */
+@media (max-width: 900px) {
+  .app-layout:has(.page--app) {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .app-layout:has(.page--app) .main-content {
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
+
+/* Backends: the filters stack in the rail column the way Discover's do. Seven
+   chips fit at this width, so they need no disclosure. */
+.bk-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.bk-filters .search-bar { width: 100%; }
+.bk-filters .filter-bar { margin: 0; }
+
+.split-view__rail-col .bk-toggles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+/* Host keeps its resource monitor, summary cards and tabs above the split, so
+   only what is left after them is pinned. Those are the page's own chrome and
+   they are read once, unlike the rail and the pane, which are worked in. */
+.page--app > .tabs { flex: none; }
+.page--app > .view-bar { flex: none; }
+
+/* The console layout is a flex row with align-items:flex-start, so its body
+   sizes to content. That is right for the pages it was built for and wrong for
+   a split view, which needs a ceiling to scroll inside: without it the rail ran
+   past the viewport and over the footer.
+
+   Scoped with :has() so only the split-view routes are pinned; every other
+   console page keeps sizing to its content. */
+.console-layout:has(.page--app) {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.console-layout:has(.page--app) > .console-body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .console-layout:has(.page--app) {
+    flex: none;
+    align-items: flex-start;
+  }
+  .console-layout:has(.page--app) > .console-body { display: block; }
+}
+
+/* Refetching is not the same event as first load. A first load has nothing to
+   show, so it gets a skeleton; a refetch already has a list on screen and must
+   keep it, because the search box lives in this column and unmounting it drops
+   the field mid-keystroke along with the focus. */
+.entity-rail__progress {
+  height: 2px;
+  background: transparent;
+  overflow: hidden;
+  flex: none;
+}
+
+.entity-rail--busy .entity-rail__progress {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-primary) 40%,
+    var(--color-primary) 60%,
+    transparent 100%
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: entity-rail-sweep 1.1s var(--ease-default) infinite;
+}
+
+@keyframes entity-rail-sweep {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+/* The stale list recedes rather than disappearing, so the eye knows the answer
+   is being replaced without losing the place it was reading. */
+.entity-rail--busy .entity-rail__list {
+  opacity: 0.55;
+  transition: opacity var(--duration-normal) var(--ease-default);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-rail--busy .entity-rail__progress { animation: none; background-size: 100% 100%; }
+  .entity-rail--busy .entity-rail__list { transition: none; }
+}
+
+/* The first-load skeleton. It was six inline style declarations on a bare div,
+   which is also why nothing could reliably select it. */
+.gallery-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-md);
+  min-height: 280px;
+  gap: var(--spacing-lg);
+}
+
+/* An estimate still in flight. Muted and gently pulsing, so the row reads as
+   working rather than as missing a value: what is pending is the "will it fit"
+   answer, not the entry itself, which is installable already. */
+.entity-rail__meta--pending {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  animation: entity-rail-pending 1.6s var(--ease-default) infinite;
+}
+
+@keyframes entity-rail-pending {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-rail__meta--pending { animation: none; opacity: 0.75; }
+}
+
+
+/* Pills are gone. A capsule radius reads as a tag floating on the surface,
+   which fights a system whose structure is hairlines and square corners — and
+   with chips on Discover, Host, Activity and the biometrics pages, "some pages
+   have pills" was the actual inconsistency. Round buttons keep their radius:
+   .lightbox__nav and .home-send-btn are circles, not capsules. */
+
+/* ─── Lanes ───────────────────────────────────────────────────────────────
+   The list idiom carried over from localai.io: full-bleed rows separated by a
+   single hairline, insetting on hover, with no card and no shadow. Used
+   wherever records are flat, uniform and read in sequence. Where an entity
+   outgrows a row and candidates get compared before acting, use SplitView
+   instead — that is the other half of the rule and they should not be mixed.
+
+   Column templates belong to the caller: `.lanes--<name> .lane { grid-template-columns: ... }`. */
+.lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.lane {
+  display: grid;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-default),
+              padding var(--duration-fast) var(--ease-default);
+}
+
+a.lane, button.lane { cursor: pointer; }
+
+a.lane:hover,
+button.lane:hover {
+  background: var(--color-bg-hover);
+  padding-inline: var(--spacing-sm);
+}
+
+.lane:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+
+/* A 33px row is fine for a mouse and too small for a thumb. Matches the rule
+   EntityRail already applies, so the two list idioms feel the same on touch. */
+@media (pointer: coarse) {
+  .lane { padding-top: 12px; padding-bottom: 12px; }
+}
+
+/* The hover inset is a position change, so it is motion. Hold the background
+   feedback and drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .lane { transition: background var(--duration-fast) var(--ease-default); }
+  a.lane:hover, button.lane:hover { padding-inline: var(--spacing-xs); }
+}
+
+/* Uppercase micro-label. Blue where it names a route, mint where it reports
+   live state — never both on one screen. */
+.lane__tag {
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lane__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lane__name { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+
+/* Identifiers are monospace, prose is not. A model id, a backend name or a
+   filename is a thing you might type or paste, and setting it in the UI face
+   makes it read as a label instead. */
+.lane__name--id { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 500; }
+.lane__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
+
+/* Identifiers and quantities are monospace; prose is not. */
+.lane__num {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane__go { color: var(--color-text-tertiary); }
+
+/* Section rhythm above a set of lanes. */
+.lane-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-2xl) 0 var(--spacing-sm);
+}
+
+/* No :first-child reset. Every <section> makes its lane-head a first child, so
+   the reset silently killed the gap between every block — "Sections" sat flush
+   against the row above it. The header supplies its own bottom margin, so a
+   uniform top margin is right everywhere. */
+.lane-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
+
+.lane-head__meta {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Standard padding for pages that are not inside a console shell, which
+   supplies its own. Without this a top-level page sits flush against the
+   sidebar and its first character is clipped. */
+.page-pad {
+  padding: var(--spacing-xl);
+  max-width: var(--page-max-medium);
+  width: 100%;
+}
+
+
+/* Home: resident models and the header figures. */
+.lanes--resident .lane { grid-template-columns: minmax(0, 1fr) minmax(0, 9rem) auto auto; }
+.lanes--jump .lane { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto; }
+.lanes--usecase .lane { grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; }
+.lanes--usecase .lane__tag { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.home-jump { margin-bottom: var(--spacing-2xl); }
+
+.home-loaded-stop {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.home-loaded-stop:hover { color: var(--color-error); background: var(--color-error-light); }
+
+.home-stat { display: flex; align-items: baseline; gap: var(--spacing-xs); }
+
+.home-stat__value {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.home-stat__value--ok { color: var(--color-success); }
+
+.home-stat__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Headline figures on the Operate overview, and the sparklines under them.
+   Hairline-gridded cells rather than cards: the same 1px grid the split-view
+   StatGrid uses, so the two read as one system. */
+/* A row of headline figures on a hairline grid. Shared by the Operate overview
+   and the Host page so the two read as one system: same cell, same figure
+   scale, same tone vocabulary. Replaces Host's shadowed clickable cards, which
+   were a second dashboard language on a page that already had one. */
+.stat-strip,
+.operate-headline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  margin: 0 0 var(--spacing-xl);
+  background: var(--color-border-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.stat-strip__cell,
+.operate-headline__cell {
+  background: var(--color-bg-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: grid;
+  gap: 2px;
+}
+
+.stat-strip__label,
+.stat-strip__cell dt,
+.operate-headline__cell dt {
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.stat-strip__value,
+.operate-headline__value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-strip__value--primary,
+.operate-headline__value--primary { color: var(--color-text-primary); }
+.stat-strip__value--success,
+.operate-headline__value--success { color: var(--color-success); }
+.stat-strip__value--warning,
+.operate-headline__value--warning { color: var(--color-warning); }
+.stat-strip__value--muted,
+.operate-headline__value--muted { color: var(--color-text-tertiary); }
+
+button.stat-strip__cell {
+  border: 0;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+button.stat-strip__cell:hover { background: var(--color-bg-hover); }
+button.stat-strip__cell:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+
+.sparkline { display: block; width: 100%; height: 28px; margin-top: 2px; }
+.sparkline polyline { stroke: currentColor; }
+.sparkline circle { fill: currentColor; }
+.sparkline--primary { color: var(--color-primary); }
+.sparkline--success { color: var(--color-success); }
+.sparkline--warning { color: var(--color-warning); }
+.sparkline--muted   { color: var(--color-text-disabled); }
+
+/* A signal changing as a poll lands should read as an update, not a jump cut.
+   Opacity only, so it stays on the compositor and cannot reflow the rail. */
+.nav-signal { transition: opacity var(--duration-normal) var(--ease-default); }
+
+/* The attention block is the one thing on the page that should announce
+   itself. A short, single reveal on the row's left edge, not on the text. */
+@keyframes attentionEdge {
+  from { border-left-color: transparent; }
+  to   { border-left-color: var(--color-warning); }
+}
+
+.lanes--attention .lane {
+  animation: attentionEdge var(--duration-reveal) var(--ease-reveal) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-signal { transition: none; }
+  .lanes--attention .lane { animation: none; }
+}
+
+/* The request the form just built. Sunken and monospace: it is a record of what
+   was sent, not another control. */
+.request-panel {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+}
+
+.request-panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 4px var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.request-panel__title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.request-panel__copy {
+  margin-left: auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.request-panel__copy:hover { color: var(--color-primary); border-color: var(--color-primary-border); }
+.request-panel__copy:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 1px; }
+
+.request-panel__code {
+  margin: 0;
+  padding: var(--spacing-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.request-panel__method { color: var(--color-text-tertiary); }
+.request-panel__endpoint { color: var(--color-primary); font-weight: 500; }
+
+/* A row of page-header controls. Replaces the inline flex that several pages
+   had each written out longhand. */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* The file input is triggered by its label, which is styled as a button; the
+   input itself must not render or the control shows twice. */
+.agents-import-input input[type="file"] { display: none; }
+
+/* Latency in a trace row: a bar plus the figure. The bar is scaled against the
+   slowest request in view so the tail is visible while scanning, and it turns
+   amber past the slow threshold — the same constraint tone used elsewhere. */
+.lat { display: grid; grid-template-columns: minmax(2.5rem, 1fr) auto; align-items: center; gap: var(--spacing-xs); }
+.lat__bar { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; }
+.lat__bar i { display: block; height: 100%; background: var(--color-primary); }
+.lat__bar--slow i { background: var(--color-warning); }
+.lat b {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Recommended models: ranked candidates, so lanes in fit order rather than a
+   grid of equal cards. The leader carries the one amber label on the page. */
+.lanes--recommended .lane {
+  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) minmax(0, 7rem) minmax(0, 6rem) auto;
+}
+
+.lane__tag--evidence { color: var(--color-warning); }
+
+@media (max-width: 720px) {
+  .lanes--recommended .lane { grid-template-columns: minmax(0, 1fr) auto; }
+  .lanes--recommended .lane__num { display: none; }
+}
+
+/* ─── Operate console: rail signals and the overview ──────────────────────
+   The signal is ambient state beside a rail label, not a badge: no pill, no
+   fill, just a dimmer tabular figure a scanning eye can ignore. The
+   alarm-shaped treatment belongs to .nav-badge on the sidebar, which stays
+   visible when this rail is collapsed or absent. */
+.nav-signal {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-item.active .nav-signal { color: var(--color-primary); }
+
+/* One line, deliberately quiet. Making "nothing is wrong" as loud as a problem
+   is how a status page teaches people to stop reading it. */
+.operate-clear {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.lanes--attention .lane { grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; }
+.lanes--sections .lane { grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; }
+
+/* Amber on the row itself rather than a status chip: these are the only things
+   on the page asking for a decision, so they can afford the one accent. */
+.lanes--attention .lane { border-left: 3px solid var(--color-warning); }
+
+/* ─── Studio: capability dots ─────────────────────────────────────────────
+   Filled means a model on this machine serves that modality. aria-hidden,
+   because the overview states the same thing in words and a dot that changes
+   as models load would otherwise interrupt a reader mid-strip. */
+.studio-tab__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  margin-left: var(--spacing-xs);
+}
+
+.studio-tab__dot--on { background: var(--color-success); }
+.studio-tab__dot--off {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+/* Room for the description to sit on one line at a comfortable width instead
+   of wrapping into a narrow column beside empty space. */
+.lanes--modality .lane { grid-template-columns: 6rem minmax(0, 1fr) minmax(0, 14rem) 5rem auto; }
+.lanes--takes .lane { grid-template-columns: minmax(0, 1fr) auto; }
+
+.studio-modality--empty { cursor: default; }
+.studio-modality__install { color: var(--color-primary); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
+.studio-modality__state { color: var(--color-success); font-size: 0.8125rem; font-weight: 600; }
+
+.studio-running__meter { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; width: 8rem; }
+.studio-running__meter i { display: block; height: 100%; background: var(--color-primary); }
+
+.studio-overview__heading { display: flex; align-items: baseline; gap: var(--spacing-sm); }
+.studio-overview__count {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}

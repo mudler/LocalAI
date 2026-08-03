@@ -452,6 +452,42 @@ Conversely, you can pre-load a model into memory ahead of its first request with
 5. **Consider model size**: Ensure your VRAM can accommodate at least one of your largest models
 6. **Use quantization**: Smaller quantized models use less VRAM and allow more flexibility
 
+## VRAM estimates in the model gallery
+
+The model gallery shows an estimated VRAM footprint per model, at several
+context lengths, so you can see whether something will run before installing it.
+
+Working that out means reading the metadata of a model's weight files, which for
+a model you have not installed is a request to the host that serves them. It
+takes a second or two the first time, and the gallery needs one per row. LocalAI
+caches the result, and warms that cache in the background at startup so the
+gallery reads instantly rather than filling in its own numbers while you watch.
+
+The same warm-up also describes each entry's **variants** - the alternative
+builds of the same weights that the picker offers - because that costs the same
+kind of probe and lands in the same cache. Without it, the first model you open
+pays for it again.
+
+The warm-up is bounded, and covers the entries at the top of the gallery: the
+ones you see first. Anything past it is estimated on first view and cached from
+then on.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LOCALAI_VRAM_WARM_LIMIT` | `300` | How many gallery entries to warm at startup, estimates and variants alike. Set to `0` to disable the warm-up entirely. |
+| `LOCALAI_VRAM_WARM_CONCURRENCY` | `4` | How many estimates to run at once. |
+
+```bash
+# Air-gapped, or you would rather not make the requests at all
+LOCALAI_VRAM_WARM_LIMIT=0 local-ai run
+
+# A slow or metered link: warm the same entries, more gently
+LOCALAI_VRAM_WARM_CONCURRENCY=1 local-ai run
+```
+
+The warm-up never blocks startup, and never fails it: an entry whose weight
+files cannot be reached is left cold and estimated later, if anyone asks.
+
 ## Related Documentation
 
 - See [Advanced Usage]({{%relref "advanced/advanced-usage" %}}) for other configuration options

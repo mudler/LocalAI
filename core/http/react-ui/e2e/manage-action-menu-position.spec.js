@@ -7,11 +7,11 @@ import { test, expect } from './coverage-fixtures.js'
 // inside a row whose hover `transform` re-anchored it. Fix portals the popover
 // to document.body, positions it before paint, and focuses without scrolling.
 test.describe('Manage Page - Action menu positioning', () => {
-  test('opening a row menu keeps scroll stable and places the menu by its trigger', async ({ page }) => {
+  test('opening the pane menu keeps scroll stable and places it by its trigger', async ({ page }) => {
     // Small viewport so the page is scrollable and a scroll jump is observable.
     await page.setViewportSize({ width: 1024, height: 500 })
     await page.goto('/app/manage')
-    await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
+    await page.locator('[data-testid="host-rail-item"]').first().click()
 
     const trigger = page.locator('button.action-menu__trigger').first()
     await expect(trigger).toBeVisible()

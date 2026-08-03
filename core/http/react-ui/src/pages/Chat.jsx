@@ -1214,8 +1214,14 @@ export default function Chat() {
                     <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
                   </div>
                   <div className="chat-message-bubble">
+                    {/* Both roles are labelled now that neither is a bubble.
+                        A transcript needs to say who is speaking; a bubble said
+                        it by shape and side. */}
                     {msg.role === 'assistant' && activeChat.model && (
                       <span className="chat-message-model">{activeChat.model}</span>
+                    )}
+                    {msg.role === 'user' && (
+                      <span className="chat-message-model">{t('message.you')}</span>
                     )}
                     {editingMessageIndex === i ? (
                       <div className="chat-message-edit">

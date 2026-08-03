@@ -124,3 +124,8 @@ formal-verification/out/
 # package directory itself and untrack the source.
 /apexentries
 /.github/ci/apexentries/apexentries
+
+# Runtime state written by `local-ai run` when it is started from the repo
+# root, which is what a contributor testing a build does. Nothing under here is
+# source: it is the instance's own models, outputs, traces and identity.
+/data/

@@ -1,5 +1,5 @@
 {
-  "title": "Instalar modelos",
+  "title": "Descubrir",
   "subtitle": "Explora e instala modelos de IA desde la galería",
   "recommended": {
     "title": "Recomendado para tu hardware",
@@ -10,7 +10,9 @@
     "installStarted": "Instalando {{model}}…",
     "installFailed": "Error al instalar: {{message}}",
     "dismiss": "Descartar recomendaciones",
-    "summary": "{{n}} modelos sugeridos"
+    "summary": "{{n}} modelos sugeridos",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Disponibles",
@@ -40,7 +42,9 @@
     "searchBackends": "Buscar backends...",
     "contextSize": "Contexto:",
     "useCaseLabel": "Filtrar por caso de uso",
-    "unavailableForBackend": "No disponible para el backend seleccionado"
+    "unavailableForBackend": "No disponible para el backend seleccionado",
+    "someSelected": "{{count}} seleccionados",
+    "refineLabel": "Refinar"
   },
   "search": {
     "placeholder": "Buscar modelos...",
@@ -81,7 +85,10 @@
     "fileCount_other": "{{count}} archivos",
     "filename": "Nombre del archivo",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "Todos los modelos",
+    "vramAt": "VRAM a {{context}}",
+    "headroom": "Margen"
   },
   "empty": {
     "title": "No se encontraron modelos",
@@ -121,5 +128,44 @@
       "dflash": "Más rápido: DFlash",
       "mtp": "Más rápido: MTP"
     }
+  },
+  "rail": {
+    "sortLabel": "Ordenar modelos",
+    "downloadingPct": "descargando {{percent}}%",
+    "tooLarge": "{{size}} · demasiado grande",
+    "fitsSize": "{{size}} · cabe",
+    "previousPage": "Página anterior",
+    "nextPage": "Página siguiente",
+    "showingCount": "{{shown}} de {{total}}",
+    "sizing": "calculando…"
+  },
+  "groups": {
+    "text": "Texto y razonamiento",
+    "vision": "Visión",
+    "audio": "Voz y audio",
+    "visual": "Imagen y vídeo",
+    "other": "Todo lo demás"
+  },
+  "chart": {
+    "title": "VRAM por longitud de contexto",
+    "available": "{{vram}} disponibles",
+    "barTitle": "Un contexto de {{context}} necesita {{vram}}",
+    "fitsEverywhere": "Funciona con cualquier longitud de contexto en este host.",
+    "fitsNowhere": "No cabe en este host con ninguna longitud de contexto.",
+    "fitsUpTo": "Cabe hasta un contexto de {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Tu host",
+    "heroWithGpu": "{{vram}} de memoria GPU, {{count}} modelos en la galería.",
+    "heroNoGpu": "{{count}} modelos en la galería.",
+    "heroHint": "Elige un modelo a la izquierda para ver su tamaño, variantes y compatibilidad.",
+    "browsing": "Explorando",
+    "pickHint": "Selecciona un modelo para ver su detalle.",
+    "heroWithRam": "{{ram}} de memoria del sistema, {{count}} modelos en la galería.",
+    "byUseCase": "O empieza por un caso de uso",
+    "pickText": "Chat, razonamiento, embeddings",
+    "pickVision": "Leer imágenes y documentos",
+    "pickAudio": "Voz de entrada y de salida",
+    "pickVisual": "Generar imágenes y vídeo"
   }
 }

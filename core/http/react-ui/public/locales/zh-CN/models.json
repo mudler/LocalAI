@@ -1,5 +1,5 @@
 {
-  "title": "安装模型",
+  "title": "发现",
   "subtitle": "从模型库浏览和安装 AI 模型",
   "recommended": {
     "title": "适合你硬件的推荐",
@@ -10,7 +10,9 @@
     "installStarted": "正在安装 {{model}}…",
     "installFailed": "安装失败：{{message}}",
     "dismiss": "关闭推荐",
-    "summary": "已推荐 {{n}} 个模型"
+    "summary": "已推荐 {{n}} 个模型",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "可用",
@@ -40,7 +42,9 @@
     "searchBackends": "搜索后端...",
     "contextSize": "上下文：",
     "useCaseLabel": "按用例筛选",
-    "unavailableForBackend": "所选后端不支持"
+    "unavailableForBackend": "所选后端不支持",
+    "someSelected": "已选 {{count}} 项",
+    "refineLabel": "细化"
   },
   "search": {
     "placeholder": "搜索模型...",
@@ -81,7 +85,10 @@
     "fileCount_other": "{{count}} 个文件",
     "filename": "文件名",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "全部模型",
+    "vramAt": "{{context}} 时显存",
+    "headroom": "剩余显存"
   },
   "empty": {
     "title": "未找到模型",
@@ -121,5 +128,44 @@
       "dflash": "更快：DFlash",
       "mtp": "更快：MTP"
     }
+  },
+  "rail": {
+    "sortLabel": "排序模型",
+    "downloadingPct": "下载中 {{percent}}%",
+    "tooLarge": "{{size}} · 过大",
+    "fitsSize": "{{size}} · 可运行",
+    "previousPage": "上一页",
+    "nextPage": "下一页",
+    "showingCount": "{{total}} 个中的 {{shown}} 个",
+    "sizing": "计算中…"
+  },
+  "groups": {
+    "text": "文本与推理",
+    "vision": "视觉",
+    "audio": "语音与音频",
+    "visual": "图像与视频",
+    "other": "其他"
+  },
+  "chart": {
+    "title": "各上下文长度所需显存",
+    "available": "可用 {{vram}}",
+    "barTitle": "{{context}} 上下文需要 {{vram}}",
+    "fitsEverywhere": "在此主机上可以任意上下文长度运行。",
+    "fitsNowhere": "在此主机上任何上下文长度都无法运行。",
+    "fitsUpTo": "最高可在 {{context}} 上下文下运行。"
+  },
+  "shelves": {
+    "hostLabel": "你的主机",
+    "heroWithGpu": "{{vram}} 显存，图库中有 {{count}} 个模型。",
+    "heroNoGpu": "图库中有 {{count}} 个模型。",
+    "heroHint": "在左侧选择模型，即可查看大小、变体以及能否在本机运行。",
+    "browsing": "浏览中",
+    "pickHint": "选择一个模型以查看详情。",
+    "heroWithRam": "{{ram}} 系统内存，图库中有 {{count}} 个模型。",
+    "byUseCase": "或从用途开始",
+    "pickText": "对话、推理、向量",
+    "pickVision": "读取图像与文档",
+    "pickAudio": "语音输入与输出",
+    "pickVisual": "生成图像与视频"
   }
 }

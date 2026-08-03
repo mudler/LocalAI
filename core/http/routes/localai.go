@@ -30,6 +30,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	mcpJobsMw echo.MiddlewareFunc,
 	mcpMw echo.MiddlewareFunc) {
 
+	// Themed index first, then the library's wildcard for its own assets.
+	RegisterSwaggerTheme(router)
 	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
 		c.URLs = []string{"doc.json"}
 	}))
@@ -236,6 +238,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
+	// Registered before /:id so "summary" is not captured as a trace ID.
+	router.GET("/api/traces/summary", localai.GetAPITracesSummaryEndpoint(), adminMiddleware)
 	router.GET("/api/traces/:id", localai.GetAPITraceEndpoint(), adminMiddleware)
 	router.POST("/api/traces/clear", localai.ClearAPITracesEndpoint(), adminMiddleware)
 	router.GET("/api/backend-traces", localai.GetBackendTracesEndpoint(), adminMiddleware)
@@ -274,6 +278,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"system":               "/system",
 			"version":              "/version",
 			"traces":               "/api/traces",
+			"traces_summary":       "/api/traces/summary",
 			"trace":                "/api/traces/:id",
 			"traces_clear":         "/api/traces/clear",
 			"backend_traces":       "/api/backend-traces",
@@ -409,7 +414,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		})
 	})
 
-	router.GET("/system", localai.SystemInformations(ml, appConfig), adminMiddleware)
+	router.GET("/system", localai.SystemInformations(cl, ml, appConfig), adminMiddleware)
 
 	// misc
 	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)

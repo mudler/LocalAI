@@ -24,11 +24,13 @@
     "observability": "Observability",
     "access": "Access",
     "system": "System",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "运行时",
+    "administration": "管理"
   },
   "items": {
     "home": "首页",
-    "installModels": "安装模型",
+    "discover": "发现",
     "chat": "聊天",
     "studio": "工作室",
     "talk": "通话",
@@ -57,7 +59,8 @@
     "settings": "设置",
     "api": "API",
     "middleware": "Middleware",
-    "activity": "活动"
+    "activity": "活动",
+    "overview": "概览"
   },
   "footer": {
     "github": "GitHub",

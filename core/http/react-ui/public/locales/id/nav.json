@@ -24,11 +24,13 @@
     "observability": "Observabilitas",
     "access": "Akses",
     "system": "Sistem",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "Runtime",
+    "administration": "Administrasi"
   },
   "items": {
     "home": "Beranda",
-    "installModels": "Instal Model",
+    "discover": "Jelajahi",
     "chat": "Obrolan",
     "studio": "Studio",
     "talk": "Bicara",
@@ -57,7 +59,8 @@
     "system": "Sistem",
     "settings": "Pengaturan",
     "api": "API",
-    "activity": "Aktivitas"
+    "activity": "Aktivitas",
+    "overview": "Ikhtisar"
   },
   "footer": {
     "github": "GitHub",

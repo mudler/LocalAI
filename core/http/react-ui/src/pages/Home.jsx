@@ -295,21 +295,26 @@ export default function Home() {
               <span className="home-eyebrow">{branding.instanceName}</span>
               <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
             </div>
+            {/* Telemetry as figures rather than chips. A chip says a thing is
+                true; a figure says how much, which is what someone opening the
+                page at a glance is actually after. */}
             <div className="home-status-line" style={staggerStyle(1)}>
-              <StatusPill
-                status={loadedCount > 0 ? 'healthy' : 'idle'}
-                label={loadedCount > 0 ? t('statusLine.modelsLoaded', { count: loadedCount }) : t('statusLine.noModelsLoaded')}
-              />
+              <span className="home-stat" data-testid="home-stat-loaded">
+                <b className={`home-stat__value${loadedCount > 0 ? ' home-stat__value--ok' : ''}`}>{loadedCount}</b>
+                <span className="home-stat__label">{t('statusLine.loadedLabel')}</span>
+              </span>
               {distributedMode && clusterData && (
-                <StatusPill
-                  status={clusterData.healthyCount > 0 ? 'healthy' : 'error'}
-                  label={t('statusLine.nodes', { count: clusterData.totalCount })}
-                />
+                <span className="home-stat" data-testid="home-stat-nodes">
+                  <b className="home-stat__value">{clusterData.healthyCount}/{clusterData.totalCount}</b>
+                  <span className="home-stat__label">{t('statusLine.nodesLabel')}</span>
+                </span>
               )}
               {!distributedMode && resources && (
-                <span className="status-pill">
-                  <i className={`fas ${resType === 'gpu' ? 'fa-microchip' : 'fa-memory'}`} aria-hidden="true" />
-                  {(resType === 'gpu' ? t('resourceGpu') : t('resourceRam'))} {usagePct.toFixed(0)}%
+                <span className="home-stat" data-testid="home-stat-resource">
+                  <b className="home-stat__value">{usagePct.toFixed(0)}%</b>
+                  <span className="home-stat__label">
+                    {resType === 'gpu' ? t('resourceGpu') : t('resourceRam')}
+                  </span>
                 </span>
               )}
             </div>
@@ -450,6 +455,36 @@ export default function Home() {
             </a>
           </div>
 
+          {/* Jump back in. The quick-links row above is a set of first-run
+              actions; these are the three places someone returns to, stated
+              with what they currently hold rather than as bare labels. */}
+          <section className="home-jump">
+            <div className="lane-head"><h2>{t('jump.heading')}</h2></div>
+            <ul className="lanes lanes--jump reveal-stagger">
+              <li style={staggerStyle(0)}>
+                <button type="button" className="lane" onClick={() => navigate('/app/models')}>
+                  <span className="lane__tag">{t('jump.discover')}</span>
+                  <span className="lane__desc">{t('jump.discoverSummary')}</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
+                </button>
+              </li>
+              <li style={staggerStyle(1)}>
+                <button type="button" className="lane" onClick={() => navigate('/app/studio')}>
+                  <span className="lane__tag">{t('jump.create')}</span>
+                  <span className="lane__desc">{t('jump.createSummary')}</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
+                </button>
+              </li>
+              <li style={staggerStyle(2)}>
+                <button type="button" className="lane" onClick={() => navigate('/app/operate')}>
+                  <span className="lane__tag">{t('jump.operate')}</span>
+                  <span className="lane__desc">{t('jump.operateSummary', { models: configuredModels?.length ?? 0 })}</span>
+                  <span className="lane__go" aria-hidden="true">→</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
           {/* Loaded models status */}
           <section className="home-loaded">
             <SectionHeading>{t('loadedModels.heading')}</SectionHeading>
@@ -457,12 +492,25 @@ export default function Home() {
               <Skeleton variant="line" count={2} />
             ) : loadedCount > 0 ? (
               <>
-                <ul className="home-loaded-list reveal-stagger">
+                {/* Lanes: uniform records read in sequence. The id is the
+                    identifier, so it is mono; the state is a pill because it is
+                    a state. /api/system-information carries only the id, so
+                    there is nothing honest to put in a backend or memory column
+                    without a server change. */}
+                <ul className="lanes lanes--resident reveal-stagger">
                   {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map((m, i) => (
-                    <li key={m.id} className="home-loaded-item" style={staggerStyle(i)}>
-                      <StatusPill status="healthy" label={m.id} />
+                    <li key={m.id} className="lane" style={staggerStyle(i)}>
+                      <span className="lane__name lane__name--id">{m.id}</span>
+                      {/* Which engine is serving it — the first thing worth
+                          knowing beside the name. Omitted rather than faked
+                          when the model has no config to read it from. */}
+                      {m.backend
+                        ? <span className="lane__num">{m.backend}</span>
+                        : <span className="lane__num" />}
+                      <StatusPill status="healthy" label={t('loadedModels.serving')} />
                       <button
                         type="button"
+                        className="home-loaded-stop"
                         onClick={() => handleStopModel(m.id)}
                         title={t('loadedModels.stop')}
                         aria-label={t('loadedModels.stop')}

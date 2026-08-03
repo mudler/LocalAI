@@ -17,7 +17,9 @@
     "modelsLoaded_other": "{{count}} models loaded",
     "noModelsLoaded": "No models loaded",
     "nodes_one": "{{count}} node",
-    "nodes_other": "{{count}} nodes"
+    "nodes_other": "{{count}} nodes",
+    "loadedLabel": "Loaded",
+    "nodesLabel": "Nodes"
   },
   "assistant": {
     "title": "Manage LocalAI by chatting",
@@ -47,7 +49,8 @@
     "count_one": "{{count}} model loaded",
     "count_other": "{{count}} models loaded",
     "stop": "Stop model",
-    "stopAll": "Stop all"
+    "stopAll": "Stop all",
+    "serving": "Serving"
   },
   "stopDialog": {
     "title": "Stop Model",
@@ -103,5 +106,14 @@
     "browse": "Browse the API",
     "hide": "Hide endpoints",
     "dismiss": "Dismiss"
+  },
+  "jump": {
+    "heading": "Jump back in",
+    "discover": "Discover",
+    "discoverSummary": "Browse the gallery and install models",
+    "create": "Create",
+    "createSummary": "Open a chat, image or voice session",
+    "operate": "Operate",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces"
   }
 }

@@ -24,11 +24,13 @@
     "observability": "Observability",
     "access": "Access",
     "system": "System",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "Runtime",
+    "administration": "Administration"
   },
   "items": {
     "home": "Home",
-    "installModels": "Install Models",
+    "discover": "Discover",
     "chat": "Chat",
     "studio": "Studio",
     "talk": "Talk",
@@ -58,7 +60,8 @@
     "system": "System",
     "settings": "Settings",
     "api": "API",
-    "activity": "Activity"
+    "activity": "Activity",
+    "overview": "Overview"
   },
   "footer": {
     "github": "GitHub",

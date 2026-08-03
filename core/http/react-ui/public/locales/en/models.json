@@ -1,5 +1,5 @@
 {
-  "title": "Install Models",
+  "title": "Discover",
   "subtitle": "Browse and install AI models from the gallery",
   "models": "Models",
   "recommended": {
@@ -11,7 +11,9 @@
     "installStarted": "Installing {{model}}…",
     "installFailed": "Install failed: {{message}}",
     "dismiss": "Dismiss recommendations",
-    "summary": "{{n}} models suggested"
+    "summary": "{{n}} models suggested",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Available",
@@ -50,7 +52,9 @@
     "searchBackends": "Search backends...",
     "contextSize": "Context:",
     "useCaseLabel": "Filter by use case",
-    "unavailableForBackend": "Not available for the selected backend"
+    "unavailableForBackend": "Not available for the selected backend",
+    "someSelected": "{{count}} selected",
+    "refineLabel": "Refine"
   },
   "search": {
     "placeholder": "Search models...",
@@ -91,7 +95,10 @@
     "fileCount_other": "{{count}} files",
     "filename": "Filename",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "All models",
+    "vramAt": "VRAM at {{context}}",
+    "headroom": "Headroom"
   },
   "empty": {
     "title": "No models found",
@@ -137,5 +144,44 @@
       "dflash": "Faster: DFlash",
       "mtp": "Faster: MTP"
     }
+  },
+  "rail": {
+    "sortLabel": "Sort models",
+    "downloadingPct": "downloading {{percent}}%",
+    "tooLarge": "{{size}} · too large",
+    "fitsSize": "{{size}} · fits",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "showingCount": "{{shown}} of {{total}}",
+    "sizing": "sizing…"
+  },
+  "groups": {
+    "text": "Text and reasoning",
+    "vision": "Vision",
+    "audio": "Speech and audio",
+    "visual": "Image and video",
+    "other": "Everything else"
+  },
+  "chart": {
+    "title": "VRAM by context length",
+    "available": "{{vram}} available",
+    "barTitle": "{{context}} context needs {{vram}}",
+    "fitsEverywhere": "Runs at every context length on this host.",
+    "fitsNowhere": "Will not fit on this host at any context length.",
+    "fitsUpTo": "Fits up to a {{context}} context."
+  },
+  "shelves": {
+    "hostLabel": "Your host",
+    "heroWithGpu": "{{vram}} of GPU memory, {{count}} models in the gallery.",
+    "heroNoGpu": "{{count}} models in the gallery.",
+    "heroHint": "Pick anything on the left to see its size, variants and whether it will run here.",
+    "browsing": "Browsing",
+    "pickHint": "Select a model to see its detail.",
+    "heroWithRam": "{{ram}} of system memory, {{count}} models in the gallery.",
+    "byUseCase": "Or start with a use case",
+    "pickText": "Chat, reasoning, embeddings",
+    "pickVision": "Read images and documents",
+    "pickAudio": "Speech in and speech out",
+    "pickVisual": "Generate images and video"
   }
 }

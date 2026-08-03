@@ -52,7 +52,7 @@ For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--
 Open **http://localhost:8080** in your browser. The web interface lets you:
 
 - **Chat** with any installed model
-- **Install models** from the built-in gallery (Models page)
+- **Install models** from the built-in gallery (Discover page)
 - **Generate images**, audio, and more
 - **Create and manage AI agents** with MCP tool support
 - **Monitor system resources** and loaded models

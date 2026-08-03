@@ -163,7 +163,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /backends`, `GET /backends/available`, `GET /backends/galleries`
 
 **System & Monitoring:**
-- `GET /api/traces`, `GET /api/traces/{id}`, `POST /api/traces/clear`
+- `GET /api/traces`, `GET /api/traces/summary`, `GET /api/traces/{id}`, `POST /api/traces/clear`
 - `GET /api/backend-traces`, `GET /api/backend-traces/{id}`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
@@ -190,7 +190,7 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Install Models, Agents section (Agents, Skills, Memory, MCP CI Jobs), System section (Backends, Traces, Swarm, System, Settings)
+- **Admins also see**: Discover, Agents section (Agents, Skills, Memory, MCP CI Jobs), System section (Backends, Traces, Swarm, System, Settings)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 

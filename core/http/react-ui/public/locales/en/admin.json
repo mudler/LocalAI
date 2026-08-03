@@ -166,5 +166,36 @@
   "explorer": {
     "title": "Explorer",
     "subtitle": "Browse files and configuration"
+  },
+  "operate": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "Everything running on this installation, and anything that wants a decision.",
+      "attention": {
+        "heading": "Needs attention",
+        "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
+        "backendUpdate": "Update available: {{from}} → {{to}}"
+      },
+      "sections": {
+        "heading": "Sections",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backends · {{models}} models · {{updates}} updates · {{running}} running",
+        "cluster": "Cluster",
+        "clusterSummary": "{{nodes}} nodes",
+        "observability": "Observability",
+        "observabilitySummary": "Usage and traces",
+        "administration": "Administration",
+        "administrationSummary": "Users, middleware and settings · {{memory}} memory in use",
+        "clusterSingle": "Single node",
+        "observabilityCounted": "{{requests}} requests · {{errors}} failed · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Requests · {{hours}}h",
+        "errors": "Failed requests",
+        "p95": "p95 latency",
+        "quiet": "No requests served in this window yet.",
+        "host": "Host memory"
+      }
+    }
   }
 }

@@ -444,6 +444,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)
 
+	// Fill those caches ahead of the first visitor. An estimate for an entry
+	// nobody has asked about yet costs a remote probe of its weight files, and
+	// the model gallery asks for one per row, so without this the first page
+	// spends seconds filling in its own sizes while somebody watches it.
+	// Non-blocking, and bounded: see DefaultEstimateWarmConfig.
+	gallery.WarmEstimateCache(options.Context, options.Galleries, options.SystemState, gallery.EstimateWarmConfigFromEnv())
+
 	if options.ConfigFile != "" {
 		if err := application.ModelConfigLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
 			xlog.Error("error loading config file", "error", err)

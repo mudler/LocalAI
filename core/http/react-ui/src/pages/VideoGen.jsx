@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
@@ -30,6 +31,8 @@ export default function VideoGen() {
   const [cfgScale, setCfgScale] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // What was actually sent, so the panel records rather than predicts.
+  const [lastRequest, setLastRequest] = useState(null)
   const [videos, setVideos] = useState([])
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showMediaInputs, setShowMediaInputs] = useState(false)
@@ -58,6 +61,8 @@ export default function VideoGen() {
     if (startImage) body.start_image = startImage
     if (endImage) body.end_image = endImage
     if (audioInput?.base64) body.audio = audioInput.base64
+
+    setLastRequest(body)
 
     try {
       const data = await videoApi.generate(body)
@@ -170,6 +175,7 @@ export default function VideoGen() {
       </div>
 
       <div className="media-preview">
+        <RequestPanel endpoint="/video" body={lastRequest} />
         <div className="media-result">
           {loading ? (
             <GenerationProgress label={t('video.actions.generating')} />

@@ -1,5 +1,5 @@
 {
-  "title": "Instal Model",
+  "title": "Jelajahi",
   "subtitle": "Telusuri dan instal model AI dari galeri",
   "models": "Model",
   "recommended": {
@@ -11,7 +11,9 @@
     "installStarted": "Menginstal {{model}}…",
     "installFailed": "Instalasi gagal: {{message}}",
     "dismiss": "Tutup rekomendasi",
-    "summary": "{{n}} model disarankan"
+    "summary": "{{n}} model disarankan",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Tersedia",
@@ -47,7 +49,9 @@
     "searchBackends": "Cari backends...",
     "contextSize": "Konteks:",
     "useCaseLabel": "Filter berdasarkan kasus penggunaan",
-    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih"
+    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih",
+    "someSelected": "{{count}} dipilih",
+    "refineLabel": "Persempit"
   },
   "search": {
     "placeholder": "Cari model...",
@@ -88,7 +92,10 @@
     "fileCount_other": "{{count}} file",
     "filename": "Nama file",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "Semua model",
+    "vramAt": "VRAM pada {{context}}",
+    "headroom": "Sisa ruang"
   },
   "empty": {
     "title": "Model tidak ditemukan",
@@ -134,5 +141,44 @@
       "dflash": "Lebih cepat: DFlash",
       "mtp": "Lebih cepat: MTP"
     }
+  },
+  "rail": {
+    "sortLabel": "Urutkan model",
+    "downloadingPct": "mengunduh {{percent}}%",
+    "tooLarge": "{{size}} · terlalu besar",
+    "fitsSize": "{{size}} · muat",
+    "previousPage": "Halaman sebelumnya",
+    "nextPage": "Halaman berikutnya",
+    "showingCount": "{{shown}} dari {{total}}",
+    "sizing": "menghitung…"
+  },
+  "groups": {
+    "text": "Teks dan penalaran",
+    "vision": "Visi",
+    "audio": "Suara dan audio",
+    "visual": "Gambar dan video",
+    "other": "Lainnya"
+  },
+  "chart": {
+    "title": "VRAM menurut panjang konteks",
+    "available": "{{vram}} tersedia",
+    "barTitle": "Konteks {{context}} membutuhkan {{vram}}",
+    "fitsEverywhere": "Berjalan pada setiap panjang konteks di host ini.",
+    "fitsNowhere": "Tidak muat di host ini pada panjang konteks mana pun.",
+    "fitsUpTo": "Muat hingga konteks {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Host Anda",
+    "heroWithGpu": "Memori GPU {{vram}}, {{count}} model di galeri.",
+    "heroNoGpu": "{{count}} model di galeri.",
+    "heroHint": "Pilih model di sebelah kiri untuk melihat ukuran, varian, dan kecocokannya.",
+    "browsing": "Menjelajah",
+    "pickHint": "Pilih model untuk melihat detailnya.",
+    "heroWithRam": "Memori sistem {{ram}}, {{count}} model di galeri.",
+    "byUseCase": "Atau mulai dari kasus penggunaan",
+    "pickText": "Obrolan, penalaran, embedding",
+    "pickVision": "Membaca gambar dan dokumen",
+    "pickAudio": "Suara masuk dan keluar",
+    "pickVisual": "Membuat gambar dan video"
   }
 }

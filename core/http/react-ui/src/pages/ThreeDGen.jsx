@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
@@ -66,6 +67,8 @@ export default function ThreeDGen() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // What was actually sent, so the panel records rather than predicts.
+  const [lastRequest, setLastRequest] = useState(null)
   const [result, setResult] = useState(null) // { blob, name, model }
   const [remeshSlider, setRemeshSlider] = useState(82)
   const [remeshState, setRemeshState] = useState(null) // { sourceBlob, blob?, name?, error? }
@@ -96,6 +99,8 @@ export default function ThreeDGen() {
     if (textureSteps) body.texture_steps = parseInt(textureSteps)
     if (guidance) body.cfg_scale = parseFloat(guidance)
     if (seed) body.seed = parseInt(seed)
+
+    setLastRequest(body)
 
     try {
       const data = await threeDApi.generate(body)
@@ -218,6 +223,7 @@ export default function ThreeDGen() {
       </div>
 
       <div className="media-preview">
+        <RequestPanel endpoint="/3d/generations" body={lastRequest} />
         <div className="media-result">
           {loading ? (
             <GenerationProgress label={t('threed.actions.generating')} />
