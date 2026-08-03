@@ -66,6 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-resources-default-${{ github.run_id }}
+          include-hidden-files: true
           path: |
             .cache/test-resources/bundles/default.tar.zst
             test-resources/manifests/lock.json
