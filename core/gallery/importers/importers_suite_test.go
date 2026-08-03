@@ -23,7 +23,7 @@ func (f metadataFixtures) GetModelDetails(repo string) (*hfapi.ModelDetails, err
 }
 
 func file(repo, path, sha string) hfapi.ModelFile {
-	return hfapi.ModelFile{Path: path, SHA256: sha, URL: "https://huggingface.co/" + repo + "/resolve/main/" + path} // test-network: fixture
+	return hfapi.ModelFile{Path: path, SHA256: sha, URL: "https://huggingface.co/" + repo + "/resolve/main/" + path}
 }
 
 var fixtures = metadataFixtures{

@@ -41,7 +41,7 @@ var _ = BeforeSuite(func() {
 		apiAddress, err := testfixtures.ContainerEndpoint(context.Background(), container, defaultApiPort)
 		Expect(err).To(Not(HaveOccurred()))
 
-		apiEndpoint = "http://" + apiAddress + "/v1" // test-network: fixture
+		apiEndpoint = "http://" + apiAddress + "/v1"
 	} else {
 		GinkgoWriter.Printf("docker apiEndpoint set from env: %q\n", apiEndpoint)
 	}
