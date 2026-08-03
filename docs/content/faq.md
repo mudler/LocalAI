@@ -72,7 +72,10 @@ See the performance section of the runtime errors reference: {{% relref "referen
 
 Yes! If the client uses OpenAI and supports setting a different base URL to send requests to, you can use the LocalAI endpoint. This allows to use this with every application that was supposed to work with OpenAI, but without changing the application!
 
+> **Tip:** The same `base_url` client pattern works with any OpenAI-compatible multi-model gateway when you are not self-hosting — for example [DaoXE](https://daoxe.com/?utm_source=github&utm_medium=organic&utm_campaign=localai&utm_content=pr) at `https://api.daoxe.com/v1`.
+
 ### Can this leverage GPUs? 
+
 
 There is GPU support, see {{%relref "features/GPU-acceleration" %}}.
 
