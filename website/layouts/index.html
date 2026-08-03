@@ -37,7 +37,7 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">The runtime</p>
-    <h2 class="rv mt1" style="max-width:21ch">LocalAI is the engine everything else plugs into.</h2>
+    <h2 class="rv mt1" style="max-width:21ch">Everything else plugs into LocalAI.</h2>
     <p class="lede rv mt2">One binary with an OpenAI-compatible API in front of it. Point an existing client at it and the calls keep working, except now the model is on your machine. It also speaks the Anthropic, Ollama and ElevenLabs APIs, so most tools need a URL change and nothing else.</p>
     <p class="lede rv mt2">Underneath, a small core pulls each engine in as a separate backend, only when a model asks for it. That is why one install covers this much ground without becoming a 9 GB download.</p>
     <div class="apis rv">
@@ -75,7 +75,7 @@
       <div class="mi rv">
         <p class="mi__n">01 / HARDWARE</p>
         <h3>Every feature ships a CPU path first.</h3>
-        <p>Not a degraded mode that technically runs. The real one, tested in CI, on the hardware most people already have. GPUs make it faster, they are not the price of entry.</p>
+        <p>That path is tested in CI, on the hardware most people already have, and it is not a degraded fallback. A GPU makes it faster but is not required.</p>
         <p class="mi__meta">x86_64 · ARM64 · CUDA · ROCm · SYCL · Metal · Vulkan</p>
       </div>
       <div class="mi rv">
@@ -86,7 +86,7 @@
       </div>
       <div class="mi rv">
         <p class="mi__n">03 / DISTRIBUTED</p>
-        <h3>Plug in a second machine and stop there.</h3>
+        <h3>Add a second machine.</h3>
         <p>Routing, VRAM-aware placement, prefix-cache affinity and failover are the runtime's problem. You add hardware, the cluster works out what to do with it.</p>
         <p class="mi__meta">Smart routing · autoscaling · P2P · NATS · federation</p>
       </div>
@@ -174,7 +174,7 @@
       <div>
         <h3>parakeet.cpp</h3>
         <p class="spot__h">Twenty-seven times faster than whisper.cpp, on a CPU.</p>
-        <p>NVIDIA NeMo Parakeet, ported to C++ and ggml. Ten checkpoints, all of them verified at WER 0 against NeMo, which means the transcript comes out byte for byte identical while finishing first. Cache-aware streaming with end-of-utterance detection handles live audio, and the multilingual streaming model covers 40 or more locales.</p>
+        <p>NVIDIA NeMo Parakeet, ported to C++ and ggml. Ten checkpoints, all of them verified at WER 0 against NeMo, which means the transcript is identical to NeMo's while finishing first. Cache-aware streaming with end-of-utterance detection handles live audio, and the multilingual streaming model covers 40 or more locales.</p>
         <div class="facts">
           <div><b>27x</b><span>vs whisper.cpp, CPU</span></div>
           <div><b>1.40x</b><span>vs NeMo, CPU median</span></div>
@@ -395,7 +395,7 @@
           <p>Distributed mode with VRAM-aware routing, autoscaling, multi-user auth and per-user quotas.</p></div>
         <div class="tl__i"><p class="tl__d">MAY 2026</p><h4>It sees and hears</h4>
           <p>Voice recognition, face recognition with liveness, diarization, video generation, drop-in Ollama API.</p></div>
-        <div class="tl__i"><p class="tl__d">JUL 2026</p><h4>Nineteen engines of our own</h4>
+        <div class="tl__i"><p class="tl__d">JUL 2026</p><h4>Eighteen engines of our own</h4>
           <p>The native C and C++ ports take over the heavy Python backends, one modality at a time.</p></div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-# The nineteen native engines the LocalAI team wrote, and the one quantization
+# The eighteen native engines the LocalAI team wrote, and the one quantization
 # recipe that feeds them. This file is the single source of truth for the
 # /engines/ page: the layout renders whatever is here, in this order, and adds
 # nothing of its own. Numbers in `highlights` come from each engine's own

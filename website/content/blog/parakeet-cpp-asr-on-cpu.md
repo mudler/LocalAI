@@ -1,22 +1,22 @@
 ---
-title: "parakeet.cpp: NeMo transcripts, byte for byte, without the Python"
+title: "parakeet.cpp: the same NeMo transcript, without the Python"
 date: 2026-06-05
 author: "Ettore Di Giacinto"
 category: "Benchmarks"
 tags: ["parakeet.cpp", "ASR", "ggml", "streaming", "benchmarks"]
-summary: "Same transcript as NVIDIA NeMo, character for character, at a median 1.40x on CPU and about 27x the speed of whisper.cpp. One binary, one GGUF file, no Python at inference."
+summary: "The same transcript as NVIDIA NeMo at a median 1.40x on CPU, and about 27x the speed of whisper.cpp, from one binary and one GGUF file."
 extracss: ["blog.css"]
 ---
 
-You can drop a single binary and a GGUF file onto a machine with no GPU and get NVIDIA NeMo Parakeet transcription out of it, at a median 1.40x NeMo's own PyTorch CPU speed, with a transcript that matches NeMo character for character. That is [parakeet.cpp](https://github.com/mudler/parakeet.cpp), a C++17 port of the Parakeet speech-recognition family built on ggml.
+You can drop a single binary and a GGUF file onto a machine with no GPU and get NVIDIA NeMo Parakeet transcription out of it, at a median 1.40x NeMo's own PyTorch CPU speed, with the same transcript NeMo produces. That is [parakeet.cpp](https://github.com/mudler/parakeet.cpp), a C++17 port of the Parakeet speech-recognition family built on ggml.
 
-Accuracy came first and speed came second, in that order, because a faster transcriber that disagrees with the reference is a different model, not a port.
+We checked the accuracy before touching the speed, because a transcriber that disagrees with the reference is not a port of it.
 
 ## WER 0 against NeMo
 
 Every published checkpoint is validated at WER 0 against NeMo. Across the LibriSpeech test-clean set the mean f32 agreement WER, meaning the word error rate between our transcript and NeMo's on the same audio, is 0.0155%. On seven of the ten models it is exactly 0.0000%, which is a byte-identical transcript.
 
-That number is what makes the speed comparison meaningful. Both engines did the same work and produced the same output, so the only difference left is how long they took.
+Both engines did the same work and produced the same output, so the only difference left is how long they took.
 
 ## CPU, against NeMo's own runtime
 
@@ -54,25 +54,25 @@ Against whisper.cpp turbo on the same clip and at the same accuracy (1.6% WER on
 
 The decisive win was on the decode side. A transducer decodes autoregressively, and profiling showed the prediction-network LSTM taking about 97% of RNN-T decode time while producing the same output over and over: on a non-emitting frame the prediction network's input has not changed, so its forward pass is redundant. Caching that forward across non-emitting frames removed most of the decode cost.
 
-The encoder side is a set of smaller wins with no single hero: a persistent ggml backend with `gallocr`, zero-copy weights straight out of the GGUF mapping, one fused graph rather than per-layer graph building, and tinyBLAS through `GGML_LLAMAFILE`.
+The encoder side is a set of smaller wins: a persistent ggml backend with `gallocr`, zero-copy weights straight out of the GGUF mapping, one fused graph rather than per-layer graph building, and tinyBLAS through `GGML_LLAMAFILE`.
 
 ## On the GPU
 
 On an NVIDIA GB10 (Grace-Blackwell), parakeet.cpp wins on all ten models, with a median of 1.25x and up to 4.3x on the large TDT and hybrid models. The reference here is NeMo-GPU inside the `nvcr.io/nvidia/nemo` container, because NeMo cannot run on that host's torch and CUDA stack directly.
 
-The 4.3x cases have a specific cause. NeMo's TDT greedy decode is not CUDA-graph accelerated and falls back to a per-step Python loop, while ours is a lean C++ loop. Where NeMo's decode is CUDA-graph accelerated, as it is for RNN-T, the gap narrows to about 1.16x at f32 and 1.30x at q8_0. On the pure-encoder CTC models the margin is around 1.2x, because ggml's generic CUDA conv and attention kernels still trail NVIDIA's tuned cuDNN. That is the main piece of GPU headroom left in the project and we say so in the README rather than averaging it away.
+The 4.3x cases have a specific cause. NeMo's TDT greedy decode is not CUDA-graph accelerated and falls back to a per-step Python loop, while ours is a lean C++ loop. Where NeMo's decode is CUDA-graph accelerated, as it is for RNN-T, the gap narrows to about 1.16x at f32 and 1.30x at q8_0. On the pure-encoder CTC models the margin is around 1.2x, because ggml's generic CUDA conv and attention kernels still trail NVIDIA's tuned cuDNN. That is the main piece of GPU headroom left in the project, and the README lists it per model.
 
-Batching several clips through the decoder together reaches about 10x to 12x at batch size 16 on the GB10, and about 3x to 5x on CPU. It applies to transducer models only, since CTC has no autoregressive decode to batch, and the batched path is bit-identical to running the clips one at a time.
+Batching several clips through the decoder together reaches about 10x to 12x at batch size 16 on the GB10, and about 3x to 5x on CPU. It applies to transducer models only, since CTC has no autoregressive decode to batch, and the batched path produces the same output as running the clips one at a time.
 
 On Apple M4 through ggml's Metal backend, the larger models run about 3x to 5x faster than the same models on that machine's CPU.
 
-## Cache-aware streaming, and what end-of-utterance detection buys you
+## Cache-aware streaming and end-of-utterance detection
 
 Offline transcription hands you a file and waits. A voice assistant cannot do that, so `parakeet_realtime_eou_120m-v1` runs a cache-aware streaming path instead: you feed it 16 kHz mono PCM as it arrives and it returns newly finalized text as it becomes stable.
 
-Cache-aware means the cost per chunk stays flat. Each chunk's forward pass carries per-layer convolution and attention caches plus the transducer decoder state forward, so nothing before the current chunk is recomputed. Without that, every chunk would re-run the encoder over the whole session so far, and the per-chunk cost would grow with the length of the conversation until the loop fell behind. The implementation covers layer norm with causal convolution, causal subsampling, and chunked-limited attention, and its transcript matches NeMo's own cache-aware streaming byte for byte.
+Cache-aware means the cost per chunk stays flat. Each chunk's forward pass carries per-layer convolution and attention caches plus the transducer decoder state forward, so nothing before the current chunk is recomputed. Without that, every chunk would re-run the encoder over the whole session so far, and the per-chunk cost would grow with the length of the conversation until the loop fell behind. The implementation covers layer norm with causal convolution, causal subsampling, and chunked-limited attention, and its transcript matches NeMo's own cache-aware streaming exactly.
 
-End-of-utterance detection is the part that changes how an assistant feels. The model emits `<EOU>` when the speaker has finished a turn and `<EOB>` for a backchannel, as events alongside the text. A voice loop can start generating a reply the moment `<EOU>` arrives rather than waiting out a fixed silence timer, which is where most of the perceived lag in a spoken assistant comes from. The alternative, a VAD with a 700 ms hangover, either cuts people off mid-sentence or makes the assistant feel slow, and it cannot tell "mm-hm" from the end of a thought. `finalize` flushes the tail at end of stream without fabricating an `<EOU>` that NeMo would not have emitted.
+End-of-utterance detection changes how an assistant feels. The model emits `<EOU>` when the speaker has finished a turn and `<EOB>` for a backchannel, as events alongside the text. A voice loop can start generating a reply the moment `<EOU>` arrives rather than waiting out a fixed silence timer, which is where most of the perceived lag in a spoken assistant comes from. The alternative, a VAD with a 700 ms hangover, either cuts people off mid-sentence or makes the assistant feel slow, and it cannot tell "mm-hm" from the end of a thought. `finalize` flushes the tail at end of stream without fabricating an `<EOU>` that NeMo would not have emitted.
 
 The streaming path measures at RTFx 3.80 on a 7.43 second clip. That sits well below the offline number by design, because streaming runs many small chunked passes rather than one large one, and it is still several times faster than real time on a CPU.
 
@@ -95,7 +95,7 @@ parakeet.cpp ports NeMo's `rel_pos_local_attn`, a banded attention where each qu
 </table>
 </div>
 
-At NeMo's full W=128 window that is about 4x faster and about 5.7x less peak memory than the global path. The band is built with a chunk-matmul construction, overlapping key and value chunks feeding one batched GEMM plus a diagonal skew view, so the graph node count does not depend on the window. The wide window costs the same as the narrow one. Short clips stay on the global path and remain byte-identical to before.
+At NeMo's full W=128 window that is about 4x faster and about 5.7x less peak memory than the global path. The band is built with a chunk-matmul construction, overlapping key and value chunks feeding one batched GEMM plus a diagonal skew view, so the graph node count does not depend on the window. The wide window costs the same as the narrow one. Short clips stay on the global path and produce the same output as before.
 
 ## Using it
 
