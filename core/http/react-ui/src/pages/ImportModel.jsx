@@ -802,11 +802,11 @@ export default function ImportModel() {
             <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
             {isPowerYaml ? (
               <button className="btn btn-primary fas fa-save fa-upload" onClick={handleAdvancedImport} disabled={isSubmitting}>
-                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i aria-hidden="true" /> {t('actions.create')}</>}
+                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-plus" aria-hidden="true" /> {t('actions.create')}</>}
               </button>
             ) : (
               <button onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i aria-hidden="true" /> {t('actions.import')}</>}
+                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-file-import" aria-hidden="true" /> {t('actions.import')}</>}
               </button>
             )}
           </div>

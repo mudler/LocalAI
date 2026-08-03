@@ -198,7 +198,7 @@ JSON` : ''
         supporting={t('voiceLibrary.subtitle')}
         actions={(
           <Link to="/app/voice-library/new">
-            <i aria-hidden="true" /> {t('voiceLibrary.actions.create')}
+            <i className="fas fa-plus" aria-hidden="true" /> {t('voiceLibrary.actions.create')}
           </Link>
         )}
       />

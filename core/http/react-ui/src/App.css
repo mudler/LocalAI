@@ -10605,7 +10605,19 @@ button.collapsible-header:focus-visible {
   word-break: break-all;
   overflow: auto;
 }
-.p2p-cmd__copy { position: absolute; top: 8px; right: 8px; }
+/* .btn alone leaves the background to the user agent, which paints
+   `buttonface` — a light grey. Fine on a light theme, a pale chip on a dark
+   command block. State it. */
+.p2p-cmd__copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-default);
+}
+
+.p2p-cmd__copy:hover { color: var(--color-primary); border-color: var(--color-primary-border); }
 
 /* Numbered setup steps */
 .p2p-step {

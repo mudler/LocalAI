@@ -169,7 +169,7 @@ export default function Settings() {
           supporting={t('settings.subtitle')}
           actions={
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'} fas fa-save`} onClick={handleSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i /> {isDirty ? 'Save Changes' : 'Saved'}</>}
+              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-floppy-disk" aria-hidden="true" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
             </button>
           }
         />

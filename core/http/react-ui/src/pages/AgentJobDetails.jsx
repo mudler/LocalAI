@@ -167,11 +167,11 @@ export default function AgentJobDetails() {
           <div className="hstack btn btn-danger fas fa-stop btn-secondary fa-arrow-left">
             {(job.status === 'running' || job.status === 'pending') && (
               <button onClick={handleCancel}>
-                <i /> Cancel
+                <i className="fas fa-ban" aria-hidden="true" /> Cancel
               </button>
             )}
             <button onClick={() => navigate('/app/agent-jobs')}>
-              <i /> Back
+              <i className="fas fa-arrow-left" aria-hidden="true" /> Back
             </button>
           </div>
         }
