@@ -1,3 +1,3 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
-torch
-torchaudio
+torch==2.9.1+cu130
+torchaudio==2.9.1
