@@ -785,35 +785,18 @@
 - name: "qwen3.6-35b-a3b-uncensored-genesis-hermes-v6"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
+    - https://huggingface.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive
     - https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF
   description: |
-    # Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive
+    Qwen3.6-35B-A3B Uncensored Genesis Hermes V6 is LuffyTheFox's multimodal,
+    agentic derivative of HauhauCS's uncensored Qwen3.6-35B-A3B model. It
+    combines Genesis tensor calibration with Hermes function-calling data while
+    retaining the 35B mixture-of-experts architecture, roughly 3B active
+    parameters per token, and the native 262K-token context window.
 
-    > **Join the Discord** for updates, roadmaps, projects, or just to chat.
-
-    Qwen3.6-35B-A3B uncensored by HauhauCS. **0/465 Refusals.**
-
-    > **HuggingFace's "Hardware Compatibility" widget doesn't recognize K_P quants** — it may show fewer files than actually exist. Click **"View +X variants"** or go to **Files and versions** to see all available downloads.
-
-    ## About
-
-    No changes to datasets or capabilities. Fully functional, 100% of what the original authors intended - just without the refusals.
-
-    These are meant to be the best lossless uncensored models out there.
-
-    ## Aggressive Variant
-
-    Stronger uncensoring — model is fully unlocked and won't refuse prompts. May occasionally append short disclaimers (baked into base model training, not refusals) but full content is always generated.
-
-    For a more conservative uncensor that keeps some safety guardrails, check the Balanced variant when it's available.
-
-    ## Downloads
-
-    All quants generated with importance matrix (imatrix) for optimal quality preservation on abliterated weights.
-
-    ## What are K_P quants?
-
-    ...
+    This entry installs the Q8_0 GGUF together with its F16 multimodal projector
+    for llama.cpp. The model card recommends Jinja chat templates and at least a
+    128K context for its thinking behavior. License: Apache-2.0.
   license: "apache-2.0"
   tags:
     - llm
