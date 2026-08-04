@@ -1,4 +1,48 @@
 ---
+- name: "deepseek-v4-flash-0731"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
+  description: |
+    # DeepSeek-V4-Flash-0731
+
+    Technical Report👁️
+
+    ## Introduction
+
+    **DeepSeek-V4-Flash-0731** is the official release of **DeepSeek-V4-Flash**, superseding the preview version, with substantially enhanced agentic capabilities. It has the same model structure as DeepSeek-V4-Flash-DSpark, i.e. it comes with a speculative decoding module attached.
+
+    DeepSeek-V4-Flash-0731 outperforms DeepSeek-V4-Pro (Preview) on benchmarks listed below despite its far smaller activated parameter count, and is broadly competitive with the strongest proprietary models available.
+
+    Notes:
+
+    1. For the Code Agent tasks among the public benchmarks above, DeepSeek-V4-Flash-0731 is evaluated with the minimal mode of DeepSeek Harness (to be released) as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.
+    2. † DSBench-FullStack is an internal full-stack development test set; DSBench-Hard is an internal test set of difficult coding-agent problems.
+
+    ## Chat Template
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  overrides:
+    backend: ds4
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    parameters:
+      model: ds4flash.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: ds4flash.gguf
+      sha256: ""
+      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-0731-GGUF
 - &nemotron-3-embed-1b
   name: "nemotron-3-embed-1b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
