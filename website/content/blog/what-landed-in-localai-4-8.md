@@ -57,7 +57,7 @@ One gap worth knowing about: in distributed mode `InstallModel` resolves against
 
 ## A new engine: vllm.cpp (alpha)
 
-[vllm.cpp](https://github.com/mudler/vllm.cpp) is a community project, Apache-2.0, that began as a C++20 port of vLLM. It ships here as the `vllm-cpp` backend ([#11100](https://github.com/mudler/LocalAI/pull/11100)). It implements vLLM's V1 architecture, so paged KV cache, continuous batching, prefix caching, scheduler and sampler, on a portable tensor runtime with no Python, no PyTorch and no ggml at inference. vLLM stays its reference implementation: correctness is checked by comparing output against it, and the benchmark scoreboard is kept against it.
+[vllm.cpp](https://github.com/mudler/vllm.cpp) is Apache-2.0 and maintained by the LocalAI team. We want it community-first rather than a LocalAI-only engine, so it lives in its own repository with its own docs, benchmark record and issue tracker, and it runs without LocalAI anywhere in the picture. It began as a C++20 port of vLLM. It ships here as the `vllm-cpp` backend ([#11100](https://github.com/mudler/LocalAI/pull/11100)). It implements vLLM's V1 architecture, so paged KV cache, continuous batching, prefix caching, scheduler and sampler, on a portable tensor runtime with no Python, no PyTorch and no ggml at inference. vLLM stays its reference implementation: correctness is checked by comparing output against it, and the benchmark scoreboard is kept against it.
 
 It has grown features vLLM does not have, which is most of the reason the port exists. It loads GGUF as well as safetensors, runs on CPU, Apple Metal and Vulkan alongside CUDA 12 and 13 and L4T for GB10, and ships speculative decoding and KV offload. Its benchmark page now measures against llama.cpp, MLX-LM and DwarfStar as well as vLLM, because on that hardware those are the engines it competes with. The name will probably change at some point: it is drifting far enough that vllm.cpp will eventually mislead.
 
@@ -73,11 +73,14 @@ Numbers from the project's own [scoreboard](https://github.com/mudler/vllm.cpp/b
 <tr><td>vLLM</td><td>Qwen3.6-35B-A3B NVFP4, GB10</td><td>1.010x at c16 and 1.013x at c32, behind from c1 to c8 (0.817x at c1)</td></tr>
 <tr><td>llama.cpp</td><td>Qwen3.5-2B GGUF, CPU aarch64</td><td>prefill 1.18x, decode a tie, memory parity</td></tr>
 <tr><td>MLX-LM</td><td>Qwen3-0.6B, Apple M4</td><td>97.6% of warm total, prefill ahead</td></tr>
+<tr><td>DwarfStar (ds4)</td><td>DeepSeek-V4-Flash GGUF, GB10</td><td>16.28 vs 16.33 tok/s decode, 0.997x, a parity result</td></tr>
 </tbody>
 </table>
 </div>
 
 The upstream page is careful about its own noise: on the 27B grid the run-to-run spread is 0.5% and c2 through c32 land between 0.7% and 1.7%, so it calls those five ties rather than wins. The concurrency-1 result is the one it stands behind.
+
+The DeepSeek-V4-Flash row is the one that shows how far this has moved from being a vLLM port. That model does not run on vLLM on a single GB10 at all: every vLLM-loadable checkpoint is 156 GB or more against a 119 GiB unified pool, and the only quant that fits is an extreme-low-bit GGUF, which vLLM cannot load. vllm.cpp reads GGUF, so it runs there anyway, at 16.28 tok/s against ds4's 16.33. Speculative decoding is in similar shape: MTP on Qwen3.6-27B NVFP4 is token-identical to vLLM's MTP and about 4% faster at concurrency 1.
 
 Configuration is a normal backend install:
 
