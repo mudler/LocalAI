@@ -55,11 +55,29 @@ Every surface can override the choice: `variant` on `POST /models/apply`, `local
 
 One gap worth knowing about: in distributed mode `InstallModel` resolves against the frontend rather than the worker that will serve the model, so a cluster with a small frontend and large workers selects conservatively. PRs [#10943](https://github.com/mudler/LocalAI/pull/10943), [#10983](https://github.com/mudler/LocalAI/pull/10983), [#10992](https://github.com/mudler/LocalAI/pull/10992), [#11027](https://github.com/mudler/LocalAI/pull/11027) and [#11139](https://github.com/mudler/LocalAI/pull/11139).
 
-## A new engine: vllm.cpp
+## A new engine: vllm.cpp (alpha)
 
-[vllm.cpp](https://github.com/mudler/vllm.cpp) is a from-scratch C++20 port of vLLM, written and maintained by the LocalAI team under Apache-2.0, and it ships here as the `vllm-cpp` backend ([#11100](https://github.com/mudler/LocalAI/pull/11100)). It mirrors vLLM's V1 architecture, so paged KV cache, continuous batching, prefix caching, scheduler and sampler, on a portable tensor runtime with no Python, no PyTorch and no ggml at inference. It loads Hugging Face safetensors and GGUF, enforces structured output inside the engine (JSON schema, regex, choice, GBNF), and builds for CPU amd64 and arm64, CUDA 12 and 13 including Blackwell, L4T for GB10, Vulkan and Darwin Metal.
+[vllm.cpp](https://github.com/mudler/vllm.cpp) is a community project, Apache-2.0, that began as a C++20 port of vLLM. It ships here as the `vllm-cpp` backend ([#11100](https://github.com/mudler/LocalAI/pull/11100)). It implements vLLM's V1 architecture, so paged KV cache, continuous batching, prefix caching, scheduler and sampler, on a portable tensor runtime with no Python, no PyTorch and no ggml at inference. vLLM stays its reference implementation: correctness is checked by comparing output against it, and the benchmark scoreboard is kept against it.
+
+It has grown features vLLM does not have, which is most of the reason the port exists. It loads GGUF as well as safetensors, runs on CPU, Apple Metal and Vulkan alongside CUDA 12 and 13 and L4T for GB10, and ships speculative decoding and KV offload. Its benchmark page now measures against llama.cpp, MLX-LM and DwarfStar as well as vLLM, because on that hardware those are the engines it competes with. The name will probably change at some point: it is drifting far enough that vllm.cpp will eventually mislead.
 
 Tool calling is at llama.cpp parity by construction, because chat deliberately reuses the same autoparser path: full minja chat templates, `tool_choice: auto` lowered to a lazy structural-tag decode constraint, 30 tool dialects, 7 reasoning parsers, and streamed `ChatDelta` and `ToolCallDelta`.
+
+Numbers from the project's own [scoreboard](https://github.com/mudler/vllm.cpp/blob/master/docs/BENCHMARKS.md), which calls ties ties and losses losses. Above 1.0 means vllm.cpp is ahead:
+
+<div class="tw">
+<table>
+<thead><tr><th>Reference</th><th>Workload</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>vLLM</td><td>Qwen3.6-27B NVFP4, GB10</td><td>1.045x at concurrency 1, 1.007x to 1.017x from c2 to c32, output token-for-token identical</td></tr>
+<tr><td>vLLM</td><td>Qwen3.6-35B-A3B NVFP4, GB10</td><td>1.010x at c16 and 1.013x at c32, behind from c1 to c8 (0.817x at c1)</td></tr>
+<tr><td>llama.cpp</td><td>Qwen3.5-2B GGUF, CPU aarch64</td><td>prefill 1.18x, decode a tie, memory parity</td></tr>
+<tr><td>MLX-LM</td><td>Qwen3-0.6B, Apple M4</td><td>97.6% of warm total, prefill ahead</td></tr>
+</tbody>
+</table>
+</div>
+
+The upstream page is careful about its own noise: on the 27B grid the run-to-run spread is 0.5% and c2 through c32 land between 0.7% and 1.7%, so it calls those five ties rather than wins. The concurrency-1 result is the one it stands behind.
 
 Configuration is a normal backend install:
 
