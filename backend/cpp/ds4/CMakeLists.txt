@@ -69,7 +69,15 @@ target_include_directories(hw_grpc_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 set(DS4_OBJS "${DS4_DIR}/ds4.o")
 if(DS4_GPU STREQUAL "cuda")
-    list(APPEND DS4_OBJS "${DS4_DIR}/ds4_cuda.o")
+    list(APPEND DS4_OBJS
+        "${DS4_DIR}/ds4_cuda.o"
+        "${DS4_DIR}/cuda/mmq/ds4_ggml_stubs.o"
+        "${DS4_DIR}/cuda/mmq/ds4_mmq.o"
+        "${DS4_DIR}/cuda/mmq/ds4_mmq_d2r.o"
+        "${DS4_DIR}/cuda/mmq/quantize.o"
+        "${DS4_DIR}/cuda/mmq/mmid.o"
+        "${DS4_DIR}/cuda/mmq/mmvq.o"
+        "${DS4_DIR}/cuda/mmq/ds4_repack.o")
 elseif(DS4_GPU STREQUAL "metal")
     list(APPEND DS4_OBJS "${DS4_DIR}/ds4_metal.o")
 elseif(DS4_GPU STREQUAL "cpu")

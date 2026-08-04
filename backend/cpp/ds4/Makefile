@@ -1,10 +1,10 @@
 # ds4 backend Makefile.
 #
-# Upstream pin lives below as DS4_VERSION?=54b36ed9ba42da31b24f2d1a5feb075c2475dbb1
+# Upstream pin lives below as DS4_VERSION?=b7e9f0091139999b6c070a57590c447c5741da5c
 # (.github/bump_deps.sh) can find and update it - matches the
 # llama-cpp / ik-llama-cpp / turboquant convention.
 
-DS4_VERSION?=54b36ed9ba42da31b24f2d1a5feb075c2475dbb1
+DS4_VERSION?=b7e9f0091139999b6c070a57590c447c5741da5c
 DS4_REPO?=https://github.com/antirez/ds4
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -23,7 +23,9 @@ CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release
 # are shared by every GPU mode, so append them unconditionally below.
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DDS4_GPU=cuda
-    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o \
+        cuda/mmq/ds4_ggml_stubs.o cuda/mmq/ds4_mmq.o cuda/mmq/ds4_mmq_d2r.o \
+        cuda/mmq/quantize.o cuda/mmq/mmid.o cuda/mmq/mmvq.o cuda/mmq/ds4_repack.o
 else ifeq ($(UNAME_S),Darwin)
     CMAKE_ARGS += -DDS4_GPU=metal
     DS4_OBJ_TARGET := ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
@@ -55,7 +57,7 @@ ds4:
 # the right per-platform compile flags (Objective-C/Metal on Darwin, nvcc on Linux+CUDA).
 ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
-	+$(MAKE) -C ds4 ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+	+$(MAKE) -C ds4 $(DS4_OBJ_TARGET)
 else ifeq ($(UNAME_S),Darwin)
 	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 else
