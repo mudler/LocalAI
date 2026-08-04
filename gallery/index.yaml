@@ -2614,6 +2614,83 @@
     - filename: llama-cpp/models/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
       sha256: b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5
       uri: https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+- &lfm2-5-2-6b
+  name: "lfm2.5-2.6b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF
+  description: |
+    LFM2.5-2.6B is LiquidAI's compact, text-only reasoning model for on-device
+    agentic workloads. It has 2.69B parameters, a 128K-token context window,
+    multilingual support, and post-training for tool use, instruction following,
+    data extraction, RAG, and multi-step agents. This entry uses the recommended
+    Q4_K_M GGUF quantization from LiquidAI's official repository.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  variants:
+    - model: lfm2.5-2.6b-q8
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q4_K_M.gguf
+      repeat_penalty: 1.1
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q4_K_M.gguf
+      sha256: 79fdf00351b46cf26f020aead28d01889886be87c55fa0eb907e6f9b00bfee14
+      uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q4_K_M.gguf
+- !!merge <<: *lfm2-5-2-6b
+  name: "lfm2.5-2.6b-q8"
+  description: |
+    LFM2.5-2.6B is LiquidAI's compact, text-only reasoning model for on-device
+    agentic workloads. It has 2.69B parameters, a 128K-token context window,
+    multilingual support, and post-training for tool use, instruction following,
+    data extraction, RAG, and multi-step agents. This entry uses the higher-quality
+    Q8_0 GGUF quantization from LiquidAI's official repository.
+  variants: null
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
+      repeat_penalty: 1.1
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
+      sha256: 36587fdf27bdfc69caf2637273679a0870ec155162161bde6fd16e8c70bdb757
+      uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q8_0.gguf
 - name: "qwopus3.6-27b-coder-compat-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
