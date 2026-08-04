@@ -23,7 +23,9 @@ CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release
 # are shared by every GPU mode, so append them unconditionally below.
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DDS4_GPU=cuda
-    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o \
+        cuda/mmq/ds4_ggml_stubs.o cuda/mmq/ds4_mmq.o cuda/mmq/ds4_mmq_d2r.o \
+        cuda/mmq/quantize.o cuda/mmq/mmid.o cuda/mmq/mmvq.o cuda/mmq/ds4_repack.o
 else ifeq ($(UNAME_S),Darwin)
     CMAKE_ARGS += -DDS4_GPU=metal
     DS4_OBJ_TARGET := ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
@@ -55,7 +57,7 @@ ds4:
 # the right per-platform compile flags (Objective-C/Metal on Darwin, nvcc on Linux+CUDA).
 ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
-	+$(MAKE) -C ds4 ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+	+$(MAKE) -C ds4 $(DS4_OBJ_TARGET)
 else ifeq ($(UNAME_S),Darwin)
 	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 else
