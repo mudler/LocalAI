@@ -73,9 +73,9 @@ options:
 - max_num_seqs:16      # also: block_size:<n>, num_blocks:<n>
 ```
 
-The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with the full Ginkgo suite, covering blocking and streaming byte-parity, greedy determinism, stop words, GBNF-constrained generation, concurrent streams, reasoning split and both `required` and `auto` tool calls. The maturity statement from the release notes is worth repeating in full:
+**Treat these as alpha development builds, not a released backend.** vllm.cpp is early, and shipping it in 4.8 is about getting it in front of people who want to try it, not about recommending it for anything you care about. `llama-cpp` stays the default for real use.
 
-> The GPU images build and ship, but their runtime behavior has not been through the same e2e gate yet. This is a first release of a young engine: no throughput comparison against upstream vLLM is claimed here, and `llama-cpp` remains the default recommendation for general use. Try it, and please report what breaks.
+The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with the full Ginkgo suite, covering blocking and streaming byte-parity, greedy determinism, stop words, GBNF-constrained generation, concurrent streams, reasoning split and both `required` and `auto` tool calls. The GPU images build and ship, but their runtime behavior has not been through that gate. No throughput comparison against upstream vLLM is claimed. Expect rough edges, and please report what breaks.
 
 On Apple Silicon the image now ships vllm.cpp's MLX GEMM provider ([#11137](https://github.com/mudler/LocalAI/pull/11137)). Upstream keeps it off by default because it adds about 124 MB, so we measured before turning it on. Qwen3-1.7B-bf16 on an M4, p=512 g=128, both arms toggled on one binary so a build difference cannot explain the gap:
 
@@ -110,7 +110,7 @@ The first engine behind it is `trellis2cpp`, an image-to-3D backend over TRELLIS
 
 ## One backend, six audio endpoints
 
-The usual shape for audio is one backend per model family, which means a process per capability and a config file for each. `audio-cpp` wraps [audio.cpp](https://github.com/0xShug0/audio.cpp), a multi-family ggml audio engine, and inverts that: one backend process serves several unrelated families through a single runtime vocabulary, and works out which family a checkpoint belongs to from the GGUF's own `audiocpp.model_spec.family` metadata key. There is nothing backend-specific to write in the model config.
+The usual shape for audio is one backend per model family, which means a process per capability and a config file for each. `audio-cpp` wraps [audio.cpp](https://github.com/0xShug0/audio.cpp), a multi-family ggml audio engine. One backend process serves several unrelated families through a single runtime vocabulary, and works out which family a checkpoint belongs to from the GGUF's own `audiocpp.model_spec.family` metadata key. There is nothing backend-specific to write in the model config.
 
 <div class="tw">
 <table>
@@ -145,7 +145,7 @@ The `bonsai` backend serves the 1-bit (Q1_0) and ternary (Q2_0) Bonsai quantizat
 
 ## The operations bar became a page
 
-The old operations bar rendered one row per in-flight operation above every page. Queue four model installs and a backend and it took most of the viewport, on every route, until the last one finished. Two things were conflated there: a global "something is happening" signal, which needs one line, and the detail of what is happening, which needs somewhere to put it.
+The old operations bar rendered one row per in-flight operation above every page. Queue four model installs and a backend and it took most of the viewport, on every route, until the last one finished. It was doing two jobs at once. A global "something is happening" signal only needs one line, and the detail of what is happening needs a page of its own.
 
 The strip is now one line, permanently, showing a failure first and otherwise the least-advanced running operation, with a `+N more` pill. Its `✕` hides the strip and no longer cancels anything. That is a deliberate behavior change worth knowing about before you click it out of habit: the same glyph used to cancel a 17 GB download in one row and dismiss a message in the next. Cancelling moved to the new page, behind a button that says so.
 
