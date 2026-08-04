@@ -1,4 +1,101 @@
 ---
+- &qwen3-5-9b-defiant-fable
+  name: "qwen3.5-9b-defiant-fable-mtp"
+  variants:
+    - model: qwen3.5-9b-defiant-fable
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF
+  description: |
+    Qwen3.5 9B Defiant Fable is an Apache-2.0 multimodal fine-tune for
+    reasoning, coding, creative writing, and roleplay. It retains the 256K
+    context window and vision support of Qwen3.5 while reducing refusals.
+    This default entry uses the NEO-imatrix Q4_K_M build with multi-token
+    prediction enabled for faster generation.
+  license: apache-2.0
+  icon: https://huggingface.co/DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/resolve/main/defiant-fable-9b.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3.5
+    - reasoning
+    - coding
+    - creative-writing
+    - uncensored
+    - vision
+    - multimodal
+    - mtp
+  last_checked: "2026-08-04"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.5-9b-defiant-fable/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/qwen3.5-9b-defiant-fable/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.5-9b-defiant-fable/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M.gguf
+      uri: huggingface://DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-MTP-Q4_K_M.gguf
+      sha256: d7eb4fac9389d53fa576f64a6ff53e914a00bc7705dc354d1065887565147320
+    - filename: llama-cpp/mmproj/qwen3.5-9b-defiant-fable/mmproj-BF16.gguf
+      uri: huggingface://DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/mmproj-BF16.gguf
+      sha256: 853698ce7aa6c7ba732478bad280240969ddf7b0fcbf93900046f63903a83383
+- !!merge <<: *qwen3-5-9b-defiant-fable
+  name: "qwen3.5-9b-defiant-fable"
+  variants: []
+  description: |
+    Qwen3.5 9B Defiant Fable in the plain NEO-imatrix Q4_K_M GGUF format.
+    This fallback offers the same multimodal reasoning, coding, and creative
+    capabilities without enabling multi-token prediction.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3.5
+    - reasoning
+    - coding
+    - creative-writing
+    - uncensored
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.5-9b-defiant-fable/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.5-9b-defiant-fable/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.5-9b-defiant-fable/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-Q4_K_M.gguf
+      uri: huggingface://DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/Qwen3.5-9B-The-Defiant-Fable-Uncnr-Heretic-NEO-MAX-Q4_K_M.gguf
+      sha256: d33db5e583b9c9251402e876443791bc979f12af934bfb0630eadfb456279f84
+    - filename: llama-cpp/mmproj/qwen3.5-9b-defiant-fable/mmproj-BF16.gguf
+      uri: huggingface://DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/mmproj-BF16.gguf
+      sha256: 853698ce7aa6c7ba732478bad280240969ddf7b0fcbf93900046f63903a83383
 - &nemotron-3-embed-1b
   name: "nemotron-3-embed-1b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
