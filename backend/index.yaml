@@ -193,12 +193,22 @@
   alias: "vllm-cpp"
   license: apache-2.0
   description: |
-    vllm.cpp is a from-scratch C++20 port of vLLM created and maintained by the LocalAI team.
-    It mirrors vLLM's V1 architecture (paged KV cache, continuous batching, prefix caching,
-    scheduler, sampler) on a portable tensor runtime with no Python, PyTorch or ggml at
-    inference time. It loads Hugging Face safetensors and GGUF checkpoints, supports
-    structured output (JSON schema / regex / choice / GBNF grammar) enforced in-engine,
-    and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple Metal and Vulkan.
+    ALPHA development builds. Try it, but llama-cpp stays the recommendation for
+    production use.
+
+    vllm.cpp is an Apache-2.0 C++20 inference engine maintained by the LocalAI team,
+    developed in its own repository and usable without LocalAI. It began as a port of
+    vLLM and keeps vLLM as its reference implementation, checking output against it and
+    benchmarking against it, while growing a featureset of its own. It implements vLLM's
+    V1 architecture (paged KV cache, continuous batching, prefix caching, scheduler,
+    sampler) on a portable tensor runtime with no Python, PyTorch or ggml at inference
+    time. It loads GGUF as well as Hugging Face safetensors, supports structured output
+    (JSON schema / regex / choice / GBNF grammar) enforced in-engine, ships speculative
+    decoding and KV offload, and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple
+    Metal and Vulkan.
+
+    The project is expected to be renamed as it diverges further from vLLM; the new
+    name is still to be decided.
   urls:
     - https://github.com/mudler/vllm.cpp
   tags:
