@@ -77,7 +77,7 @@ Build knobs:
 
 - `VLLM_CPP_MLX=off` builds Metal without the provider: ~124 MB smaller, and
   96.4% of MLX-LM instead of 99.1%.
-- `MLX_VERSION` pins the wheel (default `0.29.3`). MLX is consumed as the
+- `MLX_VERSION` pins the wheel (default `0.29.4`). MLX is consumed as the
   prebuilt pip wheel because building it from source needs `xcrun metal`, i.e. a
   full Xcode the macOS runners do not have.
 

@@ -30,7 +30,7 @@ VLLM_CPP_VERSION?=9d1fad3cde0acb95eb0bb0a1025f40a0eb614147
 # decode makes ~112 calls per TOKEN. Ungated it does both; gated it does only the
 # good half. So if this pin is ever moved BACKWARDS, this default must go with it.
 VLLM_CPP_MLX?=on
-MLX_VERSION?=0.29.3
+MLX_VERSION?=0.29.4
 MLX_VENV?=$(abspath ./mlx-venv)
 # Resolved lazily (recursive `=`, not `:=`): the glob only matches once the venv
 # target has run, and the interpreter version in the path varies per runner.
