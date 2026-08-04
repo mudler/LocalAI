@@ -11,7 +11,30 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=a42b8187caff02c570c28e19e4dc2b1d7f55ed14
+VLLM_CPP_VERSION?=9d1fad3cde0acb95eb0bb0a1025f40a0eb614147
+
+# MLX GEMM provider (darwin/metal only; see the metal branch below for why).
+# Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
+# metal`, i.e. a full Xcode the macOS runners do not have, while the wheel ships
+# include/, lib/libmlx.dylib and the compiled mlx.metallib ready to link.
+#
+# DEFAULT ON, but ONLY because VLLM_CPP_VERSION above is pinned at or past
+# vllm.cpp 89c46aeb, which SHAPE-GATES the provider to prefill. The ordering is
+# load-bearing, not incidental:
+#
+#   pin >= 89c46aeb, MLX on   -> 99.1% of MLX-LM  (gated: prefill only)
+#   pin <  89c46aeb, MLX on   -> ~51%             (ungated: it also takes decode)
+#
+# MLX's steel GEMM wins prefill (537 ms TTFT against 602) and loses decode badly,
+# because the provider pays an mx::eval sync plus an output memcpy per call and
+# decode makes ~112 calls per TOKEN. Ungated it does both; gated it does only the
+# good half. So if this pin is ever moved BACKWARDS, this default must go with it.
+VLLM_CPP_MLX?=on
+MLX_VERSION?=0.29.4
+MLX_VENV?=$(abspath ./mlx-venv)
+# Resolved lazily (recursive `=`, not `:=`): the glob only matches once the venv
+# target has run, and the interpreter version in the path varies per runner.
+MLX_ROOT=$(shell echo $(MLX_VENV)/lib/python*/site-packages/mlx)
 
 # The backend consumes only the stable C ABI (libvllm + include/vllm.h), so the
 # server, examples and tests of the engine are never built here.
@@ -49,6 +72,23 @@ else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DVLLM_CPP_VULKAN=ON -DVLLM_CPP_CUDA=OFF
 else ifeq ($(BUILD_TYPE),metal)
 	CMAKE_ARGS+=-DVLLM_CPP_METAL=ON
+	# The optional MLX GEMM provider. vllm.cpp keeps it OFF by default because it
+	# is a ~19 MB libmlx.dylib plus a ~105 MB mlx.metallib, and upstream's
+	# position is that it must earn that cost by measurement. It does, on the
+	# only hardware this build targets: measured on an Apple M4 against the
+	# native MSL GEMM in the SAME binary (arms toggled by
+	# VT_OP_PROVIDER_DISABLE=mlx), Qwen3-1.7B-bf16 p=512 g=128, it is 1.5x to
+	# 2.2x aggregate throughput and 2x to 3x faster TTFT, at equal peak memory
+	# and bit-identical output on every parity shape. See vllm.cpp
+	# docs/BENCHMARKS.md "MLX GEMM provider A/B on Apple M4".
+	#
+	# MLX delegates the dense GEMM ONLY: kPagedAttention stays vllm.cpp's own
+	# kernel, because MLX has no paged-KV primitive at all.
+	#
+	# Set VLLM_CPP_MLX=off for a Metal build without it (smaller image, slower).
+	ifeq ($(VLLM_CPP_MLX),on)
+		MLX_ENABLED=1
+	endif
 else
 	CMAKE_ARGS+=-DVLLM_CPP_CUDA=OFF
 endif
@@ -68,10 +108,35 @@ sources/vllm.cpp:
 	git fetch --depth 1 origin $(VLLM_CPP_VERSION) && \
 	git checkout FETCH_HEAD
 
-$(LIB): sources/vllm.cpp
+ifeq ($(MLX_ENABLED),1)
+# A stamp FILE, not a phony target: a phony prerequisite is always "newer" than
+# $(LIB) and would re-link libvllm on every invocation. Keyed on the version so
+# a MLX_VERSION bump reinstalls instead of silently reusing the old wheel.
+MLX_STAMP=$(MLX_VENV)/.mlx-$(MLX_VERSION).stamp
+MLX_CMAKE_ARGS=-DVLLM_CPP_MLX=ON -DMLX_ROOT=$(MLX_ROOT)
+
+$(MLX_STAMP):
+	@if [ ! -x "$(MLX_VENV)/bin/pip" ]; then \
+		python3 -m venv "$(MLX_VENV)" || { echo "vllm-cpp: python3 with venv is required to build the MLX provider; pass VLLM_CPP_MLX=off to build Metal without it" >&2; exit 1; }; \
+	fi
+	"$(MLX_VENV)"/bin/pip install --quiet --disable-pip-version-check "mlx==$(MLX_VERSION)"
+	@# Resolved in the SHELL, not by $(MLX_ROOT): make expands a whole recipe
+	@# before running its first line, so the glob would still be unmatched here.
+	@# Every later use (the cmake args, package.sh) expands after this target has
+	@# completed, where $(MLX_ROOT) does resolve.
+	@root=$$(echo "$(MLX_VENV)"/lib/python*/site-packages/mlx); \
+	test -f "$$root/lib/libmlx.dylib" -a -f "$$root/include/mlx/array.h" || \
+		{ echo "vllm-cpp: mlx==$(MLX_VERSION) did not provide lib/libmlx.dylib + include/mlx/array.h under $$root" >&2; exit 1; }
+	touch $@
+else
+MLX_STAMP=
+MLX_CMAKE_ARGS=
+endif
+
+$(LIB): sources/vllm.cpp $(MLX_STAMP)
 	mkdir -p build && \
 	cd build && \
-	cmake ../sources/vllm.cpp $(CMAKE_ARGS) && \
+	cmake ../sources/vllm.cpp $(CMAKE_ARGS) $(MLX_CMAKE_ARGS) && \
 	cmake --build . --config Release -j$(JOBS) --target vllm_shared
 	cp -fL build/$(LIB) ./$(LIB)
 
@@ -79,12 +144,12 @@ vllm-cpp: main.go govllmcpp.go backend.go options.go $(LIB)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o vllm-cpp ./
 
 package: vllm-cpp
-	bash package.sh
+	MLX_ROOT="$(MLX_ROOT)" bash package.sh
 
 build: package
 
 clean: purge
-	rm -rf libvllm.so libvllm.dylib package sources/vllm.cpp vllm-cpp
+	rm -rf libvllm.so libvllm.dylib package sources/vllm.cpp vllm-cpp "$(MLX_VENV)"
 
 purge:
 	rm -rf build
