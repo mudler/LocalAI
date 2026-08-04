@@ -2670,6 +2670,86 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &qwen3-5-9b-hauhaucs-aggressive
+  name: "qwen3.5-9b-hauhaucs-aggressive"
+  variants:
+    - model: qwen3.5-9b-hauhaucs-aggressive-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-9B
+    - https://huggingface.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive
+  description: |
+    Qwen3.5 9B Aggressive is HauhauCS's refusal-removed fine-tune of the
+    multimodal Qwen3.5 9B model. It retains the base model's reasoning, tool
+    use, image and video understanding, and 262K-token native context window.
+
+    This entry uses the balanced Q4_K_M GGUF quantization and includes the
+    matching BF16 multimodal projector. The Q8_0 variant offers higher fidelity.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - uncensored
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-08-04"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+      sha256: 2ca636d9e81d3d23ca9b60c234fe185d30ec082eeba69ce770fdb0c76559a4f5
+      uri: huggingface://HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q4_K_M/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+      sha256: 05f662501f8bd45607b079723a3e238a4e888fd085a10a53f4057a0e250f6934
+      uri: huggingface://HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+- !!merge <<: *qwen3-5-9b-hauhaucs-aggressive
+  name: "qwen3.5-9b-hauhaucs-aggressive-q8"
+  variants: []
+  description: |
+    Qwen3.5 9B Aggressive is HauhauCS's refusal-removed fine-tune of the
+    multimodal Qwen3.5 9B model. It retains the base model's reasoning, tool
+    use, image and video understanding, and 262K-token native context window.
+
+    This entry uses the higher-fidelity Q8_0 GGUF quantization and includes the
+    matching BF16 multimodal projector.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0.gguf
+      sha256: 99e7f2201c0046b05d2825e4d8be6a2efad2b87b071cd55d37bdd9fbe201a58b
+      uri: huggingface://HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-Q8_0/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+      sha256: 05f662501f8bd45607b079723a3e238a4e888fd085a10a53f4057a0e250f6934
+      uri: huggingface://HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
 # DFlash speculative-decoding pairs (upstream llama.cpp `draft-dflash`).
 # Each entry ships a full target model plus a small block-diffusion drafter
 # (z-lab DFlash, converted with upstream convert_hf_to_gguf.py, GGUF arch
