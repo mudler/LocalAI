@@ -436,6 +436,27 @@ export const SHARED_BUILD_INPUTS = [
     linux: always,
     darwin: always,
   },
+  {
+    // Same posture as the scripts/build/ catch-all above, and for the same
+    // reason. .docker/ holds the per-backend compile and build-target scripts
+    // (llama-cpp, turboquant, bonsai, ik-llama-cpp) plus inputs every
+    // Dockerfile consumes (apt-mirror.sh, install-base-deps.sh). Nothing
+    // matched any of them before, which is how #11346 shipped without a single
+    // backend job: it changed how ROCm llama.cpp compiles, touching only
+    // .docker/llama-cpp-build-target.sh and a `*_test.sh` that the rule above
+    // deliberately carves out, so the filter selected zero entries and every
+    // backend job reported "skipping".
+    //
+    // A rule cannot see which file matched it, only the matrix entry, so
+    // narrowing `.docker/<name>-compile.sh` to the backend named by its prefix
+    // would mean threading the filename through matchedSharedRules. Until
+    // someone wants that, take the full matrix: these files are edited a
+    // handful of times a release, and a shared build input silently shipping
+    // to nothing is the failure this list exists to prevent.
+    matches: file => file.startsWith(".docker/"),
+    linux: always,
+    darwin: always,
+  },
 ];
 
 // The matrix stores dockerfiles as "./backend/Dockerfile.python"; changed-file

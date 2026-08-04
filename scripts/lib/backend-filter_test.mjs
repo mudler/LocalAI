@@ -204,6 +204,29 @@ test("an unclassified scripts/build/ file conservatively rebuilds everything", (
   assert.equal(filteredDarwin.length, includesDarwin.length);
 });
 
+// #11346 changed how ROCm llama.cpp compiles and built nothing: it touched only
+// .docker/llama-cpp-build-target.sh and a *_test.sh, no rule matched either, so
+// every backend job reported "skipping".
+test("a .docker/ compile script rebuilds the backends it compiles", () => {
+  const { filtered } = run([
+    ".docker/llama-cpp-build-target.sh",
+    "scripts/build/llama-cpp-build-target_test.sh",
+  ]);
+
+  assert.ok(filtered.length > 0, ".docker/ change selected no entries");
+  assert.ok(
+    filtered.some(e => e.backend === "llama-cpp"),
+    "llama-cpp was not selected by a change to its own compile script",
+  );
+});
+
+test("a shared .docker/ input rebuilds everything", () => {
+  const { filtered, filteredDarwin } = run([".docker/apt-mirror.sh"]);
+
+  assert.equal(filtered.length, includes.length);
+  assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
 test("tests for the packaging scripts do not rebuild anything", () => {
   const { filtered, filteredDarwin } = run([
     "scripts/build/package-gpu-libs_test.sh",
