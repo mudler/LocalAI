@@ -1,14 +1,14 @@
 ---
 title: "What landed in LocalAI 4.8"
-date: 2026-08-01
+date: 2026-08-04
 author: "Ettore Di Giacinto"
 category: "Release"
 tags: ["release", "vllm.cpp", "audio.cpp", "3d", "gallery", "distributed", "performance"]
-summary: "A new inference engine, 3D generation, one backend that serves six audio endpoints, and a web interface 3.48x lighter. 321 pull requests in eighteen days."
+summary: "A new inference engine, 3D generation, one backend that serves six audio endpoints, and a web interface 3.48x lighter. 374 pull requests in twenty-one days."
 extracss: ["blog.css"]
 ---
 
-LocalAI 4.8.0 is out. It took eighteen days and 321 merged pull requests, and it pulls in two directions at once: three new things LocalAI can do that it could not do before, and a long list of places where it now does the old things without lying to you.
+LocalAI 4.8.0 is out, after twenty-one days and 374 merged pull requests. There are three new things LocalAI can do, and a lot of repair work on things it already did.
 
 The full notes list everything. This post covers the parts that change what you do day to day, with the pull request numbers so you can read the diffs.
 
@@ -55,11 +55,34 @@ Every surface can override the choice: `variant` on `POST /models/apply`, `local
 
 One gap worth knowing about: in distributed mode `InstallModel` resolves against the frontend rather than the worker that will serve the model, so a cluster with a small frontend and large workers selects conservatively. PRs [#10943](https://github.com/mudler/LocalAI/pull/10943), [#10983](https://github.com/mudler/LocalAI/pull/10983), [#10992](https://github.com/mudler/LocalAI/pull/10992), [#11027](https://github.com/mudler/LocalAI/pull/11027) and [#11139](https://github.com/mudler/LocalAI/pull/11139).
 
-## A new engine: vllm.cpp
+## A new engine: vllm.cpp (alpha)
 
-[vllm.cpp](https://github.com/mudler/vllm.cpp) is a from-scratch C++20 port of vLLM, written and maintained by the LocalAI team under Apache-2.0, and it ships here as the `vllm-cpp` backend ([#11100](https://github.com/mudler/LocalAI/pull/11100)). It mirrors vLLM's V1 architecture, so paged KV cache, continuous batching, prefix caching, scheduler and sampler, on a portable tensor runtime with no Python, no PyTorch and no ggml at inference. It loads Hugging Face safetensors and GGUF, enforces structured output inside the engine (JSON schema, regex, choice, GBNF), and builds for CPU amd64 and arm64, CUDA 12 and 13 including Blackwell, L4T for GB10, Vulkan and Darwin Metal.
+[vllm.cpp](https://github.com/mudler/vllm.cpp) is Apache-2.0 and maintained by the LocalAI team. We want it community-first rather than a LocalAI-only engine, so it lives in its own repository with its own docs, benchmark record and issue tracker, and it runs without LocalAI anywhere in the picture. It began as a C++20 port of vLLM. It ships here as the `vllm-cpp` backend ([#11100](https://github.com/mudler/LocalAI/pull/11100)). It implements vLLM's V1 architecture, so paged KV cache, continuous batching, prefix caching, scheduler and sampler, on a portable tensor runtime with no Python, no PyTorch and no ggml at inference. vLLM stays its reference implementation: correctness is checked by comparing output against it, and the benchmark scoreboard is kept against it.
+
+It has grown features vLLM does not have, which is most of the reason the port exists. It loads GGUF as well as safetensors, runs on CPU, Apple Metal and Vulkan alongside CUDA 12 and 13 and L4T for GB10, and ships speculative decoding and KV offload. Its benchmark page now measures against llama.cpp, MLX-LM and DwarfStar as well as vLLM, because on that hardware those are the engines it competes with. The project is expected to be renamed, with the new name still to be decided; it is drifting far enough that vllm.cpp will eventually mislead.
 
 Tool calling is at llama.cpp parity by construction, because chat deliberately reuses the same autoparser path: full minja chat templates, `tool_choice: auto` lowered to a lazy structural-tag decode constraint, 30 tool dialects, 7 reasoning parsers, and streamed `ChatDelta` and `ToolCallDelta`.
+
+Numbers from the project's own [scoreboard](https://github.com/mudler/vllm.cpp/blob/master/docs/BENCHMARKS.md), which calls ties ties and losses losses. Above 1.0 means vllm.cpp is ahead:
+
+<div class="tw">
+<table>
+<thead><tr><th>Reference</th><th>Workload</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>vLLM</td><td>Qwen3.6-27B NVFP4, GB10</td><td>1.045x at concurrency 1, 1.007x to 1.017x from c2 to c32, output token-for-token identical</td></tr>
+<tr><td>vLLM</td><td>Qwen3.6-35B-A3B NVFP4, GB10</td><td>1.010x at c16 and 1.013x at c32, behind from c1 to c8 (0.817x at c1)</td></tr>
+<tr><td>llama.cpp</td><td>Qwen3.5-2B GGUF, CPU aarch64</td><td>prefill 1.18x, decode a tie, memory parity</td></tr>
+<tr><td>MLX-LM</td><td>Qwen3-0.6B, Apple M4</td><td>97.6% of warm total, prefill ahead</td></tr>
+<tr><td>DwarfStar (ds4)</td><td>DeepSeek-V4-Flash IQ2_XXS, one DGX Spark</td><td>16.28 vs 16.33 tok/s decode, 0.997x, a parity result</td></tr>
+</tbody>
+</table>
+</div>
+
+The upstream page is careful about its own noise: on the 27B grid the run-to-run spread is 0.5% and c2 through c32 land between 0.7% and 1.7%, so it calls those five ties rather than wins. The concurrency-1 result is the one it stands behind.
+
+The DeepSeek-V4-Flash row is the one that shows how far this has moved from being a vLLM port. It runs DeepSeek-V4-Flash at roughly 2-bit (IQ2_XXS mixed, about 80 GB) on a single DGX Spark, decoding at 16.28 tok/s against DwarfStar's 16.33. At 300B+ total parameters even a 4-bit checkpoint is 156 GB or more, so a 2-bit GGUF is what fits inside the Spark's 119 GiB unified pool, and reading GGUF is what makes that possible.
+
+Speculative decoding is in similar shape: MTP on Qwen3.6-27B NVFP4 is token-identical to vLLM's MTP and about 4% faster at concurrency 1.
 
 Configuration is a normal backend install:
 
@@ -73,9 +96,24 @@ options:
 - max_num_seqs:16      # also: block_size:<n>, num_blocks:<n>
 ```
 
-The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with the full Ginkgo suite, covering blocking and streaming byte-parity, greedy determinism, stop words, GBNF-constrained generation, concurrent streams, reasoning split and both `required` and `auto` tool calls. The maturity statement from the release notes is worth repeating in full:
+**Treat these as alpha development builds, not a released backend.** vllm.cpp is early, and shipping it in 4.8 is about getting it in front of people who want to try it, not about recommending it for anything you care about. `llama-cpp` stays the default for real use.
 
-> The GPU images build and ship, but their runtime behavior has not been through the same e2e gate yet. This is a first release of a young engine: no throughput comparison against upstream vLLM is claimed here, and `llama-cpp` remains the default recommendation for general use. Try it, and please report what breaks.
+The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with the full Ginkgo suite, covering blocking and streaming byte-parity, greedy determinism, stop words, GBNF-constrained generation, concurrent streams, reasoning split and both `required` and `auto` tool calls. The GPU images build and ship, but their runtime behavior has not been through that gate. No throughput comparison against upstream vLLM is claimed. Expect rough edges, and please report what breaks.
+
+On Apple Silicon the image now ships vllm.cpp's MLX GEMM provider ([#11137](https://github.com/mudler/LocalAI/pull/11137)). Upstream keeps it off by default because it adds about 124 MB, so we measured before turning it on. Qwen3-1.7B-bf16 on an M4, p=512 g=128, both arms toggled on one binary so a build difference cannot explain the gap:
+
+<div class="tw">
+<table>
+<thead><tr><th>Batch</th><th>MLX tok/s</th><th>native tok/s</th><th>speedup</th><th>MLX TTFT</th><th>native TTFT</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>5.79</td><td>3.08</td><td><b>1.88x</b></td><td>3.32 s</td><td>7.68 s</td></tr>
+<tr><td>4</td><td>15.75</td><td>10.24</td><td><b>1.54x</b></td><td>9.63 s</td><td>18.77 s</td></tr>
+<tr><td>16</td><td>38.65</td><td>17.69</td><td><b>2.19x</b></td><td>18.33 s</td><td>54.48 s</td></tr>
+</tbody>
+</table>
+</div>
+
+Two reps, with rep spread reaching 9.4%, so treat the multipliers as +/-10%. Time to first token roughly halves across the range.
 
 <figure>
 <video src="/media/vllm-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="vllm.cpp generating tokens"></video>
@@ -84,7 +122,7 @@ The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with th
 
 ## LocalAI generates 3D models now
 
-This is a new modality rather than a new backend under an existing one, so it goes through the whole stack: a `Generate3D` RPC in `backend.proto`, a `FLAG_3D` capability so the loader knows which backends can serve it, and `POST /v1/3d/generations`.
+3D generation is a new modality, so it had to be wired through the whole stack: a `Generate3D` RPC in `backend.proto`, a `FLAG_3D` capability so the loader knows which backends can serve it, and `POST /v1/3d/generations`.
 
 The first engine behind it is `trellis2cpp`, an image-to-3D backend over TRELLIS.2. You give it an image, you get a GLB back. The web UI has a page for it with a native GLB viewer, so you can turn the result around in the browser instead of downloading it to find out whether it worked, history kept in IndexedDB so a reload does not lose your generations, and previewable print remeshing for output you actually intend to send to a printer ([#10979](https://github.com/mudler/LocalAI/pull/10979)).
 
@@ -95,7 +133,7 @@ The first engine behind it is `trellis2cpp`, an image-to-3D backend over TRELLIS
 
 ## One backend, six audio endpoints
 
-The usual shape for audio is one backend per model family, which means a process per capability and a config file for each. `audio-cpp` wraps [audio.cpp](https://github.com/0xShug0/audio.cpp), a multi-family ggml audio engine, and inverts that: one backend process serves several unrelated families through a single runtime vocabulary, and works out which family a checkpoint belongs to from the GGUF's own `audiocpp.model_spec.family` metadata key. There is nothing backend-specific to write in the model config.
+The usual shape for audio is one backend per model family, which means a process per capability and a config file for each. `audio-cpp` wraps [audio.cpp](https://github.com/0xShug0/audio.cpp), a multi-family ggml audio engine. One backend process serves several unrelated families through a single runtime vocabulary, and works out which family a checkpoint belongs to from the GGUF's own `audiocpp.model_spec.family` metadata key. There is nothing backend-specific to write in the model config.
 
 <div class="tw">
 <table>
@@ -130,7 +168,7 @@ The `bonsai` backend serves the 1-bit (Q1_0) and ternary (Q2_0) Bonsai quantizat
 
 ## The operations bar became a page
 
-The old operations bar rendered one row per in-flight operation above every page. Queue four model installs and a backend and it took most of the viewport, on every route, until the last one finished. Two things were conflated there: a global "something is happening" signal, which needs one line, and the detail of what is happening, which needs somewhere to put it.
+The old operations bar rendered one row per in-flight operation above every page. Queue four model installs and a backend and it took most of the viewport, on every route, until the last one finished. It was doing two jobs at once. A global "something is happening" signal only needs one line, and the detail of what is happening needs a page of its own.
 
 The strip is now one line, permanently, showing a failure first and otherwise the least-advanced running operation, with a `+N more` pill. Its `✕` hides the strip and no longer cancels anything. That is a deliberate behavior change worth knowing about before you click it out of habit: the same glyph used to cancel a 17 GB download in one row and dismiss a message in the next. Cancelling moved to the new page, behind a button that says so.
 
@@ -179,6 +217,6 @@ Valkey Search joins the vector store options as the `valkey-store` backend ([#11
 
 This is also the release where localai.io split in two: the project site at the root, and the documentation under `/docs/`. Every URL that was published before still resolves, through 214 generated redirect stubs, because GitHub Pages has no server-side rewrites to do it properly ([#11243](https://github.com/mudler/LocalAI/pull/11243)).
 
-Twenty-four people contributed to this release, eleven of them for the first time. The gallery went from 1,221 entries to 1,505.
+Twenty-five people contributed to this release, eleven of them for the first time. The gallery went from 1,221 entries to 1,515.
 
 To upgrade, pull `localai/localai:latest` or re-run the install script. The [full changelog](https://github.com/mudler/LocalAI/compare/v4.7.1...v4.8.0) has everything this post left out.
