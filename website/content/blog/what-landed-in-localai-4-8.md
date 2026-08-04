@@ -1,14 +1,14 @@
 ---
 title: "What landed in LocalAI 4.8"
-date: 2026-08-01
+date: 2026-08-04
 author: "Ettore Di Giacinto"
 category: "Release"
 tags: ["release", "vllm.cpp", "audio.cpp", "3d", "gallery", "distributed", "performance"]
-summary: "A new inference engine, 3D generation, one backend that serves six audio endpoints, and a web interface 3.48x lighter. 321 pull requests in eighteen days."
+summary: "A new inference engine, 3D generation, one backend that serves six audio endpoints, and a web interface 3.48x lighter. 374 pull requests in twenty-one days."
 extracss: ["blog.css"]
 ---
 
-LocalAI 4.8.0 is out. It took eighteen days and 321 merged pull requests, and it pulls in two directions at once: three new things LocalAI can do that it could not do before, and a long list of places where it now does the old things without lying to you.
+LocalAI 4.8.0 is out, after twenty-one days and 374 merged pull requests. There are three new things LocalAI can do, and a lot of repair work on things it already did.
 
 The full notes list everything. This post covers the parts that change what you do day to day, with the pull request numbers so you can read the diffs.
 
@@ -77,6 +77,21 @@ The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with th
 
 > The GPU images build and ship, but their runtime behavior has not been through the same e2e gate yet. This is a first release of a young engine: no throughput comparison against upstream vLLM is claimed here, and `llama-cpp` remains the default recommendation for general use. Try it, and please report what breaks.
 
+On Apple Silicon the image now ships vllm.cpp's MLX GEMM provider ([#11137](https://github.com/mudler/LocalAI/pull/11137)). Upstream keeps it off by default because it adds about 124 MB, so we measured before turning it on. Qwen3-1.7B-bf16 on an M4, p=512 g=128, both arms toggled on one binary so a build difference cannot explain the gap:
+
+<div class="tw">
+<table>
+<thead><tr><th>Batch</th><th>MLX tok/s</th><th>native tok/s</th><th>speedup</th><th>MLX TTFT</th><th>native TTFT</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>5.79</td><td>3.08</td><td><b>1.88x</b></td><td>3.32 s</td><td>7.68 s</td></tr>
+<tr><td>4</td><td>15.75</td><td>10.24</td><td><b>1.54x</b></td><td>9.63 s</td><td>18.77 s</td></tr>
+<tr><td>16</td><td>38.65</td><td>17.69</td><td><b>2.19x</b></td><td>18.33 s</td><td>54.48 s</td></tr>
+</tbody>
+</table>
+</div>
+
+Two reps, with rep spread reaching 9.4%, so treat the multipliers as +/-10%. Time to first token roughly halves across the range.
+
 <figure>
 <video src="/media/vllm-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="vllm.cpp generating tokens"></video>
 <figcaption>vllm.cpp serving a GGUF checkpoint with no Python in the process.</figcaption>
@@ -84,7 +99,7 @@ The CPU path is verified end to end against `Qwen3.5-2B-UD-Q8_K_XL.gguf` with th
 
 ## LocalAI generates 3D models now
 
-This is a new modality rather than a new backend under an existing one, so it goes through the whole stack: a `Generate3D` RPC in `backend.proto`, a `FLAG_3D` capability so the loader knows which backends can serve it, and `POST /v1/3d/generations`.
+3D generation is a new modality, so it had to be wired through the whole stack: a `Generate3D` RPC in `backend.proto`, a `FLAG_3D` capability so the loader knows which backends can serve it, and `POST /v1/3d/generations`.
 
 The first engine behind it is `trellis2cpp`, an image-to-3D backend over TRELLIS.2. You give it an image, you get a GLB back. The web UI has a page for it with a native GLB viewer, so you can turn the result around in the browser instead of downloading it to find out whether it worked, history kept in IndexedDB so a reload does not lose your generations, and previewable print remeshing for output you actually intend to send to a printer ([#10979](https://github.com/mudler/LocalAI/pull/10979)).
 
@@ -179,6 +194,6 @@ Valkey Search joins the vector store options as the `valkey-store` backend ([#11
 
 This is also the release where localai.io split in two: the project site at the root, and the documentation under `/docs/`. Every URL that was published before still resolves, through 214 generated redirect stubs, because GitHub Pages has no server-side rewrites to do it properly ([#11243](https://github.com/mudler/LocalAI/pull/11243)).
 
-Twenty-four people contributed to this release, eleven of them for the first time. The gallery went from 1,221 entries to 1,505.
+Twenty-five people contributed to this release, eleven of them for the first time. The gallery went from 1,221 entries to 1,515.
 
 To upgrade, pull `localai/localai:latest` or re-run the install script. The [full changelog](https://github.com/mudler/LocalAI/compare/v4.7.1...v4.8.0) has everything this post left out.
