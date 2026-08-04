@@ -35,7 +35,7 @@
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@lezer/highlight": "^1.2.1",
     "@modelcontextprotocol/ext-apps": "^1.2.2",
-    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "dompurify": "^3.4.12",
     "highlight.js": "^11.11.1",
     "hono": "4.12.25",
