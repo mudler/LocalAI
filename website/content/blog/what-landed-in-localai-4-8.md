@@ -36,6 +36,11 @@ The third one was `/api/traces` returning a 21 MB unpaginated blob that the UI p
 
 ## One gallery entry, several builds
 
+<figure>
+<img src="/media/v4-8-0-ui-model-variants.png" alt="The model detail pane listing every variant">
+<figcaption>One entry, four builds. LocalAI picks the largest that fits and marks it auto-selected.</figcaption>
+</figure>
+
 Installing a model no longer means reading a list of quantizations and guessing which one your card will hold. A gallery entry can now declare `variants:`, a list of references to other entries that are alternative builds of the same weights:
 
 ```yaml
@@ -63,6 +68,11 @@ It has grown features vLLM does not have, which is most of the reason the port e
 
 Tool calling is at llama.cpp parity by construction, because chat deliberately reuses the same autoparser path: full minja chat templates, `tool_choice: auto` lowered to a lazy structural-tag decode constraint, 30 tool dialects, 7 reasoning parsers, and streamed `ChatDelta` and `ToolCallDelta`.
 
+<figure>
+<img src="/media/v4-8-0-vllm-cpp-scoreboard.png" alt="Throughput of vllm.cpp relative to each reference engine, drawn as deviation from parity">
+<figcaption>llama.cpp is left out because its 1.18x is a prefill ratio, and putting that on the same axis as throughput would compare two different measurements.</figcaption>
+</figure>
+
 Numbers from the project's own [scoreboard](https://github.com/mudler/vllm.cpp/blob/master/docs/BENCHMARKS.md), which calls ties ties and losses losses. Above 1.0 means vllm.cpp is ahead:
 
 <div class="tw">
@@ -73,16 +83,19 @@ Numbers from the project's own [scoreboard](https://github.com/mudler/vllm.cpp/b
 <tr><td>vLLM</td><td>Qwen3.6-35B-A3B NVFP4, GB10</td><td>1.010x at c16 and 1.013x at c32, behind from c1 to c8 (0.817x at c1)</td></tr>
 <tr><td>llama.cpp</td><td>Qwen3.5-2B GGUF, CPU aarch64</td><td>prefill 1.18x, decode a tie, memory parity</td></tr>
 <tr><td>MLX-LM</td><td>Qwen3-0.6B, Apple M4</td><td>97.6% of warm total, prefill ahead</td></tr>
-<tr><td>DwarfStar (ds4)</td><td>DeepSeek-V4-Flash IQ2_XXS, one DGX Spark</td><td>16.28 vs 16.33 tok/s decode, 0.997x, a parity result</td></tr>
+<tr><td>DwarfStar (ds4)</td><td>DeepSeek-V4-Flash IQ2_XXS, one DGX Spark</td><td>18.69 vs 16.33 tok/s decode, <b>1.144x</b>, same output</td></tr>
+<tr><td>vLLM</td><td>Laguna-XS-2.1 NVFP4, GB10</td><td>44.46 vs 43.10 tok/s, <b>1.03x</b>, same output</td></tr>
 </tbody>
 </table>
 </div>
 
 The upstream page is careful about its own noise: on the 27B grid the run-to-run spread is 0.5% and c2 through c32 land between 0.7% and 1.7%, so it calls those five ties rather than wins. The concurrency-1 result is the one it stands behind.
 
-The DeepSeek-V4-Flash row is the one that shows how far this has moved from being a vLLM port. It runs DeepSeek-V4-Flash at roughly 2-bit (IQ2_XXS mixed, about 80 GB) on a single DGX Spark, decoding at 16.28 tok/s against DwarfStar's 16.33. At 300B+ total parameters even a 4-bit checkpoint is 156 GB or more, so a 2-bit GGUF is what fits inside the Spark's 119 GiB unified pool, and reading GGUF is what makes that possible.
+The DeepSeek-V4-Flash row is the one that shows how far this has moved from being a vLLM port. It runs DeepSeek-V4-Flash at roughly 2-bit (IQ2_XXS mixed, about 80 GB) on a single DGX Spark, decoding at 18.69 tok/s against DwarfStar's 16.33. At 300B+ total parameters even a 4-bit checkpoint is 156 GB or more, so a 2-bit GGUF is what fits inside the Spark's 119 GiB unified pool, and reading GGUF is what makes that possible.
 
-Speculative decoding is in similar shape: MTP on Qwen3.6-27B NVFP4 is token-identical to vLLM's MTP and about 4% faster at concurrency 1.
+That number moved twice in a week, and the second move came from one lever. The dense Q8_0 projection tower was being read from the GGUF mmap over unified memory, which the GB10 reads about 20% slower per-GEMV than device memory. Staging that 6 GiB tower device-resident once at load, same bytes and same kernels, took decode from 16.23 to 18.69, generating the same tokens and using no more peak memory. The same change took Laguna-XS-2.1 from 87% of vLLM to 1.03x ahead of it.
+
+Speculative decoding is in similar shape: MTP on Qwen3.6-27B NVFP4 generates the same tokens as vLLM's MTP and runs about 4% faster at concurrency 1.
 
 Configuration is a normal backend install:
 
@@ -167,6 +180,11 @@ Two changes reach past the backend itself. `AudioTransformResult` gained a `stem
 The `bonsai` backend serves the 1-bit (Q1_0) and ternary (Q2_0) Bonsai quantizations of Qwen3 8B and Qwen3.6-27B, from about 1.15 GB. Stock llama.cpp has no kernels for those formats, so the backend builds against the PrismML fork through a wrapper Makefile that swaps only `LLAMA_REPO` and `LLAMA_VERSION`, reusing the same `grpc-server.cpp` with zero skew patches. Eight gallery entries ship with it. If Q1_0 and Q2_0 reach mainline llama.cpp, this backend retires into a routine version bump ([#10834](https://github.com/mudler/LocalAI/pull/10834), [#10866](https://github.com/mudler/LocalAI/pull/10866)).
 
 ## The operations bar became a page
+
+<figure>
+<img src="/media/v4-8-0-ui-activity.png" alt="The Activity page with four installs running">
+<figcaption>Four backend installs in flight, and the record of what already finished.</figcaption>
+</figure>
 
 The old operations bar rendered one row per in-flight operation above every page. Queue four model installs and a backend and it took most of the viewport, on every route, until the last one finished. It was doing two jobs at once. A global "something is happening" signal only needs one line, and the detail of what is happening needs a page of its own.
 
