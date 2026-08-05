@@ -46,13 +46,27 @@ const (
 )
 
 type Evaluator struct {
-	cache *templateCache
+	cache  *templateCache
+	loader *TemplateLoader
 }
 
+// NewEvaluator returns an Evaluator rooted at modelPath, which is also used
+// as the templates directory (same physical folder — a separate TemplateLoader
+// then filters to .tmpl files only). This keeps compatibility with existing
+// deployments where models and templates live side-by-side, while giving
+// templates a dedicated, testable loader surface.
 func NewEvaluator(modelPath string) *Evaluator {
 	return &Evaluator{
-		cache: newTemplateCache(modelPath),
+		cache:  newTemplateCache(modelPath),
+		loader: NewTemplateLoader(modelPath),
 	}
+}
+
+// TemplateLoader exposes the underlying TemplateLoader owned by the Evaluator.
+// Useful when a caller wants to enumerate available templates (e.g. for the
+// model editor UI) without having to construct a separate loader.
+func (e *Evaluator) TemplateLoader() *TemplateLoader {
+	return e.loader
 }
 
 func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config config.ModelConfig, in PromptTemplateData) (string, error) {
