@@ -73,6 +73,64 @@ static void test_rejects_malformed_sampling_params() {
     const auto trailing = llama_grpc::parse_tts_request_options(
         "Hello world", "/models/voices/ref.wav", "", {{"top_k", "40abc"}});
     check(!trailing.ok, "top_k with trailing garbage is rejected");
+
+    const auto trailing_float = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "0.8abc"}});
+    check(!trailing_float.ok, "top_p with trailing garbage is rejected");
+
+    // std::stol returns a long, which is wider than int32_t on 64-bit hosts, so
+    // an in-range-for-long value still has to be caught before the narrowing.
+    const auto overflow_top_k = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_k", "99999999999"}});
+    check(!overflow_top_k.ok, "top_k beyond int32 range is rejected");
+    check(overflow_top_k.error.find("top_k") != std::string::npos,
+          "top_k overflow error names the field");
+}
+
+static void test_rejects_out_of_range_sampling_params() {
+    // These reach mtmd_helper::gen_audio::inp unconditionally downstream, where
+    // the "> 0" sampler guard does not screen them, so they must die here.
+    const auto negative_top_k = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_k", "-5"}});
+    check(!negative_top_k.ok, "negative top_k is rejected");
+    check(negative_top_k.error.find("top_k") != std::string::npos,
+          "negative top_k error names the field");
+
+    const auto negative_top_p = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "-0.1"}});
+    check(!negative_top_p.ok, "negative top_p is rejected");
+    check(negative_top_p.error.find("top_p") != std::string::npos,
+          "negative top_p error names the field");
+
+    const auto large_top_p = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "1.5"}});
+    check(!large_top_p.ok, "top_p above 1.0 is rejected");
+
+    // NaN survives a naive "p < 0.0f || p > 1.0f" range test because every
+    // comparison against NaN is false. This case pins the correct form.
+    const auto nan_top_p = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "nan"}});
+    check(!nan_top_p.ok, "NaN top_p is rejected");
+
+    const auto inf_top_p = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "inf"}});
+    check(!inf_top_p.ok, "infinite top_p is rejected");
+}
+
+static void test_accepts_sampling_param_boundaries() {
+    const auto zero_top_p = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "0.0"}});
+    check(zero_top_p.ok, "top_p of 0.0 is accepted");
+    check(zero_top_p.top_p == 0.0f, "top_p of 0.0 round-trips");
+
+    const auto one_top_p = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_p", "1.0"}});
+    check(one_top_p.ok, "top_p of 1.0 is accepted");
+    check(one_top_p.top_p == 1.0f, "top_p of 1.0 round-trips");
+
+    const auto zero_top_k = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_k", "0"}});
+    check(zero_top_k.ok, "top_k of 0 is accepted");
 }
 
 static void test_ignores_unknown_params() {
@@ -90,6 +148,8 @@ int main() {
     test_rejects_missing_speaker_reference();
     test_parses_sampling_params();
     test_rejects_malformed_sampling_params();
+    test_rejects_out_of_range_sampling_params();
+    test_accepts_sampling_param_boundaries();
     test_ignores_unknown_params();
 
     if (failures == 0) {
