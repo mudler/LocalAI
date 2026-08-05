@@ -1,14 +1,16 @@
 ---
-title: "What landed in LocalAI 4.8"
+title: "What landed in LocalAI 4.7 and 4.8"
 date: 2026-08-04
 author: "Ettore Di Giacinto"
 category: "Release"
 tags: ["release", "vllm.cpp", "audio.cpp", "3d", "agent", "gallery", "distributed", "performance"]
-summary: "A new inference engine, a terminal agent in the CLI, 3D generation, and a web interface 3.48x lighter. 386 pull requests in twenty-two days."
+summary: "A new inference engine, a terminal agent in the CLI, 3D generation, and a web interface 3.48x lighter. Plus the 4.7 release we never wrote up."
 extracss: ["blog.css"]
 ---
 
 LocalAI 4.8.0 is out, after twenty-two days and 386 merged pull requests. There are four new things LocalAI can do, and a lot of repair work on things it already did.
+
+We also never got around to writing this post for 4.7, so it is in here too, near the bottom. If you do not read release notes, that release has not reached you at all.
 
 The full notes list everything. This post covers the parts that change what you do day to day, with the pull request numbers so you can read the diffs.
 
@@ -236,6 +238,18 @@ Alongside those, `in_flight` counters no longer leak high and pin a replica's VR
 Inline reward code is now refused unless the operator sets `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend. Builtin reward functions are unaffected and need no configuration. The documentation no longer describes the allowlist as a sandbox ([#11068](https://github.com/mudler/LocalAI/pull/11068)).
 
 Two more hardening fixes landed in the same cycle. Tar hardlinks that escape the extraction root are now rejected: the archive extractor pre-scanned members and rejected symlinks, but a tar hardlink entry carries a regular file mode and passed that check, and `Header.Linkname` was never validated, so an archive could link to a path outside the destination ([#11266](https://github.com/mudler/LocalAI/pull/11266)). And a cyclic `$ref` in a JSON-schema grammar is now rejected rather than recursing into a stack overflow ([#11041](https://github.com/mudler/LocalAI/pull/11041)). This release also picks up hono 4.12.25 for CVE-2026-54290 ([#11023](https://github.com/mudler/LocalAI/pull/11023)).
+
+## The 4.7 release nobody heard about
+
+We skipped this post for 4.7. If you do not read release notes, none of what follows has reached you, and a couple of them are things you would have wanted a month ago.
+
+Voice cloning became a UI workflow instead of a YAML exercise. You record or upload a consented reference in the web UI, normalize it, preview it, and save it as a named profile, then reference it as `localai://voice-profiles/<id>` from the TTS page or from `/v1/audio/speech`. Nothing gets copied into model directories by hand. Which backends can do it is discovered from their declared capabilities rather than a hardcoded list, so every cloning-capable backend picks it up, and the UI offers gallery models to install if you have none ([#10799](https://github.com/mudler/LocalAI/pull/10799)).
+
+The `longcat-video` backend brought text-to-video, image-to-video and audio-driven avatar generation, including talking-head continuation across segments, with audio and reference-image controls in the Studio UI ([#10792](https://github.com/mudler/LocalAI/pull/10792)).
+
+`vibevoice-cpp` got real streaming TTS, replacing whole-clip-then-chunk synthesis with incremental output through a new callback ABI. Time to first audio went from 39.96s to 2.38s on a CPU-only box for `VibeVoice-Realtime-0.5B` ([#10764](https://github.com/mudler/LocalAI/pull/10764)). `moss-transcribe-cpp` does multi-speaker transcription, diarization and timestamps in one offline pass, byte-exact against the reference PyTorch and 1.6 to 2.2x faster on CPU ([#10756](https://github.com/mudler/LocalAI/pull/10756)). And F5-TTS is linked into the CrispASR build with its own gallery model ([#10753](https://github.com/mudler/LocalAI/pull/10753)).
+
+An assistant turn can also carry `reasoning` and `tool_calls` together now, and keep the reasoning across the tool-result loop ([#10744](https://github.com/mudler/LocalAI/pull/10744)). `context_size: -1` runs a model at its full trained context window, read per-model from GGUF metadata, with a warning when it will not fit ([#10752](https://github.com/mudler/LocalAI/pull/10752)). And `devices:` picks which GPUs llama.cpp offloads to ([#10724](https://github.com/mudler/LocalAI/pull/10724)).
 
 ## The rest, briefly
 
