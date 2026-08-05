@@ -2091,6 +2091,83 @@
     - filename: llama-cpp/models/Qwen-AgentWorld-35B-A3B-GGUF/Qwen-AgentWorld-35B-A3B-UD-Q4_K_M.gguf
       sha256: e7a8eafdd8013443b6bcc4b6fb47b2d2025f772d359650b9ceb7d75971e22cad
       uri: https://huggingface.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF/resolve/main/Qwen-AgentWorld-35B-A3B-UD-Q4_K_M.gguf
+- &agents-a1-4b
+  name: "agents-a1-4b"
+  variants:
+    - model: agents-a1-4b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/InternScience/Agents-A1-4B
+    - https://huggingface.co/InternScience/Agents-A1-4B-Q4_K_M-GGUF
+  description: |
+    Agents-A1-4B is InternScience's Apache-2.0 dense 4B agentic model, based on
+    Qwen3.5. It is trained for long-horizon search, engineering and scientific
+    research, instruction following, tool use, and multimodal tasks. This entry
+    uses the official Q4_K_M GGUF quantization and vision projector.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - gpu
+    - cpu
+  icon: https://huggingface.co/InternScience/Agents-A1-4B/resolve/main/figures/logo_nobg.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Agents-A1-4B-Q4_K_M/Agents-A1-4B-mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Agents-A1-4B-Q4_K_M/Agents-A1-4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Agents-A1-4B-Q4_K_M/Agents-A1-4B-Q4_K_M.gguf
+      sha256: d93c393a9bd5139a4b5cfe24d31ef553c5a497bfb8afec178a354ecbf508f062
+      uri: huggingface://InternScience/Agents-A1-4B-Q4_K_M-GGUF/Agents-A1-4B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Agents-A1-4B-Q4_K_M/Agents-A1-4B-mmproj.gguf
+      sha256: 254145e7e03e9e8d3120813fac8033ffa04e411eb6d70a198833504935681084
+      uri: huggingface://InternScience/Agents-A1-4B-Q4_K_M-GGUF/Agents-A1-4B-mmproj.gguf
+- !!merge <<: *agents-a1-4b
+  name: "agents-a1-4b-q8"
+  variants: []
+  urls:
+    - https://huggingface.co/InternScience/Agents-A1-4B
+    - https://huggingface.co/InternScience/Agents-A1-4B-Q8_0-GGUF
+  description: |
+    Agents-A1-4B is InternScience's Apache-2.0 dense 4B agentic model, based on
+    Qwen3.5. It is trained for long-horizon search, engineering and scientific
+    research, instruction following, tool use, and multimodal tasks. This entry
+    uses the official Q8_0 GGUF quantization and vision projector.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Agents-A1-4B-Q8_0/Agents-A1-4B-mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Agents-A1-4B-Q8_0/Agents-A1-4B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Agents-A1-4B-Q8_0/Agents-A1-4B-Q8_0.gguf
+      sha256: c327f66e820dae550bd230394595071c79f48c88d411b452d013ee4b5999fcea
+      uri: huggingface://InternScience/Agents-A1-4B-Q8_0-GGUF/Agents-A1-4B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Agents-A1-4B-Q8_0/Agents-A1-4B-mmproj.gguf
+      sha256: 254145e7e03e9e8d3120813fac8033ffa04e411eb6d70a198833504935681084
+      uri: huggingface://InternScience/Agents-A1-4B-Q8_0-GGUF/Agents-A1-4B-mmproj.gguf
 - name: "ornith-1.0-9b"
   variants:
     - model: ornith-1.0-9b-mtp
