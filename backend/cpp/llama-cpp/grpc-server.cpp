@@ -2089,15 +2089,23 @@ public:
 
                 task.tokens    = std::move(inputs[i]);
 #ifdef LOCALAI_HAS_SERVER_SCHEMA
+                // The schema evaluator no longer takes the per-slot n_ctx: upstream
+                // dropped the parameter and server-schema stopped consulting n_ctx at
+                // all, leaving the context bound to the slot. Forks that predate the
+                // server-schema split still expect it, so only this branch loses it.
                 task.params           = server_schema::eval_llama_cmpl_schema(
+                        ctx_server.impl->vocab,
+                        params_base,
+                        ctx_server.get_meta().logit_bias_eog,
+                        data);
 #else
                 task.params           = server_task::params_from_json_cmpl(
-#endif
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
                         ctx_server.get_meta().logit_bias_eog,
                         data);
+#endif
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
@@ -2659,15 +2667,23 @@ public:
 
                 task.tokens    = std::move(inputs[i]);
 #ifdef LOCALAI_HAS_SERVER_SCHEMA
+                // The schema evaluator no longer takes the per-slot n_ctx: upstream
+                // dropped the parameter and server-schema stopped consulting n_ctx at
+                // all, leaving the context bound to the slot. Forks that predate the
+                // server-schema split still expect it, so only this branch loses it.
                 task.params           = server_schema::eval_llama_cmpl_schema(
+                        ctx_server.impl->vocab,
+                        params_base,
+                        ctx_server.get_meta().logit_bias_eog,
+                        data);
 #else
                 task.params           = server_task::params_from_json_cmpl(
-#endif
                         ctx_server.impl->vocab,
                         params_base,
                         ctx_server.get_meta().slot_n_ctx,
                         ctx_server.get_meta().logit_bias_eog,
                         data);
+#endif
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
