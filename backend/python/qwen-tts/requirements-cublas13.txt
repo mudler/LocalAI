@@ -1,5 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
-torch
+# torch is pinned to the minor version the flash-attn wheel in
+# requirements-cublas13-after.txt was built against (ABI-tied).
+torch==2.13.*
 torchaudio
 qwen-tts
 sox
