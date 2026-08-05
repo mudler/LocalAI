@@ -133,10 +133,22 @@ curl http://localhost:8080/v1/embeddings -X POST -H "Content-Type: application/j
 | `last` | The last token's vector. |
 | `decayed_mean` | Recency-weighted mean: token *i* of *T* weighs `2^(-(T-1-i)/H)` with half-life `H` = `pooling_half_life_tokens` (default 256) — recent turns dominate without erasing earlier context. |
 
-Go-side schemes need raw per-token vectors from the backend, so LocalAI
-automatically adds the `pooling:none` backend option when `parameters.pooling`
-is set in the model YAML. After pooling, the vector is normalized with
-llama.cpp's `embd_normalize` rule (default L2; configurable through
+Go-side schemes need raw per-token vectors from the backend. Each backend
+declares whether an embedding result is final or per-token; LocalAI rejects a
+Go-side scheme for a final vector and rejects `backend` pass-through for a
+per-token matrix instead of guessing from its shape. Older backends that do
+not declare a layout remain compatible with `backend` pooling only.
+
+llama.cpp chooses this layout when the model is loaded. LocalAI automatically
+adds the `pooling:none` backend option when a llama.cpp model sets a Go-side
+`parameters.pooling` scheme. That raw-loaded instance can switch between
+`mean`, `last`, and `decayed_mean` per request, but it cannot switch back to
+`backend` pooling without reloading. Conversely, a backend-pooled llama.cpp
+instance rejects per-request Go pooling. Other backends may support Go-side
+pooling when they explicitly return per-token vectors.
+
+After Go-side pooling, the vector is normalized with llama.cpp's
+`embd_normalize` rule (default L2; configurable through
 `options: ["embd_normalize:<n>"]`).
 
 Model-level defaults live under `parameters:`:
@@ -151,9 +163,9 @@ parameters:
   pooling_half_life_tokens: 256
 ```
 
-Go-side pooling requires an up-to-date llama-cpp backend: older builds don't
-report the embedding shape, and the request fails closed with an error asking
-you to rebuild the backend and set `options: ["pooling:none"]`.
+Go-side pooling requires an up-to-date backend that reports its embedding
+layout. A legacy backend fails closed for Go-side schemes with an error asking
+you to rebuild or update it.
 
 ## 💡 Examples
 

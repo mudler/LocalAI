@@ -336,7 +336,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("No embeddings were calculated.")
             return backend_pb2.EmbeddingResult()
-        return backend_pb2.EmbeddingResult(embeddings=outputs[0].outputs.embedding)
+        return backend_pb2.EmbeddingResult(
+            embeddings=outputs[0].outputs.embedding,
+            layout=backend_pb2.EMBEDDING_LAYOUT_FINAL,
+        )
 
     async def PredictStream(self, request, context):
         """

@@ -105,6 +105,46 @@ var _ = Describe("StoresDelete", func() {
 		})).To(Succeed(), "delete of missing key should succeed")
 		Expect(s.keys).To(HaveLen(1))
 	})
+
+	It("reopens the dimension after deleting every key", func() {
+		s := NewStore()
+		oldKey := []float32{2, 0, 0}
+		mustSet(s, [][]float32{oldKey}, [][]byte{[]byte("3d")})
+		Expect(s.keysAreNormalized).To(BeFalse())
+
+		Expect(s.StoresDelete(&pb.StoresDeleteOptions{
+			Keys: wrapKeys([][]float32{oldKey}),
+		})).To(Succeed())
+		Expect(s.keys).To(BeEmpty())
+		Expect(s.keyLen).To(Equal(-1))
+		Expect(s.keysAreNormalized).To(BeTrue())
+
+		newKey := normalizeVec([]float32{1, 1})
+		mustSet(s, [][]float32{newKey}, [][]byte{[]byte("2d")})
+		res, err := s.StoresFind(&pb.StoresFindOptions{
+			Key:  &pb.StoresKey{Floats: newKey},
+			TopK: 1,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Values).To(HaveLen(1))
+		Expect(string(res.Values[0].Bytes)).To(Equal("2d"))
+	})
+
+	It("retains the dimension after a partial delete", func() {
+		s := NewStore()
+		mustSet(s,
+			[][]float32{{1, 0, 0}, {0, 1, 0}},
+			[][]byte{[]byte("x"), []byte("y")},
+		)
+		Expect(s.StoresDelete(&pb.StoresDeleteOptions{
+			Keys: wrapKeys([][]float32{{1, 0, 0}}),
+		})).To(Succeed())
+		Expect(s.keyLen).To(Equal(3))
+		Expect(s.StoresSet(&pb.StoresSetOptions{
+			Keys:   wrapKeys([][]float32{{1, 0}}),
+			Values: wrapValues([][]byte{[]byte("2d")}),
+		})).NotTo(Succeed())
+	})
 })
 
 var _ = Describe("StoresFind", func() {

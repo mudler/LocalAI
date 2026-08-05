@@ -2939,6 +2939,10 @@ public:
         embeddingResult->set_tokens(n_vectors);
         embeddingResult->set_dim(dim);
         embeddingResult->set_prompt_tokens(prompt_tokens);
+        embeddingResult->set_layout(
+            llama_pooling_type(ctx_server.get_llama_context()) == LLAMA_POOLING_TYPE_NONE
+                ? backend::EMBEDDING_LAYOUT_PER_TOKEN
+                : backend::EMBEDDING_LAYOUT_FINAL);
 
         std::cout << "[DEBUG] Embedding vectors: " << n_vectors << " x " << dim << std::endl;
 

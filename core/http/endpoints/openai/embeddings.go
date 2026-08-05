@@ -101,6 +101,9 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 			embeddings, err := embedFn()
 			if err != nil {
+				if backend.IsEmbeddingPoolingCompatibilityError(err) {
+					return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+				}
 				return err
 			}
 			items = append(items, embeddingItem(embeddings, i, input.EncodingFormat))
@@ -115,6 +118,9 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 			embeddings, err := embedFn()
 			if err != nil {
+				if backend.IsEmbeddingPoolingCompatibilityError(err) {
+					return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+				}
 				return err
 			}
 			items = append(items, embeddingItem(embeddings, i, input.EncodingFormat))

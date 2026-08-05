@@ -3,6 +3,7 @@ package backend
 import (
 	"math"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -157,6 +158,72 @@ var _ = Describe("Go-side embedding pooling", func() {
 			bad := &proto.EmbeddingResult{Embeddings: []float32{1, 2, 3}, Tokens: 2, Dim: 2}
 			_, err := PoolEmbeddingResult(bad, PoolingMean, 0, 2)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("finishEmbeddingResult", func() {
+		finish := func(res *proto.EmbeddingResult, scheme string) ([]float32, error) {
+			cfg := config.ModelConfig{}
+			cfg.Pooling = scheme
+			cfg.Options = []string{"embd_normalize:-1"}
+			return finishEmbeddingResult(res, cfg)
+		}
+		final := func() *proto.EmbeddingResult {
+			return &proto.EmbeddingResult{
+				Embeddings: []float32{1, 2},
+				Tokens:     1,
+				Dim:        2,
+				Layout:     proto.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL,
+			}
+		}
+		perToken := func() *proto.EmbeddingResult {
+			return &proto.EmbeddingResult{
+				Embeddings: []float32{1, 2, 3, 4},
+				Tokens:     2,
+				Dim:        2,
+				Layout:     proto.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN,
+			}
+		}
+
+		It("passes a final vector through to backend pooling", func() {
+			got, err := finish(final(), PoolingBackend)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(Equal([]float32{1, 2}))
+		})
+
+		It("rejects Go-side pooling after the backend returned a final vector", func() {
+			_, err := finish(final(), PoolingMean)
+			Expect(err).To(MatchError(ContainSubstring("final vector")))
+		})
+
+		It("pools a backend-declared per-token matrix", func() {
+			got, err := finish(perToken(), PoolingMean)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(Equal([]float32{2, 3}))
+		})
+
+		It("rejects backend pass-through of a per-token matrix", func() {
+			_, err := finish(perToken(), PoolingBackend)
+			Expect(err).To(MatchError(ContainSubstring("cannot pass through per-token")))
+		})
+
+		It("allows legacy layout only for backend pooling", func() {
+			legacy := &proto.EmbeddingResult{Embeddings: []float32{1, 2}, Tokens: 1, Dim: 2}
+			got, err := finish(legacy, PoolingBackend)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(Equal([]float32{1, 2}))
+
+			_, err = finish(legacy, PoolingMean)
+			Expect(err).To(MatchError(ContainSubstring("did not declare")))
+		})
+
+		It("fails closed for an unknown layout value", func() {
+			res := perToken()
+			res.Layout = proto.EmbeddingLayout(99)
+			_, err := finish(res, PoolingMean)
+			Expect(err).To(MatchError(ContainSubstring("unknown embedding layout")))
+			_, err = finish(res, PoolingBackend)
+			Expect(err).To(MatchError(ContainSubstring("unknown embedding layout")))
 		})
 	})
 })

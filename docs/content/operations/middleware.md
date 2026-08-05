@@ -495,6 +495,21 @@ For each request:
    for the other classifiers. With `k: 1` this degenerates to
    "nearest example's labels".
 
+The numeric configuration is bounded so one request cannot allocate an
+unbounded neighbour result and the cosine-weighted vote remains meaningful:
+
+| Field | Accepted values |
+|-------|-----------------|
+| `k` | `0` for the default (`3`), otherwise `1` through `1024` |
+| `similarity_threshold` | `0` for the default (`0.80`), otherwise greater than `0` and at most `1` |
+| `vote_threshold` | `0` for the default (`0.5`), otherwise greater than `0` and at most `1` |
+
+Negative, non-finite, and above-range values are rejected when the model
+configuration is loaded. The `k` cap bounds the store priority queue and
+returned neighbour arrays. Similarity is restricted to non-negative cosine
+weights because negative weights would make vote totals and shares invalid;
+vote share itself is necessarily between zero and one.
+
 Every knn decision (in the decision log and the `/api/router/decide`
 response) also carries `neighbors` — the `k` retrieved corpus entries
 by descending similarity, **including** ones below the gate, each as
@@ -564,7 +579,7 @@ index and re-embed the persisted entries.
   tight).
 - **`k` trades robustness for corpus density**: `k: 3` tolerates one
   mislabelled neighbour; raise it only when every label region has
-  several exemplars.
+  several exemplars. The maximum is `1024`.
 - **`embedding_cache` is ignored** for `knn` (with a warning) — the
   classifier is already an embedding KNN lookup; wrapping it in
   another would embed twice for no additional information.

@@ -676,6 +676,7 @@ test-extra: prepare-test-extra
 ##   BACKEND_TEST_PROMPT      Override the prompt used in predict/stream specs.
 ##   BACKEND_TEST_OPTIONS     Comma-separated Options[] entries forwarded to LoadModel,
 ##                            e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+##   BACKEND_TEST_EMBEDDING_LAYOUT Expected EmbeddingResult layout: "final" or "per_token".
 ##
 ## Direct usage (image already built, no docker-build-* dependency):
 ##
@@ -705,6 +706,7 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_CAPS="$$BACKEND_TEST_CAPS" \
 	BACKEND_TEST_PROMPT="$$BACKEND_TEST_PROMPT" \
 	BACKEND_TEST_OPTIONS="$$BACKEND_TEST_OPTIONS" \
+	BACKEND_TEST_EMBEDDING_LAYOUT="$$BACKEND_TEST_EMBEDDING_LAYOUT" \
 	BACKEND_TEST_TOOL_PROMPT="$$BACKEND_TEST_TOOL_PROMPT" \
 	BACKEND_TEST_TOOL_NAME="$$BACKEND_TEST_TOOL_NAME" \
 	BACKEND_TEST_CACHE_TYPE_K="$$BACKEND_TEST_CACHE_TYPE_K" \
@@ -722,6 +724,15 @@ test-extra-backend: protogen-go
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias \
+	$(MAKE) test-extra-backend
+
+## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the
+## real C++ backend and verifies that it marks the flattened matrix per-token.
+test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_CAPS=health,load,embeddings \
+	BACKEND_TEST_OPTIONS=pooling:none \
+	BACKEND_TEST_EMBEDDING_LAYOUT=per_token \
 	$(MAKE) test-extra-backend
 
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
@@ -813,6 +824,7 @@ test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
 	BACKEND_IMAGE=local-ai-backend:tinygrad \
 	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
 	BACKEND_TEST_CAPS=health,load,embeddings \
+	BACKEND_TEST_EMBEDDING_LAYOUT=final \
 	$(MAKE) test-extra-backend
 
 ## tinygrad — Stable Diffusion 1.5. The original CompVis/runwayml repos have

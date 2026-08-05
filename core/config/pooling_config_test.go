@@ -50,6 +50,28 @@ var _ = Describe("Go-side pooling model config", func() {
 				Expect(cfg.Options).ToNot(ContainElement("pooling:none"))
 			}
 		})
+
+		It("does not inject llama.cpp options into another backend", func() {
+			for _, backend := range []string{"transformers", "ik-llama-cpp"} {
+				cfg := poolingTestConfig(PoolingMean, 0)
+				cfg.Backend = backend
+				cfg.SetDefaults()
+				Expect(cfg.Options).ToNot(ContainElement("pooling:none"), backend)
+			}
+		})
+
+		It("configures pinned llama.cpp variants for raw output", func() {
+			cfg := poolingTestConfig(PoolingMean, 0)
+			cfg.Backend = "cuda12-llama-cpp"
+			cfg.SetDefaults()
+			Expect(cfg.Options).To(ContainElement("pooling:none"))
+		})
+
+		It("recognizes llama.cpp's pooling_type alias", func() {
+			cfg := poolingTestConfig(PoolingMean, 0, "pooling_type:none")
+			cfg.SetDefaults()
+			Expect(cfg.Options).ToNot(ContainElement("pooling:none"))
+		})
 	})
 
 	Describe("Validate", func() {
@@ -103,6 +125,31 @@ var _ = Describe("Go-side pooling model config", func() {
 
 		It("accepts Go-side pooling with an explicit pooling:none option", func() {
 			cfg := poolingTestConfig(PoolingLast, 0, "pooling:none")
+			valid, err := cfg.Validate()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(valid).To(BeTrue())
+		})
+
+		It("rejects backend pooling with a raw llama.cpp instance", func() {
+			for _, scheme := range []string{"", PoolingBackend} {
+				cfg := poolingTestConfig(scheme, 0, "pooling:none")
+				valid, err := cfg.Validate()
+				Expect(err).To(HaveOccurred(), "scheme %q", scheme)
+				Expect(valid).To(BeFalse(), "scheme %q", scheme)
+				Expect(err.Error()).To(ContainSubstring("per-token"))
+			}
+		})
+
+		It("uses the last llama.cpp pooling option like the backend", func() {
+			cfg := poolingTestConfig(PoolingMean, 0, "pooling:mean", "pooling_type:none")
+			valid, err := cfg.Validate()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(valid).To(BeTrue())
+		})
+
+		It("leaves non-llama pooling compatibility to the backend result", func() {
+			cfg := poolingTestConfig(PoolingMean, 0, "pooling:custom")
+			cfg.Backend = "future-embedding-backend"
 			valid, err := cfg.Validate()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(valid).To(BeTrue())
