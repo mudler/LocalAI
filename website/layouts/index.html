@@ -39,7 +39,8 @@
     <p class="kicker rv">The runtime</p>
     <h2 class="rv mt1" style="max-width:21ch">Everything else plugs into LocalAI.</h2>
     <p class="lede rv mt2">One binary with an OpenAI-compatible API in front of it. Point an existing client at it and the calls keep working, except now the model is on your machine. It also speaks the Anthropic, Ollama and ElevenLabs APIs, so most tools need a URL change and nothing else.</p>
-    <p class="lede rv mt2">Underneath, a small core pulls each engine in as a separate backend, only when a model asks for it. That is why one install covers this much ground without becoming a 9 GB download.</p>
+    <p class="lede rv mt2">The engine behind that API is swappable. One model can run on llama.cpp while the next loads on vLLM, SGLang or MLX, and the client never notices: same endpoint, same request, different engine underneath. Switching is one line in the model's config.</p>
+    <p class="lede rv mt2">A small core pulls each engine in as a separate backend, only when a model asks for it. That is why one install covers this much ground without becoming a 9 GB download.</p>
     <div class="apis rv">
       <span>OpenAI API</span><span>Anthropic API</span><span>Ollama API</span><span>ElevenLabs API</span><span>Realtime over WebRTC</span>
     </div>
