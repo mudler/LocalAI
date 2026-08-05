@@ -98,14 +98,32 @@ inline tts_request_options parse_tts_request_options(
     opts.voice_path = voice;
     opts.language   = language;
 
+    // Both values are range-checked here rather than left to the caller: the
+    // consumer copies them straight into mtmd_helper::gen_audio::inp, and only
+    // its separate sampler assignment is guarded by "> 0". An out-of-range or
+    // non-finite value would slip past that guard and reach llama.cpp.
     const auto top_k_it = params.find("top_k");
-    if (top_k_it != params.end() && !detail::parse_whole_int32(top_k_it->second, opts.top_k)) {
-        return detail::reject("top_k must be an integer, got \"" + top_k_it->second + "\"");
+    if (top_k_it != params.end()) {
+        if (!detail::parse_whole_int32(top_k_it->second, opts.top_k)) {
+            return detail::reject("top_k must be an integer, got \"" + top_k_it->second + "\"");
+        }
+        if (opts.top_k < 0) {
+            return detail::reject("top_k must be >= 0, got \"" + top_k_it->second + "\"");
+        }
     }
 
     const auto top_p_it = params.find("top_p");
-    if (top_p_it != params.end() && !detail::parse_whole_float(top_p_it->second, opts.top_p)) {
-        return detail::reject("top_p must be a number, got \"" + top_p_it->second + "\"");
+    if (top_p_it != params.end()) {
+        if (!detail::parse_whole_float(top_p_it->second, opts.top_p)) {
+            return detail::reject("top_p must be a number, got \"" + top_p_it->second + "\"");
+        }
+        // Phrased as a negated in-range test, not "p < 0.0f || p > 1.0f",
+        // because every comparison against NaN is false: the obvious form
+        // would accept NaN, and NaN then defeats the consumer's "> 0" guard
+        // too, since that comparison is false as well.
+        if (!(opts.top_p >= 0.0f && opts.top_p <= 1.0f)) {
+            return detail::reject("top_p must be between 0.0 and 1.0, got \"" + top_p_it->second + "\"");
+        }
     }
 
     opts.ok = true;
