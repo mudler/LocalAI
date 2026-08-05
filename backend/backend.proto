@@ -499,6 +499,7 @@ message ModelOptions {
   // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
   // Unknown keys produce an error at LoadModel time.
   string EngineArgs = 73;
+  string OriginalConfigFile = 76;
 
   // Proxy carries the cloud-proxy backend's per-model configuration.
   // Empty for non-proxy backends.
