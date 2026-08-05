@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"time"
+
+	"github.com/mudler/LocalAI/internal/backoff"
 )
 
 // ErrTransientDownload marks a download failure that a later attempt has a
@@ -89,7 +92,11 @@ func (t *readErrorRecorder) Read(p []byte) (int, error) {
 // waitBeforeRetry sleeps for the backoff interval of the given attempt
 // (1-based), returning the context error if the caller gives up while waiting.
 func waitBeforeRetry(ctx context.Context, attempt int) error {
-	delay := DownloadRetryBaseDelay << (attempt - 1)
+	exponent := 0
+	if attempt > 1 {
+		exponent = attempt - 1
+	}
+	delay := backoff.Exponential(DownloadRetryBaseDelay, time.Duration(math.MaxInt64), uint(exponent))
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {

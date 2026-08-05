@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -241,17 +242,11 @@ func (c *Client) retryDelay(resp *http.Response, attempt int) time.Duration {
 }
 
 func (c *Client) exponentialBackoff(attempt int) time.Duration {
-	delay := c.retryBackoff
-	for i := 1; i < attempt; i++ {
-		delay *= 2
-		if delay >= c.maxBackoff {
-			return c.maxBackoff
-		}
+	exponent := 0
+	if attempt > 1 {
+		exponent = attempt - 1
 	}
-	if delay > c.maxBackoff {
-		return c.maxBackoff
-	}
-	return delay
+	return backoff.Exponential(c.retryBackoff, c.maxBackoff, uint(exponent))
 }
 
 // GetLatest fetches the latest GGUF models
