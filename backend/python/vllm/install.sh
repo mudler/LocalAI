@@ -209,22 +209,87 @@ elif [ "x${BUILD_TYPE}" == "xintel" ]; then
         export CMAKE_PREFIX_PATH="$(python -c 'import site; print(site.getsitepackages()[0])'):${CMAKE_PREFIX_PATH:-}"
         VLLM_TARGET_DEVICE=xpu uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps .
     popd
-# AMD ROCm: install vllm from its dedicated ROCm wheel index instead of the
-# CUDA-only PyPI wheel. installRequirements brings the base ROCm
-# torch/transformers (requirements-hipblas.txt), then we pull vllm (plus the
-# matching ROCm torch, via --upgrade) from wheels.vllm.ai/rocm. This is the
-# method upstream prescribes for AMD; the Python-3.12 pin is set above.
-# There is intentionally no requirements-hipblas-after.txt: a bare `vllm`
-# there would resolve to the CUDA wheel, and installRequirements never loads
-# a ${BUILD_TYPE}-after file for hipblas anyway (BUILD_TYPE == BUILD_PROFILE).
-# https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html?device=rocm
+# AMD ROCm / gfx1151 (RDNA 3.5, Strix Halo): there is NO prebuilt vllm wheel for
+# this GPU. wheels.vllm.ai/rocm ships only a gfx942/gfx950 (CDNA) build pinned to
+# a rocm7.2.3 torch that cannot even enumerate Strix Halo (device_count == 0), and
+# AMD's gfx1151 wheel index carries torch/triton but no vllm. So build vllm from
+# source against AMD's ROCm 7.14 torch, targeting gfx1151 — mirrors the intel/cpu
+# source-build branches above. This reproduces the exact stack AMD's own
+# rocm/vllm:*_rdna_* image ships and runs on gfx1151 (torch 2.11.0+rocm7.14.0,
+# vllm 0.23.1.dev1 @ commit 9ddef7117). The Python-3.12 pin is set above.
 elif [ "x${BUILD_TYPE}" == "xhipblas" ]; then
+    # vllm's HIP/C++ compile is large; MAX_JOBS=1 (set above for CUDA hosts) would
+    # take hours. 8 jobs balances throughput vs the per-job RAM of the ROCm kernels.
+    export MAX_JOBS=8
+
+    # rocm_smi's CMake package (pulled by vllm's ROCm build) probes system libdrm
+    # via pkg-config; these are OS-level build tools, not ROCm. No-op outside the
+    # Docker builder stage. The ROCm toolchain itself comes entirely from pip below.
+    if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" = "0" ]; then
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            pkg-config libdrm-dev
+    fi
+
+    # GPU arch to build for. AMDGPU_TARGETS comes from the build (Dockerfile.python
+    # ARG/ENV); default to gfx1151 -- the only arch we could validate on real
+    # hardware. AMD ships a per-GPU torch build for essentially every AMD arch on
+    # the multi-arch index, selected via the torch[device-gfx<arch>] extra, which
+    # takes a single arch, so use the first target for that selection while the
+    # source build below targets the full AMDGPU_TARGETS list.
+    _gpu_targets="${AMDGPU_TARGETS:-gfx1151}"
+    _gpu_arch="${_gpu_targets%%;*}"; _gpu_arch="${_gpu_arch%% *}"
+
+    ensureVenv
+    # Self-contained ROCm 7.14 build -- reproduces AMD's own rocm/vllm rdna recipe.
+    # From AMD's multi-arch index: the per-GPU torch (torch[device-gfx<arch>]) AND
+    # the full devel SDK (rocm-sdk-devel: hipcc + the HIP CMake packages that the
+    # runtime _rocm_sdk_core lacks). Everything lives in the venv, so the build
+    # needs NO system ROCm at /opt/rocm and reproduces on any base image with pip.
+    uv pip install --index-url https://repo.amd.com/rocm/whl-multi-arch/ \
+        "torch[device-${_gpu_arch}]==2.11.0+rocm7.14.0" \
+        "torchvision==0.26.0+rocm7.14.0" \
+        "rocm-sdk-devel==7.14.0"
     installRequirements
 
-    # --upgrade reconciles the base ROCm torch to whatever the vllm ROCm wheel
-    # pins; --extra-index-url adds the ROCm wheel repository on top of PyPI.
-    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} \
-        --extra-index-url https://wheels.vllm.ai/rocm/ --upgrade vllm
+    # Expand the devel tree and link the installed rocm-sdk-device-* wheels into
+    # it (required before the SDK's hipcc/CMake are usable), then resolve every
+    # path from the SDK's own CLI — no hardcoded location, no host dependency.
+    rocm-sdk init
+    ROCM_PATH="$(rocm-sdk path --root)"
+    export ROCM_PATH ROCM_HOME="$ROCM_PATH"
+    export CMAKE_PREFIX_PATH="$(rocm-sdk path --cmake)${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+    export PATH="$(rocm-sdk path --bin):$PATH"
+
+    # vLLM detects ROCm at runtime via `import amdsmi` (platforms/__init__.py:
+    # amdsmi_init() + get_processor_handles()); without it vLLM falls back to
+    # UnspecifiedPlatform and dies with "Device string must not be empty".
+    # rocm-sdk-core ships amd_smi in-place under _rocm_sdk_core/share/amd_smi,
+    # where it resolves its native libamd_smi.so RELATIVE to that directory.
+    # A pip copy into site-packages breaks that relative lookup, and forcing the
+    # lib via LD_LIBRARY_PATH shadows torch's own bundled ROCm runtime and drops
+    # device_count to 0. So register the in-place package with a .pth entry --
+    # `import amdsmi` then resolves where its libs do, no LD override needed.
+    # (AMD's rocm/vllm image likewise imports amdsmi in-place from this path.)
+    _sp="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+    printf '_rocm_sdk_core/share/amd_smi\n' > "${_sp}/amdsmi.pth"
+
+    # Build vllm from source against this ROCm 7.14 torch. Pin to the release tag
+    # closest to what AMD's rocm/vllm rdna image ships (0.23.1.dev1+g9ddef7117
+    # sits between v0.23.0 and v0.23.1rc0).
+    VLLM_REF="${VLLM_REF:-v0.23.0}"
+    _vllm_src=$(mktemp -d)
+    trap 'rm -rf "${_vllm_src}"' EXIT
+    git clone --depth 1 --branch "${VLLM_REF}" \
+        https://github.com/vllm-project/vllm "${_vllm_src}/vllm"
+    pushd "${_vllm_src}/vllm"
+        # Strip vllm's own torch/triton pins so it builds against our ROCm wheels.
+        python use_existing_torch.py || true
+        uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -r requirements/rocm.txt
+        # No GPU in the build container -> pin the target arch(es) explicitly.
+        export PYTORCH_ROCM_ARCH="${_gpu_targets}" GPU_TARGETS="${_gpu_targets}" GPU_ARCHS="${_gpu_targets}"
+        VLLM_TARGET_DEVICE=rocm uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --no-deps .
+    popd
 # FROM_SOURCE=true on a CPU build skips the prebuilt vllm wheel in
 # requirements-cpu-after.txt and compiles vllm locally against the host's
 # actual CPU. Not used by default because it takes ~30-40 minutes, but
