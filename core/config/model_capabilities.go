@@ -55,7 +55,12 @@ func (c *ModelConfig) VisionSupported() bool {
 		return true
 	}
 	if c.MMProj != "" {
-		return true
+		// A TTS model's mmproj holds a speaker encoder and code predictor, not
+		// a vision tower, so the projector alone proves nothing here. Callers
+		// that genuinely are both declare FLAG_VISION, checked above.
+		if c.KnownUsecases == nil || (*c.KnownUsecases&FLAG_TTS) != FLAG_TTS {
+			return true
+		}
 	}
 	if c.TemplateConfig.Multimodal != "" {
 		return true

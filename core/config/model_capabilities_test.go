@@ -35,6 +35,21 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.VisionSupported()).To(BeTrue())
 		})
 
+		It("is false for a TTS model whose mmproj is a speaker encoder", func() {
+			// Qwen3-TTS on llama-cpp ships an mmproj that holds the speaker
+			// encoder and code predictor, not a vision tower.
+			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TTS), Backend: "llama-cpp"}
+			cfg.MMProj = "mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf"
+			Expect(cfg.VisionSupported()).To(BeFalse())
+		})
+
+		It("is still true for a TTS model that also declares vision", func() {
+			// An omni model can legitimately be both. The explicit bit wins.
+			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TTS | FLAG_VISION), Backend: "llama-cpp"}
+			cfg.MMProj = "mmproj.gguf"
+			Expect(cfg.VisionSupported()).To(BeTrue())
+		})
+
 		It("does not fall for the GuessUsecases FLAG_VISION false positive", func() {
 			// A chat model with a chat template would make HasUsecases(FLAG_VISION)
 			// return true via the guess heuristic; VisionSupported must not.
