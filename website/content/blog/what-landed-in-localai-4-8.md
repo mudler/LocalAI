@@ -69,8 +69,8 @@ It has grown features vLLM does not have, which is most of the reason the port e
 Tool calling is at llama.cpp parity by construction, because chat deliberately reuses the same autoparser path: full minja chat templates, `tool_choice: auto` lowered to a lazy structural-tag decode constraint, 30 tool dialects, 7 reasoning parsers, and streamed `ChatDelta` and `ToolCallDelta`.
 
 <figure>
-<img src="/media/v4-8-0-vllm-cpp-scoreboard.png" alt="Throughput ratio against each reference engine" width="465">
-<figcaption>Throughput relative to each reference engine. Above 1.0 is ahead. llama.cpp is left out because its 1.18x is a prefill ratio, not throughput.</figcaption>
+<img src="/media/v4-8-0-vllm-cpp-scoreboard.png" alt="Throughput of vllm.cpp relative to each reference engine, drawn as deviation from parity">
+<figcaption>llama.cpp is left out because its 1.18x is a prefill ratio, and putting that on the same axis as throughput would compare two different measurements.</figcaption>
 </figure>
 
 Numbers from the project's own [scoreboard](https://github.com/mudler/vllm.cpp/blob/master/docs/BENCHMARKS.md), which calls ties ties and losses losses. Above 1.0 means vllm.cpp is ahead:
