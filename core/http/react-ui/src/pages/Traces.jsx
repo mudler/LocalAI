@@ -664,10 +664,16 @@ export default function Traces() {
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
                     <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
-                    <td><span className={`badge ${(trace.response?.status || 0) < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response?.status || '-'}</span></td>
+                    <td>
+                      {trace.response?.status === 0
+                        ? <span className="badge badge-info">Running</span>
+                        : <span className={`badge ${trace.response.status < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response.status}</span>}
+                    </td>
                     <td><LatencyCell ns={trace.duration} max={slowestTrace} /></td>
                     <td className="text-center">
-                      {trace.error
+                      {trace.response?.status === 0
+                        ? <i className="fas fa-spinner fa-spin text-primary" title="In progress" />
+                        : trace.error
                         ? <i className="fas fa-times-circle text-error" title={trace.error} />
                         : <i className="fas fa-check-circle text-success" />}
                     </td>
