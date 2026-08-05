@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/concurrency"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/xlog"
@@ -101,7 +102,7 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 		return
 	}
 
-	go func() {
+	concurrency.SafeGo(func() {
 		started := time.Now()
 
 		models, err := AvailableGalleryModelsCached(galleries, systemState)
@@ -131,7 +132,7 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 
 		for i := 0; i < cfg.Concurrency; i++ {
 			wg.Add(1)
-			go func() {
+			concurrency.SafeGo(func() {
 				defer wg.Done()
 				for m := range cursor {
 					// Per entry, not for the run: one unreachable weight file
@@ -164,7 +165,7 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 
 					cancel()
 				}
-			}()
+			})
 		}
 
 	feed:
@@ -183,7 +184,7 @@ func WarmEstimateCache(ctx context.Context, galleries []config.Gallery, systemSt
 			return
 		}
 		xlog.Info("gallery caches warmed", "estimates", warmed, "variants", warmedVariants, "of", len(models), "took", time.Since(started).Round(time.Second))
-	}()
+	})
 }
 
 // EstimateWarmConfigFromEnv reads the warm-up bounds from the environment,

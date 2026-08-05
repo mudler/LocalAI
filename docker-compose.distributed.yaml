@@ -74,6 +74,9 @@ services:
       GODEBUG: "netdns=go"
       # Paths
       MODELS_PATH: /models
+      # Avoid probing remote gallery GGUF metadata during container startup.
+      # Remove this line or set a positive limit to opt back into cache warming.
+      LOCALAI_VRAM_WARM_LIMIT: "0"
     volumes:
       - frontend_models:/models
       - frontend_data:/data

@@ -401,7 +401,10 @@ func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg
 		}
 	}()
 
-	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL)
+	// MTP markers are architecture scalars. Avoid allocating tokenizer and
+	// other large arrays from an untrusted remote header; panic recovery cannot
+	// contain a fatal out-of-memory condition.
+	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL, gguf.SkipLargeMetadata())
 	if err != nil {
 		xlog.Debug("[mtp-importer] failed to read remote GGUF header for MTP detection", "uri", probeURL, "error", err)
 		return
