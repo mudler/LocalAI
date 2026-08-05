@@ -158,16 +158,21 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     ; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            hipblaslt-dev \
-            rocblas-dev && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
+        # ROCm 7.x ("TheRock" packaging): the legacy hipblas-dev / hipblaslt-dev /
+        # rocblas-dev metapackages were removed — BLAS is consolidated and split
+        # per GPU arch (amdrocm-blas<ver>-gfx*, amdrocm-blas-dev, amdrocm-blas-host).
+        # The rocm/dev-ubuntu-*:*-full base image already ships those dev libraries
+        # and headers, so no apt install is needed here anymore. We still set the
+        # AMD capability marker.
         echo "amd" > /run/localai/capability && \
-        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
-        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
+        # TheRock ships the ROCm libs under /opt/rocm/core*/lib (reached via the
+        # /opt/rocm/lib alternatives symlink) but registers no ld.so.conf.d entry,
+        # so the dynamic linker can't find them. Register the path so ldconfig
+        # (and the ldd-based backend GPU-lib packaging) resolves librocm_kpack,
+        # rocBLAS, hipBLASLt, the bundled rocm_sysdeps (zlib/zstd/elf) and the
+        # LLVM runtime — otherwise the built backend fails at runtime with e.g.
+        # "librocm_kpack.so.0 / librocm_sysdeps_z.so.1: cannot open shared object".
+        printf '/opt/rocm/lib\n/opt/rocm/lib/rocm_sysdeps/lib\n/opt/rocm/llvm/lib\n' > /etc/ld.so.conf.d/rocm.conf && \
         ldconfig \
     ; fi
 
