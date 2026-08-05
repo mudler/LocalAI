@@ -2491,6 +2491,9 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		template = config.TemplateConfig.Chat
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
+	if config.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reasoning.DetectThinkingStartTokenInTemplate(template, &config.ReasoningConfig)
+	}
 
 	// When the C++ autoparser emitted ChatDeltas with actionable data,
 	// prefer them — the backend clears Reply.Message in that path and
