@@ -176,16 +176,36 @@ var _ = Describe("Embeddings chat messages[] and Go-side pooling", func() {
 		Expect(embeddingOf(response)).To(HaveLen(768))
 	})
 
-	It("fails closed when pooling is requested but the backend reports no shape", func() {
-		// "no-shape:" makes the mock omit tokens/dim, simulating a backend
-		// built before EmbeddingResult carried shape fields.
+	It("fails closed when pooling is requested but the backend reports no layout", func() {
+		// "no-shape:" makes the mock omit layout, simulating a backend built
+		// before EmbeddingResult declared whether its vector was final or raw.
 		status, response := postEmbeddings(`{
 			"model": "` + embedTestModel + `",
 			"input": "no-shape: hello",
 			"pooling": "mean"
 		}`)
-		Expect(status).ToNot(Equal(200))
-		Expect(response["__raw"]).To(ContainSubstring("no shape"))
+		Expect(status).To(Equal(400))
+		Expect(response["__raw"]).To(ContainSubstring("did not declare"))
+	})
+
+	It("rejects Go-side pooling when the backend returns a final vector", func() {
+		status, response := postEmbeddings(`{
+			"model": "` + embedTestModel + `",
+			"input": "hello",
+			"pooling": "mean"
+		}`)
+		Expect(status).To(Equal(400))
+		Expect(response["__raw"]).To(ContainSubstring("final vector"))
+	})
+
+	It("rejects backend pooling when the backend returns per-token vectors", func() {
+		status, response := postEmbeddings(`{
+			"model": "` + embedTestModel + `",
+			"input": "per-token: alpha beta",
+			"pooling": "backend"
+		}`)
+		Expect(status).To(Equal(400))
+		Expect(response["__raw"]).To(ContainSubstring("per-token"))
 	})
 
 	It("rejects input combined with messages", func() {

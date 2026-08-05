@@ -1,6 +1,9 @@
 package meta
 
-import "github.com/mudler/LocalAI/core/services/routing/piipattern"
+import (
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/routing/piipattern"
+)
 
 // builtinPatternOptions turns the piipattern built-in catalogue into select
 // options for the editor's built-in-patterns checklist, keeping the catalogue
@@ -1100,9 +1103,10 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.knn.k": {
 			Section:     "router",
 			Label:       "KNN: Neighbours (K)",
-			Description: "How many nearest corpus entries vote on a prompt. 0 picks the default (3). K=1 routes on the single nearest example; larger K tolerates a mislabelled exemplar but needs denser corpus coverage per label.",
+			Description: "How many nearest corpus entries vote on a prompt (1-1024). 0 picks the default (3). K=1 routes on the single nearest example; larger K tolerates a mislabelled exemplar but needs denser corpus coverage per label.",
 			Component:   "number",
 			Min:         f64(0),
+			Max:         f64(float64(config.RouterKNNMaxK)),
 			Order:       243,
 		},
 		"router.knn.similarity_threshold": {

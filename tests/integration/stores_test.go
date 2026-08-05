@@ -176,6 +176,23 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 			Expect(vals).To(HaveLen(0))
 		})
 
+		It("should accept a new embedding dimension after deleting every key", func() {
+			ctx := context.Background()
+			oldKey := []float32{0.1, 0.2, 0.3}
+			newKey := []float32{0.6, 0.8}
+
+			Expect(store.SetSingle(ctx, sc, oldKey, []byte("old"))).To(Succeed())
+			Expect(store.DeleteSingle(ctx, sc, oldKey)).To(Succeed())
+			Expect(store.SetSingle(ctx, sc, newKey, []byte("new"))).To(Succeed())
+
+			keys, vals, sims, err := store.Find(ctx, sc, newKey, 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(keys).To(Equal([][]float32{newKey}))
+			Expect(vals).To(Equal([][]byte{[]byte("new")}))
+			Expect(sims).To(HaveLen(1))
+			Expect(sims[0]).To(BeNumerically("~", 1, 0.0001))
+		})
+
 		It("should be able to find smilar keys", func() {
 			// set 3 vectors that are at varying angles to {0.5, 0.5, 0.5}
 			err := store.SetCols(context.Background(), sc, [][]float32{{0.5, 0.5, 0.5}, {0.6, 0.6, -0.6}, {0.7, -0.7, -0.7}}, [][]byte{[]byte("test1"), []byte("test2"), []byte("test3")})

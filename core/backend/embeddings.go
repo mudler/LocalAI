@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,22 +16,58 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// finishEmbeddingResult applies the model's Go-side pooling scheme to a raw
-// per-token EmbeddingResult, or passes the backend's vector through
-// untouched when pooling is delegated to the backend ("" / "backend" —
-// today's exact behavior). Fails closed when a Go-side scheme is requested
-// but the backend didn't report the payload shape (a build predating
-// EmbeddingResult.tokens/dim), since silently treating a backend-pooled
-// vector as per-token data would corrupt the embedding space.
+type embeddingPoolingCompatibilityError struct {
+	message string
+}
+
+func (e *embeddingPoolingCompatibilityError) Error() string {
+	return e.message
+}
+
+func poolingCompatibilityErrorf(format string, args ...any) error {
+	return &embeddingPoolingCompatibilityError{message: fmt.Sprintf(format, args...)}
+}
+
+// IsEmbeddingPoolingCompatibilityError reports errors caused by a requested
+// pooling scheme disagreeing with the layout declared by the loaded backend.
+// HTTP callers map these client-selectable incompatibilities to status 400.
+func IsEmbeddingPoolingCompatibilityError(err error) bool {
+	var target *embeddingPoolingCompatibilityError
+	return errors.As(err, &target)
+}
+
+// finishEmbeddingResult applies the model's Go-side pooling scheme only when
+// the backend declares that it returned per-token vectors. Shape alone is not
+// sufficient: one raw token and one final vector are both reported as 1 x dim.
+// Legacy backends remain compatible with backend pooling, but cannot opt in to
+// Go-side pooling until they declare their result layout.
 func finishEmbeddingResult(res *proto.EmbeddingResult, modelConfig config.ModelConfig) ([]float32, error) {
 	scheme := modelConfig.Pooling
 	if scheme == "" || scheme == PoolingBackend {
-		return res.Embeddings, nil
+		switch res.GetLayout() {
+		case proto.EmbeddingLayout_EMBEDDING_LAYOUT_UNSPECIFIED, proto.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL:
+			return res.Embeddings, nil
+		case proto.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN:
+			return nil, poolingCompatibilityErrorf(
+				"pooling %q cannot pass through per-token embeddings: choose %q, %q or %q, or load the backend with pooling enabled",
+				PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean)
+		default:
+			return nil, poolingCompatibilityErrorf("pooling %q cannot use unknown embedding layout %d", PoolingBackend, res.GetLayout())
+		}
 	}
-	if res.GetDim() == 0 {
-		return nil, fmt.Errorf(
-			"pooling %q needs per-token embeddings but the backend returned no shape: rebuild/update the backend so EmbeddingResult reports tokens/dim, and set options [\"pooling:none\"] on the model",
+	switch res.GetLayout() {
+	case proto.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN:
+		// Pool below after validating the reported matrix shape.
+	case proto.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL:
+		return nil, poolingCompatibilityErrorf(
+			"pooling %q needs per-token embeddings but this backend returned a final vector; configure raw per-token output if the backend supports it (llama.cpp: options [\"pooling:none\"])",
 			scheme)
+	case proto.EmbeddingLayout_EMBEDDING_LAYOUT_UNSPECIFIED:
+		return nil, poolingCompatibilityErrorf(
+			"pooling %q needs per-token embeddings but the backend did not declare its embedding layout: rebuild/update the backend to report EmbeddingResult.layout",
+			scheme)
+	default:
+		return nil, poolingCompatibilityErrorf("pooling %q cannot use unknown embedding layout %d", scheme, res.GetLayout())
 	}
 	return PoolEmbeddingResult(res, scheme,
 		float64(modelConfig.PoolingHalfLifeTokens),

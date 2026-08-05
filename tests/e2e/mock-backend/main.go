@@ -449,12 +449,12 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 			Tokens:       int32(tokens),
 			Dim:          dim,
 			PromptTokens: int32(tokens),
+			Layout:       pb.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN,
 		}, nil
 	}
 	// Legacy mode: a prompt carrying "no-shape:" simulates a backend built
-	// before EmbeddingResult carried shape fields (tokens/dim left 0), so
-	// tests can assert the fail-closed error when Go-side pooling is
-	// requested against such a backend.
+	// before EmbeddingResult carried shape and layout fields, so tests can
+	// assert the fail-closed error when Go-side pooling is requested.
 	legacyShape := strings.Contains(text, "no-shape:")
 	// Return a mock embedding vector of 768 dimensions
 	embeddings := make([]float32, 768)
@@ -464,7 +464,13 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 	if legacyShape {
 		return &pb.EmbeddingResult{Embeddings: embeddings}, nil
 	}
-	return &pb.EmbeddingResult{Embeddings: embeddings, Tokens: 1, Dim: 768, PromptTokens: 1}, nil
+	return &pb.EmbeddingResult{
+		Embeddings:   embeddings,
+		Tokens:       1,
+		Dim:          768,
+		PromptTokens: 1,
+		Layout:       pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL,
+	}, nil
 }
 
 func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {

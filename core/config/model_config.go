@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -405,6 +406,10 @@ type EmbeddingCacheConfig struct {
 	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
 }
 
+// RouterKNNMaxK bounds the local priority queue and the number of neighbors
+// returned across the store boundary for one routing decision.
+const RouterKNNMaxK = 1024
+
 // RouterKNNConfig configures the knn classifier. It shares the
 // embedding + local-store plumbing with EmbeddingCacheConfig but the
 // two are deliberately separate blocks: the cache stores another
@@ -447,6 +452,28 @@ type RouterKNNConfig struct {
 	// StoreName overrides the local-store collection holding the
 	// corpus vectors. Empty defaults to "router-corpus-<router>".
 	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
+}
+
+// Validate rejects values that would make weighted cosine voting invalid or
+// allow one request to allocate an unbounded neighbor result. Zero retains the
+// documented default sentinel for backward compatibility.
+func (k *RouterKNNConfig) Validate() error {
+	if k.K < 0 || k.K > RouterKNNMaxK {
+		return fmt.Errorf("router.knn.k must be 0 (default) or between 1 and %d, got %d", RouterKNNMaxK, k.K)
+	}
+	if math.IsNaN(k.SimilarityThreshold) || math.IsInf(k.SimilarityThreshold, 0) {
+		return fmt.Errorf("router.knn.similarity_threshold must be finite, got %v", k.SimilarityThreshold)
+	}
+	if k.SimilarityThreshold < 0 || k.SimilarityThreshold > 1 {
+		return fmt.Errorf("router.knn.similarity_threshold must be 0 (default) or greater than 0 and at most 1, got %v", k.SimilarityThreshold)
+	}
+	if math.IsNaN(k.VoteThreshold) || math.IsInf(k.VoteThreshold, 0) {
+		return fmt.Errorf("router.knn.vote_threshold must be finite, got %v", k.VoteThreshold)
+	}
+	if k.VoteThreshold < 0 || k.VoteThreshold > 1 {
+		return fmt.Errorf("router.knn.vote_threshold must be 0 (default) or greater than 0 and at most 1, got %v", k.VoteThreshold)
+	}
+	return nil
 }
 
 // ResolvedStoreName is the local-store collection this router's corpus
@@ -1479,10 +1506,10 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 	runBackendHooks(cfg, lo.modelPath)
 
-	// Go-side pooling schemes need the backend to hand back raw per-token
-	// vectors: unless the operator already pinned a pooling backend option
-	// explicitly, add "pooling:none" so llama.cpp skips server-side pooling.
-	if IsGoSidePooling(cfg.Pooling) && !hasBackendOption(cfg.Options, "pooling") {
+	// llama.cpp selects raw-vs-final embedding layout at model load. Other
+	// backends may expose per-token embeddings through their own contracts, so
+	// do not inject a llama.cpp-specific option into them.
+	if IsGoSidePooling(cfg.Pooling) && IsLlamaCppBackend(cfg.Backend) && !hasLlamaPoolingOption(cfg.Options) {
 		cfg.Options = append(cfg.Options, "pooling:none")
 		xlog.Debug("Go-side pooling requested: auto-appending backend option",
 			"model", cfg.Name, "pooling", cfg.Pooling, "option", "pooling:none")
@@ -1642,6 +1669,11 @@ func (c *ModelConfig) Validate() (bool, error) {
 		return false, fmt.Errorf("router: unknown score_normalization %q (expected %q or %q)",
 			c.Router.ScoreNormalization, ScoreNormalizationRaw, ScoreNormalizationMean)
 	}
+	if c.Router.KNN != nil {
+		if err := c.Router.KNN.Validate(); err != nil {
+			return false, err
+		}
+	}
 
 	// router.classifier_system_template parses as Go text/template
 	// (Sprig funcs available at execution time). Reject malformed
@@ -1654,20 +1686,25 @@ func (c *ModelConfig) Validate() (bool, error) {
 	}
 
 	// Go-side embedding pooling: reject unknown schemes and half-life
-	// misconfigurations at load time, and refuse contradictory setups where
-	// a Go-side scheme (which needs raw per-token vectors) is combined with
-	// a backend pooling option other than "none" — the backend would return
-	// a single pooled vector and the Go pooling would silently degenerate.
+	// misconfigurations at load time. llama.cpp chooses its result layout at
+	// model load, so its configured layout must agree with the model-level
+	// pooling scheme in both directions. Other backends declare the actual
+	// result layout on EmbeddingResult and are checked at request time.
 	if err := ValidatePooling(c.Pooling, c.PoolingHalfLifeTokens); err != nil {
 		return false, fmt.Errorf("parameters: %w", err)
 	}
-	if IsGoSidePooling(c.Pooling) {
-		for _, o := range c.Options {
-			if name, val, ok := strings.Cut(o, ":"); ok && name == "pooling" && val != "none" {
-				return false, fmt.Errorf(
-					"parameters.pooling %q needs raw per-token vectors but backend option %q pools server-side: drop the option or set \"pooling:none\"",
-					c.Pooling, o)
-			}
+	if IsLlamaCppBackend(c.Backend) {
+		backendPooling, configured := llamaPoolingOption(c.Options)
+		raw := configured && backendPooling == "none"
+		if IsGoSidePooling(c.Pooling) && configured && !raw {
+			return false, fmt.Errorf(
+				"parameters.pooling %q needs raw per-token vectors but llama.cpp pooling %q returns a final vector: drop the option or set \"pooling:none\"",
+				c.Pooling, backendPooling)
+		}
+		if !IsGoSidePooling(c.Pooling) && raw {
+			return false, fmt.Errorf(
+				"parameters.pooling %q cannot pass through llama.cpp per-token vectors from \"pooling:none\": choose %q, %q or %q, or enable backend pooling",
+				c.Pooling, PoolingMean, PoolingLast, PoolingDecayedMean)
 		}
 	}
 
@@ -1732,15 +1769,24 @@ func ValidatePooling(scheme string, halfLifeTokens int) error {
 	return nil
 }
 
-// hasBackendOption reports whether options carries a "name:value" entry
-// for the given option name.
-func hasBackendOption(options []string, name string) bool {
+// llamaPoolingOption returns the last load-time llama.cpp pooling option. The
+// server accepts both names and processes options in order, so mirroring that
+// behavior avoids disagreeing with the layout the backend actually loads.
+func llamaPoolingOption(options []string) (string, bool) {
+	var value string
+	found := false
 	for _, o := range options {
-		if n, _, ok := strings.Cut(o, ":"); ok && n == name {
-			return true
+		if name, candidate, ok := strings.Cut(o, ":"); ok && (name == "pooling" || name == "pooling_type") {
+			value = candidate
+			found = true
 		}
 	}
-	return false
+	return value, found
+}
+
+func hasLlamaPoolingOption(options []string) bool {
+	_, found := llamaPoolingOption(options)
+	return found
 }
 
 func (c *ModelConfig) HasTemplate() bool {
