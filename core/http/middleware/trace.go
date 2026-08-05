@@ -60,6 +60,7 @@ type APIExchange struct {
 }
 
 var traceBuffer *circularbuffer.Queue[APIExchange]
+var inFlightTraces = make(map[string]APIExchange)
 var mu sync.Mutex
 var logChan = make(chan traceCommand, 100)
 var traceIDSeq atomic.Uint64
@@ -126,16 +127,17 @@ func initializeTracing(dataPath string, maxItems int) {
 					continue
 				}
 				exchange := *command.exchange
+				mu.Lock()
+				delete(inFlightTraces, exchange.ID)
+				if traceBuffer != nil {
+					traceBuffer.Enqueue(exchange)
+				}
+				mu.Unlock()
 				if command.store != nil {
 					if err := command.store.Append(exchange.ID, exchange); err != nil {
 						xlog.Warn("Failed to persist API trace", "error", err)
 					}
 				}
-				mu.Lock()
-				if traceBuffer != nil {
-					traceBuffer.Enqueue(exchange)
-				}
-				mu.Unlock()
 			}
 		}()
 	})
@@ -261,6 +263,38 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			// tens of MB, which then locks the admin Traces UI fetching the
 			// JSON dump faster than the 5s auto-refresh.
 			maxBodyBytes := app.ApplicationConfig().TracingMaxBodyBytes
+			requestHeaders := redactSensitiveHeaders(c.Request().Header)
+			requestBody, requestTruncated := truncateForTrace(body, maxBodyBytes)
+			exchange := APIExchange{
+				ID:        nextTraceID(),
+				Timestamp: startTime,
+				ClientIP:  c.RealIP(),
+				UserAgent: c.Request().UserAgent(),
+				Request: APIExchangeRequest{
+					Method:        c.Request().Method,
+					Path:          c.Path(),
+					Headers:       &requestHeaders,
+					Body:          &requestBody,
+					BodyTruncated: requestTruncated,
+					BodyBytes:     len(body),
+				},
+			}
+			if user := auth.GetUser(c); user != nil {
+				exchange.UserID = user.ID
+				exchange.UserName = user.Name
+			}
+			mu.Lock()
+			inFlightTraces[exchange.ID] = exchange
+			mu.Unlock()
+			queued := false
+			defer func() {
+				if queued {
+					return
+				}
+				mu.Lock()
+				delete(inFlightTraces, exchange.ID)
+				mu.Unlock()
+			}()
 
 			// Wrap response writer to capture body
 			resBody := new(bytes.Buffer)
@@ -287,40 +321,19 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			// the trace endpoint is admin-only but the buffer is also reachable
 			// via any heap-dump-style introspection, and tokens shouldn't
 			// outlive the request that carried them.
-			requestHeaders := redactSensitiveHeaders(c.Request().Header)
-			requestBody, requestTruncated := truncateForTrace(body, maxBodyBytes)
 			responseHeaders := redactSensitiveHeaders(c.Response().Header())
 			responseBody := make([]byte, resBody.Len())
 			copy(responseBody, resBody.Bytes())
-			exchange := APIExchange{
-				ID:        nextTraceID(),
-				Timestamp: startTime,
-				Duration:  time.Since(startTime),
-				ClientIP:  c.RealIP(),
-				UserAgent: c.Request().UserAgent(),
-				Request: APIExchangeRequest{
-					Method:        c.Request().Method,
-					Path:          c.Path(),
-					Headers:       &requestHeaders,
-					Body:          &requestBody,
-					BodyTruncated: requestTruncated,
-					BodyBytes:     len(body),
-				},
-				Response: APIExchangeResponse{
-					Status:        status,
-					Headers:       &responseHeaders,
-					Body:          &responseBody,
-					BodyTruncated: mw.truncated,
-					BodyBytes:     mw.totalBytes,
-				},
+			exchange.Duration = time.Since(startTime)
+			exchange.Response = APIExchangeResponse{
+				Status:        status,
+				Headers:       &responseHeaders,
+				Body:          &responseBody,
+				BodyTruncated: mw.truncated,
+				BodyBytes:     mw.totalBytes,
 			}
 			if handlerErr != nil {
 				exchange.Error = handlerErr.Error()
-			}
-
-			if user := auth.GetUser(c); user != nil {
-				exchange.UserID = user.ID
-				exchange.UserName = user.Name
 			}
 
 			mu.Lock()
@@ -328,6 +341,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			mu.Unlock()
 			select {
 			case logChan <- traceCommand{exchange: &exchange, store: store}:
+				queued = true
 			default:
 				xlog.Warn("Trace channel full, dropping trace")
 			}
@@ -345,6 +359,10 @@ func GetTraces() []APIExchange {
 		return []APIExchange{}
 	}
 	traces := traceBuffer.Values()
+	for _, exchange := range inFlightTraces {
+		exchange.Duration = time.Since(exchange.Timestamp)
+		traces = append(traces, exchange)
+	}
 	mu.Unlock()
 
 	slices.SortFunc(traces, func(a, b APIExchange) int {
