@@ -10,4 +10,11 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
+# CUDA 13 has no prebuilt FlashAttention wheel, so the fallback source build
+# exceeds the CI runner's memory when ninja compiles multiple units at once.
+if [ "x${BUILD_PROFILE}" = "xcublas13" ]; then
+    export MAX_JOBS="${MAX_JOBS:-1}"
+    export NVCC_THREADS="${NVCC_THREADS:-1}"
+fi
+
 installRequirements
