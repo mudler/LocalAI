@@ -3,12 +3,12 @@ title: "What landed in LocalAI 4.8"
 date: 2026-08-04
 author: "Ettore Di Giacinto"
 category: "Release"
-tags: ["release", "vllm.cpp", "audio.cpp", "3d", "gallery", "distributed", "performance"]
-summary: "A new inference engine, 3D generation, one backend that serves six audio endpoints, and a web interface 3.48x lighter. 374 pull requests in twenty-one days."
+tags: ["release", "vllm.cpp", "audio.cpp", "3d", "agent", "gallery", "distributed", "performance"]
+summary: "A new inference engine, a terminal agent in the CLI, 3D generation, and a web interface 3.48x lighter. 386 pull requests in twenty-two days."
 extracss: ["blog.css"]
 ---
 
-LocalAI 4.8.0 is out, after twenty-one days and 374 merged pull requests. There are three new things LocalAI can do, and a lot of repair work on things it already did.
+LocalAI 4.8.0 is out, after twenty-two days and 386 merged pull requests. There are four new things LocalAI can do, and a lot of repair work on things it already did.
 
 The full notes list everything. This post covers the parts that change what you do day to day, with the pull request numbers so you can read the diffs.
 
@@ -143,6 +143,20 @@ The first engine behind it is `trellis2cpp`, an image-to-3D backend over TRELLIS
 <video src="/media/3d-generation.mp4" muted loop playsinline preload="none" data-lazy aria-label="A generated 3D llama rotating in the LocalAI GLB viewer"></video>
 <figcaption>trellis2-4b, 2,502,928 vertices and 5,012,118 triangles, turning in the browser. The remesh slider below it is the print path.</figcaption>
 </figure>
+
+## `local-ai chat` stopped being a REPL
+
+`local-ai chat` used to be a chat prompt in a terminal. It is now an agent, and it is the [nib](https://github.com/mudler/nib) harness compiled straight into the binary: tool use behind an approval gate, sub-agents, MCP servers, plugins and skills, auto-configured against your own instance. Nothing extra to install.
+
+```bash
+local-ai chat                      # the agent, pointed at your models
+echo "what is 2+2" | local-ai chat --cli
+local-ai chat --init zsh           # Ctrl+Space from any shell prompt
+```
+
+That last one prints a shell integration script (zsh, bash or fish), so you can pull the agent up from wherever you already are instead of opening something else.
+
+It runs shell commands now, so every tool call goes through an approval prompt you control, and read-only ones like `ls` and `cat` run without asking. If you had habits around the old REPL, a few things moved: `/clear` is gone and `/compact` is the closest thing, `/models` and `/model <name>` mean what they always meant, and switching model keeps the conversation instead of starting over ([#11291](https://github.com/mudler/LocalAI/pull/11291)).
 
 ## One backend, six audio endpoints
 
