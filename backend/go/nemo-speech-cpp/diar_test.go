@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"path/filepath"
+	"unsafe"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -280,8 +281,11 @@ var _ = Describe("distinctSpeakers", func() {
 		Expect(distinctSpeakers(segs)).To(Equal(int32(1)))
 	})
 
+	// Four segments over three labels, not three over three: with the segment
+	// count and the label count equal, a `return len(segs)` would satisfy this
+	// spec and it would assert nothing.
 	It("counts every distinct label once", func() {
-		segs := []*pb.DiarizeSegment{{Speaker: "1"}, {Speaker: "2"}, {Speaker: "3"}}
+		segs := []*pb.DiarizeSegment{{Speaker: "1"}, {Speaker: "2"}, {Speaker: "3"}, {Speaker: "2"}}
 		Expect(distinctSpeakers(segs)).To(Equal(int32(3)))
 	})
 
@@ -366,6 +370,28 @@ var _ = Describe("collectSegments", func() {
 		Expect(f.fills).To(Equal(1), "a non-capacity failure must not be retried")
 	})
 
+	// make() panics on a length it cannot satisfy, and a panic in an RPC
+	// handler kills the backend process. A count that could only come from an
+	// uninitialised or corrupted size_t must fail the request instead.
+	It("refuses an implausible count rather than trying to allocate it", func() {
+		f := &fakeDiarStream{queryCount: maxDiarSegments + 1}
+		_, err := collectSegments(f)
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.Internal))
+		Expect(err.Error()).To(ContainSubstring("ceiling"))
+		Expect(f.fills).To(BeZero(), "nothing must be allocated or filled for a bad count")
+	})
+
+	It("still accepts a count right at the ceiling", func() {
+		// Only the guard is under test, so the fill is scripted to report zero
+		// rather than actually materialising a hundred megabytes of segments.
+		f := &fakeDiarStream{queryCount: maxDiarSegments}
+		segs, err := collectSegments(f)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(segs).To(BeEmpty())
+		Expect(f.fills).To(Equal(1))
+	})
+
 	It("propagates a failed size query", func() {
 		f := &fakeDiarStream{countErr: errors.New("no stream")}
 		_, err := collectSegments(f)
@@ -397,6 +423,51 @@ func (a *alwaysGrowing) fillSegments([]cDiarSegment) (uint64, error) {
 	a.fills++
 	return a.n, errors.New("capacity too small")
 }
+
+// The six frame counts are the one part of the create config that no other
+// check in the tree can see. The layout assertions pin the struct's shape, and
+// a wrong VALUE keeps that shape exactly, so without these specs deleting a
+// sentinel is invisible: c_api.cpp applies left_context_frames at >= 0, so a
+// dropped -1 there silently pins the model's left context to zero.
+var _ = Describe("diarModelConfig", func() {
+	It("declares its own size so the runtime accepts the fields", func() {
+		Expect(diarModelConfig(0, -1).Size).To(Equal(unsafe.Sizeof(cDiarModelConfig{})))
+	})
+
+	It("carries the model path and the configured device", func() {
+		cfg := diarModelConfig(0xDEADBEEF, 2)
+		Expect(cfg.ModelPath).To(Equal(uintptr(0xDEADBEEF)))
+		Expect(cfg.GPU).To(Equal(int32(2)))
+	})
+
+	It("passes the CPU sentinel through untouched", func() {
+		Expect(diarModelConfig(0, -1).GPU).To(Equal(int32(-1)))
+	})
+
+	// Asserted field by field rather than as a whole struct so a failure names
+	// the sentinel that went missing.
+	It("leaves every frame-geometry override at the negative sentinel", func() {
+		cfg := diarModelConfig(0, -1)
+		Expect(cfg.ChunkFrames).To(Equal(int32(-1)), "chunk_frames")
+		Expect(cfg.RightContextFrames).To(Equal(int32(-1)), "right_context_frames")
+		Expect(cfg.FIFOFrames).To(Equal(int32(-1)), "fifo_frames")
+		Expect(cfg.SpkcacheFrames).To(Equal(int32(-1)), "spkcache_frames")
+		Expect(cfg.UpdatePeriodFrames).To(Equal(int32(-1)), "update_period_frames")
+
+		// Called out on its own because it is the only one of the six the
+		// runtime applies at >= 0: zero here is a valid explicit left context,
+		// not "unset", so this is the field a dropped sentinel actually breaks.
+		Expect(cfg.LeftContextFrames).To(Equal(int32(-1)), "left_context_frames")
+		Expect(cfg.LeftContextFrames).To(BeNumerically("<", 0),
+			"left_context_frames is applied at >= 0, so a non-negative value pins the geometry")
+	})
+
+	// The preset selects the streaming geometry wholesale, so it has to stay
+	// NULL until there is a model to verify a different one against.
+	It("leaves the preset unset", func() {
+		Expect(diarModelConfig(0, -1).Preset).To(BeZero())
+	})
+})
 
 var _ = Describe("segmentationConfig", func() {
 	// A request that set nothing must stay NULL on the C side: diar.h documents

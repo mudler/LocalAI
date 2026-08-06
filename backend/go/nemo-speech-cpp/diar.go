@@ -18,6 +18,19 @@ import (
 // unload behind it.
 const diarSegmentsMaxAttempts = 4
 
+// maxDiarSegments caps the buffer collectSegments will allocate from a count
+// the C side reported.
+//
+// make() panics rather than erroring on a length it cannot satisfy, and a
+// panic in an RPC handler takes the backend process down, so an uninitialised
+// or corrupted size_t coming back across the ABI would kill the model rather
+// than fail the request. The ceiling turns that into a diagnosable error.
+//
+// It is set far above anything real: a segment spans at least one 80 ms frame,
+// so 2^22 segments is upwards of 93 hours of audio, and the buffer itself
+// would already be 100 MB at 24 bytes each.
+const maxDiarSegments = 1 << 22
+
 // diarSegmenter is the result half of the diarization C API: the two-call
 // protocol nemo_speech_diar_segments documents.
 //
@@ -126,34 +139,51 @@ func (s *cDiarStream) fillSegments(buf []cDiarSegment) (uint64, error) {
 	return count, nil
 }
 
+// diarGeometryDefault is the sentinel that means "keep the preset's value" for
+// every one of nemo_speech_diar_model_config's six frame counts.
+//
+// It has to be negative, not zero, and that is not a style choice.
+// src/asr/c_api.cpp:497-512 applies five of the six overrides when they are
+// > 0 but applies left_context_frames when it is >= 0, so a zero-valued config
+// reads as "unset" for five fields and as an explicit left context of zero for
+// the sixth. That silently changes the model's streaming geometry, and no
+// layout assertion can see it because the struct is the right shape either way.
+const diarGeometryDefault int32 = -1
+
+// diarModelConfig builds the create-time config for the standalone diarizer.
+//
+// Extracted from loadDiarizer purely so the sentinels above can be asserted:
+// they are invisible to every other check in the tree, including the layout
+// assertions, so a spec pinning them is the only thing standing between a
+// dropped -1 and a quietly mis-configured model.
+//
+// modelPath is a C pointer from cstr, not a Go string, and the caller owns its
+// release. preset is deliberately left NULL, which diar.h reads as "streaming".
+// The "offline" preset is a different accuracy/latency tradeoff for long files
+// and is worth exposing, but not on an unverified guess: no Sortformer GGUF
+// exists here to measure the difference on.
+func diarModelConfig(modelPath uintptr, gpu int32) cDiarModelConfig {
+	return cDiarModelConfig{
+		Size:               unsafe.Sizeof(cDiarModelConfig{}),
+		ModelPath:          modelPath,
+		GPU:                gpu,
+		ChunkFrames:        diarGeometryDefault,
+		RightContextFrames: diarGeometryDefault,
+		LeftContextFrames:  diarGeometryDefault,
+		FIFOFrames:         diarGeometryDefault,
+		SpkcacheFrames:     diarGeometryDefault,
+		UpdatePeriodFrames: diarGeometryDefault,
+	}
+}
+
 // loadDiarizer creates the standalone Sortformer diarizer.
 //
 // This must not take engineMu: Load is its only caller and already holds it.
-//
-// The six frame counts are written as -1 rather than left zero. src/asr/c_api.cpp
-// applies left_context_frames when it is >= 0, so a zeroed config would pin the
-// left context to zero and quietly change the model's streaming geometry, while
-// every other override would correctly be read as unset. -1 is the one value
-// that means "keep the preset" for all six.
 func (n *NemoSpeech) loadDiarizer(modelFile string) error {
 	pathP, freePath := cstr(modelFile)
 	defer freePath()
 
-	cfg := cDiarModelConfig{
-		Size:      unsafe.Sizeof(cDiarModelConfig{}),
-		ModelPath: pathP,
-		GPU:       n.opts.gpu,
-		// preset stays NULL, which diar.h reads as "streaming". The "offline"
-		// preset is a different accuracy/latency tradeoff for long files and is
-		// worth exposing, but not on an unverified guess: no Sortformer GGUF
-		// exists here to measure the difference on.
-		ChunkFrames:        -1,
-		RightContextFrames: -1,
-		LeftContextFrames:  -1,
-		FIFOFrames:         -1,
-		SpkcacheFrames:     -1,
-		UpdatePeriodFrames: -1,
-	}
+	cfg := diarModelConfig(pathP, n.opts.gpu)
 
 	xlog.Info("nemo-speech-cpp: creating diarizer", "gpu", n.opts.gpu)
 
@@ -280,6 +310,10 @@ func collectSegments(s diarSegmenter) ([]cDiarSegment, error) {
 			// No segments means no fill: the fill call needs a non-empty buffer
 			// to be distinguishable from a second size query.
 			return nil, nil
+		}
+		if want > maxDiarSegments {
+			return nil, status.Errorf(codes.Internal,
+				"nemo-speech-cpp: diarization reported %d segments, above the %d ceiling", want, maxDiarSegments)
 		}
 
 		buf := make([]cDiarSegment, want)
