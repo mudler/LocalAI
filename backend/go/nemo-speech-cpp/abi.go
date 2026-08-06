@@ -181,6 +181,63 @@ type cASRRecognitionOptions struct {
 	_                          [4]byte
 }
 
+// cDiarModelConfig mirrors nemo_speech_diar_model_config (diar.h). This is the
+// standalone Sortformer pipeline's own config and is NOT cASRDiarConfig, which
+// is the diarizer attached to a recognizer: this one carries gpu and preset,
+// that one does not.
+//
+// The six frame counts are sentinel-sensitive. src/asr/c_api.cpp applies each
+// one only when it is > 0, EXCEPT left_context_frames, which it applies when it
+// is >= 0. A zero-valued struct would therefore pin the left context to 0
+// rather than leave the preset's value alone, so loadDiarizer writes -1 into
+// all six.
+type cDiarModelConfig struct {
+	Size      uintptr
+	ModelPath uintptr
+	GPU       int32
+	_         [4]byte // pad to the alignment of the pointer that follows
+	Preset    uintptr
+	// Encoder-frame geometry overrides, applied on top of the preset.
+	ChunkFrames        int32
+	RightContextFrames int32
+	LeftContextFrames  int32
+	FIFOFrames         int32
+	SpkcacheFrames     int32
+	UpdatePeriodFrames int32
+}
+
+// cDiarSegmentationConfig mirrors nemo_speech_diar_segmentation_config
+// (diar.h): the NeMo ts_vad postprocessing applied when turning per-frame
+// speaker probabilities into segments.
+//
+// onset and offset are float, the four durations are double. That mixture is
+// the whole reason this mirror needs its offsets pinned: writing all six as
+// float32 or all six as float64 both produce a struct C would read shifted.
+type cDiarSegmentationConfig struct {
+	Size           uintptr
+	Onset          float32
+	Offset         float32
+	PadOnsetSec    float64
+	PadOffsetSec   float64
+	MinGapSec      float64
+	MinDurationSec float64
+}
+
+// cDiarSegment mirrors nemo_speech_diar_segment (diar.h), the element type
+// nemo_speech_diar_segments fills.
+//
+// It has no leading size field: unlike the config structs it travels from C to
+// Go, so there is no caller-declared size for the runtime to validate against.
+// The times are already SECONDS (double), not frame indices, so nothing here
+// needs the model's seconds-per-frame to be interpreted. Speaker is 1-based,
+// matching WordInfo.speaker_tag on the ASR surface.
+type cDiarSegment struct {
+	StartTime float64
+	EndTime   float64
+	Speaker   int32
+	_         [4]byte // trailing pad to the struct's 8-byte alignment
+}
+
 type cTTSModelConfig struct {
 	Size                   uintptr
 	MagpieModel            uintptr

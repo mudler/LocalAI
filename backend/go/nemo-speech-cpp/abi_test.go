@@ -45,7 +45,7 @@ type layout struct {
 }
 
 // The `want` column is what a C compiler reports for the structs in
-// include/nemo_speech/{asr,tts,nmt}.h under the System V AMD64 / AAPCS64 rules
+// include/nemo_speech/{asr,diar,tts,nmt}.h under the System V AMD64 / AAPCS64 rules
 // both supported targets follow. Regenerate after an upstream pin bump with a
 // throwaway program over the installed headers:
 //
@@ -64,6 +64,9 @@ func structSizes() []layout {
 		{"cASRDiarConfig", unsafe.Sizeof(cASRDiarConfig{}), 40},
 		{"cASRRecognizerConfig", unsafe.Sizeof(cASRRecognizerConfig{}), 80},
 		{"cASRRecognitionOptions", unsafe.Sizeof(cASRRecognitionOptions{}), 72},
+		{"cDiarModelConfig", unsafe.Sizeof(cDiarModelConfig{}), 56},
+		{"cDiarSegmentationConfig", unsafe.Sizeof(cDiarSegmentationConfig{}), 48},
+		{"cDiarSegment", unsafe.Sizeof(cDiarSegment{}), 24},
 		{"cTTSModelConfig", unsafe.Sizeof(cTTSModelConfig{}), 40},
 		{"cTTSRuntimeConfig", unsafe.Sizeof(cTTSRuntimeConfig{}), 96},
 		{"cTTSSynthesizerConfig", unsafe.Sizeof(cTTSSynthesizerConfig{}), 40},
@@ -121,6 +124,27 @@ func structOffsets() []layout {
 		{"cASRRecognitionOptions.MaxAlternatives", unsafe.Offsetof(cASRRecognitionOptions{}.MaxAlternatives), 56},
 		{"cASRRecognitionOptions.EnableSpeakerDiarization", unsafe.Offsetof(cASRRecognitionOptions{}.EnableSpeakerDiarization), 60},
 		{"cASRRecognitionOptions.MaxSpeakerCount", unsafe.Offsetof(cASRRecognitionOptions{}.MaxSpeakerCount), 64},
+
+		{"cDiarModelConfig.ModelPath", unsafe.Offsetof(cDiarModelConfig{}.ModelPath), 8},
+		{"cDiarModelConfig.GPU", unsafe.Offsetof(cDiarModelConfig{}.GPU), 16},
+		{"cDiarModelConfig.Preset", unsafe.Offsetof(cDiarModelConfig{}.Preset), 24},
+		{"cDiarModelConfig.ChunkFrames", unsafe.Offsetof(cDiarModelConfig{}.ChunkFrames), 32},
+		{"cDiarModelConfig.RightContextFrames", unsafe.Offsetof(cDiarModelConfig{}.RightContextFrames), 36},
+		{"cDiarModelConfig.LeftContextFrames", unsafe.Offsetof(cDiarModelConfig{}.LeftContextFrames), 40},
+		{"cDiarModelConfig.FIFOFrames", unsafe.Offsetof(cDiarModelConfig{}.FIFOFrames), 44},
+		{"cDiarModelConfig.SpkcacheFrames", unsafe.Offsetof(cDiarModelConfig{}.SpkcacheFrames), 48},
+		{"cDiarModelConfig.UpdatePeriodFrames", unsafe.Offsetof(cDiarModelConfig{}.UpdatePeriodFrames), 52},
+
+		{"cDiarSegmentationConfig.Onset", unsafe.Offsetof(cDiarSegmentationConfig{}.Onset), 8},
+		{"cDiarSegmentationConfig.Offset", unsafe.Offsetof(cDiarSegmentationConfig{}.Offset), 12},
+		{"cDiarSegmentationConfig.PadOnsetSec", unsafe.Offsetof(cDiarSegmentationConfig{}.PadOnsetSec), 16},
+		{"cDiarSegmentationConfig.PadOffsetSec", unsafe.Offsetof(cDiarSegmentationConfig{}.PadOffsetSec), 24},
+		{"cDiarSegmentationConfig.MinGapSec", unsafe.Offsetof(cDiarSegmentationConfig{}.MinGapSec), 32},
+		{"cDiarSegmentationConfig.MinDurationSec", unsafe.Offsetof(cDiarSegmentationConfig{}.MinDurationSec), 40},
+
+		{"cDiarSegment.StartTime", unsafe.Offsetof(cDiarSegment{}.StartTime), 0},
+		{"cDiarSegment.EndTime", unsafe.Offsetof(cDiarSegment{}.EndTime), 8},
+		{"cDiarSegment.Speaker", unsafe.Offsetof(cDiarSegment{}.Speaker), 16},
 
 		{"cTTSModelConfig.MagpieModel", unsafe.Offsetof(cTTSModelConfig{}.MagpieModel), 8},
 		{"cTTSModelConfig.CodecModel", unsafe.Offsetof(cTTSModelConfig{}.CodecModel), 16},
