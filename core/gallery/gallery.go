@@ -612,17 +612,22 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		}
 	}
 
-	uri := downloader.URI(gallery.URL)
-
 	if len(models) == 0 {
-		err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
-			galleryCache.Set(cacheKey, galleryCacheEntry{
-				yamlEntry:   d,
-				lastUpdated: time.Now(),
-			})
-			return yaml.Unmarshal(d, &models)
-		})
+		// The cache key stays the gallery's identity rather than the URL that
+		// answered: a mirror serves the same index, so a mirror-served fetch
+		// must populate the entry the primary would have filled.
+		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath)
 		if err != nil {
+			return models, fmt.Errorf("failed to read gallery elements: %w", err)
+		}
+		if servedBy != gallery.URL {
+			xlog.Info("gallery served by a mirror", "gallery", gallery.Name, "url", servedBy)
+		}
+		galleryCache.Set(cacheKey, galleryCacheEntry{
+			yamlEntry:   body,
+			lastUpdated: time.Now(),
+		})
+		if err := yaml.Unmarshal(body, &models); err != nil {
 			if yamlErr, ok := err.(*yaml.TypeError); ok {
 				xlog.Debug("YAML errors", "errors", strings.Join(yamlErr.Errors, "\n"), "models", models)
 			}
