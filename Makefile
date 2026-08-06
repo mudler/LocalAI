@@ -654,6 +654,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/depth-anything-cpp test
 	$(MAKE) -C backend/go/supertonic test
 	$(MAKE) -C backend/go/vllm-cpp test
+	$(MAKE) -C backend/go/nemo-speech-cpp test
 	$(MAKE) -C backend/go/trellis2cpp test
 	$(MAKE) -C backend/go/valkey-store test
 

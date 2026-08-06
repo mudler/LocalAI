@@ -217,8 +217,13 @@ nemo-speech-cpp-grpc: stage-libs
 # The dlopen tests need the staged shared objects on the loader path, the same
 # way parakeet-cpp sets it up. Depends on stage-libs so that path is not an
 # empty directory on a clean tree, which would fail the tests confusingly.
+#
+# NEMO_SPEECH_REQUIRE_LIBS turns a missing library from a skip into a failure.
+# The ABI specs are the only thing standing between this backend and silent
+# memory corruption, so a run that reaches them and quietly skips them is worse
+# than one that fails: it reports green having checked nothing.
 test: stage-libs
-	LD_LIBRARY_PATH=$(CURDIR):$$LD_LIBRARY_PATH $(GOCMD) test ./... -count=1
+	NEMO_SPEECH_REQUIRE_LIBS=1 LD_LIBRARY_PATH=$(CURDIR):$$LD_LIBRARY_PATH $(GOCMD) test ./... -count=1
 
 package: nemo-speech-cpp-grpc
 	bash package.sh

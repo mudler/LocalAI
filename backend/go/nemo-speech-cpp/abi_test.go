@@ -8,6 +8,21 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// requireLibs reports whether a missing shared library must fail the specs
+// instead of skipping them.
+//
+// librariesPresent stats bare filenames relative to the working directory,
+// while openLibraries resolves them through the loader search path, so the two
+// can legitimately disagree. Under `make test` that is harmless because the
+// stage-libs prerequisite puts the .so files in the working directory, but any
+// other invocation would skip every library-backed spec and still report a
+// green run. The Makefile sets NEMO_SPEECH_REQUIRE_LIBS=1 so no CI path can
+// pass on a silent skip; leaving it unset keeps the pure-Go specs runnable on a
+// checkout with no build.
+func requireLibs() bool {
+	return os.Getenv("NEMO_SPEECH_REQUIRE_LIBS") == "1"
+}
+
 // librariesPresent reports whether a local build is available to bind against.
 func librariesPresent() bool {
 	for _, n := range []string{
@@ -188,6 +203,12 @@ var _ = Describe("C struct mirrors", func() {
 var _ = Describe("C ABI binding", func() {
 	BeforeEach(func() {
 		if !librariesPresent() {
+			if requireLibs() {
+				cwd, _ := os.Getwd()
+				Fail("NEMO_SPEECH_REQUIRE_LIBS=1 but the shared libraries are not in " + cwd +
+					": these specs are the ABI defence and must not be skipped." +
+					" Run make -C backend/go/nemo-speech-cpp stage-libs")
+			}
 			Skip("shared libraries not built, run make in backend/go/nemo-speech-cpp")
 		}
 		Expect(openLibraries()).To(Succeed())
@@ -225,73 +246,43 @@ var _ = Describe("C ABI binding", func() {
 	})
 
 	// A size match alone cannot see a field read from the wrong offset when two
-	// padding mistakes cancel out. The values below are the defaults upstream
-	// writes into the returned struct, so reading them back through the mirror
-	// pins the individual offsets against the running library rather than
-	// against the transcription in structOffsets. Only the fields carrying a
-	// value distinct from their neighbours' are worth checking; a shifted
-	// mirror moves them onto a neighbour and the comparison fails.
+	// padding mistakes cancel out, and structOffsets checks the mirrors against
+	// numbers transcribed by the same hand that wrote them. This spec is the
+	// only layer independent of that transcription: it reads values back out of
+	// the running library, so a systematically wrong table cannot hide here.
+	//
+	// Deliberately narrow. An earlier version pinned roughly forty default
+	// values, which would make a legitimate pin bump (threads 4 to 8, or a
+	// flipped flush_partial_chunk) fail with a message that reads like a layout
+	// error. What survives is only the values that are contract, not tuning:
+	//
+	//   - max_alternatives is the single non-zero in an otherwise memset-zero
+	//     struct, and asr.h documents "<= 1 = 1-best (default)". It pins offset
+	//     56, deep in the tail past the bool run.
+	//   - The synthesis-options run of four -1 sentinels, each documented in
+	//     tts.h as "< 0 = synthesizer default", pins offsets 24 through 36, and
+	//     temperature witnesses that the run stops exactly at offset 40. A
+	//     mirror whose tail is shifted by one field spills a -1 into that zero.
+	//   - Two -1 sentinels at the ends of the runtime config's long int32 run
+	//     pin offset 20 and offset 40 without depending on any tunable.
 	//
 	// Sources: src/asr/c_api.cpp nemo_speech_asr_recognition_options_default,
-	// src/tts/magpietts/runtime.h MagpieRuntimeConfig, and
-	// src/tts/c_api.cpp nemo_speech_tts_synthesis_options_default. A pin bump
-	// that deliberately changes a default has to update this list.
+	// src/tts/magpietts/runtime.h MagpieRuntimeConfig, src/tts/c_api.cpp
+	// nemo_speech_tts_synthesis_options_default.
 	It("reads the documented default values back through the mirrors", func() {
 		asr := ASRRecognitionOptionsDef()
-		// Everything is memset to zero except max_alternatives, which pins the
-		// one interesting offset in the tail.
 		Expect(asr.MaxAlternatives).To(Equal(int32(1)))
-		Expect(asr.StopHistoryEouMs).To(BeZero())
-		Expect(asr.MaxSpeakerCount).To(BeZero())
-		Expect(asr.InterimResults).To(BeFalse())
-		Expect(asr.EnableSpeakerDiarization).To(BeFalse())
-		Expect(asr.SpeechContexts).To(BeZero())
-		Expect(asr.SpeechContextCount).To(BeZero())
 
 		rt := TTSRuntimeConfigDefault()
-		Expect(rt.Speaker).To(BeZero())
-		Expect(rt.Threads).To(Equal(int32(4)))
-		Expect(rt.CodecThreads).To(BeZero())
 		Expect(rt.Seed).To(Equal(int32(-1)))
-		Expect(rt.Steps).To(Equal(int32(-1)))
-		Expect(rt.TopK).To(Equal(int32(-1)))
-		Expect(rt.ChunkFrames).To(Equal(int32(3)))
-		Expect(rt.CodecQueueDepth).To(Equal(int32(4)))
 		Expect(rt.CodecHistoryFrames).To(Equal(int32(-1)))
-		Expect(rt.CodecFutureFrames).To(Equal(int32(1)))
-		Expect(rt.WindowMs).To(BeZero())
-		Expect(rt.Temperature).To(Equal(float32(0)))
-		Expect(rt.OverrideTemperature).To(BeFalse())
-		Expect(rt.CFGScale).To(Equal(float32(0)))
-		Expect(rt.OverrideCFGScale).To(BeFalse())
-		Expect(rt.UseCFG).To(BeTrue())
-		Expect(rt.UseLocalTransformer).To(BeTrue())
-		Expect(rt.UseKVCache).To(BeTrue())
-		Expect(rt.UseStatefulCodec).To(BeTrue())
-		Expect(rt.CodecCPU).To(BeFalse())
-		Expect(rt.FlushPartialChunk).To(BeTrue())
-		Expect(rt.Verbose).To(BeFalse())
-		Expect(rt.LTBackend).To(BeZero())
-		Expect(rt.SamplingBackend).To(BeZero())
-		Expect(rt.UMAMode).To(BeZero())
-		Expect(rt.LongformMode).To(BeZero())
-		Expect(rt.LTFP32).To(BeFalse())
 
-		// The four -1 sentinels stop exactly at offset 40, so a mirror whose
-		// tail is shifted by even one field spills a -1 into a zero field.
 		opt := TTSSynthesisOptionsDefault()
-		Expect(opt.RequestID).To(BeZero())
-		Expect(opt.LanguageCode).To(BeZero())
 		Expect(opt.Speaker).To(Equal(int32(-1)))
 		Expect(opt.Seed).To(Equal(int32(-1)))
 		Expect(opt.Steps).To(Equal(int32(-1)))
 		Expect(opt.TopK).To(Equal(int32(-1)))
 		Expect(opt.Temperature).To(Equal(float32(0)))
-		Expect(opt.OverrideTemperature).To(BeFalse())
-		Expect(opt.CFGScale).To(Equal(float32(0)))
-		Expect(opt.OverrideCFGScale).To(BeFalse())
-		Expect(opt.VoiceName).To(BeZero())
-		Expect(opt.OutputSampleRate).To(BeZero())
 	})
 
 	It("reports a non-empty version from each library", func() {
