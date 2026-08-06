@@ -66,7 +66,11 @@ Mirrors accept any URI the gallery loader understands — `https://`, `github:`,
 GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
 ```
 
-Each attempt is bounded by a 30 second timeout, and a source that fails — a connection error, a timeout, or an HTTP error status such as 404 or 502 — is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
+Each attempt is bounded by a 120 second timeout, and a source that fails — a connection error, a timeout, or an HTTP error status such as 404 or 502 — is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately, and a request you cancel yourself is not counted against it. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
+
+{{% notice warning %}}
+**Mirrors do not cover a `.ref` URL.** If a gallery's `url` ends in `.ref`, that reference file is fetched and resolved to the real index location *before* mirrors are considered, and a failure to fetch it fails the gallery outright. Mirrors are alternates for the index, not for the reference that points at it. If you need mirror coverage, point `url` directly at the index file.
+{{% /notice %}}
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
 

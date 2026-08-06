@@ -176,6 +176,76 @@ func TestFetchHonoursCallerContext(t *testing.T) {
 	if hits.Load() != 0 {
 		t.Errorf("server dialled %d times despite a cancelled context", hits.Load())
 	}
+	// The source did nothing wrong. Blaming it would blackhole a healthy
+	// candidate for ten minutes because a browser tab closed.
+	if inCooldown(srv.URL) {
+		t.Error("caller cancellation was recorded as a failure of the source")
+	}
+}
+
+// A candidate that accepts the connection and then never answers is the failure
+// mode the per-attempt timeout exists for: without it the whole listing hangs on
+// one bad host and the mirrors are never reached.
+func TestFetchGivesUpOnAHangingCandidate(t *testing.T) {
+	resetGalleryFailures()
+
+	release := make(chan struct{})
+	var hangHits atomic.Int64
+	hang := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hangHits.Add(1)
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() {
+		close(release)
+		hang.Close()
+	})
+
+	mirror, mirrorHits := countingServer(t, http.StatusOK, "- name: from-mirror\n")
+
+	restore := galleryFetchTimeout
+	galleryFetchTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { galleryFetchTimeout = restore })
+
+	g := config.Gallery{URL: hang.URL, Mirrors: []string{mirror.URL}}
+	basePath := t.TempDir()
+
+	type outcome struct {
+		served string
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		_, served, err := fetchGalleryIndex(context.Background(), g, basePath)
+		done <- outcome{served, err}
+	}()
+
+	// The assertion has to be bounded: an unbounded attempt does not fail, it
+	// hangs, and a hung test is a useless signal.
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatalf("fetch: %v", got.err)
+		}
+		if got.served != mirror.URL {
+			t.Errorf("served by %q, want the mirror", got.served)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("fetch never returned — a hanging candidate is not bounded by a per-attempt timeout")
+	}
+
+	if hangHits.Load() != 1 {
+		t.Errorf("hanging candidate dialled %d times, want 1", hangHits.Load())
+	}
+	if mirrorHits.Load() != 1 {
+		t.Errorf("mirror dialled %d times, want 1 — the timed-out attempt did not fall through", mirrorHits.Load())
+	}
+	// A timeout is the source's own failure, unlike caller cancellation.
+	if !inCooldown(hang.URL) {
+		t.Error("a candidate that timed out was not put in cooldown")
+	}
 }
 
 // A dead primary must not be re-dialled on every call. Without this, a gallery

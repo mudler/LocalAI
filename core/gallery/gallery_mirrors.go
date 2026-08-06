@@ -11,18 +11,25 @@ import (
 	"github.com/mudler/xlog"
 )
 
-const (
-	// galleryFetchTimeout bounds a single candidate attempt. GitHub's raw
-	// endpoint degrades by getting slow far more often than by returning an
-	// error, so the timeout — not the mirror list — is what actually gets a
-	// user to a working gallery on a bad day.
-	galleryFetchTimeout = 30 * time.Second
+// galleryFetchTimeout bounds a single candidate attempt. GitHub's raw endpoint
+// degrades by getting slow far more often than by returning an error, so the
+// timeout — not the mirror list — is what actually gets a user to a working
+// gallery on a bad day.
+//
+// It is deliberately far longer than a healthy fetch needs. The downloader only
+// ever bounded the response headers, never the body, so this is the first
+// whole-transfer deadline this path has had: too tight a value would fail slow
+// links that work today and then park a perfectly healthy source in cooldown
+// for ten minutes. The default index is ~2.2 MB, so 120s tolerates a sustained
+// ~19 KB/s — below any link that could go on to install a model.
+//
+// A var rather than a const so tests can shorten it.
+var galleryFetchTimeout = 120 * time.Second
 
-	// galleryFailureCooldown keeps a candidate that just failed out of the
-	// rotation for a while. Without it, every gallery listing pays the full
-	// timeout against a dead host before reaching a mirror that works.
-	galleryFailureCooldown = 10 * time.Minute
-)
+// galleryFailureCooldown keeps a candidate that just failed out of the rotation
+// for a while. Without it, every gallery listing pays the full timeout against
+// a dead host before reaching a mirror that works.
+const galleryFailureCooldown = 10 * time.Minute
 
 // galleryFailures records when each candidate URL last failed. It is
 // package-level and shared by every gallery: the point is that a host which is
@@ -120,7 +127,13 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) (
 		}
 
 		lastErr = err
-		galleryFailures.Set(candidate, time.Now())
+		// Only blame the source for its own failures. If the caller gave up —
+		// a browser disconnecting mid-listing, once a request context is wired
+		// through here — recording that would blackhole every candidate for ten
+		// minutes over something the sources had no part in.
+		if ctx.Err() == nil {
+			galleryFailures.Set(candidate, time.Now())
+		}
 		xlog.Warn("gallery source unreachable, trying the next one",
 			"gallery", g.Name, "url", candidate, "error", err)
 	}
