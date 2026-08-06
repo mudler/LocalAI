@@ -135,6 +135,15 @@ $(ITN_MARKER): | sources/NeMo-Speech.cpp
 		echo "       OpenFST's templates ICE on gcc-13 and gcc-14 at -O2." >&2; \
 		echo "       Install them, or build this backend with WITH_NORM=OFF." >&2; \
 		exit 1; }
+	# configure's only gate on a preset PROTOC is test -n, so a path that does not
+	# exist is accepted here and surfaces much later as a bare "No such file or
+	# directory" from inside make -C src/proto. Check it up front instead.
+	@command -v $(ITN_PROTOC) >/dev/null 2>&1 || { \
+		echo "ERROR: protoc not found at $(ITN_PROTOC)." >&2; \
+		echo "       Install the protobuf-compiler package, whose protoc matches" >&2; \
+		echo "       the libprotobuf-dev headers Sparrowhawk compiles against, or" >&2; \
+		echo "       point this at a matching one with ITN_PROTOC=/path/to/protoc." >&2; \
+		exit 1; }
 	cd sources/NeMo-Speech.cpp && CC=$(ITN_CC) CXX=$(ITN_CXX) PROTOC=$(ITN_PROTOC) \
 		JOBS=$(JOBS) scripts/build_itn_deps.sh
 
