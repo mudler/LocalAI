@@ -162,6 +162,18 @@ func (n *NemoSpeech) Load(opts *pb.ModelOptions) error {
 	if modelFile == "" {
 		return errors.New("nemo-speech-cpp: ModelFile is required")
 	}
+
+	// Free writes fam and the handles under engineMu and runs without the
+	// backend lock that serialises the RPCs (pkg/grpc/server.go), so the
+	// load-side writes to those same fields need the same protection: without
+	// it this is the write-side half of the race withEngine closed on the read
+	// side. n.opts is in here too, since the loaders read it.
+	//
+	// The loaders called below must NOT take engineMu themselves; sync.Mutex is
+	// not reentrant and this is why.
+	n.engineMu.Lock()
+	defer n.engineMu.Unlock()
+
 	n.opts = parseOptions(opts.GetOptions(), opts.GetModelPath())
 
 	arch, err := ggufArchitecture(modelFile)
@@ -238,10 +250,10 @@ func (n *NemoSpeech) Free() error {
 	return nil
 }
 
-// The four loaders below create the runtime handle for their family. Task 6
-// implements loadASR, Task 7 loadDiarizer, Task 8 loadTTS and Task 9 loadNMT;
-// each populates its config structs from n.opts and stores the handle in the
-// matching field.
+// The loaders below create the runtime handle for their family. loadASR is
+// implemented in asr.go (Task 6); Task 7 fills in loadDiarizer, Task 8 loadTTS
+// and Task 9 loadNMT. Each populates its config structs from n.opts and stores
+// the handle in the matching field.
 //
 // Locking protocol for those tasks, in both directions:
 //
@@ -249,12 +261,21 @@ func (n *NemoSpeech) Free() error {
 //     which means wrapping its body in withEngine. Free runs without the
 //     backend lock (pkg/grpc/server.go:1019), so anything that checks the
 //     family and then releases the lock before calling C can have the handle
-//     destroyed underneath it.
-//   - A loader must NOT take engineMu. Load runs before the model is serving,
-//     and sync.Mutex is not reentrant, so locking here deadlocks against any
-//     future caller that locks around Load.
-
-func (n *NemoSpeech) loadASR(modelFile string) error { return nil }
+//     destroyed underneath it. asr.go's AudioTranscription is the worked
+//     example: even the audio decode sits inside the closure, because the
+//     backend already serialises RPCs through base.SingleThread and so the
+//     wider hold costs nothing.
+//   - A loader must NOT take engineMu. Load holds it across the whole switch,
+//     and sync.Mutex is not reentrant, so locking in a loader deadlocks.
+//
+// One consequence the streaming RPCs have to plan around: a stream whose body
+// is wrapped in withEngine holds engineMu for the WHOLE stream, so Free blocks
+// until the stream ends rather than tearing the handle out from under it. That
+// is the behaviour we want (a half-closed stream over a destroyed recognizer
+// has no good outcome), but it means an unload waits on a client that has
+// stopped sending, so a streaming loop must have its own way out: honour the
+// request context and stop on it, rather than blocking forever on the next
+// chunk.
 
 func (n *NemoSpeech) loadDiarizer(modelFile string) error { return nil }
 
