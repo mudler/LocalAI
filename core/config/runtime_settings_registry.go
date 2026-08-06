@@ -296,19 +296,21 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return o.Federated },
 		func(o *ApplicationConfig, v bool) { o.Federated = v }),
 
-	// Galleries. Gallery is comparable (string fields + a pointer), so
-	// slices.Equal gives element-wise comparison against the baseline's
-	// default gallery list.
+	// Galleries. Gallery holds a Mirrors slice, so it is not comparable with
+	// == and slices.Equal does not apply; GalleriesEqual walks the list
+	// element-wise against the baseline's default gallery list, mirrors
+	// included, so a list that differs only by its mirrors still counts as
+	// env/CLI-set.
 	fieldEq("galleries",
 		func(s *RuntimeSettings) **[]Gallery { return &s.Galleries },
 		func(o *ApplicationConfig) []Gallery { return o.Galleries },
 		func(o *ApplicationConfig, v []Gallery) { o.Galleries = v },
-		slices.Equal),
+		GalleriesEqual),
 	fieldEq("backend_galleries",
 		func(s *RuntimeSettings) **[]Gallery { return &s.BackendGalleries },
 		func(o *ApplicationConfig) []Gallery { return o.BackendGalleries },
 		func(o *ApplicationConfig, v []Gallery) { o.BackendGalleries = v },
-		slices.Equal),
+		GalleriesEqual),
 	field("autoload_galleries",
 		func(s *RuntimeSettings) **bool { return &s.AutoloadGalleries },
 		func(o *ApplicationConfig) bool { return o.AutoloadGalleries },

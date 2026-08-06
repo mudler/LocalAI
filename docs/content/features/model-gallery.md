@@ -56,6 +56,18 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 
 The models in the gallery will be automatically indexed and available for installation.
 
+## Gallery mirrors
+
+A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.
+
+Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface:`, and `file://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
+
+```json
+GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
+```
+
+The key is optional: a gallery without `mirrors` behaves exactly as before.
+
 ## API Reference
 
 ### Model repositories

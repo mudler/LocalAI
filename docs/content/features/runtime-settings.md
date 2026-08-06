@@ -79,8 +79,8 @@ Changes to P2P settings automatically restart the P2P stack with the new configu
 
 Manage model and backend galleries:
 
-- **Model Galleries**: JSON array of gallery objects with `url` and `name` fields
-- **Backend Galleries**: JSON array of backend gallery objects
+- **Model Galleries**: JSON array of gallery objects with `url` and `name` fields, plus an optional `mirrors` list of fallback URLs (see [Gallery mirrors]({{%relref "features/model-gallery#gallery-mirrors" %}}))
+- **Backend Galleries**: JSON array of backend gallery objects, which accept the same `mirrors` key
 - **Autoload Galleries**: Automatically load model galleries on startup
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
 

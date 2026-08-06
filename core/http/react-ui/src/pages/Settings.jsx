@@ -492,7 +492,7 @@ export default function Settings() {
                   value={settings.galleries_json || (settings.galleries ? JSON.stringify(settings.galleries, null, 2) : '')}
                   onChange={(e) => update('galleries_json', e.target.value)}
                   rows={4}
-                  placeholder={'[\n  { "url": "https://...", "name": "my-gallery" }\n]'}
+                  placeholder={'[\n  { "url": "https://...", "name": "my-gallery", "mirrors": ["https://fallback/..."] }\n]'}
                 />
               </div>
               <div className="mt-sm">
@@ -502,7 +502,7 @@ export default function Settings() {
                   value={settings.backend_galleries_json || (settings.backend_galleries ? JSON.stringify(settings.backend_galleries, null, 2) : '')}
                   onChange={(e) => update('backend_galleries_json', e.target.value)}
                   rows={4}
-                  placeholder={'[\n  { "url": "https://...", "name": "my-backends" }\n]'}
+                  placeholder={'[\n  { "url": "https://...", "name": "my-backends", "mirrors": ["https://fallback/..."] }\n]'}
                 />
               </div>
             </div>
