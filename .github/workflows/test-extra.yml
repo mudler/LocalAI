@@ -50,6 +50,7 @@ jobs:
       sherpa-onnx: ${{ steps.detect.outputs.sherpa-onnx }}
       whisper: ${{ steps.detect.outputs.whisper }}
       parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
+      nemo-speech-cpp: ${{ steps.detect.outputs.nemo-speech-cpp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -900,6 +901,57 @@ jobs:
       - name: Test magpie-tts-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/magpie-tts-cpp test
+  # Per-backend unit suite for nemo-speech-cpp. This job exists for one reason
+  # above all: abi_test.go asserts the size and field offsets of every Go mirror
+  # struct against the C ABI it is dlopened into. Those assertions are the only
+  # thing standing between a purego symbol rename or an upstream header change
+  # and silent memory corruption at run time, and they are worthless unless
+  # something executes them. `make -C backend/go/nemo-speech-cpp test` sets
+  # NEMO_SPEECH_REQUIRE_LIBS=1, which turns "library missing" from a skip into a
+  # failure, so this job cannot report green having checked nothing.
+  #
+  # The backend Makefile's `test` target depends on `stage-libs`, so it clones
+  # upstream at the pinned SHA and builds the native runtime itself. There is no
+  # separate build step for that reason, and no model download: the specs are
+  # ABI and pure-Go only.
+  #
+  # WITH_NORM=OFF skips the Sparrowhawk/OpenFST inverse-text-normalization
+  # stack, which is the single most expensive leg of the build and needs a gcc-12
+  # pin because OpenFST's templates ICE on gcc-13/14. It costs no coverage here:
+  # nothing in include/nemo_speech/{asr,tts,diar,nmt}.h is conditional on it (the
+  # only preprocessor conditionals in those headers are include guards,
+  # __cplusplus and the _WIN32 export macros), so every struct layout this suite
+  # checks is identical either way. The shipped images still build WITH_NORM=ON;
+  # that path is covered by the backend image build in backend_pr.yml.
+  tests-nemo-speech-cpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.nemo-speech-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl libopenblas-dev ffmpeg
+      - name: Setup Go
+        uses: actions/setup-go@v5
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Test nemo-speech-cpp
+        run: |
+          make --jobs=5 --output-sync=target -C backend/go/nemo-speech-cpp WITH_NORM=OFF test
   # Per-backend smoke for rfdetr-cpp: builds the .so + Go binary and runs
   # `make -C backend/go/rfdetr-cpp test`. test.sh fetches the small (~20 MB)
   # rfdetr-nano-q8_0 GGUF from the published mudler/rfdetr-cpp-nano HF repo

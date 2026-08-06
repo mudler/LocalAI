@@ -420,6 +420,32 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
 	},
+	// nemo-speech-cpp is one gRPC server in front of four NeMo-Speech.cpp model
+	// families, picked at load time from the GGUF general.architecture key, so
+	// PossibleUsecases is their UNION and no single model serves all of it: an
+	// asr model transcribes (and diarizes, when a Sortformer model is attached
+	// through options), a sortformer model only diarizes, a magpietts model only
+	// synthesizes, and a Riva-Translate model only answers Predict.
+	//
+	// DefaultUsecases is transcript alone because that is the only family whose
+	// weights a bare `backend: nemo-speech-cpp` config is likely to name; a model
+	// of any other family should pin its own known_usecases.
+	//
+	// No VoiceCloning key: MagpieTTS synthesizes from baked speaker ids, not from
+	// a reference clip, so advertising cloning would accept a `voice:
+	// "profile:<id>"` request the backend cannot serve.
+	"nemo-speech-cpp": {
+		GRPCMethods: []GRPCMethod{
+			MethodAudioTranscription, MethodDiarize,
+			MethodTTS, MethodTTSStream,
+			MethodPredict, MethodPredictStream,
+		},
+		PossibleUsecases: []string{
+			UsecaseTranscript, UsecaseDiarization, UsecaseTTS, UsecaseCompletion,
+		},
+		DefaultUsecases: []string{UsecaseTranscript},
+		Description:     "NVIDIA NeMo-Speech.cpp: one server for Nemotron ASR (offline, streaming and live), Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation; the model's GGUF architecture decides which",
+	},
 	"qwen-asr": {
 		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
 		PossibleUsecases: []string{UsecaseTranscript},
