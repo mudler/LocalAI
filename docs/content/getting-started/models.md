@@ -140,7 +140,7 @@ local-ai run oci://localai/phi-2:latest
 ```
 
 {{% notice note %}}
-When pulling models from Ollama or OCI registries, LocalAI identifies itself with a `LocalAI/<version>` `User-Agent` header so registry operators can attribute usage to LocalAI.
+On every model download — Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike — LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.
 {{% /notice %}}
 
 ### Run Models via URI
