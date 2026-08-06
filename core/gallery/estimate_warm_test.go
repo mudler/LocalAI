@@ -1,11 +1,20 @@
 package gallery_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"time"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -55,6 +64,46 @@ var _ = Describe("VRAM estimate warm-up", func() {
 		// Nothing to assert beyond not hanging or panicking: an aborted warm-up
 		// leaves entries cold, which is the state they were already in.
 		Consistently(func() bool { return true }, "100ms").Should(BeTrue())
+	})
+
+	It("does not crash the server when remote GGUF metadata is malformed", func() {
+		payload := warmMalformedGGUF()
+		requested := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-requested:
+			default:
+				close(requested)
+			}
+			http.ServeContent(w, r, "model.gguf", time.Time{}, bytes.NewReader(payload))
+		}))
+		DeferCleanup(server.Close)
+
+		galleryPath := filepath.Join(state.Model.ModelsPath, "malformed-gallery.yaml")
+		index, err := yaml.Marshal([]gallery.GalleryModel{{Metadata: gallery.Metadata{
+			Name: "malformed-gguf",
+			AdditionalFiles: []gallery.File{{
+				Filename: "model.gguf",
+				URI:      server.URL + "/model.gguf",
+			}},
+		}}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(galleryPath, index, 0600)).To(Succeed())
+
+		cfg := gallery.DefaultEstimateWarmConfig
+		cfg.Limit = 1
+		cfg.Concurrency = 1
+		cfg.Contexts = []uint32{8192}
+		gallery.WarmEstimateCache(context.Background(), []config.Gallery{{
+			Name: "malformed",
+			URL:  "file://" + galleryPath,
+		}}, state, cfg)
+
+		Eventually(requested, "2s").Should(BeClosed())
+		// The warm-up is detached. Give its parser time to consume the response;
+		// before the recovery boundary, that goroutine panicked and killed the
+		// entire test process (and the LocalAI server in production).
+		Consistently(func() bool { return true }, "300ms").Should(BeTrue())
 	})
 
 	Describe("configuration from the environment", func() {
@@ -113,3 +162,19 @@ var _ = Describe("VRAM estimate warm-up", func() {
 	})
 
 })
+
+func warmMalformedGGUF() []byte {
+	payload := make([]byte, 0, 128)
+	payload = binary.LittleEndian.AppendUint32(payload, uint32(gguf.GGUFMagicGGUFLe))
+	payload = binary.LittleEndian.AppendUint32(payload, uint32(gguf.GGUFVersionV3))
+	payload = binary.LittleEndian.AppendUint64(payload, 0)
+	payload = binary.LittleEndian.AppendUint64(payload, 1)
+	key := "tokenizer.ggml.tokens"
+	payload = binary.LittleEndian.AppendUint64(payload, uint64(len(key)))
+	payload = append(payload, key...)
+	payload = binary.LittleEndian.AppendUint32(payload, uint32(gguf.GGUFMetadataValueTypeArray))
+	payload = binary.LittleEndian.AppendUint32(payload, uint32(gguf.GGUFMetadataValueTypeString))
+	payload = binary.LittleEndian.AppendUint64(payload, 1)
+	payload = binary.LittleEndian.AppendUint64(payload, math.MaxUint64)
+	return payload
+}

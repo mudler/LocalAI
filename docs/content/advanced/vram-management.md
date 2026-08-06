@@ -477,6 +477,11 @@ then on.
 | `LOCALAI_VRAM_WARM_LIMIT` | `300` | How many gallery entries to warm at startup, estimates and variants alike. Set to `0` to disable the warm-up entirely. |
 | `LOCALAI_VRAM_WARM_CONCURRENCY` | `4` | How many estimates to run at once. |
 
+The provided Docker Compose configurations set `LOCALAI_VRAM_WARM_LIMIT=0`
+as a defensive default, so container startup does not probe remote GGUF files.
+Remove that override or set it to a positive number to opt into background
+warming.
+
 ```bash
 # Air-gapped, or you would rather not make the requests at all
 LOCALAI_VRAM_WARM_LIMIT=0 local-ai run
