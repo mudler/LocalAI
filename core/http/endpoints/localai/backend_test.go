@@ -297,6 +297,36 @@ var _ = Describe("Backend Endpoints", func() {
 				"the description must name the modalities the single Modality field cannot")
 		})
 
+		It("advertises nemo-speech-cpp as a preference-only backend naming its other families", func() {
+			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			var payload []schema.KnownBackend
+			Expect(json.Unmarshal(rec.Body.Bytes(), &payload)).To(Succeed())
+
+			byName := map[string]schema.KnownBackend{}
+			for _, b := range payload {
+				byName[b.Name] = b
+			}
+
+			entry, ok := byName["nemo-speech-cpp"]
+			Expect(ok).To(BeTrue(), "nemo-speech-cpp must appear in the import form dropdown")
+			// AutoDetect=false is the honest answer, not an omission: the family
+			// comes from general.architecture inside the GGUF, which no remote-repo
+			// probe can read, and the translation family carries an ordinary LLM
+			// architecture that nothing NeMo-specific distinguishes.
+			Expect(entry.AutoDetect).To(BeFalse(),
+				"nemo-speech-cpp has no remote-detectable signal: the family lives inside the GGUF")
+			Expect(entry.Modality).To(Equal("asr"))
+			// The single Modality field cannot carry the other three families, so
+			// the description has to name them or the dropdown claims this backend
+			// only transcribes.
+			Expect(entry.Description).To(ContainSubstring("diarization"))
+			Expect(entry.Description).To(ContainSubstring("synthesis"))
+			Expect(entry.Description).To(ContainSubstring("translation"))
+		})
+
 		It("is sorted by Modality then Name", func() {
 			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
 			rec := httptest.NewRecorder()

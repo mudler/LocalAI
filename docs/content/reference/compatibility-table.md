@@ -49,6 +49,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [NeMo](https://github.com/NVIDIA/NeMo) | NVIDIA NeMo ASR toolkit | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) | Sherpa-ONNX ASR (Whisper, Paraformer, SenseVoice) and TTS | CPU, CUDA 12, Metal |
 | [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: transcription, forced alignment and speaker diarization (`nemotron_asr`, `qwen3_asr`, `voxtral_realtime`, `sortformer_diar` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
+| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA C++/GGML runtime for Nemotron Speech: offline, streaming and live transcription, Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation from one backend. See [NeMo-Speech.cpp backend](/features/nemo-speech-cpp/) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
 ## Text-to-Speech
 
@@ -77,6 +78,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [liquid-audio](https://github.com/Liquid4All/liquid-audio) | LFM2 end-to-end speech-to-speech, ASR, and TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
 | [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
+| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA MagpieTTS over NanoCodec, served by the same backend as Nemotron ASR. See [NeMo-Speech.cpp backend](/features/nemo-speech-cpp/) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
 ## Music & Sound Generation
 
