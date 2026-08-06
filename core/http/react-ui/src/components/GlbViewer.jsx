@@ -132,6 +132,7 @@ const Q = {
 // GLBs are already Y-up (the baker swaps axes on export), so unlike the demo
 // there is no Z-up correction here — just a gentle 3/4 default view.
 const QBASE = Q.norm(Q.mul(Q.axisAngle(1, 0, 0, -0.30), Q.axisAngle(0, 1, 0, 0.55)))
+const FRAME_INTERVAL_MS = 1000 / 30
 
 /* minimal mat4 helpers (column-major) */
 const M = {
@@ -333,10 +334,12 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
     nIndices = 0
     nWire = 0
     dropTextures()
+    requestRender()
   }
 
   function resetView() {
     rot = QBASE.slice(); dist = 1.8; panX = panY = 0
+    requestRender()
   }
 
   /* input */
@@ -353,6 +356,7 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
   }
   const stopSpin = () => {
     spin = false
+    requestRender()
     if (onSpinChange) onSpinChange(false)
   }
   const onPointerDown = (e) => {
@@ -400,6 +404,7 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
       pinchDistance = nextDistance
       pinchX = nextX
       pinchY = nextY
+      requestRender()
       return
     }
 
@@ -415,12 +420,14 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
       rot = Q.norm(Q.mul(Q.axisAngle(1, 0, 0, dy * k), Q.mul(Q.axisAngle(0, 1, 0, dx * k), rot)))
       stopSpin()
     }
+    requestRender()
   }
   const onContextMenu = (e) => e.preventDefault()
   const onWheel = (e) => {
     e.preventDefault()
     dist *= Math.exp(e.deltaY * 0.001)
     dist = Math.max(0.3, Math.min(8, dist))
+    requestRender()
   }
   const onDblClick = () => resetView()
   let onSpinChange = null
@@ -439,10 +446,26 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
   gl.clearColor(0.063, 0.078, 0.094, 1)
 
   let rafId = 0
-  let last = performance.now()
+  let lastDraw = 0
+  let dirty = true
+  function requestRender() {
+    dirty = true
+    if (!disposed && !rafId) rafId = requestAnimationFrame(frame)
+  }
   function frame(now) {
+    rafId = 0
     if (disposed) return
-    const dt = (now - last) / 1000; last = now
+    // requestAnimationFrame follows the display refresh rate, which can be
+    // 120-240 Hz. Skip expensive mesh draws until the 30 FPS budget is due.
+    if (spin && lastDraw && now - lastDraw < FRAME_INTERVAL_MS) {
+      rafId = requestAnimationFrame(frame)
+      return
+    }
+    if (!spin && !dirty) return
+
+    const dt = lastDraw ? Math.min((now - lastDraw) / 1000, 0.1) : 0
+    lastDraw = now
+    dirty = false
     // auto-rotate: a slow turn about the screen-vertical axis (turntable feel)
     if (spin) rot = Q.norm(Q.mul(Q.axisAngle(0, 1, 0, dt * 0.4), rot))
 
@@ -503,13 +526,20 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
       }
       gl.bindVertexArray(null)
     }
-    rafId = requestAnimationFrame(frame)
+    // A still model is complete until input, resize, or a control invalidates
+    // it. Spinning models keep scheduling frames, subject to the cap above.
+    if (spin) rafId = requestAnimationFrame(frame)
   }
-  rafId = requestAnimationFrame(frame)
+  const resizeObserver = typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver(requestRender)
+  resizeObserver?.observe(canvas)
+  requestRender()
 
   function dispose() {
     disposed = true
     cancelAnimationFrame(rafId)
+    resizeObserver?.disconnect()
     canvas.removeEventListener('pointerdown', onPointerDown)
     canvas.removeEventListener('pointerup', onPointerUp)
     canvas.removeEventListener('pointercancel', onPointerUp)
@@ -532,8 +562,8 @@ export function createGlbViewer(canvas, { onContextLost } = {}) {
     clear,
     dispose,
     resetView,
-    setWire(v) { wire = v },
-    setSpin(v) { spin = v },
+    setWire(v) { wire = v; requestRender() },
+    setSpin(v) { spin = v; requestRender() },
     onSpinChanged(fn) { onSpinChange = fn },
   }
 }

@@ -170,6 +170,41 @@ test.describe('3D generation', () => {
     expect(requestBody.response_format).toBe('url')
   })
 
+  test('caps auto-rotate at 30 FPS and renders still models on demand', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__glDrawTimes = []
+      const proto = window.WebGL2RenderingContext?.prototype
+      if (!proto) return
+      const drawElements = proto.drawElements
+      proto.drawElements = function (...args) {
+        window.__glDrawTimes.push(performance.now())
+        return drawElements.apply(this, args)
+      }
+    })
+    await mockGeneration(page)
+    await generateOnce(page)
+    await expect(page.getByTestId('glb-stats')).toBeVisible({ timeout: 15_000 })
+    await page.waitForTimeout(100)
+    await page.evaluate(() => { window.__glDrawTimes = [] })
+    await page.waitForTimeout(600)
+
+    const drawTimes = await page.evaluate(() => window.__glDrawTimes)
+    test.skip(drawTimes.length < 3, 'WebGL2 drawing is unavailable in this browser')
+    expect(drawTimes.length).toBeLessThanOrEqual(22)
+    const gaps = drawTimes.slice(1).map((time, index) => time - drawTimes[index]).sort((a, b) => a - b)
+    expect(gaps[Math.floor(gaps.length / 2)]).toBeGreaterThan(25)
+
+    await page.getByRole('button', { name: 'Auto-rotate' }).click()
+    await page.waitForTimeout(100)
+    const stoppedAt = await page.evaluate(() => window.__glDrawTimes.length)
+    await page.waitForTimeout(250)
+    const idleAt = await page.evaluate(() => window.__glDrawTimes.length)
+    expect(idleAt - stoppedAt).toBeLessThanOrEqual(1)
+
+    await page.getByTestId('glb-canvas').dispatchEvent('wheel', { deltaY: 20 })
+    await expect.poll(() => page.evaluate(() => window.__glDrawTimes.length)).toBeGreaterThan(idleAt)
+  })
+
   test('pastes a conditioning image without mounting its base64 in the request panel', async ({ page }) => {
     let requestBody = null
     await mockGeneration(page, (body) => { requestBody = body })
