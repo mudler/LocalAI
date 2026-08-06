@@ -109,6 +109,16 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 
 	v.opts = parseOptions(opts)
 
+	// A DFlash draft is a second checkpoint the engine opens by path, and the
+	// engine never downloads one. Resolve it against LocalAI's models directory
+	// now so a repo-id spelling works, and so a missing draft fails here with an
+	// actionable message rather than as an HF-cache miss inside the load.
+	resolvedSpec, err := resolveDraftModelPath(v.opts.speculativeConfig, opts.ModelPath)
+	if err != nil {
+		return err
+	}
+	v.opts.speculativeConfig = resolvedSpec
+
 	mp := defaultModelParams()
 	if v.opts.blockSize > 0 {
 		mp.BlockSize = v.opts.blockSize
@@ -116,34 +126,62 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	if v.opts.numBlocks > 0 {
 		mp.NumBlocks = v.opts.numBlocks
 	}
+	// Sequence-length precedence, narrowest source last: context_size is the
+	// generic LocalAI knob every backend honours, max_model_len is the
+	// vLLM-specific one, and engine_args.max_model_len is the explicit
+	// vllm-cpp override.
 	if opts.ContextSize > 0 {
 		mp.MaxModelLen = opts.ContextSize
+	}
+	if opts.MaxModelLen > 0 {
+		mp.MaxModelLen = opts.MaxModelLen
+	}
+	if v.opts.maxModelLen > 0 {
+		mp.MaxModelLen = v.opts.maxModelLen
 	}
 	if v.opts.maxNumSeqs > 0 {
 		mp.MaxNumSeqs = v.opts.maxNumSeqs
 	}
+	if v.opts.maxNumBatchedTokens > 0 {
+		mp.MaxNumBatchedTokens = v.opts.maxNumBatchedTokens
+	}
+	mp.EnablePrefixCaching = v.opts.enablePrefixCaching
+	mp.EnableJumpForward = v.opts.enableJumpForward
 
+	// Every string below is borrowed by C for the duration of the load call
+	// only (the library copies what it keeps), so the backing slices just have
+	// to outlive vllmEngineLoad - hence the single KeepAlive after it.
 	modelC := cString(model)
 	mp.ModelPath = uintptr(unsafe.Pointer(&modelC[0])) // #nosec G103 -- borrowed by C for the load call only
-	var toolParserC, reasoningParserC []byte
-	if v.opts.toolParser != "" {
-		toolParserC = cString(v.opts.toolParser)
-		mp.ToolParser = uintptr(unsafe.Pointer(&toolParserC[0])) // #nosec G103 -- borrowed by C for the load call only
+	keep := [][]byte{modelC}
+	setStr := func(dst *uintptr, s string) {
+		if s == "" {
+			return
+		}
+		b := cString(s)
+		keep = append(keep, b)
+		*dst = uintptr(unsafe.Pointer(&b[0])) // #nosec G103 -- borrowed by C for the load call only
 	}
-	if v.opts.reasoningParser != "" {
-		reasoningParserC = cString(v.opts.reasoningParser)
-		mp.ReasoningParser = uintptr(unsafe.Pointer(&reasoningParserC[0])) // #nosec G103 -- borrowed by C for the load call only
-	}
+	setStr(&mp.ToolParser, v.opts.toolParser)
+	setStr(&mp.ReasoningParser, v.opts.reasoningParser)
+	setStr(&mp.SpeculativeConfig, v.opts.speculativeConfig)
+	setStr(&mp.KVTransferConfig, v.opts.kvTransferConfig)
+	setStr(&mp.SchedulingPolicy, v.opts.schedulingPolicy)
+	setStr(&mp.TokenizerConfigPath, v.opts.tokenizerConfigPath)
 
 	xlog.Info("[vllm-cpp] Load", "model", model, "engine", vllmVersion(),
 		"blockSize", mp.BlockSize, "numBlocks", mp.NumBlocks,
-		"maxModelLen", mp.MaxModelLen, "maxNumSeqs", mp.MaxNumSeqs)
+		"maxModelLen", mp.MaxModelLen, "maxNumSeqs", mp.MaxNumSeqs,
+		"maxNumBatchedTokens", mp.MaxNumBatchedTokens,
+		"prefixCaching", triStateName(mp.EnablePrefixCaching),
+		"jumpForward", triStateName(mp.EnableJumpForward),
+		"schedulingPolicy", v.opts.schedulingPolicy,
+		"speculativeConfig", v.opts.speculativeConfig,
+		"kvTransferConfig", v.opts.kvTransferConfig)
 
 	var engine uintptr
 	rc := vllmEngineLoad(unsafe.Pointer(&mp), unsafe.Pointer(&engine)) // #nosec G103 -- POD out-params
-	runtime.KeepAlive(modelC)
-	runtime.KeepAlive(toolParserC)
-	runtime.KeepAlive(reasoningParserC)
+	runtime.KeepAlive(keep)
 	if rc != vllmOK {
 		return fmt.Errorf("vllm-cpp: engine load failed: %s", vllmLastError())
 	}

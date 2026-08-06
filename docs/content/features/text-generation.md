@@ -918,6 +918,200 @@ options:
 The full list of registered parsers lives in `sglang.srt.function_call`
 and `sglang.srt.parser.reasoning_parser`.
 
+### vllm.cpp
+
+[vllm.cpp](https://github.com/mudler/vllm.cpp) is the LocalAI team's C++ port of
+vLLM: the same continuous-batching scheduler, paged KV cache and prefix caching,
+with no Python at inference time. It consumes either a HuggingFace safetensors
+model directory or a `.gguf` file, and applies the model's chat template,
+tool-call parsing and reasoning split engine-side.
+
+#### Setup
+
+```yaml
+name: vllm-cpp
+backend: vllm-cpp
+parameters:
+  model: "Qwen/Qwen3-4B"
+context_size: 8192
+template:
+  use_tokenizer_template: true
+```
+
+#### Configuring the engine with `engine_args`
+
+The same `engine_args:` map the vLLM and SGLang backends accept is honoured
+here, with keys spelled exactly as vLLM's own CLI flags - so a `speculative_config`
+or `kv_transfer_config` block written for vLLM works verbatim. Unknown keys are
+ignored rather than fatal; the engine validates the documents it is handed and
+reports a precise error at load.
+
+```yaml
+name: qwen35-a3b
+backend: vllm-cpp
+parameters:
+  model: "Qwen/Qwen3.5-A3B"
+context_size: 16384
+template:
+  use_tokenizer_template: true
+engine_args:
+  # KV cache sizing: num_blocks * block_size tokens of cache.
+  block_size: 32
+  num_blocks: 1024
+  # Concurrency and the per-step chunked-prefill token budget.
+  max_num_seqs: 32
+  max_num_batched_tokens: 8192
+  # Automatic prefix caching. Omit to keep the model's own default
+  # (on for dense models, off for hybrid / attention-free ones).
+  enable_prefix_caching: true
+  # Scheduler admission order: fcfs (default), priority, or lpm
+  # (cache-aware longest-prefix-match; needs prefix caching to have any effect).
+  scheduling_policy: lpm
+```
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `block_size` | KV-cache block size, in tokens per block | 32 |
+| `num_blocks` | KV-cache blocks to allocate | 256 |
+| `max_model_len` | Max sequence length; also settable as `context_size` / `max_model_len` | model config |
+| `max_num_seqs` | Max concurrent sequences the scheduler admits | 8 |
+| `max_num_batched_tokens` | Per-step chunked-prefill token budget | per-arch (2048 dense, 4096/8192 MoE) |
+| `enable_prefix_caching` | Automatic prefix caching; `enable_radix_attention` is an accepted alias | model default |
+| `enable_jump_forward` | Jump-forward decoding, which emits grammar-forced tokens without a model step. Only affects constrained requests (`grammar`, JSON schema) | off |
+| `scheduling_policy` | `fcfs`, `priority`, or `lpm` | `fcfs` |
+| `tool_parser` / `reasoning_parser` | Force a parser instead of chat-template auto-detection | auto |
+| `tokenizer_config` | Override the `tokenizer_config.json` the chat template is read from | `<model_dir>/tokenizer_config.json` |
+| `speculative_config` | Speculative decoding (see below) | disabled |
+| `kv_transfer_config` | External KV connector / LMCache (see below) | none |
+
+Raising `max_num_batched_tokens` lets more prefill land in a single step, at the
+cost of decode latency for requests queued behind it. The default deliberately
+does not scale with `max_num_seqs`, which is what keeps a large concurrent
+prefill from blowing up the per-step activation on the hybrid architectures.
+
+`enable_prefix_caching` and `enable_jump_forward` are tri-state at the engine
+boundary: omitting the key defers to a default (the model's own capability for
+prefix caching, an environment variable for jump forward), while an explicit
+`false` forces the feature off. Those are genuinely different - prefix caching
+defaults *on* for dense models - so write the key only when you mean to override.
+
+#### Speculative decoding
+
+`speculative_config:` takes the same JSON object as vLLM's
+`--speculative-config`. Three methods are supported.
+
+> **Architecture limit.** At the current engine pin, `mtp` and `dflash` are
+> **Qwen3.5 / Qwen3.6 only**. The engine builds a widened speculative KV cache
+> directly for those families rather than through the model registry, so a
+> speculative config on any other architecture (Llama, GLM, Gemma, Mistral, ...)
+> will not work regardless of checkpoint format. `ngram` needs no draft weights
+> and is not subject to this limit.
+
+> **Format support.** `mtp` and `dflash` now work from a `.gguf` target as well
+> as safetensors. An MTP head is read from the GGUF's `nextn.*` tensors when the
+> file declares `<arch>.nextn_predict_layers`; a GGUF exported WITHOUT the head
+> (converted with `--no-mtp`, or predating llama.cpp's Qwen3.5 MTP support) is
+> refused at load naming that as the reason. A DFlash draft may itself be a
+> `dflash`-arch GGUF, and the target may be a GGUF too. `ngram` needs no draft
+> weights and works on any format.
+
+**MTP** (Multi-Token Prediction) uses a draft head shipped inside the target
+checkpoint's own `mtp.*` tensors, so there is no second model to download. It
+requires a **safetensors** checkpoint - the `mtp.*` tensors do not survive GGUF
+conversion, and an MTP config over a `.gguf` model is rejected at load.
+
+```yaml
+engine_args:
+  speculative_config:
+    method: mtp
+    # Optional; defaults to the checkpoint's own head depth, which is
+    # usually the right value. Must be a multiple of that depth.
+    num_speculative_tokens: 1
+```
+
+**DFlash** uses a separate block-diffusion drafter that proposes a whole block
+of tokens in one non-autoregressive forward pass. Unlike MTP, the draft is its
+own checkpoint, so `model:` is **required**:
+
+```yaml
+engine_args:
+  speculative_config:
+    method: dflash
+    model: z-lab/Qwen3.6-27B-DFlash
+    num_speculative_tokens: 4
+```
+
+The draft shares the *target's* `embed_tokens` and `lm_head`, so both must come
+from the same model family and the target must be safetensors.
+
+**The engine does not download the draft.** `model:` is resolved, in order,
+as a path as given, then as the last path segment under LocalAI's models
+directory (`z-lab/Qwen3.6-27B-DFlash` → `<models>/Qwen3.6-27B-DFlash`, which is
+what LocalAI's own downloader produces), then as the whole reference under the
+models directory. Install the draft into LocalAI first, or give an absolute path
+to a directory containing `config.json`. If none of those resolve, the load
+fails immediately naming every location that was tried, rather than reporting a
+missing checkpoint from inside the engine.
+
+**N-gram** needs no draft model at all - it proposes from the prompt's own
+suffix history. `num_speculative_tokens` is required:
+
+```yaml
+engine_args:
+  speculative_config:
+    method: ngram
+    num_speculative_tokens: 4
+    prompt_lookup_min: 5
+    prompt_lookup_max: 5
+```
+
+> **Auto-configuration on import.** When you import a safetensors repository
+> with `backend: vllm-cpp`, LocalAI reads the checkpoint's `config.json` and, if
+> it declares an MTP head (`mtp_num_hidden_layers`), writes
+> `speculative_config: {method: mtp}` into the generated `engine_args` for you.
+> An explicit `speculative_config` in your own config is never overwritten.
+> Importing a DFlash *draft* repository is refused with a warning: a drafter
+> cannot serve on its own, so import the target model and point
+> `speculative_config.model` at the draft.
+
+#### External KV cache with LMCache
+
+`kv_transfer_config:` takes vLLM's `--kv-transfer-config` JSON and selects an
+external KV-cache connector. The `lm://` LMCache client lets prefill KV be
+stored to and reloaded from a shared `lmcache.v1.server`, so a prefix computed
+by one replica does not have to be recomputed by the next:
+
+```yaml
+engine_args:
+  kv_transfer_config:
+    kv_connector: LMCacheConnector
+    kv_role: kv_both          # required whenever kv_connector is set
+    kv_connector_extra_config:
+      host: 127.0.0.1
+      port: 65432
+```
+
+`kv_role` is one of `kv_producer` (store only), `kv_consumer` (load only), or
+`kv_both`. An unregistered connector name, a missing role, or a malformed
+document fails the load with an explicit error rather than silently running
+without the cache.
+
+#### Legacy `options:` list
+
+Earlier versions configured this backend through the flat `options:` list, and
+those configs keep working. Every key in the table above is still read from
+there in `key:value` form, and `engine_args` wins on any key set in both:
+
+```yaml
+options:
+  - max_num_seqs:32
+  - enable_prefix_caching:true
+```
+
+New configs should prefer `engine_args:`, which is the only place the nested
+`speculative_config` / `kv_transfer_config` documents can be written naturally
+rather than as a single-line JSON string.
+
 ### Transformers
 
 [Transformers](https://huggingface.co/docs/transformers/index) is a State-of-the-art Machine Learning library for PyTorch, TensorFlow, and JAX.
