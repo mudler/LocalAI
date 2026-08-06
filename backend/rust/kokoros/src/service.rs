@@ -334,6 +334,13 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn upscale_image(
+        &self,
+        _: Request<backend::UpscaleImageRequest>,
+    ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn generate_video(
         &self,
         _: Request<backend::GenerateVideoRequest>,
