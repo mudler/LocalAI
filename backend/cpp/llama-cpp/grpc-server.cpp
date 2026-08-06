@@ -3058,9 +3058,10 @@ public:
         task.tts_inp.set_prompt(opts.text);
         // core/backend/tts.go always sets TTSRequest.language, so has_language()
         // is true even when the caller named no language and the string is empty.
-        // gen_audio::inp::get() maps an empty lang to nullptr on its own, but
-        // only if we never store a blank; guard here so upstream sees "unset"
-        // rather than an engaged empty language on every default request.
+        // gen_audio::inp::get() already maps a stored blank to nullptr, so this
+        // guard is behavior-preserving rather than behavior-fixing. It is kept
+        // so the "unset" intent is visible at the call site instead of resting
+        // on a detail of the helper.
         if (!opts.language.empty()) {
             task.tts_inp.set_lang(opts.language);
         }
@@ -3077,6 +3078,19 @@ public:
         // its codec EOS, so a short input can otherwise generate the full cap.
         task.params.n_predict = opts.max_frames > 0 ? opts.max_frames : -1;
         task.params.sampling  = params_base.sampling;
+        // Both values mirror upstream's draft POST /tts handler. Note that the
+        // pair is INERT at this pin: llama_sampler_init_penalties() clamps
+        // penalty_last_n with std::max(penalty_last_n, 0), so -1 means "off",
+        // not "the whole generation", and the penalty sampler is then built
+        // disabled. No repetition penalty is actually applied.
+        //
+        // That is deliberate. Dropping the second line lets the sampling
+        // default of 64 apply and genuinely engages the 1.05 penalty, which was
+        // measured here against the model's habit of never emitting its codec
+        // EOS and running to the frame cap: 0 of 15 short requests ran away
+        // with the penalty inert, 1 of 15 with it active over the last 64
+        // tokens. It does not fix the runaway, so the line stays for parity
+        // with the draft. Use max_frames to bound the output instead.
         task.params.sampling.penalty_repeat = 1.05f;
         task.params.sampling.penalty_last_n = -1;
         if (opts.top_k > 0) {
@@ -3138,7 +3152,13 @@ public:
         if (!out) {
             return grpc::Status(grpc::StatusCode::INTERNAL, "failed to write output file: " + request->dst());
         }
+        // Buffered data is flushed here, so a full disk or a failing device can
+        // surface for the first time on close. Reporting success then would
+        // leave a truncated file behind under the name the caller will read.
         out.close();
+        if (!out) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, "failed to close output file: " + request->dst());
+        }
 
         result->set_success(true);
         result->set_message("TTS audio generated");
@@ -3168,7 +3188,21 @@ public:
         // the sample rate in the first reply's Message, then concatenates every
         // Reply.Audio verbatim. So the rate goes out once, up front, and the
         // chunks stay raw PCM.
-        bool rate_sent = false;
+        //
+        // Send it before draining rather than off the first audio result: a
+        // chunk needs a whole 72-frame window, about 5.8 s of audio and far
+        // longer in wall time on CPU, and the Go side cannot emit the WAV
+        // header until this reply lands. Waiting would hold the client at zero
+        // bytes for that entire stretch. The rate is a property of the loaded
+        // model, available synchronously, so there is nothing to wait for.
+        {
+            backend::Reply header;
+            const json info = { {"sample_rate", mtmd_gen_audio_get_info(ctx_server.impl->mctx).sample_rate} };
+            header.set_message(info.dump());
+            if (!writer->Write(header)) {
+                return grpc::Status(grpc::StatusCode::CANCELLED, "client closed the TTS stream");
+            }
+        }
 
         while (true) {
             auto res = rd.next(should_stop);
@@ -3181,16 +3215,6 @@ public:
             auto * tts_res = dynamic_cast<server_task_result_tts *>(res.get());
             if (tts_res == nullptr) {
                 return grpc::Status(grpc::StatusCode::INTERNAL, "unexpected result type for a TTS task");
-            }
-
-            if (!rate_sent) {
-                backend::Reply header;
-                const json info = { {"sample_rate", tts_res->sample_rate} };
-                header.set_message(info.dump());
-                if (!writer->Write(header)) {
-                    return grpc::Status(grpc::StatusCode::CANCELLED, "client closed the TTS stream");
-                }
-                rate_sent = true;
             }
 
             if (!tts_res->audio.empty()) {
