@@ -125,7 +125,7 @@ func NewHandler(opts Options) func(http.ResponseWriter, *http.Request, string) {
 		event := Event{Host: hostname(host), Method: request.Method, Path: request.URL.EscapedPath(), Intercepted: true}
 		defer func() { opts.Recorder.Record(event) }()
 		if request.Body != nil {
-			defer request.Body.Close()
+			defer func() { _ = request.Body.Close() }()
 		}
 		event.BytesSent = max(request.ContentLength, 0)
 		attempts := 1
@@ -180,7 +180,7 @@ func fetch(ctx context.Context, transport http.RoundTripper, original *http.Requ
 	}
 	file, err := os.CreateTemp(spoolDir, "localai-build-proxy-*")
 	if err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return resp, "", 0, err
 	}
 	path := file.Name()
@@ -196,7 +196,7 @@ func fetch(ctx context.Context, transport http.RoundTripper, original *http.Requ
 }
 
 func copyResponse(w http.ResponseWriter, resp *http.Response, path, method string) {
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 	for key, values := range resp.Header {
 		if hopHeader(key) || strings.EqualFold(key, "Content-Length") {
 			continue
@@ -213,7 +213,7 @@ func copyResponse(w http.ResponseWriter, resp *http.Response, path, method strin
 	w.WriteHeader(resp.StatusCode)
 	file, err := os.Open(path)
 	if err == nil {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		_, _ = io.Copy(w, file)
 	}
 }

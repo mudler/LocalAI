@@ -20,11 +20,11 @@ inputs:
   github-hosted-mirror:
     description: 'archive/security mirror URL for github-hosted runners (empty = upstream)'
     required: false
-    default: 'https://azure.archive.ubuntu.com'
+    default: 'https://archive.ubuntu.com'
   github-hosted-ports-mirror:
     description: 'ports.ubuntu.com mirror URL for github-hosted runners (empty = upstream)'
     required: false
-    default: 'https://azure.ports.ubuntu.com'
+    default: 'https://ports.ubuntu.com'
   self-hosted-mirror:
     description: 'archive/security mirror URL for self-hosted runners (empty = upstream)'
     required: false

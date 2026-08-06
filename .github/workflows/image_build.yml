@@ -129,6 +129,11 @@ jobs:
         with:
           platforms: all
 
+      - name: Set up Go for build proxy
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Start build network proxy
         run: .github/scripts/start-build-proxy.sh
 
@@ -181,7 +186,7 @@ jobs:
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
-          secrets: |
+          secret-files: |
             build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: .
           file: ./Dockerfile
@@ -249,7 +254,7 @@ jobs:
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
-          secrets: |
+          secret-files: |
             build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: .
           file: ./Dockerfile

@@ -36,7 +36,7 @@ var _ = Describe("Interception certificates", func() {
 		dir := GinkgoT().TempDir()
 		recorder, err := NewRecorder(dir + "/events.jsonl")
 		Expect(err).NotTo(HaveOccurred())
-		defer recorder.Close()
+		defer func() { _ = recorder.Close() }()
 		server, err := NewServer("127.0.0.1:0", dir+"/ca", http.NotFoundHandler(), recorder)
 		Expect(err).NotTo(HaveOccurred())
 		response := httptest.NewRecorder()
