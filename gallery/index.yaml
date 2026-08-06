@@ -2089,7 +2089,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: ea3dc48cb9797ea1bfaa8a74d8a819756b06b16e8fbaa30728ad2cd0a643c605
+      sha256: a9aadd5a1921708c97aecaf29e6b3d5c0aa252aadc3b706d1281f68361bd52b9
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -40618,7 +40618,7 @@
   files:
     - filename: cohere-transcribe-q4_k.gguf
       uri: huggingface://cstr/cohere-transcribe-03-2026-GGUF/cohere-transcribe-q4_k.gguf
-      sha256: 2931fc0ac6d6708eef5389aadf1ebd5eec7b8e764bac385be585e910c0e7b410
+      sha256: 237261c543dc9124a3f08f95b48c9c672896ef0d79dc8cadce3fb4ddc09a2ef8
 - name: wav2vec2-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
