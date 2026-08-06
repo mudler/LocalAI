@@ -1,5 +1,21 @@
 # CI Build Caching
 
+## Build network inventory and defensive proxy
+
+Backend and main-image BuildKit daemons use `cmd/build-proxy` through the host
+network. Every destination is retained for 14 days as JSONL plus an aggregate
+host/method/byte summary. Ordinary HTTPS is deliberately tunnelled, so its
+encrypted request method is reported as `CONNECT`; HTTP requests are spooled,
+checked against `Content-Length`, and GET/HEAD requests retry transient status
+codes or incomplete responses with exponential backoff capped at 500ms.
+
+TLS interception is intentionally out of scope until a proxy CA can be installed
+in both the BuildKit daemon and every build stage. Without that trust setup,
+claiming to inventory HTTPS GET/POST/PUT methods would be inaccurate and builds
+would fail certificate verification. The inventory is intended to size a future
+content-addressed cache and identify hosts worth adding to curated OCI mirrors,
+such as the existing Jetson wheels mirror.
+
 Container builds — both the root LocalAI image (`Dockerfile`) and the per-backend images (`backend/Dockerfile.*`) — share a registry-backed BuildKit cache plus a layered set of prebuilt base images. This file explains how the cache is laid out, what invalidates it, and how to bypass it.
 
 ## Workflow surfaces

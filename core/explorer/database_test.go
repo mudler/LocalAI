@@ -2,6 +2,7 @@ package explorer_test
 
 import (
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,8 +18,9 @@ var _ = Describe("Database", func() {
 	)
 
 	BeforeEach(func() {
-		// Create a temporary file path for the database
-		dbPath = "test_db.json"
+		// Keep each spec isolated: coverage runs can execute package tests in
+		// overlapping processes, so a repository-relative filename is racy.
+		dbPath = filepath.Join(GinkgoT().TempDir(), "test_db.json")
 		db, err = explorer.NewDatabase(dbPath)
 		Expect(err).To(BeNil())
 	})
@@ -78,7 +80,7 @@ var _ = Describe("Database", func() {
 
 	Context("when loading an empty or non-existent file", func() {
 		It("should start with an empty database", func() {
-			dbPath = "empty_db.json"
+			dbPath = filepath.Join(GinkgoT().TempDir(), "empty_db.json")
 			db, err = explorer.NewDatabase(dbPath)
 			Expect(err).To(BeNil())
 

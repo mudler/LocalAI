@@ -153,9 +153,17 @@ jobs:
         with:
           platforms: all
 
+      - name: Start build network proxy
+        run: .github/scripts/start-build-proxy.sh
+
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
+        with:
+          driver-opts: |
+            network=host
+            env.http_proxy=${{ env.LOCALAI_BUILD_PROXY }}
+            env.https_proxy=${{ env.LOCALAI_BUILD_PROXY }}
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
@@ -323,3 +331,16 @@ jobs:
       - name: job summary
         run: |
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Stop build network proxy
+        if: always()
+        run: .github/scripts/stop-build-proxy.sh
+
+      - name: Upload build network inventory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-network-${{ inputs.backend }}-${{ inputs.tag-suffix }}-${{ inputs.platform-tag || 'single' }}
+          path: ${{ env.LOCALAI_BUILD_PROXY_OUTPUT }}
+          if-no-files-found: warn
+          retention-days: 14
