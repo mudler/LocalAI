@@ -2,6 +2,7 @@ package middleware_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -540,3 +541,224 @@ template:
 `
 	Expect(os.WriteFile(filepath.Join(modelDir, name+".yaml"), []byte(body), 0o644)).To(Succeed())
 }
+
+// --- knn classifier middleware specs ---
+
+// fixedEmbedder returns the same vector for every probe — the KNN
+// middleware specs script the neighbourhood in the store fake, so the
+// query vector itself is irrelevant.
+type fixedEmbedder struct{}
+
+func (fixedEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	return []float32{1, 0, 0}, nil
+}
+
+// scriptedVectorStore returns a fixed neighbour list from SearchK. The
+// classifier must never call Search (top-1 is the cache's shape) nor
+// Insert (the KNN corpus grows only through explicit curation) — both
+// error loudly so a regression shows up as a failed spec.
+type scriptedVectorStore struct {
+	neighbors []backend.Neighbor
+}
+
+func (s *scriptedVectorStore) SearchK(_ context.Context, _ []float32, k int) ([]backend.Neighbor, error) {
+	if len(s.neighbors) > k {
+		return s.neighbors[:k], nil
+	}
+	return s.neighbors, nil
+}
+
+func (s *scriptedVectorStore) Search(_ context.Context, _ []float32) (float64, []byte, bool, error) {
+	return 0, nil, false, errTestKNNSearch
+}
+
+func (s *scriptedVectorStore) Insert(_ context.Context, _ []float32, _ []byte) error {
+	return errTestKNNInsert
+}
+
+var (
+	errTestKNNSearch = errors.New("knn classifier must use SearchK, not Search")
+	errTestKNNInsert = errors.New("knn classifier must never insert into the corpus")
+)
+
+type failingCorpusLoader struct{ err error }
+
+func (f failingCorpusLoader) EnsureLoaded(context.Context, string, string, string, backend.Embedder, backend.VectorStore) (int, error) {
+	return 0, f.err
+}
+
+func corpusPayload(labels ...string) []byte {
+	b, err := router.EncodeCorpusEntry(router.EntryID(strings.Join(labels, "+")), labels)
+	Expect(err).NotTo(HaveOccurred())
+	return b
+}
+
+// newKNNRouterModel mirrors newScoreRouterModel but with the knn
+// classifier: same policy vocabulary and candidate table, no
+// classifier_model, corpus semantics supplied by the store fake.
+func newKNNRouterModel(modelDir, name string) *config.ModelConfig {
+	cfg := &config.ModelConfig{
+		Name: name,
+		Router: config.RouterConfig{
+			Classifier: "knn",
+			Fallback:   "qwen3-0.6b",
+			KNN:        &config.RouterKNNConfig{EmbeddingModel: "embed-model"},
+			Policies: []config.RouterPolicy{
+				{Label: "code-generation", Description: "writing or debugging code"},
+				{Label: "casual-chat", Description: "small talk"},
+				{Label: "math-reasoning", Description: "arithmetic and word problems"},
+			},
+			Candidates: []config.RouterCandidate{
+				{Model: "small-model", Labels: []string{"casual-chat"}},
+				{Model: "big-model", Labels: []string{"code-generation", "casual-chat", "math-reasoning"}},
+			},
+		},
+	}
+	Expect(os.WriteFile(filepath.Join(modelDir, name+".yaml"), []byte(toYAML(cfg)), 0o644)).To(Succeed())
+	return cfg
+}
+
+var _ = Describe("RouteModel middleware (knn classifier)", func() {
+	var (
+		modelDir  string
+		appConfig *config.ApplicationConfig
+		loader    *config.ModelConfigLoader
+		store     *fakeDecisionStore
+		vstore    *scriptedVectorStore
+		storeName string
+	)
+
+	BeforeEach(func() {
+		d, err := os.MkdirTemp("", "router-knn-test-*")
+		Expect(err).NotTo(HaveOccurred())
+		modelDir = d
+		appConfig = &config.ApplicationConfig{
+			Context:     context.Background(),
+			SystemState: &system.SystemState{Model: system.Model{ModelsPath: modelDir}},
+		}
+		loader = config.NewModelConfigLoader(modelDir)
+		store = &fakeDecisionStore{}
+		vstore = &scriptedVectorStore{}
+		storeName = ""
+	})
+
+	AfterEach(func() {
+		_ = os.RemoveAll(modelDir)
+	})
+
+	knnDeps := func() ClassifierDeps {
+		return ClassifierDeps{
+			Embedder: func(string) backend.Embedder { return fixedEmbedder{} },
+			VectorStore: func(name string) backend.VectorStore {
+				storeName = name
+				return vstore
+			},
+		}
+	}
+
+	It("routes to the candidate covering the corpus vote", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		vstore.neighbors = []backend.Neighbor{
+			{Similarity: 0.92, Payload: corpusPayload("code-generation")},
+			{Similarity: 0.88, Payload: corpusPayload("code-generation")},
+		}
+
+		rec, err := runRouterWithDeps(loader, appConfig, store, routerCfg,
+			openAIChat("debug my Go null pointer"), knnDeps())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Body.String()).To(Equal("served:big-model"))
+		Expect(storeName).To(Equal("router-corpus-smart-router"),
+			"corpus store must be namespaced per router, separate from the decision cache")
+		Expect(store.records).To(HaveLen(1))
+		Expect(store.records[0].Classifier).To(Equal("knn"))
+		Expect(store.records[0].Label).To(ContainSubstring("code-generation"))
+		Expect(store.records[0].NearestSimilarity).To(BeNumerically("~", 0.92, 1e-9))
+	})
+
+	It("falls back when the probe is out of corpus range (epistemic gate)", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		writeCandidate(modelDir, "qwen3-0.6b")
+		// Nearest labelled experience is far below the 0.80 default gate.
+		vstore.neighbors = []backend.Neighbor{
+			{Similarity: 0.42, Payload: corpusPayload("code-generation")},
+		}
+
+		rec, err := runRouterWithDeps(loader, appConfig, store, routerCfg,
+			openAIChat("translate this sanskrit poem"), knnDeps())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Body.String()).To(Equal("served:qwen3-0.6b"))
+		Expect(store.records).To(HaveLen(1))
+		Expect(store.records[0].Label).To(Equal(router.LabelFallback))
+		// The decision log must still carry the epistemic signal — how
+		// close the nearest corpus entry was to routing this probe.
+		Expect(store.records[0].NearestSimilarity).To(BeNumerically("~", 0.42, 1e-9))
+	})
+
+	It("rejects a knn router without a knn block at build time", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		routerCfg.Router.KNN = nil
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+
+		_, err := runRouterWithDeps(loader, appConfig, store, routerCfg,
+			openAIChat("hello"), knnDeps())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("knn"))
+	})
+
+	It("fails closed when the persisted corpus cannot sync into the live index", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		deps := knnDeps()
+		deps.EmbedderFingerprint = func(string) (string, error) { return "fp", nil }
+		deps.Corpus = failingCorpusLoader{err: errors.New("incompatible persisted vectors")}
+
+		_, err := runRouterWithDeps(loader, appConfig, store, routerCfg,
+			openAIChat("hello"), deps)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("incompatible persisted vectors"))
+	})
+
+	It("invalidates the classifier cache when the embedding fingerprint changes", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		fingerprint := "v1"
+		deps := knnDeps()
+		deps.EmbedderFingerprint = func(string) (string, error) { return fingerprint, nil }
+		registry := router.NewRegistry()
+
+		first, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		cached, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cached).To(BeIdenticalTo(first))
+
+		fingerprint = "v2"
+		rebuilt, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rebuilt).NotTo(BeIdenticalTo(first))
+	})
+
+	It("ignores an embedding_cache block instead of double-embedding", func() {
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		routerCfg.Router.EmbeddingCache = &config.EmbeddingCacheConfig{EmbeddingModel: "embed-model"}
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		vstore.neighbors = []backend.Neighbor{
+			{Similarity: 0.95, Payload: corpusPayload("casual-chat")},
+		}
+
+		rec, err := runRouterWithDeps(loader, appConfig, store, routerCfg,
+			openAIChat("hi"), knnDeps())
+		Expect(err).NotTo(HaveOccurred())
+		// Routed by the corpus (small-model covers casual-chat) and NOT
+		// wrapped: a cache wrap would have called the fake's Search,
+		// which errors loudly.
+		Expect(rec.Body.String()).To(Equal("served:small-model"))
+		Expect(store.records[0].Cached).To(BeFalse())
+	})
+})
