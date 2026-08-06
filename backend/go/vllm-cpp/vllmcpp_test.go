@@ -16,10 +16,17 @@ func TestVllmCpp(t *testing.T) {
 	RunSpecs(t, "vllm-cpp suite")
 }
 
-// The Go POD mirrors must match the C struct layout of vllm.h (ABI v2)
+// The Go POD mirrors must match the C struct layout of vllm.h (ABI v10)
 // byte-for-byte: these offsets are the C offsets on LP64 (linux/darwin
 // amd64+arm64). A failure here means govllmcpp.go drifted from vllm.h.
 var _ = Describe("C ABI struct mirrors", func() {
+	It("declares the ABI version the pinned engine reports", func() {
+		// VLLM_ABI_VERSION in the vllm.h of VLLM_CPP_VERSION (Makefile).
+		// Moving the pin past this without growing the mirrors below ships a
+		// backend that refuses every load at startup (issue #11379).
+		Expect(abiVersion).To(Equal(10))
+	})
+
 	It("cModelParams matches vllm_model_params", func() {
 		var p cModelParams
 		Expect(unsafe.Offsetof(p.ModelPath)).To(Equal(uintptr(0)))
@@ -30,10 +37,16 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.MaxNumSeqs)).To(Equal(uintptr(28)))
 		Expect(unsafe.Offsetof(p.ToolParser)).To(Equal(uintptr(32)))
 		Expect(unsafe.Offsetof(p.ReasoningParser)).To(Equal(uintptr(40)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(48)))
+		Expect(unsafe.Offsetof(p.SpeculativeConfig)).To(Equal(uintptr(48)))
+		Expect(unsafe.Offsetof(p.EnablePrefixCaching)).To(Equal(uintptr(56)))
+		Expect(unsafe.Offsetof(p.MaxNumBatchedTokens)).To(Equal(uintptr(60)))
+		Expect(unsafe.Offsetof(p.SchedulingPolicy)).To(Equal(uintptr(64)))
+		Expect(unsafe.Offsetof(p.KVTransferConfig)).To(Equal(uintptr(72)))
+		Expect(unsafe.Offsetof(p.EnableJumpForward)).To(Equal(uintptr(80)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(88)))
 	})
 
-	It("cSamplingParams matches vllm_sampling_params (ABI v2)", func() {
+	It("cSamplingParams matches vllm_sampling_params", func() {
 		var p cSamplingParams
 		Expect(unsafe.Offsetof(p.Temperature)).To(Equal(uintptr(0)))
 		Expect(unsafe.Offsetof(p.TopP)).To(Equal(uintptr(4)))
@@ -55,7 +68,9 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.NStructuredChoice)).To(Equal(uintptr(96)))
 		Expect(unsafe.Offsetof(p.StructuredGrammar)).To(Equal(uintptr(104)))
 		Expect(unsafe.Offsetof(p.StructuredJSONObject)).To(Equal(uintptr(112)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(120)))
+		Expect(unsafe.Offsetof(p.LogitsProcessor)).To(Equal(uintptr(120)))
+		Expect(unsafe.Offsetof(p.LogitsProcessorUserData)).To(Equal(uintptr(128)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(136)))
 	})
 
 	It("cCompletion matches vllm_completion", func() {

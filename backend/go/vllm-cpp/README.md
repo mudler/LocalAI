@@ -6,7 +6,7 @@ safetensors + GGUF loading, CUDA / CPU / Metal / Vulkan) with no Python at
 inference time.
 
 The backend dlopens the engine's stable C ABI (`libvllm`, `include/vllm.h`,
-ABI v2) through purego:
+ABI v10) through purego:
 
 - `Load` -> `vllm_engine_load`: accepts a `.gguf` file or a HF-style model
   directory (`config.json` + safetensors). `context_size` maps to
@@ -28,6 +28,12 @@ ABI v2) through purego:
   `PredictOptions.Grammar` -> the ABI's `structured_grammar` (GBNF) for
   LocalAI's Go-side grammar-constrained tool calling; JSON-schema / regex /
   choice constraints are also exposed by the ABI.
+
+The struct mirrors in `govllmcpp.go` are hand-written against one ABI version,
+and the engine refuses to load against any other. Moving `VLLM_CPP_VERSION` in
+the Makefile therefore means updating `abiVersion` plus the mirrors (and their
+offsets in `vllmcpp_test.go`) in the same change; `make abi-check` compares the
+pinned header against the bindings and the library build runs it first.
 
 Model config example:
 
