@@ -130,7 +130,7 @@ When a saved profile is selected, LocalAI supplies both its private WAV and exac
 | --- | --- |
 | `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `moss-tts-cpp`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
 | `qwen-tts`, `qwen3-tts-cpp`, `vllm-omni` | Base or VoiceClone variants. CustomVoice and VoiceDesign variants are not raw reference-audio models. |
-| `llama-cpp` | Qwen3-TTS Base variants (`qwen3-tts-llamacpp`, `qwen3-tts-llamacpp-q4`). A reference clip is required, since the Base checkpoints have no built-in speaker. |
+| `llama-cpp` | Models that declare `known_usecases: [tts]`, which the Qwen3-TTS gallery entries (`qwen3-tts-llamacpp`, `qwen3-tts-llamacpp-q4`) do. A reference clip is required, since the Base checkpoints have no built-in speaker. Ordinary GGUF chat and vision models served by this backend are excluded. |
 | `vibevoice-cpp` | 1.5B reference-WAV variants. The realtime 0.5B preset-prompt model is excluded. |
 | `coqui` | XTTS and YourTTS variants. |
 | `crispasr` | F5-TTS variants. ASR, Piper, Orpheus, and other CrispASR model families are excluded. |
@@ -553,6 +553,8 @@ mmproj: qwen3-tts-llamacpp/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
 parameters:
   model: qwen3-tts-llamacpp/Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
 ```
+
+`known_usecases: [tts]` is not optional here. It is how LocalAI tells a Qwen3-TTS checkpoint apart from the text and vision GGUFs the same backend serves: without it the model is treated as a chat model, its projector is read as a vision tower, and Voice Library profiles are refused.
 
 The upstream checkpoints are Base variants with no built-in speaker, so `voice` is **required** on every request. Pass either a path to a reference clip or a saved Voice Library profile. A request without one is rejected rather than served in an arbitrary voice:
 
