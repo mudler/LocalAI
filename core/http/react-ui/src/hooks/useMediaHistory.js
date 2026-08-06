@@ -12,6 +12,21 @@ const STORAGE_KEYS = {
 const SAVE_DEBOUNCE_MS = 500
 const MAX_ENTRIES = 100
 
+// Read every store at once, without mounting a hook per media type.
+//
+// The Studio overview reads across all of them and writes to none, while
+// useMediaHistory() carries save timers and selection state it would have no
+// use for. Note there is no 'threed' store here: 3D history lives in IndexedDB
+// rather than localStorage because its entries carry multi-megabyte GLB blobs,
+// so callers wanting 3D read use3DHistory alongside this.
+export function readAllMediaHistory() {
+  const all = {}
+  for (const [mediaType, key] of Object.entries(STORAGE_KEYS)) {
+    all[mediaType] = loadEntries(key)
+  }
+  return all
+}
+
 function loadEntries(key) {
   try {
     const stored = localStorage.getItem(key)

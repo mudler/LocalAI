@@ -25,7 +25,9 @@ The Model Gallery is the simplest way to install models. It provides pre-configu
 2. Navigate to the "Models" tab
 3. Browse available models
 4. Click "Install" on any model you want
-5. Wait for installation to complete
+5. Wait for installation to complete. Progress appears in the strip at the top
+   of the app, and **Operate → Activity** shows every install in flight, plus
+   what failed and what finished (see [Activity]({{% relref "operations/activity" %}}))
 
 For more details, refer to the [Gallery Documentation]({{% relref "features/model-gallery" %}}).
 
@@ -77,6 +79,12 @@ The WebUI provides a powerful model import interface that supports both simple a
    - Embeddings support
    - Custom preferences
 5. Click "Import Model" to start the import process
+
+Repositories under `mlx-community` are imported with the native MLX backend.
+LocalAI uses Hugging Face's pipeline metadata to select `mlx-vlm` for
+vision-language models and `mlx-audio` for text-to-speech models; other MLX
+repositories use `mlx`. An explicit backend selection in the import form always
+overrides this automatic routing.
 
 ### Advanced Import Mode
 

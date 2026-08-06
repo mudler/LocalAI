@@ -150,6 +150,18 @@ func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest)
 	return &pb.Result{Message: "Image generated", Success: true}, nil
 }
 
+func (s *server) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.UpscaleImage(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error upscaling image: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Image upscaled", Success: true}, nil
+}
+
 func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
 	if err := s.checkModelIdentity(in); err != nil {
 		return nil, err
@@ -163,6 +175,18 @@ func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest)
 		return &pb.Result{Message: fmt.Sprintf("Error generating video: %s", err.Error()), Success: false}, err
 	}
 	return &pb.Result{Message: "Video generated", Success: true}, nil
+}
+
+func (s *server) Generate3D(ctx context.Context, in *pb.Generate3DRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.Generate3D(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error generating 3D asset: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "3D asset generated", Success: true}, nil
 }
 
 func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
@@ -530,6 +554,18 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 		Length: int32(res.Length),
 		Tokens: castTokens,
 	}, err
+}
+
+func (s *server) Detokenize(ctx context.Context, in *pb.DetokenizeRequest) (*pb.DetokenizeResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Detokenize(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {

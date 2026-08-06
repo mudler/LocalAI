@@ -17,7 +17,9 @@
     "modelsLoaded_other": "{{count}} modelli caricati",
     "noModelsLoaded": "Nessun modello caricato",
     "nodes_one": "{{count}} nodo",
-    "nodes_other": "{{count}} nodi"
+    "nodes_other": "{{count}} nodi",
+    "loadedLabel": "Loaded",
+    "nodesLabel": "Nodes"
   },
   "assistant": {
     "title": "Gestisci LocalAI chattando",
@@ -47,7 +49,8 @@
     "count_one": "{{count}} modello caricato",
     "count_other": "{{count}} modelli caricati",
     "stop": "Ferma modello",
-    "stopAll": "Ferma tutti"
+    "stopAll": "Ferma tutti",
+    "serving": "Serving"
   },
   "stopDialog": {
     "title": "Ferma modello",
@@ -88,5 +91,14 @@
     "browse": "Esplora le API",
     "hide": "Nascondi gli endpoint",
     "dismiss": "Ignora"
+  },
+  "jump": {
+    "heading": "Jump back in",
+    "discover": "Discover",
+    "discoverSummary": "Browse the gallery and install models",
+    "create": "Create",
+    "createSummary": "Open a chat, image or voice session",
+    "operate": "Operate",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces"
   }
 }

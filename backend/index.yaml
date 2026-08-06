@@ -129,6 +129,38 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4"
     metal: "metal-ds4"
     metal-darwin-arm64: "metal-ds4"
+- &audiocpp
+  name: "audio-cpp"
+  alias: "audio-cpp"
+  license: apache-2.0
+  description: |
+    0xShug0/audio.cpp - a ggml audio inference framework covering text to
+    speech, voice cloning, transcription, forced alignment, voice activity
+    detection, speaker diarization, source separation, voice conversion and
+    music generation, across 30+ model families. Consumes audio.cpp-native
+    GGUF packages from huggingface.co/audio-cpp/audio.cpp-gguf.
+  urls:
+    - https://github.com/0xShug0/audio.cpp
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+  tags:
+    - TTS
+    - text-to-speech
+    - audio-transcription
+    - CPU
+    - CUDA
+    - Metal
+  # No vulkan key: the vulkan image would carry a Vulkan loader with no Mesa ICD
+  # (see the audio-cpp block in .github/backend-matrix.yml). Pointing a
+  # capability at a tag CI never builds hands the user a pull failure; leaving it
+  # out lets SystemState.Capability() fall through to `default` and the CPU
+  # image.
+  capabilities:
+    default: "cpu-audio-cpp"
+    nvidia: "cuda12-audio-cpp"
+    nvidia-cuda-12: "cuda12-audio-cpp"
+    nvidia-cuda-13: "cuda13-audio-cpp"
+    metal: "metal-audio-cpp"
+    metal-darwin-arm64: "metal-audio-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -161,16 +193,27 @@
   alias: "vllm-cpp"
   license: apache-2.0
   description: |
-    vllm.cpp is a from-scratch C++20 port of vLLM created and maintained by the LocalAI team.
-    It mirrors vLLM's V1 architecture (paged KV cache, continuous batching, prefix caching,
-    scheduler, sampler) on a portable tensor runtime with no Python, PyTorch or ggml at
-    inference time. It loads Hugging Face safetensors and GGUF checkpoints, supports
-    structured output (JSON schema / regex / choice / GBNF grammar) enforced in-engine,
-    and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple Metal and Vulkan.
+    ALPHA development builds. Try it, but llama-cpp stays the recommendation for
+    production use.
+
+    vllm.cpp is an Apache-2.0 C++20 inference engine maintained by the LocalAI team,
+    developed in its own repository and usable without LocalAI. It began as a port of
+    vLLM and keeps vLLM as its reference implementation, checking output against it and
+    benchmarking against it, while growing a featureset of its own. It implements vLLM's
+    V1 architecture (paged KV cache, continuous batching, prefix caching, scheduler,
+    sampler) on a portable tensor runtime with no Python, PyTorch or ggml at inference
+    time. It loads GGUF as well as Hugging Face safetensors, supports structured output
+    (JSON schema / regex / choice / GBNF grammar) enforced in-engine, ships speculative
+    decoding and KV offload, and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple
+    Metal and Vulkan.
+
     The CUDA builds require the CUDA 13 toolchain and target Blackwell only: sm_120a
     plus sm_121a on x86_64, and sm_121a (GB10 / DGX Spark) on arm64. Older NVIDIA
     hardware and CUDA 12 hosts - including Jetson AGX Orin (sm_87, JetPack 6) - run
     the CPU build instead.
+
+    The project is expected to be renamed as it diverges further from vLLM; the new
+    name is still to be decided.
   urls:
     - https://github.com/mudler/vllm.cpp
   tags:
@@ -437,6 +480,32 @@
     nvidia-cuda-12: "cuda12-stablediffusion-ggml"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
+- &trellis2cpp
+  name: "trellis2cpp"
+  alias: "trellis2cpp"
+  license: mit
+  description: |
+     TRELLIS.2 image-to-3D generation (GLB meshes with PBR textures) in C++/ggml
+  urls:
+    - https://github.com/localai-org/trellis2cpp
+    - https://github.com/microsoft/TRELLIS.2
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Metal
+  capabilities:
+    default: "cpu-trellis2cpp"
+    nvidia: "cuda12-trellis2cpp"
+    vulkan: "vulkan-trellis2cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-trellis2cpp"
+    metal: "metal-trellis2cpp"
+    nvidia-cuda-13: "cuda13-trellis2cpp"
+    nvidia-cuda-12: "cuda12-trellis2cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-trellis2cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-trellis2cpp"
 - &rfdetr
   name: "rfdetr"
   alias: "rfdetr"
@@ -1467,6 +1536,7 @@
   alias: "kokoro"
   name: "kokoro"
   capabilities:
+    default: "cpu-kokoro"
     nvidia: "cuda12-kokoro"
     intel: "intel-kokoro"
     amd: "rocm-kokoro"
@@ -1848,6 +1918,23 @@
   capabilities:
     default: "cpu-cloud-proxy"
     metal: "metal-cloud-proxy"
+- &valkey-store
+  name: "valkey-store"
+  urls:
+    - https://github.com/mudler/LocalAI
+  description: |
+    Valkey Store is a Valkey Search (FT.*) backed vector store for LocalAI. It
+    persists vectors across restarts and supports opt-in HNSW indexing. Requires
+    a reachable Valkey Search server (valkey/valkey-bundle).
+  tags:
+    - vector-database
+    - valkey
+    - open-source
+    - CPU
+  license: MIT
+  capabilities:
+    default: "cpu-valkey-store"
+    metal: "metal-valkey-store"
 - &kitten-tts
   name: "kitten-tts"
   urls:
@@ -1969,6 +2056,15 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4-development"
     metal: "metal-ds4-development"
     metal-darwin-arm64: "metal-ds4-development"
+- !!merge <<: *audiocpp
+  name: "audio-cpp-development"
+  capabilities:
+    default: "cpu-audio-cpp-development"
+    nvidia: "cuda12-audio-cpp-development"
+    nvidia-cuda-12: "cuda12-audio-cpp-development"
+    nvidia-cuda-13: "cuda13-audio-cpp-development"
+    metal: "metal-audio-cpp-development"
+    metal-darwin-arm64: "metal-audio-cpp-development"
 - !!merge <<: *stablediffusionggml
   name: "stablediffusion-ggml-development"
   capabilities:
@@ -1983,6 +2079,18 @@
     nvidia-cuda-12: "cuda12-stablediffusion-ggml-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml-development"
+- !!merge <<: *trellis2cpp
+  name: "trellis2cpp-development"
+  capabilities:
+    default: "cpu-trellis2cpp-development"
+    nvidia: "cuda12-trellis2cpp-development"
+    vulkan: "vulkan-trellis2cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-trellis2cpp-development"
+    metal: "metal-trellis2cpp-development"
+    nvidia-cuda-13: "cuda13-trellis2cpp-development"
+    nvidia-cuda-12: "cuda12-trellis2cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-trellis2cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-trellis2cpp-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
@@ -2380,6 +2488,35 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-cloud-proxy"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-cloud-proxy
+- !!merge <<: *valkey-store
+  name: "cpu-valkey-store"
+  alias: "valkey-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-valkey-store"
+  mirrors:
+    - localai/localai-backends:latest-cpu-valkey-store
+- !!merge <<: *valkey-store
+  name: "cpu-valkey-store-development"
+  alias: "valkey-store"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-valkey-store"
+  mirrors:
+    - localai/localai-backends:master-cpu-valkey-store
+- !!merge <<: *valkey-store
+  name: "valkey-store-development"
+  alias: "valkey-store"
+  capabilities:
+    default: "cpu-valkey-store-development"
+    metal: "metal-valkey-store-development"
+- !!merge <<: *valkey-store
+  name: "metal-valkey-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-valkey-store"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-valkey-store
+- !!merge <<: *valkey-store
+  name: "metal-valkey-store-development"
+  alias: "valkey-store"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-valkey-store"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-valkey-store
 - !!merge <<: *opus
   name: "cpu-opus"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"
@@ -3699,6 +3836,77 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml
+## trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cpu-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cpu-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "metal-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "metal-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "vulkan-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "vulkan-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda12-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda12-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "nvidia-l4t-arm64-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "nvidia-l4t-arm64-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-nvidia-l4t-arm64-trellis2cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-trellis2cpp
+- !!merge <<: *trellis2cpp
+  name: "cuda13-nvidia-l4t-arm64-trellis2cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-trellis2cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-trellis2cpp
 ## privacy-filter
 - !!merge <<: *privacyfilter
   name: "cpu-privacy-filter"
@@ -5198,11 +5406,22 @@
 - !!merge <<: *kokoro
   name: "kokoro-development"
   capabilities:
+    default: "cpu-kokoro-development"
     nvidia: "cuda12-kokoro-development"
     intel: "intel-kokoro-development"
     amd: "rocm-kokoro-development"
     nvidia-l4t: "nvidia-l4t-kokoro-development"
     metal: "metal-kokoro-development"
+- !!merge <<: *kokoro
+  name: "cpu-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-kokoro"
+  mirrors:
+    - localai/localai-backends:latest-cpu-kokoro
+- !!merge <<: *kokoro
+  name: "cpu-kokoro-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-kokoro"
+  mirrors:
+    - localai/localai-backends:master-cpu-kokoro
 - !!merge <<: *kokoro
   name: "cuda12-kokoro-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-kokoro"
@@ -6673,3 +6892,44 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-vllm-cpp"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-vllm-cpp
+## audio-cpp
+- !!merge <<: *audiocpp
+  name: "cpu-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cpu-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda12-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda12-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda13-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *audiocpp
+  name: "cuda13-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *audiocpp
+  name: "metal-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-audio-cpp
+- !!merge <<: *audiocpp
+  name: "metal-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-audio-cpp

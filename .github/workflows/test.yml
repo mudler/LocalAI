@@ -24,8 +24,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: true
-      - name: Free disk space
-        uses: ./.github/actions/free-disk-space
+      # No free-disk-space step here on purpose. That action exists to make room
+      # for docker buildx layers, and this job runs no buildx step. It was also
+      # sized for a `make test` that downloaded multi-GB GGUF/whisper fixtures
+      # and built llama-cpp/whisper/stablediffusion-ggml; after the test-suite
+      # reorg it does neither (see the Makefile test target). It cost ~3min of
+      # every run, and its tool-cache:true wipe also forced setup-go and
+      # setup-node to re-download toolchains that ship preinstalled.
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
         with:

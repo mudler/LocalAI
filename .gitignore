@@ -30,6 +30,7 @@ LocalAI
 # Go backend packages whose main lives under backend/go/.
 /cloud-proxy
 /local-store
+/valkey-store
 # prevent above rules from omitting the helm chart
 !charts/*
 # prevent above rules from omitting the api/localai folder
@@ -60,6 +61,11 @@ backend-assets/*
 prepare
 /ggml-metal.metal
 docs/static/gallery.html
+
+# Hugo build output and lock files (docs/ and website/)
+docs/public/
+website/public/
+.hugo_build.lock
 
 # Protobuf generated files
 *.pb.go
@@ -118,3 +124,8 @@ formal-verification/out/
 # package directory itself and untrack the source.
 /apexentries
 /.github/ci/apexentries/apexentries
+
+# Runtime state written by `local-ai run` when it is started from the repo
+# root, which is what a contributor testing a build does. Nothing under here is
+# source: it is the instance's own models, outputs, traces and identity.
+/data/

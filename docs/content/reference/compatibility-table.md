@@ -48,6 +48,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [NeMo](https://github.com/NVIDIA/NeMo) | NVIDIA NeMo ASR toolkit | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) | Sherpa-ONNX ASR (Whisper, Paraformer, SenseVoice) and TTS | CPU, CUDA 12, Metal |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: transcription, forced alignment and speaker diarization (`nemotron_asr`, `qwen3_asr`, `voxtral_realtime`, `sortformer_diar` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
 
 ## Text-to-Speech
 
@@ -55,7 +56,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 |---------|-------------|-------------|
 | [piper](https://github.com/rhasspy/piper) | Fast neural TTS | CPU, Metal |
 | [Coqui TTS](https://github.com/idiap/coqui-ai-TTS) | TTS with 1100+ languages and voice cloning | CUDA 12, ROCm, Intel SYCL, Metal |
-| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
+| [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight TTS (82M params) | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [Kokoros](https://huggingface.co/hexgrad/Kokoro-82M) | Pure Rust Kokoro TTS via ONNX | CPU |
 | [Chatterbox](https://github.com/resemble-ai/chatterbox) | Production-grade TTS with emotion control | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [VibeVoice](https://github.com/microsoft/VibeVoice) | Real-time TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
@@ -75,6 +76,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Supertonic](https://github.com/supertone-inc/supertonic) | Lightning-fast on-device multilingual TTS via ONNX | CPU |
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [liquid-audio](https://github.com/Liquid4All/liquid-audio) | LFM2 end-to-end speech-to-speech, ASR, and TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
 
 ## Music & Sound Generation
 
@@ -82,6 +84,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 |---------|-------------|-------------|
 | [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) | Music generation from text descriptions, lyrics, or audio | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [acestep.cpp](https://github.com/ace-step/acestep.cpp) | ACE-Step 1.5 C++ backend using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: music and sound generation (`ace_step`, `stable_audio`, `heartmula`). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
 
 ## Image & Video Generation
 
@@ -112,6 +115,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [Silero VAD](https://github.com/snakers4/silero-vad) | Voice Activity Detection | CPU, Metal |
 | [LocalVQE](https://github.com/localai-org/LocalVQE) | Joint acoustic echo cancellation, noise suppression, and dereverberation in C/C++ using GGML | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Jetson L4T |
 | [Opus](https://opus-codec.org/) | Audio codec for WebRTC / Realtime API | CPU, Metal |
+| [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: voice activity detection (bundled `silero_vad` and `marblenet_vad`, no download), source separation into named stems, and voice conversion. See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
 
 ## Utilities & Other
 
@@ -120,6 +124,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [rerankers](https://github.com/AnswerDotAI/rerankers) | Document reranking for RAG | CUDA 12, ROCm, Intel SYCL, Metal |
 | [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML engine for the openai-privacy-filter PII/NER token-classification model family (powers LocalAI's PII redaction tier) | CPU, CUDA 13, Vulkan |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings | CPU, Metal |
+| [valkey-store](https://github.com/mudler/LocalAI) | Durable vector store for embeddings backed by Valkey Search (FLAT or HNSW) | CPU, Metal |
 | [TRL](https://github.com/huggingface/trl) | Fine-tuning (SFT, DPO, GRPO, RLOO, KTO, ORPO) | CPU, CUDA 12/13 |
 | [llama.cpp quantization](https://github.com/ggml-org/llama.cpp) | HuggingFace → GGUF model conversion and quantization | CPU, Metal |
 

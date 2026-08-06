@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
 )
 
@@ -24,6 +26,8 @@ const (
 	BackendTraceTranscription   BackendTraceType = "transcription"
 	BackendTraceImageGeneration BackendTraceType = "image_generation"
 	BackendTraceVideoGeneration BackendTraceType = "video_generation"
+	BackendTrace3DGeneration    BackendTraceType = "3d_generation"
+	BackendTrace3DRemesh        BackendTraceType = "3d_remesh"
 	BackendTraceTTS             BackendTraceType = "tts"
 	BackendTraceSoundGeneration BackendTraceType = "sound_generation"
 	BackendTraceRerank          BackendTraceType = "rerank"
@@ -70,12 +74,21 @@ type BackendTrace struct {
 const MaxTraceBodyBytes = 1 << 20
 
 var (
-	backendTraceBuffer *circularbuffer.Queue[*BackendTrace]
-	backendMu          sync.Mutex
-	backendLogChan     = make(chan *BackendTrace, 100)
-	backendInitOnce    sync.Once
-	backendTraceIDSeq  atomic.Uint64
+	backendTraceBuffer   *circularbuffer.Queue[*BackendTrace]
+	backendMu            sync.Mutex
+	backendLogChan       = make(chan backendTraceCommand, 100)
+	backendConsumerOnce  sync.Once
+	backendTraceIDSeq    atomic.Uint64
+	backendTraceDataPath string
+	backendTraceStore    *tracepersist.Store[BackendTrace]
+	backendTraceStoreKey string
 )
+
+type backendTraceCommand struct {
+	trace *BackendTrace
+	store *tracepersist.Store[BackendTrace]
+	clear chan error
+}
 
 // backendMaxBodyBytes caps each captured string value in a BackendTrace.Data
 // field to keep the /api/backend-traces JSON small enough for the admin UI to
@@ -89,41 +102,86 @@ var (
 var backendMaxBodyBytes int
 
 func InitBackendTracingIfEnabled(maxItems, maxBodyBytes int) {
-	backendInitOnce.Do(func() {
-		if maxItems <= 0 {
-			maxItems = 100
+	if maxItems <= 0 {
+		maxItems = 100
+	}
+	backendMu.Lock()
+	key := filepath.Join(backendTraceDataPath, strconv.Itoa(maxItems))
+	if backendTraceBuffer == nil || backendTraceStoreKey != key {
+		var store *tracepersist.Store[BackendTrace]
+		var restored []BackendTrace
+		if backendTraceDataPath != "" {
+			var err error
+			store, err = tracepersist.New[BackendTrace](filepath.Join(backendTraceDataPath, "traces", "backend"), maxItems)
+			if err != nil {
+				xlog.Warn("Failed to initialize backend trace persistence", "error", err)
+			} else if restored, err = store.Load(); err != nil {
+				xlog.Warn("Failed to restore backend traces", "error", err)
+				store = nil
+			}
 		}
-		backendMu.Lock()
 		backendTraceBuffer = circularbuffer.New[*BackendTrace](maxItems)
-		backendMu.Unlock()
+		for i := range restored {
+			t := restored[i]
+			backendTraceBuffer.Enqueue(&t)
+			advanceBackendTraceID(t.ID)
+		}
+		backendTraceStore = store
+		backendTraceStoreKey = key
+	}
+	backendMaxBodyBytes = maxBodyBytes
+	backendMu.Unlock()
 
+	backendConsumerOnce.Do(func() {
 		go func() {
-			for t := range backendLogChan {
+			for command := range backendLogChan {
+				if command.clear != nil {
+					backendMu.Lock()
+					if backendTraceBuffer != nil {
+						backendTraceBuffer.Clear()
+					}
+					backendMu.Unlock()
+					var err error
+					if command.store != nil {
+						err = command.store.Clear()
+					}
+					command.clear <- err
+					continue
+				}
+				if command.store != nil {
+					if err := command.store.Append(command.trace.ID, *command.trace); err != nil {
+						xlog.Warn("Failed to persist backend trace", "error", err)
+					}
+				}
 				backendMu.Lock()
 				if backendTraceBuffer != nil {
-					backendTraceBuffer.Enqueue(t)
+					backendTraceBuffer.Enqueue(command.trace)
 				}
 				backendMu.Unlock()
 			}
 		}()
 	})
+}
 
-	// The body cap tracks the LATEST call, not the first: tracing_max_body_bytes
-	// is runtime-mutable via the settings API (ApplyRuntimeSettings), and every
-	// recording path calls this right before RecordBackendTrace with the current
-	// appConfig value. Freezing the cap on first init meant a raised setting let
-	// producers (e.g. trace.AudioSnippet, which reads the live value) embed
-	// payloads that this recorder then stomped with the "<truncated: N bytes>"
-	// marker — corrupting audio_wav_base64 into an unplayable string. maxItems
-	// keeps first-call semantics: resizing the ring buffer would drop entries.
+func ConfigureBackendTracePersistence(dataPath string) {
 	backendMu.Lock()
-	backendMaxBodyBytes = maxBodyBytes
+	backendTraceDataPath = dataPath
 	backendMu.Unlock()
+}
+
+func advanceBackendTraceID(id string) {
+	n, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return
+	}
+	for current := backendTraceIDSeq.Load(); n > current && !backendTraceIDSeq.CompareAndSwap(current, n); current = backendTraceIDSeq.Load() {
+	}
 }
 
 func RecordBackendTrace(t BackendTrace) {
 	backendMu.Lock()
 	maxBody := backendMaxBodyBytes
+	store := backendTraceStore
 	backendMu.Unlock()
 	// Always walk Data, even with no body cap configured: besides capping
 	// oversized strings (maxBody > 0), the walk replaces non-finite floats
@@ -137,7 +195,7 @@ func RecordBackendTrace(t BackendTrace) {
 		t.ID = strconv.FormatUint(backendTraceIDSeq.Add(1), 10)
 	}
 	select {
-	case backendLogChan <- &t:
+	case backendLogChan <- backendTraceCommand{trace: &t, store: store}:
 	default:
 		xlog.Warn("Backend trace channel full, dropping trace")
 	}
@@ -294,6 +352,28 @@ func SummarizeBackendTrace(t BackendTrace) BackendTrace {
 }
 
 func ClearBackendTraces() {
+	backendMu.Lock()
+	store := backendTraceStore
+	initialized := backendTraceBuffer != nil
+	dataPath := backendTraceDataPath
+	backendMu.Unlock()
+	if initialized {
+		done := make(chan error, 1)
+		backendLogChan <- backendTraceCommand{store: store, clear: done}
+		if err := <-done; err != nil {
+			xlog.Warn("Failed to clear persisted backend traces", "error", err)
+		}
+		return
+	}
+	if store == nil && dataPath != "" {
+		var err error
+		store, err = tracepersist.New[BackendTrace](filepath.Join(dataPath, "traces", "backend"), 100)
+		if err != nil {
+			xlog.Warn("Failed to initialize backend trace persistence for clear", "error", err)
+		} else if err := store.Clear(); err != nil {
+			xlog.Warn("Failed to clear persisted backend traces", "error", err)
+		}
+	}
 	backendMu.Lock()
 	if backendTraceBuffer != nil {
 		backendTraceBuffer.Clear()

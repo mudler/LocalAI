@@ -60,7 +60,7 @@ function buildStdioJson(list) {
 function FormField({ field, value, onChange, disabled }) {
   const id = `field-${field.name}`
   const label = field.required
-    ? <>{field.label} <span style={{ color: 'var(--color-error)' }}>*</span></>
+    ? <>{field.label} <span className="text-error">*</span></>
     : field.label
 
   switch (field.type) {
@@ -77,7 +77,7 @@ function FormField({ field, value, onChange, disabled }) {
     case 'select':
       return (
         <SettingRow label={label} description={field.helpText}>
-          <select id={id} className="input" style={{ width: 200 }} value={value ?? ''} onChange={(e) => onChange(field.name, e.target.value)} disabled={disabled}>
+          <select id={id} className="input col-w-200" value={value ?? ''} onChange={(e) => onChange(field.name, e.target.value)} disabled={disabled}>
             <option value="">— Select —</option>
             {(field.options || []).map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -87,7 +87,7 @@ function FormField({ field, value, onChange, disabled }) {
       )
     case 'textarea':
       return (
-        <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+        <div className="list-row">
           <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: 4 }}>{label}</div>
           {field.helpText && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>{field.helpText}</div>}
           <textarea
@@ -107,7 +107,7 @@ function FormField({ field, value, onChange, disabled }) {
       return (
         <SettingRow label={label} description={field.helpText}>
           <input
-            id={id} className="input" type="number" style={{ width: 120 }}
+            id={id} className="input col-w-120" type="number"
             value={value ?? ''} onChange={(e) => onChange(field.name, e.target.value)}
             placeholder={field.placeholder || ''} min={field.min} max={field.max} step={field.step}
             disabled={disabled}
@@ -184,8 +184,8 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
         const fieldGroup = fieldGroups.find(g => g.name === typeName)
         const config = parseConfig(item)
         return (
-          <div key={index} className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+          <div key={index} className="card pad-md mb-md">
+            <div className="hstack hstack--between mb-md">
               <h4 style={{ margin: 0, fontWeight: 600 }}>{label} #{index + 1}</h4>
               <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemove(index)}>
                 <i className="fas fa-times" />
@@ -199,7 +199,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
             </div>
             {fieldGroup?.fields?.map(f => {
               const val = config[f.name] ?? ''
-              const fieldLabel = <>{f.label}{f.required && <span style={{ color: 'var(--color-error)' }}> *</span>}</>
+              const fieldLabel = <>{f.label}{f.required && <span className="text-error"> *</span>}</>
               if (f.type === 'checkbox') {
                 return (
                   <SettingRow key={f.name} label={fieldLabel} description={f.helpText}>
@@ -209,7 +209,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
               }
               if (f.type === 'textarea') {
                 return (
-                  <div key={f.name} style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                  <div key={f.name} className="list-row">
                     <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: 4 }}>{fieldLabel}</div>
                     {f.helpText && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>{f.helpText}</div>}
                     <textarea className="textarea" value={val} onChange={(e) => handleConfigFieldChange(index, f.name, e.target.value, 'text')} rows={3} placeholder={f.placeholder} />
@@ -219,7 +219,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
               if (f.type === 'select') {
                 return (
                   <SettingRow key={f.name} label={fieldLabel} description={f.helpText}>
-                    <select className="input" style={{ width: 200 }} value={val} onChange={(e) => handleConfigFieldChange(index, f.name, e.target.value, 'text')}>
+                    <select className="input col-w-200" value={val} onChange={(e) => handleConfigFieldChange(index, f.name, e.target.value, 'text')}>
                       <option value="">— Select —</option>
                       {(f.options || []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
@@ -499,11 +499,11 @@ export default function AgentCreate() {
             {activeSection === 'AdvancedSettings' && form.enable_skills && availableSkills.length > 0 && (
               <div style={{ marginTop: 'var(--spacing-lg)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-lg)' }}>
                 <h4 className="agent-subsection-title">
-                  <i className="fas fa-puzzle-piece" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+                  <i className="fas fa-puzzle-piece text-primary icon-before" />
                   Select Skills
                 </h4>
                 <p className="agent-section-desc">Choose which skills this agent can use. If none selected, all available skills are included.</p>
-                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                <div className="mb-sm">
                   <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
                     <input
                       type="checkbox"
@@ -543,7 +543,7 @@ export default function AgentCreate() {
                         style={{ marginTop: '2px' }}
                       />
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{skill.name}</div>
+                        <div className="fw-semibold text-base">{skill.name}</div>
                         {skill.description && (
                           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                             {skill.description.length > 80 ? skill.description.slice(0, 80) + '...' : skill.description}
@@ -639,16 +639,16 @@ export default function AgentCreate() {
                 {renderFieldSection('MCP')}
 
             {/* STDIO Servers */}
-            <div style={{ marginTop: 'var(--spacing-lg)' }}>
+            <div className="mt-lg">
               <h4 className="agent-subsection-title">
-                <i className="fas fa-terminal" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+                <i className="fas fa-terminal text-primary icon-before" />
                 STDIO Servers
               </h4>
               <p className="agent-section-desc">Local command-based MCP servers (e.g. docker run).</p>
               {stdioServers.map((server, idx) => (
-                <div key={idx} className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Server #{idx + 1}</span>
+                <div key={idx} className="card pad-md mb-md">
+                  <div className="hstack hstack--between mb-sm">
+                    <span className="fw-semibold text-base">Server #{idx + 1}</span>
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeStdioServer(idx)}>
                       <i className="fas fa-times" />
                     </button>
@@ -673,7 +673,7 @@ export default function AgentCreate() {
                     {(server.args || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No arguments.</p>}
                     {(server.args || []).map((arg, ai) => (
                       <div key={ai} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                        <input className="input" value={arg} onChange={(e) => updateArg(idx, ai, e.target.value)} placeholder="argument" style={{ flex: 1 }} />
+                        <input className="input flex-1" value={arg} onChange={(e) => updateArg(idx, ai, e.target.value)} placeholder="argument" />
                         <button type="button" className="btn btn-danger btn-sm" onClick={() => removeArg(idx, ai)}><i className="fas fa-times" /></button>
                       </div>
                     ))}
@@ -688,7 +688,7 @@ export default function AgentCreate() {
                     {(server.env || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No environment variables.</p>}
                     {(server.env || []).map((env, ei) => (
                       <div key={ei} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                        <input className="input" value={env} onChange={(e) => updateEnv(idx, ei, e.target.value)} placeholder="KEY=VALUE" style={{ flex: 1 }} />
+                        <input className="input flex-1" value={env} onChange={(e) => updateEnv(idx, ei, e.target.value)} placeholder="KEY=VALUE" />
                         <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEnv(idx, ei)}><i className="fas fa-times" /></button>
                       </div>
                     ))}
@@ -701,23 +701,23 @@ export default function AgentCreate() {
             </div>
 
             {/* HTTP Servers */}
-            <div style={{ marginTop: 'var(--spacing-lg)' }}>
+            <div className="mt-lg">
               <h4 className="agent-subsection-title">
-                <i className="fas fa-globe" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+                <i className="fas fa-globe text-primary icon-before" />
                 HTTP Servers
               </h4>
               <p className="agent-section-desc">MCP servers connected over HTTP.</p>
               {mcpHttpServers.map((server, idx) => (
-                <div key={idx} className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>HTTP Server #{idx + 1}</span>
+                <div key={idx} className="card pad-md mb-md">
+                  <div className="hstack hstack--between mb-sm">
+                    <span className="fw-semibold text-base">HTTP Server #{idx + 1}</span>
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeMcpHttp(idx)}>
                       <i className="fas fa-times" />
                     </button>
                   </div>
                   {(meta?.MCPServers || [{ name: 'url', label: 'URL', type: 'text' }, { name: 'token', label: 'API Key', type: 'password' }]).map(f => (
                     <div key={f.name} className="form-group">
-                      <label className="form-label">{f.label}{f.required && <span style={{ color: 'var(--color-error)' }}> *</span>}</label>
+                      <label className="form-label">{f.label}{f.required && <span className="text-error"> *</span>}</label>
                       <input
                         className="input" type={f.type === 'password' ? 'password' : 'text'}
                         value={server[f.name] || ''} onChange={(e) => updateMcpHttp(idx, f.name, e.target.value)}
@@ -805,7 +805,7 @@ export default function AgentCreate() {
               className="btn btn-primary"
               style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
             >
-              <i className="fas fa-download" style={{ marginRight: 'var(--spacing-xs)' }} /> Export Agent
+              <i className="fas fa-download icon-before" /> Export Agent
             </a>
           </div>
         )
@@ -817,8 +817,8 @@ export default function AgentCreate() {
 
   if (loading) {
     return (
-      <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-        <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+      <div className="page page--narrow loading-center">
+        <i className="fas fa-spinner fa-spin icon-xl text-primary" />
       </div>
     )
   }
@@ -942,8 +942,8 @@ export default function AgentCreate() {
       <PageHeader
         title={isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}
         actions={
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agents')}>
-            <i className="fas fa-arrow-left" /> Back
+          <button className="btn btn-secondary btn-sm fas fa-arrow-left" onClick={() => navigate('/app/agents')}>
+            <i className="fas fa-arrow-left" aria-hidden="true" /> Back
           </button>
         }
       />
@@ -951,7 +951,7 @@ export default function AgentCreate() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="agent-form-container">
           <div className="agent-wizard-sidebar">
-            <div className="card" style={{ padding: 'var(--spacing-sm)' }}>
+            <div className="card pad-sm">
               <ul className="agent-wizard-nav">
                 {visibleSections.map(s => {
                   let count = 0
@@ -976,9 +976,9 @@ export default function AgentCreate() {
           </div>
 
           <div className="agent-form-content">
-            <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
+            <div className="card pad-lg">
               <h3 className="agent-section-title">
-                <i className={`fas ${visibleSections.find(s => s.id === activeSection)?.icon || 'fa-cog'}`} style={{ color: 'var(--color-primary)' }} />
+                <i className={`fas ${visibleSections.find(s => s.id === activeSection)?.icon || 'fa-cog'} text-primary`} />
                 {visibleSections.find(s => s.id === activeSection)?.label || activeSection}
               </h3>
               {renderSection()}

@@ -3,6 +3,14 @@ name: 'E2E Backend Tests'
 
 on:
   pull_request:
+    # The e2e suite drives backends over gRPC directly and reads none of these
+    # paths, so a diff confined to them cannot move it.
+    # See .agents/ci-caching.md.
+    paths-ignore:
+      - 'gallery/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '**/*.md'
   push:
     branches:
       - master

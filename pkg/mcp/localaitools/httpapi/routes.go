@@ -24,6 +24,7 @@ const (
 	routeBackendsKnown   = "/backends/known"
 	routeBackendsApply   = "/backends/apply"
 	routeNodes           = "/api/nodes"
+	routeScheduling      = "/api/nodes/scheduling"
 	routeVRAMEstimate    = "/api/models/vram-estimate"
 	routeBranding        = "/api/branding"
 	routeSettings        = "/api/settings"
@@ -65,4 +66,8 @@ func routeVoiceProfileDelete(id string) string {
 
 func routeNodeVRAMBudget(id string) string {
 	return "/api/nodes/" + url.PathEscape(id) + "/vram-budget"
+}
+
+func routeModelScheduling(modelName string) string {
+	return "/api/nodes/scheduling/" + url.PathEscape(modelName)
 }

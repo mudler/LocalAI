@@ -83,7 +83,15 @@ func (f *fakeGRPCBackend) GenerateImage(_ context.Context, _ *pb.GenerateImageRe
 	return &pb.Result{}, nil
 }
 
+func (f *fakeGRPCBackend) UpscaleImage(_ context.Context, _ *pb.UpscaleImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{}, nil
+}
+
 func (f *fakeGRPCBackend) GenerateVideo(_ context.Context, _ *pb.GenerateVideoRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{}, nil
+}
+
+func (f *fakeGRPCBackend) Generate3D(_ context.Context, _ *pb.Generate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return &pb.Result{}, nil
 }
 
@@ -140,6 +148,10 @@ func (f *fakeGRPCBackend) AudioTranscriptionStream(_ context.Context, _ *pb.Tran
 
 func (f *fakeGRPCBackend) TokenizeString(_ context.Context, _ *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.TokenizationResponse, error) {
 	return &pb.TokenizationResponse{}, nil
+}
+
+func (f *fakeGRPCBackend) Detokenize(_ context.Context, _ *pb.DetokenizeRequest, _ ...ggrpc.CallOption) (*pb.DetokenizeResponse, error) {
+	return &pb.DetokenizeResponse{}, nil
 }
 
 func (f *fakeGRPCBackend) Status(_ context.Context) (*pb.StatusResponse, error) {

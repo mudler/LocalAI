@@ -154,7 +154,13 @@ func (c *fakeBackendClient) Predict(_ context.Context, _ *pb.PredictOptions, _ .
 func (c *fakeBackendClient) GenerateImage(_ context.Context, _ *pb.GenerateImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) UpscaleImage(_ context.Context, _ *pb.UpscaleImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) GenerateVideo(_ context.Context, _ *pb.GenerateVideoRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) Generate3D(_ context.Context, _ *pb.Generate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
 func (c *fakeBackendClient) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
@@ -197,6 +203,9 @@ func (c *fakeBackendClient) AudioTranscriptionStream(_ context.Context, _ *pb.Tr
 	return nil
 }
 func (c *fakeBackendClient) TokenizeString(_ context.Context, _ *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.TokenizationResponse, error) {
+	return nil, nil
+}
+func (c *fakeBackendClient) Detokenize(_ context.Context, _ *pb.DetokenizeRequest, _ ...ggrpc.CallOption) (*pb.DetokenizeResponse, error) {
 	return nil, nil
 }
 func (c *fakeBackendClient) Status(_ context.Context) (*pb.StatusResponse, error) {

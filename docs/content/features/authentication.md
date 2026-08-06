@@ -157,12 +157,13 @@ When authentication is enabled, the following endpoints require admin role:
 **Model & Backend Management:**
 - `GET /api/models`, `POST /api/models/install/*`, `POST /api/models/delete/*`
 - `GET /api/backends`, `POST /api/backends/install/*`, `POST /api/backends/delete/*`
-- `GET /api/operations`, `POST /api/operations/*/cancel`
+- `GET /api/operations`, `POST /api/operations/*/cancel`, `POST /api/operations/*/pause`, `POST /api/operations/*/dismiss`
+- `GET /api/operations/history`, `DELETE /api/operations/history`
 - `GET /models/available`, `GET /models/galleries`, `GET /models/jobs/*`
 - `GET /backends`, `GET /backends/available`, `GET /backends/galleries`
 
 **System & Monitoring:**
-- `GET /api/traces`, `GET /api/traces/{id}`, `POST /api/traces/clear`
+- `GET /api/traces`, `GET /api/traces/summary`, `GET /api/traces/{id}`, `POST /api/traces/clear`
 - `GET /api/backend-traces`, `GET /api/backend-traces/{id}`, `POST /api/backend-traces/clear`
 - `GET /api/backend-logs/*`, `POST /api/backend-logs/*/clear`
 - `GET /api/resources`, `GET /api/settings`, `POST /api/settings`
@@ -178,7 +179,7 @@ When authentication is enabled, the following endpoints require admin role:
 **User-Accessible Endpoints (all authenticated users):**
 - `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/completions`
 - `POST /v1/images/generations`, `POST /v1/audio/*`, `POST /tts`, `POST /vad`, `POST /video`
-- `GET /v1/models`, `POST /v1/tokenize`, `POST /v1/detection`
+- `GET /v1/models`, `POST /v1/tokenize`, `POST /v1/detokenize`, `POST /v1/detection`
 - `POST /v1/mcp/chat/completions`, `POST /v1/messages`, `POST /v1/responses`
 - `POST /stores/*`, `GET /api/cors-proxy`
 - `GET /version`, `GET /api/features`, `GET /swagger/*`, `GET /metrics`
@@ -189,7 +190,7 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Install Models, Agents section (Agents, Skills, Memory, MCP CI Jobs), System section (Backends, Traces, Swarm, System, Settings)
+- **Admins also see**: Discover, Agents section (Agents, Skills, Memory, MCP CI Jobs), System section (Backends, Traces, Swarm, System, Settings)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 

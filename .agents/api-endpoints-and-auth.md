@@ -304,7 +304,9 @@ React pages that want to filter the ModelSelector by capability import this symb
 
 ### 4. `docs/content/` (user-facing documentation)
 
-A new capability deserves its own page under `docs/content/features/`, plus cross-links from related features and an entry in `docs/content/whats-new.md`. See the pattern used by `face-recognition.md` / `object-detection.md`.
+A new capability deserves its own page under `docs/content/features/`, plus cross-links from related features. See the pattern used by `face-recognition.md` / `object-detection.md`.
+
+Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
 
 ## Path protection rules
 
@@ -334,7 +336,7 @@ When adding a new endpoint:
 - [ ] Swagger block on the handler: `@Summary`, `@Tags`, `@Param`, `@Success`, `@Router`
 - [ ] If new capability area (new swagger tag): entry in `instructionDefs` in `core/http/endpoints/localai/api_instructions.go` + test count bumped in `api_instructions_test.go`
 - [ ] If new `FLAG_*` usecase flag: matching `CAP_*` symbol exported from `core/http/react-ui/src/utils/capabilities.js`
-- [ ] `docs/content/features/<feature>.md` created; cross-links from related feature pages; entry in `docs/content/whats-new.md`
+- [ ] `docs/content/features/<feature>.md` created; cross-links from related feature pages; capability covered in the release blog post (see [preparing-a-release.md](preparing-a-release.md))
 
 **Quality**
 - [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)

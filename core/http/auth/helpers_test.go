@@ -59,10 +59,14 @@ func ok(c echo.Context) error {
 func newAuthTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
 	e := echo.New()
 	e.Use(auth.Middleware(db, appConfig))
+	if db != nil {
+		e.Use(auth.RequireRouteFeature(db))
+	}
 
 	// API routes (require auth)
 	e.GET("/v1/models", ok)
 	e.POST("/v1/chat/completions", ok)
+	e.POST("/v1/moderations", ok)
 	e.GET("/api/settings", ok)
 	e.POST("/api/settings", ok)
 
@@ -81,10 +85,14 @@ func newAuthTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 func newAdminTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
 	e := echo.New()
 	e.Use(auth.Middleware(db, appConfig))
+	if db != nil {
+		e.Use(auth.RequireRouteFeature(db))
+	}
 
 	// Regular routes
 	e.GET("/v1/models", ok)
 	e.POST("/v1/chat/completions", ok)
+	e.POST("/v1/moderations", ok)
 
 	// Admin-only routes
 	adminMw := auth.RequireAdmin()

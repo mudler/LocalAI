@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { fineTuneApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import SectionHeading from '../components/SectionHeading'
+import StatCard from '../components/StatCard'
+import EmptyState from '../components/EmptyState'
+import Toggle from '../components/Toggle'
+import ResponsiveTable from '../components/ResponsiveTable'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 
 const TRAINING_METHODS = ['sft', 'dpo', 'grpo', 'rloo', 'reward', 'kto', 'orpo']
@@ -19,6 +24,9 @@ const BUILTIN_REWARDS = [
   { name: 'code_execution_reward', description: 'Checks Python code block syntax validity', params: [] },
 ]
 
+const ACTIVE_STATUSES = ['queued', 'loading_model', 'loading_dataset', 'training', 'saving']
+const TERMINAL_STATUSES = ['completed', 'stopped', 'failed']
+
 const statusBadgeClass = {
   queued: '',
   loading_model: 'badge-warning',
@@ -30,21 +38,19 @@ const statusBadgeClass = {
   stopped: '',
 }
 
+function StatusBadge({ status }) {
+  return <span className={`badge ${statusBadgeClass[status] || ''}`}>{status}</span>
+}
+
 function FormSection({ icon, title, children }) {
   return (
-    <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-      <h4 style={{
-        fontSize: '0.8125rem', fontWeight: 600, textTransform: 'uppercase',
-        letterSpacing: '0.05em', color: 'var(--color-text-secondary)',
-        display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-        marginBottom: 'var(--spacing-md)', paddingBottom: 'var(--spacing-sm)',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}>
-        <i className={icon} style={{ color: 'var(--color-primary)' }} />
+    <section className="form-group">
+      <h4 className="form-group__title">
+        <i className={icon} />
         {title}
       </h4>
-      {children}
-    </div>
+      <div className="form-group__body">{children}</div>
+    </section>
   )
 }
 
@@ -52,36 +58,34 @@ function KeyValueEditor({ entries, onChange }) {
   const addEntry = () => onChange([...entries, { key: '', value: '' }])
   const removeEntry = (i) => onChange(entries.filter((_, idx) => idx !== i))
   const updateEntry = (i, field, val) => {
-    const updated = entries.map((e, idx) => idx === i ? { ...e, [field]: val } : e)
-    onChange(updated)
+    onChange(entries.map((e, idx) => idx === i ? { ...e, [field]: val } : e))
   }
 
   return (
-    <div>
+    <div className="ft-kv">
       {entries.map((entry, i) => (
-        <div key={i} style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)', alignItems: 'center' }}>
+        <div key={i} className="ft-kv__row">
           <input
-            className="input"
+            className="input ft-kv__key"
             value={entry.key}
             onChange={e => updateEntry(i, 'key', e.target.value)}
             placeholder="Key"
-            style={{ flex: 1 }}
+            aria-label={`Extra option ${i + 1} key`}
           />
           <input
-            className="input"
+            className="input ft-kv__value"
             value={entry.value}
             onChange={e => updateEntry(i, 'value', e.target.value)}
             placeholder="Value"
-            style={{ flex: 2 }}
+            aria-label={`Extra option ${i + 1} value`}
           />
-          <button type="button" className="btn btn-danger" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }} onClick={() => removeEntry(i)}>
+          <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEntry(i)} aria-label={`Remove extra option ${i + 1}`}>
             <i className="fas fa-times" />
           </button>
         </div>
       ))}
-      <button type="button" className="btn" onClick={addEntry} style={{ fontSize: '0.8125rem' }}>
-        <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} />
-        Add option
+      <button type="button" className="btn btn-sm" onClick={addEntry}>
+        <i className="fas fa-plus" /> Add option
       </button>
     </div>
   )
@@ -97,69 +101,54 @@ function CopyButton({ text }) {
     })
   }
   return (
-    <button className="btn" style={{ padding: '1px 4px', fontSize: '0.7rem' }} onClick={handleCopy} title="Copy to clipboard">
+    <button className="btn btn-sm btn-ghost" onClick={handleCopy} title="Copy to clipboard" aria-label="Copy to clipboard">
       <i className={`fas fa-${copied ? 'check' : 'copy'}`} />
     </button>
   )
 }
 
-function JobCard({ job, isSelected, onSelect, onUseConfig, onDelete }) {
+function JobCard({ job, onSelect, onUseConfig, onDelete }) {
   return (
-    <div
-      className="card"
-      style={{
-        cursor: 'pointer', marginBottom: 'var(--spacing-sm)',
-        border: isSelected ? '2px solid var(--color-primary)' : undefined,
-      }}
-      onClick={() => onSelect(job)}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+    <div className="card ft-job" onClick={() => onSelect(job)}>
+      <div className="ft-job__head">
+        <div className="ft-job__title">
           <strong>{job.model}</strong>
-          <span style={{ marginLeft: 'var(--spacing-sm)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-            {job.backend} / {job.training_method || 'sft'}
-          </span>
+          <span className="ft-job__backend">{job.backend} / {job.training_method || 'sft'}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+        <div className="row-actions">
           <button
-            className="btn"
-            style={{ fontSize: '0.75rem', padding: '2px 6px' }}
+            className="btn btn-sm"
             onClick={(e) => { e.stopPropagation(); onUseConfig(job) }}
             title="Use this job's configuration for a new job"
           >
             <i className="fas fa-copy" /> Reuse
           </button>
-          {['completed', 'stopped', 'failed'].includes(job.status) && (
+          {TERMINAL_STATUSES.includes(job.status) && (
             <button
-              className="btn btn-danger"
-              style={{ fontSize: '0.75rem', padding: '2px 6px' }}
+              className="btn btn-danger btn-sm"
               onClick={(e) => { e.stopPropagation(); onDelete(job.id) }}
               title="Delete this job and its data"
+              aria-label="Delete job"
             >
               <i className="fas fa-trash" />
             </button>
           )}
-          <span className={`badge ${statusBadgeClass[job.status] || ''}`}>
-            {job.status}
-          </span>
+          <StatusBadge status={job.status} />
         </div>
       </div>
-      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+      <div className="ft-job__meta">
         ID: {job.id?.slice(0, 8)}... | Created: {job.created_at}
       </div>
       {job.output_dir && (
-        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+        <div className="ft-job__path">
           <i className="fas fa-folder" />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }} title={job.output_dir}>
-            {job.output_dir}
-          </span>
+          <span className="cell-truncate" title={job.output_dir}>{job.output_dir}</span>
           <CopyButton text={job.output_dir} />
         </div>
       )}
       {job.message && (
-        <div style={{ fontSize: '0.75rem', color: job.status === 'failed' ? 'var(--color-error)' : 'var(--color-text-muted)', marginTop: '2px' }}>
-          <i className="fas fa-info-circle" style={{ marginRight: '2px' }} />
-          {job.message}
+        <div className={`ft-job__message${job.status === 'failed' ? ' ft-job__message--failed' : ''}`}>
+          <i className="fas fa-info-circle" /> {job.message}
         </div>
       )}
     </div>
@@ -241,15 +230,17 @@ function SingleMetricChart({ data, valueKey, label, color, formatValue, events }
   }
 
   return (
-    <div>
-      <div style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ display: 'inline-block', width: 12, height: 3, background: color, borderRadius: "var(--radius-sm)" }} />
+    <div className="ft-chart" style={{ '--ft-chart-color': color }}>
+      <div className="ft-chart__head">
+        <span className="ft-chart__key" />
         {label}
       </div>
       <svg
         ref={svgRef}
+        className="ft-chart__svg"
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: '100%', height: 'auto', maxHeight: 220, background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)' }}
+        role="img"
+        aria-label={`${label} over training steps`}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setTooltip(null)}
       >
@@ -258,10 +249,8 @@ function SingleMetricChart({ data, valueKey, label, color, formatValue, events }
             stroke="currentColor" strokeOpacity={0.08} strokeDasharray="3 3" />
         ))}
         {epochBoundaries.map((eb, i) => (
-          <g key={i}>
-            <line x1={x(eb.step)} x2={x(eb.step)} y1={pad.top} y2={H - pad.bottom}
-              stroke="currentColor" strokeOpacity={0.15} strokeDasharray="4 3" />
-          </g>
+          <line key={i} x1={x(eb.step)} x2={x(eb.step)} y1={pad.top} y2={H - pad.bottom}
+            stroke="currentColor" strokeOpacity={0.15} strokeDasharray="4 3" />
         ))}
         <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
         <line x1={pad.left} x2={W - pad.right} y1={H - pad.bottom} y2={H - pad.bottom}
@@ -309,16 +298,14 @@ function ChartsGrid({ events }) {
   if (lossData.length < 2 && lrData.length < 2 && gradNormData.length < 2) return null
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+    <div className="ft-chart-grid">
       <SingleMetricChart data={lossData} valueKey="loss" label="Training Loss" color="var(--color-data-7)" events={events} />
       {evalData.length >= 1 ? (
         <SingleMetricChart data={evalData} valueKey="eval_loss" label="Eval Loss" color="var(--color-data-2)" events={events} />
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', minHeight: 120 }}>
-          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-            <i className="fas fa-chart-area" style={{ marginRight: 6 }} />
-            Eval Loss — waiting for eval data
-          </span>
+        <div className="ft-chart-empty">
+          <i className="fas fa-chart-area" />
+          Eval loss, waiting for eval data
         </div>
       )}
       <SingleMetricChart data={lrData} valueKey="learning_rate" label="Learning Rate" color="var(--color-data-3)" formatValue={fmtExp} events={events} />
@@ -334,7 +321,7 @@ function TrainingMonitor({ job, onStop }) {
   const eventSourceRef = useRef(null)
 
   useEffect(() => {
-    if (!job || !['queued', 'loading_model', 'loading_dataset', 'training', 'saving'].includes(job.status)) {
+    if (!job || !ACTIVE_STATUSES.includes(job.status)) {
       setConnecting(false)
       return
     }
@@ -355,7 +342,7 @@ function TrainingMonitor({ job, onStop }) {
         if (data.loss > 0) {
           setEvents(prev => [...prev, data])
         }
-        if (['completed', 'failed', 'stopped'].includes(data.status)) {
+        if (TERMINAL_STATUSES.includes(data.status)) {
           es.close()
         }
       } catch (_) {}
@@ -373,89 +360,64 @@ function TrainingMonitor({ job, onStop }) {
 
   if (!job) return null
 
+  const progress = Math.min(latest?.progress_percent || 0, 100)
+
   return (
-    <div className="card" style={{ marginTop: 'var(--spacing-md)' }}>
-      <h3 style={{ margin: '0 0 var(--spacing-md) 0' }}>
-        <i className="fas fa-chart-line" style={{ marginRight: 'var(--spacing-sm)' }} />
-        Training Monitor
-      </h3>
+    <section className="card">
+      <SectionHeading>
+        <i className="fas fa-chart-line" /> Training monitor
+      </SectionHeading>
 
       {connecting && !latest && (
-        <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--color-text-muted)' }}>
-          <LoadingSpinner size="sm" /> Connecting to training stream...
-        </div>
+        <EmptyState
+          icon="fas fa-satellite-dish"
+          title="Connecting to training stream"
+          body="Waiting for the first progress event from the backend."
+        />
       )}
 
       {latest && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Status</div>
-            <div style={{ fontWeight: 'bold' }}>{latest.status}</div>
+        <>
+          <div className="stat-cards">
+            <StatCard icon="fas fa-circle-notch" label="Status" value={latest.status} accentVar="--color-info" />
+            <StatCard icon="fas fa-percent" label="Progress" value={`${latest.progress_percent?.toFixed(1)}%`} accentVar="--color-primary" />
+            <StatCard icon="fas fa-shoe-prints" label="Step" value={`${latest.current_step} / ${latest.total_steps}`} />
+            <StatCard icon="fas fa-arrow-trend-down" label="Loss" value={latest.loss?.toFixed(4)} accentVar="--color-data-7" />
+            <StatCard icon="fas fa-repeat" label="Epoch" value={`${latest.current_epoch?.toFixed(2)} / ${latest.total_epochs?.toFixed(0)}`} />
+            <StatCard icon="fas fa-gauge-high" label="Learning rate" value={latest.learning_rate?.toExponential(2)} accentVar="--color-data-3" />
+            <StatCard icon="fas fa-hourglass-half" label="ETA" value={formatEta(latest.eta_seconds)} />
+            {latest.extra_metrics?.tokens_per_second > 0 && (
+              <StatCard icon="fas fa-bolt" label="Tokens/sec" value={latest.extra_metrics.tokens_per_second.toFixed(0)} accentVar="--color-success" />
+            )}
           </div>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Progress</div>
-            <div style={{ fontWeight: 'bold' }}>{latest.progress_percent?.toFixed(1)}%</div>
+
+          <div
+            className="progress-bar"
+            role="progressbar"
+            aria-valuenow={Math.round(progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Training progress"
+          >
+            <div className="progress-bar__fill" style={{ width: `${progress}%` }} />
           </div>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Step</div>
-            <div style={{ fontWeight: 'bold' }}>{latest.current_step} / {latest.total_steps}</div>
-          </div>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Loss</div>
-            <div style={{ fontWeight: 'bold' }}>{latest.loss?.toFixed(4)}</div>
-          </div>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Epoch</div>
-            <div style={{ fontWeight: 'bold' }}>{latest.current_epoch?.toFixed(2)} / {latest.total_epochs?.toFixed(0)}</div>
-          </div>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Learning Rate</div>
-            <div style={{ fontWeight: 'bold' }}>{latest.learning_rate?.toExponential(2)}</div>
-          </div>
-          <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>ETA</div>
-            <div style={{ fontWeight: 'bold' }}>{formatEta(latest.eta_seconds)}</div>
-          </div>
-          {latest.extra_metrics?.tokens_per_second > 0 && (
-            <div className="card" style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>Tokens/sec</div>
-              <div style={{ fontWeight: 'bold' }}>{latest.extra_metrics.tokens_per_second.toFixed(0)}</div>
-            </div>
-          )}
-        </div>
+        </>
       )}
 
-      {/* Progress bar */}
-      {latest && (
-        <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', height: '8px', marginBottom: 'var(--spacing-md)' }}>
-          <div style={{
-            background: 'var(--color-primary)', borderRadius: 'var(--radius-sm)', height: '100%',
-            width: `${Math.min(latest.progress_percent || 0, 100)}%`, transition: 'width 0.3s'
-          }} />
-        </div>
-      )}
-
-      {/* Training charts (2x2 grid) */}
       <ChartsGrid events={events} />
 
       {latest?.message && (
-        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-          <i className="fas fa-info-circle" style={{ marginRight: 'var(--spacing-xs)' }} />
-          {latest.message}
-        </div>
+        <p className="form-hint">
+          <i className="fas fa-info-circle" /> {latest.message}
+        </p>
       )}
 
-      {['queued', 'loading_model', 'loading_dataset', 'training', 'saving'].includes(latest?.status || job.status) && (
-        <button
-          className="btn btn-danger"
-          style={{ marginTop: 'var(--spacing-sm)' }}
-          onClick={() => onStop(job.id)}
-        >
-          <i className="fas fa-stop" style={{ marginRight: 'var(--spacing-xs)' }} />
-          Stop Training
+      {ACTIVE_STATUSES.includes(latest?.status || job.status) && (
+        <button className="btn btn-danger" onClick={() => onStop(job.id)}>
+          <i className="fas fa-stop" /> Stop training
         </button>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -472,53 +434,58 @@ function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
   }, [job?.id])
 
   if (!job) return null
-  if (loading) return <div style={{ padding: 'var(--spacing-md)', fontSize: '0.875rem' }}><LoadingSpinner size="sm" /> Loading checkpoints...</div>
+  if (loading) {
+    return (
+      <section className="card">
+        <SectionHeading><i className="fas fa-save" /> Checkpoints</SectionHeading>
+        <p className="form-hint"><LoadingSpinner size="sm" /> Loading checkpoints...</p>
+      </section>
+    )
+  }
   if (checkpoints.length === 0) return null
 
   return (
-    <div className="card" style={{ marginTop: 'var(--spacing-md)' }}>
-      <h3 style={{ margin: '0 0 var(--spacing-md) 0' }}>
-        <i className="fas fa-save" style={{ marginRight: 'var(--spacing-sm)' }} />
-        Checkpoints
-      </h3>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', fontSize: '0.8125rem', borderCollapse: 'collapse' }}>
+    <section className="card">
+      <SectionHeading><i className="fas fa-save" /> Checkpoints</SectionHeading>
+      <ResponsiveTable>
+        <table className="data-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--color-border-subtle)', textAlign: 'left' }}>
-              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Step</th>
-              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Epoch</th>
-              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Loss</th>
-              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Created</th>
-              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Path</th>
-              <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>Actions</th>
+            <tr>
+              <th>Step</th>
+              <th>Epoch</th>
+              <th>Loss</th>
+              <th>Created</th>
+              <th>Path</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {checkpoints.map(cp => (
-              <tr key={cp.path} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.step}</td>
-                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.epoch?.toFixed(2)}</td>
-                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.loss?.toFixed(4)}</td>
-                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}>{cp.created_at}</td>
-                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cp.path}>
-                  {cp.path} <CopyButton text={cp.path} />
+              <tr key={cp.path}>
+                <td>{cp.step}</td>
+                <td>{cp.epoch?.toFixed(2)}</td>
+                <td>{cp.loss?.toFixed(4)}</td>
+                <td>{cp.created_at}</td>
+                <td>
+                  <span className="cell-truncate cell-mono" title={cp.path}>{cp.path}</span>
+                  <CopyButton text={cp.path} />
                 </td>
-                <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', whiteSpace: 'nowrap' }}>
-                  <button className="btn" style={{ fontSize: '0.7rem', padding: '2px 6px', marginRight: 'var(--spacing-xs)' }}
-                    onClick={() => onResume(cp)} title="Resume training from this checkpoint">
-                    <i className="fas fa-play" /> Resume
-                  </button>
-                  <button className="btn" style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                    onClick={() => onExportCheckpoint(cp)} title="Export this checkpoint">
-                    <i className="fas fa-file-export" /> Export
-                  </button>
+                <td>
+                  <div className="row-actions">
+                    <button className="btn btn-sm" onClick={() => onResume(cp)} title="Resume training from this checkpoint">
+                      <i className="fas fa-play" /> Resume
+                    </button>
+                    <button className="btn btn-sm" onClick={() => onExportCheckpoint(cp)} title="Export this checkpoint">
+                      <i className="fas fa-file-export" /> Export
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
+      </ResponsiveTable>
+    </section>
   )
 }
 
@@ -611,90 +578,95 @@ function ExportPanel({ job, prefilledCheckpoint }) {
   }
 
   // Show export panel for completed, stopped, and failed jobs (checkpoints may exist)
-  if (!job || !['completed', 'stopped', 'failed'].includes(job.status)) return null
+  if (!job || !TERMINAL_STATUSES.includes(job.status)) return null
+
+  const failed = message.includes('failed')
 
   return (
-    <div className="card" style={{ marginTop: 'var(--spacing-md)' }}>
-      <h3 style={{ margin: '0 0 var(--spacing-md) 0' }}>
-        <i className="fas fa-file-export" style={{ marginRight: 'var(--spacing-sm)' }} />
-        Export Model
-      </h3>
+    <section className="card">
+      <SectionHeading><i className="fas fa-file-export" /> Export model</SectionHeading>
 
-      {checkpoints.length > 0 && (
-        <div style={{ marginBottom: 'var(--spacing-md)' }}>
-          <label className="form-label">Checkpoint</label>
-          <select value={selectedCheckpoint} onChange={e => setSelectedCheckpoint(e.target.value)} className="input">
-            <option value="">Final model (output directory)</option>
-            {checkpoints.map(cp => (
-              <option key={cp.path} value={cp.path}>
-                Step {cp.step} (loss: {cp.loss?.toFixed(4)})
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-        <div>
-          <label className="form-label">Export Format</label>
-          <select value={exportFormat} onChange={e => setExportFormat(e.target.value)} className="input">
-            <option value="lora">LoRA Adapter</option>
-            <option value="merged_16bit">Merged (16-bit)</option>
-            <option value="merged_4bit">Merged (4-bit)</option>
-            <option value="gguf">GGUF</option>
-          </select>
-        </div>
-        {exportFormat === 'gguf' && (
+      <div className="ft-stack">
+        {checkpoints.length > 0 && (
           <div>
-            <label className="form-label">Quantization</label>
-            <input
-              list="quant-presets"
-              value={quantMethod}
-              onChange={e => setQuantMethod(e.target.value)}
-              placeholder="e.g. q4_k_m, bf16, f32"
-              className="input"
-            />
-            <datalist id="quant-presets">
-              {QUANT_PRESETS.map(q => (
-                <option key={q} value={q} />
+            <label className="form-label" htmlFor="ft-export-checkpoint">Checkpoint</label>
+            <select id="ft-export-checkpoint" value={selectedCheckpoint} onChange={e => setSelectedCheckpoint(e.target.value)} className="input">
+              <option value="">Final model (output directory)</option>
+              {checkpoints.map(cp => (
+                <option key={cp.path} value={cp.path}>
+                  Step {cp.step} (loss: {cp.loss?.toFixed(4)})
+                </option>
               ))}
-            </datalist>
+            </select>
+          </div>
+        )}
+
+        <div className="form-grid-2col">
+          <div>
+            <label className="form-label" htmlFor="ft-export-format">Export format</label>
+            <select id="ft-export-format" value={exportFormat} onChange={e => setExportFormat(e.target.value)} className="input">
+              <option value="lora">LoRA adapter</option>
+              <option value="merged_16bit">Merged (16-bit)</option>
+              <option value="merged_4bit">Merged (4-bit)</option>
+              <option value="gguf">GGUF</option>
+            </select>
+          </div>
+          {exportFormat === 'gguf' && (
+            <div>
+              <label className="form-label" htmlFor="ft-export-quant">Quantization</label>
+              <input
+                id="ft-export-quant"
+                list="quant-presets"
+                value={quantMethod}
+                onChange={e => setQuantMethod(e.target.value)}
+                placeholder="e.g. q4_k_m, bf16, f32"
+                className="input"
+              />
+              <datalist id="quant-presets">
+                {QUANT_PRESETS.map(q => <option key={q} value={q} />)}
+              </datalist>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="form-label" htmlFor="ft-export-name">Model name</label>
+          <input
+            id="ft-export-name"
+            type="text"
+            value={modelName}
+            onChange={e => setModelName(e.target.value)}
+            placeholder="e.g. my-finetuned-model"
+            className="input"
+          />
+          <p className="form-hint">Leave blank to generate one from the job.</p>
+        </div>
+
+        <div className="ft-actions">
+          <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+            {exporting
+              ? <><LoadingSpinner size="sm" /> Exporting...</>
+              : <><i className="fas fa-download" /> Export</>}
+          </button>
+        </div>
+
+        {message && (
+          <div className={`ft-export-status${failed ? ' ft-export-status--error' : ''}`} role="status">
+            {exporting && <LoadingSpinner size="sm" />} {message}
+            {exportedModelName && !failed && (
+              <span className="ft-export-status__links">
+                <a href={`/app/chat/${encodeURIComponent(exportedModelName)}`} className="badge badge-link">
+                  Chat with {exportedModelName}
+                </a>
+                <a href={fineTuneApi.downloadUrl(job.id)} download className="btn btn-sm">
+                  <i className="fas fa-download" /> Download archive
+                </a>
+              </span>
+            )}
           </div>
         )}
       </div>
-
-      <div style={{ marginBottom: 'var(--spacing-md)' }}>
-        <label className="form-label">Model Name (leave blank to auto-generate)</label>
-        <input
-          type="text"
-          value={modelName}
-          onChange={e => setModelName(e.target.value)}
-          placeholder="e.g. my-finetuned-model"
-          className="input"
-        />
-      </div>
-
-      <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
-        {exporting ? <><LoadingSpinner size="sm" /> Exporting...</> :
-          <><i className="fas fa-download" style={{ marginRight: 'var(--spacing-xs)' }} /> Export</>}
-      </button>
-
-      {message && (
-        <div style={{ marginTop: 'var(--spacing-sm)', fontSize: '0.875rem', color: message.includes('failed') ? 'var(--color-error)' : 'var(--color-success)' }}>
-          {exporting && <LoadingSpinner size="sm" />} {message}
-          {exportedModelName && !message.includes('failed') && (
-            <span style={{ marginLeft: 'var(--spacing-sm)' }}>
-              <a href={`/app/chat/${encodeURIComponent(exportedModelName)}`} style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>
-                Chat with {exportedModelName}
-              </a>
-              <a href={fineTuneApi.downloadUrl(job.id)} download className="btn" style={{ marginLeft: 'var(--spacing-sm)', fontSize: '0.8125rem', padding: '2px 8px' }}>
-                <i className="fas fa-download" /> Download Archive
-              </a>
-            </span>
-          )}
-        </div>
-      )}
-    </div>
+    </section>
   )
 }
 
@@ -815,7 +787,7 @@ export default function FineTune() {
         if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
       }
 
-      const isAdapter = ['lora', 'loha', 'lokr'].includes(trainingType)
+      const isAdapterType = ['lora', 'loha', 'lokr'].includes(trainingType)
 
       const req = {
         model,
@@ -827,10 +799,10 @@ export default function FineTune() {
         num_epochs: numEpochs,
         batch_size: batchSize,
         learning_rate: learningRate,
-        adapter_rank: isAdapter ? adapterRank : 0,
-        adapter_alpha: isAdapter ? adapterAlpha : 0,
-        adapter_dropout: isAdapter && adapterDropout > 0 ? adapterDropout : undefined,
-        target_modules: isAdapter && targetModules.trim() ? targetModules.split(',').map(s => s.trim()) : undefined,
+        adapter_rank: isAdapterType ? adapterRank : 0,
+        adapter_alpha: isAdapterType ? adapterAlpha : 0,
+        adapter_dropout: isAdapterType && adapterDropout > 0 ? adapterDropout : undefined,
+        target_modules: isAdapterType && targetModules.trim() ? targetModules.split(',').map(s => s.trim()) : undefined,
         gradient_accumulation_steps: gradAccum,
         warmup_steps: warmupSteps,
         max_steps: maxSteps > 0 ? maxSteps : undefined,
@@ -1070,47 +1042,45 @@ export default function FineTune() {
     <div className="page page--wide">
       <UnsavedChangesGuard when={dirty && showForm && !loading} />
       <PageHeader
-        title={<>Fine-Tuning <span className="badge badge-warning" style={{ fontSize: '0.45em', verticalAlign: 'middle' }}>Experimental</span></>}
+        title={<>Fine-tuning <span className={`badge badge-warning ft-actions btn fas fa-upload btn btn-primary fas fa-${showForm ? 'times' : 'plus'}`}>Experimental</span></>}
         supporting="Create and manage fine-tuning jobs"
         actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <button className="btn" onClick={handleImportConfig}>
-              <i className="fas fa-upload" style={{ marginRight: 'var(--spacing-xs)' }} /> Import Config
+          <div>
+            <button className="btn btn-secondary" onClick={handleImportConfig}>
+              <i className="fas fa-file-import" aria-hidden="true" /> Import config
             </button>
-            <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-              <i className={`fas fa-${showForm ? 'times' : 'plus'}`} style={{ marginRight: 'var(--spacing-xs)' }} />
-              {showForm ? 'Cancel' : 'New Job'}
+            <button className="btn btn-secondary" onClick={() => setShowForm(!showForm)}>
+              <i className={`fas ${showForm ? 'fa-xmark' : 'fa-plus'}`} aria-hidden="true" />
+              {showForm ? 'Cancel' : 'New job'}
             </button>
           </div>
         }
       />
 
       {error && (
-        <div className="card" style={{ background: 'var(--color-error-light)', borderColor: 'var(--color-error-border)', color: 'var(--color-error)', marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
-          <i className="fas fa-exclamation-triangle" style={{ marginRight: 'var(--spacing-xs)' }} /> {error}
+        <div className="attention-callout attention-callout--error" role="alert">
+          <span><i className="fas fa-exclamation-triangle" /> {error}</span>
         </div>
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
+        <form onSubmit={handleSubmit} className="card ft-form">
 
           {resumeFromCheckpoint && (
-            <div style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-              <i className="fas fa-redo" style={{ color: 'var(--color-primary)' }} />
-              <span style={{ fontSize: '0.875rem' }}>
-                Resuming from checkpoint: <code style={{ fontSize: '0.8rem' }}>{resumeFromCheckpoint}</code>
-              </span>
-              <button type="button" className="btn" style={{ padding: '2px 6px', fontSize: '0.75rem', marginLeft: 'auto' }} onClick={() => setResumeFromCheckpoint('')}>
+            <div className="ft-banner">
+              <i className="fas fa-redo ft-banner__icon" />
+              <span>Resuming from checkpoint: <code>{resumeFromCheckpoint}</code></span>
+              <button type="button" className="btn btn-sm ft-banner__spacer" onClick={() => setResumeFromCheckpoint('')}>
                 <i className="fas fa-times" /> Clear
               </button>
             </div>
           )}
 
-          <FormSection icon="fas fa-server" title="Model & Backend">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 'var(--spacing-md)' }}>
+          <FormSection icon="fas fa-server" title="Model and backend">
+            <div className="ft-grid-model">
               <div>
-                <label className="form-label">Backend</label>
-                <select value={backend} onChange={e => setBackend(e.target.value)} className="input">
+                <label className="form-label" htmlFor="ft-backend">Backend</label>
+                <select id="ft-backend" value={backend} onChange={e => setBackend(e.target.value)} className="input">
                   {backends.length === 0 ? (
                     <option value="" disabled>No backends available</option>
                   ) : (
@@ -1119,91 +1089,89 @@ export default function FineTune() {
                 </select>
               </div>
               <div>
-                <label className="form-label">Training Method</label>
-                <select value={trainingMethod} onChange={e => setTrainingMethod(e.target.value)} className="input">
+                <label className="form-label" htmlFor="ft-method">Training method</label>
+                <select id="ft-method" value={trainingMethod} onChange={e => setTrainingMethod(e.target.value)} className="input">
                   {TRAINING_METHODS.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
                 </select>
               </div>
               <div>
-                <label className="form-label">Model (HuggingFace ID or local path)</label>
-                <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. TinyLlama/TinyLlama-1.1B-Chat-v1.0" className="input" required />
+                <label className="form-label" htmlFor="ft-model">Model</label>
+                <input id="ft-model" type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. TinyLlama/TinyLlama-1.1B-Chat-v1.0" className="input" required />
+                <p className="form-hint">A HuggingFace ID or a local path.</p>
               </div>
             </div>
-            <div style={{ marginTop: 'var(--spacing-md)' }}>
-              <label className="form-label">HuggingFace Token (for gated models)</label>
-              <input type="password" value={hfToken} onChange={e => setHfToken(e.target.value)} placeholder="hf_..." className="input" />
+            <div>
+              <label className="form-label" htmlFor="ft-hf-token">HuggingFace token</label>
+              <input id="ft-hf-token" type="password" value={hfToken} onChange={e => setHfToken(e.target.value)} placeholder="hf_..." className="input" />
+              <p className="form-hint">Only needed for gated models.</p>
             </div>
           </FormSection>
 
-          <FormSection icon="fas fa-layer-group" title="Training Type & Adapter">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 'var(--spacing-md)' }}>
+          <FormSection icon="fas fa-layer-group" title="Training type and adapter">
+            <div className="ft-grid-auto">
               <div>
-                <label className="form-label">Training Type</label>
-                <select value={trainingType} onChange={e => setTrainingType(e.target.value)} className="input">
+                <label className="form-label" htmlFor="ft-type">Training type</label>
+                <select id="ft-type" value={trainingType} onChange={e => setTrainingType(e.target.value)} className="input">
                   {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               {isAdapter && (
                 <>
                   <div>
-                    <label className="form-label">Rank</label>
-                    <input type="number" value={adapterRank} onChange={e => setAdapterRank(Number(e.target.value))} className="input" min={1} />
+                    <label className="form-label" htmlFor="ft-rank">Rank</label>
+                    <input id="ft-rank" type="number" value={adapterRank} onChange={e => setAdapterRank(Number(e.target.value))} className="input" min={1} />
                   </div>
                   <div>
-                    <label className="form-label">Alpha</label>
-                    <input type="number" value={adapterAlpha} onChange={e => setAdapterAlpha(Number(e.target.value))} className="input" min={1} />
+                    <label className="form-label" htmlFor="ft-alpha">Alpha</label>
+                    <input id="ft-alpha" type="number" value={adapterAlpha} onChange={e => setAdapterAlpha(Number(e.target.value))} className="input" min={1} />
                   </div>
                   <div>
-                    <label className="form-label">Dropout</label>
-                    <input type="number" value={adapterDropout} onChange={e => setAdapterDropout(Number(e.target.value))} className="input" min={0} max={1} step={0.05} />
+                    <label className="form-label" htmlFor="ft-dropout">Dropout</label>
+                    <input id="ft-dropout" type="number" value={adapterDropout} onChange={e => setAdapterDropout(Number(e.target.value))} className="input" min={0} max={1} step={0.05} />
                   </div>
                 </>
               )}
             </div>
             {isAdapter && (
-              <div style={{ marginTop: 'var(--spacing-md)' }}>
-                <label className="form-label">Target Modules (comma-separated, blank for default)</label>
-                <input type="text" value={targetModules} onChange={e => setTargetModules(e.target.value)} placeholder="e.g. q_proj, v_proj, k_proj, o_proj" className="input" />
+              <div>
+                <label className="form-label" htmlFor="ft-target-modules">Target modules</label>
+                <input id="ft-target-modules" type="text" value={targetModules} onChange={e => setTargetModules(e.target.value)} placeholder="e.g. q_proj, v_proj, k_proj, o_proj" className="input" />
+                <p className="form-hint">Comma-separated. Leave blank for the backend default.</p>
               </div>
             )}
           </FormSection>
 
           <FormSection icon="fas fa-database" title="Dataset">
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
+            <div className="ft-grid-dataset">
               <div>
-                <label className="form-label">Source (HuggingFace ID or leave blank to upload)</label>
-                <input type="text" value={datasetSource} onChange={e => setDatasetSource(e.target.value)} placeholder="e.g. tatsu-lab/alpaca" className="input" />
+                <label className="form-label" htmlFor="ft-dataset">Source</label>
+                <input id="ft-dataset" type="text" value={datasetSource} onChange={e => setDatasetSource(e.target.value)} placeholder="e.g. tatsu-lab/alpaca" className="input" />
+                <p className="form-hint">A HuggingFace ID, or leave blank and upload a file.</p>
               </div>
               <div>
-                <label className="form-label">Split</label>
-                <input type="text" value={datasetSplit} onChange={e => setDatasetSplit(e.target.value)} placeholder="e.g. train" className="input" />
+                <label className="form-label" htmlFor="ft-split">Split</label>
+                <input id="ft-split" type="text" value={datasetSplit} onChange={e => setDatasetSplit(e.target.value)} placeholder="e.g. train" className="input" />
               </div>
               <div>
-                <label className="form-label">Upload File</label>
-                <input type="file" onChange={e => setDatasetFile(e.target.files[0])} accept=".json,.jsonl,.csv" className="input" style={{ padding: '6px' }} />
+                <label className="form-label" htmlFor="ft-dataset-file">Upload file</label>
+                <input id="ft-dataset-file" type="file" onChange={e => setDatasetFile(e.target.files[0])} accept=".json,.jsonl,.csv" className="input input--file" />
               </div>
             </div>
           </FormSection>
 
           {trainingMethod === 'grpo' && (
-            <FormSection icon="fas fa-trophy" title="Reward Functions (GRPO)">
-              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-md)' }}>
+            <FormSection icon="fas fa-trophy" title="Reward functions (GRPO)">
+              <p className="ft-hint">
                 GRPO requires at least one reward function. Select built-in functions or add custom ones.
-              </div>
+              </p>
 
-              {/* Built-in reward functions */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+              <div className="ft-rewards">
                 {BUILTIN_REWARDS.map(builtin => {
                   const isSelected = rewardFunctions.some(rf => rf.type === 'builtin' && rf.name === builtin.name)
                   const selectedRf = rewardFunctions.find(rf => rf.type === 'builtin' && rf.name === builtin.name)
                   return (
-                    <div key={builtin.name} style={{
-                      padding: 'var(--spacing-sm) var(--spacing-md)',
-                      border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border-subtle)'}`,
-                      borderRadius: 'var(--radius-sm)',
-                      background: isSelected ? 'var(--color-bg-secondary)' : 'transparent',
-                    }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                    <div key={builtin.name} className={`ft-reward${isSelected ? ' ft-reward--on' : ''}`}>
+                      <label className="ft-reward__label">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -1215,20 +1183,22 @@ export default function FineTune() {
                             }
                           }}
                         />
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{builtin.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{builtin.description}</div>
-                        </div>
+                        <span>
+                          <span className="ft-reward__name">{builtin.name}</span>
+                          <span className="ft-reward__desc">{builtin.description}</span>
+                        </span>
                       </label>
                       {isSelected && builtin.params.length > 0 && (
-                        <div style={{ marginTop: 'var(--spacing-sm)', paddingLeft: 'var(--spacing-lg)' }}>
+                        <div className="ft-reward__params">
                           {builtin.params.map(param => (
-                            <div key={param.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                              <label style={{ fontSize: '0.75rem', minWidth: '80px' }}>{param.label}:</label>
+                            <div key={param.key} className="ft-reward__param">
+                              <label className="ft-reward__param-label" htmlFor={`ft-reward-${builtin.name}-${param.key}`}>
+                                {param.label}
+                              </label>
                               <input
+                                id={`ft-reward-${builtin.name}-${param.key}`}
                                 type="text"
                                 className="input"
-                                style={{ width: '100px', fontSize: '0.8125rem', padding: '2px 6px' }}
                                 value={selectedRf?.params?.[param.key] || param.default}
                                 onChange={e => {
                                   setRewardFunctions(prev => prev.map(rf =>
@@ -1247,62 +1217,50 @@ export default function FineTune() {
                 })}
               </div>
 
-              {/* Custom inline reward functions */}
               {rewardFunctions.filter(rf => rf.type === 'inline').map((rf, idx) => (
-                <div key={`inline-${idx}`} style={{
-                  padding: 'var(--spacing-sm) var(--spacing-md)',
-                  border: '1px solid var(--color-primary)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg-secondary)',
-                  marginBottom: 'var(--spacing-sm)',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-                      <i className="fas fa-code" style={{ marginRight: 'var(--spacing-xs)' }} />
-                      {rf.name}
+                <div key={`inline-${idx}`} className="ft-reward ft-reward--on">
+                  <div className="ft-job__head">
+                    <span className="ft-reward__name">
+                      <i className="fas fa-code" /> {rf.name}
                     </span>
-                    <button type="button" className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-                      onClick={() => setRewardFunctions(prev => prev.filter((_, i) => i !== rewardFunctions.indexOf(rf)))}>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      aria-label={`Remove ${rf.name}`}
+                      onClick={() => setRewardFunctions(prev => prev.filter((_, i) => i !== rewardFunctions.indexOf(rf)))}
+                    >
                       <i className="fas fa-times" />
                     </button>
                   </div>
-                  <pre style={{ fontSize: '0.75rem', margin: 0, whiteSpace: 'pre-wrap', color: 'var(--color-text-muted)' }}>
-                    {rf.code}
-                  </pre>
+                  <pre className="ft-reward__code">{rf.code}</pre>
                 </div>
               ))}
 
-              {/* Add custom reward button / form */}
               {showAddCustomReward ? (
-                <div style={{
-                  padding: 'var(--spacing-md)',
-                  border: '1px dashed var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  marginTop: 'var(--spacing-sm)',
-                }}>
-                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                    <label className="form-label">Function Name</label>
-                    <input type="text" className="input" value={customRewardName} onChange={e => setCustomRewardName(e.target.value)}
-                      placeholder="e.g. my_custom_reward" style={{ maxWidth: '300px' }} />
+                <div className="ft-reward-draft">
+                  <div>
+                    <label className="form-label" htmlFor="ft-reward-name">Function name</label>
+                    <input id="ft-reward-name" type="text" className="input" value={customRewardName} onChange={e => setCustomRewardName(e.target.value)} placeholder="e.g. my_custom_reward" />
                   </div>
-                  <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                    <label className="form-label">
-                      Function Body
-                      <span style={{ fontWeight: 'normal', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'var(--spacing-sm)' }}>
-                        (receives: completions, **kwargs; must return list[float]; available: re, math, json, string)
-                      </span>
-                    </label>
+                  <div>
+                    <label className="form-label" htmlFor="ft-reward-code">Function body</label>
                     <textarea
-                      className="input"
+                      id="ft-reward-code"
+                      className="textarea"
                       value={customRewardCode}
                       onChange={e => setCustomRewardCode(e.target.value)}
                       placeholder={"return [1.0 if '<think>' in c else 0.0 for c in completions]"}
                       rows={4}
-                      style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                     />
+                    <p className="form-hint">
+                      Receives <code>completions, **kwargs</code> and must return <code>list[float]</code>.
+                      Available: re, math, json, string.
+                    </p>
                   </div>
-                  <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                    <button type="button" className="btn btn-primary" style={{ fontSize: '0.8125rem' }}
+                  <div className="ft-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
                       disabled={!customRewardName.trim() || !customRewardCode.trim()}
                       onClick={() => {
                         setRewardFunctions(prev => [...prev, {
@@ -1313,174 +1271,164 @@ export default function FineTune() {
                         setCustomRewardName('')
                         setCustomRewardCode('')
                         setShowAddCustomReward(false)
-                      }}>
-                      <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Add
+                      }}
+                    >
+                      <i className="fas fa-plus" /> Add
                     </button>
-                    <button type="button" className="btn" style={{ fontSize: '0.8125rem' }}
-                      onClick={() => { setShowAddCustomReward(false); setCustomRewardName(''); setCustomRewardCode('') }}>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => { setShowAddCustomReward(false); setCustomRewardName(''); setCustomRewardCode('') }}
+                    >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <button type="button" className="btn" onClick={() => setShowAddCustomReward(true)} style={{ fontSize: '0.8125rem' }}>
-                  <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} />
-                  Add Custom Reward Function
+                <button type="button" className="btn btn-sm" onClick={() => setShowAddCustomReward(true)}>
+                  <i className="fas fa-plus" /> Add custom reward function
                 </button>
               )}
             </FormSection>
           )}
 
           <FormSection icon="fas fa-sliders-h" title="Hyperparameters">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--spacing-md)' }}>
+            <div className="ft-grid-auto-sm">
               <div>
-                <label className="form-label">Epochs</label>
-                <input type="number" value={numEpochs} onChange={e => setNumEpochs(Number(e.target.value))} className="input" min={1} />
+                <label className="form-label" htmlFor="ft-epochs">Epochs</label>
+                <input id="ft-epochs" type="number" value={numEpochs} onChange={e => setNumEpochs(Number(e.target.value))} className="input" min={1} />
               </div>
               <div>
-                <label className="form-label">Batch Size</label>
-                <input type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="input" min={1} />
+                <label className="form-label" htmlFor="ft-batch">Batch size</label>
+                <input id="ft-batch" type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="input" min={1} />
               </div>
               <div>
-                <label className="form-label">Learning Rate</label>
-                <input type="text" value={learningRateText} onChange={e => {
-                  setLearningRateText(e.target.value)
-                  const parsed = Number(e.target.value)
-                  if (!isNaN(parsed) && parsed > 0) setLearningRate(parsed)
-                }} className="input" placeholder="e.g. 5e-5 or 0.00005" />
+                <label className="form-label" htmlFor="ft-lr">Learning rate</label>
+                <input
+                  id="ft-lr"
+                  type="text"
+                  value={learningRateText}
+                  onChange={e => {
+                    setLearningRateText(e.target.value)
+                    const parsed = Number(e.target.value)
+                    if (!isNaN(parsed) && parsed > 0) setLearningRate(parsed)
+                  }}
+                  className="input"
+                  placeholder="e.g. 5e-5 or 0.00005"
+                />
               </div>
               <div>
-                <label className="form-label">Grad Accum Steps</label>
-                <input type="number" value={gradAccum} onChange={e => setGradAccum(Number(e.target.value))} className="input" min={1} />
+                <label className="form-label" htmlFor="ft-grad-accum">Grad accum steps</label>
+                <input id="ft-grad-accum" type="number" value={gradAccum} onChange={e => setGradAccum(Number(e.target.value))} className="input" min={1} />
               </div>
               <div>
-                <label className="form-label">Warmup Steps</label>
-                <input type="number" value={warmupSteps} onChange={e => setWarmupSteps(Number(e.target.value))} className="input" min={0} />
+                <label className="form-label" htmlFor="ft-warmup">Warmup steps</label>
+                <input id="ft-warmup" type="number" value={warmupSteps} onChange={e => setWarmupSteps(Number(e.target.value))} className="input" min={0} />
               </div>
               <div>
-                <label className="form-label">Max Seq Length</label>
-                <input type="number" value={maxSeqLength} onChange={e => setMaxSeqLength(Number(e.target.value))} className="input" min={64} />
+                <label className="form-label" htmlFor="ft-seq-len">Max seq length</label>
+                <input id="ft-seq-len" type="number" value={maxSeqLength} onChange={e => setMaxSeqLength(Number(e.target.value))} className="input" min={64} />
               </div>
               <div>
-                <label className="form-label">Optimizer</label>
-                <select value={optimizer} onChange={e => setOptimizer(e.target.value)} className="input">
+                <label className="form-label" htmlFor="ft-optimizer">Optimizer</label>
+                <select id="ft-optimizer" value={optimizer} onChange={e => setOptimizer(e.target.value)} className="input">
                   {OPTIMIZERS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
-              <div style={{ display: 'flex', alignItems: 'end' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={gradCheckpointing} onChange={e => setGradCheckpointing(e.target.checked)} />
-                  <span style={{ fontSize: '0.875rem' }}>Grad Checkpointing</span>
-                </label>
-              </div>
+              <label className="ft-checkbox">
+                <input type="checkbox" checked={gradCheckpointing} onChange={e => setGradCheckpointing(e.target.checked)} />
+                Grad checkpointing
+              </label>
             </div>
           </FormSection>
 
-          {/* Collapsible advanced section */}
-          <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+          <section className="form-group">
             <button
               type="button"
+              className="ft-disclosure"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                fontSize: '0.8125rem', fontWeight: 600, textTransform: 'uppercase',
-                letterSpacing: '0.05em', color: 'var(--color-text-secondary)',
-                display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-                marginBottom: showAdvanced ? 'var(--spacing-md)' : 0,
-                paddingBottom: 'var(--spacing-sm)',
-                borderBottom: '1px solid var(--color-border-subtle)',
-                width: '100%', fontFamily: 'inherit',
-              }}
+              aria-expanded={showAdvanced}
             >
-              <i className={`fas fa-chevron-${showAdvanced ? 'down' : 'right'}`} style={{ color: 'var(--color-primary)', fontSize: '0.75rem', width: '0.75rem' }} />
-              <i className="fas fa-cog" style={{ color: 'var(--color-primary)' }} />
-              Advanced Options
+              <i className={`fas fa-chevron-${showAdvanced ? 'down' : 'right'} ft-disclosure__chevron`} />
+              <i className="fas fa-cog ft-disclosure__icon" />
+              Advanced options
             </button>
 
             {showAdvanced && (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+              <div className="ft-advanced">
+                <div className="ft-grid-auto">
                   <div>
-                    <label className="form-label">Max Steps (0 = auto)</label>
-                    <input type="number" value={maxSteps} onChange={e => setMaxSteps(Number(e.target.value))} className="input" min={0} />
+                    <label className="form-label" htmlFor="ft-max-steps">Max steps</label>
+                    <input id="ft-max-steps" type="number" value={maxSteps} onChange={e => setMaxSteps(Number(e.target.value))} className="input" min={0} />
+                    <p className="form-hint">0 for automatic.</p>
                   </div>
                   <div>
-                    <label className="form-label">Save Steps</label>
-                    <input type="number" value={saveSteps} onChange={e => setSaveSteps(Number(e.target.value))} className="input" min={0} />
+                    <label className="form-label" htmlFor="ft-save-steps">Save steps</label>
+                    <input id="ft-save-steps" type="number" value={saveSteps} onChange={e => setSaveSteps(Number(e.target.value))} className="input" min={0} />
                   </div>
                   <div>
-                    <label className="form-label">Save Total Limit (0 = unlimited)</label>
-                    <input type="number" value={saveTotalLimit} onChange={e => setSaveTotalLimit(Number(e.target.value))} className="input" min={0} />
+                    <label className="form-label" htmlFor="ft-save-limit">Save total limit</label>
+                    <input id="ft-save-limit" type="number" value={saveTotalLimit} onChange={e => setSaveTotalLimit(Number(e.target.value))} className="input" min={0} />
+                    <p className="form-hint">0 keeps every checkpoint.</p>
                   </div>
                   <div>
-                    <label className="form-label">Weight Decay</label>
-                    <input type="number" value={weightDecay} onChange={e => setWeightDecay(Number(e.target.value))} className="input" min={0} step={0.01} />
+                    <label className="form-label" htmlFor="ft-weight-decay">Weight decay</label>
+                    <input id="ft-weight-decay" type="number" value={weightDecay} onChange={e => setWeightDecay(Number(e.target.value))} className="input" min={0} step={0.01} />
                   </div>
                   <div>
-                    <label className="form-label">Seed (0 = random)</label>
-                    <input type="number" value={seed} onChange={e => setSeed(Number(e.target.value))} className="input" min={0} />
+                    <label className="form-label" htmlFor="ft-seed">Seed</label>
+                    <input id="ft-seed" type="number" value={seed} onChange={e => setSeed(Number(e.target.value))} className="input" min={0} />
+                    <p className="form-hint">0 picks a random seed.</p>
                   </div>
                   <div>
-                    <label className="form-label">Mixed Precision</label>
-                    <select value={mixedPrecision} onChange={e => setMixedPrecision(e.target.value)} className="input">
+                    <label className="form-label" htmlFor="ft-precision">Mixed precision</label>
+                    <select id="ft-precision" value={mixedPrecision} onChange={e => setMixedPrecision(e.target.value)} className="input">
                       {MIXED_PRECISION_OPTS.map(o => <option key={o} value={o}>{o || 'Auto'}</option>)}
                     </select>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', marginBottom: 'var(--spacing-sm)' }}>
-                    <div
-                      onClick={() => setEvalEnabled(!evalEnabled)}
-                      style={{
-                        width: 36, height: 20, borderRadius: "var(--radius-xl)", position: 'relative',
-                        background: evalEnabled ? 'var(--color-primary)' : 'var(--color-border)',
-                        transition: 'background 0.2s', cursor: 'pointer', flexShrink: 0,
-                      }}
-                    >
-                      <div style={{
-                        width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                        position: 'absolute', top: 2, left: evalEnabled ? 18 : 2,
-                        transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                      }} />
-                    </div>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Enable Evaluation</span>
-                  </label>
+                <div>
+                  <div className="ft-toggle-row">
+                    <Toggle checked={evalEnabled} onChange={setEvalEnabled} />
+                    <span>Enable evaluation</span>
+                  </div>
                   {evalEnabled && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 'var(--spacing-md)', paddingLeft: 'var(--spacing-sm)' }}>
+                    <div className="ft-grid-auto">
                       <div>
-                        <label className="form-label">Eval Strategy</label>
-                        <select value={evalStrategy} onChange={e => setEvalStrategy(e.target.value)} className="input">
+                        <label className="form-label" htmlFor="ft-eval-strategy">Eval strategy</label>
+                        <select id="ft-eval-strategy" value={evalStrategy} onChange={e => setEvalStrategy(e.target.value)} className="input">
                           <option value="steps">Steps</option>
                           <option value="epoch">Epoch</option>
                         </select>
                       </div>
                       <div>
-                        <label className="form-label">Eval Steps (0 = same as save)</label>
-                        <input type="number" value={evalSteps} onChange={e => setEvalSteps(Number(e.target.value))} className="input" min={0} />
+                        <label className="form-label" htmlFor="ft-eval-steps">Eval steps</label>
+                        <input id="ft-eval-steps" type="number" value={evalSteps} onChange={e => setEvalSteps(Number(e.target.value))} className="input" min={0} />
+                        <p className="form-hint">0 matches save steps.</p>
                       </div>
                       <div>
-                        <label className="form-label">Eval Split</label>
-                        <input type="text" value={evalSplit} onChange={e => setEvalSplit(e.target.value)} placeholder="e.g. validation" className="input" />
+                        <label className="form-label" htmlFor="ft-eval-split">Eval split</label>
+                        <input id="ft-eval-split" type="text" value={evalSplit} onChange={e => setEvalSplit(e.target.value)} placeholder="e.g. validation" className="input" />
                       </div>
                       <div>
-                        <label className="form-label">Eval Dataset Source</label>
-                        <input type="text" value={evalDatasetSource} onChange={e => setEvalDatasetSource(e.target.value)} placeholder="Separate HF dataset" className="input" />
+                        <label className="form-label" htmlFor="ft-eval-dataset">Eval dataset source</label>
+                        <input id="ft-eval-dataset" type="text" value={evalDatasetSource} onChange={e => setEvalDatasetSource(e.target.value)} placeholder="Separate HF dataset" className="input" />
                       </div>
                       <div>
-                        <label className="form-label">Auto-split Ratio</label>
-                        <input type="number" value={evalSplitRatio} onChange={e => setEvalSplitRatio(Number(e.target.value))} className="input" min={0.01} max={0.5} step={0.01} />
+                        <label className="form-label" htmlFor="ft-eval-ratio">Auto-split ratio</label>
+                        <input id="ft-eval-ratio" type="number" value={evalSplitRatio} onChange={e => setEvalSplitRatio(Number(e.target.value))} className="input" min={0.01} max={0.5} step={0.01} />
                       </div>
                     </div>
                   )}
                 </div>
 
                 {resumeFromCheckpoint && (
-                  <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                    <label className="form-label">Resume from Checkpoint</label>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                      <input type="text" value={resumeFromCheckpoint} onChange={e => setResumeFromCheckpoint(e.target.value)} className="input" style={{ flex: 1 }} />
-                      <button type="button" className="btn" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }} onClick={() => setResumeFromCheckpoint('')}>
+                  <div>
+                    <label className="form-label" htmlFor="ft-resume">Resume from checkpoint</label>
+                    <div className="ft-kv__row">
+                      <input id="ft-resume" type="text" value={resumeFromCheckpoint} onChange={e => setResumeFromCheckpoint(e.target.value)} className="input ft-kv__key" />
+                      <button type="button" className="btn btn-sm" onClick={() => setResumeFromCheckpoint('')} aria-label="Clear checkpoint">
                         <i className="fas fa-times" />
                       </button>
                     </div>
@@ -1488,16 +1436,18 @@ export default function FineTune() {
                 )}
 
                 {backend === 'liquid-audio' && (
-                  <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                    <label className="form-label">Liquid Audio</label>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)' }}>
-                      Dataset must be preprocessed by <code>LFM2AudioChatMapper</code> (a directory of LFM2DataLoader-ready arrow files). See <code>liquid_audio/examples/preprocess_jenny_tts.py</code> for the conversion recipe.
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-sm)' }}>
+                  <div>
+                    <SectionHeading>Liquid Audio</SectionHeading>
+                    <p className="ft-hint">
+                      Dataset must be preprocessed by <code>LFM2AudioChatMapper</code> (a directory of
+                      LFM2DataLoader-ready arrow files). See <code>liquid_audio/examples/preprocess_jenny_tts.py</code>
+                      {' '}for the conversion recipe.
+                    </p>
+                    <div className="ft-grid-liquid">
                       <div>
-                        <label className="form-label">TTS Voice (optional)</label>
-                        <select value={liquidAudioVoice} onChange={e => setLiquidAudioVoice(e.target.value)} className="input">
-                          <option value="">— inherit from system prompt —</option>
+                        <label className="form-label" htmlFor="ft-la-voice">TTS voice</label>
+                        <select id="ft-la-voice" value={liquidAudioVoice} onChange={e => setLiquidAudioVoice(e.target.value)} className="input">
+                          <option value="">Inherit from system prompt</option>
                           <option value="us_male">us_male</option>
                           <option value="us_female">us_female</option>
                           <option value="uk_male">uk_male</option>
@@ -1505,53 +1455,54 @@ export default function FineTune() {
                         </select>
                       </div>
                       <div>
-                        <label className="form-label">Validation Dataset (path)</label>
-                        <input type="text" value={liquidAudioValDataset} onChange={e => setLiquidAudioValDataset(e.target.value)} placeholder="e.g. /data/jenny_tts/val" className="input" />
+                        <label className="form-label" htmlFor="ft-la-val">Validation dataset</label>
+                        <input id="ft-la-val" type="text" value={liquidAudioValDataset} onChange={e => setLiquidAudioValDataset(e.target.value)} placeholder="e.g. /data/jenny_tts/val" className="input" />
                       </div>
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="form-label">Extra Options (backend-specific key-value pairs)</label>
+                  <label className="form-label">Extra options</label>
+                  <p className="form-hint">Backend-specific key/value pairs.</p>
                   <KeyValueEditor entries={extraOptions} onChange={setExtraOptions} />
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+          <div className="ft-actions">
             <button type="submit" className="btn btn-primary" disabled={loading || (!datasetSource && !datasetFile)}>
-              {loading ? <><LoadingSpinner size="sm" /> Starting...</> :
-                resumeFromCheckpoint ?
-                  <><i className="fas fa-redo" style={{ marginRight: 'var(--spacing-xs)' }} /> Resume Training</> :
-                  <><i className="fas fa-play" style={{ marginRight: 'var(--spacing-xs)' }} /> Start Fine-Tuning</>}
+              {loading
+                ? <><LoadingSpinner size="sm" /> Starting...</>
+                : resumeFromCheckpoint
+                  ? <><i className="fas fa-redo" /> Resume training</>
+                  : <><i className="fas fa-play" /> Start fine-tuning</>}
             </button>
             <button type="button" className="btn" onClick={handleExportConfig}>
-              <i className="fas fa-download" style={{ marginRight: 'var(--spacing-xs)' }} /> Export Config
+              <i className="fas fa-download" /> Export config
             </button>
           </div>
         </form>
       )}
 
-      {/* Either show job detail OR job list — not side-by-side */}
+      {/* Either show job detail OR job list, not side-by-side */}
       {selectedJob ? (
-        <div>
-          <button className="btn" onClick={() => setSelectedJob(null)} style={{ marginBottom: 'var(--spacing-md)' }}>
-            <i className="fas fa-arrow-left" style={{ marginRight: 'var(--spacing-xs)' }} />
-            Back to Jobs
-          </button>
-          <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0 }}>{selectedJob.model}</h3>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+        <div className="ft-stack">
+          <div>
+            <button className="btn" onClick={() => setSelectedJob(null)}>
+              <i className="fas fa-arrow-left" /> Back to jobs
+            </button>
+          </div>
+          <div className="card">
+            <div className="ft-job__head">
+              <div className="ft-job__title">
+                <strong>{selectedJob.model}</strong>
+                <div className="ft-job__meta">
                   {selectedJob.backend} / {selectedJob.training_method || 'sft'} | ID: {selectedJob.id?.slice(0, 8)}... | {selectedJob.created_at}
                 </div>
               </div>
-              <span className={`badge ${statusBadgeClass[selectedJob.status] || ''}`}>
-                {selectedJob.status}
-              </span>
+              <StatusBadge status={selectedJob.status} />
             </div>
           </div>
           <TrainingMonitor job={selectedJob} onStop={handleStop} />
@@ -1560,17 +1511,30 @@ export default function FineTune() {
         </div>
       ) : (
         <div>
-          <h3 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Jobs</h3>
+          <SectionHeading>Jobs</SectionHeading>
           {jobs.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-graduation-cap" /></div>
-              <h2 className="empty-state-title">No fine-tuning jobs yet</h2>
-              <p className="empty-state-text">Click "New Job" to get started</p>
-            </div>
+            <EmptyState
+              icon="fas fa-graduation-cap"
+              title="No fine-tuning jobs yet"
+              body="Start one to train an adapter on your own data, then export it as a model you can chat with."
+              actions={
+                <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+                  <i className="fas fa-plus" aria-hidden="true" /> New job
+                </button>
+              }
+            />
           ) : (
-            jobs.map(job => (
-              <JobCard key={job.id} job={job} isSelected={false} onSelect={setSelectedJob} onUseConfig={handleUseConfig} onDelete={handleDelete} />
-            ))
+            <div className="ft-jobs">
+              {jobs.map(job => (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onSelect={setSelectedJob}
+                  onUseConfig={handleUseConfig}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -46,12 +46,12 @@ type lazyScorer struct {
 	modelName string
 }
 
-func (l *lazyScorer) Score(ctx context.Context, prompt string, candidates []string) ([]backend.CandidateScore, error) {
+func (l *lazyScorer) Score(ctx context.Context, prompt string, stablePrefixLen int, candidates []string) ([]backend.CandidateScore, error) {
 	cfg := l.app.adapterConfig(l.modelName)
 	if cfg == nil {
 		return nil, fmt.Errorf("scorer: model %q no longer available", l.modelName)
 	}
-	return backend.NewScorer(l.app.modelLoader, *cfg, l.app.applicationConfig).Score(ctx, prompt, candidates)
+	return backend.NewScorer(l.app.modelLoader, *cfg, l.app.applicationConfig).Score(ctx, prompt, stablePrefixLen, candidates)
 }
 
 // TokenCounter returns a func so the middleware's literal field type accepts
@@ -116,5 +116,5 @@ func (l *lazyEmbedder) Embed(ctx context.Context, text string) ([]float32, error
 // VectorStore takes a store name, not a model name — no adapterConfig, no
 // staleness to avoid.
 func (a *Application) VectorStore(storeName string) backend.VectorStore {
-	return backend.NewVectorStore(a.modelLoader, a.applicationConfig, storeName)
+	return backend.NewVectorStore(a.modelLoader, a.applicationConfig, a.backendLoader, storeName)
 }

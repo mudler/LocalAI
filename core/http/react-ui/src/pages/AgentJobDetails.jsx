@@ -19,62 +19,43 @@ function TraceCard({ trace, index }) {
   const style = traceColors[trace.type] || traceColors.status
 
   return (
-    <div style={{
-      background: style.bg, border: `1px solid ${style.border}`,
-      borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-sm)', overflow: 'hidden',
-    }}>
+    <div className="ajd-trace mb-sm" style={{ background: style.bg, border: `1px solid ${style.border}` }}>
       <button
         onClick={() => setExpanded(!expanded)}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: 'var(--spacing-sm) var(--spacing-md)', background: 'none', border: 'none',
-          cursor: 'pointer', color: 'var(--color-text-primary)', textAlign: 'left',
-        }}
+        className="ajd-trace__toggle"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-          <span style={{
-            fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)',
-            background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
-            padding: '2px 6px', minWidth: 24, textAlign: 'center',
-          }}>
+        <div className="hstack">
+          <span className="ajd-trace__index">
             {index + 1}
           </span>
-          <i className={`fas ${style.icon}`} style={{ color: style.color, fontSize: '0.875rem' }} />
-          <span className="badge" style={{ background: style.border, color: style.color, fontSize: '0.6875rem' }}>
+          <i className={`fas ${style.icon} text-base`} style={{ color: style.color }} />
+          <span className="badge text-xs" style={{ background: style.border, color: style.color }}>
             {trace.type || 'unknown'}
           </span>
           {trace.tool_name && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+            <span className="text-mono text-xs text-secondary">
               {trace.tool_name}
             </span>
           )}
           {trace.timestamp && (
-            <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+            <span className="text-meta">
               {new Date(trace.timestamp).toLocaleTimeString()}
             </span>
           )}
         </div>
-        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }} />
+        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'} text-meta`} />
       </button>
       {expanded && (
-        <div style={{ padding: '0 var(--spacing-md) var(--spacing-sm)', fontSize: '0.8125rem' }}>
+        <div className="ajd-trace__body">
           {trace.content && (
-            <pre style={{
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
-              fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
-              color: 'var(--color-text-secondary)', lineHeight: 1.6,
-            }}>
+            <pre className="ajd-pre">
               {trace.content}
             </pre>
           )}
           {trace.arguments && (
-            <div style={{ marginTop: 'var(--spacing-xs)' }}>
-              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Arguments:</span>
-              <pre style={{
-                whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '4px 0 0',
-                fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
-                color: 'var(--color-text-secondary)', lineHeight: 1.5,
-              }}>
+            <div className="mt-xs">
+              <span className="text-meta fw-semibold">Arguments:</span>
+              <pre className="ajd-pre ajd-pre--nested">
                 {typeof trace.arguments === 'string' ? trace.arguments : JSON.stringify(trace.arguments, null, 2)}
               </pre>
             </div>
@@ -147,8 +128,8 @@ export default function AgentJobDetails() {
     }
     const m = map[status] || { cls: '', icon: 'fa-question' }
     return (
-      <span className={`badge ${m.cls}`} style={{ fontSize: '0.875rem', padding: '4px 12px' }}>
-        <i className={`fas ${m.icon}`} style={{ marginRight: 4 }} /> {status || 'unknown'}
+      <span className={`badge ${m.cls} badge--md`}>
+        <i className={`fas ${m.icon} icon-before`} /> {status || 'unknown'}
       </span>
     )
   }
@@ -163,7 +144,7 @@ export default function AgentJobDetails() {
     return rendered
   }
 
-  if (loading) return <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+  if (loading) return <div className="page page--narrow loading-center"><LoadingSpinner size="lg" /></div>
   if (!job) return (
     <div className="page page--narrow">
       <div className="empty-state">
@@ -183,38 +164,38 @@ export default function AgentJobDetails() {
         title="Job Details"
         supporting="Live status and reasoning traces"
         actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+          <div className="hstack btn btn-danger fas fa-stop btn-secondary fa-arrow-left">
             {(job.status === 'running' || job.status === 'pending') && (
-              <button className="btn btn-danger" onClick={handleCancel}>
-                <i className="fas fa-stop" /> Cancel
+              <button onClick={handleCancel}>
+                <i className="fas fa-ban" aria-hidden="true" /> Cancel
               </button>
             )}
-            <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
-              <i className="fas fa-arrow-left" /> Back
+            <button onClick={() => navigate('/app/agent-jobs')}>
+              <i className="fas fa-arrow-left" aria-hidden="true" /> Back
             </button>
           </div>
         }
       />
 
       {/* Status Card */}
-      <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600 }}>
-            <i className="fas fa-circle-info" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+      <div className="card mb-md">
+        <div className="hstack hstack--between mb-md">
+          <h3 className="fw-semibold">
+            <i className="fas fa-circle-info text-primary icon-before" />
             Job Status
           </h3>
           {statusBadge(job.status)}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-md)' }}>
+        <div className="grid-3">
           <div>
             <span className="form-label">Job ID</span>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', wordBreak: 'break-all' }}>{job.id}</p>
+            <p className="cell-mono wrap-anywhere">{job.id}</p>
           </div>
           <div>
             <span className="form-label">Task</span>
             <p>
               {job.task_id ? (
-                <a onClick={() => navigate(`/app/agent-jobs/tasks/${job.task_id}`)} style={{ cursor: 'pointer', color: 'var(--color-primary)' }}>
+                <a onClick={() => navigate(`/app/agent-jobs/tasks/${job.task_id}`)} className="link-plain">
                   {job.task_id}
                 </a>
               ) : '-'}
@@ -222,35 +203,31 @@ export default function AgentJobDetails() {
           </div>
           <div>
             <span className="form-label">Triggered By</span>
-            <p style={{ fontSize: '0.875rem' }}>{job.triggered_by || 'manual'}</p>
+            <p className="text-base">{job.triggered_by || 'manual'}</p>
           </div>
           <div>
             <span className="form-label">Created</span>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.created_at)}</p>
+            <p className="text-sub">{formatDate(job.created_at)}</p>
           </div>
           <div>
             <span className="form-label">Started</span>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.started_at)}</p>
+            <p className="text-sub">{formatDate(job.started_at)}</p>
           </div>
           <div>
             <span className="form-label">Completed</span>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.completed_at)}</p>
+            <p className="text-sub">{formatDate(job.completed_at)}</p>
           </div>
         </div>
       </div>
 
       {/* Prompt Template */}
       {task?.prompt && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-file-lines" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label group-label--tight">
+            <i className="fas fa-file-lines text-accent icon-before" />
             Agent Prompt Template
           </h3>
-          <pre style={{
-            background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)',
-            borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
-            whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: 200,
-          }}>
+          <pre className="ajd-code">
             {task.prompt}
           </pre>
         </div>
@@ -258,14 +235,14 @@ export default function AgentJobDetails() {
 
       {/* Cron Parameters */}
       {job.triggered_by === 'cron' && job.cron_parameters && Object.keys(job.cron_parameters).length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-clock" style={{ color: 'var(--color-warning)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label group-label--tight">
+            <i className="fas fa-clock text-warning icon-before" />
             Cron Parameters
           </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+          <div className="hstack hstack--xs">
             {Object.entries(job.cron_parameters).map(([k, v]) => (
-              <span key={k} className="badge badge-info" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+              <span key={k} className="badge badge-info text-mono text-xs">
                 {k}={v}
               </span>
             ))}
@@ -275,14 +252,14 @@ export default function AgentJobDetails() {
 
       {/* Job Parameters */}
       {job.parameters && Object.keys(job.parameters).length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-sliders-h" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label group-label--tight">
+            <i className="fas fa-sliders-h text-primary icon-before" />
             Job Parameters
           </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+          <div className="hstack hstack--xs">
             {Object.entries(job.parameters).map(([k, v]) => (
-              <span key={k} className="badge badge-info" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+              <span key={k} className="badge badge-info text-mono text-xs">
                 {k}={v}
               </span>
             ))}
@@ -292,16 +269,12 @@ export default function AgentJobDetails() {
 
       {/* Rendered Prompt */}
       {renderedPrompt && renderedPrompt !== task?.prompt && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-spell-check" style={{ color: 'var(--color-success)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label group-label--tight">
+            <i className="fas fa-spell-check text-success icon-before" />
             Rendered Prompt
           </h3>
-          <pre style={{
-            background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)',
-            borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
-            whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: 300,
-          }}>
+          <pre className="ajd-code ajd-code--tall">
             {renderedPrompt}
           </pre>
         </div>
@@ -309,16 +282,12 @@ export default function AgentJobDetails() {
 
       {/* Result */}
       {job.result && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-check-circle" style={{ color: 'var(--color-success)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label group-label--tight">
+            <i className="fas fa-check-circle text-success icon-before" />
             Result
           </h3>
-          <pre style={{
-            background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)',
-            borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
-            whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: 500,
-          }}>
+          <pre className="ajd-code ajd-code--taller">
             {typeof job.result === 'string' ? job.result : JSON.stringify(job.result, null, 2)}
           </pre>
         </div>
@@ -326,16 +295,12 @@ export default function AgentJobDetails() {
 
       {/* Error */}
       {job.error && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)', borderColor: 'var(--color-error)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--color-error)' }}>
-            <i className="fas fa-exclamation-triangle" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md" style={{ borderColor: 'var(--color-error)' }}>
+          <h3 className="fw-semibold text-error mb-sm">
+            <i className="fas fa-exclamation-triangle icon-before" />
             Error
           </h3>
-          <pre style={{
-            background: 'var(--color-error-light)', padding: 'var(--spacing-sm)',
-            borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
-            whiteSpace: 'pre-wrap', overflow: 'auto', color: 'var(--color-error)',
-          }}>
+          <pre className="ajd-code ajd-code--error">
             {typeof job.error === 'string' ? job.error : JSON.stringify(job.error, null, 2)}
           </pre>
         </div>
@@ -343,9 +308,9 @@ export default function AgentJobDetails() {
 
       {/* Execution Traces */}
       {traces.length > 0 && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-            <i className="fas fa-wave-square" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label">
+            <i className="fas fa-wave-square text-accent icon-before" />
             Execution Traces ({traces.length} steps)
           </h3>
           {traces.map((trace, i) => (
@@ -356,11 +321,8 @@ export default function AgentJobDetails() {
 
       {/* Running indicator */}
       {(job.status === 'running' || job.status === 'pending') && (
-        <div style={{
-          textAlign: 'center', padding: 'var(--spacing-md)',
-          color: 'var(--color-text-muted)', fontSize: '0.8125rem',
-        }}>
-          <i className="fas fa-spinner fa-spin" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="ajd-polling">
+          <i className="fas fa-spinner fa-spin icon-before" />
           Polling for updates every 2 seconds...
         </div>
       )}
@@ -368,20 +330,16 @@ export default function AgentJobDetails() {
       {/* Webhook Status */}
       {(job.webhook_sent !== undefined || job.webhook_error) && (
         <div className="card">
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-            <i className="fas fa-globe" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+          <h3 className="group-label">
+            <i className="fas fa-globe text-primary icon-before" />
             Webhook Status
           </h3>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-            background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)',
-            padding: 'var(--spacing-sm)',
-          }}>
+          <div className="ajd-webhook">
             {job.webhook_sent ? (
               <>
                 <span className="badge badge-success"><i className="fas fa-check" /> Delivered</span>
                 {job.webhook_sent_at && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  <span className="text-meta">
                     at {formatDate(job.webhook_sent_at)}
                   </span>
                 )}
@@ -389,7 +347,7 @@ export default function AgentJobDetails() {
             ) : job.webhook_error ? (
               <>
                 <span className="badge badge-error"><i className="fas fa-xmark" /> Failed</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--color-error)' }}>{job.webhook_error}</span>
+                <span className="text-xs text-error">{job.webhook_error}</span>
               </>
             ) : (
               <span className="badge badge-warning"><i className="fas fa-clock" /> Pending</span>

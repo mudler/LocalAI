@@ -46,9 +46,8 @@ test.describe('Model Editor — Back navigation', () => {
 
   test('Back returns to Manage with a "Back to System" caption', async ({ page }) => {
     await page.goto('/app/manage')
-    await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
-
-    // Open the first row's action menu and pick "Edit configuration".
+    // Actions live in the pane now, so select something first.
+    await page.locator('[data-testid="host-rail-item"]').first().click()
     const trigger = page.locator('button.action-menu__trigger').first()
     await expect(trigger).toBeVisible()
     await trigger.click()

@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -69,7 +69,7 @@ else
 	GORELEASER=$(shell which goreleaser)
 endif
 
-TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/local-store/...
+TEST_PATHS?=./api/... ./pkg/... ./core/... ./backend/go/cloud-proxy/... ./backend/go/local-store/... ./backend/go/valkey-store/...
 
 ## Coverage output and the committed baseline that CI compares against.
 ## The gate is strict: total coverage must never decrease (no tolerance).
@@ -172,6 +172,15 @@ build-dev: ## Run LocalAI in dev mode with live reload
 dev-dist:
 	$(GORELEASER) build --snapshot --clean
 
+## PR-time variant of dev-dist: builds only the host platform instead of all
+## three release targets (linux/amd64, linux/arm64, darwin/arm64). The point of
+## running goreleaser on a PR is to catch a broken config or a broken
+## before-hook (protogen-go, react-ui, go mod tidy), and --single-target still
+## exercises every one of those. Nothing consumes a PR's cross-compiled
+## binaries. master pushes and tags still run the full dev-dist/dist.
+dev-dist-single:
+	$(GORELEASER) build --snapshot --clean --single-target
+
 dist:
 	$(GORELEASER) build --clean
 
@@ -221,6 +230,14 @@ test-build-scripts:
 ## image at all (see PR #10946). Plain `node --test`, no dependencies.
 test-ci-scripts:
 	@set -e; for t in scripts/lib/*_test.mjs; do echo "== $$t"; node --test "$$t"; done
+
+## Runs the unit tests for the shared python backend helpers. These modules are
+## pure stdlib on purpose so they run without any backend venv; the list is
+## explicit because their siblings (model_identity_test) import grpc and the
+## generated protobufs, which only exist inside a built backend.
+PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test
+test-python-helpers:
+	cd backend/python/common && python3 -m unittest $(PYTHON_HELPER_TESTS)
 
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
@@ -385,6 +402,15 @@ teardown-e2e:
 test-stores: backends/local-store
 	BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r tests/integration
+
+## Valkey-backed vector-store integration. Requires a running Valkey Search
+## server (valkey/valkey-bundle:9.1.0) reachable at $$VALKEY_ADDR — the suite
+## skips itself when VALKEY_ADDR is unset. Builds the backend on demand and
+## points the model loader at it via BACKENDS_PATH. Label-filtered to the
+## valkey specs so it does not also run the in-memory local-store suite.
+test-valkey-store: backends/valkey-store
+	BACKENDS_PATH=$(abspath ./)/backends \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --label-filter='valkey' -v -r tests/integration
 
 test-opus:
 	@echo 'Running opus backend tests'
@@ -594,6 +620,8 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/rust/kokoros kokoros-grpc
 	$(MAKE) -C backend/go/rfdetr-cpp
 	$(MAKE) -C backend/go/locate-anything-cpp
+	$(MAKE) -C backend/go/trellis2cpp
+	$(MAKE) -C backend/go/valkey-store
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -626,6 +654,8 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/depth-anything-cpp test
 	$(MAKE) -C backend/go/supertonic test
 	$(MAKE) -C backend/go/vllm-cpp test
+	$(MAKE) -C backend/go/trellis2cpp test
+	$(MAKE) -C backend/go/valkey-store test
 
 ##
 ## End-to-end gRPC tests that exercise a built backend container image.
@@ -1188,6 +1218,10 @@ backends/privacy-filter-darwin: build
 	bash ./scripts/build/privacy-filter-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/privacy-filter.tar)"
 
+backends/audio-cpp-darwin: build
+	bash ./scripts/build/audio-cpp-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/audio-cpp.tar)"
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -1218,6 +1252,10 @@ backends/stablediffusion-ggml-darwin:
 	BACKEND=stablediffusion-ggml BUILD_TYPE=metal $(MAKE) build-darwin-go-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
 
+backends/trellis2cpp-darwin:
+	BACKEND=trellis2cpp BUILD_TYPE=metal $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/trellis2cpp.tar)"
+
 backend-images:
 	mkdir -p backend-images
 
@@ -1241,14 +1279,21 @@ BACKEND_DS4 = ds4|ds4|.|false|false
 # openai-privacy-filter PII/NER token classifier) — the TokenClassify RPC for
 # the PII redactor tier, on stock ggml with no llama.cpp carry-patches.
 BACKEND_PRIVACY_FILTER = privacy-filter|privacy-filter|.|false|false
+# audio-cpp wraps 0xShug0/audio.cpp, a multi-family ggml audio inference engine
+# (TTS, ASR, VAD, diarization, source separation, music generation). Builds
+# against apt gRPC/protobuf rather than a prebuilt base-grpc image; the reason
+# is on the audio-cpp block in .github/backend-matrix.yml.
+BACKEND_AUDIO_CPP = audio-cpp|audio-cpp|.|false|false
 
 # Golang backends
 BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
+BACKEND_VALKEY_STORE = valkey-store|golang|.|false|true
 BACKEND_CLOUD_PROXY = cloud-proxy|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
+BACKEND_TRELLIS2CPP = trellis2cpp|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
@@ -1342,12 +1387,15 @@ $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
 $(eval $(call generate-docker-build-target,$(BACKEND_BONSAI)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PRIVACY_FILTER)))
+$(eval $(call generate-docker-build-target,$(BACKEND_AUDIO_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_VALKEY_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
+$(eval $(call generate-docker-build-target,$(BACKEND_TRELLIS2CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PARAKEET_CPP)))
@@ -1408,7 +1456,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-privacy-filter
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-audio-cpp
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -1500,7 +1548,12 @@ swagger:
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
-## Documentation
+## Documentation and website
+# The published site is two Hugo sites: website/ owns the root, docs/ is nested
+# under /docs/. Serve them separately while editing; use `make site` to get the
+# merged tree (including the legacy URL redirects) that GitHub Pages deploys.
+SITE_BASE_URL?=http://localhost:8000
+
 docs/layouts/_default:
 	mkdir -p docs/layouts/_default
 
@@ -1512,11 +1565,29 @@ docs/public: docs/layouts/_default docs/static/gallery.html
 
 docs-clean:
 	rm -rf docs/public
+	rm -rf website/public
 	rm -rf docs/static/gallery.html
 
 .PHONY: docs
 docs: docs/static/gallery.html
 	cd docs && hugo serve
+
+.PHONY: website
+website:
+	cd website && hugo serve
+
+.PHONY: site
+site: docs/static/gallery.html
+	rm -rf website/public docs/public
+	cd website && hugo --minify --baseURL "$(SITE_BASE_URL)/"
+	cd docs && hugo --minify --baseURL "$(SITE_BASE_URL)/docs/"
+	mkdir -p website/public/docs
+	cp -R docs/public/. website/public/docs/
+	./.github/ci/gen-redirects.sh website/public "$(SITE_BASE_URL)/"
+
+.PHONY: site-serve
+site-serve: site
+	cd website/public && python3 -m http.server 8000
 
 ########################################################
 ## Platform-specific builds

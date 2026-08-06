@@ -17,7 +17,9 @@ type AIModel interface {
 	Free() error
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
+	UpscaleImage(*pb.UpscaleImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
+	Generate3D(*pb.Generate3DRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
 	Depth(*pb.DepthRequest) (pb.DepthResponse, error)
 	FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error)
@@ -32,6 +34,7 @@ type AIModel interface {
 	TTSStream(*pb.TTSRequest, chan []byte) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
 	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
+	Detokenize(*pb.DetokenizeRequest) (pb.DetokenizeResponse, error)
 	Status() (pb.StatusResponse, error)
 
 	StoresSet(*pb.StoresSetOptions) error

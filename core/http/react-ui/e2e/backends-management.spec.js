@@ -1,6 +1,9 @@
 import { test, expect } from './coverage-fixtures.js'
 
 // Backends admin page (src/pages/Backends.jsx).
+const PANE = '[data-testid="backends-pane"]'
+const railItem = (page, name) => page.locator(`[data-entity="${name}"]`)
+
 test.describe('Backends management page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/backends')
@@ -49,11 +52,14 @@ test.describe('Backends management page - Markdown descriptions', () => {
       })
     })
     await page.goto('/app/backends')
-    await expect(page.locator('th', { hasText: 'Description' })).toBeVisible({ timeout: 10_000 })
+    // Rendered means the rail has entries. The old gate waited on a column
+    // header, and there are no columns now.
+    await expect(railItem(page, 'markdown-backend')).toBeVisible({ timeout: 10_000 })
   })
 
-  test('table cell shows the description as clean text, not raw Markdown', async ({ page }) => {
-    const cell = page.locator('tr', { hasText: 'markdown-backend' }).locator('span[title]', { hasText: 'InsightFace' })
+  test('the pane lede shows the description as clean text, not raw Markdown', async ({ page }) => {
+    await railItem(page, 'markdown-backend').click()
+    const cell = page.locator('.detail-pane__lede')
 
     await expect(cell).toHaveText(STRIPPED_DESCRIPTION)
     // The syntax itself must be gone, not merely rendered somewhere.
@@ -65,15 +71,77 @@ test.describe('Backends management page - Markdown descriptions', () => {
     await expect(cell.locator('h1')).toHaveCount(0)
   })
 
-  test('title tooltip carries the stripped text, not raw Markdown', async ({ page }) => {
-    const cell = page.locator('tr', { hasText: 'markdown-backend' }).locator('span[title]', { hasText: 'InsightFace' })
-
-    await expect(cell).toHaveAttribute('title', STRIPPED_DESCRIPTION)
+  test("the lede's tooltip carries the stripped text, not raw Markdown", async ({ page }) => {
+    await railItem(page, 'markdown-backend').click()
+    await expect(page.locator('.detail-pane__lede')).toHaveAttribute('title', STRIPPED_DESCRIPTION)
   })
 
-  test('a backend with no description still shows the placeholder', async ({ page }) => {
-    const row = page.locator('tr', { hasText: 'plain-backend' })
+  test('a backend with no description renders no lede rather than a blank one', async ({ page }) => {
+    // The table needed a placeholder because an empty cell in a grid of full
+    // ones reads as a fault. The pane has no grid to keep aligned, so it omits
+    // the line - but must never print "undefined".
+    await railItem(page, 'plain-backend').click()
+    await expect(page.locator(PANE)).toContainText('plain-backend')
+    await expect(page.locator('.detail-pane__lede')).toHaveCount(0)
+    await expect(page.locator(PANE)).not.toContainText('undefined')
+  })
+})
 
-    await expect(row.locator('span[title=""]')).toHaveText('-')
+test.describe('Backends gallery - split view', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/backends*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          backends: [
+            { name: 'llama-cpp', description: 'GGUF inference', installed: true, version: '1.52.0', license: 'MIT', tags: ['chat'] },
+            { name: 'whisper', description: 'Speech to text', installed: true, version: '1.8.2', license: 'MIT', tags: ['transcript'] },
+            { name: 'diffusers', description: 'Image generation', installed: false, license: 'Apache-2.0', tags: ['image'] },
+          ],
+        }),
+      })
+    })
+    await page.goto('/app/backends')
+    await expect(railItem(page, 'llama-cpp')).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('the gallery renders no table', async ({ page }) => {
+    await expect(page.locator('[data-testid="backends"]')).toBeVisible()
+    await expect(page.locator('table thead th')).toHaveCount(0)
+  })
+
+  test('with nothing selected the pane describes the host', async ({ page }) => {
+    await expect(page.locator(PANE)).toContainText('This host')
+    await expect(page.locator('[data-testid="backends-back"]')).toHaveCount(0)
+  })
+
+  test('choosing a backend turns the pane into its detail, and back returns', async ({ page }) => {
+    await railItem(page, 'llama-cpp').click()
+    await expect(page.locator(PANE)).toContainText('llama-cpp')
+    await expect(page.locator(PANE)).toContainText('MIT')
+    await expect(page.locator(PANE)).not.toContainText('This host')
+
+    await page.locator('[data-testid="backends-back"]').click()
+    await expect(page.locator(PANE)).toContainText('This host')
+  })
+
+  test('the selection lives in the URL and survives a reload', async ({ page }) => {
+    await railItem(page, 'whisper').click()
+    await expect(page).toHaveURL(/[?&]backend=whisper/)
+    await page.reload()
+    await expect(railItem(page, 'whisper')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('[data-testid="backends-back"]')).toBeVisible()
+  })
+
+
+  test('the rail groups while browsing and flattens on a query', async ({ page }) => {
+    await expect(page.locator('[data-testid^="backends-rail-group-"]').first()).toBeVisible()
+    await page.locator('input[placeholder*="Search backends"]').fill('llama')
+    await expect(page.locator('[data-testid^="backends-rail-group-"]')).toHaveCount(0)
+  })
+
+  test('an installed backend states its version, an absent one says so', async ({ page }) => {
+    await expect(railItem(page, 'llama-cpp')).toContainText('v1.52.0')
+    await expect(railItem(page, 'diffusers')).toContainText('not installed')
   })
 })

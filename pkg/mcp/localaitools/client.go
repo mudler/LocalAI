@@ -64,6 +64,10 @@ type LocalAIClient interface {
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)
 	ListNodes(ctx context.Context) ([]Node, error)
+	ListScheduling(ctx context.Context) ([]ModelSchedulingConfig, error)
+	GetScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	SetScheduling(ctx context.Context, req SetSchedulingRequest) (*ModelSchedulingConfig, error)
+	DeleteScheduling(ctx context.Context, modelName string) error
 	// SetNodeVRAMBudget sets (or, with an empty budget, clears) a federated
 	// node's VRAM allocation cap as a sticky admin override. Only meaningful
 	// in distributed mode; single-process clients report it as unavailable.

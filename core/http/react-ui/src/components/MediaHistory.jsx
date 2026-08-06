@@ -22,7 +22,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
         style={{ display: 'flex', alignItems: 'center' }}
       >
         <i className="fas fa-chevron-right" />
-        <span style={{ flex: 1 }}>{t('history.title')} ({entries.length})</span>
+        <span className="flex-1">{t('history.title')} ({entries.length})</span>
         {entries.length > 0 && (
           <button
             className="media-history-clear-btn"

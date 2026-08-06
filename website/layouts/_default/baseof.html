@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+{{ partial "head.html" . }}
+<body>
+  <div class="prog"><i id="pbar"></i></div>
+  <canvas id="field" aria-hidden="true"></canvas>
+  {{ partial "nav.html" . }}
+  {{ block "main" . }}{{ end }}
+  {{ partial "footer.html" . }}
+  <script src="{{ "js/site.js" | relURL }}" defer></script>
+</body>
+</html>

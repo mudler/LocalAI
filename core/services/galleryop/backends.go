@@ -48,7 +48,13 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		}
 	}
 
-	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
+	// Starting the operation NARROWS what can be cancelled, which is the reverse
+	// of the usual shape: markQueued reports every queued op as cancellable
+	// because abandoning it before the worker takes it leaves no trace. From
+	// here on that only holds for an install or an upgrade, both of which take
+	// ctx. DeleteBackend takes no context and cannot be interrupted, so a Cancel
+	// button on a running removal is one the server cannot honour.
+	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: !op.Delete})
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {

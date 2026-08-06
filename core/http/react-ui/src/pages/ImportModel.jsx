@@ -120,7 +120,6 @@ const ADVANCED_PREF_KEYS = [
   'pipeline_type', 'scheduler_type', 'enable_parameters', 'cuda',
 ]
 
-const hintStyle = { marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }
 
 // hasCustomPrefs returns true when the user has set any preference beyond
 // backend/name/description, added a custom key-value pref with a non-empty
@@ -149,11 +148,10 @@ function PowerTabs({ value, onChange }) {
   const { t } = useTranslation('importModel')
   return (
     <div
-      className="segmented"
+      className="segmented mb-md"
       role="tablist"
       aria-label={t('powerTabs.ariaLabel')}
       data-testid="power-tabs"
-      style={{ marginBottom: 'var(--spacing-md)' }}
     >
       <button
         type="button"
@@ -551,13 +549,13 @@ export default function ImportModel() {
       )}
 
       <div className="form-group">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
-          <label className="form-label" style={{ marginBottom: 0 }}>
+        <div className="hstack hstack--between mb-xs">
+          <label className="form-label mb-0">
             {t('form.modelUri')}
           </label>
           <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
-            className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>
-            {t('actions.browseHF')} <i className="fas fa-external-link-alt" aria-hidden="true" style={{ marginLeft: 'var(--spacing-xs)' }} />
+            className="btn btn-secondary pill-sm">
+            {t('actions.browseHF')} <i className="fas fa-external-link-alt ml-xs" aria-hidden="true" />
           </a>
         </div>
         <input
@@ -568,31 +566,31 @@ export default function ImportModel() {
           placeholder={t('form.uriPlaceholder')}
           disabled={isSubmitting}
         />
-        <p style={hintStyle}>{t('form.uriHint')}</p>
+        <p className="form-hint-sm">{t('form.uriHint')}</p>
 
         <button
           type="button"
           onClick={() => setShowGuide(!showGuide)}
-          style={{ marginTop: 'var(--spacing-sm)', background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: '0.8125rem', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}
+          className="im-disclosure mt-sm"
         >
           <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
           <i className="fas fa-info-circle" aria-hidden="true" />
           {t('form.supportedFormats')}
         </button>
         {showGuide && (
-          <div style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
+          <div className="im-well mt-sm">
             {URI_FORMATS.map((fmt, i) => (
-              <div key={i} style={{ marginBottom: i < URI_FORMATS.length - 1 ? 'var(--spacing-md)' : 0 }}>
-                <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div key={i} className={i < URI_FORMATS.length - 1 ? 'mb-md' : undefined}>
+                <h4 className="im-fmt__title">
                   <i className={fmt.icon} aria-hidden="true" style={{ color: fmt.color }} />
                   {t(fmt.titleKey)}
                 </h4>
-                <div style={{ paddingLeft: '20px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                <div className="im-fmt__body">
                   {fmt.examples.map((ex, j) => (
-                    <div key={j} style={{ marginBottom: 'var(--spacing-xs)' }}>
-                      <code style={{ color: 'var(--color-success)' }}>{ex.prefix}</code>
-                      <span style={{ color: 'var(--color-text-secondary)' }}>{ex.suffix}</span>
-                      <p style={{ color: 'var(--color-text-muted)', marginTop: '1px', fontFamily: 'inherit' }}>{t(ex.descKey)}</p>
+                    <div key={j} className="mb-xs">
+                      <code className="text-success">{ex.prefix}</code>
+                      <span className="text-secondary">{ex.suffix}</span>
+                      <p className="text-muted">{t(ex.descKey)}</p>
                     </div>
                   ))}
                 </div>
@@ -607,7 +605,7 @@ export default function ImportModel() {
   // Backend dropdown + auto-install note — shared between Simple/Options
   // and Power/Preferences.
   const renderBackendField = () => (
-    <div className="form-group" style={{ marginBottom: 0 }}>
+    <div className="form-group mb-0">
       <label className="form-label">{t('form.backend')}</label>
       <SearchableSelect
         value={prefs.backend}
@@ -618,10 +616,10 @@ export default function ImportModel() {
         searchPlaceholder={t('form.backendSearch')}
         disabled={isSubmitting || backendsLoading}
       />
-      <p style={hintStyle}>
+      <p className="form-hint-sm">
         {t('form.backendHint')}
         {backendsError && (
-          <span style={{ color: 'var(--color-warning)', marginLeft: '6px' }}>
+          <span className="text-warning ml-xs">
             {t('form.backendErrorHint')}
           </span>
         )}
@@ -633,7 +631,7 @@ export default function ImportModel() {
         return (
           <p
             data-testid="auto-install-note"
-            style={{ ...hintStyle, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
+            className="form-hint-sm hstack hstack--xs"
           >
             <i className="fas fa-download" aria-hidden="true" />
             {t('form.backendNotInstalled')}
@@ -644,26 +642,26 @@ export default function ImportModel() {
   )
 
   const renderNameField = () => (
-    <div className="form-group" style={{ marginBottom: 0 }}>
+    <div className="form-group mb-0">
       <label className="form-label">{t('form.modelName')}</label>
       <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder={t('form.modelNamePlaceholder')} disabled={isSubmitting} />
-      <p style={hintStyle}>{t('form.modelNameHint')}</p>
+      <p className="form-hint-sm">{t('form.modelNameHint')}</p>
     </div>
   )
 
   const renderDescriptionField = () => (
-    <div className="form-group" style={{ marginBottom: 0 }}>
+    <div className="form-group mb-0">
       <label className="form-label">{t('form.description')}</label>
       <textarea className="textarea" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder={t('form.descriptionPlaceholder')} disabled={isSubmitting} />
-      <p style={hintStyle}>{t('form.descriptionHint')}</p>
+      <p className="form-hint-sm">{t('form.descriptionHint')}</p>
     </div>
   )
 
   // Full preferences panel — identical to the previous Simple-mode panel.
   const renderFullPreferences = () => (
-    <div style={{ marginTop: 'var(--spacing-lg)' }}>
-      <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-        <i className="fas fa-cog" aria-hidden="true" style={{ marginRight: '6px' }} />{t('form.preferences')}
+    <div className="mt-lg">
+      <div className="im-pref-name mb-sm">
+        <i className="fas fa-cog icon-before" aria-hidden="true" />{t('form.preferences')}
       </div>
 
       <ModalityChips
@@ -672,76 +670,76 @@ export default function ImportModel() {
         disabled={isSubmitting || backendsLoading}
       />
 
-      <div style={{ padding: 'var(--spacing-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)' }}>
-        <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <i className="fas fa-sliders" style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
+      <div className="im-well">
+        <h3 className="hstack text-sm fw-semibold text-secondary mb-md">
+          <i className="fas fa-sliders text-primary" aria-hidden="true" />
           {t('form.commonPreferences')}
         </h3>
 
-        <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+        <div className="im-well--grid">
           {renderBackendField()}
           {renderNameField()}
           {renderDescriptionField()}
 
           {showQuantizations && (
-            <div className="form-group" style={{ marginBottom: 0 }}>
+            <div className="form-group mb-0">
               <label className="form-label">{t('form.quantizations')}</label>
               <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder={t('form.quantizationsPlaceholder')} disabled={isSubmitting} />
-              <p style={hintStyle}>{t('form.quantizationsHint')}</p>
+              <p className="form-hint-sm">{t('form.quantizationsHint')}</p>
             </div>
           )}
 
           {showMmprojQuantizations && (
-            <div className="form-group" style={{ marginBottom: 0 }}>
+            <div className="form-group mb-0">
               <label className="form-label">{t('form.mmprojQuantizations')}</label>
               <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder={t('form.mmprojQuantizationsPlaceholder')} disabled={isSubmitting} />
-              <p style={hintStyle}>{t('form.mmprojQuantizationsHint')}</p>
+              <p className="form-hint-sm">{t('form.mmprojQuantizationsHint')}</p>
             </div>
           )}
 
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+            <label className="im-pref-label">
               <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
-              <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+              <span className="im-pref-name">
                 {t('form.embeddings')}
               </span>
             </label>
-            <p style={{ ...hintStyle, marginLeft: '28px' }}>{t('form.embeddingsHint')}</p>
+            <p className="form-hint-sm im-indent">{t('form.embeddingsHint')}</p>
           </div>
 
           {showModelType && (
-            <div className="form-group" style={{ marginBottom: 0 }}>
+            <div className="form-group mb-0">
               <label className="form-label">{t('form.modelType')}</label>
               <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder={t('form.modelTypePlaceholder')} disabled={isSubmitting} />
-              <p style={hintStyle}>{t('form.modelTypeHint')}</p>
+              <p className="form-hint-sm">{t('form.modelTypeHint')}</p>
             </div>
           )}
 
           {prefs.backend === 'diffusers' && (
             <>
-              <div className="form-group" style={{ marginBottom: 0 }}>
+              <div className="form-group mb-0">
                 <label className="form-label">{t('form.pipelineType')}</label>
                 <input className="input" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
-                <p style={hintStyle}>{t('form.pipelineTypeHint')}</p>
+                <p className="form-hint-sm">{t('form.pipelineTypeHint')}</p>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
+              <div className="form-group mb-0">
                 <label className="form-label">{t('form.schedulerType')}</label>
                 <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder={t('form.schedulerTypePlaceholder')} disabled={isSubmitting} />
-                <p style={hintStyle}>{t('form.schedulerTypeHint')}</p>
+                <p className="form-hint-sm">{t('form.schedulerTypeHint')}</p>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
+              <div className="form-group mb-0">
                 <label className="form-label">{t('form.enableParameters')}</label>
                 <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder={t('form.enableParametersPlaceholder')} disabled={isSubmitting} />
-                <p style={hintStyle}>{t('form.enableParametersHint')}</p>
+                <p className="form-hint-sm">{t('form.enableParametersHint')}</p>
               </div>
               <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                <label className="im-pref-label">
                   <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                  <span className="im-pref-name">
                     {t('form.cuda')}
                   </span>
                 </label>
-                <p style={{ ...hintStyle, marginLeft: '28px' }}>{t('form.cudaHint')}</p>
+                <p className="form-hint-sm im-indent">{t('form.cudaHint')}</p>
               </div>
             </>
           )}
@@ -749,50 +747,47 @@ export default function ImportModel() {
       </div>
 
       {/* Custom Preferences */}
-      <div style={{ marginTop: 'var(--spacing-md)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-            <i className="fas fa-plus-circle" style={{ marginRight: '6px' }} aria-hidden="true" />{t('form.customPreferences')}
+      <div className="mt-md">
+        <div className="hstack hstack--between mb-sm">
+          <span className="im-pref-name">
+            <i className="fas fa-plus-circle icon-before" aria-hidden="true" />{t('form.customPreferences')}
           </span>
-          <button className="btn btn-secondary" onClick={addCustomPref} disabled={isSubmitting} style={{ fontSize: '0.75rem' }}>
+          <button className="btn btn-secondary text-xs" onClick={addCustomPref} disabled={isSubmitting}>
             <i className="fas fa-plus" aria-hidden="true" /> {t('actions.addCustom')}
           </button>
         </div>
         {customPrefs.map((cp, i) => (
-          <div key={i} style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+          <div key={i} className="hstack mb-xs">
             <input
-              className="input"
+              className="input flex-1"
               type="text"
               value={cp.key}
               onChange={e => updateCustomPref(i, 'key', e.target.value)}
               placeholder={t('form.key')}
               aria-label={t('form.preferenceKey', { index: i + 1 })}
               disabled={isSubmitting}
-              style={{ flex: 1 }}
             />
-            <span style={{ color: 'var(--color-text-secondary)' }}>:</span>
+            <span className="text-secondary">:</span>
             <input
-              className="input"
+              className="input flex-1"
               type="text"
               value={cp.value}
               onChange={e => updateCustomPref(i, 'value', e.target.value)}
               placeholder={t('form.value')}
               aria-label={t('form.preferenceValue', { index: i + 1 })}
               disabled={isSubmitting}
-              style={{ flex: 1 }}
             />
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary text-error"
               onClick={() => removeCustomPref(i)}
               disabled={isSubmitting}
               aria-label={t('form.removePref')}
-              style={{ color: 'var(--color-error)' }}
             >
               <i className="fas fa-trash" aria-hidden="true" />
             </button>
           </div>
         ))}
-        <p style={hintStyle}>{t('form.customKeyValueHint')}</p>
+        <p className="form-hint-sm">{t('form.customKeyValueHint')}</p>
       </div>
     </div>
   )
@@ -803,15 +798,15 @@ export default function ImportModel() {
         title={t('title')}
         supporting={subtitle}
         actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="hstack">
             <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
             {isPowerYaml ? (
-              <button className="btn btn-primary" onClick={handleAdvancedImport} disabled={isSubmitting}>
-                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" aria-hidden="true" /> {t('actions.create')}</>}
+              <button className="btn btn-primary fas fa-save fa-upload" onClick={handleAdvancedImport} disabled={isSubmitting}>
+                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-plus" aria-hidden="true" /> {t('actions.create')}</>}
               </button>
             ) : (
-              <button className="btn btn-primary" onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-upload" aria-hidden="true" /> {t('actions.import')}</>}
+              <button onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
+                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-file-import" aria-hidden="true" /> {t('actions.import')}</>}
               </button>
             )}
           </div>
@@ -820,15 +815,15 @@ export default function ImportModel() {
 
       {/* Estimate banner */}
       {!isPowerYaml && estimate && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', borderColor: 'var(--color-primary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.875rem', flexWrap: 'wrap' }}>
-            <i className="fas fa-memory" aria-hidden="true" style={{ color: 'var(--color-primary)' }} />
+        <div className="card pad-md mb-md" style={{ borderColor: 'var(--color-primary)' }}>
+          <div className="hstack text-base">
+            <i className="fas fa-memory text-primary" aria-hidden="true" />
             <strong>{t('estimate.title')}</strong>
             {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
-              <span><i className="fas fa-download" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />{t('estimate.download', { size: estimate.sizeDisplay })}</span>
+              <span><i className="fas fa-download text-primary icon-before" aria-hidden="true" />{t('estimate.download', { size: estimate.sizeDisplay })}</span>
             )}
             {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
-              <span><i className="fas fa-microchip" aria-hidden="true" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />{t('estimate.vram', { vram: estimate.vramDisplay })}</span>
+              <span><i className="fas fa-microchip text-primary icon-before" aria-hidden="true" />{t('estimate.vram', { vram: estimate.vramDisplay })}</span>
             )}
           </div>
         </div>
@@ -836,8 +831,8 @@ export default function ImportModel() {
 
       {/* Job progress */}
       {jobProgress && (
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', fontSize: '0.875rem' }}>
+        <div className="card pad-md mb-md">
+          <div className="hstack text-base">
             <LoadingSpinner size="sm" />
             <span>{jobProgress}</span>
           </div>
@@ -846,7 +841,7 @@ export default function ImportModel() {
 
       {/* Simple mode */}
       {isSimple && (
-        <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
+        <div className="card pad-lg">
           {/* Wrapping the Simple-mode content in a <form> gives us Enter-to-
               submit for free: focus in the URI input triggers onSubmit without
               a keyDown handler. The Import button in the page header submits
@@ -858,24 +853,14 @@ export default function ImportModel() {
           >
             {renderUriAndAmbiguity()}
 
-            <div style={{ marginTop: 'var(--spacing-md)' }}>
+            <div className="mt-md">
               <button
                 type="button"
                 onClick={() => setShowOptions(v => !v)}
                 data-testid="simple-options-toggle"
                 aria-expanded={showOptions}
                 aria-controls="simple-options-panel"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: '0.8125rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: 0,
-                }}
+                className="im-disclosure p-0"
               >
                 <i className={`fas ${showOptions ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
                 <i className="fas fa-sliders" aria-hidden="true" />
@@ -886,15 +871,7 @@ export default function ImportModel() {
                 <div
                   id="simple-options-panel"
                   data-testid="simple-options-panel"
-                  style={{
-                    marginTop: 'var(--spacing-sm)',
-                    padding: 'var(--spacing-md)',
-                    background: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-border-default)',
-                    borderRadius: 'var(--radius-md)',
-                    display: 'grid',
-                    gap: 'var(--spacing-md)',
-                  }}
+                  className="im-well im-well--grid mt-sm"
                 >
                   <ModalityChips
                     value={modalityFilter}
@@ -912,7 +889,7 @@ export default function ImportModel() {
                 only trigger implicit Enter submit when the form contains at
                 least one submit-capable element; this keeps the behaviour
                 consistent even if the form ever holds a single text input. */}
-            <button type="submit" aria-hidden="true" tabIndex={-1} style={{ display: 'none' }} />
+            <button type="submit" aria-hidden="true" tabIndex={-1} className="hidden" />
           </form>
         </div>
       )}
@@ -929,15 +906,15 @@ export default function ImportModel() {
           )}
           {isPowerYaml && (
             <>
-              <div style={{ padding: 'var(--spacing-md)' }}>
+              <div className="pad-md">
                 <PowerTabs value={powerTab} onChange={setPowerTab} />
               </div>
-              <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--color-border-default)', borderBottom: '1px solid var(--color-border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                  <i className="fas fa-code" aria-hidden="true" style={{ color: 'var(--color-data-3)' }} />
+              <div className="im-yaml-head">
+                <h2 className="hstack text-lg fw-semibold">
+                  <i className="fas fa-code text-data-3" aria-hidden="true" />
                   {t('form.yamlEditor')}
                 </h2>
-                <button className="btn btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}>
+                <button className="btn btn-secondary text-xs" onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}>
                   <i className="fas fa-copy" aria-hidden="true" /> {t('actions.copy')}
                 </button>
               </div>

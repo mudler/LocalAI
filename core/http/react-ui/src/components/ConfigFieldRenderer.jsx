@@ -46,9 +46,9 @@ function StringListEditor({ value, onChange, options }) {
     : null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+    <div className="cfr-list">
       {items.map((item, i) => (
-        <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div key={i} className="cfr-row">
           {options ? (
             <SearchableSelect
               value={item}
@@ -59,21 +59,18 @@ function StringListEditor({ value, onChange, options }) {
                 ...availableOptions,
               ]}
               placeholder="Select..."
-              style={{ flex: 1 }}
+              className="flex-1"
             />
           ) : (
-            <input className="input" value={item} onChange={e => update(i, e.target.value)}
-              style={{ flex: 1, fontSize: '0.8125rem' }} />
+            <input className="input cfr-input" value={item} onChange={e => update(i, e.target.value)} />
           )}
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => remove(i)}
-            style={{ padding: '2px 6px', fontSize: '0.75rem' }}>
+          <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
             <i className="fas fa-times" />
           </button>
         </div>
       ))}
       {(!options || availableOptions.length > 0) && (
-        <button type="button" className="btn btn-secondary btn-sm" onClick={add}
-          style={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
+        <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
           <i className="fas fa-plus" /> Add
         </button>
       )}
@@ -97,23 +94,17 @@ function MapEditor({ value, onChange }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+    <div className="cfr-list">
       {entries.map(([k, v], i) => (
-        <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <input className="input" value={k} placeholder="key"
-            onChange={e => update(i, e.target.value, v)}
-            style={{ flex: 1, fontSize: '0.8125rem' }} />
-          <input className="input" value={typeof v === 'string' ? v : JSON.stringify(v)} placeholder="value"
-            onChange={e => update(i, k, e.target.value)}
-            style={{ flex: 1, fontSize: '0.8125rem' }} />
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => remove(i)}
-            style={{ padding: '2px 6px', fontSize: '0.75rem' }}>
+        <div key={i} className="cfr-row">
+          <input className="input cfr-input" value={k} placeholder="key" onChange={e => update(i, e.target.value, v)} />
+          <input className="input cfr-input" value={typeof v === 'string' ? v : JSON.stringify(v)} placeholder="value" onChange={e => update(i, k, e.target.value)} />
+          <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
             <i className="fas fa-times" />
           </button>
         </div>
       ))}
-      <button type="button" className="btn btn-secondary btn-sm" onClick={add}
-        style={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
+      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
         <i className="fas fa-plus" /> Add
       </button>
     </div>
@@ -138,31 +129,28 @@ function JsonEditor({ value, onChange }) {
   }
 
   return (
-    <div style={{ width: '100%' }}>
+    <div className="w-full">
       <textarea
-        className="input"
+        className="input cfr-textarea cfr-textarea--mono"
         value={text}
         onChange={e => handleChange(e.target.value)}
-        style={{ width: '100%', minHeight: 80, fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', resize: 'vertical' }}
       />
-      {parseError && <div style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: 2 }}>{parseError}</div>}
+      {parseError && <div className="text-error text-xs mt-xs">{parseError}</div>}
     </div>
   )
 }
 
 function FieldLabel({ field }) {
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <span className="hstack hstack--xs">
       {field.label}
       {field.vram_impact && (
-        <span style={{ fontSize: '0.625rem', padding: '1px 4px', borderRadius: 'var(--radius-sm)',
-          background: 'var(--color-warning-light, rgba(245,158,11,0.15))', color: 'var(--color-warning)' }}>
+        <span className="cfr-tag cfr-tag--vram">
           VRAM
         </span>
       )}
       {field.advanced && (
-        <span style={{ fontSize: '0.625rem', padding: '1px 4px', borderRadius: 'var(--radius-sm)',
-          background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+        <span className="cfr-tag cfr-tag--advanced">
           Advanced
         </span>
       )}
@@ -178,16 +166,13 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   const removeBtn = (
     <button type="button" onClick={() => onRemove(field.path)}
       title="Remove field"
-      style={{
-        background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
-        color: 'var(--color-text-muted)', fontSize: '0.75rem',
-      }}>
+      className="cfr-clear">
       <i className="fas fa-times" />
     </button>
   )
 
   const description = (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <span className="hstack hstack--xs">
       {field.description || field.path}
       {removeBtn}
     </span>
@@ -214,7 +199,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           onChange={handleChange}
           capability={cap}
           placeholder={field.placeholder || 'Select model...'}
-          style={{ width: 220 }}
+          className="col-w-220"
         />
       </SettingRow>
     )
@@ -229,7 +214,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           onChange={handleChange}
           provider={field.autocomplete_provider}
           placeholder={field.placeholder || 'Type or select...'}
-          style={{ width: 220 }}
+          className="col-w-220"
         />
       </SettingRow>
     )
@@ -244,7 +229,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           onChange={handleChange}
           options={field.options.map(o => ({ value: o.value, label: o.label }))}
           placeholder={field.placeholder || 'Select...'}
-          style={{ width: 220 }}
+          className="col-w-220"
         />
       </SettingRow>
     )
@@ -257,13 +242,13 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     const step = field.step ?? 0.1
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="hstack">
           <input type="range" min={min} max={max} step={step}
             value={value ?? min}
             onChange={e => handleChange(parseFloat(e.target.value))}
-            style={{ width: 120 }}
+            className="col-w-120"
           />
-          <span style={{ fontSize: '0.8125rem', minWidth: 40, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+          <span className="cfr-slider-value">
             {value ?? min}
           </span>
         </div>
@@ -276,12 +261,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
         <>
-          <input className="input" type="number"
+          <input className="input cfr-num" type="number"
             value={value ?? ''}
             onChange={e => handleChange(e.target.value)}
             min={field.min} max={field.max} step={field.step}
             placeholder={field.placeholder}
-            style={{ width: 120, fontSize: '0.8125rem' }}
           />
           {annotation}
         </>
@@ -292,17 +276,16 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // Textarea
   if (component === 'textarea') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
-        <textarea className="input" value={value || ''}
+        <textarea className="input cfr-textarea" value={value || ''}
           onChange={e => handleChange(e.target.value)}
           placeholder={field.placeholder}
-          style={{ width: '100%', minHeight: 80, fontSize: '0.8125rem', resize: 'vertical' }}
         />
       </div>
     )
@@ -320,11 +303,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   if (component === 'code-editor') {
     const isStructured = value !== null && value !== undefined && typeof value !== 'string'
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         {isStructured
@@ -337,11 +320,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // String list
   if (component === 'string-list') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <StringListEditor value={value} onChange={handleChange} options={field.options?.length > 0 ? field.options : null} />
@@ -352,11 +335,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // JSON editor
   if (component === 'json-editor') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <JsonEditor value={value} onChange={handleChange} />
@@ -369,11 +352,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // via FormContext so candidate labels match the declared vocabulary.
   if (component === 'router-candidates') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <RouterCandidatesEditor value={value} onChange={handleChange} />
@@ -386,11 +369,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // routing system prompt sent to the classifier model.
   if (component === 'router-policies') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <RouterPoliciesEditor value={value} onChange={handleChange} />
@@ -403,11 +386,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   if (component === 'model-multi-select') {
     const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <ModelMultiSelect value={value} onChange={handleChange} capability={cap} placeholder={field.placeholder} />
@@ -419,11 +402,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // pii_detection.entity_actions (entity group -> mask|block|allow).
   if (component === 'entity-action-list') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <EntityActionListEditor value={value} onChange={handleChange} />
@@ -439,14 +422,14 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
       handleChange(selected.includes(name) ? selected.filter(n => n !== name) : [...selected, name])
     }
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+      <div className="list-row">
+        <div className="mb-xs">
+          <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+          <div className="text-meta mt-xs">{description}</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="stack stack--xs">
           {(field.options || []).map(opt => (
-            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', cursor: 'pointer' }}>
+            <label key={opt.value} className="cfr-radio">
               <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
               {opt.label || opt.value}
             </label>
@@ -460,10 +443,10 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // (pii_detection.patterns). value is an array of {name, match, action, min_len}.
   if (component === 'pii-pattern-list') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+      <div className="list-row">
+        <div className="mb-xs">
+          <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+          <div className="text-meta mt-xs">{description}</div>
         </div>
         <PatternListEditor value={value} onChange={handleChange} />
       </div>
@@ -473,11 +456,11 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // Map editor
   if (component === 'map-editor') {
     return (
-      <div style={{ padding: 'var(--spacing-sm) 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
           <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}><FieldLabel field={field} /></div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>{description}</div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
         <MapEditor value={value} onChange={handleChange} />
@@ -488,10 +471,9 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // Default: text input
   return (
     <SettingRow label={<FieldLabel field={field} />} description={description}>
-      <input className="input" value={value ?? ''}
+      <input className="input cfr-select" value={value ?? ''}
         onChange={e => handleChange(e.target.value)}
         placeholder={field.placeholder}
-        style={{ width: 220, fontSize: '0.8125rem' }}
       />
     </SettingRow>
   )

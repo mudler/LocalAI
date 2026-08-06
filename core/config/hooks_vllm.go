@@ -59,17 +59,46 @@ func vllmDefaults(cfg *ModelConfig, modelPath string) {
 }
 
 // applyEngineArgDefaults seeds production-friendly engine_args without overwriting
-// anything the user already set.
+// anything the user already set, in engine_args or as a CLI-style option.
 func applyEngineArgDefaults(cfg *ModelConfig) {
 	if cfg.EngineArgs == nil {
 		cfg.EngineArgs = map[string]any{}
 	}
+	fromOptions := engineOptionKeys(cfg.Options)
 	for k, v := range productionEngineArgsDefaults {
 		if _, set := cfg.EngineArgs[k]; set {
 			continue
 		}
+		// The backend applies options: before engine_args:, so seeding a key
+		// the user wrote as an option would silently override it.
+		if _, set := fromOptions[k]; set {
+			continue
+		}
 		cfg.EngineArgs[k] = v
 	}
+}
+
+// engineOptionKeys returns the engine-arg field names carried by CLI-style
+// options (`--enable-prefix-caching:false` -> `enable_prefix_caching`). Only
+// `--` prefixed entries are engine flags; the rest of Options[] is
+// backend-level (tool_parser:, reasoning_parser:, ...).
+func engineOptionKeys(options []string) map[string]struct{} {
+	keys := map[string]struct{}{}
+	for _, opt := range options {
+		opt = strings.TrimSpace(opt)
+		if !strings.HasPrefix(opt, "--") {
+			continue
+		}
+		name := opt
+		if i := strings.IndexAny(opt, ":="); i != -1 {
+			name = opt[:i]
+		}
+		name = strings.ReplaceAll(strings.TrimLeft(name, "-"), "-", "_")
+		if name != "" {
+			keys[name] = struct{}{}
+		}
+	}
+	return keys
 }
 
 func applyParserDefaults(cfg *ModelConfig) {

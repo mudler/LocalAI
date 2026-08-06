@@ -27,9 +27,17 @@ Building and running the site locally requires a recent `extended` version of [H
 You can find out more about how to install Hugo for your environment in our
 [Getting started](https://www.docsy.dev/docs/getting-started/#prerequisites-and-installation) guide.
 
-Once you've made your working copy of the site repo, from the repo root folder, run:
+From the LocalAI repository root, run:
 
+```bash
+make docs
 ```
+
+The Hugo configuration lives in the `docs` directory. To invoke Hugo
+directly instead, run:
+
+```bash
+cd docs
 hugo server
 ```
 

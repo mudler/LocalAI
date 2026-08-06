@@ -10,8 +10,8 @@ export default function ClusterPulse({ nodes }) {
   return (
     <p className="cluster-pulse">
       <span className="cluster-pulse__strong">{total} {total === 1 ? 'node' : 'nodes'}</span>
-      {' · '}<span style={{ color: 'var(--color-success)' }}>{healthy} healthy</span>
-      {draining > 0 && <>{' · '}<span style={{ color: 'var(--color-warning)' }}>{draining} draining</span></>}
+      {' · '}<span className="text-success">{healthy} healthy</span>
+      {draining > 0 && <>{' · '}<span className="text-warning">{draining} draining</span></>}
       {vramStr && <>{' · '}{vramStr} VRAM in use</>}
     </p>
   )

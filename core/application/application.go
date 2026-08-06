@@ -165,7 +165,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		voiceStoreName = "localai-voice-biometrics"
 	)
 	faceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
-		return corebackend.StoreBackend(ml, appConfig, storeName, "")
+		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}
 	app.faceRegistry = facerecognition.NewStoreRegistry(faceStoreResolver, faceStoreName, faceEmbeddingDim)
 
@@ -173,7 +173,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// namespace so embedding spaces stay isolated (a face vector and a
 	// speaker vector are not comparable and differ in dimensionality).
 	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
-		return corebackend.StoreBackend(ml, appConfig, storeName, "")
+		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}
 	app.voiceRegistry = voicerecognition.NewStoreRegistry(voiceStoreResolver, voiceStoreName, voiceEmbeddingDim)
 
@@ -553,12 +553,17 @@ func (a *Application) start() error {
 	// once at startup and reused across chat sessions that opt in via metadata.
 	if !a.applicationConfig.DisableLocalAIAssistant {
 		holder := mcpTools.NewLocalAIAssistantHolder()
+		var nodeRegistry *nodes.NodeRegistry
+		if a.distributed != nil {
+			nodeRegistry = a.distributed.Registry
+		}
 		assistantClient := localaiInproc.New(
 			a.applicationConfig,
 			a.applicationConfig.SystemState,
 			a.backendLoader,
 			a.modelLoader,
 			a.galleryService,
+			nodeRegistry,
 		)
 		// Wire usage tracking so the assistant's get_usage_stats tool
 		// returns real data; nil values keep the tool returning a clear

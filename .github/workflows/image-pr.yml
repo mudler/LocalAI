@@ -3,7 +3,28 @@
   
   on:
     pull_request:
-  
+      # None of these seven image builds can observe a diff confined to these
+      # paths. Gallery metadata is parsed at runtime and never copied into an
+      # image; docs and markdown never enter one at all. Gallery content is
+      # still checked by yaml-check.yml and by
+      # core/gallery/variants_lint_test.go under 'tests'.
+      #
+      # backend/{cpp,go,python}/**: this workflow builds the core image, whose
+      # only compiled output is `make build` -> `go build ./cmd/local-ai`. The
+      # per-backend trees are copied into the builder but nothing in them reaches
+      # the binary or the final stage. backend/backend.proto is deliberately not
+      # listed: it feeds protogen-go and so does change the binary, and it does
+      # not live under any of these prefixes, so it still triggers a full run.
+      # See .agents/ci-caching.md.
+      paths-ignore:
+        - 'gallery/**'
+        - 'docs/**'
+        - 'examples/**'
+        - '**/*.md'
+        - 'backend/cpp/**'
+        - 'backend/go/**'
+        - 'backend/python/**'
+
   concurrency:
     group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}

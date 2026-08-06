@@ -23,11 +23,14 @@
     "cluster": "Cluster",
     "observability": "Observability",
     "access": "Access",
-    "system": "System"
+    "system": "System",
+    "activity": "Activity",
+    "runtime": "Runtime",
+    "administration": "Amministrazione"
   },
   "items": {
     "home": "Home",
-    "installModels": "Installa modelli",
+    "discover": "Esplora",
     "chat": "Chat",
     "studio": "Studio",
     "talk": "Conversazione",
@@ -55,7 +58,9 @@
     "system": "Sistema",
     "settings": "Impostazioni",
     "api": "API",
-    "middleware": "Middleware"
+    "middleware": "Middleware",
+    "activity": "Attività",
+    "overview": "Panoramica"
   },
   "footer": {
     "github": "GitHub",

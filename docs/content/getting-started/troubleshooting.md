@@ -388,16 +388,25 @@ services:
       retries: 3
 ```
 
-### Models Not Persisted Between Restarts
+### Models or Settings Not Persisted Between Upgrades
 
-Mount a volume for your models directory:
+Container-local files are discarded when an upgrade recreates the container.
+Mount all of LocalAI's stateful paths:
 
 ```yaml
 services:
   local-ai:
     volumes:
-      - ./models:/build/models:cached
+      - ./models:/models
+      - ./backends:/backends
+      - ./configuration:/configuration
+      - ./data:/data
 ```
+
+The paths on the left can be any persistent host directories or named volumes.
+The container paths on the right must match exactly. See
+[Persistent Storage]({{% relref "getting-started/containers#persistent-storage" %}})
+for Docker, Podman, and UnRAID guidance.
 
 ## Network and P2P Issues
 

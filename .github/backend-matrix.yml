@@ -70,6 +70,34 @@ include:
     cuda-major-version: ""
     cuda-minor-version: ""
     platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-kokoro'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "kokoro"
+    dockerfile: "./backend/Dockerfile.python"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-kokoro'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "kokoro"
+    dockerfile: "./backend/Dockerfile.python"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-cpu-diffusers'
     runs-on: 'ubuntu-latest'
@@ -725,6 +753,19 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "stablediffusion-ggml"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-trellis2cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "trellis2cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -1691,6 +1732,19 @@ include:
   - build-type: 'cublas'
     cuda-major-version: "13"
     cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-trellis2cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "trellis2cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
     platforms: 'linux/arm64'
     skip-drivers: 'false'
     tag-latest: 'auto'
@@ -1699,6 +1753,19 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "stablediffusion-ggml"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-trellis2cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "trellis2cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -3076,6 +3143,97 @@ include:
     dockerfile: "./backend/Dockerfile.privacy-filter"
     context: "./"
     ubuntu-version: '2404'
+  # audio-cpp: 0xShug0/audio.cpp, a multi-family ggml audio engine (TTS, ASR,
+  # VAD, diarization, source separation, music generation).
+  #
+  # These entries deliberately carry NO builder-base-image, unlike the
+  # privacy-filter and llama-cpp blocks above. The prebuilt
+  # quay.io/go-skynet/ci-cache:base-grpc-* images ship a from-source gRPC whose
+  # protobuf is v26, and protobuf has depended on abseil since v22. audio.cpp
+  # links sentencepiece with SPM_PROTOBUF_PROVIDER=package (needed to stop
+  # sentencepiece's vendored protobuf 3.14 from colliding with the 3.21 the
+  # generated backend.pb.cc is built against, which broke every nested-message
+  # parse), so sentencepiece then sees real abseil's
+  # `absl::lts_20240116::internal` alongside its own vendored plain
+  # `absl::internal` and every `absl::internal::` reference becomes ambiguous.
+  # Verified, not theorised: building against base-grpc-amd64 fails at
+  # sentencepiece-static.dir/error.cc.o with "reference to 'internal' is
+  # ambiguous". Dockerfile.audio-cpp therefore installs Ubuntu Noble's apt
+  # gRPC/protobuf 3.21.12 itself and has a single `builder` stage, so the
+  # BUILDER_BASE_IMAGE / BUILDER_TARGET / SKIP_DRIVERS build-args are never
+  # consumed. Same reason CUDA needs its toolkit in base-image rather than in a
+  # builder image: this is the ds4 shape, not the llama-cpp one.
+  #
+  # No ROCm entry: upstream has no HIP configuration. No CUDA arm64 or L4T
+  # entry: upstream documents and validates CUDA on x86 only. Darwin/Metal is in
+  # the includeDarwin matrix below, built by scripts/build/audio-cpp-darwin.sh.
+  #
+  # No vulkan entry either, though Dockerfile.audio-cpp and the backend Makefile
+  # both handle BUILD_TYPE=vulkan for local builds. Every other vulkan backend
+  # gets its Mesa ICD drivers from .docker/install-base-deps.sh, which installs
+  # mesa-vulkan-drivers so package-gpu-libs.sh can bundle them; this Dockerfile
+  # calls neither, so the image would ship a Vulkan loader that finds no GPU. No
+  # CI job runs a vulkan image against real hardware, so it would pass green and
+  # fail in users' hands. The entry comes back once the ICD question is settled.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-audio-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  # cuda-major-version is forwarded into the build (Dockerfile.audio-cpp -> the
+  # backend Makefile) and picks the CMAKE_CUDA_ARCHITECTURES list, which upstream
+  # otherwise sets to `native` and no CI runner can enumerate. cuda-minor-version
+  # and the base-image tag encode the same toolkit and must move together;
+  # nothing checks that for you.
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "nvidia/cuda:12.8.1-devel-ubuntu24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-audio-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "nvidia/cuda:13.0.0-devel-ubuntu24.04"
+    skip-drivers: 'true'
+    backend: "audio-cpp"
+    dockerfile: "./backend/Dockerfile.audio-cpp"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -3236,6 +3394,35 @@ include:
     base-image: "ubuntu:24.04"
     skip-drivers: 'false'
     backend: "stablediffusion-ggml"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  # trellis2cpp
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-trellis2cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "trellis2cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-trellis2cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "trellis2cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
@@ -3564,6 +3751,34 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-trellis2cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "trellis2cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-trellis2cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "trellis2cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'cublas'
     cuda-major-version: "12"
     cuda-minor-version: "0"
@@ -3574,6 +3789,19 @@ include:
     base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
     runs-on: 'ubuntu-24.04-arm'
     backend: "stablediffusion-ggml"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-trellis2cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "trellis2cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2204'
@@ -5408,6 +5636,35 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # valkey-store
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-valkey-store'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "valkey-store"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-valkey-store'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "valkey-store"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   # rfdetr
   - build-type: ''
     cuda-major-version: ""
@@ -5949,6 +6206,10 @@ includeDarwin:
     tag-suffix: "-metal-darwin-arm64-stablediffusion-ggml"
     build-type: "metal"
     lang: "go"
+  - backend: "trellis2cpp"
+    tag-suffix: "-metal-darwin-arm64-trellis2cpp"
+    build-type: "metal"
+    lang: "go"
   - backend: "whisper"
     tag-suffix: "-metal-darwin-arm64-whisper"
     build-type: "metal"
@@ -6029,6 +6290,18 @@ includeDarwin:
   # so the build is Metal-enabled. lang=go drives runner/toolchain selection only.
   - backend: "privacy-filter"
     tag-suffix: "-metal-darwin-arm64-privacy-filter"
+    lang: "go"
+  # audio-cpp is the same shape: a C++/ggml backend built by a bespoke darwin
+  # script (make backends/audio-cpp-darwin), which reuses the backend's own
+  # package.sh so the Darwin package keeps the root-level layout the Linux image
+  # has (grpc-server, run.sh and assets/ in one directory, dylibs in lib/).
+  # No build-type: the backend Makefile turns ENGINE_ENABLE_METAL on from
+  # uname -s. lang=go drives runner/toolchain selection only - there is no
+  # backend/go/audio-cpp, which is why backend_build_darwin.yml and
+  # DARWIN_BESPOKE_BUILDERS in scripts/lib/backend-filter.mjs both route this
+  # backend away from the generic Go path.
+  - backend: "audio-cpp"
+    tag-suffix: "-metal-darwin-arm64-audio-cpp"
     lang: "go"
   # LocalVQE has no Metal path; on Apple Silicon it builds CPU-only (GGML_METAL
   # OFF) but is still a native arm64 image. Uses the darwin/metal build profile.
@@ -6124,6 +6397,10 @@ includeDarwin:
     lang: "go"
   - backend: "cloud-proxy"
     tag-suffix: "-metal-darwin-arm64-cloud-proxy"
+    build-type: "metal"
+    lang: "go"
+  - backend: "valkey-store"
+    tag-suffix: "-metal-darwin-arm64-valkey-store"
     build-type: "metal"
     lang: "go"
   - backend: "llama-cpp-quantization"

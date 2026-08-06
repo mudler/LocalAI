@@ -883,6 +883,34 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         return backend_pb2.Result(message="Media generated", success=True)
 
+    def UpscaleImage(self, request, context):
+        try:
+            if not request.src:
+                return backend_pb2.Result(success=False, message="No source image provided")
+            if not request.dst:
+                return backend_pb2.Result(success=False, message="No destination path provided")
+
+            scale = request.scale if request.scale > 0 else 2
+            image = Image.open(request.src).convert("RGB")
+
+            # If the loaded pipeline supports upscaling (e.g. StableDiffusionUpscalePipeline),
+            # use it; otherwise fall back to high-quality Lanczos resize.
+            if self.pipe is not None and self.PipelineType in ("StableDiffusionUpscalePipeline", "StableDiffusionLatentUpscalePipeline"):
+                print(f"UpscaleImage: using diffusers upscale pipeline ({self.PipelineType})", file=sys.stderr)
+                upscaled = self.pipe(prompt="", image=image).images[0]
+            else:
+                # Fallback: high-quality Lanczos resize
+                print(f"UpscaleImage: no upscale pipeline loaded, using Lanczos resize (scale={scale})", file=sys.stderr)
+                new_w = image.width * scale
+                new_h = image.height * scale
+                upscaled = image.resize((new_w, new_h), Image.LANCZOS)
+
+            upscaled.save(request.dst)
+            return backend_pb2.Result(message="Image upscaled", success=True)
+        except Exception as e:
+            print(f"UpscaleImage error: {e}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=str(e))
+
     def GenerateVideo(self, request, context):
         try:
             prompt = request.prompt

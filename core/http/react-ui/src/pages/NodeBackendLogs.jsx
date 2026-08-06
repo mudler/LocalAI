@@ -163,7 +163,7 @@ export default function NodeBackendLogs() {
           <h2 className="empty-state-title">No node/model selected</h2>
           <p className="empty-state-text">
             View backend logs from the{' '}
-            <Link to="/app/nodes" style={{ color: 'var(--color-primary)' }}>Nodes page</Link>.
+            <Link to="/app/nodes" className="text-primary">Nodes page</Link>.
           </p>
         </div>
       </div>
@@ -180,11 +180,10 @@ export default function NodeBackendLogs() {
       <PageHeader
         title={
           <>
-            <i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
+            <i className="fas fa-terminal cell-mono" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
             {baseModelName}
             {!isMerged && (
               <span
-                className="cell-mono"
                 style={{
                   marginLeft: 'var(--spacing-sm)',
                   fontSize: '0.6875rem',
@@ -202,7 +201,6 @@ export default function NodeBackendLogs() {
             )}
             {isMerged && replicas.length > 1 && (
               <span
-                className="cell-mono"
                 style={{
                   marginLeft: 'var(--spacing-sm)',
                   fontSize: '0.6875rem',
@@ -229,7 +227,7 @@ export default function NodeBackendLogs() {
       />
 
       {showReplicaToggle && (
-        <div role="radiogroup" aria-label="Replica scope" className="segmented" style={{ marginBottom: 'var(--spacing-sm)' }}>
+        <div role="radiogroup" aria-label="Replica scope" className="segmented mb-sm">
           {replicas.map(idx => (
             <button
               key={idx}
@@ -285,7 +283,7 @@ export default function NodeBackendLogs() {
             borderRadius: '50%',
             background: wsConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
           }} />
-          <span style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="text-secondary">
             {wsConnected ? 'Live' : 'Reconnecting...'}
           </span>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 'var(--spacing-sm)' }}>
@@ -294,14 +292,14 @@ export default function NodeBackendLogs() {
               checked={autoScroll}
               onChange={(e) => setAutoScroll(e.target.checked)}
             />
-            <span style={{ color: 'var(--color-text-secondary)' }}>Auto-scroll</span>
+            <span className="text-secondary">Auto-scroll</span>
           </label>
         </div>
       </div>
 
       {/* Log output */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <div className="loading-center">
           <LoadingSpinner size="lg" />
         </div>
       ) : filteredLines.length === 0 ? (

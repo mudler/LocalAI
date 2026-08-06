@@ -14,7 +14,7 @@ JOBS?=$(shell nproc --ignore=1)
 # It is kept alive by the upstream tag da2-support (survives a squash-merge);
 # repoint to the master merge commit once mudler/depth-anything.cpp PR #1 lands.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=f4e17dea695dd12ae76bea98ba58030996b98118
+DEPTHANYTHING_VERSION?=2028b47ac75a8659c6a9aa617baf09be193eb55f
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
@@ -81,6 +81,16 @@ else
 	# On non-Linux (e.g., Darwin), build only fallback variant
 	VARIANT_TARGETS = libdepthanythingcpp-fallback.dylib
 endif
+
+## Builds the native engine variants and stops short of the Go binary. The
+## variants depend only on sources/depth-anything.cpp, a clone pinned by
+## DEPTHANYTHING_VERSION, so nothing in this target can observe a change
+## elsewhere in the LocalAI tree. Dockerfile.golang calls it from a layer that
+## copies in this Makefile and nothing else, which keeps the multi-minute ggml
+## compile in the registry layer cache across builds whose only change is on the
+## Go side. See .agents/ci-caching.md.
+.PHONY: engine
+engine: $(VARIANT_TARGETS)
 
 depth-anything-cpp: main.go godepthanythingcpp.go $(VARIANT_TARGETS)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o depth-anything-cpp ./

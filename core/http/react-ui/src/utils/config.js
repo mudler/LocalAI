@@ -2,7 +2,9 @@ export const API_CONFIG = {
   endpoints: {
     // Operations
     operations: '/api/operations',
+    operationsHistory: '/api/operations/history',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
+    pauseOperation: (jobID) => `/api/operations/${jobID}/pause`,
     dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
     // Models gallery
@@ -37,6 +39,7 @@ export const API_CONFIG = {
 
     // Traces
     traces: '/api/traces',
+    tracesSummary: '/api/traces/summary',
     trace: (id) => `/api/traces/${encodeURIComponent(id)}`,
     clearTraces: '/api/traces/clear',
     backendTraces: '/api/backend-traces',
@@ -107,6 +110,8 @@ export const API_CONFIG = {
     // LocalAI-specific
     tts: '/tts',
     video: '/video',
+    threeDGenerations: '/3d/generations',
+    threeDRemesh: '/3d/remesh',
     backendMonitor: '/backend/monitor',
     backendShutdown: '/backend/shutdown',
     backendLoad: '/backend/load',

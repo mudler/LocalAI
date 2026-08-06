@@ -152,6 +152,7 @@ var _ = Describe("Backend Endpoints", func() {
 			expectPrefOnly("tinygrad", "text")
 			expectPrefOnly("trl", "text")
 			expectPrefOnly("mlx-vlm", "text")
+			expectPrefOnly("mlx-audio", "tts")
 			expectPrefOnly("whisperx", "asr")
 			expectPrefOnly("crispasr", "asr")
 			expectPrefOnly("kokoros", "tts")
@@ -266,6 +267,34 @@ var _ = Describe("Backend Endpoints", func() {
 			Expect(entry.Installed).To(BeTrue())
 			Expect(entry.Modality).To(Equal(""))
 			Expect(entry.AutoDetect).To(BeFalse())
+		})
+
+		It("advertises audio-cpp as a preference-only backend naming its other modalities", func() {
+			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			var payload []schema.KnownBackend
+			Expect(json.Unmarshal(rec.Body.Bytes(), &payload)).To(Succeed())
+
+			byName := map[string]schema.KnownBackend{}
+			for _, b := range payload {
+				byName[b.Name] = b
+			}
+
+			entry, ok := byName["audio-cpp"]
+			Expect(ok).To(BeTrue(), "audio-cpp must appear in the import form dropdown")
+			// AutoDetect=false is the honest answer, not an omission: the only
+			// reliable signal is the audiocpp.model_spec.family key inside the
+			// GGUF, which no remote-repo probe can read.
+			Expect(entry.AutoDetect).To(BeFalse(),
+				"audio-cpp has no remote-detectable signal: the family lives inside the GGUF")
+			// Modality is a single string and the import form chips on a fixed
+			// key set, so the modalities it cannot carry have to be named in
+			// the description instead.
+			Expect(entry.Modality).To(Equal("tts"))
+			Expect(entry.Description).To(ContainSubstring("ASR"),
+				"the description must name the modalities the single Modality field cannot")
 		})
 
 		It("is sorted by Modality then Name", func() {

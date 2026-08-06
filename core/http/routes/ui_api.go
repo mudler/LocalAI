@@ -46,6 +46,7 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseChat:                config.FLAG_CHAT,
 	config.UsecaseImage:               config.FLAG_IMAGE,
 	config.UsecaseVideo:               config.FLAG_VIDEO,
+	config.Usecase3D:                  config.FLAG_3D,
 	config.UsecaseVision:              config.FLAG_VISION,
 	config.UsecaseTTS:                 config.FLAG_TTS,
 	config.UsecaseTranscript:          config.FLAG_TRANSCRIPT,
@@ -59,40 +60,6 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseSoundClassification: config.FLAG_SOUND_CLASSIFICATION,
 	config.UsecaseRealtimeAudio:       config.FLAG_REALTIME_AUDIO,
 	config.UsecaseTokenClassify:       config.FLAG_TOKEN_CLASSIFY,
-}
-
-// extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
-func extractHFRepo(overrides map[string]any, urls []string) string {
-	if overrides != nil {
-		if params, ok := overrides["parameters"].(map[string]any); ok {
-			if modelRef, ok := params["model"].(string); ok {
-				if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
-					return repoID
-				}
-			}
-		}
-	}
-	for _, u := range urls {
-		if repoID, ok := vram.ExtractHFRepoID(u); ok {
-			return repoID
-		}
-	}
-	return ""
-}
-
-// buildEstimateInput creates a vram.ModelEstimateInput from gallery model metadata.
-func buildEstimateInput(m *gallery.GalleryModel) vram.ModelEstimateInput {
-	var input vram.ModelEstimateInput
-	input.Size = m.Size
-	if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
-		input.HFRepo = hfRepoID
-	}
-	for _, f := range m.AdditionalFiles {
-		if vram.IsWeightFile(f.URI) {
-			input.Files = append(input.Files, vram.FileInput{URI: f.URI, Size: 0})
-		}
-	}
-	return input
 }
 
 // parseContextSizes parses a comma-separated list of context sizes from a query param.
@@ -170,7 +137,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			progress := 0
 			isDeletion := false
 			isQueued := false
-			isCancelled := false
 			isCancellable := false
 			message := ""
 			phase := ""
@@ -189,7 +155,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 				progress = int(status.Progress)
 				isDeletion = status.Deletion
-				isCancelled = status.Cancelled
+				// Admission publishes a "queued" status before the op reaches
+				// the worker, so a queued op HAS a status: the phase is the
+				// only truthful signal. Reading "queued" off a missing status
+				// instead (what this used to do) made the state unreachable,
+				// and every queued operation rendered as if it were already
+				// installing.
+				isQueued = status.IsQueued()
 				isCancellable = status.Cancellable
 				message = status.Message
 				phase = status.Phase
@@ -198,11 +170,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				if isDeletion {
 					taskType = "deletion"
 				}
-				if isCancelled {
-					taskType = "cancelled"
-				}
 			} else {
-				// Job is queued but hasn't started
+				// No status at all: an op hydrated from the store or replicated
+				// from a peer whose outcome this replica never held. It has not
+				// been observed running, so it is reported as waiting.
 				isQueued = true
 				isCancellable = true
 				message = "Operation queued"
@@ -247,6 +218,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				}
 			}
 
+			// No isCancelled field: a cancellation is terminal and removes the
+			// operation from this list before the next poll (CancelOperation
+			// marks the status Processed, GetStatus evicts it and the cancel
+			// handler deletes it), so nothing here could ever report one. The
+			// cancelled outcome is reported by /api/operations/history.
 			opData := map[string]any{
 				"id":          galleryID,
 				"name":        displayName,
@@ -257,7 +233,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"isDeletion":  isDeletion,
 				"isBackend":   isBackend,
 				"isQueued":    isQueued,
-				"isCancelled": isCancelled,
 				"cancellable": isCancellable,
 				"message":     message,
 			}
@@ -333,7 +308,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					"isDeletion":  false,
 					"isBackend":   false,
 					"isQueued":    false,
-					"isCancelled": false,
 					"cancellable": false,
 					"message":     status.Message,
 					"nodeName":    status.NodeName,
@@ -382,6 +356,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
+	// Pause operation endpoint (admin only). Unlike cancel, pause preserves a
+	// partial download so submitting the same install later resumes it.
+	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to pause operation", "jobID", jobID)
+
+		if err := galleryService.PauseOperation(jobID); err != nil {
+			xlog.Error("Failed to pause operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+
+		opcache.DeleteUUID(jobID)
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "Operation paused",
+		})
+	}, adminMiddleware)
+
 	// Dismiss a failed operation (acknowledge the error and remove it from the list)
 	app.POST("/api/operations/:jobID/dismiss", func(c echo.Context) error {
 		jobID := c.Param("jobID")
@@ -393,6 +385,28 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation dismissed",
+		})
+	}, adminMiddleware)
+
+	// Finished operations. Separate from /api/operations on purpose: that
+	// endpoint is polled once a second by every open tab, so the record does
+	// not ride along with it.
+	app.GET("/api/operations/history", func(c echo.Context) error {
+		return c.JSON(200, map[string]any{
+			"operations": opcache.History(),
+		})
+	}, adminMiddleware)
+
+	// Clear the record. Live operations and undismissed failures are untouched.
+	app.DELETE("/api/operations/history", func(c echo.Context) error {
+		if err := opcache.ClearHistory(); err != nil {
+			xlog.Error("could not clear the operation record", "error", err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{
+				"error": err.Error(),
+			})
+		}
+		return c.JSON(200, map[string]any{
+			"success": true,
 		})
 	}, adminMiddleware)
 
@@ -886,7 +900,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return c.JSON(http.StatusNotFound, map[string]any{"error": "model not found"})
 		}
 
-		input := buildEstimateInput(model)
+		input := gallery.EstimateInput(model)
 		if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
 			return c.JSON(200, vram.MultiContextEstimate{})
 		}
@@ -974,7 +988,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
@@ -983,9 +997,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueModelOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1021,7 +1036,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
@@ -1030,9 +1045,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueModelOp(op)
 		cl.RemoveModelConfig(galleryName)
 
@@ -1427,19 +1443,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 			// The React UI's "Reinstall backend" action reuses this route, so
 			// the op must force even when the backend is already installed.
 			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1489,19 +1506,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		opcache.SetBackend(cacheKey, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 			ExternalURI:        req.URI,
 			ExternalName:       req.Name,
 			ExternalAlias:      req.Alias,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1537,7 +1555,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
@@ -1545,9 +1563,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1656,7 +1675,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// and the Backends UI can reflect progress on the affected row.
 		opcache.SetBackend(backendName, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendName,
@@ -1664,9 +1683,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Upgrade:            true,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{

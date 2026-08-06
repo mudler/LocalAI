@@ -2,6 +2,7 @@
 
 set -e
 
+
 ## Patches
 
 ## Apply patches from the `patches` directory. Runs under set -e so a
@@ -24,6 +25,9 @@ cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
 # unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
 cp -r message_content.h llama.cpp/tools/grpc-server/
 cp -r message_content_test.cpp llama.cpp/tools/grpc-server/
+# Generic passthrough parser staging and its standalone regression test.
+cp -r passthrough_options.h llama.cpp/tools/grpc-server/
+cp -r passthrough_options_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r parent_watch.h llama.cpp/tools/grpc-server/
@@ -58,4 +62,3 @@ else
     echo "add_subdirectory(grpc-server)" >> llama.cpp/tools/CMakeLists.txt
 fi
 set -e
-

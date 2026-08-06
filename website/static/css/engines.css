@@ -1,0 +1,85 @@
+/* /engines/ only. Everything here leans on the tokens and components already
+   defined in site.css: the same navy, the same cyan, Sora for display and
+   Geist Mono for anything that reads as data. Nothing new is invented, the
+   page just needs a card and a filter row that the home page does not have. */
+
+.eng-h1{font-size:clamp(2.2rem,5.4vw,4.2rem);font-variation-settings:'wdth' 118,'wght' 880,'opsz' 144;
+  margin:1.1rem 0 0;line-height:1.03}
+.eng-h1 u{display:block;overflow:hidden;text-decoration:none}
+.eng-h1 u b{display:block;font-weight:inherit;transform:translateY(108%);
+  transition:transform .95s cubic-bezier(.16,1,.3,1)}
+.loaded .eng-h1 u:nth-child(2) b{transition-delay:.09s}
+.loaded .eng-h1 u b{transform:none}
+.eng-h1 s{text-decoration:none;color:var(--cyan)}
+@media(prefers-reduced-motion:reduce){.eng-h1 u b{transform:none}}
+
+/* filter row. Sticky, because the catalogue is long and the chips are the
+   only way back out of a modality once you are deep in it. */
+.engf{position:sticky;top:62px;z-index:40;display:flex;flex-wrap:wrap;gap:.4rem;
+  margin:0 0 .4rem;padding:.85rem 0;background:rgba(4,19,28,.9);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line2)}
+.engf__c{font-family:'Geist Mono',monospace;font-size:.7rem;letter-spacing:.02em;cursor:pointer;
+  display:inline-flex;align-items:center;gap:.45rem;color:var(--dim);background:transparent;
+  border:1px solid var(--line);padding:.4rem .75rem;border-radius:999px;
+  transition:color .22s,border-color .22s,background .22s}
+.engf__c b{font-weight:400;font-size:.62rem;color:var(--faint)}
+.engf__c:hover{border-color:var(--cyan);color:var(--ink)}
+.engf__c[aria-pressed="true"]{background:var(--cyan);border-color:var(--cyan);color:var(--deep)}
+.engf__c[aria-pressed="true"] b{color:rgba(1,10,17,.62)}
+
+.engg{padding:clamp(2.2rem,4.5vw,3.4rem) 0 .4rem}
+.engg[hidden]{display:none}
+.engg__h{max-width:62ch}
+.engg__b{color:var(--dim);font-size:1rem;margin-top:.55rem;text-wrap:pretty}
+.engs{display:grid;gap:.9rem;margin-top:1.8rem}
+@media(min-width:720px){.engs{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1080px){.engs{grid-template-columns:repeat(3,1fr)}}
+
+.eng{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:11px;
+  background:rgba(255,255,255,.028);overflow:hidden;
+  box-shadow:0 16px 36px -26px rgba(0,0,0,.9);
+  transition:transform .28s cubic-bezier(.16,1,.3,1),border-color .28s,box-shadow .28s}
+.eng[hidden]{display:none}
+.eng:hover{transform:translateY(-4px);border-color:rgba(95,205,228,.55);
+  box-shadow:0 24px 48px -22px rgba(0,0,0,.95),0 0 40px -18px rgba(95,205,228,.45)}
+.eng__m{background:var(--deep);border-bottom:1px solid var(--line2);overflow:hidden}
+.eng__m video{width:100%;aspect-ratio:16/10;object-fit:cover;
+  transition:transform .6s cubic-bezier(.16,1,.3,1)}
+.eng:hover .eng__m video{transform:scale(1.03)}
+.eng__b{display:flex;flex-direction:column;gap:.55rem;padding:1.15rem 1.2rem 1.3rem}
+.eng__k{display:flex;align-items:center;gap:.5rem;font-family:'Geist Mono',monospace;
+  font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.eng__s{margin-left:auto;font-weight:400;color:var(--purple-hi);
+  border:1px solid rgba(129,129,196,.45);border-radius:999px;padding:.14rem .5rem;
+  letter-spacing:.1em;background:rgba(129,129,196,.12)}
+.eng__n{font-family:'Geist Mono',monospace;font-size:1.12rem;font-variation-settings:normal;
+  letter-spacing:-.02em;color:var(--cyan-hi);font-weight:600}
+.eng:hover .eng__n{color:var(--ink)}
+.eng__t{color:var(--ink);font-size:.95rem;line-height:1.5;text-wrap:pretty}
+.eng__l{list-style:none;margin:.15rem 0 0;padding:0;display:grid;gap:.34rem}
+.eng__l li{position:relative;padding-left:.95rem;color:var(--dim);font-size:.83rem;line-height:1.5}
+.eng__l li::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:1px;background:var(--cyan)}
+.eng__go{margin-top:auto;padding-top:.35rem;font-family:'Geist Mono',monospace;
+  font-size:.64rem;color:var(--faint)}
+.eng:hover .eng__go{color:var(--cyan)}
+
+/* featured: same card, given the width to carry its clips and read as the
+   headline of its modality. */
+@media(min-width:720px){
+  .eng--f{grid-column:1/-1;flex-direction:row-reverse;align-items:stretch}
+  .eng--f .eng__m{flex:1 1 52%;border-bottom:0;border-left:1px solid var(--line2);display:flex}
+  .eng--f .eng__m video{aspect-ratio:auto;height:100%;min-height:100%}
+  .eng--f .eng__b{flex:1 1 48%;padding:clamp(1.4rem,2.6vw,2.1rem);justify-content:center}
+  .eng--f .eng__n{font-size:1.5rem}
+  .eng--f .eng__t{font-size:1.06rem;max-width:34ch}
+}
+.eng--f .eng__x{display:grid;gap:.6rem;margin-top:.7rem}
+@media(min-width:720px){.eng--f .eng__x{grid-template-columns:1fr}}
+.eng__x figure{margin:0;border:1px solid var(--line2);border-radius:8px;overflow:hidden;background:var(--deep)}
+.eng__x video{width:100%;display:block}
+.eng__x figcaption{padding:.45rem .7rem;border-top:1px solid var(--line2);
+  font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--faint)}
+
+.engn{font-family:'Geist Mono',monospace;font-size:.8rem;color:var(--faint);
+  padding:3rem 0;text-align:center}
+.engn[hidden]{display:none}

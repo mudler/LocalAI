@@ -141,6 +141,20 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/completions", completionHandler, completionMiddleware...)
 	app.POST("/v1/engines/:model/completions", completionHandler, completionMiddleware...)
 
+	// moderation
+	moderationHandler := openai.ModerationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
+	moderationMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
+		usageMiddleware,
+		traceMiddleware,
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_COMPLETION)),
+		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.ModerationRequest) }),
+		middleware.AdmissionControl(application.AdmissionLimiter(), application.PIIEvents()),
+	}
+	app.POST("/v1/moderations", moderationHandler, moderationMiddleware...)
+	app.POST("/moderations", moderationHandler, moderationMiddleware...)
+
 	// embeddings
 	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
@@ -253,6 +267,11 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	inpaintingHandler := openai.InpaintingEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	app.POST("/v1/images/inpainting", inpaintingHandler, imageMiddleware...)
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
+
+	// upscale endpoint - reuse same middleware config as images
+	upscaleHandler := openai.UpscaleEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	app.POST("/v1/images/upscale", upscaleHandler, imageMiddleware...)
+	app.POST("/images/upscale", upscaleHandler, imageMiddleware...)
 
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))

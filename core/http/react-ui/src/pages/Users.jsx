@@ -35,7 +35,7 @@ function StatusBadge({ status }) {
 
 function ProviderBadge({ provider }) {
   return (
-    <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
+    <span className="badge badge-secondary text-xs">
       {provider || 'local'}
     </span>
   )
@@ -290,7 +290,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
               Model Access
             </strong>
           </div>
-          <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+          <div className="mb-sm">
             <label className="perm-toggle-label">
               <Toggle
                 checked={allowedModels.enabled}
@@ -301,7 +301,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           </div>
           {allowedModels.enabled ? (
             <>
-              <div className="action-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
+              <div className="action-group mb-sm">
                 <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllModels(true)}>All</button>
                 <button className="btn btn-sm btn-secondary perm-btn-all-none" onClick={() => setAllModels(false)}>None</button>
               </div>
@@ -1017,7 +1017,7 @@ export default function Users() {
                 </label>
               </div>
             )}
-            <div className="perm-modal-actions" style={{ marginTop: 'var(--spacing-md)' }}>
+            <div className="perm-modal-actions mt-md">
               <button className="btn btn-secondary" onClick={() => setPasswordResetUser(null)}>Cancel</button>
               <button
                 className="btn btn-primary"

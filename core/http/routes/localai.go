@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/labstack/echo/v4"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -29,6 +30,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	mcpJobsMw echo.MiddlewareFunc,
 	mcpMw echo.MiddlewareFunc) {
 
+	// Themed index first, then the library's wildcard for its own assets.
+	RegisterSwaggerTheme(router)
 	router.GET("/swagger/*", echoswagger.EchoWrapHandler(func(c *echoswagger.Config) {
 		c.URLs = []string{"doc.json"}
 	}))
@@ -193,10 +196,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 
 	// Stores
-	router.POST("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
-	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
-	router.POST("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
-	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
+	router.POST("/stores/set", localai.StoresSetEndpoint(ml, cl, appConfig))
+	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, cl, appConfig))
+	router.POST("/stores/get", localai.StoresGetEndpoint(ml, cl, appConfig))
+	router.POST("/stores/find", localai.StoresFindEndpoint(ml, cl, appConfig))
 
 	if !appConfig.DisableMetrics {
 		router.GET("/metrics", localai.LocalAIMetricsEndpoint(), adminMiddleware)
@@ -207,6 +210,17 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		videoHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
+
+	model3dHandler := localai.Model3DEndpoint(cl, ml, appConfig)
+	router.POST("/3d/generations",
+		model3dHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DRequest) }))
+	router.POST("/3d/remesh",
+		localai.Model3DRemeshEndpoint(ml, appConfig),
+		echomiddleware.BodyLimit("513M"),
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DRemeshRequest) }))
 
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
@@ -224,6 +238,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	// Traces and backend logs (monitoring)
 	router.GET("/api/traces", localai.GetAPITracesEndpoint(), adminMiddleware)
+	// Registered before /:id so "summary" is not captured as a trace ID.
+	router.GET("/api/traces/summary", localai.GetAPITracesSummaryEndpoint(), adminMiddleware)
 	router.GET("/api/traces/:id", localai.GetAPITraceEndpoint(), adminMiddleware)
 	router.POST("/api/traces/clear", localai.ClearAPITracesEndpoint(), adminMiddleware)
 	router.GET("/api/backend-traces", localai.GetBackendTracesEndpoint(), adminMiddleware)
@@ -262,6 +278,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			"system":               "/system",
 			"version":              "/version",
 			"traces":               "/api/traces",
+			"traces_summary":       "/api/traces/summary",
 			"trace":                "/api/traces/:id",
 			"traces_clear":         "/api/traces/clear",
 			"backend_traces":       "/api/backend-traces",
@@ -333,8 +350,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"voice_profiles": "/api/voice-profiles",
 					"vad":            "/vad",
 					"video":          "/video",
+					"3d_generation":  "/3d/generations",
 					"detection":      "/v1/detection",
 					"tokenize":       "/v1/tokenize",
+					"detokenize":     "/v1/detokenize",
 				},
 				"monitoring": monitoringRoutes,
 				"mcp": map[string]string{
@@ -395,7 +414,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		})
 	})
 
-	router.GET("/system", localai.SystemInformations(ml, appConfig), adminMiddleware)
+	router.GET("/system", localai.SystemInformations(cl, ml, appConfig), adminMiddleware)
 
 	// misc
 	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)
@@ -403,6 +422,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		tokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
+
+	detokenizeHandler := localai.DetokenizeEndpoint(cl, ml, appConfig)
+	router.POST("/v1/detokenize",
+		detokenizeHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetokenizeRequest) }))
 
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.

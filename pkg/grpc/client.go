@@ -230,6 +230,23 @@ func (c *Client) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest,
 	return client.GenerateImage(ctx, in, opts...)
 }
 
+func (c *Client) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+	return client.UpscaleImage(ctx, in, opts...)
+}
+
 func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	if !c.parallel {
 		c.opMutex.Lock()
@@ -245,6 +262,23 @@ func (c *Client) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest,
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
 	return client.GenerateVideo(ctx, in, opts...)
+}
+
+func (c *Client) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.Generate3D(ctx, in, opts...)
 }
 
 func (c *Client) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error) {
@@ -403,6 +437,28 @@ func (c *Client) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts
 
 	res, err := client.TokenizeString(ctx, in, opts...)
 
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *Client) Detokenize(ctx context.Context, in *pb.DetokenizeRequest, opts ...grpc.CallOption) (*pb.DetokenizeResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+
+	res, err := client.Detokenize(ctx, in, opts...)
 	if err != nil {
 		return nil, err
 	}

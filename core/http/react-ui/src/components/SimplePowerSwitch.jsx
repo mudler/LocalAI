@@ -13,11 +13,10 @@ export default function SimplePowerSwitch({ value, onChange, disabled = false })
 
   return (
     <div
-      className="segmented"
+      className="segmented mb-0"
       role="tablist"
       aria-label="Import form mode"
       data-testid="simple-power-switch"
-      style={{ marginBottom: 0 }}
     >
       <button
         type="button"

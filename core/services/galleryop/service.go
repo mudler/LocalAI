@@ -28,7 +28,7 @@ type GalleryService struct {
 	modelManager   ModelManager
 	backendManager BackendManager
 	statuses       map[string]*OpStatus
-	cancellations  map[string]context.CancelFunc
+	cancellations  map[string]cancellationActions
 
 	// Distributed mode (nil when not in distributed mode).
 	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
@@ -67,7 +67,7 @@ func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 		modelManager:          NewLocalModelManager(appConfig, ml),
 		backendManager:        NewLocalBackendManager(appConfig, ml),
 		statuses:              make(map[string]*OpStatus),
-		cancellations:         make(map[string]context.CancelFunc),
+		cancellations:         make(map[string]cancellationActions),
 	}
 }
 
@@ -149,9 +149,18 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	// another. If the caller explicitly populates Nodes on the incoming op,
 	// that wins; an empty Nodes slice on the incoming op is treated as "no
 	// new per-node data" and the previous Nodes are carried forward.
-	if op != nil && len(op.Nodes) == 0 {
-		if prev := g.statuses[s]; prev != nil && len(prev.Nodes) > 0 {
-			op.Nodes = prev.Nodes
+	if op != nil {
+		if prev := g.statuses[s]; prev != nil {
+			if len(op.Nodes) == 0 && len(prev.Nodes) > 0 {
+				op.Nodes = prev.Nodes
+			}
+			// A job is a delete or an install for its whole life. markQueued is
+			// the only writer that knows which; every later status omits the
+			// flag, so an unset value means "no new information", not "this is
+			// an install".
+			if !op.Deletion {
+				op.Deletion = prev.Deletion
+			}
 		}
 	}
 	g.statuses[s] = op
@@ -378,6 +387,17 @@ func (g *GalleryService) failStaleStatus(id string) {
 // SubjectGalleryCancelWildcard subscriber and runs it locally. The caller
 // gets a non-error reply so the UI shows the cancel as accepted.
 func (g *GalleryService) CancelOperation(id string) error {
+	return g.stopOperation(id, false)
+}
+
+// PauseOperation stops an in-progress download while preserving its partial
+// file. Re-submitting the same install resumes it through the downloader's
+// existing HTTP Range support.
+func (g *GalleryService) PauseOperation(id string) error {
+	return g.stopOperation(id, true)
+}
+
+func (g *GalleryService) stopOperation(id string, pause bool) error {
 	g.Lock()
 
 	if status, ok := g.statuses[id]; ok && status.Cancelled {
@@ -385,7 +405,7 @@ func (g *GalleryService) CancelOperation(id string) error {
 		return fmt.Errorf("operation %q is already cancelled", id)
 	}
 
-	cancelFunc, localExists := g.cancellations[id]
+	actions, localExists := g.cancellations[id]
 	if localExists {
 		delete(g.cancellations, id)
 	}
@@ -401,12 +421,12 @@ func (g *GalleryService) CancelOperation(id string) error {
 	if status, ok := g.statuses[id]; ok {
 		status.Cancelled = true
 		status.Processed = true
-		status.Message = "cancelled"
+		status.Message = map[bool]string{true: "paused", false: "cancelled"}[pause]
 	} else {
 		g.statuses[id] = &OpStatus{
 			Cancelled:   true,
 			Processed:   true,
-			Message:     "cancelled",
+			Message:     map[bool]string{true: "paused", false: "cancelled"}[pause],
 			Cancellable: false,
 		}
 	}
@@ -426,11 +446,15 @@ func (g *GalleryService) CancelOperation(id string) error {
 	// I/O and user-provided callback after Unlock — the cancel-wildcard
 	// subscriber loops back into applyCancel on this same replica, which
 	// would otherwise deadlock on g.Mutex.
-	if cancelFunc != nil {
-		cancelFunc()
+	stopFunc := actions.cancel
+	if pause {
+		stopFunc = actions.pause
+	}
+	if stopFunc != nil {
+		stopFunc()
 	}
 	if nc != nil {
-		if err := nc.Publish(messaging.SubjectGalleryCancel(id), GalleryCancelEvent{JobID: id}); err != nil {
+		if err := nc.Publish(messaging.SubjectGalleryCancel(id), GalleryCancelEvent{JobID: id, Pause: pause}); err != nil {
 			xlog.Warn("Failed to broadcast gallery cancel", "op_id", id, "error", err)
 		}
 	}
@@ -443,9 +467,9 @@ func (g *GalleryService) CancelOperation(id string) error {
 // run the local cancel func if we have one (no echo via NATS), and reflect
 // the cancellation in the local statuses map. Idempotent: a replica that
 // already cancelled this op locally treats the inbound event as a no-op.
-func (g *GalleryService) applyCancel(id string) {
+func (g *GalleryService) applyCancel(id string, pause bool) {
 	g.Lock()
-	cancelFunc, hasCancel := g.cancellations[id]
+	actions, hasCancel := g.cancellations[id]
 	if hasCancel {
 		delete(g.cancellations, id)
 	}
@@ -456,12 +480,12 @@ func (g *GalleryService) applyCancel(id string) {
 		}
 		status.Cancelled = true
 		status.Processed = true
-		status.Message = "cancelled"
+		status.Message = map[bool]string{true: "paused", false: "cancelled"}[pause]
 	} else {
 		g.statuses[id] = &OpStatus{
 			Cancelled:   true,
 			Processed:   true,
-			Message:     "cancelled",
+			Message:     map[bool]string{true: "paused", false: "cancelled"}[pause],
 			Cancellable: false,
 		}
 	}
@@ -469,8 +493,12 @@ func (g *GalleryService) applyCancel(id string) {
 
 	// Invoke the cancel func after Unlock so a callback that touches
 	// GalleryService doesn't re-enter the mutex.
-	if hasCancel {
-		cancelFunc()
+	stopFunc := actions.cancel
+	if pause {
+		stopFunc = actions.pause
+	}
+	if hasCancel && stopFunc != nil {
+		stopFunc()
 	}
 }
 
@@ -479,23 +507,40 @@ func (g *GalleryService) applyCancel(id string) {
 // distinguish a deliberate user cancel (discard the half-downloaded .partial)
 // from an incidental cancellation such as process shutdown (keep the .partial
 // so the next run resumes via Range instead of restarting from zero).
-func newUserCancellableContext(parent context.Context) (context.Context, context.CancelFunc) {
+// NewUserCancellableContext creates distinct callbacks for destructive cancel
+// and resume-safe pause while sharing one operation context.
+func NewUserCancellableContext(parent context.Context) (context.Context, context.CancelFunc, context.CancelFunc) {
 	ctx, cancelCause := context.WithCancelCause(parent)
-	return ctx, func() { cancelCause(downloader.ErrUserCancelled) }
+	return ctx,
+		func() { cancelCause(downloader.ErrUserCancelled) },
+		func() { cancelCause(context.Canceled) }
 }
 
-// storeCancellation stores a cancellation function for an operation
-func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelFunc) {
+type cancellationActions struct {
+	cancel context.CancelFunc
+	pause  context.CancelFunc
+}
+
+func (g *GalleryService) storeCancellation(id string, cancelFunc, pauseFunc context.CancelFunc) {
 	g.Lock()
 	defer g.Unlock()
-	g.cancellations[id] = cancelFunc
+	if pauseFunc == nil {
+		pauseFunc = cancelFunc
+	}
+	g.cancellations[id] = cancellationActions{cancel: cancelFunc, pause: pauseFunc}
 }
 
 // StoreCancellation is a public method to store a cancellation function for an operation
 // This allows cancellation functions to be stored immediately when operations are created,
 // enabling cancellation of queued operations that haven't started processing yet.
 func (g *GalleryService) StoreCancellation(id string, cancelFunc context.CancelFunc) {
-	g.storeCancellation(id, cancelFunc)
+	g.storeCancellation(id, cancelFunc, cancelFunc)
+}
+
+// StoreCancellationActions registers distinct destructive-cancel and
+// resume-safe pause callbacks for an operation.
+func (g *GalleryService) StoreCancellationActions(id string, cancelFunc, pauseFunc context.CancelFunc) {
+	g.storeCancellation(id, cancelFunc, pauseFunc)
 }
 
 // removeCancellation removes a cancellation function when operation completes
@@ -545,19 +590,27 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case op := <-g.BackendGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
-					op.Context, op.CancelFunc = newUserCancellableContext(c)
-					g.storeCancellation(op.ID, op.CancelFunc)
+					op.Context, op.CancelFunc, op.PauseFunc = NewUserCancellableContext(c)
+					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				} else if op.CancelFunc != nil {
-					g.storeCancellation(op.ID, op.CancelFunc)
+					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
+					opType := "backend_install"
+					if op.Delete {
+						opType = "backend_delete"
+					}
 					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 						ID:                 op.ID,
 						GalleryElementName: op.GalleryElementName,
-						OpType:             "backend_install",
+						OpType:             opType,
 						Status:             "pending",
-						Cancellable:        true,
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is, matching the model channel. The queued phase before
+						// this point is cancellable either way (see markQueued).
+						Cancellable: !op.Delete,
 					}); err != nil {
 						// Not fatal: the install still runs and the in-memory
 						// status still updates. Logged because without the row
@@ -580,10 +633,10 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case op := <-g.ModelGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
-					op.Context, op.CancelFunc = newUserCancellableContext(c)
-					g.storeCancellation(op.ID, op.CancelFunc)
+					op.Context, op.CancelFunc, op.PauseFunc = NewUserCancellableContext(c)
+					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				} else if op.CancelFunc != nil {
-					g.storeCancellation(op.ID, op.CancelFunc)
+					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
@@ -596,7 +649,10 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 						GalleryElementName: op.GalleryElementName,
 						OpType:             opType,
 						Status:             "pending",
-						// A delete is not cancellable; an install is.
+						// Create runs at dequeue, so this is the running-phase
+						// value: a running delete is not cancellable, an install
+						// is. The queued phase before this point is cancellable
+						// either way (see markQueued).
 						Cancellable: !op.Delete,
 					}); err != nil {
 						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
@@ -643,7 +699,7 @@ func (g *GalleryService) SubscribeBroadcasts() error {
 		if evt.JobID == "" {
 			return
 		}
-		g.applyCancel(evt.JobID)
+		g.applyCancel(evt.JobID, evt.Pause)
 	})
 	if err != nil {
 		if uerr := progressSub.Unsubscribe(); uerr != nil {
@@ -750,7 +806,7 @@ func (g *GalleryService) Hydrate() error {
 			DownloadedFileSize: op.DownloadedFileSize,
 			GalleryElementName: op.GalleryElementName,
 			Cancellable:        op.Cancellable,
-			Deletion:           op.OpType == "model_delete",
+			Deletion:           IsDeleteOpType(op.OpType),
 		}
 		if op.Error != "" {
 			st.Error = errors.New(op.Error)

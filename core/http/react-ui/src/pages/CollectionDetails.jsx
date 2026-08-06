@@ -308,8 +308,8 @@ export default function CollectionDetails() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+        <div className="loading-center">
+          <i className="fas fa-spinner fa-spin icon-xl text-primary" />
         </div>
       ) : activeTab === 'entries' ? (
         <>
@@ -336,7 +336,7 @@ export default function CollectionDetails() {
                 <thead>
                   <tr>
                     <th>Entry</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -382,13 +382,12 @@ export default function CollectionDetails() {
               <label htmlFor="search-max">Max Results</label>
               <input
                 id="search-max"
-                className="input"
+                className="input col-w-100"
                 type="number"
                 min={1}
                 max={100}
                 value={searchMaxResults}
                 onChange={(e) => setSearchMaxResults(parseInt(e.target.value, 10) || 10)}
-                style={{ width: 100 }}
               />
             </div>
             <button className="btn btn-primary" type="submit" disabled={!searchQuery.trim() || searching}>
@@ -456,7 +455,7 @@ export default function CollectionDetails() {
                   <tr>
                     <th>URL</th>
                     <th>Interval</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -465,7 +464,7 @@ export default function CollectionDetails() {
                       <td style={{ fontSize: '0.8125rem', wordBreak: 'break-all' }}>
                         {typeof source === 'string' ? source : (source.url || JSON.stringify(source))}
                       </td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                      <td className="text-sub">
                         {(typeof source === 'object' && source.update_interval) ? source.update_interval : '-'}
                       </td>
                       <td>
@@ -503,7 +502,7 @@ export default function CollectionDetails() {
         <div className="collection-detail-modal-overlay" onClick={() => setViewEntry(null)}>
           <div className="collection-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="collection-detail-modal-header">
-              <h3 title={viewEntry}><i className="fas fa-file-alt" style={{ marginRight: 'var(--spacing-xs)' }} />{viewEntry}</h3>
+              <h3 title={viewEntry}><i className="fas fa-file-alt icon-before" />{viewEntry}</h3>
               <button className="btn btn-secondary btn-sm" onClick={() => setViewEntry(null)}>
                 <i className="fas fa-times" />
               </button>
@@ -516,8 +515,8 @@ export default function CollectionDetails() {
               ) : viewContent ? (
                 <>
                   <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                      <i className="fas fa-puzzle-piece" style={{ marginRight: 4 }} />
+                    <div className="text-note">
+                      <i className="fas fa-puzzle-piece icon-before" />
                       Chunks: <strong style={{ color: 'var(--color-text-primary)' }}>{viewContent.chunk_count ?? '-'}</strong>
                     </div>
                   </div>
@@ -526,7 +525,7 @@ export default function CollectionDetails() {
                   </div>
                 </>
               ) : (
-                <p style={{ color: 'var(--color-text-muted)' }}>No content available.</p>
+                <p className="text-muted">No content available.</p>
               )}
             </div>
           </div>

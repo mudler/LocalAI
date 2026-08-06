@@ -42,6 +42,10 @@ type fakeClient struct {
 	upgradeBackend      func(string) (string, error)
 	systemInfo          func() (*SystemInfo, error)
 	listNodes           func() ([]Node, error)
+	listScheduling      func() ([]ModelSchedulingConfig, error)
+	getScheduling       func(string) (*ModelSchedulingConfig, error)
+	setScheduling       func(SetSchedulingRequest) (*ModelSchedulingConfig, error)
+	deleteScheduling    func(string) error
 	setNodeVRAMBudget   func(string, string) error
 	vramEstimate        func(VRAMEstimateRequest) (*vram.EstimateResult, error)
 	toggleModelState    func(string, modeladmin.Action) error
@@ -228,6 +232,38 @@ func (f *fakeClient) ListNodes(_ context.Context) ([]Node, error) {
 		return f.listNodes()
 	}
 	return nil, nil
+}
+
+func (f *fakeClient) ListScheduling(_ context.Context) ([]ModelSchedulingConfig, error) {
+	f.record("ListScheduling", nil)
+	if f.listScheduling != nil {
+		return f.listScheduling()
+	}
+	return []ModelSchedulingConfig{}, nil
+}
+
+func (f *fakeClient) GetScheduling(_ context.Context, modelName string) (*ModelSchedulingConfig, error) {
+	f.record("GetScheduling", modelName)
+	if f.getScheduling != nil {
+		return f.getScheduling(modelName)
+	}
+	return &ModelSchedulingConfig{ModelName: modelName}, nil
+}
+
+func (f *fakeClient) SetScheduling(_ context.Context, req SetSchedulingRequest) (*ModelSchedulingConfig, error) {
+	f.record("SetScheduling", req)
+	if f.setScheduling != nil {
+		return f.setScheduling(req)
+	}
+	return &ModelSchedulingConfig{ModelName: req.ModelName, MinReplicas: req.MinReplicas, MaxReplicas: req.MaxReplicas, SpreadAll: req.SpreadAll}, nil
+}
+
+func (f *fakeClient) DeleteScheduling(_ context.Context, modelName string) error {
+	f.record("DeleteScheduling", modelName)
+	if f.deleteScheduling != nil {
+		return f.deleteScheduling(modelName)
+	}
+	return nil
 }
 
 func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string) error {

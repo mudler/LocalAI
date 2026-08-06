@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/storage"
 	coreStartup "github.com/mudler/LocalAI/core/startup"
+	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -60,6 +61,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		options.Threads = xsysinfo.CPUPhysicalCores()
 	}
 
+	trace.ConfigureBackendTracePersistence(options.DataPath)
 	application := newApplication(options)
 	application.startupConfig = &startupConfigCopy
 
@@ -133,7 +135,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 			migrateDataFiles(options.DynamicConfigsDir, options.DataPath)
 		}
 	}
-
 	// Initialize auth database if auth is enabled
 	if options.Auth.Enabled {
 		// Auto-generate HMAC secret if not provided
@@ -442,6 +443,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)
+
+	// Fill those caches ahead of the first visitor. An estimate for an entry
+	// nobody has asked about yet costs a remote probe of its weight files, and
+	// the model gallery asks for one per row, so without this the first page
+	// spends seconds filling in its own sizes while somebody watches it.
+	// Non-blocking, and bounded: see DefaultEstimateWarmConfig.
+	gallery.WarmEstimateCache(options.Context, options.Galleries, options.SystemState, gallery.EstimateWarmConfigFromEnv())
 
 	if options.ConfigFile != "" {
 		if err := application.ModelConfigLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {

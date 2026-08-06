@@ -5,7 +5,7 @@ export default function ResourceMonitor() {
   const { resources, loading } = useResources()
 
   if (loading || !resources) {
-    return <div className="resource-monitor" style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>Loading resources...</div>
+    return <div className="resource-monitor text-note">Loading resources...</div>
   }
 
   const gpus = resources.gpus || []
@@ -15,8 +15,8 @@ export default function ResourceMonitor() {
 
   return (
     <div className="resource-monitor">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-        <h3 className="resource-monitor-title" style={{ margin: 0 }}>
+      <div className="hstack hstack--between mb-sm">
+        <h3 className="resource-monitor-title m-0">
           <i className="fas fa-chart-bar" /> System Resources
         </h3>
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
@@ -48,7 +48,7 @@ export default function ResourceMonitor() {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                  <div className="resource-bar-container" style={{ flex: 1 }}>
+                  <div className="resource-bar-container flex-1">
                     <div className="resource-bar" style={{ width: `${pct}%`, background: color }} />
                   </div>
                   <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-mono)', color, minWidth: '3em', textAlign: 'right' }}>
@@ -73,7 +73,7 @@ export default function ResourceMonitor() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-            <div className="resource-bar-container" style={{ flex: 1 }}>
+            <div className="resource-bar-container flex-1">
               <div className="resource-bar" style={{ width: `${ram.usage_percent || 0}%`, background: percentColor(ram.usage_percent || 0) }} />
             </div>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'var(--font-mono)', color: percentColor(ram.usage_percent || 0), minWidth: '3em', textAlign: 'right' }}>
@@ -91,7 +91,7 @@ export default function ResourceMonitor() {
       {isGpu && aggregate.gpu_count > 1 && (
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 'var(--spacing-sm)', display: 'flex', justifyContent: 'space-between' }}>
           <span>Total VRAM</span>
-          <span style={{ fontFamily: 'var(--font-mono)' }}>
+          <span className="text-mono">
             {formatBytes(aggregate.used_memory)} / {formatBytes(aggregate.total_memory)} ({aggregate.usage_percent?.toFixed(1)}%)
           </span>
         </div>

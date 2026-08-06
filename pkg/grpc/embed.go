@@ -49,8 +49,16 @@ func (e *embedBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRe
 	return e.s.GenerateImage(ctx, in)
 }
 
+func (e *embedBackend) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.UpscaleImage(ctx, in)
+}
+
 func (e *embedBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	return e.s.GenerateVideo(ctx, in)
+}
+
+func (e *embedBackend) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.Generate3D(ctx, in)
 }
 
 func (e *embedBackend) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error) {
@@ -111,6 +119,10 @@ func (e *embedBackend) AudioTranscriptionStream(ctx context.Context, in *pb.Tran
 
 func (e *embedBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error) {
 	return e.s.TokenizeString(ctx, in)
+}
+
+func (e *embedBackend) Detokenize(ctx context.Context, in *pb.DetokenizeRequest, opts ...grpc.CallOption) (*pb.DetokenizeResponse, error) {
+	return e.s.Detokenize(ctx, in)
 }
 
 func (e *embedBackend) Status(ctx context.Context) (*pb.StatusResponse, error) {

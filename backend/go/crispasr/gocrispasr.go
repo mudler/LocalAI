@@ -67,7 +67,16 @@ const defaultTTSSampleRate = 24000
 // resampling, so the WAV header must match it. Returns ok=false for non-piper
 // models (key absent) or an unreadable file, letting the caller fall back to
 // defaultTTSSampleRate.
-func piperSampleRate(modelPath string) (int, bool) {
+func piperSampleRate(modelPath string) (rate int, ok bool) {
+	// A malformed metadata length can make gguf-parser-go panic before it can
+	// return an error. Keep a bad voice file from crash-looping the backend.
+	defer func() {
+		if recover() != nil {
+			rate = 0
+			ok = false
+		}
+	}()
+
 	// Only scalar architecture keys are read, so skip the large array metadata
 	// (phoneme map) and mmap the header - same rationale as pkg/vram's reader.
 	f, err := gguf.ParseGGUFFile(modelPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
@@ -78,7 +87,7 @@ func piperSampleRate(modelPath string) (int, bool) {
 	if !ok || kv.ValueType != gguf.GGUFMetadataValueTypeUint32 {
 		return 0, false
 	}
-	rate := int(kv.ValueUint32())
+	rate = int(kv.ValueUint32())
 	if rate <= 0 {
 		return 0, false
 	}

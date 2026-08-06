@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "复制",
+    "edit": "编辑",
+    "editMessage": "编辑消息",
+    "save": "保存",
+    "cancel": "取消",
     "regenerate": "重新生成",
     "jumpToLatest": "Jump to latest"
   },
@@ -114,5 +118,8 @@
     "newChat": "新对话",
     "clearAll": "清除全部",
     "deleteAllTitle": "删除所有对话"
+  },
+  "message": {
+    "you": "You"
   }
 }

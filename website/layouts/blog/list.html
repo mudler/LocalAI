@@ -1,0 +1,45 @@
+{{ define "main" }}
+<main id="top">
+
+<section class="navy bp-top">
+  <div class="shell">
+    <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <p class="kicker">From the team</p>
+    <h1 class="bp-h1 mt1">{{ .Title }}</h1>
+    {{ with .Description }}<p class="lede mt2">{{ . }}</p>{{ end }}
+    {{ with .Content }}<div class="bp-intro">{{ . }}</div>{{ end }}
+  </div>
+</section>
+
+<section class="navy bp-index">
+  <div class="shell">
+    <div class="bp-list">
+      {{ range .Pages.ByDate.Reverse }}
+      <a class="bp-item rv" href="{{ .RelPermalink }}">
+        <span class="bp-item__m">
+          <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 Jan 2006" }}</time>
+          {{ with .Params.category }}<em>{{ . }}</em>{{ end }}
+        </span>
+        <span class="bp-item__b">
+          <span class="bp-item__t">{{ .Title }}</span>
+          <span class="bp-item__s">{{ with .Params.summary }}{{ . }}{{ else }}{{ .Summary }}{{ end }}</span>
+        </span>
+        <span class="bp-item__go">Read &#8594;</span>
+      </a>
+      {{ end }}
+    </div>
+
+    <div class="bp-end rv">
+      <p class="kicker">Next</p>
+      <h2 class="bp-end__h">Install it and check the numbers yourself.</h2>
+      <p>Every figure in these posts comes out of a benchmark suite or a release that you can run on your own hardware.</p>
+      <div class="acts">
+        <a class="btn" href="{{ .Site.Params.docsURL }}">Read the documentation &#8594;</a>
+        <a class="btn btn--o" href="{{ .Site.Params.github }}">LocalAI on GitHub &#8599;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+{{ end }}

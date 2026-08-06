@@ -1,11 +1,11 @@
 import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Manage Page - Backend Logs Link', () => {
-  test('row action menu exposes Backend logs entry with terminal icon', async ({ page }) => {
+  test('the pane action menu exposes Backend logs with a terminal icon', async ({ page }) => {
     await page.goto('/app/manage')
-    await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
-
-    // Row actions live behind the kebab (ActionMenu) — open the first row's menu.
+    // Actions moved out of the row and into the pane, so reaching them is now a
+    // selection followed by the pane's kebab.
+    await page.locator('[data-testid="host-rail-item"]').first().click()
     const trigger = page.locator('button.action-menu__trigger').first()
     await expect(trigger).toBeVisible()
     await trigger.click()
@@ -17,8 +17,7 @@ test.describe('Manage Page - Backend Logs Link', () => {
 
   test('Backend logs menu item navigates to backend-logs page', async ({ page }) => {
     await page.goto('/app/manage')
-    await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
-
+    await page.locator('[data-testid="host-rail-item"]').first().click()
     const trigger = page.locator('button.action-menu__trigger').first()
     await expect(trigger).toBeVisible()
     await trigger.click()

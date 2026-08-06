@@ -15,7 +15,9 @@ service Backend {
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
+  rpc Generate3D(Generate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
@@ -34,6 +36,7 @@ service Backend {
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
+  rpc Detokenize(DetokenizeRequest) returns (DetokenizeResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
   // SoundDetection runs an audio-tagging / sound-event-classification model
@@ -181,6 +184,13 @@ message ScoreRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 5;
+  // Byte length of the prompt prefix that stays identical across
+  // repeated scoring calls (e.g. a classifier's option-list system
+  // prompt — everything before the per-turn probe text). Backends that
+  // snapshot state (hybrid/recurrent models cannot rewind otherwise)
+  // use it to place a reuse point exactly at the boundary, so the next
+  // call re-processes only the tokens after it. 0 means unknown.
+  int32 stable_prefix_len = 6;
 }
 
 // CandidateScore is one row in the ScoreResponse, matching by index
@@ -493,6 +503,11 @@ message ModelOptions {
   // Proxy carries the cloud-proxy backend's per-model configuration.
   // Empty for non-proxy backends.
   ProxyOptions Proxy = 74;
+
+  // EnableScore reserves backend resources for the Score RPC. It is derived
+  // from the model's explicit `known_usecases: [score]` declaration so models
+  // that never score retain their ordinary serving footprint.
+  bool EnableScore = 75;
 }
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and
@@ -508,6 +523,12 @@ message ProxyOptions {
   string api_key_file = 5;
   string upstream_model = 6;
   int32 request_timeout_seconds = 7;
+  // cache_prompt enables automatic Anthropic prompt-cache breakpoints
+  // (cache_control: ephemeral) on the stable prefix — system, tools, and
+  // the last message block — when translating to the Anthropic provider.
+  // Cuts input cost on repeated/agentic calls (cache read = 0.1x). Only
+  // meaningful for mode=translate + provider=anthropic; ignored otherwise.
+  bool cache_prompt = 8;
 }
 
 message Result {
@@ -617,6 +638,12 @@ message GenerateImageRequest {
   string ModelIdentity = 13;
 }
 
+message UpscaleImageRequest {
+  string src = 1;   // input image path
+  string dst = 2;   // output image path
+  int32  scale = 3; // upscale factor (e.g. 2 or 4)
+}
+
 message GenerateVideoRequest {
   string prompt = 1;
   string negative_prompt = 2;  // Negative prompt for video generation
@@ -638,6 +665,20 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+}
+
+message Generate3DRequest {
+  string src = 1;          // Path to the staged conditioning image (3D generation is image-conditioned)
+  string dst = 2;          // Output path for the generated binary glTF (.glb) asset
+  int32 seed = 3;          // <=0 lets the backend pick a random seed
+  int32 step = 4;          // Flow sampling steps; <=0 uses the backend default
+  float cfg_scale = 5;     // Classifier-free guidance scale; <=0 uses the backend default
+  int32 texture_steps = 6; // Texture flow sampling steps; <=0 uses the backend default
+  string quality = 7;      // Mesh pipeline: ""|"auto"|"coarse"|"512"|"1024"
+  string background = 8;   // Conditioning-image background handling: ""|"auto"|"keep"|"black"|"white"
+  // Backend-specific per-request generation parameters. Values are strings
+  // and are validated/coerced by the selected backend.
+  map<string, string> params = 9;
 }
 
 message TTSRequest {
@@ -761,6 +802,14 @@ message SoundGenerationRequest {
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+message DetokenizeRequest {
+  repeated int32 tokens = 1;
+}
+
+message DetokenizeResponse {
+  string content = 1;
 }
 
 message MemoryUsageData {
@@ -1089,11 +1138,28 @@ message AudioTransformRequest {
   string ModelIdentity = 5;
 }
 
+// One named output of a transform that produces several from a single run.
+// Source separation is the case that needs it: htdemucs yields drums, bass,
+// other and vocals from one pass over the input.
+message AudioTransformStem {
+  string name = 1;                   // the model's own stem id, e.g. "vocals"
+  string dst = 2;                    // path of the file written for that stem
+}
+
 message AudioTransformResult {
   string dst = 1;
   int32  sample_rate = 2;
   int32  samples = 3;
   bool   reference_provided = 4;
+  // Every named output the run produced, in the model's own order, including
+  // the one copied into dst. Empty for a transform with a single output.
+  //
+  // It exists because dst carries one file while separation produces several,
+  // and running the model once per stem would cost four full separations of
+  // the same audio. The backend runs once, writes each stem beside dst, and
+  // names them here; without this field the other stems are on disk but no
+  // caller can find them, which is the same as not having produced them.
+  repeated AudioTransformStem stems = 5;
 }
 
 // Bidirectional streaming audio transform. The first message MUST carry a

@@ -39,6 +39,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/images/generations", FeatureImages},
 	{"POST", "/v1/images/inpainting", FeatureImages},
 	{"POST", "/images/inpainting", FeatureImages},
+	{"POST", "/v1/images/upscale", FeatureImages},
+	{"POST", "/images/upscale", FeatureImages},
 
 	// Audio transcription
 	{"POST", "/v1/audio/transcriptions", FeatureAudioTranscription},
@@ -91,6 +93,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Video
 	{"POST", "/video", FeatureVideo},
 
+	// 3D generation
+	{"POST", "/3d/generations", Feature3D},
+	{"POST", "/3d/remesh", Feature3D},
+
 	// Sound generation
 	{"POST", "/v1/sound-generation", FeatureSound},
 
@@ -107,9 +113,14 @@ var RouteFeatureRegistry = []RouteFeature{
 
 	// Tokenize
 	{"POST", "/v1/tokenize", FeatureTokenize},
+	{"POST", "/v1/detokenize", FeatureTokenize},
 
 	// Rerank
 	{"POST", "/v1/rerank", FeatureRerank},
+
+	// Moderation
+	{"POST", "/v1/moderations", FeatureModeration},
+	{"POST", "/moderations", FeatureModeration},
 
 	// Stores
 	{"POST", "/stores/set", FeatureStores},
@@ -182,9 +193,11 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVAD, "Voice Activity Detection", true},
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
+		{Feature3D, "3D Generation", true},
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
 		{FeatureRealtime, "Realtime", true},
+		{FeatureModeration, "Moderation", true},
 		{FeatureRerank, "Rerank", true},
 		{FeatureTokenize, "Tokenize", true},
 		{FeatureMCP, "MCP", true},

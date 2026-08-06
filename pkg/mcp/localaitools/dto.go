@@ -115,6 +115,41 @@ type SetNodeVRAMBudgetRequest struct {
 	Budget string `json:"budget,omitempty" jsonschema:"VRAM allocation cap as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty string clears the override."`
 }
 
+// ModelSchedulingConfig is the MCP wire shape for one per-model distributed
+// scheduling rule. Keep this DTO explicit instead of aliasing the node-registry
+// model so the MCP contract only exposes operator-facing scheduling fields.
+type ModelSchedulingConfig struct {
+	ModelName           string  `json:"model_name"`
+	NodeSelector        string  `json:"node_selector,omitempty"`
+	MinReplicas         int     `json:"min_replicas"`
+	MaxReplicas         int     `json:"max_replicas"`
+	SpreadAll           bool    `json:"spread_all,omitempty"`
+	RoutePolicy         string  `json:"route_policy,omitempty"`
+	BalanceAbsThreshold int     `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold float64 `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      float64 `json:"min_prefix_match,omitempty"`
+}
+
+// SetSchedulingRequest is the input for set_scheduling. It mirrors
+// /api/nodes/scheduling so standalone MCP and REST callers preserve the same
+// PATCH-style semantics for the optional prefix-cache routing fields.
+type SetSchedulingRequest struct {
+	ModelName           string            `json:"model_name"                         jsonschema:"Installed model name whose distributed scheduling rule should be created or updated."`
+	NodeSelector        map[string]string `json:"node_selector,omitempty"            jsonschema:"Optional node-label selector. Empty means any healthy backend node."`
+	MinReplicas         int               `json:"min_replicas"                       jsonschema:"Minimum desired replicas. Mutually exclusive with spread_all."`
+	MaxReplicas         int               `json:"max_replicas"                       jsonschema:"Maximum desired replicas. Must be >= min_replicas when non-zero. Mutually exclusive with spread_all."`
+	SpreadAll           bool              `json:"spread_all,omitempty"               jsonschema:"When true, keep one replica on every matching node. Mutually exclusive with min_replicas/max_replicas."`
+	RoutePolicy         *string           `json:"route_policy,omitempty"             jsonschema:"Optional prefix-cache route policy override. Omit to preserve the existing value on updates."`
+	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"    jsonschema:"Optional absolute imbalance threshold override. Omit to preserve the existing value on updates."`
+	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"    jsonschema:"Optional relative imbalance threshold override. Omit to preserve the existing value on updates."`
+	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"         jsonschema:"Optional minimum prefix match threshold override. Omit to preserve the existing value on updates."`
+}
+
+// DeleteSchedulingRequest identifies the model scheduling rule to remove.
+type DeleteSchedulingRequest struct {
+	ModelName string `json:"model_name" jsonschema:"Installed model name whose scheduling config should be removed."`
+}
+
 // ImportModelURIRequest is the input for import_model_uri. It mirrors the
 // REST surface (`/models/import-uri`) closely so both clients can produce
 // identical responses; the BackendPreference is a flat field rather than the

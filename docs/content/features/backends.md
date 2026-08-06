@@ -25,6 +25,11 @@ The LocalAI web interface provides an intuitive way to manage your backends:
 5. Install or delete backends with a single click
 6. Monitor installation progress in real-time
 
+Installs run in the background. The strip at the top of the app follows the
+current one, and **Operate → Activity** lists everything in flight, what needs
+attention, and what has finished, and is where a running install is cancelled
+or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
+
 Each backend card displays:
 - Backend name and description
 - Type of models it supports
@@ -65,6 +70,44 @@ alias: "llm"
 tags:
   - "llm"
   - "text-generation"
+```
+
+### Verifying OCI Backends
+
+Backend galleries can require keyless Sigstore signatures for every OCI image
+they provide. Add a `verification` policy to the gallery configuration, then
+enable strict integrity mode:
+
+```bash
+export LOCALAI_BACKEND_GALLERIES='[{"name":"localai","url":"github:mudler/LocalAI/backend/index.yaml@master","verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"}}]'
+export LOCALAI_REQUIRE_BACKEND_INTEGRITY=1
+local-ai run
+```
+
+The policy pins the Fulcio issuer and the GitHub Actions workflow identity that
+signed the image. The identity expression covers development images produced
+from `master` and release images produced from tags. Use a narrower expression
+if your deployment only accepts one release channel.
+
+Without strict mode, an OCI gallery without a verification policy installs
+with a warning. With strict mode, LocalAI refuses galleries without a policy,
+images without a compatible Sigstore bundle, and signatures that do not match
+the configured identity. Existing images published before bundle signing was
+enabled must be rebuilt or re-signed before strict deployments can install
+them.
+
+An optional `not_before` RFC3339 value revokes signatures logged before that
+time. Advance it after a signing-workflow compromise, then rebuild or re-sign
+the trusted images:
+
+```json
+{
+  "verification": {
+    "issuer": "https://token.actions.githubusercontent.com",
+    "identity_regex": "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$",
+    "not_before": "2026-08-05T00:00:00Z"
+  }
+}
 ```
 
 ## Pre-installing Backends
@@ -125,13 +168,15 @@ For getting started, see the available backends in LocalAI here: https://github.
 LocalAI supports various types of backends:
 
 - **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX)
-- **Speech-to-Text Backends**: For transcription and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, faster-whisper, NeMo)
-- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS)
-- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step)
+- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, faster-whisper, NeMo, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
 - **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/video-generation" %}}))
+- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
-- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE)
-- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store)
+- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store)
 
 See the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}) for the full catalog.

@@ -1,0 +1,13 @@
+# Counters shown on the landing page.
+#
+# The four GitHub fields are rewritten by .github/ci/refresh-site-counters.sh,
+# which runs weekly from .github/workflows/refresh-site-counters.yml. Editing
+# them by hand works but will be overwritten on the next run.
+stars: 48067
+forks: 4320
+contributors: 225
+releases: 133
+
+# The GitHub API cannot answer for this one, so it is maintained by hand and
+# the refresh script carries it through untouched.
+discord: 3187

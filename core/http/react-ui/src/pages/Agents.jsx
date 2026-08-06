@@ -186,15 +186,17 @@ export default function Agents() {
         title={t('title')}
         supporting={t('subtitle')}
         actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+          <div className="header-actions">
             {agentHubURL && (
               <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
                 <i className="fas fa-store" /> {t('actions.agentHub')}
               </a>
             )}
-            <label className="btn btn-secondary">
+            {/* A label styled as a button, wrapping the file input it triggers,
+                so the control looks and behaves like its neighbours. */}
+            <label className="btn btn-secondary agents-import-input">
               <i className="fas fa-file-import" /> {t('actions.import')}
-              <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
+              <input type="file" accept=".json" onChange={handleImport} />
             </label>
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
               <i className="fas fa-plus" /> {t('actions.createAgent')}
@@ -204,8 +206,8 @@ export default function Agents() {
       />
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+        <div className="loading-center">
+          <i className="fas fa-spinner fa-spin icon-xl text-primary" />
         </div>
       ) : agents.length === 0 && !userGroups ? (
         <div className="empty-state">
@@ -240,7 +242,7 @@ export default function Agents() {
         </div>
       ) : (
         <>
-          {userGroups && <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>{t('sections.yourAgents')}</h2>}
+          {userGroups && <h2 className="text-lg fw-semibold mb-md">{t('sections.yourAgents')}</h2>}
           <div className="agents-toolbar">
             <div className="agents-search">
               <i className="fas fa-search" />
@@ -252,7 +254,7 @@ export default function Agents() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+            <span className="text-note">
               {t('search.summary', { shown: filtered.length, total: agents.length, count: agents.length })}
             </span>
           </div>
@@ -271,7 +273,7 @@ export default function Agents() {
                     <th>{t('table.name')}</th>
                     <th>{t('table.status')}</th>
                     <th>{t('table.events')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('table.actions')}</th>
+                    <th className="text-right">{t('table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -353,13 +355,13 @@ export default function Agents() {
           currentUserId={user?.id}
           itemKey="agents"
           renderGroup={(items, userId) => (
-            <div className="table-container">
-              <table className="table">
+            <div className={`table-container table text-right agents-name agents-action-group btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'} fas ${isActive ? 'fa-pause' : 'fa-play'} btn btn-secondary btn-sm fas fa-edit btn btn-secondary btn-sm fas fa-comment btn btn-secondary btn-sm fas fa-download btn btn-danger btn-sm fas fa-trash`}>
+              <table>
                 <thead>
                   <tr>
                     <th>{t('table.name')}</th>
                     <th>{t('table.status')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('table.actions')}</th>
+                    <th>{t('table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -368,47 +370,42 @@ export default function Agents() {
                     return (
                       <tr key={a.name}>
                         <td>
-                          <a className="agents-name" onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}>
+                          <a onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}>
                             {a.name}
                           </a>
                         </td>
                         <td>{statusBadge(isActive ? 'active' : 'paused')}</td>
                         <td>
-                          <div className="agents-action-group">
+                          <div>
                             <button
-                              className={`btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'}`}
                               onClick={() => handlePauseResume(a, userId)}
                               title={isActive ? t('actions.pause') : t('actions.resume')}
                             >
-                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} />
+                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} aria-hidden="true" />
                             </button>
                             <button
-                              className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/edit?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.edit')}
                             >
-                              <i className="fas fa-edit" />
+                              <i className="fas fa-pen" aria-hidden="true" />
                             </button>
                             <button
-                              className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.chat')}
                             >
-                              <i className="fas fa-comment" />
+                              <i className="fas fa-comments" aria-hidden="true" />
                             </button>
                             <button
-                              className="btn btn-secondary btn-sm"
                               onClick={() => handleExport(a.name, userId)}
                               title={t('actions.export')}
                             >
-                              <i className="fas fa-download" />
+                              <i className="fas fa-file-export" aria-hidden="true" />
                             </button>
                             <button
-                              className="btn btn-danger btn-sm"
                               onClick={() => handleDelete(a.name, userId)}
                               title={t('actions.delete')}
                             >
-                              <i className="fas fa-trash" />
+                              <i className="fas fa-trash" aria-hidden="true" />
                             </button>
                           </div>
                         </td>

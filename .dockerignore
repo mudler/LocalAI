@@ -40,6 +40,16 @@ backend/cpp/privacy-filter/build
 backend/cpp/privacy-filter/grpc-server
 backend/cpp/privacy-filter/package
 
+# audio-cpp: same in-place pattern. The Makefile clones audio.cpp at the pinned
+# AUDIO_CPP_VERSION and the `audio.cpp:` target is the directory itself, so a
+# stale host checkout COPY'd in makes the build compile against whatever commit
+# the host had. build/ is worse than stale: its CMakeCache.txt records the host
+# source, prefix and compiler paths, and cmake refuses to reconfigure from it.
+backend/cpp/audio-cpp/audio.cpp
+backend/cpp/audio-cpp/build
+backend/cpp/audio-cpp/grpc-server
+backend/cpp/audio-cpp/package
+
 # Rust backend build output (sources are tracked; target/ is generated)
 backend/rust/*/target
 

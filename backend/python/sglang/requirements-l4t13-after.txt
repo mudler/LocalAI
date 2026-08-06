@@ -13,3 +13,12 @@
 # FunctionCallParser, ReasoningParser); the [all] extras are optional
 # accelerators not required at import time.
 sglang>=0.5.11
+
+# Same failure mode the cublas profiles carry an nvidia-modelopt bound for,
+# reached through a different package. sglang -> flashinfer-python ->
+# cuda-tile, unbounded, and the global --prerelease=allow resolves it to
+# 1.6.0rc3, whose build backend imports wheel_stub without declaring it in
+# build-system.requires. With --no-build-isolation nothing installs it and
+# the build dies with "No module named 'wheel_stub'". 1.5.0 is the newest
+# stable release. Raise the bound once 1.6.0 final ships.
+cuda-tile<1.6

@@ -483,6 +483,49 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	return out, nil
 }
 
+func (c *Client) ListScheduling(ctx context.Context) ([]localaitools.ModelSchedulingConfig, error) {
+	var out []localaitools.ModelSchedulingConfig
+	if err := c.do(ctx, http.MethodGet, routeScheduling, nil, &out); err != nil {
+		if errors.Is(err, ErrHTTPNotFound) {
+			return []localaitools.ModelSchedulingConfig{}, nil
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *Client) GetScheduling(ctx context.Context, modelName string) (*localaitools.ModelSchedulingConfig, error) {
+	if modelName == "" {
+		return nil, errors.New("model_name is required")
+	}
+	var out localaitools.ModelSchedulingConfig
+	if err := c.do(ctx, http.MethodGet, routeModelScheduling(modelName), nil, &out); err != nil {
+		if errors.Is(err, ErrHTTPNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
+	if req.ModelName == "" {
+		return nil, errors.New("model_name is required")
+	}
+	var out localaitools.ModelSchedulingConfig
+	if err := c.do(ctx, http.MethodPost, routeScheduling, req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
+	if modelName == "" {
+		return errors.New("model_name is required")
+	}
+	return c.do(ctx, http.MethodDelete, routeModelScheduling(modelName), nil, nil)
+}
+
 func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error {
 	// PUT with an empty value clears the override server-side (Task 9), so we
 	// use PUT uniformly rather than switching to DELETE for the clear case.

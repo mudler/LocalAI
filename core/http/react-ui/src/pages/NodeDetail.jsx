@@ -48,7 +48,7 @@ export default function NodeDetail() {
     setConfirmShrinkState({ ...ctx, resolve })
   }), [])
 
-  if (loading) return <div className="page page--wide" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+  if (loading) return <div className="page page--wide loading-center"><LoadingSpinner size="lg" /></div>
   if (!node) return <div className="page page--wide"><PageHeader title="Node not found" /></div>
 
   const drain = async () => { try { await nodesApi.drain(id); addToast('Node set to draining', 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
@@ -64,6 +64,7 @@ export default function NodeDetail() {
   const delLabel = async (k) => { try { await nodesApi.deleteLabel(id, k); refresh() } catch (e) { addToast(e.message, 'error') } }
 
   const usedVRAM = node.total_vram && node.available_vram != null ? node.total_vram - node.available_vram : 0
+  const usedRAM = node.total_ram && node.available_ram != null ? node.total_ram - node.available_ram : 0
   // {modelName: replicaCount} of loaded models so the shrink confirm can warn
   // if the new cap is below the actual count of any single model on this node.
   const loadedModelCounts = (() => {
@@ -75,7 +76,7 @@ export default function NodeDetail() {
   return (
     <div className="page page--wide">
       <PageHeader
-        eyebrow={<a onClick={() => navigate('/app/nodes')} style={{ cursor: 'pointer', color: 'var(--color-primary)' }}><i className="fas fa-arrow-left" style={{ marginRight: 6 }} aria-hidden="true" />Cluster</a>}
+        eyebrow={<a onClick={() => navigate('/app/nodes')} className="link-plain"><i className="fas fa-arrow-left icon-before" aria-hidden="true" />Cluster</a>}
         title={<><StatusPill status={node.status} /> {node.name}</>}
         supporting={node.address}
         actions={
@@ -88,12 +89,18 @@ export default function NodeDetail() {
         }
       />
 
-      {/* Inline metrics row: VRAM / in-flight - no boxes, just labelled values. */}
+      {/* Inline resource and activity metrics - no boxes, just labelled values. */}
       <div className="node-detail__metrics">
         {node.total_vram > 0 && (
           <div>
             <div className="drawer-eyebrow">VRAM</div>
             <span className="cell-mono">{formatVRAM(usedVRAM) || '0'} / {formatVRAM(node.total_vram)}</span>
+          </div>
+        )}
+        {node.total_ram > 0 && (
+          <div>
+            <div className="drawer-eyebrow">RAM</div>
+            <span className="cell-mono">{formatVRAM(usedRAM) || '0'} / {formatVRAM(node.total_ram)}</span>
           </div>
         )}
         {node.total_disk > 0 && (
@@ -111,7 +118,7 @@ export default function NodeDetail() {
           <span className="cell-mono">{node.in_flight_count || 0}</span>
         </div>
         {node.node_type !== 'agent' && (
-          <div style={{ minWidth: 0 }}>
+          <div className="flex-1-min">
             <div className="drawer-eyebrow">Capacity</div>
             <CapacityEditor
               node={node}
@@ -125,22 +132,22 @@ export default function NodeDetail() {
       </div>
 
       {/* Running models */}
-      <div style={{ marginTop: 'var(--spacing-lg)' }}>
+      <div className="mt-lg">
         <div className="drawer-eyebrow">Running models</div>
         {models.length === 0 ? (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-md) 0' }}>
-            <i className="fas fa-cube" style={{ marginRight: 6, opacity: 0.6 }} aria-hidden="true" />
+          <p className="text-note m-0 mb-md">
+            <i className="fas fa-cube icon-before op-60" aria-hidden="true" />
             No models loaded yet - they'll appear here when scheduled to this node.
           </p>
         ) : (
-          <table className="table" style={{ margin: 0 }}>
+          <table className="table table--flush">
             <thead>
               <tr>
                 <th>Model</th>
                 <th>State</th>
                 <th>In-Flight</th>
-                <th style={{ width: 40 }}>Logs</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="col-w-40">Logs</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -158,35 +165,28 @@ export default function NodeDetail() {
                   const processKey = `${m.model_name}#${m.replica_index ?? 0}`
                   return (
                     <tr key={m.id || `${m.model_name}#${m.replica_index ?? 0}`}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                      <td className="cell-mono">
                         {m.model_name}
                         {showReplica && (
                           <span
                             className="cell-mono"
                             aria-label={`replica ${m.replica_index ?? 0}`}
                             title={`Replica ${m.replica_index ?? 0} on this node`}
-                            style={{
-                              marginLeft: 8, padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-                              background: 'var(--color-bg-tertiary)',
-                              border: '1px solid var(--color-border-subtle)',
-                              fontSize: '0.6875rem', fontWeight: 500,
-                              color: 'var(--color-text-secondary)',
-                            }}
+                            className="inline-tag"
                           >
                             rep {m.replica_index ?? 0}
                           </span>
                         )}
                       </td>
                       <td>
-                        <span style={{
-                          display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.75rem', fontWeight: 500,
-                          background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}`,
-                        }}>
+                        <span
+                          className="state-pill"
+                          style={{ background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}` }}
+                        >
                           {m.state}
                         </span>
                       </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                      <td className="cell-mono">
                         {m.in_flight ?? 0}
                       </td>
                       <td>
@@ -197,13 +197,13 @@ export default function NodeDetail() {
                             // Send the replica-scoped process key (modelName#replicaIndex).
                             navigate(`/app/node-backend-logs/${id}/${encodeURIComponent(processKey)}`)
                           }}
-                          style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}
+                          className="text-xs text-primary"
                           title={showReplica ? `View backend logs for replica ${m.replica_index ?? 0}` : 'View backend logs'}
                         >
                           <i className="fas fa-terminal" />
                         </a>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td className="text-right">
                         <button
                           className="btn btn-danger btn-sm"
                           title={m.in_flight > 0 ? 'Unload model (has in-flight requests)' : 'Unload model'}
@@ -222,12 +222,9 @@ export default function NodeDetail() {
       </div>
 
       {/* Installed backends */}
-      <div style={{ marginTop: 'var(--spacing-lg)' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 'var(--spacing-sm)',
-        }}>
-          <div className="drawer-eyebrow" style={{ margin: 0 }}>Installed backends</div>
+      <div className="mt-lg">
+        <div className="hstack hstack--between mb-sm">
+          <div className="drawer-eyebrow m-0">Installed backends</div>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -238,42 +235,36 @@ export default function NodeDetail() {
           </button>
         </div>
         {backends.length === 0 ? (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: 0 }}>
-            None installed. <a href="#" style={{ color: 'var(--color-primary)' }} onClick={(e) => { e.preventDefault(); navigate(`/app/backends?target=${encodeURIComponent(id)}`) }}>Install one from the gallery</a> to schedule models here.
+          <p className="text-note m-0">
+            None installed. <a href="#" className="text-primary" onClick={(e) => { e.preventDefault(); navigate(`/app/backends?target=${encodeURIComponent(id)}`) }}>Install one from the gallery</a> to schedule models here.
           </p>
         ) : (
-          <table className="table" style={{ margin: 0 }}>
+          <table className="table table--flush">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Type</th>
                 <th>Installed At</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {backends.map(b => (
                 <tr key={b.name}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                  <td className="cell-mono">
                     {b.name}
                   </td>
                   <td>
-                    <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.75rem', fontWeight: 500,
-                      background: b.is_system ? 'var(--color-bg-tertiary)' : 'var(--color-primary-light)',
-                      color: b.is_system ? 'var(--color-text-muted)' : 'var(--color-primary)',
-                      border: `1px solid ${b.is_system ? 'var(--color-border-subtle)' : 'var(--color-primary-border)'}`,
-                    }}>
+                    <span className={`state-pill ${b.is_system ? 'state-pill--system' : 'state-pill--gallery'}`}>
                       {b.is_system ? 'system' : 'gallery'}
                     </span>
                   </td>
-                  <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                  <td className="text-note">
                     {b.installed_at ? timeAgo(b.installed_at) : '-'}
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className="text-right">
                     {!b.is_system && (
-                      <div style={{ display: 'inline-flex', gap: 'var(--spacing-xs)' }}>
+                      <div className="inline-flex gap-xs">
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => upgradeBackend(b.name)}
@@ -300,7 +291,7 @@ export default function NodeDetail() {
 
       {/* Labels - node.replica-slots is filtered out so the Capacity editor
           stays the single source of truth for that label. */}
-      <div style={{ marginTop: 'var(--spacing-lg)' }}>
+      <div className="mt-lg">
         <div className="drawer-eyebrow">Labels</div>
         <KeyValueChips
           pairs={Object.fromEntries(Object.entries(node.labels || {}).filter(([k]) => k !== 'node.replica-slots'))}

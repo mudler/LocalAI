@@ -160,7 +160,7 @@ export default function AgentTaskDetails() {
 
   const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
 
-  if (loading) return <div className="page page--narrow" style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}><LoadingSpinner size="lg" /></div>
+  if (loading) return <div className="page page--narrow loading-center"><LoadingSpinner size="lg" /></div>
 
   // View mode
   if (!isNew && !isEdit) {
@@ -170,27 +170,27 @@ export default function AgentTaskDetails() {
           title={task.name || 'Task Details'}
           supporting={task.description || undefined}
           actions={
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
-                <i className="fas fa-edit" /> Edit
+            <div className="hstack btn btn-primary btn-sm fas fa-edit btn-secondary fa-arrow-left">
+              <button onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
+                <i className="fas fa-pen" aria-hidden="true" /> Edit
               </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
-                <i className="fas fa-arrow-left" /> Back
+              <button onClick={() => navigate('/app/agent-jobs')}>
+                <i className="fas fa-arrow-left" aria-hidden="true" /> Back
               </button>
             </div>
           }
         />
 
         {/* Task Info */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-            <i className="fas fa-info-circle" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label">
+            <i className="fas fa-info-circle text-primary icon-before" />
             Task Information
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
             <div>
               <span className="form-label">Model</span>
-              <p style={{ fontSize: '0.875rem' }}>{task.model || '-'}</p>
+              <p className="text-base">{task.model || '-'}</p>
             </div>
             <div>
               <span className="form-label">Status</span>
@@ -199,12 +199,12 @@ export default function AgentTaskDetails() {
             {task.cron && (
               <div>
                 <span className="form-label">Cron Schedule</span>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>{task.cron}</p>
+                <p className="text-mono text-sm">{task.cron}</p>
               </div>
             )}
           </div>
           {task.prompt && (
-            <div style={{ marginTop: 'var(--spacing-md)' }}>
+            <div className="mt-md">
               <span className="form-label">Prompt Template</span>
               <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: 300 }}>
                 {task.prompt}
@@ -212,7 +212,7 @@ export default function AgentTaskDetails() {
             </div>
           )}
           {task.context && (
-            <div style={{ marginTop: 'var(--spacing-md)' }}>
+            <div className="mt-md">
               <span className="form-label">Context</span>
               <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', whiteSpace: 'pre-wrap' }}>
                 {task.context}
@@ -222,12 +222,12 @@ export default function AgentTaskDetails() {
         </div>
 
         {/* API Usage Examples */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+        <div className="card mb-md">
+          <h3 className="group-label">
             <i className="fas fa-code" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-xs)' }} />
             API Usage
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+          <div className="stack">
             <div>
               <span className="form-label">Execute by name</span>
               <pre style={{ background: 'var(--color-bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', overflow: 'auto' }}>
@@ -253,16 +253,16 @@ export default function AgentTaskDetails() {
 
         {/* Webhooks */}
         {task.webhooks && task.webhooks.length > 0 && (
-          <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-            <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-              <i className="fas fa-globe" style={{ color: 'var(--color-success)', marginRight: 'var(--spacing-xs)' }} />
+          <div className="card mb-md">
+            <h3 className="group-label">
+              <i className="fas fa-globe text-success icon-before" />
               Webhooks ({task.webhooks.length})
             </h3>
             {task.webhooks.map((wh, i) => (
               <div key={i} style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', fontSize: '0.8125rem' }}>
                   <span className="badge badge-info">{wh.method || 'POST'}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)' }}>{wh.url}</span>
+                  <span className="text-mono">{wh.url}</span>
                 </div>
               </div>
             ))}
@@ -272,8 +272,8 @@ export default function AgentTaskDetails() {
         {/* Job History */}
         {jobHistory.length > 0 && (
           <div className="card">
-            <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-              <i className="fas fa-clock-rotate-left" style={{ color: 'var(--color-warning)', marginRight: 'var(--spacing-xs)' }} />
+            <h3 className="group-label">
+              <i className="fas fa-clock-rotate-left text-warning icon-before" />
               Recent Jobs ({jobHistory.length})
             </h3>
             <div className="table-container">
@@ -284,11 +284,11 @@ export default function AgentTaskDetails() {
                 <tbody>
                   {jobHistory.map(job => (
                     <tr key={job.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                      <td className="text-mono text-sm">
                         {job.id?.slice(0, 12)}...
                       </td>
                       <td>{statusBadge(job.status)}</td>
-                      <td style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>{formatDate(job.created_at)}</td>
+                      <td className="text-sub">{formatDate(job.created_at)}</td>
                       <td>
                         <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)}>
                           <i className="fas fa-eye" /> View
@@ -311,16 +311,16 @@ export default function AgentTaskDetails() {
       <PageHeader
         title={isNew ? 'Create Task' : 'Edit Task'}
         actions={
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
-            <i className="fas fa-arrow-left" /> Back
+          <button className="btn btn-secondary btn-sm fas fa-arrow-left" onClick={() => navigate('/app/agent-jobs')}>
+            <i className="fas fa-arrow-left" aria-hidden="true" /> Back
           </button>
         }
       />
 
       <form onSubmit={handleSave}>
         {/* Basic Info */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
+        <div className="card mb-md">
+          <h3 className="group-label">Basic Information</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
             <div className="form-group">
               <label className="form-label">Task Name *</label>
@@ -338,25 +338,24 @@ export default function AgentTaskDetails() {
           <div className="form-group">
             <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
               <input type="checkbox" checked={task.enabled} onChange={(e) => updateField('enabled', e.target.checked)} />
-              <span className="form-label" style={{ marginBottom: 0 }}>Enabled</span>
+              <span className="form-label mb-0">Enabled</span>
             </label>
           </div>
         </div>
 
         {/* Prompt Template */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Prompt Template</h3>
+        <div className="card mb-md">
+          <h3 className="group-label">Prompt Template</h3>
           <div className="form-group">
             <label className="form-label">Prompt</label>
             <textarea
-              className="textarea"
+              className="textarea text-mono text-sm"
               value={task.prompt}
               onChange={(e) => updateField('prompt', e.target.value)}
               rows={8}
               placeholder={`Write a summary about {{.topic}} in {{.format}} format.`}
-              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
             />
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+            <p className="text-meta mt-xs">
               Use {'{{.parameter_name}}'} for dynamic parameters. Parameters are provided when executing the task.
             </p>
           </div>
@@ -367,22 +366,21 @@ export default function AgentTaskDetails() {
         </div>
 
         {/* Cron Schedule */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-            <i className="fas fa-clock" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <h3 className="group-label">
+            <i className="fas fa-clock icon-before" />
             Cron Schedule (optional)
           </h3>
           <div className="form-group">
             <label className="form-label">Cron Expression</label>
             <input
-              className="input"
+              className="input text-mono"
               value={task.cron}
               onChange={(e) => { updateField('cron', e.target.value); validateCron(e.target.value) }}
               placeholder="0 */6 * * *"
-              style={{ fontFamily: 'var(--font-mono)' }}
             />
             {cronError && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: 4 }}>{cronError}</p>}
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+            <p className="text-meta mt-xs">
               Format: minute hour day month weekday (e.g., "0 */6 * * *" = every 6 hours)
             </p>
           </div>
@@ -390,14 +388,13 @@ export default function AgentTaskDetails() {
             <div className="form-group">
               <label className="form-label">Cron Parameters (key=value, one per line)</label>
               <textarea
-                className="textarea"
+                className="textarea text-mono text-sm"
                 value={task.cron_parameters}
                 onChange={(e) => updateField('cron_parameters', e.target.value)}
                 rows={3}
                 placeholder={`topic=daily news\nformat=bullet points`}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
               />
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)' }}>
+              <p className="text-meta mt-xs">
                 Default parameters used when the cron triggers the task.
               </p>
             </div>
@@ -405,10 +402,10 @@ export default function AgentTaskDetails() {
         </div>
 
         {/* Multimedia Sources */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-            <h3 style={{ fontWeight: 600 }}>
-              <i className="fas fa-photo-film" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <div className="hstack hstack--between mb-md">
+            <h3 className="fw-semibold">
+              <i className="fas fa-photo-film icon-before" />
               Multimedia Sources (optional)
             </h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={addMultimediaSource}>
@@ -416,7 +413,7 @@ export default function AgentTaskDetails() {
             </button>
           </div>
           {task.multimedia_sources.length === 0 ? (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>No multimedia sources configured.</p>
+            <p className="text-note">No multimedia sources configured.</p>
           ) : (
             task.multimedia_sources.map((ms, i) => (
               <div key={i} style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
@@ -430,7 +427,7 @@ export default function AgentTaskDetails() {
                       <option value="file">File</option>
                     </select>
                   </div>
-                  <div className="form-group" style={{ flex: 1 }}>
+                  <div className="form-group flex-1">
                     <label className="form-label">URL</label>
                     <input className="input" value={ms.url} onChange={(e) => updateMultimediaSource(i, 'url', e.target.value)} placeholder="https://example.com/media.jpg" />
                   </div>
@@ -438,9 +435,9 @@ export default function AgentTaskDetails() {
                     <i className="fas fa-trash" />
                   </button>
                 </div>
-                <div className="form-group" style={{ marginTop: 'var(--spacing-xs)' }}>
+                <div className="form-group mt-xs">
                   <label className="form-label">Headers (JSON)</label>
-                  <input className="input" value={ms.headers} onChange={(e) => updateMultimediaSource(i, 'headers', e.target.value)} placeholder='{"Authorization": "Bearer ..."}' style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }} />
+                  <input className="input text-mono text-sm" value={ms.headers} onChange={(e) => updateMultimediaSource(i, 'headers', e.target.value)} placeholder='{"Authorization": "Bearer ..."}' />
                 </div>
               </div>
             ))
@@ -448,10 +445,10 @@ export default function AgentTaskDetails() {
         </div>
 
         {/* Webhooks */}
-        <div className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-            <h3 style={{ fontWeight: 600 }}>
-              <i className="fas fa-globe" style={{ marginRight: 'var(--spacing-xs)' }} />
+        <div className="card mb-md">
+          <div className="hstack hstack--between mb-md">
+            <h3 className="fw-semibold">
+              <i className="fas fa-globe icon-before" />
               Webhooks (optional)
             </h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={addWebhook}>
@@ -459,7 +456,7 @@ export default function AgentTaskDetails() {
             </button>
           </div>
           {task.webhooks.length === 0 ? (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>No webhooks configured.</p>
+            <p className="text-note">No webhooks configured.</p>
           ) : (
             task.webhooks.map((wh, i) => (
               <div key={i} style={{ background: 'var(--color-bg-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
@@ -472,7 +469,7 @@ export default function AgentTaskDetails() {
                       <option value="PATCH">PATCH</option>
                     </select>
                   </div>
-                  <div className="form-group" style={{ flex: 1 }}>
+                  <div className="form-group flex-1">
                     <label className="form-label">URL</label>
                     <input className="input" value={wh.url} onChange={(e) => updateWebhook(i, 'url', e.target.value)} placeholder="https://hooks.slack.com/..." />
                   </div>
@@ -480,21 +477,20 @@ export default function AgentTaskDetails() {
                     <i className="fas fa-trash" />
                   </button>
                 </div>
-                <div className="form-group" style={{ marginTop: 'var(--spacing-xs)' }}>
+                <div className="form-group mt-xs">
                   <label className="form-label">Headers (JSON)</label>
-                  <input className="input" value={wh.headers} onChange={(e) => updateWebhook(i, 'headers', e.target.value)} placeholder='{"Content-Type": "application/json"}' style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }} />
+                  <input className="input text-mono text-sm" value={wh.headers} onChange={(e) => updateWebhook(i, 'headers', e.target.value)} placeholder='{"Content-Type": "application/json"}' />
                 </div>
-                <div className="form-group" style={{ marginTop: 'var(--spacing-xs)' }}>
+                <div className="form-group mt-xs">
                   <label className="form-label">Payload Template (Go template syntax)</label>
                   <textarea
-                    className="textarea"
+                    className="textarea text-mono text-sm"
                     value={wh.payload_template}
                     onChange={(e) => updateWebhook(i, 'payload_template', e.target.value)}
                     rows={3}
                     placeholder={`{"text": "Job {{.Status}}: {{if .Error}}Error: {{.Error}}{{else}}{{.Result}}{{end}}"}`}
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                   />
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                  <p className="text-meta mt-xs">
                     Available: {'{{.Job}}'} {'{{.Task}}'} {'{{.Result}}'} {'{{.Error}}'} {'{{.Status}}'}
                   </p>
                 </div>
@@ -503,7 +499,7 @@ export default function AgentTaskDetails() {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+        <div className="hstack">
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? <><i className="fas fa-spinner fa-spin" /> Saving...</> : <><i className="fas fa-save" /> {isNew ? 'Create Task' : 'Save Changes'}</>}
           </button>

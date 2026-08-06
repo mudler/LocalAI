@@ -22,6 +22,77 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/3d/generations": {
+            "post": {
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Creates a 3D asset (binary glTF / GLB) from a conditioning image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Model3DRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/3d/remesh": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "model/gltf-binary"
+                ],
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Applies watertight print remeshing to an existing 3D asset.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "3D model name",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Source GLB",
+                        "name": "mesh",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Detail size as percent of the source bounding-box diagonal (0.35–2.5; default 0.5)",
+                        "name": "detail",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Remeshed GLB",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [
@@ -1479,6 +1550,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/traces/summary": {
+            "get": {
+                "description": "Returns request, failure and latency totals over a recent window, plus a bucketed series for sparklines. Exists so callers wanting three numbers do not have to fetch the whole trace list and count it themselves.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Summarize recent API traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Window in hours (default 24, max 168)",
+                        "name": "hours",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Counted trace totals",
+                        "schema": {
+                            "$ref": "#/definitions/middleware.TraceSummary"
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces/{id}": {
             "get": {
                 "description": "Returns a single captured API exchange, including the request and response bodies omitted from the list response",
@@ -1727,7 +1826,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "desired output sample rate",
+                        "description": "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000",
                         "name": "sample_rate",
                         "in": "formData"
                     }
@@ -1784,7 +1883,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "desired output sample rate",
+                        "description": "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000",
                         "name": "sample_rate",
                         "in": "formData"
                     }
@@ -2707,6 +2806,33 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/detokenize": {
+            "post": {
+                "tags": [
+                    "tokenize"
+                ],
+                "summary": "Detokenize the input.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetokenizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetokenizeResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/edits": {
             "post": {
                 "tags": [
@@ -3024,6 +3150,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/images/upscale": {
+            "post": {
+                "description": "Upscale an image using a specified model (e.g. stable-diffusion-x4-upscaler). Accepts multipart/form-data.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Image upscaling",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upscaler model identifier (e.g. stable-diffusion-x4-upscaler)",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Input image file",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Upscale factor: 2 or 4 (default 2)",
+                        "name": "scale",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/mcp/chat/completions": {
             "post": {
                 "tags": [
@@ -3105,6 +3294,33 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelCapabilitiesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/moderations": {
+            "post": {
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Classify text for potentially harmful content.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModerationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModerationResponse"
                         }
                     }
                 }
@@ -4196,6 +4412,43 @@ const docTemplate = `{
                 }
             }
         },
+        "middleware.TraceBucket": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "middleware.TraceSummary": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/middleware.TraceBucket"
+                    }
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "p95_ms": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "window_hours": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.BackendLogLine": {
             "type": "object",
             "properties": {
@@ -4798,6 +5051,30 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.Detection"
                     }
+                }
+            }
+        },
+        "schema.DetokenizeRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "tokens": {
+                    "description": "token IDs to convert back to text",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "schema.DetokenizeResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "detokenized text",
+                    "type": "string"
                 }
             }
         },
@@ -5662,6 +5939,54 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Model3DRequest": {
+            "description": "3D asset generation request body. Generation is image-conditioned",
+            "type": "object",
+            "properties": {
+                "background": {
+                    "description": "background handling: auto|keep|black|white",
+                    "type": "string"
+                },
+                "cfg_scale": {
+                    "description": "classifier-free guidance scale (backend default 7.5)",
+                    "type": "number"
+                },
+                "image": {
+                    "description": "conditioning image: URL, base64, or data URI (required)",
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "params": {
+                    "description": "backend-specific generation parameters",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "quality": {
+                    "description": "mesh pipeline: auto|coarse|512|1024",
+                    "type": "string"
+                },
+                "response_format": {
+                    "description": "output format (url or b64_json)",
+                    "type": "string"
+                },
+                "seed": {
+                    "description": "random seed; \u003c=0 picks a random seed",
+                    "type": "integer"
+                },
+                "step": {
+                    "description": "flow sampling steps (backend default 12)",
+                    "type": "integer"
+                },
+                "texture_steps": {
+                    "description": "texture flow sampling steps (backend default 12)",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ModelCapabilities": {
             "type": "object",
             "properties": {
@@ -5743,6 +6068,67 @@ const docTemplate = `{
                 },
                 "object": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ModerationRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModerationResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModerationResult"
+                    }
+                }
+            }
+        },
+        "schema.ModerationResult": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "category_applied_input_types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "category_scores": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "flagged": {
+                    "type": "boolean"
                 }
             }
         },
@@ -6835,6 +7221,10 @@ const docTemplate = `{
         "schema.SysInfoModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the engine serving this model. The loader knows only the ID,\nso it is resolved from the model's config; empty when the model was\nloaded without one (a loose file, or a config since removed).",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 }
@@ -6896,6 +7286,10 @@ const docTemplate = `{
                 "sample_rate": {
                     "description": "(optional) desired output sample rate",
                     "type": "integer"
+                },
+                "speed": {
+                    "description": "Speed is the OpenAI ` + "`" + `speed` + "`" + ` field (0.25-4.0). It is a pointer so an\nexplicit ` + "`" + `\"speed\": 0` + "`" + ` (invalid, rejected with 400) is distinguishable\nfrom an omitted field (left at the backend default). It is normalised\ninto Params[\"speed\"] so it reaches the backend over the same channel as\nthe other per-request generation parameters.",
+                    "type": "number"
                 },
                 "stream": {
                     "description": "(optional) enable streaming TTS",

@@ -1,5 +1,5 @@
 {
-  "title": "Modelle installieren",
+  "title": "Entdecken",
   "subtitle": "Durchsuchen und installieren Sie KI-Modelle aus der Galerie",
   "recommended": {
     "title": "Empfohlen für Ihre Hardware",
@@ -10,7 +10,9 @@
     "installStarted": "{{model}} wird installiert…",
     "installFailed": "Installation fehlgeschlagen: {{message}}",
     "dismiss": "Empfehlungen ausblenden",
-    "summary": "{{n}} Modelle vorgeschlagen"
+    "summary": "{{n}} Modelle vorgeschlagen",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Verfügbar",
@@ -40,7 +42,9 @@
     "searchBackends": "Backends suchen...",
     "contextSize": "Kontext:",
     "useCaseLabel": "Nach Anwendungsfall filtern",
-    "unavailableForBackend": "Für das gewählte Backend nicht verfügbar"
+    "unavailableForBackend": "Für das gewählte Backend nicht verfügbar",
+    "someSelected": "{{count}} ausgewählt",
+    "refineLabel": "Verfeinern"
   },
   "search": {
     "placeholder": "Modelle suchen...",
@@ -81,7 +85,10 @@
     "fileCount_other": "{{count}} Dateien",
     "filename": "Dateiname",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "Alle Modelle",
+    "vramAt": "VRAM bei {{context}}",
+    "headroom": "Spielraum"
   },
   "empty": {
     "title": "Keine Modelle gefunden",
@@ -121,5 +128,44 @@
       "dflash": "Schneller: DFlash",
       "mtp": "Schneller: MTP"
     }
+  },
+  "rail": {
+    "sortLabel": "Modelle sortieren",
+    "downloadingPct": "Download {{percent}}%",
+    "tooLarge": "{{size}} · zu groß",
+    "fitsSize": "{{size}} · passt",
+    "previousPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
+    "showingCount": "{{shown}} von {{total}}",
+    "sizing": "wird berechnet…"
+  },
+  "groups": {
+    "text": "Text und Reasoning",
+    "vision": "Bildverstehen",
+    "audio": "Sprache und Audio",
+    "visual": "Bild und Video",
+    "other": "Alles Übrige"
+  },
+  "chart": {
+    "title": "VRAM nach Kontextlänge",
+    "available": "{{vram}} verfügbar",
+    "barTitle": "Kontext {{context}} benötigt {{vram}}",
+    "fitsEverywhere": "Läuft auf diesem Host bei jeder Kontextlänge.",
+    "fitsNowhere": "Passt auf diesem Host bei keiner Kontextlänge.",
+    "fitsUpTo": "Passt bis zu einem Kontext von {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Dein Host",
+    "heroWithGpu": "{{vram}} GPU-Speicher, {{count}} Modelle in der Galerie.",
+    "heroNoGpu": "{{count}} Modelle in der Galerie.",
+    "heroHint": "Wähle links ein Modell, um Größe, Varianten und Lauffähigkeit zu sehen.",
+    "browsing": "Durchsuchen",
+    "pickHint": "Wähle ein Modell, um die Details zu sehen.",
+    "heroWithRam": "{{ram}} Systemspeicher, {{count}} Modelle in der Galerie.",
+    "byUseCase": "Oder mit einem Anwendungsfall starten",
+    "pickText": "Chat, Reasoning, Embeddings",
+    "pickVision": "Bilder und Dokumente lesen",
+    "pickAudio": "Sprache rein, Sprache raus",
+    "pickVisual": "Bilder und Video erzeugen"
   }
 }

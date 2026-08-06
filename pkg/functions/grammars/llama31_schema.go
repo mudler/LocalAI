@@ -12,6 +12,14 @@ import (
 type LLama31SchemaConverter struct {
 	fnName string
 	rules  Rules
+	// refsInProgress tracks the $ref targets currently on the recursion stack so
+	// a self- or mutually-referential schema cannot recurse forever, mirroring
+	// the guard in JSONSchemaConverter. This is a production entry point named
+	// in the same crash report (#11020).
+	refsInProgress map[string]bool
+	// depth is the current recursion depth of visit, bounded by maxSchemaDepth
+	// to guard against stack exhaustion on deeply nested acyclic schemas.
+	depth int
 }
 
 func NewLLama31SchemaConverter(fnName string) *LLama31SchemaConverter {
@@ -22,8 +30,9 @@ func NewLLama31SchemaConverter(fnName string) *LLama31SchemaConverter {
 	}
 
 	return &LLama31SchemaConverter{
-		rules:  rules,
-		fnName: fnName,
+		rules:          rules,
+		fnName:         fnName,
+		refsInProgress: make(map[string]bool),
 	}
 }
 
@@ -74,6 +83,11 @@ func (sc *LLama31SchemaConverter) addRule(name, rule string) string {
 }
 
 func (sc *LLama31SchemaConverter) visit(schema map[string]any, name string, rootSchema map[string]any) (string, error) {
+	sc.depth++
+	defer func() { sc.depth-- }()
+	if sc.depth > maxSchemaDepth {
+		return "", fmt.Errorf("schema nesting exceeds maximum depth %d while building grammar", maxSchemaDepth)
+	}
 	st, existType := schema["type"]
 	var schemaType string
 	if existType {
@@ -111,11 +125,20 @@ func (sc *LLama31SchemaConverter) visit(schema map[string]any, name string, root
 		rule := strings.Join(alternatives, " | ")
 		return sc.addRule(ruleName, rule), nil
 	} else if ref, exists := schema["$ref"].(string); exists {
+		// Guard against cyclic $ref chains that would otherwise recurse until
+		// the goroutine stack is exhausted, crashing the whole process rather
+		// than failing the single request (#11020).
+		if sc.refsInProgress[ref] {
+			return "", fmt.Errorf("cyclic $ref detected while building grammar: %s", ref)
+		}
 		referencedSchema, err := sc.resolveReference(ref, rootSchema)
 		if err != nil {
 			return "", err
 		}
-		return sc.visit(referencedSchema, name, rootSchema)
+		sc.refsInProgress[ref] = true
+		result, err := sc.visit(referencedSchema, name, rootSchema)
+		delete(sc.refsInProgress, ref)
+		return result, err
 	} else if constVal, exists := schema["const"]; exists {
 
 		literal, err := sc.formatLiteral((constVal))

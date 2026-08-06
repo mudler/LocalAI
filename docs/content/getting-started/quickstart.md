@@ -52,7 +52,7 @@ For NVIDIA GPUs, add `--gpus all`. For AMD/Intel/Vulkan, add the appropriate `--
 Open **http://localhost:8080** in your browser. The web interface lets you:
 
 - **Chat** with any installed model
-- **Install models** from the built-in gallery (Models page)
+- **Install models** from the built-in gallery (Discover page)
 - **Generate images**, audio, and more
 - **Create and manage AI agents** with MCP tool support
 - **Monitor system resources** and loaded models
@@ -62,6 +62,10 @@ To get your first chat working:
 
 1. Open the **Models** page and search for `qwen3-4b`. Click **Install** on the `qwen3-4b` entry and wait for the download to finish. (`qwen3-4b` is a small, CPU-friendly Qwen3 model that also supports tool calling, so you can reuse it later in the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough.)
 2. Open the **Chat** page, select `qwen3-4b` from the model dropdown, type a message, and send it. You should get a reply within a few seconds.
+
+To correct an earlier prompt or response without running the model again, hover
+over the saved message and select **Edit**. **Save** updates that conversation's
+local history; **Cancel** discards the draft.
 
 ### Downloading models from the CLI
 

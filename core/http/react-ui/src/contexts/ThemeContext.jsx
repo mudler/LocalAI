@@ -2,10 +2,13 @@ import { createContext, useContext, useState, useEffect } from 'react'
 
 const ThemeContext = createContext()
 
+// Dark is the identity, not a preference: localai.io ships one theme and it is
+// this one, so an install should look like LocalAI before anyone has chosen
+// anything. The OS setting no longer picks light on first load — the toggle
+// does, and once used it is remembered and wins forever after.
 function getInitialTheme() {
   const stored = localStorage.getItem('localai-theme')
   if (stored) return stored
-  if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light'
   return 'dark'
 }
 

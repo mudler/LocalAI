@@ -1,7 +1,7 @@
 
 # Pinned to the HEAD of feature/turboquant-kv-cache on https://github.com/TheTom/llama-cpp-turboquant.
 # Auto-bumped nightly by .github/workflows/bump_deps.yaml.
-TURBOQUANT_VERSION?=c26cbdffcf6fc9b7430cd6b117757e9a3f70b7ea
+TURBOQUANT_VERSION?=8a891f4b566efdbd3cea92fafee3227a0a267683
 LLAMA_REPO?=https://github.com/TheTom/llama-cpp-turboquant
 
 CMAKE_ARGS?=
@@ -47,6 +47,7 @@ define turboquant-build
 	# original under backend/cpp/llama-cpp/, so the stock llama-cpp build
 	# stays compiling against vanilla upstream.
 	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build/grpc-server.cpp
+	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build/grpc-server.cpp
 	$(info $(GREEN)I turboquant build info:$(1)$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-$(1)-build llama.cpp
@@ -84,6 +85,7 @@ turboquant-cpu-all:
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build purge
 	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server.cpp
+	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server.cpp
 	$(info $(GREEN)I turboquant build info:cpu-all-variants$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build llama.cpp

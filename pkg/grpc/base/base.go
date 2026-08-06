@@ -59,6 +59,14 @@ func (llm *Base) GenerateVideo(*pb.GenerateVideoRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Generate3D(*pb.Generate3DRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) UpscaleImage(*pb.UpscaleImageRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) AudioTranscription(context.Context, *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	return pb.TranscriptResult{}, fmt.Errorf("unimplemented")
 }
@@ -117,6 +125,10 @@ func (llm *Base) SoundDetection(context.Context, *pb.SoundDetectionRequest) (*pb
 
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
+}
+
+func (llm *Base) Detokenize(req *pb.DetokenizeRequest) (pb.DetokenizeResponse, error) {
+	return pb.DetokenizeResponse{}, fmt.Errorf("unimplemented")
 }
 
 func (llm *Base) ModelMetadata(opts *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {

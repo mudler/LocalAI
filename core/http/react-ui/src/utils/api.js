@@ -173,7 +173,10 @@ export const resourcesApi = {
 export const operationsApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.operations),
   cancel: (jobID) => postJSON(API_CONFIG.endpoints.cancelOperation(jobID), {}),
+  pause: (jobID) => postJSON(API_CONFIG.endpoints.pauseOperation(jobID), {}),
   dismiss: (jobID) => postJSON(API_CONFIG.endpoints.dismissOperation(jobID), {}),
+  history: () => fetchJSON(API_CONFIG.endpoints.operationsHistory),
+  clearHistory: () => fetchJSON(API_CONFIG.endpoints.operationsHistory, { method: 'DELETE' }),
 }
 
 // Settings API
@@ -229,6 +232,8 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
+  // Counted totals, so a dashboard does not fetch the whole list to size it.
+  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
@@ -270,6 +275,22 @@ export const imageApi = {
 // Video generation
 export const videoApi = {
   generate: (body) => postJSON(API_CONFIG.endpoints.video, body),
+}
+
+export const threeDApi = {
+  generate: (body) => postJSON(API_CONFIG.endpoints.threeDGenerations, body),
+  remesh: async (mesh, model, detail) => {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('detail', String(detail))
+    form.append('mesh', mesh, 'source.glb')
+    const response = await fetch(apiUrl(API_CONFIG.endpoints.threeDRemesh), {
+      method: 'POST',
+      body: form,
+    })
+    await handleResponse(response)
+    return response.blob()
+  },
 }
 
 // parseAudioBlobResponse — shared response handling for audio-blob endpoints.

@@ -266,7 +266,7 @@ function UserMessageContent({ content, files }) {
   const text = typeof content === 'string' ? content : content?.[0]?.text || ''
   return (
     <>
-      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{text}</div>
+      <div className="wrap-anywhere">{text}</div>
       {files && files.length > 0 && (
         <div className="chat-message-files">
           {files.map((f, i) => (
@@ -285,6 +285,24 @@ function UserMessageContent({ content, files }) {
       ))}
     </>
   )
+}
+
+function editableMessageText(message) {
+  if (typeof message.content === 'string') return message.content
+  if (!Array.isArray(message.content)) return null
+  const textBlock = message.content.find(block => block?.type === 'text')
+  return typeof textBlock?.text === 'string' ? textBlock.text : null
+}
+
+function withEditedMessageText(message, text) {
+  if (typeof message.content === 'string') return { ...message, content: text }
+  const textIndex = message.content.findIndex(block => block?.type === 'text')
+  return {
+    ...message,
+    content: message.content.map((block, index) =>
+      index === textIndex ? { ...block, text } : block
+    ),
+  }
 }
 
 export default function Chat() {
@@ -329,6 +347,8 @@ export default function Chat() {
   const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [completionGlowIdx, setCompletionGlowIdx] = useState(-1)
+  const [editingMessageIndex, setEditingMessageIndex] = useState(null)
+  const [messageEditDraft, setMessageEditDraft] = useState('')
   const prevStreamingRef = useRef(false)
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
@@ -544,6 +564,33 @@ export default function Chat() {
     const next = current.includes(serverId) ? current.filter(s => s !== serverId) : [...current, serverId]
     updateChatSettings(activeChat.id, { clientMCPServers: next })
   }, [activeChat, updateChatSettings])
+
+  const startMessageEdit = useCallback((index, message) => {
+    const text = editableMessageText(message)
+    if (text === null) return
+    setEditingMessageIndex(index)
+    setMessageEditDraft(text)
+  }, [])
+
+  const cancelMessageEdit = useCallback(() => {
+    setEditingMessageIndex(null)
+    setMessageEditDraft('')
+  }, [])
+
+  const saveMessageEdit = useCallback(() => {
+    if (!activeChat || isStreaming || editingMessageIndex === null || !messageEditDraft.trim()) return
+    const message = activeChat.history[editingMessageIndex]
+    if (!message || editableMessageText(message) === null) return
+    const history = activeChat.history.map((item, index) =>
+      index === editingMessageIndex ? withEditedMessageText(item, messageEditDraft) : item
+    )
+    updateChatSettings(activeChat.id, { history })
+    cancelMessageEdit()
+  }, [activeChat, isStreaming, editingMessageIndex, messageEditDraft, updateChatSettings, cancelMessageEdit])
+
+  useEffect(() => {
+    cancelMessageEdit()
+  }, [activeChat?.id, isStreaming, cancelMessageEdit])
 
   // Load initial message from home page
   const homeDataProcessed = useRef(false)
@@ -945,7 +992,7 @@ export default function Chat() {
           <div id="chat-model-info-panel" className="chat-model-info-panel">
             <div className="chat-model-info-header">
               <span>{t('header.modelInfoTitle', { model: activeChat.model })}</span>
-              <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+              <div className="hstack hstack--xs">
                 {isAdmin && activeChat.model && (
                   <button
                     type="button"
@@ -1167,43 +1214,89 @@ export default function Chat() {
                     <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
                   </div>
                   <div className="chat-message-bubble">
+                    {/* Both roles are labelled now that neither is a bubble.
+                        A transcript needs to say who is speaking; a bubble said
+                        it by shape and side. */}
                     {msg.role === 'assistant' && activeChat.model && (
                       <span className="chat-message-model">{activeChat.model}</span>
                     )}
-                    <div className="chat-message-content">
-                      {msg.role === 'user' ? (
-                        <UserMessageContent content={msg.content} files={msg.files} />
-                      ) : (
-                        <div dangerouslySetInnerHTML={{
-                          __html: canvasMode
-                            ? renderMarkdownWithArtifacts(typeof msg.content === 'string' ? msg.content : '', i)
-                            : renderMarkdown(typeof msg.content === 'string' ? msg.content : '')
-                        }} />
-                      )}
-                    </div>
+                    {msg.role === 'user' && (
+                      <span className="chat-message-model">{t('message.you')}</span>
+                    )}
+                    {editingMessageIndex === i ? (
+                      <div className="chat-message-edit">
+                        <textarea
+                          autoFocus
+                          className="chat-message-edit-input"
+                          value={messageEditDraft}
+                          onChange={(event) => setMessageEditDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') cancelMessageEdit()
+                          }}
+                          aria-label={t('actions.editMessage')}
+                        />
+                        <div className="chat-message-edit-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={saveMessageEdit}
+                            disabled={!messageEditDraft.trim()}
+                          >
+                            {t('actions.save')}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={cancelMessageEdit}
+                          >
+                            {t('actions.cancel')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="chat-message-content">
+                        {msg.role === 'user' ? (
+                          <UserMessageContent content={msg.content} files={msg.files} />
+                        ) : (
+                          <div dangerouslySetInnerHTML={{
+                            __html: canvasMode
+                              ? renderMarkdownWithArtifacts(typeof msg.content === 'string' ? msg.content : '', i)
+                              : renderMarkdown(typeof msg.content === 'string' ? msg.content : '')
+                          }} />
+                        )}
+                      </div>
+                    )}
                     {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
                       <a href="/app/traces?tab=backend" className="chat-error-trace-link">
                         <i className="fas fa-wave-square" /> {t('errors.viewTraces')}
                       </a>
                     )}
-                    <div className="chat-message-actions">
-                      <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
-                        <i className="fas fa-copy" />
-                      </button>
-                      {msg.role === 'assistant' && !isStreaming && (
-                        <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
-                          <i className="fas fa-rotate" />
+                    {editingMessageIndex !== i && (
+                      <div className="chat-message-actions">
+                        <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
+                          <i className="fas fa-copy" />
                         </button>
-                      )}
-                      {msg.role === 'assistant' && !isStreaming && (
-                        <button
-                          onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
-                          title={t('actions.branch')}
-                        >
-                          <i className="fas fa-code-branch" />
-                        </button>
-                      )}
-                    </div>
+                        {(msg.role === 'user' || msg.role === 'assistant') &&
+                          editableMessageText(msg) !== null && !isStreaming && (
+                            <button onClick={() => startMessageEdit(i, msg)} title={t('actions.edit')}>
+                              <i className="fas fa-pen" />
+                            </button>
+                          )}
+                        {msg.role === 'assistant' && !isStreaming && (
+                          <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
+                            <i className="fas fa-rotate" />
+                          </button>
+                        )}
+                        {msg.role === 'assistant' && !isStreaming && (
+                          <button
+                            onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
+                            title={t('actions.branch')}
+                          >
+                            <i className="fas fa-code-branch" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -1417,7 +1510,7 @@ export default function Chat() {
               type="file"
               multiple
               accept="image/*,audio/*,video/*,application/pdf,.txt,.md,.csv,.json"
-              style={{ display: 'none' }}
+              className="hidden"
               onChange={handleFileChange}
             />
             <textarea

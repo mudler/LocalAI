@@ -531,7 +531,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `warmup` | boolean | Enable warmup run after model loading. Default: `true`. | `warmup:false` |
 | `no_op_offload` | boolean | Disable offloading host tensor operations to device. Default: `false`. | `no_op_offload:true` |
 | `device` or `devices` | string | Select the llama.cpp backend devices to use. Repeat the option or pass a comma-separated list; unlisted devices are excluded. Use the names reported by `llama-server --list-devices` / `--list-devices`. | `devices:CUDA1,CUDA2,CUDA3` |
-| `kv_unified` or `unified_kv` | boolean | Use a single unified KV buffer shared across all sequences. Default: `true` (LocalAI override; upstream defaults to `false` but auto-enables it when slot count is auto). **Required for `cache_idle_slots` to work**: without it the server force-disables idle-slot saving at init, and the prompt cache is never written across requests. | `kv_unified:false` |
+| `kv_unified` or `unified_kv` | boolean | Use a single unified KV buffer shared across all sequences. Default: `true` (LocalAI override; upstream defaults to `false` but auto-enables it when slot count is auto). **Required for `cache_idle_slots` and scoring**: without it the server force-disables idle-slot saving at init, and score-enabled models are rejected at load time. | `kv_unified:false` |
 | `cache_idle_slots` or `idle_slots_cache` | boolean | On a new task, save the previous slot's KV state into the prompt cache (and clear the slot) so a later request with the same prefix can warm-load it. Default: `true`. Auto-disabled by the server if `kv_unified=false` or `cache_ram=0`. | `cache_idle_slots:false` |
 | `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot (used for partial-prefix recovery, e.g. SWA). Default: `32`. | `ctx_checkpoints:16` |
 | `checkpoint_min_step` or `checkpoint_min_spacing` (aliases: `checkpoint_every_nt`, `checkpoint_every_n_tokens`) | integer | Minimum spacing in tokens between context checkpoints. `0` disables the minimum-spacing gate. Default: `256`. (Renamed upstream from `checkpoint_every_nt`; semantics shifted from a fixed cadence to a minimum spacing.) | `checkpoint_min_step:1024` |
@@ -765,6 +765,35 @@ hardware where the default cutlass kernels aren't supported):
 engine_args:
   attention_backend: TRITON_ATTN
 ```
+
+#### CLI-style engine flags in `options`
+
+Engine arguments can also be written in `options:` with vLLM's own CLI
+spelling, which is handy when copying a command line out of vLLM's
+documentation:
+
+```yaml
+options:
+  - --quantization:gptq_marlin
+  - --enable-prefix-caching
+  - --kv-cache-dtype:fp8_e5m2
+  - --reasoning-parser:qwen3
+```
+
+Rules:
+
+- Only `--` prefixed entries are treated as engine flags; everything
+  else in `options:` (`tool_parser:`, `reasoning_parser:`, …) keeps its
+  existing meaning. Both `--flag:value` and `--flag=value` are accepted.
+- Dashes become underscores (`--enable-prefix-caching` →
+  `enable_prefix_caching`) and the value is coerced to the target
+  field's type. A bare `--flag` sets a boolean field to `true`.
+- Unknown or uncoercible flags are logged on the backend's stderr and
+  skipped rather than failing the load. `engine_args:` stays strict and
+  is applied last, so it wins on conflict.
+
+`engine_args:` remains the form to use for anything structured (nested
+configs, maps); `options:` is a convenience for flat flags.
 
 #### Multi-node data parallelism
 

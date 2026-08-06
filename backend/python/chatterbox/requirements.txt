@@ -2,5 +2,5 @@ grpcio==1.71.0
 protobuf
 certifi
 packaging
-setuptools
+setuptools<81
 poetry

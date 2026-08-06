@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "Salin",
+    "edit": "Edit",
+    "editMessage": "Edit pesan",
+    "save": "Simpan",
+    "cancel": "Batal",
     "regenerate": "Hasilkan ulang",
     "jumpToLatest": "Lompat ke terbaru"
   },
@@ -114,5 +118,8 @@
     "newChat": "Obrolan baru",
     "clearAll": "Hapus semua",
     "deleteAllTitle": "Hapus semua percakapan"
+  },
+  "message": {
+    "you": "You"
   }
 }

@@ -26,6 +26,7 @@ var Aliases = map[string]string{
 	"ik_llama":               IKLLamaCPP,
 	"ik-llama":               IKLLamaCPP,
 	"embedded-store":         LocalStoreBackend,
+	"valkey":                 ValkeyStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
@@ -43,9 +44,11 @@ var TypeAlias = map[string]string{
 const (
 	WhisperBackend             = "whisper"
 	StableDiffusionGGMLBackend = "stablediffusion-ggml"
+	Trellis2CppBackend         = "trellis2cpp"
 
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
+	ValkeyStoreBackend  = "valkey-store"
 )
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -438,13 +441,16 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	// Otherwise scan for backends in the asset directory
 	var err error
 
-	// get backends embedded in the binary
-	autoLoadBackends := []string{}
-
-	// append externalBackends supplied by the user via the CLI
+	// Collect the installed/external backends (the map is unordered).
+	available := []string{}
 	for b := range ml.GetAllExternalBackends(o) {
-		autoLoadBackends = append(autoLoadBackends, b)
+		available = append(available, b)
 	}
+
+	// Build a deterministic, file-type-filtered candidate list so an
+	// incompatible backend (e.g. an audio codec like opus) can never win the
+	// trial loop for a GGUF/LLM model. See SelectAutoLoadBackends / #9287.
+	autoLoadBackends := SelectAutoLoadBackends(available, o.model)
 
 	if len(autoLoadBackends) == 0 {
 		xlog.Error("No backends found")

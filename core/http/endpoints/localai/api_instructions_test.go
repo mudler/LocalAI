@@ -39,7 +39,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 
 			instructions, ok := resp["instructions"].([]any)
 			Expect(ok).To(BeTrue())
-			Expect(instructions).To(HaveLen(17))
+			Expect(instructions).To(HaveLen(19))
 
 			// Verify each instruction has required fields and correct URL format
 			for _, s := range instructions {
@@ -69,6 +69,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 
 			Expect(names).To(ContainElements(
 				"chat-inference",
+				"moderation",
 				"config-management",
 				"model-management",
 				"monitoring",
@@ -79,6 +80,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"middleware-admin",
 				"intelligent-routing",
 				"voice-library",
+				"3d",
 			))
 		})
 	})
@@ -121,6 +123,16 @@ var _ = Describe("API Instructions Endpoints", func() {
 			body, _ := io.ReadAll(rec.Body)
 			// chat-inference has an intro about streaming
 			Expect(string(body)).To(ContainSubstring("stream"))
+		})
+
+		It("should advertise the LocalAI 3D generation path", func() {
+			req := httptest.NewRequest(http.MethodGet, "/api/instructions/3d", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			body, _ := io.ReadAll(rec.Body)
+			Expect(string(body)).To(ContainSubstring("POST /3d/generations"))
+			Expect(string(body)).NotTo(ContainSubstring("/v1/3d/generations"))
 		})
 
 		It("should return JSON fragment when format=json", func() {
