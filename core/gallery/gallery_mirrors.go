@@ -153,7 +153,9 @@ func persistGalleryIndex(basePath, url string, body []byte) {
 			"url", url, "bytes", len(body))
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// 0o750: the cache is LocalAI's own bookkeeping, so nothing outside the
+	// server's user and group has any reason to traverse it.
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		xlog.Debug("could not create gallery cache directory", "path", path, "error", err)
 		return
 	}
@@ -166,18 +168,20 @@ func persistGalleryIndex(basePath, url string, body []byte) {
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(body); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
+		// The write already failed; a close or unlink error on the way out
+		// changes nothing about the outcome and has nowhere useful to go.
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		xlog.Debug("could not write gallery cache", "path", path, "error", err)
 		return
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		xlog.Debug("could not flush gallery cache", "path", path, "error", err)
 		return
 	}
 	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		xlog.Debug("could not install gallery cache", "path", path, "error", err)
 	}
 }
@@ -250,6 +254,10 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) (
 	// list what it already knows about.
 	cachePath := galleryCachePath(basePath, g.URL)
 	if cachePath != "" {
+		// #nosec G304 -- cachePath is galleryCachePath's own construction: a
+		// hex sha256 of the URL under the fixed <basePath>/../cache/gallery
+		// directory, with a non-absolute basePath already rejected. No part of
+		// it is caller-supplied text, so there is nothing to traverse with.
 		if body, readErr := os.ReadFile(cachePath); readErr == nil {
 			xlog.Warn("all gallery sources failed, serving the last known good copy",
 				"gallery", g.Name, "path", cachePath, "error", lastErr)
