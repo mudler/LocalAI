@@ -134,6 +134,7 @@ func NewHandler(opts Options) func(http.ResponseWriter, *http.Request, string) {
 		}
 		for attempt := 1; attempt <= attempts; attempt++ {
 			event.Attempts = attempt
+			event.Error = ""
 			resp, path, size, err := fetch(request.Context(), transport, request, host, opts.SpoolDir)
 			if err == nil && !retryStatus(resp.StatusCode) {
 				event.Status, event.BytesRead = resp.StatusCode, size
