@@ -1447,6 +1447,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 }
 
 
+#ifndef LOCALAI_LLAMA_CPP_NO_TTS_TASK
 // MTMD_HELPER_GEN_AUDIO_OUTTYPE_PCM hands back raw float32 samples, but the
 // WAV header core/backend/tts.go builds around the streamed chunks announces
 // 16-bit samples, so the wire has to carry s16 or the client decodes floats as
@@ -1464,6 +1465,7 @@ static std::string tts_pcm_f32_to_s16(const std::string & samples) {
     }
     return out;
 }
+#endif
 
 // GRPC Server start
 class BackendServiceImpl final : public backend::Backend::Service {
@@ -3030,6 +3032,7 @@ public:
         return grpc::Status::OK;
     }
 
+#ifndef LOCALAI_LLAMA_CPP_NO_TTS_TASK
     // Builds the shared TTS task from a request. Returns a non-OK status and
     // leaves `task` untouched when the request is malformed or the loaded model
     // cannot synthesise audio.
@@ -3232,6 +3235,25 @@ public:
 
         return grpc::Status::OK;
     }
+#else
+    grpc::Status TTS(ServerContext* context, const backend::TTSRequest* request, backend::Result* result) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        (void) request;
+        (void) result;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+            "TTS is unavailable in this llama.cpp fork backend");
+    }
+
+    grpc::Status TTSStream(ServerContext* context, const backend::TTSRequest* request, grpc::ServerWriter<backend::Reply>* writer) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        (void) request;
+        (void) writer;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+            "TTSStream is unavailable in this llama.cpp fork backend");
+    }
+#endif
 
     // Score returns the model's joint log-probability of each candidate
     // continuation given a shared prompt.
