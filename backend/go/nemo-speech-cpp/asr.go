@@ -149,6 +149,14 @@ func recognizeF32(recognizer uintptr, opts *cASRRecognitionOptions, pcm []float3
 	return result, nil
 }
 
+// msToNanos converts a runtime word offset to the wire unit. The runtime
+// reports milliseconds (src/asr/types.h); TranscriptSegment.start/end and
+// TranscriptWord.start/end are int64 nanoseconds, which core/backend reads
+// straight into a time.Duration.
+func msToNanos(ms int32) int64 {
+	return int64(ms) * int64(time.Millisecond)
+}
+
 // extractWords pulls the top alternative's words out of a result handle.
 func extractWords(result uintptr) []asrWord {
 	if ASRResultAlternativeCount(result) == 0 {
@@ -188,13 +196,10 @@ func wordsToSegments(words []asrWord) []*pb.TranscriptSegment {
 			texts = append(texts, w.Text)
 		}
 		seg := &pb.TranscriptSegment{
-			Id:   int32(len(segs)),
-			Text: strings.Join(texts, " "),
-			// TranscriptSegment.start/end are nanoseconds: core/backend reads
-			// them straight into a time.Duration. The runtime reports word
-			// offsets in milliseconds (src/asr/types.h).
-			Start: int64(run[0].Start) * int64(time.Millisecond),
-			End:   int64(run[len(run)-1].End) * int64(time.Millisecond),
+			Id:    int32(len(segs)),
+			Text:  strings.Join(texts, " "),
+			Start: msToNanos(run[0].Start),
+			End:   msToNanos(run[len(run)-1].End),
 		}
 		// The speaker tag is 1-based with 0 meaning untagged, so an undiarized
 		// run must stay unlabelled rather than be attributed to a speaker "0".
@@ -231,6 +236,14 @@ func (n *NemoSpeech) AudioTranscription(ctx context.Context, req *pb.TranscriptR
 	}); err != nil {
 		return pb.TranscriptResult{}, err
 	}
+	// transcribe returns a non-nil result whenever it returns a nil error, so
+	// this cannot fire today. It is a guard rather than a comment because the
+	// alternative to stating the invariant is a nil dereference in an RPC
+	// handler if a later edit ever adds a success path that forgets to set it.
+	if out == nil {
+		return pb.TranscriptResult{}, status.Error(codes.Internal,
+			"nemo-speech-cpp: transcription produced no result")
+	}
 
 	// Assembled field by field rather than dereferenced: the RPC signature
 	// returns the proto message by value, but the message embeds a mutex, so
@@ -255,6 +268,14 @@ func (n *NemoSpeech) transcribe(req *pb.TranscriptRequest) (*pb.TranscriptResult
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument,
 			"nemo-speech-cpp: read audio: %v", err)
+	}
+	// Rejected here, before anything crosses the ABI, and not only inside
+	// recognizeF32: a silent or truncated upload decodes to zero samples, and
+	// there is no point building options and pinning strings for a request
+	// that cannot produce a transcript. recognizeF32 keeps its own guard as a
+	// precondition on the function.
+	if len(pcm) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "nemo-speech-cpp: empty audio")
 	}
 
 	// A per-request language wins over the model-level default; both may be

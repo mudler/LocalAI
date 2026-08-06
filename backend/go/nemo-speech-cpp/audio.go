@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
+	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 	"github.com/mudler/LocalAI/pkg/utils"
 )
@@ -46,9 +48,25 @@ func decodeAudioMono16k(path string) ([]float32, int32, error) {
 	// 16000. AudioToWav always lands there today, but the runtime resamples
 	// anything from 8 to 96 kHz off this number, so a wrong one would not fail,
 	// it would silently pitch-shift the audio and quietly degrade the transcript.
-	var rate int32
-	if buf.Format != nil {
-		rate = int32(buf.Format.SampleRate)
+	rate, err := sampleRateOf(buf)
+	if err != nil {
+		return nil, 0, err
 	}
 	return buf.AsFloat32Buffer().Data, rate, nil
+}
+
+// sampleRateOf reads the decoded rate back off the buffer.
+//
+// It is an error rather than a zero fallback because 0 is not "unknown" to this
+// runtime: nemo_speech_asr_recognize_f32 and nemo_speech_asr_stream_push_f32
+// both read a 0 rate as "these samples are already at the model rate" and skip
+// resampling (include/nemo_speech/asr.h). Handing 0 over for a header the
+// decoder could not read would not fail, it would silently pitch-shift the
+// audio and quietly degrade the transcript, which is the same failure the
+// caller comment warns about for a wrong rate.
+func sampleRateOf(buf *audio.IntBuffer) (int32, error) {
+	if buf.Format == nil || buf.Format.SampleRate <= 0 {
+		return 0, errors.New("nemo-speech-cpp: decoded audio has no usable sample rate")
+	}
+	return int32(buf.Format.SampleRate), nil
 }

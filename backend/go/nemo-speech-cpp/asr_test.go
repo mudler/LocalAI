@@ -195,6 +195,51 @@ var _ = Describe("AudioTranscription", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
 	})
+
+	// The whole rejection path end to end, on the input that actually reaches
+	// it: a silent or truncated upload decodes to zero samples, and the guard
+	// has to fire between the decode and the ABI. Nothing is loaded here (no
+	// recognizer, and the specs that bind the library may not have run), so
+	// this also pins the ORDER: a guard placed after the options are built
+	// calls a nil-bound entry point and panics rather than failing.
+	It("refuses a decodable clip that carries no samples", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "silence.wav")
+		writeMono16kWAV(path, 0)
+
+		n := &NemoSpeech{fam: familyASR, recognizer: 0}
+		var err error
+		Expect(func() {
+			_, err = n.AudioTranscription(context.Background(), &pb.TranscriptRequest{Dst: path})
+		}).ToNot(Panic())
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		Expect(err.Error()).To(ContainSubstring("empty audio"))
+		Expect(n.engineMu.TryLock()).To(BeTrue())
+		n.engineMu.Unlock()
+	})
+})
+
+var _ = Describe("sampleRateOf", func() {
+	// 0 is not "unknown" to this runtime: nemo_speech_asr_recognize_f32 and
+	// nemo_speech_asr_stream_push_f32 both read a 0 rate as "these samples are
+	// already at the model rate" and skip resampling. Falling back to it for an
+	// undecodable header would silently pitch-shift the audio instead of
+	// failing, so an unknown rate has to be an error.
+	It("rejects a buffer whose format the decoder did not fill in", func() {
+		_, err := sampleRateOf(&audio.IntBuffer{})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("rejects a non-positive sample rate", func() {
+		_, err := sampleRateOf(&audio.IntBuffer{Format: &audio.Format{SampleRate: 0, NumChannels: 1}})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("returns the decoded rate", func() {
+		rate, err := sampleRateOf(&audio.IntBuffer{Format: &audio.Format{SampleRate: 22050, NumChannels: 1}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int32(22050)))
+	})
 })
 
 var _ = Describe("decodeAudioMono16k", func() {
