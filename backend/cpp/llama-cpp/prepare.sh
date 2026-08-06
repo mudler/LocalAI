@@ -28,6 +28,10 @@ cp -r message_content_test.cpp llama.cpp/tools/grpc-server/
 # Generic passthrough parser staging and its standalone regression test.
 cp -r passthrough_options.h llama.cpp/tools/grpc-server/
 cp -r passthrough_options_test.cpp llama.cpp/tools/grpc-server/
+# TTS request validation (included by grpc-server.cpp) and its standalone
+# regression test.
+cp -r tts_request_options.h llama.cpp/tools/grpc-server/
+cp -r tts_request_options_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r parent_watch.h llama.cpp/tools/grpc-server/
