@@ -211,6 +211,15 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 	}
 	defer response.Body.Close()
 
+	// An error page is not content. Without this check a 404 or a 502 from a
+	// CDN is handed to the callback as if it were a gallery index or a model
+	// config: it parses to nothing, gets cached, and no caller can tell the
+	// source was down. DownloadFile has always checked the status; this path
+	// never did.
+	if response.StatusCode >= 400 {
+		return fmt.Errorf("failed to read url %q, invalid status code %d", url, response.StatusCode)
+	}
+
 	// Read the response body
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
