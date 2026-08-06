@@ -52,10 +52,14 @@ type NemoSpeech struct {
 	// the per-family RPCs in Tasks 6 to 9 join it by routing through withEngine.
 	engineMu sync.Mutex
 
+	// synth and nmt are shortened rather than spelled out: synthesizer and
+	// translator are the names of the two RPC-side interfaces those handles are
+	// wrapped in (tts.go, nmt.go), and a field sharing a name with an interface in
+	// the same package makes every construction site read as a conversion.
 	recognizer uintptr
 	diarizer   uintptr
 	synth      uintptr
-	translator uintptr
+	nmt        uintptr
 }
 
 // cstr allocates a NUL-terminated C string and returns its pointer plus a
@@ -229,9 +233,9 @@ func (n *NemoSpeech) Free() error {
 		TTSDestroy(n.synth)
 		n.synth = 0
 	}
-	if n.translator != 0 {
-		NMTDestroy(n.translator)
-		n.translator = 0
+	if n.nmt != 0 {
+		NMTDestroy(n.nmt)
+		n.nmt = 0
 	}
 	n.fam = familyUnknown
 	return nil

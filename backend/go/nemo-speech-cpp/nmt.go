@@ -23,14 +23,18 @@ const nmtStatusInvalidArgument int32 = 1
 
 // pairDirective matches a leading "[src->tgt] " override.
 //
-// Each side is a run of two-letter segments rather than a bare two-letter code:
-// the model's own tags carry region subtags (src/nmt/langpairs.cc has en-zh-cn,
-// pt-br, es-us and zh-tw), so a stricter pattern could not name a good half of
-// the pairs the runtime supports.
+// Each side is an unbounded run of two-letter segments, not one or two of them.
+// Either side may also be omitted, which keeps the model-level default for it:
+// resolve_tag accepts a READY pair tag in one field with the other empty
+// (src/nmt/langpairs.cc:167-172), so "[->en-de]" names a pair for one request.
 //
-// Either side may be omitted, which keeps the model-level default for it.
-// resolve_tag accepts a ready pair tag in one field with the other empty, so
-// "[->en-de]" is a legitimate way to name a pair for one request.
+// The two rules together are what force the unbounded run. A regional code on
+// its own is only two segments (pt-br, zh-cn, es-us) and would parse under a
+// stricter pattern; it is the SINGLE-FIELD form of a regional pair that runs to
+// three (en-zh-cn, en-zh-tw, en-es-us, en-pt-br, pt-br-en, zh-tw-en). And the
+// failure is not a mis-split: a pattern too short to cover the tag does not
+// match the directive at all, so the whole bracket survives into the text and
+// is handed to the model as something to translate.
 //
 // The codes are not normalised or validated here. normalize_language_code
 // lowercases and folds BCP-47 down to a supported base, and is_supported has the
@@ -183,7 +187,7 @@ func (n *NemoSpeech) loadNMT(modelFile string) error {
 		"source_language", n.opts.sourceLanguage,
 		"target_language", n.opts.targetLanguage)
 
-	if st := NMTCreate(unsafe.Pointer(&cfg), &n.translator); st != 0 {
+	if st := NMTCreate(unsafe.Pointer(&cfg), &n.nmt); st != 0 {
 		return status.Errorf(codes.Internal, "nemo-speech-cpp: nmt create: %s", NMTLastError())
 	}
 	return nil
@@ -339,7 +343,7 @@ func (n *NemoSpeech) Predict(opts *pb.PredictOptions) (string, error) {
 	var out string
 	if err := n.withEngine(familyNMT, func() error {
 		source, target, text := n.resolveRequest(opts)
-		s, err := translateText(&cTranslator{handle: n.translator}, source, target, text)
+		s, err := translateText(&cTranslator{handle: n.nmt}, source, target, text)
 		out = s
 		return err
 	}); err != nil {
@@ -364,6 +368,6 @@ func (n *NemoSpeech) PredictStream(opts *pb.PredictOptions, results chan string)
 
 	return n.withEngine(familyNMT, func() error {
 		source, target, text := n.resolveRequest(opts)
-		return streamTranslation(&cTranslator{handle: n.translator}, source, target, text, results)
+		return streamTranslation(&cTranslator{handle: n.nmt}, source, target, text, results)
 	})
 }

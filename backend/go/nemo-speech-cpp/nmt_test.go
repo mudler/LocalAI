@@ -123,6 +123,29 @@ var _ = Describe("languagePair", func() {
 		Expect(tgt).To(Equal("de"))
 	})
 
+	// resolve_tag (src/nmt/langpairs.cc:167-172) accepts a READY pair tag in one
+	// field with the other empty, and the model's own tags run to three segments
+	// (en-zh-cn, en-zh-tw, en-es-us, en-pt-br). That single-field three-segment
+	// form is the case a two-segment pattern cannot express: it does not merely
+	// mis-split the tag, it fails to match the directive at all, so the whole
+	// bracket survives into the text and is handed to the model as something to
+	// translate.
+	//
+	// Two-segment codes like pt-br and zh-cn are NOT this case; they parse either
+	// way.
+	It("accepts a three-segment pair tag given in one side of the directive", func() {
+		n := &NemoSpeech{opts: loadOptions{targetLanguage: "de"}}
+		src, tgt, text := n.languagePair("[->en-zh-cn] hi")
+		Expect(src).To(BeEmpty())
+		Expect(tgt).To(Equal("en-zh-cn"))
+		Expect(text).To(Equal("hi"))
+
+		src, tgt, text = n.languagePair("[pt-br-en->] hola")
+		Expect(src).To(Equal("pt-br-en"))
+		Expect(tgt).To(Equal("de"))
+		Expect(text).To(Equal("hola"))
+	})
+
 	It("does not treat a bracketed sentence as a directive", func() {
 		n := &NemoSpeech{opts: loadOptions{targetLanguage: "de"}}
 		_, _, text := n.languagePair("[see figure 1] the cat sat")
