@@ -125,6 +125,22 @@ async function generateOnce(page) {
   await page.locator('button[type="submit"]').click()
 }
 
+async function pasteImage(page) {
+  await page.locator('.biometrics-mediainput').focus()
+  await page.evaluate((base64) => {
+    const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([bytes], 'clipboard.png', { type: 'image/png' }))
+    const target = document.querySelector('.biometrics-mediainput')
+    target.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: transfer,
+    }))
+  }, TINY_PNG.toString('base64'))
+  await expect(page.locator('.biometrics-mediainput__source-pill')).toContainText('Pasted image')
+}
+
 test.describe('3D generation', () => {
   test.beforeEach(async ({ page }) => {
     await mockCapabilities(page)
@@ -152,6 +168,60 @@ test.describe('3D generation', () => {
     expect(requestBody.quality).toBe('auto')
     expect(requestBody.background).toBe('auto')
     expect(requestBody.response_format).toBe('url')
+  })
+
+  test('caps auto-rotate at 30 FPS and renders still models on demand', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__glDrawTimes = []
+      const proto = window.WebGL2RenderingContext?.prototype
+      if (!proto) return
+      const drawElements = proto.drawElements
+      proto.drawElements = function (...args) {
+        window.__glDrawTimes.push(performance.now())
+        return drawElements.apply(this, args)
+      }
+    })
+    await mockGeneration(page)
+    await generateOnce(page)
+    await expect(page.getByTestId('glb-stats')).toBeVisible({ timeout: 15_000 })
+    await page.waitForTimeout(100)
+    await page.evaluate(() => { window.__glDrawTimes = [] })
+    await page.waitForTimeout(600)
+
+    const drawTimes = await page.evaluate(() => window.__glDrawTimes)
+    test.skip(drawTimes.length < 3, 'WebGL2 drawing is unavailable in this browser')
+    expect(drawTimes.length).toBeLessThanOrEqual(22)
+    const gaps = drawTimes.slice(1).map((time, index) => time - drawTimes[index]).sort((a, b) => a - b)
+    expect(gaps[Math.floor(gaps.length / 2)]).toBeGreaterThan(25)
+
+    await page.getByRole('button', { name: 'Auto-rotate' }).click()
+    await page.waitForTimeout(100)
+    const stoppedAt = await page.evaluate(() => window.__glDrawTimes.length)
+    await page.waitForTimeout(250)
+    const idleAt = await page.evaluate(() => window.__glDrawTimes.length)
+    expect(idleAt - stoppedAt).toBeLessThanOrEqual(1)
+
+    await page.getByTestId('glb-canvas').dispatchEvent('wheel', { deltaY: 20 })
+    await expect.poll(() => page.evaluate(() => window.__glDrawTimes.length)).toBeGreaterThan(idleAt)
+  })
+
+  test('pastes a conditioning image without mounting its base64 in the request panel', async ({ page }) => {
+    let requestBody = null
+    await mockGeneration(page, (body) => { requestBody = body })
+
+    await page.goto('/app/studio/threed')
+    await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
+    await pasteImage(page)
+    await page.locator('button[type="submit"]').click()
+
+    await expect(page.getByTestId('glb-stats')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('media-history-item')).toHaveCount(1)
+    const panel = page.locator('.request-panel')
+    await expect(panel).toContainText('<base64 image/png omitted>')
+    const panelText = await panel.textContent()
+    expect(panelText.length).toBeLessThan(2000)
+    expect(panelText).not.toContain(requestBody.image)
+    expect(requestBody.image).toBeTruthy()
   })
 
   test('advanced settings map to step/texture_steps/cfg_scale/seed', async ({ page }) => {
@@ -224,6 +294,18 @@ test.describe('3D generation', () => {
     await page.getByTestId('media-history-item').click()
     await expect(page.getByTestId('glb-stats')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('glb-download')).toHaveAttribute('href', /^blob:/)
+  })
+
+  test('new history is visible on the Studio overview without a reload', async ({ page }) => {
+    await mockGeneration(page)
+    await page.goto('/app/studio/threed')
+    await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
+    await page.locator('#threed-image-file').setInputFiles({ name: 'input.png', mimeType: 'image/png', buffer: TINY_PNG })
+    await page.locator('button[type="submit"]').click()
+    await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 15_000 })
+
+    await page.locator('.studio-tab[data-tab="overview"]').click()
+    await expect(page.getByTestId('studio-recent')).toContainText('trellis-test-model')
   })
 
   test('deleting a history entry removes it', async ({ page }) => {
