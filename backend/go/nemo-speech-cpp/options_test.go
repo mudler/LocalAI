@@ -48,9 +48,14 @@ var _ = Describe("parseOptions", func() {
 	})
 
 	It("keeps a value containing a colon intact", func() {
-		// Windows-style paths and URIs must survive the split on the FIRST colon.
+		// URIs must survive the split on the FIRST colon.
 		o := parseOptions([]string{"tokenizer_dir:/a/b:c"}, "/models")
 		Expect(o.tokenizerDir).To(Equal("/a/b:c"))
+	})
+
+	It("leaves an empty value empty so callers can detect unset", func() {
+		o := parseOptions([]string{"vad_model:"}, "/models")
+		Expect(o.vadModel).To(BeEmpty())
 	})
 
 	It("defaults gpu to -1 meaning CPU", func() {

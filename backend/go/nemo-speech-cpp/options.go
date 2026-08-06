@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/xlog"
 )
 
 // loadOptions holds the parsed model-level options. Path fields are resolved
@@ -81,9 +83,17 @@ func parseOptions(opts []string, modelPath string) loadOptions {
 		case "target_language":
 			o.targetLanguage = value
 		case "gpu":
-			if n, err := strconv.ParseInt(value, 10, 32); err == nil {
-				o.gpu = int32(n)
+			// An unknown key is ignored for forward compatibility, but a known key
+			// with an unparseable value is a typo, and this one fails expensively:
+			// the model still loads and still produces correct output, just on CPU
+			// and far slower, with nothing anywhere to say why.
+			n, err := strconv.ParseInt(value, 10, 32)
+			if err != nil {
+				xlog.Warn("nemo-speech-cpp: ignoring unparseable option value, falling back to CPU",
+					"key", key, "value", value)
+				continue
 			}
+			o.gpu = int32(n)
 		}
 	}
 	return o
