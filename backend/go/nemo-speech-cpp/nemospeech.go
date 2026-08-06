@@ -68,8 +68,15 @@ type NemoSpeech struct {
 // raw addresses, and an unpinned Go allocation is free to be collected (and, in
 // principle, moved) the moment its last traced reference dies.
 //
-// The returned pointer is for C only. Reading it back from Go is a checkptr
-// violation, so it must never be handed to goString; see goString's comment.
+// The returned pointer is for C only, and the direction is one-way. Converting
+// it back to an unsafe.Pointer to read the bytes from Go is checked by checkptr
+// (which -race turns on) and kills the process with
+//
+//	fatal error: checkptr: pointer arithmetic result points to invalid allocation
+//
+// as soon as the address lands inside a Go allocation, which is exactly what
+// this produces. C reading it is fine because C is not instrumented; Go reading
+// it back is not.
 //
 // The caller MUST defer the release function immediately, in the same statement
 // that takes the pointer. Dropping it leaks the pin, which the runtime reports
@@ -96,33 +103,13 @@ func cstr(s string) (uintptr, func()) {
 	}
 }
 
-// goString copies a NUL-terminated C string into Go memory.
-//
-// p must address memory owned by the C runtime. It must NOT be a pointer
-// returned by cstr, even though the types allow it: converting a uintptr back
-// to a pointer is checked by checkptr (which -race turns on), and the check
-// kills the process with
-//
-//	fatal error: checkptr: pointer arithmetic result points to invalid allocation
-//
-// as soon as the address lands inside a Go allocation, which is exactly what
-// cstr produces. C reading that pointer is fine because C is not instrumented;
-// Go reading it back is not. The two helpers are deliberately one-way.
-//
-// The scan walks with unsafe.Add rather than unsafe.Pointer(p + uintptr(n)):
-// arithmetic in uintptr space loses the base pointer's provenance, and keeping
-// it in the expression is what makes the walk checkable at all.
-func goString(p uintptr) string {
-	if p == 0 {
-		return ""
-	}
-	base := unsafe.Pointer(p) //nolint:govet // #nosec G103 -- NUL-terminated string owned by the C runtime, outside the Go heap
-	var n int
-	for *(*byte)(unsafe.Add(base, n)) != 0 {
-		n++
-	}
-	return string(unsafe.Slice((*byte)(base), n))
-}
+// There is deliberately no inverse of cstr in this package. Every C entry point
+// that returns a string is bound in abi.go with a Go `string` return, which
+// purego converts from the char* itself, so a hand-rolled reader would have no
+// production caller and would exist only as an unsafe helper waiting to be
+// pointed at the wrong kind of address. Reach for purego's conversion instead;
+// if a future symbol genuinely needs the raw char* (to tell NULL from ""), bind
+// it as uintptr at that call site, where the ownership can be reasoned about.
 
 // requireFamily gates an RPC on the family selected at load time. Returning
 // Unimplemented rather than a nil dereference means a misconfigured model YAML
@@ -250,12 +237,11 @@ func (n *NemoSpeech) Free() error {
 	return nil
 }
 
-// The loaders below create the runtime handle for their family. loadASR is
-// implemented in asr.go, loadDiarizer in diar.go and loadTTS in tts.go; the
-// remaining task fills in loadNMT. Each populates its config structs from
-// n.opts and stores the handle in the matching field.
+// The loaders are one per family: loadASR in asr.go, loadDiarizer in diar.go,
+// loadTTS in tts.go and loadNMT in nmt.go. Each populates its config structs
+// from n.opts and stores the handle in the matching field.
 //
-// Locking protocol for those tasks, in both directions:
+// Locking protocol, in both directions:
 //
 //   - Every RPC must hold engineMu across its family check AND its C calls,
 //     which means wrapping its body in withEngine. Free runs without the
@@ -276,5 +262,3 @@ func (n *NemoSpeech) Free() error {
 // stopped sending, so a streaming loop must have its own way out: honour the
 // request context and stop on it, rather than blocking forever on the next
 // chunk.
-
-func (n *NemoSpeech) loadNMT(modelFile string) error { return nil }

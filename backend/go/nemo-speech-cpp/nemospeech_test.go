@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ebitengine/purego"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
@@ -46,11 +45,10 @@ var _ = Describe("requireFamily", func() {
 	})
 })
 
-// The brief's round-trip spec (cstr then goString) cannot exist: cstr pins a Go
+// The brief's round-trip spec (cstr then a reader) cannot exist: cstr pins a Go
 // allocation, and converting a uintptr back into a pointer to Go memory is a
 // checkptr violation that aborts the process under -race. So cstr is asserted
-// on what is observable without dereferencing, and goString is asserted against
-// a genuine C-owned string below.
+// on what is observable without dereferencing its result.
 var _ = Describe("cstr", func() {
 	It("returns a non-null pointer for a non-empty string", func() {
 		p, free := cstr("hello")
@@ -93,39 +91,6 @@ var _ = Describe("cstr", func() {
 			defer free()
 			_ = p
 		}).ToNot(Panic())
-	})
-})
-
-var _ = Describe("goString", func() {
-	It("maps a null pointer to the empty string", func() {
-		Expect(goString(0)).To(Equal(""))
-	})
-
-	// goString's only legal input is a pointer into C-owned memory, so it is
-	// tested against one: the same version symbol purego normally converts for
-	// us, rebound here to hand back the raw char*. That address lives in the
-	// library's own data, not the Go heap, which is what makes reading it back
-	// legal under checkptr.
-	Context("with the shared libraries available", func() {
-		var asrVersionPtr func() uintptr
-
-		BeforeEach(func() {
-			if !librariesPresent() {
-				if requireLibs() {
-					Fail("NEMO_SPEECH_REQUIRE_LIBS=1 but the shared libraries are not staged")
-				}
-				Skip("shared libraries not built, run make in backend/go/nemo-speech-cpp")
-			}
-			Expect(openLibraries()).To(Succeed())
-			purego.RegisterLibFunc(&asrVersionPtr, asrLib, "nemo_speech_asr_version")
-		})
-
-		It("copies a C-owned string into Go memory", func() {
-			p := asrVersionPtr()
-			Expect(p).ToNot(BeZero())
-			Expect(goString(p)).To(Equal(ASRVersion()))
-			Expect(goString(p)).ToNot(BeEmpty())
-		})
 	})
 })
 
