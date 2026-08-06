@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"unsafe"
 
 	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
@@ -309,5 +310,41 @@ var _ = Describe("decodeAudioMono16k", func() {
 	It("reports a file that does not exist", func() {
 		_, _, err := decodeAudioMono16k(filepath.Join(GinkgoT().TempDir(), "nope.wav"))
 		Expect(err).To(HaveOccurred())
+	})
+})
+
+// The six frame counts on the recognizer-attached diarizer are
+// sentinel-sensitive and invisible to every other check in the tree.
+// src/asr/c_api.cpp:151-165 applies five of them when they are > 0 but applies
+// left_context_frames when it is >= 0, so a dropped -1 does not fall back to
+// the model's own streaming geometry, it pins the left context to zero. The
+// struct is the right shape either way, so abi_test.go's layout assertions
+// cannot see it.
+var _ = Describe("asrDiarConfig", func() {
+	It("keeps the model path it was given", func() {
+		Expect(asrDiarConfig(42).ModelPath).To(Equal(uintptr(42)))
+	})
+
+	// A config sent with the wrong size has every field past it ignored by
+	// HAS_FIELD, and the diarizer attaches with defaults instead of failing.
+	It("declares the size the runtime validates against", func() {
+		Expect(asrDiarConfig(42).Size).To(Equal(unsafe.Sizeof(cASRDiarConfig{})))
+	})
+
+	It("leaves every frame count at the sentinel that means default", func() {
+		cfg := asrDiarConfig(42)
+		Expect(cfg.ChunkFrames).To(Equal(diarGeometryDefault))
+		Expect(cfg.RightContextFrames).To(Equal(diarGeometryDefault))
+		Expect(cfg.LeftContextFrames).To(Equal(diarGeometryDefault))
+		Expect(cfg.FIFOFrames).To(Equal(diarGeometryDefault))
+		Expect(cfg.SpkcacheFrames).To(Equal(diarGeometryDefault))
+		Expect(cfg.UpdatePeriodFrames).To(Equal(diarGeometryDefault))
+	})
+
+	// Stated separately from the field-by-field assertions above: the whole
+	// group is only "unset" to the runtime while the sentinel stays negative,
+	// and zero is a value it would apply to the left context.
+	It("uses a negative sentinel, not zero", func() {
+		Expect(diarGeometryDefault).To(BeNumerically("<", 0))
 	})
 })

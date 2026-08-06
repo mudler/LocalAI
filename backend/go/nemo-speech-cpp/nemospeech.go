@@ -251,9 +251,9 @@ func (n *NemoSpeech) Free() error {
 }
 
 // The loaders below create the runtime handle for their family. loadASR is
-// implemented in asr.go and loadDiarizer in diar.go; the remaining tasks fill
-// in loadTTS and loadNMT. Each populates its config structs from n.opts and
-// stores the handle in the matching field.
+// implemented in asr.go, loadDiarizer in diar.go and loadTTS in tts.go; the
+// remaining task fills in loadNMT. Each populates its config structs from
+// n.opts and stores the handle in the matching field.
 //
 // Locking protocol for those tasks, in both directions:
 //
@@ -276,7 +276,5 @@ func (n *NemoSpeech) Free() error {
 // stopped sending, so a streaming loop must have its own way out: honour the
 // request context and stop on it, rather than blocking forever on the next
 // chunk.
-
-func (n *NemoSpeech) loadTTS(modelFile string) error { return nil }
 
 func (n *NemoSpeech) loadNMT(modelFile string) error { return nil }

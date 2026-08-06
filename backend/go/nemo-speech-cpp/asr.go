@@ -37,6 +37,35 @@ func pinPtr[T any](p *runtime.Pinner, v *T) uintptr {
 	return uintptr(unsafe.Pointer(v))
 }
 
+// asrDiarConfig builds the config for the diarizer attached to a recognizer.
+//
+// Extracted from loadASR for the same reason diarModelConfig was extracted from
+// loadDiarizer: the six frame counts are sentinel-sensitive and invisible to
+// every other check in the tree. src/asr/c_api.cpp:151-165 applies five of them
+// when they are > 0 but applies left_context_frames when it is >= 0, so a
+// dropped -1 does not fall back to the model's own streaming geometry, it pins
+// the left context to zero. The struct is the right shape either way, so the
+// layout assertions in abi_test.go cannot see it and only a spec on this builder
+// can.
+//
+// diarGeometryDefault is shared with the standalone diarizer rather than
+// restated: it is the same sentinel, from the same rule, in the same runtime.
+//
+// modelPath is a C pointer from cstr, not a Go string, and the caller owns its
+// release.
+func asrDiarConfig(modelPath uintptr) cASRDiarConfig {
+	return cASRDiarConfig{
+		Size:               unsafe.Sizeof(cASRDiarConfig{}),
+		ModelPath:          modelPath,
+		ChunkFrames:        diarGeometryDefault,
+		RightContextFrames: diarGeometryDefault,
+		LeftContextFrames:  diarGeometryDefault,
+		FIFOFrames:         diarGeometryDefault,
+		SpkcacheFrames:     diarGeometryDefault,
+		UpdatePeriodFrames: diarGeometryDefault,
+	}
+}
+
 // loadASR creates the recognizer, attaching VAD, PnC, ITN and diarization when
 // the corresponding options were set.
 //
@@ -97,20 +126,7 @@ func (n *NemoSpeech) loadASR(modelFile string) error {
 	if n.opts.diarModel != "" {
 		p, free := cstr(n.opts.diarModel)
 		defer free()
-		// Negative sentinels keep the model's own streaming geometry defaults.
-		// The runtime takes a positive value for each of these except
-		// left_context_frames, where 0 is valid and the sentinel is < 0, so -1
-		// is the one value that means "default" for the whole group.
-		diar = cASRDiarConfig{
-			Size:               unsafe.Sizeof(cASRDiarConfig{}),
-			ModelPath:          p,
-			ChunkFrames:        -1,
-			RightContextFrames: -1,
-			LeftContextFrames:  -1,
-			FIFOFrames:         -1,
-			SpkcacheFrames:     -1,
-			UpdatePeriodFrames: -1,
-		}
+		diar = asrDiarConfig(p)
 		cfg.Diar = pinPtr(&pinner, &diar)
 	}
 
