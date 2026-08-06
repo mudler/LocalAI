@@ -7,18 +7,32 @@
 # The upstream HTTP route (tools/server/server.cpp) and the README/CLI hunks are
 # intentionally excluded - LocalAI does not serve llama.cpp's HTTP surface.
 #
-# Rebased against LLAMA_VERSION f9e832c10 with 0001-add-server-task-type-score.patch
+# Rebased against LLAMA_VERSION 9de0fcf2b with 0001-add-server-task-type-score.patch
 # already applied: the SERVER_TASK_TYPE_TTS case in the tokenize switch lands
 # after the SCORE case that patch adds, so this patch must stay second in ls order.
 #
-# One fix on top of the draft: its lone SRV_WRN call passes only a format string,
-# but the macro expands __VA_ARGS__ without the GNU comma-elision extension, so
-# the expansion ends in a trailing comma and does not compile. The "%s" wrapper
-# added here is the same idiom upstream already uses for its other argument-less
-# SRV_WRN calls; drop it if the draft fixes the call before it merges.
+# Two fixes on top of the draft, both ours, both candidates to send back to #26603:
+#
+#  1. Its lone SRV_WRN call passes only a format string, but the macro expands
+#     __VA_ARGS__ without the GNU comma-elision extension, so the expansion ends
+#     in a trailing comma and does not compile. The "%s" wrapper added here is the
+#     same idiom upstream already uses for its other argument-less SRV_WRN calls;
+#     drop it if the draft fixes the call before it merges.
+#
+#  2. The slot.prompt_clear() added to the SERVER_TASK_TYPE_TTS branch of
+#     launch_slot_with_task. Without it only the FIRST TTS request in a server
+#     process succeeds and every later one fails instantly in step_prompt. TTS
+#     slots never enter the shared batch (pre_decode() returns early for them and
+#     process_tts_slots() drives them), so they skip the prompt-cache bookkeeping
+#     that would otherwise clear the sequence between requests; meanwhile the
+#     gen-audio pipeline always decodes from position 0 and its reset() only
+#     clears host-side buffers, never the KV cache. The result is that request 2
+#     decodes over request 1's tokens. This one is a genuine defect in the draft,
+#     not a LocalAI integration artifact, and should be reported upstream.
 #
 # REMOVE THIS PATCH once #26603 merges upstream and LLAMA_VERSION is bumped past
-# the merge commit. It exists only because that PR is still a draft.
+# the merge commit. It exists only because that PR is still a draft. If it merges
+# without fix 2 above, that hunk still needs carrying.
 diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
 index b52dc8e..fd9d6ca 100644
 --- a/tools/mtmd/mtmd-helper-gen.cpp
@@ -317,7 +331,7 @@ index 7e5cf9b..1f3ec01 100644
  
  } // namespace mtmd_helper
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 543dc43..88fb0b7 100644
+index 543dc43..4f01b1e 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
 @@ -16,6 +16,7 @@
@@ -397,7 +411,7 @@ index 543dc43..88fb0b7 100644
              SLT_TRC(slot, "new slot, n_ctx = %d\n", slot.n_ctx);
  
              slot.callback_on_release = [this](int id_slot) {
-@@ -1853,6 +1886,18 @@ private:
+@@ -1853,6 +1886,28 @@ private:
  
          SLT_DBG(slot, "launching slot : %s\n", safe_json_to_str(slot.to_json()).c_str());
  
@@ -406,6 +420,16 @@ index 543dc43..88fb0b7 100644
 +            if (!slot.tts.is_supported()) {
 +                slot.tts.ctx.init(ctx_tgt, slot.mctx);
 +            }
++
++            // TTS slots never enter the shared batch: pre_decode() returns early for
++            // them and process_tts_slots() drives them instead, so they skip the
++            // prompt-cache bookkeeping that clears this sequence between requests.
++            // The gen-audio pipeline always decodes from position 0, and its own
++            // reset() only clears host-side buffers, so without this the second and
++            // later tasks on a slot decode over the previous request's tokens and
++            // step_prompt() fails immediately.
++            slot.prompt_clear();
++
 +            task.tts_inp.data.seq_id = slot.id;
 +            if (slot.tts.ctx.set_input(task.tts_inp.get()) != 0) {
 +                send_error(task, "failed to process TTS prompt", ERROR_TYPE_SERVER);
@@ -416,7 +440,7 @@ index 543dc43..88fb0b7 100644
          // initialize samplers
          if (task.need_sampling()) {
              try {
-@@ -1875,6 +1920,9 @@ private:
+@@ -1875,6 +1930,9 @@ private:
              // TODO: getting pre sampling logits is not yet supported with backend sampling
              backend_sampling &= !need_pre_sample_logits;
  
@@ -426,7 +450,7 @@ index 543dc43..88fb0b7 100644
              // TODO: tmp until backend sampling is fully implemented
              if (backend_sampling) {
                  llama_set_sampler(ctx_tgt, slot.id, common_sampler_get(slot.smpl.get()));
-@@ -1890,9 +1938,13 @@ private:
+@@ -1890,9 +1948,13 @@ private:
  
          slot.task = std::make_unique<const server_task>(std::move(task));
  
@@ -443,7 +467,7 @@ index 543dc43..88fb0b7 100644
  
          // reset server kill-switch counter
          n_empty_consecutive = 0;
-@@ -2169,6 +2221,18 @@ private:
+@@ -2169,6 +2231,18 @@ private:
          queue_results.send(std::move(res));
      }
  
@@ -462,7 +486,7 @@ index 543dc43..88fb0b7 100644
      void send_final_response(server_slot & slot) {
          auto res = std::make_unique<server_task_result_cmpl_final>();
  
-@@ -2668,6 +2732,7 @@ private:
+@@ -2668,6 +2742,7 @@ private:
              case SERVER_TASK_TYPE_EMBEDDING:
              case SERVER_TASK_TYPE_RERANK:
              case SERVER_TASK_TYPE_SCORE:
@@ -470,7 +494,7 @@ index 543dc43..88fb0b7 100644
                  {
                      // special case: if input is provided via CLI, tokenize it first
                      // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -3103,6 +3168,14 @@ private:
+@@ -3103,6 +3178,14 @@ private:
              abort_all_slots("pre_decode() failed: " + std::string(e.what()));
          }
  
@@ -485,7 +509,7 @@ index 543dc43..88fb0b7 100644
          GGML_ASSERT(batch.slot_batched || batch.size() == 0);
  
          if (batch.slot_batched) {
-@@ -3173,10 +3246,77 @@ private:
+@@ -3173,10 +3256,77 @@ private:
          }
      }
  
@@ -563,7 +587,7 @@ index 543dc43..88fb0b7 100644
              if (slot.state == SLOT_STATE_GENERATING && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
                  if (!params_base.ctx_shift) {
                      // this check is redundant (for good)
-@@ -3249,7 +3389,7 @@ private:
+@@ -3249,7 +3399,7 @@ private:
  
          // determine which slots are generating and drafting
          iterate(slots, [&](server_slot & slot) {
@@ -572,7 +596,7 @@ index 543dc43..88fb0b7 100644
                  return;
              }
  
-@@ -3381,7 +3521,7 @@ private:
+@@ -3381,7 +3531,7 @@ private:
                      return; // batch is full, skip remaining slots
                  }
  
@@ -581,7 +605,7 @@ index 543dc43..88fb0b7 100644
                      return;
                  }
  
-@@ -4390,6 +4530,8 @@ server_context_meta server_context::get_meta() const {
+@@ -4390,6 +4540,8 @@ server_context_meta server_context::get_meta() const {
          /* has_inp_image          */ impl->chat_params.allow_image,
          /* has_inp_audio          */ impl->chat_params.allow_audio,
          /* has_inp_video          */ impl->chat_params.allow_video,
@@ -590,7 +614,7 @@ index 543dc43..88fb0b7 100644
          /* json_ui_settings       */ impl->json_ui_settings,
          /* slot_n_ctx             */ impl->get_slot_n_ctx(),
          /* pooling_type           */ llama_pooling_type(impl->ctx_tgt),
-@@ -4469,6 +4611,11 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
+@@ -4469,6 +4621,11 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
  
      res->set_req(&req); // will also set spipe if needed
  
@@ -602,7 +626,7 @@ index 543dc43..88fb0b7 100644
      int32_t sse_ping_interval = params.sse_ping_interval;
  
      try {
-@@ -5446,6 +5593,150 @@ void server_routes::init_routes() {
+@@ -5446,6 +5603,150 @@ void server_routes::init_routes() {
          return res;
      };
  
