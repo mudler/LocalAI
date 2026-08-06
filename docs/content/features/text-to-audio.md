@@ -556,6 +556,8 @@ parameters:
 
 `known_usecases: [tts]` is not optional here. It is how LocalAI tells a Qwen3-TTS checkpoint apart from the text and vision GGUFs the same backend serves: without it the model is treated as a chat model, its projector is read as a vision tower, and Voice Library profiles are refused.
 
+Importing such a repo through the Models page or `local-ai models import` writes that declaration for you. The importer reads the projector's header and recognises the speech-synthesis pipeline, so `ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF` imports as a TTS model rather than as a chat model with a vision projector.
+
 The upstream checkpoints are Base variants with no built-in speaker, so `voice` is **required** on every request. Pass either a path to a reference clip or a saved Voice Library profile. A request without one is rejected rather than served in an arbitrary voice:
 
 ```bash
