@@ -1,0 +1,19 @@
+# Fetched upstream sources
+sources/
+
+# CMake build directories
+build*/
+
+# Packaging output
+package/
+
+# Compiled backend binary
+nemo-speech-cpp-grpc
+
+# Shared libraries staged in-tree by the Makefile (cp from sources/). The
+# SOVERSION suffix means the payload is libnemo_speech_*.so.1, hence both globs.
+*.so
+*.so.*
+*.dylib
+
+compile_commands.json
