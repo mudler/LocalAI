@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -195,6 +196,11 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 	if err != nil {
 		return err
 	}
+	// pkg/oci has always identified itself; gallery and file fetches went out
+	// anonymously, indistinguishable from any other Go program. One identity
+	// across every transport is politer to the hosts serving us and makes our
+	// traffic attributable when a gallery operator asks who is hammering them.
+	req.Header.Set("User-Agent", internal.UserAgent())
 	if authorization != "" {
 		req.Header.Add("Authorization", authorization)
 	}
@@ -427,6 +433,7 @@ func newDownloadRequest(
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", internal.UserAgent())
 	if bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+bearerToken)
 	}
@@ -465,6 +472,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	req.Header.Set("User-Agent", internal.UserAgent())
 	resp, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return 0, err
@@ -483,6 +491,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	req2.Header.Set("User-Agent", internal.UserAgent())
 	req2.Header.Set("Range", "bytes=0-0")
 	resp2, err := downloadHTTPClient().Do(req2)
 	if err != nil {
