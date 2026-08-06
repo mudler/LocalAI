@@ -667,6 +667,8 @@ export default function Traces() {
                     <td>
                       {trace.response?.status === 0
                         ? <span className="badge badge-info">Running</span>
+                        : trace.response?.status == null
+                        ? <span className="badge badge--soft">-</span>
                         : <span className={`badge ${trace.response.status < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response.status}</span>}
                     </td>
                     <td><LatencyCell ns={trace.duration} max={slowestTrace} /></td>
