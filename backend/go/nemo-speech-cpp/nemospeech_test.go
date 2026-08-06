@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
+	"github.com/ebitengine/purego"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
@@ -43,12 +46,16 @@ var _ = Describe("requireFamily", func() {
 	})
 })
 
+// The brief's round-trip spec (cstr then goString) cannot exist: cstr pins a Go
+// allocation, and converting a uintptr back into a pointer to Go memory is a
+// checkptr violation that aborts the process under -race. So cstr is asserted
+// on what is observable without dereferencing, and goString is asserted against
+// a genuine C-owned string below.
 var _ = Describe("cstr", func() {
-	It("round-trips a string through C memory", func() {
+	It("returns a non-null pointer for a non-empty string", func() {
 		p, free := cstr("hello")
 		defer free()
 		Expect(p).ToNot(BeZero())
-		Expect(goString(p)).To(Equal("hello"))
 	})
 
 	It("returns a null pointer for the empty string", func() {
@@ -59,15 +66,16 @@ var _ = Describe("cstr", func() {
 		Expect(p).To(BeZero())
 	})
 
-	// The pointer leaves the Go type system as a uintptr, which the collector
-	// does not trace. This asserts the bytes survive a collection for as long as
-	// the release function is held, which is the whole contract of the pin.
-	It("keeps the bytes readable across a garbage collection", func() {
+	// The pin has to hold for the whole create call, which spans at least one
+	// safepoint. A collection must therefore neither move nor invalidate the
+	// address that C was handed.
+	It("keeps the pointer stable across a garbage collection", func() {
 		p, free := cstr("/models/nemo/parakeet.gguf")
 		defer free()
+		before := p
 		runtime.GC()
 		runtime.GC()
-		Expect(goString(p)).To(Equal("/models/nemo/parakeet.gguf"))
+		Expect(p).To(Equal(before))
 	})
 
 	It("survives releasing more than once", func() {
@@ -75,11 +83,104 @@ var _ = Describe("cstr", func() {
 		free()
 		Expect(free).ToNot(Panic())
 	})
+
+	// A dropped release leaks the pin, and the runtime turns that into a process
+	// abort at some later collection. Nothing can catch it, so this only pins the
+	// contract in prose: release in the same statement that takes the pointer.
+	It("releases without panicking when used as documented", func() {
+		Expect(func() {
+			p, free := cstr("released")
+			defer free()
+			_ = p
+		}).ToNot(Panic())
+	})
 })
 
 var _ = Describe("goString", func() {
 	It("maps a null pointer to the empty string", func() {
 		Expect(goString(0)).To(Equal(""))
+	})
+
+	// goString's only legal input is a pointer into C-owned memory, so it is
+	// tested against one: the same version symbol purego normally converts for
+	// us, rebound here to hand back the raw char*. That address lives in the
+	// library's own data, not the Go heap, which is what makes reading it back
+	// legal under checkptr.
+	Context("with the shared libraries available", func() {
+		var asrVersionPtr func() uintptr
+
+		BeforeEach(func() {
+			if !librariesPresent() {
+				if requireLibs() {
+					Fail("NEMO_SPEECH_REQUIRE_LIBS=1 but the shared libraries are not staged")
+				}
+				Skip("shared libraries not built, run make in backend/go/nemo-speech-cpp")
+			}
+			Expect(openLibraries()).To(Succeed())
+			purego.RegisterLibFunc(&asrVersionPtr, asrLib, "nemo_speech_asr_version")
+		})
+
+		It("copies a C-owned string into Go memory", func() {
+			p := asrVersionPtr()
+			Expect(p).ToNot(BeZero())
+			Expect(goString(p)).To(Equal(ASRVersion()))
+			Expect(goString(p)).ToNot(BeEmpty())
+		})
+	})
+})
+
+// pkg/grpc/server.go:1019 calls Free without taking the backend lock every
+// other RPC holds, so a teardown really can land while a request is in flight.
+// The family check and the C calls that trust it therefore have to happen under
+// engineMu together, or Free can destroy the handle in the gap between them.
+var _ = Describe("engine locking", func() {
+	It("serialises a teardown against an in-flight request", func() {
+		n := &NemoSpeech{fam: familyASR}
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			for i := 0; i < 2000; i++ {
+				// Errors are expected once the teardown wins the race; what must
+				// not happen is an unsynchronised read of the family.
+				_ = n.withEngine(familyASR, func() error { return nil })
+			}
+		}()
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			for i := 0; i < 2000; i++ {
+				Expect(n.Free()).To(Succeed())
+			}
+		}()
+		wg.Wait()
+	})
+
+	It("refuses the body when the family does not match, and still unlocks", func() {
+		n := &NemoSpeech{fam: familyTTS}
+		called := false
+		err := n.withEngine(familyASR, func() error {
+			called = true
+			return nil
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+		Expect(called).To(BeFalse())
+
+		// A lock leaked on the rejection path would deadlock the next request
+		// rather than fail it, so prove the mutex is free afterwards.
+		Expect(n.engineMu.TryLock()).To(BeTrue())
+		n.engineMu.Unlock()
+	})
+
+	It("propagates the body's error and still unlocks", func() {
+		n := &NemoSpeech{fam: familyASR}
+		boom := errors.New("boom")
+		Expect(n.withEngine(familyASR, func() error { return boom })).To(MatchError(boom))
+		Expect(n.engineMu.TryLock()).To(BeTrue())
+		n.engineMu.Unlock()
 	})
 })
 
@@ -141,6 +242,33 @@ var _ = Describe("Load", func() {
 		Expect(n.Load(&pb.ModelOptions{ModelFile: path})).ToNot(Succeed())
 		Expect(n.fam).To(Equal(familyUnknown))
 		Expect(n.requireFamily(familyASR)).To(HaveOccurred())
+	})
+
+	// The load path picks a family and only then runs that family's loader, so
+	// there is a window where the family is known and the load still fails.
+	// Committing n.fam before the loader runs would leave the RPC gate open on a
+	// handle that was never created, and pkg/grpc/server.go keeps serving the
+	// instance after a failed LoadModel, so the next request really would reach
+	// it. TTS is the only family whose loader can fail before touching C.
+	It("does not select the family until that family's loader has succeeded", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "magpie.f16.gguf")
+		writeGGUFWithArch(path, "magpietts")
+
+		// Self-guard: if the handwritten GGUF ever stops parsing, Load would fail
+		// at ggufArchitecture instead, before a family is ever chosen, and the
+		// assertions below would pass without exercising the ordering at all.
+		Expect(ggufArchitecture(path)).To(Equal("magpietts"))
+
+		// No sibling codec in the directory, so discoverTTSAssets fails after
+		// familyFor has already resolved familyTTS.
+		n := &NemoSpeech{}
+		err := n.Load(&pb.ModelOptions{ModelFile: path})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("codec_model"))
+
+		Expect(n.fam).To(Equal(familyUnknown))
+		Expect(n.requireFamily(familyTTS)).To(HaveOccurred())
 	})
 
 	It("closes the family gate again after a free", func() {

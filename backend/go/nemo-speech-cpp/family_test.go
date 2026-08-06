@@ -40,11 +40,9 @@ var _ = Describe("familyFor", func() {
 	})
 })
 
-// writeGGUFWithUint32Arch writes a minimal GGUF v3 whose single metadata entry
-// is general.architecture typed UINT32 rather than STRING. Handwritten and
-// half-converted files really do carry mistyped keys, and the parser hands them
-// back rather than rejecting them.
-func writeGGUFWithUint32Arch(path string) {
+// ggufWithArchValue builds a minimal GGUF v3 carrying general.architecture as
+// its single metadata entry, with the caller's value type and encoded value.
+func ggufWithArchValue(valueType gguf.GGUFMetadataValueType, value []byte) []byte {
 	const key = "general.architecture"
 
 	var b []byte
@@ -54,10 +52,26 @@ func writeGGUFWithUint32Arch(path string) {
 	b = binary.LittleEndian.AppendUint64(b, 1) // metadata kv count
 	b = binary.LittleEndian.AppendUint64(b, uint64(len(key)))
 	b = append(b, key...)
-	b = binary.LittleEndian.AppendUint32(b, uint32(gguf.GGUFMetadataValueTypeUint32))
-	b = binary.LittleEndian.AppendUint32(b, 7)
+	b = binary.LittleEndian.AppendUint32(b, uint32(valueType))
+	return append(b, value...)
+}
 
+// writeGGUFWithUint32Arch writes a minimal GGUF v3 whose single metadata entry
+// is general.architecture typed UINT32 rather than STRING. Handwritten and
+// half-converted files really do carry mistyped keys, and the parser hands them
+// back rather than rejecting them.
+func writeGGUFWithUint32Arch(path string) {
+	b := ggufWithArchValue(gguf.GGUFMetadataValueTypeUint32, binary.LittleEndian.AppendUint32(nil, 7))
 	ExpectWithOffset(1, os.WriteFile(path, b, 0o600)).To(Succeed())
+}
+
+// writeGGUFWithArch writes a minimal GGUF v3 that parses cleanly and reports
+// arch as its general.architecture. It is the only way to reach the code past
+// ggufArchitecture in a test, since there are no real NeMo GGUFs to point at.
+func writeGGUFWithArch(path, arch string) {
+	v := binary.LittleEndian.AppendUint64(nil, uint64(len(arch)))
+	v = append(v, arch...)
+	ExpectWithOffset(1, os.WriteFile(path, ggufWithArchValue(gguf.GGUFMetadataValueTypeString, v), 0o600)).To(Succeed())
 }
 
 var _ = Describe("ggufArchitecture", func() {

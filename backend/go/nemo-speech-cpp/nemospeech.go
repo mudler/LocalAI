@@ -47,7 +47,9 @@ type NemoSpeech struct {
 	fam  family
 	opts loadOptions
 
-	// engineMu serializes calls into the C runtime for this model.
+	// engineMu guards fam and the handles, and serializes calls into the C
+	// runtime for this model. Its participants today are withEngine and Free;
+	// the per-family RPCs in Tasks 6 to 9 join it by routing through withEngine.
 	engineMu sync.Mutex
 
 	recognizer uintptr
@@ -66,11 +68,18 @@ type NemoSpeech struct {
 // raw addresses, and an unpinned Go allocation is free to be collected (and, in
 // principle, moved) the moment its last traced reference dies.
 //
+// The returned pointer is for C only. Reading it back from Go is a checkptr
+// violation, so it must never be handed to goString; see goString's comment.
+//
 // The caller MUST defer the release function immediately, in the same statement
 // that takes the pointer. Dropping it leaks the pin, which the runtime reports
-// as a "found leaked Pinner" panic at the next collection. That is loud and
-// wrong-looking on purpose: the alternative failure mode is C reading freed
-// memory, which shows up as rare corruption with no trace back to here.
+// at the next collection as:
+//
+//	runtime.Pinner: found leaking pinned pointer; forgot to call Unpin()?
+//
+// That is loud and wrong-looking on purpose: the alternative failure mode is C
+// reading freed memory, which shows up as rare corruption with no trace back
+// to here.
 func cstr(s string) (uintptr, func()) {
 	if s == "" {
 		return 0, func() {}
@@ -88,29 +97,64 @@ func cstr(s string) (uintptr, func()) {
 }
 
 // goString copies a NUL-terminated C string into Go memory.
+//
+// p must address memory owned by the C runtime. It must NOT be a pointer
+// returned by cstr, even though the types allow it: converting a uintptr back
+// to a pointer is checked by checkptr (which -race turns on), and the check
+// kills the process with
+//
+//	fatal error: checkptr: pointer arithmetic result points to invalid allocation
+//
+// as soon as the address lands inside a Go allocation, which is exactly what
+// cstr produces. C reading that pointer is fine because C is not instrumented;
+// Go reading it back is not. The two helpers are deliberately one-way.
+//
+// The scan walks with unsafe.Add rather than unsafe.Pointer(p + uintptr(n)):
+// arithmetic in uintptr space loses the base pointer's provenance, and keeping
+// it in the expression is what makes the walk checkable at all.
 func goString(p uintptr) string {
 	if p == 0 {
 		return ""
 	}
+	base := unsafe.Pointer(p) //nolint:govet // #nosec G103 -- NUL-terminated string owned by the C runtime, outside the Go heap
 	var n int
-	for {
-		if *(*byte)(unsafe.Pointer(p + uintptr(n))) == 0 { //nolint:govet // #nosec G103 -- NUL-terminated string owned by the C runtime or pinned by cstr, never a bare Go allocation
-			break
-		}
+	for *(*byte)(unsafe.Add(base, n)) != 0 {
 		n++
 	}
-	return string(unsafe.Slice((*byte)(unsafe.Pointer(p)), n)) //nolint:govet // #nosec G103 -- same pointer, copied into Go memory by the string conversion
+	return string(unsafe.Slice((*byte)(base), n))
 }
 
 // requireFamily gates an RPC on the family selected at load time. Returning
 // Unimplemented rather than a nil dereference means a misconfigured model YAML
 // produces a message a user can act on.
+//
+// Callers must already hold engineMu: Free writes n.fam under it, so an
+// unlocked read here is a data race. Use withEngine rather than calling this
+// directly.
 func (n *NemoSpeech) requireFamily(want family) error {
 	if n.fam != want {
 		return status.Errorf(codes.Unimplemented,
 			"nemo-speech-cpp: this model was loaded as %s, not %s", n.fam, want)
 	}
 	return nil
+}
+
+// withEngine runs fn holding engineMu, having first checked the family.
+//
+// Every RPC must go through this rather than calling requireFamily on its own.
+// pkg/grpc/server.go takes the backend lock around each RPC but calls Free
+// without it, so a teardown can land mid-request. Checking the family and then
+// making the C calls that trust it under two separate acquisitions leaves a
+// window in which Free destroys the handle, and the request goes on to use a
+// zeroed one.
+func (n *NemoSpeech) withEngine(want family, fn func() error) error {
+	n.engineMu.Lock()
+	defer n.engineMu.Unlock()
+
+	if err := n.requireFamily(want); err != nil {
+		return err
+	}
+	return fn()
 }
 
 func (n *NemoSpeech) Load(opts *pb.ModelOptions) error {
@@ -161,7 +205,9 @@ func (n *NemoSpeech) Load(opts *pb.ModelOptions) error {
 // override, and every family here owns C memory that only its own destroy
 // entry point can release, so without this an unloaded model leaks a whole
 // acoustic model. Clearing fam as well means an RPC that races the unload is
-// refused by requireFamily rather than handed a dangling handle.
+// refused by the gate rather than handed a dangling handle, but that only holds
+// for callers that took engineMu, which today means callers that went through
+// withEngine.
 func (n *NemoSpeech) Free() error {
 	n.engineMu.Lock()
 	defer n.engineMu.Unlock()
@@ -197,8 +243,16 @@ func (n *NemoSpeech) Free() error {
 // each populates its config structs from n.opts and stores the handle in the
 // matching field.
 //
-// They must not take engineMu: Load runs before the model is serving, and the
-// lock is not reentrant.
+// Locking protocol for those tasks, in both directions:
+//
+//   - Every RPC must hold engineMu across its family check AND its C calls,
+//     which means wrapping its body in withEngine. Free runs without the
+//     backend lock (pkg/grpc/server.go:1019), so anything that checks the
+//     family and then releases the lock before calling C can have the handle
+//     destroyed underneath it.
+//   - A loader must NOT take engineMu. Load runs before the model is serving,
+//     and sync.Mutex is not reentrant, so locking here deadlocks against any
+//     future caller that locks around Load.
 
 func (n *NemoSpeech) loadASR(modelFile string) error { return nil }
 
