@@ -113,7 +113,7 @@ curl http://localhost:8080/3d/generations \
 
 ## WebUI
 
-The React UI includes a 3D tab in the Studio (and a `/3d` page) with an interactive PBR viewer: upload an image, pick the quality, and preview the generated mesh with orbit/pan/zoom and a wireframe toggle. Past generations are kept in the browser (IndexedDB). After generation, a single Detail slider and **Apply remeshing** button replace the preview with the exact watertight model that the GLB download exports; **Show original** switches back without regenerating.
+The React UI includes a 3D tab in the Studio (and a `/3d` page) with an interactive PBR viewer: upload or paste an image from the clipboard, pick the quality, and preview the generated mesh with orbit/pan/zoom and a wireframe toggle. Past generations are kept in the browser (IndexedDB). After generation, a single Detail slider and **Apply remeshing** button replace the preview with the exact watertight model that the GLB download exports; **Show original** switches back without regenerating.
 
 ## Notes
 

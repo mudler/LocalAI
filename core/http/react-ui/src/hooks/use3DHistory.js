@@ -17,6 +17,14 @@ const DB_NAME = 'localai-3d-history'
 const DB_VERSION = 1
 const STORE = 'generations'
 const MAX_ENTRIES = 20
+const historyListeners = new Set()
+let sessionEntries = []
+
+async function refreshOtherHooks(source) {
+  await Promise.all([...historyListeners]
+    .filter(listener => listener !== source)
+    .map(listener => listener()))
+}
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -78,14 +86,19 @@ export function use3DHistory() {
 
   const refresh = useCallback(async () => {
     try {
-      setEntries(await idbGetAll())
+      sessionEntries = await idbGetAll()
+      setEntries(sessionEntries)
     } catch {
       // IndexedDB unavailable (private mode etc.) — degrade to session-only.
-      setEntries((prev) => prev)
+      setEntries(sessionEntries)
     }
   }, [])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    historyListeners.add(refresh)
+    refresh()
+    return () => { historyListeners.delete(refresh) }
+  }, [refresh])
 
   const addEntry = useCallback(async ({ model, params, inputThumb, glb, name }) => {
     const entry = { id: generateId(), createdAt: Date.now(), model, params, inputThumb, glb, name }
@@ -93,8 +106,10 @@ export function use3DHistory() {
       await idbPutAndEvict(entry)
       await refresh()
     } catch {
-      setEntries((prev) => [entry, ...prev].slice(0, MAX_ENTRIES))
+      sessionEntries = [entry, ...sessionEntries.filter(e => e.id !== entry.id)].slice(0, MAX_ENTRIES)
+      setEntries(sessionEntries)
     }
+    await refreshOtherHooks(refresh)
     return entry
   }, [refresh])
 
@@ -104,19 +119,21 @@ export function use3DHistory() {
       await idbDelete(id)
       await refresh()
     } catch {
-      setEntries((prev) => prev.filter((e) => e.id !== id))
+      sessionEntries = sessionEntries.filter((e) => e.id !== id)
+      setEntries(sessionEntries)
     }
+    await refreshOtherHooks(refresh)
   }, [refresh])
 
   const clearAll = useCallback(async () => {
     setSelectedId(null)
     try {
       await idbClear()
-    } catch {
-      // fall through to the local reset below
-    }
+    } catch { /* session-only history is cleared below */ }
+    sessionEntries = []
     setEntries([])
-  }, [])
+    await refreshOtherHooks(refresh)
+  }, [refresh])
 
   // Toggles: clicking the selected entry deselects it (back to latest result).
   const selectEntry = useCallback((id) => {

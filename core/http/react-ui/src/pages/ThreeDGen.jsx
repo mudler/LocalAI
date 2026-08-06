@@ -100,7 +100,9 @@ export default function ThreeDGen() {
     if (guidance) body.cfg_scale = parseFloat(guidance)
     if (seed) body.seed = parseInt(seed)
 
-    setLastRequest(body)
+    // RequestPanel renders and copies its body. Keeping a multi-megabyte image
+    // there duplicates the upload in React and can starve the result render.
+    setLastRequest({ ...body, image: `<base64 ${image.mime || 'image'} omitted>` })
 
     try {
       const data = await threeDApi.generate(body)

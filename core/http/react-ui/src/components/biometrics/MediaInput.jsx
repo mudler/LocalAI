@@ -51,9 +51,7 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
     if (tab !== 'live' && cap.active) cap.stop()
   }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleFile = async (e) => {
-    const f = e.target.files?.[0]
-    if (!f) { onChange(null); return }
+  const acceptFile = async (f, source = 'file') => {
     if (maxBytes && f.size > maxBytes) {
       const error = new Error(`Selected file exceeds the ${Math.round(maxBytes / (1024 * 1024))} MiB limit`)
       if (fileRef.current) fileRef.current.value = ''
@@ -62,8 +60,11 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
       return
     }
     try {
+      const name = source === 'paste'
+        ? `pasted-image.${(f.type.split('/')[1] || 'png').replace('+xml', '')}`
+        : f.name
       if (preferBlob) {
-        onChange({ blob: f, mime: f.type, source: 'file', name: f.name })
+        onChange({ blob: f, mime: f.type, source, name })
         return
       }
       const base64 = await fileToBase64(f)
@@ -73,11 +74,28 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
         reader.onload = () => resolve(reader.result)
         reader.readAsDataURL(f)
       })
-      onChange({ base64, blob: f, dataUrl, mime: f.type, source: 'file', name: f.name })
+      onChange({ base64, blob: f, dataUrl, mime: f.type, source, name })
     } catch (error) {
       onChange(null)
       onError?.(error)
     }
+  }
+
+  const handleFile = async (e) => {
+    const f = e.target.files?.[0]
+    if (!f) { onChange(null); return }
+    await acceptFile(f)
+  }
+
+  const handlePaste = async (e) => {
+    if (mode !== 'image') return
+    const item = Array.from(e.clipboardData?.items || []).find(entry => entry.type.startsWith('image/'))
+    const f = item?.getAsFile()
+      || Array.from(e.clipboardData?.files || []).find(file => file.type.startsWith('image/'))
+    if (!f) return
+    e.preventDefault()
+    setTab('file')
+    await acceptFile(f, 'paste')
   }
 
   const handleSnap = () => {
@@ -106,7 +124,13 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
   const inputId = `${idPrefix}-${mode}-file`
 
   return (
-    <div className="biometrics-mediainput">
+    <div
+      className="biometrics-mediainput"
+      onPaste={handlePaste}
+      tabIndex={mode === 'image' ? 0 : undefined}
+      role={mode === 'image' ? 'group' : undefined}
+      aria-label={mode === 'image' ? `${label || 'Image'} upload or clipboard paste` : undefined}
+    >
       {label && <label className="form-label" htmlFor={inputId}>{label}</label>}
 
       <div className="biometrics-mediainput__tabs" role="tablist" aria-label={`${label || 'Media'} source`}>
@@ -133,6 +157,9 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
             accept={mode === 'image' ? 'image/*' : 'audio/*'}
             onChange={handleFile}
           />
+          {mode === 'image' && (
+            <p className="form-hint"><i className="fas fa-clipboard" aria-hidden="true" /> Paste an image from the clipboard</p>
+          )}
         </div>
       )}
 
@@ -184,8 +211,8 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
             : <audio controls src={value.dataUrl} />}
           <div className="biometrics-mediainput__preview-meta">
             <span className="biometrics-mediainput__source-pill">
-              <i className={`fas ${value.source === 'live' ? (mode === 'image' ? 'fa-camera' : 'fa-microphone') : 'fa-file'}`} aria-hidden="true" />
-              {value.source === 'live' ? ' Captured' : ` ${value.name || 'Uploaded'}`}
+              <i className={`fas ${value.source === 'live' ? (mode === 'image' ? 'fa-camera' : 'fa-microphone') : value.source === 'paste' ? 'fa-clipboard' : 'fa-file'}`} aria-hidden="true" />
+              {value.source === 'live' ? ' Captured' : value.source === 'paste' ? ' Pasted image' : ` ${value.name || 'Uploaded'}`}
             </span>
             <button type="button" className="biometrics-mediainput__clear" onClick={clear} aria-label="Remove sample">
               <i className="fas fa-xmark" aria-hidden="true" />
