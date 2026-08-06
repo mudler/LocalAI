@@ -34,7 +34,7 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
         build-essential \
         git ccache \
         ca-certificates \
-        make cmake ninja-build wget libopenblas-dev \
+        make cmake wget libopenblas-dev \
         curl unzip \
         libssl-dev && \
     if apt-cache show gcc-14 >/dev/null 2>&1 && apt-cache show g++-14 >/dev/null 2>&1; then \
@@ -51,10 +51,21 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
 # scripts/build_itn_deps.sh. That step needs gcc-12 specifically: OpenFST's
 # template-heavy translation units ICE on gcc-13 and gcc-14 at -O2, so upstream
 # pins gcc-12 for it while the runtime itself builds with the image default.
-# The rest of the list is what build_itn_deps.sh and the WITH_NORM cmake block
-# expect: protobuf and re2 for Sparrowhawk, absl because protobuf 25 splits its
-# runtime across libabsl_*, and autotools because OpenFST and Sparrowhawk ship
-# autoconf builds. Mirrors the apt list in the upstream docker/Dockerfile.
+#
+# The rest is what build_itn_deps.sh and the WITH_NORM cmake block expect:
+# protobuf (headers plus protoc, which must come from the same apt set so the
+# generated stubs match the headers they compile against) and re2 for
+# Sparrowhawk, and autotools because OpenFST and Sparrowhawk ship autoconf
+# builds. ninja is here rather than in the common list because this is the only
+# Go backend that configures with -G Ninja, and the common list is a layer
+# shared by every backend image in the matrix.
+#
+# No libabsl-dev, despite upstream's Dockerfile installing it: upstream builds
+# against protobuf 25, which splits its runtime across libabsl_*, whereas every
+# base image in this matrix carries protobuf 3.21 (noble) or 3.12 (jammy), which
+# has no absl dependency. The cmake block's file(GLOB ... /usr/lib/libabsl_*.so)
+# would not match on Ubuntu anyway, since multiarch puts those under
+# /usr/lib/<triplet>/.
 #
 # Scoped to this backend rather than added to the common list above: it is a
 # large install and no other Go backend needs any of it.
@@ -64,8 +75,9 @@ RUN <<EOT bash
         apt-get update
         apt-get install -y --no-install-recommends \
             gcc-12 g++-12 \
+            ninja-build \
             libprotobuf-dev protobuf-compiler \
-            libabsl-dev libre2-dev \
+            libre2-dev \
             autoconf automake libtool pkg-config
         apt-get clean
         rm -rf /var/lib/apt/lists/*
