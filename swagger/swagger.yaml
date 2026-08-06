@@ -2,6 +2,16 @@ basePath: /
 definitions:
   config.Gallery:
     properties:
+      mirrors:
+        description: |-
+          Mirrors are tried in order when URL cannot be fetched. They are a
+          fallback for availability, not a load-balancing pool: the primary is
+          always preferred, and a mirror is only consulted after the one before
+          it fails. Any URI the gallery loader understands works here
+          (https://, github:, file://).
+        items:
+          type: string
+        type: array
       name:
         type: string
       url:

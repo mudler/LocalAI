@@ -3819,6 +3819,13 @@
         "config.Gallery": {
             "type": "object",
             "properties": {
+                "mirrors": {
+                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
