@@ -17,6 +17,17 @@
 
 set -e
 
+# BuildKit exposes the ephemeral interception CA at this dedicated path. Copy
+# it into the image trust bundle only when the proxy-enabled workflows supply
+# it; ordinary local and test builds retain their base-image trust unchanged.
+proxy_ca=/run/secrets/build_proxy_ca
+if [ -s "$proxy_ca" ]; then
+    cat "$proxy_ca" >>/etc/ssl/certs/ca-certificates.crt
+    cat > /etc/apt/apt.conf.d/99localai-build-proxy-ca <<EOF
+Acquire::https::CaInfo "$proxy_ca";
+EOF
+fi
+
 # Ubuntu 24.04 (noble) ships DEB822 sources at /etc/apt/sources.list.d/ubuntu.sources;
 # older releases use /etc/apt/sources.list. We rewrite whichever exists.
 for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do

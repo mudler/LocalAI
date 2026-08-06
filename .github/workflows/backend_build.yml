@@ -153,6 +153,11 @@ jobs:
         with:
           platforms: all
 
+      - name: Set up Go for build proxy
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Start build network proxy
         run: .github/scripts/start-build-proxy.sh
 
@@ -253,7 +258,7 @@ jobs:
             BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
             BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
             JETSON_WHEELS_IMAGE=${{ steps.jetson_wheels.outputs.image || 'scratch' }}
-          secrets: |
+          secret-files: |
             build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
@@ -331,7 +336,7 @@ jobs:
             BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
             BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
             JETSON_WHEELS_IMAGE=${{ steps.jetson_wheels.outputs.image || 'scratch' }}
-          secrets: |
+          secret-files: |
             build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}

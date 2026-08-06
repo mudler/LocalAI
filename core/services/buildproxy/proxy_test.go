@@ -22,7 +22,7 @@ var _ = Describe("Handler", func() {
 		dir := GinkgoT().TempDir()
 		recorder, err := buildproxy.NewRecorder(dir + "/events.jsonl")
 		Expect(err).NotTo(HaveOccurred())
-		defer recorder.Close()
+		defer func() { _ = recorder.Close() }()
 		var calls atomic.Int32
 		transport := roundTripFunc(func(*http.Request) (*http.Response, error) {
 			status, body := http.StatusServiceUnavailable, "retry"
@@ -44,7 +44,7 @@ var _ = Describe("Handler", func() {
 		dir := GinkgoT().TempDir()
 		recorder, err := buildproxy.NewRecorder(dir + "/events.jsonl")
 		Expect(err).NotTo(HaveOccurred())
-		defer recorder.Close()
+		defer func() { _ = recorder.Close() }()
 		var calls atomic.Int32
 		transport := roundTripFunc(func(*http.Request) (*http.Response, error) {
 			calls.Add(1)
@@ -59,7 +59,7 @@ var _ = Describe("Handler", func() {
 		dir := GinkgoT().TempDir()
 		recorder, err := buildproxy.NewRecorder(dir + "/events.jsonl")
 		Expect(err).NotTo(HaveOccurred())
-		defer recorder.Close()
+		defer func() { _ = recorder.Close() }()
 		var calls atomic.Int32
 		transport := roundTripFunc(func(*http.Request) (*http.Response, error) {
 			calls.Add(1)

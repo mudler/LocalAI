@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-output="${LOCALAI_BUILD_PROXY_OUTPUT:?build proxy output is unset}"
+if test -z "${LOCALAI_BUILD_PROXY_OUTPUT:-}"; then
+  echo 'Build proxy did not start; skipping inventory finalization'
+  exit 0
+fi
+output="$LOCALAI_BUILD_PROXY_OUTPUT"
 if test -f "$output/proxy.pid"; then
   kill -TERM "$(cat "$output/proxy.pid")" 2>/dev/null || true
   for _ in $(seq 1 50); do

@@ -29,7 +29,7 @@ func run(listen, output string) error {
 	if err != nil {
 		return err
 	}
-	defer recorder.Close()
+	defer func() { _ = recorder.Close() }()
 	proxyHandler := buildproxy.NewHandler(buildproxy.Options{Recorder: recorder})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { proxyHandler(w, r, r.URL.Host) })
 	server, err := buildproxy.NewServer(listen, filepath.Join(output, "ca"), handler, recorder)
