@@ -96,14 +96,14 @@ func (s *cDiarStream) push(pcm []float32, sampleRate int32) error {
 		return nil
 	}
 	if st := DiarStreamPushF32(s.handle, &pcm[0], uint64(len(pcm)), sampleRate); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: diarization push: %s", ASRLastError())
+		return statusErrorf(st, "nemo-speech-cpp: diarization push: %s", ASRLastError())
 	}
 	return nil
 }
 
 func (s *cDiarStream) finish() error {
 	if st := DiarStreamFinish(s.handle); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: diarization finish: %s", ASRLastError())
+		return statusErrorf(st, "nemo-speech-cpp: diarization finish: %s", ASRLastError())
 	}
 	return nil
 }
@@ -115,7 +115,7 @@ func (s *cDiarStream) countSegments() (uint64, error) {
 	// out=NULL and capacity=0: the size query. The runtime reads capacity only
 	// once it has a buffer to check it against.
 	if st := DiarSegments(s.handle, s.cfgPtr(), nil, 0, &count); st != 0 {
-		return 0, status.Errorf(codes.Internal,
+		return 0, statusErrorf(st,
 			"nemo-speech-cpp: diarization segment count: %s", ASRLastError())
 	}
 	return count, nil
@@ -133,7 +133,7 @@ func (s *cDiarStream) fillSegments(buf []cDiarSegment) (uint64, error) {
 	if st != 0 {
 		// count is returned alongside the error on purpose: a too-small buffer
 		// is rejected only after the runtime has written the size it wanted.
-		return count, status.Errorf(codes.Internal,
+		return count, statusErrorf(st,
 			"nemo-speech-cpp: diarization segments: %s", ASRLastError())
 	}
 	return count, nil
@@ -188,7 +188,7 @@ func (n *NemoSpeech) loadDiarizer(modelFile string) error {
 	xlog.Info("nemo-speech-cpp: creating diarizer", "gpu", n.opts.gpu)
 
 	if st := DiarCreate(unsafe.Pointer(&cfg), &n.diarizer); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: diarizer create: %s", ASRLastError())
+		return statusErrorf(st, "nemo-speech-cpp: diarizer create: %s", ASRLastError())
 	}
 	return nil
 }
@@ -199,7 +199,7 @@ func (n *NemoSpeech) loadDiarizer(modelFile string) error {
 func (n *NemoSpeech) openDiarStream(cfg *cDiarSegmentationConfig) (diarStream, error) {
 	var handle uintptr
 	if st := DiarStreamOpen(n.diarizer, &handle); st != 0 {
-		return nil, status.Errorf(codes.Internal,
+		return nil, statusErrorf(st,
 			"nemo-speech-cpp: diarization stream open: %s", ASRLastError())
 	}
 	return &cDiarStream{handle: handle, cfg: cfg}, nil

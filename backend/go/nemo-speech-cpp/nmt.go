@@ -12,15 +12,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// nmtStatusInvalidArgument is NEMO_SPEECH_NMT_ERROR_INVALID_ARGUMENT (nmt.h).
-//
-// It is singled out from the other failures because it is the status an
-// unsupported language pair comes back as (src/nmt/translator.cpp throws
-// std::invalid_argument, which src/nmt/c_api.cpp's guard maps here). That is the
-// caller's mistake, not the backend's, and reporting it as Internal would send a
-// user hunting for a broken model instead of a wrong language code.
-const nmtStatusInvalidArgument int32 = 1
-
 // pairDirective matches a leading "[src->tgt] " override.
 //
 // Each side is an unbounded run of two-letter segments, not one or two of them.
@@ -115,11 +106,11 @@ func (t *cTranslator) translate(texts []string, source, target string) ([]string
 	// into std::string before doing anything with them.
 	var result uintptr
 	if st := NMTTranslate(t.handle, &ptrs[0], uint64(len(ptrs)), source, target, &result); st != 0 {
-		code := codes.Internal
-		if st == nmtStatusInvalidArgument {
-			code = codes.InvalidArgument
-		}
-		return nil, status.Errorf(code, "nemo-speech-cpp: translate: %s", NMTLastError())
+		// An unsupported language pair arrives here as INVALID_ARGUMENT
+		// (src/nmt/translator.cpp throws std::invalid_argument, which
+		// src/nmt/c_api.cpp's guard maps to it), which statusErrorf turns into
+		// the caller-facing code rather than Internal.
+		return nil, statusErrorf(st, "nemo-speech-cpp: translate: %s", NMTLastError())
 	}
 	defer NMTResultDestroy(result)
 
@@ -188,7 +179,7 @@ func (n *NemoSpeech) loadNMT(modelFile string) error {
 		"target_language", n.opts.targetLanguage)
 
 	if st := NMTCreate(unsafe.Pointer(&cfg), &n.nmt); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: nmt create: %s", NMTLastError())
+		return statusErrorf(st, "nemo-speech-cpp: nmt create: %s", NMTLastError())
 	}
 	return nil
 }

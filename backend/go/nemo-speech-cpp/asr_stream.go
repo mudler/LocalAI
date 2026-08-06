@@ -73,14 +73,14 @@ func (s *cSession) push(pcm []float32, sampleRate int32) error {
 		return nil
 	}
 	if st := ASRStreamPushF32(s.handle, &pcm[0], uint64(len(pcm)), sampleRate); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: stream push: %s", ASRLastError())
+		return statusErrorf(st, "nemo-speech-cpp: stream push: %s", ASRLastError())
 	}
 	return nil
 }
 
 func (s *cSession) finish() error {
 	if st := ASRStreamFinish(s.handle); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: stream finish: %s", ASRLastError())
+		return statusErrorf(st, "nemo-speech-cpp: stream finish: %s", ASRLastError())
 	}
 	return nil
 }
@@ -88,7 +88,7 @@ func (s *cSession) finish() error {
 func (s *cSession) next() (streamResult, bool, error) {
 	var handle uintptr
 	if st := ASRStreamNext(s.handle, &handle); st != 0 {
-		return streamResult{}, false, status.Errorf(codes.Internal, "nemo-speech-cpp: stream next: %s", ASRLastError())
+		return streamResult{}, false, statusErrorf(st, "nemo-speech-cpp: stream next: %s", ASRLastError())
 	}
 	// OK with a NULL handle is the documented "need more audio". Reading it as
 	// an error aborts every stream at the first gap; reading it as "keep
@@ -142,7 +142,7 @@ func (n *NemoSpeech) openSession(language string) (asrSession, error) {
 
 	var handle uintptr
 	if st := ASRStreamingRecognize(n.recognizer, unsafe.Pointer(&opts), &handle); st != 0 {
-		return nil, status.Errorf(codes.Internal, "nemo-speech-cpp: streaming recognize: %s", ASRLastError())
+		return nil, statusErrorf(st, "nemo-speech-cpp: streaming recognize: %s", ASRLastError())
 	}
 	xlog.Debug("nemo-speech-cpp: streaming session open", "language", language)
 	return &cSession{handle: handle}, nil

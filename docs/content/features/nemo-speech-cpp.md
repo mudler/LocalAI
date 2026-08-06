@@ -165,10 +165,13 @@ options:
   - gpu:0
 ```
 
-`FLAG_COMPLETION` is the usecase the backend actually serves. `FLAG_CHAT` does two extra
-things: it makes the model eligible as the default chat model when a request names none,
-and it puts the model in the web UI's chat model picker. Neither flag gates a request
-that names the model explicitly.
+Both flags run through the same pair of RPCs, `Predict` and `PredictStream`, which is why
+both are listed for this backend in `core/config/backend_capabilities.go`. `FLAG_COMPLETION`
+is the plain shape: prompt in, translation out. `FLAG_CHAT` adds three things, and each
+turn of the conversation is translated on its own: the model becomes eligible as the
+default chat model when a request names none, it appears in the web UI's chat model
+picker, and it stays visible under the gallery's Chat filter (`completion` is not a
+gallery filter, `chat` is). Neither flag gates a request that names the model explicitly.
 
 ### Option reference
 

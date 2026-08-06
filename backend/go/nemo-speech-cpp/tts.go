@@ -202,7 +202,12 @@ func (s *cSynthesizer) synthesize(req *pb.TTSRequest, defaultLanguage string, si
 	// NULL as the way to decline it.
 	st := TTSSynthesizeText(s.handle, unsafe.Pointer(&opts), req.GetText(), ttsPCMCallback(), id, nil)
 	if st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: synthesize: %s", TTSLastError())
+		// An unknown voice_name arrives here as INVALID_ARGUMENT
+		// (src/tts/synthesizer.cpp throws std::invalid_argument, which
+		// src/tts/c_api.cpp's guard maps to it), and a consumer that stopped
+		// reading arrives as CANCELLED. Neither is this backend's failure, so
+		// neither goes out as Internal.
+		return statusErrorf(st, "nemo-speech-cpp: synthesize: %s", TTSLastError())
 	}
 	return nil
 }
@@ -390,7 +395,7 @@ func (n *NemoSpeech) loadTTS(modelFile string) error {
 	ttsPCMCallback()
 
 	if st := TTSCreate(unsafe.Pointer(&cfg), &n.synth); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: tts create: %s", TTSLastError())
+		return statusErrorf(st, "nemo-speech-cpp: tts create: %s", TTSLastError())
 	}
 	return nil
 }

@@ -427,6 +427,20 @@ var BackendCapabilities = map[string]BackendCapability{
 	// through options), a sortformer model only diarizes, a magpietts model only
 	// synthesizes, and a Riva-Translate model only answers Predict.
 	//
+	// UsecaseChat sits alongside UsecaseCompletion for the translation family
+	// because Predict and PredictStream are exactly the RPCs /v1/chat/completions
+	// drives, and chat is what a translation model is useful through: each turn
+	// goes in as the prompt and comes back translated. The flag is not a gate on
+	// any endpoint (a request naming the model explicitly is served either way);
+	// what it buys is being eligible as the default chat model when a request
+	// names none (core/http/routes/openai.go) and appearing in the React UI's
+	// chat model picker (CAP_CHAT in react-ui/src/utils/capabilities.js).
+	//
+	// Leaving it out is not neutral: chat is a gallery filter key and completion
+	// is not (usecaseFilters in core/http/routes/ui_api.go), so
+	// GET /api/backends/usecases would grey the Chat filter out and hide a
+	// Riva-Translate gallery entry from the one filter that fits it.
+	//
 	// DefaultUsecases is transcript alone because that is the only family whose
 	// weights a bare `backend: nemo-speech-cpp` config is likely to name; a model
 	// of any other family should pin its own known_usecases.
@@ -441,7 +455,8 @@ var BackendCapabilities = map[string]BackendCapability{
 			MethodPredict, MethodPredictStream,
 		},
 		PossibleUsecases: []string{
-			UsecaseTranscript, UsecaseDiarization, UsecaseTTS, UsecaseCompletion,
+			UsecaseTranscript, UsecaseDiarization, UsecaseTTS,
+			UsecaseCompletion, UsecaseChat,
 		},
 		DefaultUsecases: []string{UsecaseTranscript},
 		Description:     "NVIDIA NeMo-Speech.cpp: one server for Nemotron ASR (offline, streaming and live), Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation; the model's GGUF architecture decides which",

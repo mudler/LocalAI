@@ -138,7 +138,7 @@ func (n *NemoSpeech) loadASR(modelFile string) error {
 		"diarization", n.opts.diarModel != "")
 
 	if st := ASRCreate(unsafe.Pointer(&cfg), &n.recognizer); st != 0 {
-		return status.Errorf(codes.Internal, "nemo-speech-cpp: asr create: %s", ASRLastError())
+		return statusErrorf(st, "nemo-speech-cpp: asr create: %s", ASRLastError())
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func recognizeF32(recognizer uintptr, opts *cASRRecognitionOptions, pcm []float3
 	var result uintptr
 	if st := ASRRecognizeF32(recognizer, unsafe.Pointer(opts),
 		&pcm[0], uint64(len(pcm)), sampleRate, &result); st != 0 {
-		return 0, status.Errorf(codes.Internal, "nemo-speech-cpp: recognize: %s", ASRLastError())
+		return 0, statusErrorf(st, "nemo-speech-cpp: recognize: %s", ASRLastError())
 	}
 	return result, nil
 }
