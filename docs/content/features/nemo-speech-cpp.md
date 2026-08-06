@@ -146,8 +146,8 @@ ignored. Per-request `params` are read for `seed`, `steps`, `top_k`, `temperatur
 `cfg_scale`; anything else is left at the synthesizer's configured value.
 
 The TTS runtime has a three-way CPU/CUDA/auto preference rather than a device index, so
-`gpu` with a non-negative value means "let the runtime choose" here, and only `-1` (the
-default) pins it to the CPU.
+`gpu` with a non-negative value means "let the runtime choose" here, and any negative
+value (`-1` is the default) pins it to the CPU.
 
 ### Translation
 
@@ -165,9 +165,10 @@ options:
   - gpu:0
 ```
 
-`FLAG_CHAT` is what makes the model eligible as the default chat model when a request
-names none; `FLAG_COMPLETION` is the usecase the backend actually serves. Neither gates a
-request that names the model explicitly.
+`FLAG_COMPLETION` is the usecase the backend actually serves. `FLAG_CHAT` does two extra
+things: it makes the model eligible as the default chat model when a request names none,
+and it puts the model in the web UI's chat model picker. Neither flag gates a request
+that names the model explicitly.
 
 ### Option reference
 
@@ -180,7 +181,7 @@ request that names the model explicitly.
 | `language_code:<code>` | ASR, TTS | unset | Model-level default language. A per-request `language` overrides it. |
 | `codec_model:<path>` | TTS | auto-discovered | NanoCodec GGUF. Required. |
 | `tokenizer_dir:<path>` | TTS | auto-discovered | Directory holding the extracted MagpieTTS tokenizer assets. Required. |
-| `tn_dir:<path>` | TTS | unset | Sparrowhawk text-normalization grammars applied to the input text. |
+| `tn_dir:<path>` | TTS | unset | Sparrowhawk text-normalization grammars applied to the input text. Linux only, see the limitations below. |
 | `source_language:<code>` | Translation | unset | Default source language. May be overridden per request. |
 | `target_language:<code>` | Translation | unset | Default target language. A request with neither this nor a per-request override is refused. |
 | `gpu:<n>` | all | `-1` (CPU) | Device index. `-1` selects the CPU. A value that is not an integer is ignored with a warning and the model runs on the CPU. |
@@ -250,16 +251,23 @@ you want NeMo ASR on an AMD or Intel GPU, use
 
 ## Limitations
 
-- **Inverse text normalization is Linux only.** The macOS build ships without it: the
+- **Text normalization is Linux only.** The macOS build ships without it: the
   Sparrowhawk/OpenFST stack assumes a GNU toolchain, and the gcc-12 pin it needs (OpenFST's
-  templates fail to compile on gcc-13 and gcc-14 at `-O2`) has no macOS equivalent.
-  `itn_dir` therefore does nothing on macOS. Everything else, including `pnc_model`, is
-  unaffected.
+  templates fail to compile on gcc-13 and gcc-14 at `-O2`) has no macOS equivalent. One
+  build flag covers both directions, so on macOS **both** `itn_dir` (inverse text
+  normalization on ASR output) and `tn_dir` (text normalization on TTS input) do nothing.
+  A `tn_dir` set on a macOS build logs a warning and carries on with normalization
+  disabled. `pnc_model` is unaffected: punctuation is always compiled in.
 - **Interim streaming results are suppressed**, as described above. This costs latency.
 - **Translation runs at the library's default limits**: 1024 tokens of context and 256
   new tokens per call. Neither is configurable from the model YAML, because both are
   create-time settings on the translator and raising the context costs one context-sized
-  KV cache per pooled context. Long documents are truncated with no error.
+  KV cache per pooled context. The two limits fail differently. Input longer than the
+  context is **rejected**, with `nmt: prompt too long (N tokens) for context 1024`
+  surfacing as a failed request, so you will know. Output longer than 256 tokens is
+  **silently cut**: generation simply stops at the limit and the truncated translation is
+  returned as if it were complete. Translate a sentence or a paragraph at a time rather
+  than a whole document.
 - **There are no gallery entries yet.** Models have to be converted with upstream's
   converter and configured by hand, as below. This is a follow-up, not an oversight.
 
@@ -280,17 +288,34 @@ python3 convert_model.py nvidia/nemotron-speech-streaming-en-0.6b \
 
 Copy the resulting GGUF into your models directory and write the YAML above against it.
 
-MagpieTTS needs one extra step, because its tokenizer assets live inside the `.nemo`
-archive rather than in the GGUF: extract the archive and keep the extracted directory next
-to the converted model, so that `tokenizer_dir` (or the `extracted/` auto-discovery) has
-something to point at.
+Text to speech is the one family that needs more than a single conversion. It loads **two**
+GGUFs, the MagpieTTS token generator and the NanoCodec decoder, and it needs the tokenizer
+assets that live inside the MagpieTTS `.nemo` archive rather than in the GGUF. Extract the
+archive and keep the extracted directory next to the converted model, so that
+`tokenizer_dir` (or the `extracted/` auto-discovery) has something to point at, and put the
+codec GGUF in the same directory so `codec_model` (or its auto-discovery) finds it.
 
 ```bash
+# 1. MagpieTTS: download the .nemo, extract it for the tokenizer, convert it
+hf download nvidia/magpie_tts_multilingual_357m --revision v2602 \
+    --local-dir /models/magpie-tts
 mkdir -p /models/magpie-tts/extracted
-tar -xf magpie_tts_multilingual_357m.nemo -C /models/magpie-tts/extracted
+tar -xf /models/magpie-tts/magpie_tts_multilingual_357m.nemo \
+    -C /models/magpie-tts/extracted
 python3 convert_model.py /models/magpie-tts/extracted \
     --outfile /models/magpie-tts/magpietts.gguf
+
+# 2. NanoCodec: no tokenizer, it is a codec decoder. The filename carries
+#    "nanocodec" so the auto-discovery in the YAML above picks it up.
+hf download nvidia/nemo-nano-codec-22khz-1.89kbps-21.5fps \
+    --local-dir /models/magpie-tts/nano-codec
+python3 convert_model.py \
+    /models/magpie-tts/nano-codec/nemo-nano-codec-22khz-1.89kbps-21.5fps.nemo \
+    --outfile /models/magpie-tts/nanocodec.gguf
 ```
+
+Skipping the codec leaves the model unloadable: the backend fails with
+`no NanoCodec GGUF found next to ...` naming the `codec_model` option.
 
 Translation additionally uses the pinned llama.cpp converter, which has to be initialized
 first:
