@@ -141,6 +141,11 @@ jobs:
             env.http_proxy=${{ env.LOCALAI_BUILD_PROXY }}
             env.https_proxy=${{ env.LOCALAI_BUILD_PROXY }}
 
+      - name: Trust build proxy CA in BuildKit
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: .github/scripts/inject-build-proxy-ca.sh
+
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
@@ -163,6 +168,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
@@ -173,6 +181,8 @@ jobs:
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          secrets: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: .
           file: ./Dockerfile
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -226,6 +236,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
@@ -236,6 +249,8 @@ jobs:
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          secrets: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: .
           file: ./Dockerfile
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}

@@ -165,6 +165,11 @@ jobs:
             env.http_proxy=${{ env.LOCALAI_BUILD_PROXY }}
             env.https_proxy=${{ env.LOCALAI_BUILD_PROXY }}
 
+      - name: Trust build proxy CA in BuildKit
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: .github/scripts/inject-build-proxy-ca.sh
+
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
@@ -231,6 +236,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
@@ -245,6 +253,8 @@ jobs:
             BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
             BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
             JETSON_WHEELS_IMAGE=${{ steps.jetson_wheels.outputs.image || 'scratch' }}
+          secrets: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -304,6 +314,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
@@ -318,6 +331,8 @@ jobs:
             BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
             BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
             JETSON_WHEELS_IMAGE=${{ steps.jetson_wheels.outputs.image || 'scratch' }}
+          secrets: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}

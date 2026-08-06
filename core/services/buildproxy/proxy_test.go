@@ -54,4 +54,21 @@ var _ = Describe("Handler", func() {
 		handler(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "https://example.test/token", strings.NewReader("secret")), "example.test")
 		Expect(calls.Load()).To(Equal(int32(1)))
 	})
+
+	It("preserves HEAD metadata without expecting a response body", func() {
+		dir := GinkgoT().TempDir()
+		recorder, err := buildproxy.NewRecorder(dir + "/events.jsonl")
+		Expect(err).NotTo(HaveOccurred())
+		defer recorder.Close()
+		var calls atomic.Int32
+		transport := roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls.Add(1)
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: http.NoBody, ContentLength: 1234}, nil
+		})
+		handler := buildproxy.NewHandler(buildproxy.Options{Transport: transport, Recorder: recorder, SpoolDir: dir})
+		response := httptest.NewRecorder()
+		handler(response, httptest.NewRequest(http.MethodHead, "https://example.test/blob", nil), "example.test")
+		Expect(calls.Load()).To(Equal(int32(1)))
+		Expect(response.Header().Get("Content-Length")).To(Equal("1234"))
+	})
 })
