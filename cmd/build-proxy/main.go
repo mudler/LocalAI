@@ -32,11 +32,14 @@ func run(listen, output string) error {
 	defer recorder.Close()
 	proxyHandler := buildproxy.NewHandler(buildproxy.Options{Recorder: recorder})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { proxyHandler(w, r, r.URL.Host) })
-	server := buildproxy.NewServer(listen, handler, recorder)
+	server, err := buildproxy.NewServer(listen, filepath.Join(output, "ca"), handler, recorder)
+	if err != nil {
+		return err
+	}
 	if err := server.Start(); err != nil {
 		return err
 	}
-	fmt.Printf("proxy=http://%s\n", server.Addr())
+	fmt.Printf("proxy=http://%s\nca=%s\n", server.Addr(), server.CAPath())
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop

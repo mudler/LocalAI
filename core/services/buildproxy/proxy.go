@@ -122,7 +122,7 @@ func NewHandler(opts Options) func(http.ResponseWriter, *http.Request, string) {
 		opts.MaxDelay = 500 * time.Millisecond
 	}
 	return func(w http.ResponseWriter, request *http.Request, host string) {
-		event := Event{Host: hostname(host), Method: request.Method, Path: request.URL.EscapedPath()}
+		event := Event{Host: hostname(host), Method: request.Method, Path: request.URL.EscapedPath(), Intercepted: true}
 		defer func() { opts.Recorder.Record(event) }()
 		if request.Body != nil {
 			defer request.Body.Close()
@@ -138,7 +138,7 @@ func NewHandler(opts Options) func(http.ResponseWriter, *http.Request, string) {
 			resp, path, size, err := fetch(request.Context(), transport, request, host, opts.SpoolDir)
 			if err == nil && !retryStatus(resp.StatusCode) {
 				event.Status, event.BytesRead = resp.StatusCode, size
-				copyResponse(w, resp, path)
+				copyResponse(w, resp, path, request.Method)
 				return
 			}
 			if resp != nil {
@@ -189,13 +189,13 @@ func fetch(ctx context.Context, transport http.RoundTripper, original *http.Requ
 	if copyErr == nil {
 		copyErr = closeErr
 	}
-	if copyErr == nil && resp.ContentLength >= 0 && size != resp.ContentLength {
+	if copyErr == nil && original.Method != http.MethodHead && resp.ContentLength >= 0 && size != resp.ContentLength {
 		copyErr = fmt.Errorf("short response: got %d bytes, expected %d", size, resp.ContentLength)
 	}
 	return resp, path, size, copyErr
 }
 
-func copyResponse(w http.ResponseWriter, resp *http.Response, path string) {
+func copyResponse(w http.ResponseWriter, resp *http.Response, path, method string) {
 	defer os.Remove(path)
 	for key, values := range resp.Header {
 		if hopHeader(key) || strings.EqualFold(key, "Content-Length") {
@@ -205,8 +205,9 @@ func copyResponse(w http.ResponseWriter, resp *http.Response, path string) {
 			w.Header().Add(key, value)
 		}
 	}
-	info, err := os.Stat(path)
-	if err == nil {
+	if method == http.MethodHead && resp.ContentLength >= 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+	} else if info, err := os.Stat(path); err == nil {
 		w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	}
 	w.WriteHeader(resp.StatusCode)

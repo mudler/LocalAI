@@ -8,6 +8,19 @@ if test -f "$output/proxy.pid"; then
     sleep 0.1
   done
 fi
+
+# Later artifact uploads and action post-hooks must not target a stopped proxy.
+{
+  echo 'HTTP_PROXY='
+  echo 'HTTPS_PROXY='
+  echo 'http_proxy='
+  echo 'https_proxy='
+  echo 'SSL_CERT_FILE='
+  echo 'CURL_CA_BUNDLE='
+  echo 'REQUESTS_CA_BUNDLE='
+  echo 'GIT_SSL_CAINFO='
+  echo 'NODE_EXTRA_CA_CERTS='
+} >>"$GITHUB_ENV"
 if test -f "$output/summary.json"; then
   {
     echo '### Build network inventory'
@@ -18,4 +31,13 @@ if test -f "$output/summary.json"; then
     cat "$output/summary.json"
     echo '```'
   } >>"$GITHUB_STEP_SUMMARY"
+fi
+
+if ! test -s "$output/events.jsonl"; then
+  echo 'Build proxy produced no network inventory' >&2
+  exit 1
+fi
+if grep -qE '"method":"CONNECT"|"error":"plain HTTP is forbidden"' "$output/events.jsonl"; then
+  echo 'Build traffic bypassed HTTPS interception or attempted plain HTTP' >&2
+  exit 1
 fi

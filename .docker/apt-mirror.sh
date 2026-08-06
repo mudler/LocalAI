@@ -7,8 +7,7 @@
 #
 # Inputs (env):
 #   APT_MIRROR        Replacement for archive.ubuntu.com and security.ubuntu.com
-#                     (e.g. "http://azure.archive.ubuntu.com" or
-#                      "https://mirrors.edge.kernel.org").
+#                     (e.g. "https://azure.archive.ubuntu.com").
 #                     Leave empty to keep upstream. The trailing "/ubuntu/..."
 #                     path is preserved by the rewrite.
 #   APT_PORTS_MIRROR  Replacement for ports.ubuntu.com (arm64/ppc64el/...).
@@ -17,10 +16,6 @@
 # Both default to empty, in which case the script is a no-op.
 
 set -e
-
-if [ -z "${APT_MIRROR}" ] && [ -z "${APT_PORTS_MIRROR}" ]; then
-    exit 0
-fi
 
 # Ubuntu 24.04 (noble) ships DEB822 sources at /etc/apt/sources.list.d/ubuntu.sources;
 # older releases use /etc/apt/sources.list. We rewrite whichever exists.
@@ -34,6 +29,13 @@ for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
     if [ -n "${APT_PORTS_MIRROR}" ]; then
         sed -i -E "s,https?://ports\.ubuntu\.com,${APT_PORTS_MIRROR},g" "$f"
     fi
+done
+
+# Build networking is HTTPS-only. Upgrade any untouched distribution defaults
+# as well (notably ports.ubuntu.com when a caller leaves its override empty).
+for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+    [ -f "$f" ] || continue
+    sed -i -E 's,http://,https://,g' "$f"
 done
 
 echo "apt-mirror: rewrote sources (APT_MIRROR='${APT_MIRROR}', APT_PORTS_MIRROR='${APT_PORTS_MIRROR}')"
