@@ -50,7 +50,15 @@ func ggufArchitecture(path string) (string, error) {
 	if found == 0 {
 		return "", fmt.Errorf("nemo-speech-cpp: %q has no general.architecture key", path)
 	}
-	return kv["general.architecture"].ValueString(), nil
+	arch := kv["general.architecture"]
+	// ValueString panics on a mistyped key, and a hand-written or half-converted
+	// GGUF is exactly where that happens. This function is the load-time guard;
+	// it reports, it does not take the process down.
+	if arch.ValueType != gguf.GGUFMetadataValueTypeString {
+		return "", fmt.Errorf(
+			"nemo-speech-cpp: %q has a non-string general.architecture (type %v)", path, arch.ValueType)
+	}
+	return arch.ValueString(), nil
 }
 
 // discoverTTSAssets fills in codecModel and tokenizerDir when they were not set
@@ -73,8 +81,11 @@ func discoverTTSAssets(primaryGGUF string, o *loadOptions) error {
 			name := e.Name()
 			candidate := filepath.Join(dir, name)
 			// Skip the primary model itself: a file called nanocodec-magpie.gguf
-			// would otherwise be selected as its own codec.
-			if candidate == primaryGGUF {
+			// would otherwise be selected as its own codec. Compare basenames,
+			// because candidate is Cleaned by filepath.Join while primaryGGUF
+			// arrives as the caller wrote it, so "/models//magpie.gguf" would
+			// slip past a whole-path equality.
+			if name == filepath.Base(primaryGGUF) {
 				continue
 			}
 			if strings.Contains(strings.ToLower(name), "nanocodec") ||

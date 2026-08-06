@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -38,6 +40,26 @@ var _ = Describe("familyFor", func() {
 	})
 })
 
+// writeGGUFWithUint32Arch writes a minimal GGUF v3 whose single metadata entry
+// is general.architecture typed UINT32 rather than STRING. Handwritten and
+// half-converted files really do carry mistyped keys, and the parser hands them
+// back rather than rejecting them.
+func writeGGUFWithUint32Arch(path string) {
+	const key = "general.architecture"
+
+	var b []byte
+	b = append(b, 'G', 'G', 'U', 'F')
+	b = binary.LittleEndian.AppendUint32(b, 3) // version
+	b = binary.LittleEndian.AppendUint64(b, 0) // tensor count
+	b = binary.LittleEndian.AppendUint64(b, 1) // metadata kv count
+	b = binary.LittleEndian.AppendUint64(b, uint64(len(key)))
+	b = append(b, key...)
+	b = binary.LittleEndian.AppendUint32(b, uint32(gguf.GGUFMetadataValueTypeUint32))
+	b = binary.LittleEndian.AppendUint32(b, 7)
+
+	ExpectWithOffset(1, os.WriteFile(path, b, 0o600)).To(Succeed())
+}
+
 var _ = Describe("ggufArchitecture", func() {
 	It("returns an error rather than panicking on a file that is not a GGUF", func() {
 		p := filepath.Join(GinkgoT().TempDir(), "not-a-model.gguf")
@@ -46,6 +68,16 @@ var _ = Describe("ggufArchitecture", func() {
 		_, err := ggufArchitecture(p)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(p))
+	})
+
+	It("returns an error rather than panicking when general.architecture is not a string", func() {
+		p := filepath.Join(GinkgoT().TempDir(), "mistyped-arch.gguf")
+		writeGGUFWithUint32Arch(p)
+
+		arch, err := ggufArchitecture(p)
+		Expect(err).To(HaveOccurred())
+		Expect(arch).To(BeEmpty())
+		Expect(err.Error()).To(ContainSubstring("general.architecture"))
 	})
 })
 
@@ -81,6 +113,21 @@ var _ = Describe("discoverTTSAssets", func() {
 		o := loadOptions{}
 		err := discoverTTSAssets(primary, &o)
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("codec_model"))
+	})
+
+	It("never selects the primary gguf as its own codec through an uncleaned path", func() {
+		// LocalAI joins the model directory and the model name itself, so a
+		// trailing separator on ModelPath produces a doubled slash here. The
+		// self-codec guard has to survive that.
+		write("nanocodec-magpie.gguf")
+		primary := dir + "//nanocodec-magpie.gguf"
+		Expect(os.Mkdir(filepath.Join(dir, "extracted"), 0o755)).To(Succeed())
+
+		o := loadOptions{}
+		err := discoverTTSAssets(primary, &o)
+		Expect(err).To(HaveOccurred())
+		Expect(o.codecModel).To(BeEmpty())
 		Expect(err.Error()).To(ContainSubstring("codec_model"))
 	})
 
