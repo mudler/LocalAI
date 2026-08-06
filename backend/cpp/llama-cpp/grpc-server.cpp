@@ -235,7 +235,15 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["typical_p"] = predict->typicalp();
     data["temperature"] = predict->temperature();
     data["repeat_last_n"] = predict->repeat();
-    data["repeat_penalty"] = predict->penalty();
+    // PredictOptions.Penalty is a bare proto float, so a caller that names no
+    // repetition penalty sends 0 rather than omitting the field. Since
+    // llama.cpp 9de0fcf2b, common_sampler_init() rejects a non-positive
+    // penalty_repeat outright (it would divide logits by zero), which turned
+    // every such request into "Failed to initialize samplers". Treat 0 as
+    // "unset" and leave llama.cpp's own neutral default in place.
+    if (predict->penalty() > 0.0f) {
+        data["repeat_penalty"] = predict->penalty();
+    }
     data["frequency_penalty"] = predict->frequencypenalty();
     data["presence_penalty"] = predict->presencepenalty();
     data["mirostat"] = predict->mirostat();
