@@ -5085,6 +5085,12 @@
     known_usecases:
       - chat
       - completion
+      - vision
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
     parameters:
       min_p: 0.01
       model: mudler/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-APEX-GGUF
