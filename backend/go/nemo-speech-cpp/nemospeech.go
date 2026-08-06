@@ -98,6 +98,11 @@ func cstr(s string) (uintptr, func()) {
 	b := append([]byte(s), 0)
 	pin := new(runtime.Pinner)
 	pin.Pin(&b[0])
+	// #nosec G103 -- b is non-empty (s != "" above) and &b[0] is pinned on the
+	// previous line, so the address C receives cannot be collected or moved
+	// until the returned release runs. One-way by construction: the doc comment
+	// above forbids converting this uintptr back, which is what keeps checkptr
+	// (and therefore -race) out of it.
 	return uintptr(unsafe.Pointer(&b[0])), func() {
 		if pin == nil {
 			return

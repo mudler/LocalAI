@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -275,6 +276,22 @@ var _ = Describe("sampleRateOf", func() {
 
 	It("rejects a non-positive sample rate", func() {
 		_, err := sampleRateOf(&audio.IntBuffer{Format: &audio.Format{SampleRate: 0, NumChannels: 1}})
+		Expect(err).To(HaveOccurred())
+	})
+
+	// The WAV header carries the sample rate as an unsigned 32-bit field, which
+	// go-audio widens to int. Anything above the int32 range therefore passes a
+	// "> 0" test and then narrows to a NEGATIVE rate, which the runtime would take
+	// as a resampling ratio rather than reject. The failure is silent, so the
+	// bound is asserted rather than left to the caller.
+	//
+	// Written as a conversion plus one rather than as the constant MaxInt32+1:
+	// the untyped form does not fit an int on a 32-bit build and would not
+	// compile there, while this wraps to a negative rate the same guard rejects.
+	It("rejects a rate that would not survive the narrowing to int32", func() {
+		_, err := sampleRateOf(&audio.IntBuffer{
+			Format: &audio.Format{SampleRate: int(math.MaxInt32) + 1, NumChannels: 1},
+		})
 		Expect(err).To(HaveOccurred())
 	})
 

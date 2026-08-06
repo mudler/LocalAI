@@ -87,6 +87,10 @@ func (s *cDiarStream) cfgPtr() unsafe.Pointer {
 	if s.cfg == nil {
 		return nil
 	}
+	// #nosec G103 -- a plain *T to unsafe.Pointer conversion of a non-nil,
+	// GC-traced field. cDiarSegmentationConfig is pure scalars (no uintptr
+	// members to pin) and the stream owns it for its whole life, so the only
+	// requirement is that it outlive the DiarSegments call, which it does.
 	return unsafe.Pointer(s.cfg)
 }
 
@@ -129,6 +133,10 @@ func (s *cDiarStream) fillSegments(buf []cDiarSegment) (uint64, error) {
 			"nemo-speech-cpp: diarization segment fill needs a buffer")
 	}
 	var count uint64
+	// #nosec G103 -- &buf[0] is guarded by the empty check above, and the
+	// capacity handed over is exactly len(buf), so the runtime cannot write past
+	// the caller's allocation. collectSegments sizes buf under maxDiarSegments
+	// and rejects a reported count larger than it rather than slicing to it.
 	st := DiarSegments(s.handle, s.cfgPtr(), unsafe.Pointer(&buf[0]), uint64(len(buf)), &count)
 	if st != 0 {
 		// count is returned alongside the error on purpose: a too-small buffer
@@ -187,6 +195,10 @@ func (n *NemoSpeech) loadDiarizer(modelFile string) error {
 
 	xlog.Info("nemo-speech-cpp: creating diarizer", "gpu", n.opts.gpu)
 
+	// #nosec G103 -- cfg is a local POD struct borrowed for this call only. Its
+	// only uintptr member is ModelPath, the cstr allocation pinned by the
+	// deferred freePath above (Preset is deliberately NULL), and
+	// nemo_speech_diar_create deep-copies the path and retains nothing.
 	if st := DiarCreate(unsafe.Pointer(&cfg), &n.diarizer); st != 0 {
 		return statusErrorf(st, "nemo-speech-cpp: diarizer create: %s", ASRLastError())
 	}
@@ -379,6 +391,9 @@ func distinctSpeakers(segs []*pb.DiarizeSegment) int32 {
 	for _, s := range segs {
 		seen[s.GetSpeaker()] = struct{}{}
 	}
+	// #nosec G115 -- seen holds at most one entry per segment, and collectSegments
+	// refuses any count above maxDiarSegments (2^22), so this is orders of
+	// magnitude below the int32 the proto field is.
 	return int32(len(seen))
 }
 

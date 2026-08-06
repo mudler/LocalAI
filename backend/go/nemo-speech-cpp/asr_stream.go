@@ -141,6 +141,10 @@ func (n *NemoSpeech) openSession(language string) (asrSession, error) {
 	// them.
 
 	var handle uintptr
+	// #nosec G103 -- opts is a local POD struct borrowed for this call only, and
+	// its one uintptr member (LanguageCode) is the cstr allocation pinned by the
+	// deferred freeLang above. to_options copies the struct, so nothing here
+	// outlives the call.
 	if st := ASRStreamingRecognize(n.recognizer, unsafe.Pointer(&opts), &handle); st != 0 {
 		return nil, statusErrorf(st, "nemo-speech-cpp: streaming recognize: %s", ASRLastError())
 	}
@@ -244,6 +248,9 @@ func streamPCM(ctx context.Context, sess asrSession, pcm []float32, sampleRate i
 			segs = []*pb.TranscriptSegment{{Text: r.Text}}
 		}
 		for _, s := range segs {
+			// #nosec G115 -- TranscriptSegment.Id is int32 on the wire, and
+			// segments holds one entry per speaker run per finalized utterance of
+			// a single request, which exhausts memory long before it reaches 2^31.
 			s.Id = int32(len(segments))
 			segments = append(segments, s)
 		}

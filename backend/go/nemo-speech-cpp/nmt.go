@@ -178,6 +178,10 @@ func (n *NemoSpeech) loadNMT(modelFile string) error {
 		"source_language", n.opts.sourceLanguage,
 		"target_language", n.opts.targetLanguage)
 
+	// #nosec G103 -- cfg is a local POD struct borrowed for this call only. Its
+	// Backend and Model members are pinPtr addresses held by the pinner unpinned
+	// on return, Model.Path is the cstr allocation freed by the defer above, and
+	// nemo_speech_nmt_create deep-copies everything it reads.
 	if st := NMTCreate(unsafe.Pointer(&cfg), &n.nmt); st != 0 {
 		return statusErrorf(st, "nemo-speech-cpp: nmt create: %s", NMTLastError())
 	}

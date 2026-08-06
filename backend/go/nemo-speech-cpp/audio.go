@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -33,6 +34,9 @@ func decodeAudioMono16k(path string) ([]float32, int32, error) {
 		return nil, 0, err
 	}
 
+	// #nosec G304 -- converted is filepath.Join of a directory this function just
+	// created with os.MkdirTemp and a constant basename. The request-controlled
+	// path is the INPUT to AudioToWav and never reaches this open.
 	fh, err := os.Open(converted)
 	if err != nil {
 		return nil, 0, err
@@ -64,8 +68,18 @@ func decodeAudioMono16k(path string) ([]float32, int32, error) {
 // decoder could not read would not fail, it would silently pitch-shift the
 // audio and quietly degrade the transcript, which is the same failure the
 // caller comment warns about for a wrong rate.
+//
+// The upper bound is what makes the narrowing to int32 safe rather than merely
+// unlikely. go-audio reads the WAV header's sample rate as an unsigned 32-bit
+// field into an int, so on a 64-bit build a header claiming more than 2^31-1
+// survives the "> 0" test and then narrows to a NEGATIVE rate, which the runtime
+// would take as a resampling ratio. Nothing this backend decodes can reach that
+// today (AudioToWav either passes through a WAV it has confirmed is exactly
+// 16 kHz or runs ffmpeg with -ar 16000), but that is a property of a helper in
+// another package, and this function exists precisely because the rate is read
+// back rather than assumed.
 func sampleRateOf(buf *audio.IntBuffer) (int32, error) {
-	if buf.Format == nil || buf.Format.SampleRate <= 0 {
+	if buf.Format == nil || buf.Format.SampleRate <= 0 || buf.Format.SampleRate > math.MaxInt32 {
 		return 0, errors.New("nemo-speech-cpp: decoded audio has no usable sample rate")
 	}
 	return int32(buf.Format.SampleRate), nil

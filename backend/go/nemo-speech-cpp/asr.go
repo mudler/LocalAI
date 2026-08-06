@@ -34,6 +34,10 @@ type asrWord struct {
 // address C holds stays the address of the object.
 func pinPtr[T any](p *runtime.Pinner, v *T) uintptr {
 	p.Pin(v)
+	// #nosec G103 -- v is pinned into p on the previous line, so its address is
+	// stable and traced for as long as p lives; every caller defers p.Unpin only
+	// after the create call that reads it. One-way, like cstr: nothing converts
+	// this uintptr back to a pointer.
 	return uintptr(unsafe.Pointer(v))
 }
 
@@ -137,6 +141,10 @@ func (n *NemoSpeech) loadASR(modelFile string) error {
 		"itn", n.opts.itnDir != "",
 		"diarization", n.opts.diarModel != "")
 
+	// #nosec G103 -- cfg is a local POD struct passed as a pointer for the
+	// duration of this call only; every uintptr member it carries is either a
+	// cstr allocation or a pinPtr address, all pinned above and released by the
+	// defers, and nemo_speech_asr_create deep-copies and retains nothing.
 	if st := ASRCreate(unsafe.Pointer(&cfg), &n.recognizer); st != 0 {
 		return statusErrorf(st, "nemo-speech-cpp: asr create: %s", ASRLastError())
 	}
@@ -158,6 +166,10 @@ func recognizeF32(recognizer uintptr, opts *cASRRecognitionOptions, pcm []float3
 	}
 
 	var result uintptr
+	// #nosec G103 -- opts is the caller's live struct, borrowed for this call
+	// only; its LanguageCode is a cstr allocation the caller keeps pinned across
+	// it. &pcm[0] is guarded by the empty check above and the length handed over
+	// is exactly len(pcm), so the runtime cannot read past the slice.
 	if st := ASRRecognizeF32(recognizer, unsafe.Pointer(opts),
 		&pcm[0], uint64(len(pcm)), sampleRate, &result); st != 0 {
 		return 0, statusErrorf(st, "nemo-speech-cpp: recognize: %s", ASRLastError())
@@ -231,6 +243,9 @@ func wordsToSegments(words []asrWord, withWords bool) []*pb.TranscriptSegment {
 			texts = append(texts, w.Text)
 		}
 		seg := &pb.TranscriptSegment{
+			// #nosec G115 -- TranscriptSegment.Id is int32 on the wire, and segs
+			// holds one entry per speaker run over the words of a single decode
+			// result, which exhausts memory long before it reaches 2^31.
 			Id:    int32(len(segs)),
 			Text:  strings.Join(texts, " "),
 			Start: msToNanos(run[0].Start),

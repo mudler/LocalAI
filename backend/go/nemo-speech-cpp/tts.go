@@ -143,6 +143,10 @@ func ttsDeliverPCM(pcm unsafe.Pointer, nBytes uint64, userData uintptr) bool {
 	}
 
 	buf := make([]byte, nBytes)
+	// #nosec G103 -- pcm and nBytes are the C-owned buffer and its length from
+	// one callback invocation, both null/zero-checked above. The slice is read
+	// only, its length is the length the runtime declared for that buffer, and it
+	// is copied into Go memory here and never retained past this return.
 	copy(buf, unsafe.Slice((*byte)(pcm), nBytes))
 	return sink(buf)
 }
@@ -200,6 +204,10 @@ func (s *cSynthesizer) synthesize(req *pb.TTSRequest, defaultLanguage string, si
 	// stats_out is NULL: nemo_speech_tts_synthesis_stats is 300-odd bytes of
 	// timing detail with nowhere to go on either RPC, and the C API documents
 	// NULL as the way to decline it.
+	// #nosec G103 -- opts is a local POD struct borrowed for this call only. Its
+	// two uintptr members (LanguageCode, VoiceName) are cstr allocations pinned
+	// by the defers above, and this entry point is synchronous, so it returns
+	// before those pins are released even though the callbacks run off-thread.
 	st := TTSSynthesizeText(s.handle, unsafe.Pointer(&opts), req.GetText(), ttsPCMCallback(), id, nil)
 	if st != 0 {
 		// An unknown voice_name arrives here as INVALID_ARGUMENT
@@ -394,6 +402,10 @@ func (n *NemoSpeech) loadTTS(modelFile string) error {
 	// load, where the operator can see it, rather than the first synthesis.
 	ttsPCMCallback()
 
+	// #nosec G103 -- cfg is a local POD struct borrowed for this call only. Model
+	// and Runtime are pinPtr addresses held by the pinner unpinned on return, the
+	// paths they carry are cstr allocations freed by the defers above, and
+	// nemo_speech_tts_create deep-copies every string it reads.
 	if st := TTSCreate(unsafe.Pointer(&cfg), &n.synth); st != 0 {
 		return statusErrorf(st, "nemo-speech-cpp: tts create: %s", TTSLastError())
 	}
@@ -453,6 +465,8 @@ func wavFile(pcm []byte, sampleRate uint32) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
+	// #nosec G115 -- len(pcm) is checked against maxWAVDataBytes (MaxUint32 minus
+	// the header) immediately above, so the narrowing to uint32 cannot wrap.
 	h := laudio.NewWAVHeaderWithRate(uint32(len(pcm)), sampleRate)
 	if err := h.Write(&buf); err != nil {
 		return nil, status.Errorf(codes.Internal, "nemo-speech-cpp: write WAV header: %v", err)
