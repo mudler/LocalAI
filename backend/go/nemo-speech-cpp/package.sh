@@ -69,14 +69,24 @@ source "$CURDIR/../../../scripts/build/package-system-libs.sh" "$CURDIR/package/
 #
 # Skipped deliberately: the core runtime set that package-system-libs.sh owns,
 # and the GPU stack that package-gpu-libs.sh owns.
-if [ "$(uname)" != "Darwin" ]; then
+shopt -s nullglob
+staged_libs=("$CURDIR"/package/lib/*.so*)
+shopt -u nullglob
+
+if [ "$(uname)" != "Darwin" ] && [ "${#staged_libs[@]}" -gt 0 ]; then
+	# No silent skip. If the closure cannot be checked, the package cannot be
+	# shown to be complete, and shipping an unverified one is the failure this
+	# guard exists to prevent.
 	if command -v readelf >/dev/null 2>&1; then
 		read_needed() { readelf -d "$1" 2>/dev/null | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p'; }
 	elif command -v objdump >/dev/null 2>&1; then
 		read_needed() { objdump -p "$1" 2>/dev/null | awk '$1 == "NEEDED" { print $2 }'; }
 	else
-		read_needed() { :; }
-		echo "WARNING: neither readelf nor objdump found, skipping the dependency closure check" >&2
+		echo "ERROR: neither readelf nor objdump is available, so the dependency" >&2
+		echo "       closure of ${#staged_libs[@]} staged libraries cannot be verified." >&2
+		echo "       Install binutils in the build image; refusing to ship an" >&2
+		echo "       unverified package." >&2
+		exit 1
 	fi
 
 	is_provided() {
@@ -89,8 +99,19 @@ if [ "$(uname)" != "Darwin" ]; then
 		[ -e "$CURDIR/package/lib/$1" ]
 	}
 
-	# Repeat until stable: a copied library can itself pull in new dependencies.
-	for _pass in 1 2 3 4 5; do
+	# Walk until the staged set stops growing. The glob below expands once per
+	# pass, so each pass advances the closure by exactly one dependency level;
+	# a copied library can itself pull in new dependencies.
+	#
+	# CLOSURE_MAX_PASSES is a runaway guard, not a depth limit. Exhausting it
+	# means the walk never converged and the package is therefore incomplete,
+	# which has to fail the build: a fixed pass count that just falls out of the
+	# loop would silently ship a package missing its deepest libraries, and
+	# libnemo_speech_asr -> sparrowhawk -> protobuf -> absl already runs several
+	# levels deep.
+	CLOSURE_MAX_PASSES="${CLOSURE_MAX_PASSES:-64}"
+	converged=0
+	for (( pass=1; pass<=CLOSURE_MAX_PASSES; pass++ )); do
 		missing=0
 		for so in "$CURDIR"/package/lib/*.so*; do
 			[ -f "$so" ] || continue
@@ -113,9 +134,17 @@ if [ "$(uname)" != "Darwin" ]; then
 			done
 		done
 		if [ "$missing" -eq 0 ]; then
+			converged=1
 			break
 		fi
 	done
+
+	if [ "$converged" -ne 1 ]; then
+		echo "ERROR: the dependency closure was still growing after" >&2
+		echo "       $CLOSURE_MAX_PASSES passes, so the package is incomplete and" >&2
+		echo "       would fail to dlopen at runtime. Refusing to ship it." >&2
+		exit 1
+	fi
 fi
 
 # Package GPU libraries (CUDA/ROCm/Intel/Vulkan loader + ICDs + drivers)

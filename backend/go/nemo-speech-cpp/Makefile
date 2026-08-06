@@ -66,7 +66,7 @@ else ifeq ($(BUILD_TYPE),metal)
 	CMAKE_ARGS+=-DGGML_METAL=ON
 endif
 
-.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml
+.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine
 
 all: nemo-speech-cpp-grpc package
 
@@ -135,6 +135,16 @@ ifeq ($(WITH_NORM),ON)
 	cp -af $(ITN_LIB_DIR)/*.so* .
 endif
 
+## Builds the native runtime and stops short of the Go binary. Everything it
+## touches lives under sources/, a clone pinned by NEMO_SPEECH_VERSION, so
+## nothing here can observe a change elsewhere in the LocalAI tree.
+## Dockerfile.golang calls this from a layer that copies in this directory and
+## nothing else, which keeps the multi-minute ggml/llama.cpp compile in the
+## registry layer cache across builds whose only change is on the Go side.
+## Without it that prebuild is skipped and a CUDA build recompiles all of
+## upstream on every Go-side edit. See .agents/ci-caching.md.
+engine: stage-libs
+
 nemo-speech-cpp-grpc: stage-libs
 	# CGO_ENABLED=0 matches whisper / parakeet-cpp / omnivoice-cpp: the runtime is
 	# reached through purego.Dlopen, not cgo, and a static binary is what lets
@@ -142,8 +152,9 @@ nemo-speech-cpp-grpc: stage-libs
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o nemo-speech-cpp-grpc .
 
 # The dlopen tests need the staged shared objects on the loader path, the same
-# way parakeet-cpp sets it up.
-test:
+# way parakeet-cpp sets it up. Depends on stage-libs so that path is not an
+# empty directory on a clean tree, which would fail the tests confusingly.
+test: stage-libs
 	LD_LIBRARY_PATH=$(CURDIR):$$LD_LIBRARY_PATH $(GOCMD) test ./... -count=1
 
 package: nemo-speech-cpp-grpc
