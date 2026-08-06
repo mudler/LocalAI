@@ -41,7 +41,7 @@ var _ = Describe("wordsToSegments", func() {
 			{Text: "there", Start: 400, End: 800, Speaker: 1},
 			{Text: "hi", Start: 900, End: 1200, Speaker: 2},
 		}
-		segs := wordsToSegments(words)
+		segs := wordsToSegments(words, false)
 		Expect(segs).To(HaveLen(2))
 		Expect(segs[0].Text).To(Equal("hello there"))
 		Expect(segs[1].Text).To(Equal("hi"))
@@ -58,7 +58,7 @@ var _ = Describe("wordsToSegments", func() {
 			{Text: "two", Start: 100, End: 200, Speaker: 2},
 			{Text: "three", Start: 200, End: 300, Speaker: 1},
 		}
-		segs := wordsToSegments(words)
+		segs := wordsToSegments(words, false)
 		Expect(segs).To(HaveLen(3))
 		Expect(segs[0].Text).To(Equal("one"))
 		Expect(segs[1].Text).To(Equal("two"))
@@ -70,7 +70,7 @@ var _ = Describe("wordsToSegments", func() {
 	// runtime reports word offsets in milliseconds (src/asr/types.h:46).
 	It("converts millisecond word times to nanoseconds", func() {
 		words := []asrWord{{Text: "a", Start: 1500, End: 2250, Speaker: 0}}
-		segs := wordsToSegments(words)
+		segs := wordsToSegments(words, false)
 		Expect(segs).To(HaveLen(1))
 		Expect(time.Duration(segs[0].Start)).To(Equal(1500 * time.Millisecond))
 		Expect(time.Duration(segs[0].End)).To(Equal(2250 * time.Millisecond))
@@ -81,7 +81,7 @@ var _ = Describe("wordsToSegments", func() {
 			{Text: "a", Start: 100, End: 200, Speaker: 0},
 			{Text: "b", Start: 500, End: 900, Speaker: 0},
 		}
-		segs := wordsToSegments(words)
+		segs := wordsToSegments(words, false)
 		Expect(segs).To(HaveLen(1))
 		Expect(time.Duration(segs[0].Start)).To(Equal(100 * time.Millisecond))
 		Expect(time.Duration(segs[0].End)).To(Equal(900 * time.Millisecond))
@@ -92,14 +92,14 @@ var _ = Describe("wordsToSegments", func() {
 			{Text: "a", Start: 0, End: 100, Speaker: 0},
 			{Text: "b", Start: 100, End: 200, Speaker: 0},
 		}
-		segs := wordsToSegments(words)
+		segs := wordsToSegments(words, false)
 		Expect(segs).To(HaveLen(1))
 		Expect(segs[0].Text).To(Equal("a b"))
 	})
 
 	It("returns no segments for no words", func() {
-		Expect(wordsToSegments(nil)).To(BeEmpty())
-		Expect(wordsToSegments([]asrWord{})).To(BeEmpty())
+		Expect(wordsToSegments(nil, false)).To(BeEmpty())
+		Expect(wordsToSegments([]asrWord{}, false)).To(BeEmpty())
 	})
 
 	It("numbers the segments from zero in order", func() {
@@ -108,19 +108,61 @@ var _ = Describe("wordsToSegments", func() {
 			{Text: "b", Speaker: 2},
 			{Text: "c", Speaker: 3},
 		}
-		segs := wordsToSegments(words)
+		segs := wordsToSegments(words, false)
 		Expect(segs).To(HaveLen(3))
 		for i, s := range segs {
 			Expect(s.Id).To(Equal(int32(i)))
 		}
 	})
 
+	// TranscriptSegment.Words is what core/backend/transcript.go turns into the
+	// response's word list, so an unset one makes timestamp_granularities:
+	// ["word"] come back empty however good the timings were.
+	It("attaches the per-word timings only when they were asked for", func() {
+		words := []asrWord{
+			{Text: "a", Start: 0, End: 100},
+			{Text: "b", Start: 100, End: 250},
+		}
+		with := wordsToSegments(words, true)
+		Expect(with[0].Words).To(HaveLen(2))
+		Expect(with[0].Words[1].Text).To(Equal("b"))
+		Expect(time.Duration(with[0].Words[1].Start)).To(Equal(100 * time.Millisecond))
+		Expect(time.Duration(with[0].Words[1].End)).To(Equal(250 * time.Millisecond))
+
+		Expect(wordsToSegments(words, false)[0].Words).To(BeEmpty())
+	})
+
+	// A speaker change splits the run, and each segment must carry only its own
+	// words rather than the whole utterance's.
+	It("gives each speaker run only its own words", func() {
+		segs := wordsToSegments([]asrWord{
+			{Text: "a", Speaker: 1},
+			{Text: "b", Speaker: 2},
+		}, true)
+		Expect(segs).To(HaveLen(2))
+		Expect(segs[0].Words).To(HaveLen(1))
+		Expect(segs[0].Words[0].Text).To(Equal("a"))
+		Expect(segs[1].Words[0].Text).To(Equal("b"))
+	})
+
 	// The C ABI documents the speaker tag as 1-based with 0 meaning "untagged",
 	// so a run of untagged words must not come back attributed to a speaker
 	// literally named "0".
 	It("labels a diarized run and leaves an untagged one unlabelled", func() {
-		Expect(wordsToSegments([]asrWord{{Text: "a", Speaker: 2}})[0].Speaker).To(Equal("2"))
-		Expect(wordsToSegments([]asrWord{{Text: "a", Speaker: 0}})[0].Speaker).To(BeEmpty())
+		Expect(wordsToSegments([]asrWord{{Text: "a", Speaker: 2}}, false)[0].Speaker).To(Equal("2"))
+		Expect(wordsToSegments([]asrWord{{Text: "a", Speaker: 0}}, false)[0].Speaker).To(BeEmpty())
+	})
+})
+
+var _ = Describe("wordsRequested", func() {
+	It("recognises the OpenAI word granularity in any casing or padding", func() {
+		Expect(wordsRequested([]string{"word"})).To(BeTrue())
+		Expect(wordsRequested([]string{"segment", " Word "})).To(BeTrue())
+	})
+
+	It("defaults to segment level", func() {
+		Expect(wordsRequested(nil)).To(BeFalse())
+		Expect(wordsRequested([]string{"segment"})).To(BeFalse())
 	})
 })
 

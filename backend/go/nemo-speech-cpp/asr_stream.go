@@ -183,14 +183,20 @@ func drain(sess asrSession, emit func(streamResult) error) error {
 // streamPCM drives one whole clip through an open session, emitting each
 // finalized utterance as a delta and closing with the assembled result.
 //
-// Only finals become deltas. An interim is the decoder's running hypothesis
-// for the utterance in flight, and the final rewrites it (build_result_ in
-// src/asr/recognizer.cpp applies PnC/ITN only on finals), so an interim is not
-// a prefix of the text that eventually lands. TranscriptStreamResponse.delta is
-// newly-FINALIZED text that consumers concatenate, so forwarding interims would
-// duplicate and mispunctuate every utterance. The cost is that the first delta
-// of an utterance arrives at its endpoint rather than mid-word.
-func streamPCM(ctx context.Context, sess asrSession, pcm []float32, sampleRate int32, results chan<- *pb.TranscriptStreamResponse) error {
+// Only finals become deltas, and the reason is the wire contract:
+// TranscriptStreamResponse.delta is newly-FINALIZED text that consumers
+// CONCATENATE (core/http/endpoints/openai/transcription.go, and the realtime
+// semantic-VAD path). An interim is the decoder's running hypothesis for the
+// utterance in flight, so forwarding "he", "hell", "hello", "Hello." would
+// assemble to "hehellhelloHello." rather than to the transcript. That the
+// runtime also postprocesses finals only (build_result_ in
+// src/asr/recognizer.cpp runs ITN and strip_formatting on the final, so it
+// rewrites rather than extends the interim) means there is no diffing trick
+// that would rescue them either.
+//
+// The cost is that the first delta of an utterance arrives at its endpoint
+// rather than mid-word.
+func streamPCM(ctx context.Context, sess asrSession, pcm []float32, sampleRate int32, wantWords bool, results chan<- *pb.TranscriptStreamResponse) error {
 	if len(pcm) == 0 {
 		return status.Error(codes.InvalidArgument, "nemo-speech-cpp: empty audio")
 	}
@@ -231,7 +237,7 @@ func streamPCM(ctx context.Context, sess asrSession, pcm []float32, sampleRate i
 		// One segment run per utterance, renumbered into the running sequence.
 		// wordsToSegments splits a run further on a speaker change, so a
 		// diarized utterance contributes one segment per turn.
-		segs := wordsToSegments(r.Words)
+		segs := wordsToSegments(r.Words, wantWords)
 		if len(segs) == 0 {
 			// Word offsets were requested but a decoder head may still return
 			// none; a segment carrying just the text beats dropping it.
@@ -325,26 +331,39 @@ func runLive(open sessionOpener, in <-chan *pb.TranscriptLiveRequest, out chan<-
 	// any audio is read.
 	out <- &pb.TranscriptLiveResponse{Ready: true}
 
-	var full strings.Builder
+	var (
+		full     strings.Builder
+		flushing bool
+	)
 	emit := func(r streamResult) error {
 		// Finals only, for the same reason as streamPCM: an interim is a
 		// hypothesis the final rewrites, and delta is newly-finalized text.
 		if !r.Final || (r.Text == "" && len(r.Words) == 0) {
 			return nil
 		}
-		if r.Text != "" {
-			if full.Len() > 0 {
-				full.WriteString(" ")
-			}
-			full.WriteString(r.Text)
+
+		// The separator goes INTO the delta, exactly as in streamPCM, because
+		// the live consumer is the one that actually concatenates: the realtime
+		// semantic-VAD path joins the accumulated deltas with the empty string
+		// and only clears them at a turn reset, never at an endpoint. Adding
+		// the space when assembling the terminal text instead would make the
+		// running caption read "one.two." while the committed transcript read
+		// "one. two.".
+		delta := r.Text
+		if delta != "" && full.Len() > 0 {
+			delta = " " + delta
 		}
-		// Eou is set because a final that arrives while audio is still coming
-		// IS the model's endpoint: the decoder resets its utterance there and
-		// the next one starts fresh. That is the signal the realtime turn
-		// detector consumes.
+		full.WriteString(delta)
+
 		out <- &pb.TranscriptLiveResponse{
-			Delta: r.Text,
-			Eou:   true,
+			Delta: delta,
+			// A final that arrives while audio is still coming IS the model's
+			// endpoint: the decoder resets its utterance there and the next one
+			// starts fresh, which is the turn boundary the realtime detector
+			// waits on. The final that comes back from the tail flush is the
+			// end of the STREAM, not a user yielding a turn, so it carries no
+			// eou even though the send side has already closed.
+			Eou:   !flushing,
 			Words: wordsToProto(r.Words),
 		}
 		return nil
@@ -386,14 +405,19 @@ func runLive(open sessionOpener, in <-chan *pb.TranscriptLiveRequest, out chan<-
 	// Send side closed: flush the tail and emit the terminal result. Like the
 	// other backends' live path this carries Text only; per-utterance segments
 	// and the duration are the file path's concern.
+	flushing = true
 	if err := sess.finish(); err != nil {
 		return err
 	}
 	if err := drain(sess, emit); err != nil {
 		return err
 	}
+	// Not trimmed: the terminal text is the verbatim concatenation of the
+	// deltas, which is the invariant the concatenating consumers rely on. The
+	// first delta never carries the separator, so there is no leading space to
+	// trim off in the first place.
 	out <- &pb.TranscriptLiveResponse{
-		FinalResult: &pb.TranscriptResult{Text: strings.TrimSpace(full.String())},
+		FinalResult: &pb.TranscriptResult{Text: full.String()},
 	}
 	return nil
 }
@@ -480,7 +504,8 @@ func (n *NemoSpeech) transcribeStream(ctx context.Context, req *pb.TranscriptReq
 	}
 	defer sess.close()
 
-	return streamPCM(ctx, sess, pcm, sampleRate, results)
+	return streamPCM(ctx, sess, pcm, sampleRate,
+		wordsRequested(req.GetTimestampGranularities()), results)
 }
 
 // AudioTranscriptionLive serves the bidirectional live RPC over one streaming

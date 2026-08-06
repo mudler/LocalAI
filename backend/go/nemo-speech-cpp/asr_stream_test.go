@@ -191,13 +191,17 @@ var _ = Describe("drain", func() {
 })
 
 var _ = Describe("streamPCM", func() {
-	stream := func(ctx context.Context, sess asrSession, pcm []float32, rate int32) ([]*pb.TranscriptStreamResponse, error) {
+	streamWords := func(ctx context.Context, sess asrSession, pcm []float32, rate int32, wantWords bool) ([]*pb.TranscriptStreamResponse, error) {
 		GinkgoHelper()
 		results := make(chan *pb.TranscriptStreamResponse)
 		done := collect(results)
-		err := streamPCM(ctx, sess, pcm, rate, results)
+		err := streamPCM(ctx, sess, pcm, rate, wantWords, results)
 		close(results)
 		return <-done, err
+	}
+	stream := func(ctx context.Context, sess asrSession, pcm []float32, rate int32) ([]*pb.TranscriptStreamResponse, error) {
+		GinkgoHelper()
+		return streamWords(ctx, sess, pcm, rate, false)
 	}
 
 	It("pushes the whole clip in chunks at the clip's own sample rate", func() {
@@ -299,6 +303,29 @@ var _ = Describe("streamPCM", func() {
 		Expect(segs[1].GetId()).To(Equal(int32(1)))
 		Expect(time.Duration(segs[1].GetStart())).To(Equal(900 * time.Millisecond))
 		Expect(time.Duration(segs[1].GetEnd())).To(Equal(1400 * time.Millisecond))
+	})
+
+	// core/backend/transcript.go builds the response's word list out of
+	// TranscriptSegment.Words, so leaving it unset makes
+	// timestamp_granularities: ["word"] come back empty.
+	It("attaches the word timings only when they were asked for", func() {
+		script := func() [][]streamResult {
+			return [][]streamResult{{{Text: "one", Final: true,
+				Words: []asrWord{{Text: "one", Start: 100, End: 500}}}}}
+		}
+
+		got, err := streamWords(context.Background(), &fakeSession{script: script()}, make([]float32, 10), 16000, true)
+		Expect(err).ToNot(HaveOccurred())
+		segs := got[len(got)-1].GetFinalResult().GetSegments()
+		Expect(segs[0].GetWords()).To(HaveLen(1))
+		Expect(segs[0].GetWords()[0].GetText()).To(Equal("one"))
+		Expect(time.Duration(segs[0].GetWords()[0].GetStart())).To(Equal(100 * time.Millisecond))
+
+		got, err = streamWords(context.Background(), &fakeSession{script: script()}, make([]float32, 10), 16000, false)
+		Expect(err).ToNot(HaveOccurred())
+		segs = got[len(got)-1].GetFinalResult().GetSegments()
+		Expect(segs[0].GetText()).To(Equal("one"))
+		Expect(segs[0].GetWords()).To(BeEmpty())
 	})
 
 	// The flush that nemo_speech_asr_stream_finish triggers returns whatever the
@@ -479,6 +506,52 @@ var _ = Describe("runLive", func() {
 		Expect(opened[0].closed).To(Equal(1))
 		Expect(got[len(got)-1].GetFinalResult()).ToNot(BeNil())
 		Expect(got[len(got)-1].GetFinalResult().GetText()).To(Equal("one. two."))
+	})
+
+	// The live path is the one with a consumer that really concatenates: the
+	// realtime semantic-VAD path joins the accumulated deltas with the empty
+	// string and clears them only at a turn reset, never at an utterance
+	// boundary. A separator added when assembling the terminal text instead of
+	// inside the delta makes the running caption read "one.two." while the
+	// committed transcript reads "one. two.".
+	It("reproduces the final transcript by concatenating the deltas", func() {
+		got, _, err := live(
+			[]*pb.TranscriptLiveRequest{cfg(0), audio(1)},
+			[][]streamResult{{{Text: "one.", Final: true}}, {{Text: "two.", Final: true}}},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		var joined string
+		var final *pb.TranscriptResult
+		for _, r := range got {
+			joined += r.GetDelta()
+			if r.GetFinalResult() != nil {
+				final = r.GetFinalResult()
+			}
+		}
+		Expect(final).ToNot(BeNil())
+		Expect(final.GetText()).To(Equal("one. two."))
+		Expect(joined).To(Equal(final.GetText()))
+	})
+
+	// Eou is the model's endpoint, which is a user yielding the turn. The final
+	// that comes back from the tail flush is the end of the stream: the send
+	// side has already closed, so reporting a turn boundary there tells the
+	// turn detector something that did not happen.
+	It("marks the endpoint finals but not the tail flush", func() {
+		got, _, err := live(
+			[]*pb.TranscriptLiveRequest{cfg(0), audio(1)},
+			[][]streamResult{{{Text: "one.", Final: true}}, {{Text: "two.", Final: true}}},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		var eous []bool
+		for _, r := range got {
+			if r.GetDelta() != "" {
+				eous = append(eous, r.GetEou())
+			}
+		}
+		Expect(eous).To(Equal([]bool{true, false}))
 	})
 
 	// A rate cannot change inside a stream and the decoder keeps no state

@@ -175,6 +175,20 @@ func extractWords(result uintptr) []asrWord {
 	return words
 }
 
+// wordsRequested reports whether the caller asked for word-level timestamps.
+// The OpenAI transcription API gates word timings behind
+// timestamp_granularities[] containing "word" and defaults to segment level
+// otherwise; every backend here follows that contract (see
+// backend/go/parakeet-cpp).
+func wordsRequested(granularities []string) bool {
+	for _, g := range granularities {
+		if strings.EqualFold(strings.TrimSpace(g), "word") {
+			return true
+		}
+	}
+	return false
+}
+
 // wordsToSegments groups words into one segment per consecutive speaker run.
 // Without diarization every word carries speaker 0, so this collapses to a
 // single segment.
@@ -182,7 +196,12 @@ func extractWords(result uintptr) []asrWord {
 // The boundary is a CHANGE of speaker, not the first appearance of one: a
 // conversation that returns to an earlier speaker has to start a new turn
 // rather than reopen the old one.
-func wordsToSegments(words []asrWord) []*pb.TranscriptSegment {
+//
+// withWords additionally attaches the per-word timings that
+// core/backend/transcript.go turns into the response's word list. It is off by
+// default because the OpenAI contract asks for word timestamps explicitly, and
+// a long transcript pays for every word twice otherwise.
+func wordsToSegments(words []asrWord, withWords bool) []*pb.TranscriptSegment {
 	if len(words) == 0 {
 		return nil
 	}
@@ -205,6 +224,9 @@ func wordsToSegments(words []asrWord) []*pb.TranscriptSegment {
 		// run must stay unlabelled rather than be attributed to a speaker "0".
 		if run[0].Speaker > 0 {
 			seg.Speaker = strconv.Itoa(int(run[0].Speaker))
+		}
+		if withWords {
+			seg.Words = wordsToProto(run)
 		}
 		segs = append(segs, seg)
 	}
@@ -304,8 +326,9 @@ func (n *NemoSpeech) transcribe(req *pb.TranscriptRequest) (*pb.TranscriptResult
 	defer ASRResultDestroy(result)
 
 	out := &pb.TranscriptResult{
-		Text:     ASRResultTranscript(result, 0),
-		Segments: wordsToSegments(extractWords(result)),
+		Text: ASRResultTranscript(result, 0),
+		Segments: wordsToSegments(extractWords(result),
+			wordsRequested(req.GetTimestampGranularities())),
 	}
 	// Multilingual models report what they decided the audio was; monolingual
 	// ones report nothing, and an empty language is better than echoing back
