@@ -298,7 +298,15 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	// imported configs already carry spec_type:draft-mtp before the model is
 	// ever loaded - users see it in the YAML preview rather than discovering
 	// it after the first start.
-	maybeApplyMTPDefaults(&modelConfig, details, &cfg)
+	//
+	// vllm-cpp is excluded on both counts: `spec_type:*` are llama.cpp option
+	// keys it does not read, and vllm.cpp rejects an MTP config over a GGUF
+	// source outright (the `mtp.*` draft tensors exist only in the safetensors
+	// checkpoint). Its MTP auto-config runs in the vllm importer instead, over
+	// the safetensors config.json.
+	if backend != "vllm-cpp" {
+		maybeApplyMTPDefaults(&modelConfig, details, &cfg)
+	}
 
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {

@@ -96,6 +96,12 @@ endif
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	LIB=libvllm.dylib
+	# Apple Clang diagnoses a pair of constant-folded array bounds in the Metal
+	# build as a GNU extension. Disable that diagnostic for both Objective-C and
+	# C++ because vllm.cpp appends target-local -Werror after these global flags.
+	CMAKE_ARGS+=-DCMAKE_CXX_FLAGS=-Wno-gnu-folding-constant
+	CMAKE_ARGS+=-DCMAKE_OBJC_FLAGS=-Wno-gnu-folding-constant
+	CMAKE_ARGS+=-DCMAKE_OBJCXX_FLAGS=-Wno-gnu-folding-constant
 else
 	LIB=libvllm.so
 endif
