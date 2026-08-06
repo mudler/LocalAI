@@ -1,8 +1,90 @@
 package main
 
-// loadOptions holds the parsed model-level options for NeMo-Speech.
-//
-// Placeholder for now. Task 5 populates it and adds the parseOptions helper
-// that turns ModelOptions.Options into this struct, following the
-// omnivoice-cpp convention.
-type loadOptions struct{}
+import (
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+// loadOptions holds the parsed model-level options. Path fields are resolved
+// against ModelOptions.ModelPath at parse time so every consumer sees an
+// absolute path.
+type loadOptions struct {
+	// ASR
+	vadModel     string
+	pncModel     string
+	diarModel    string
+	itnDir       string
+	languageCode string
+
+	// TTS
+	codecModel   string
+	tokenizerDir string
+	tnDir        string
+
+	// NMT
+	sourceLanguage string
+	targetLanguage string
+
+	// gpu is the device index passed to the runtime's backend config.
+	// -1 selects CPU, matching the C API's own sentinel.
+	gpu int32
+}
+
+// splitOption splits on the FIRST colon so values may themselves contain one.
+func splitOption(o string) (key, value string, ok bool) {
+	i := strings.Index(o, ":")
+	if i < 0 {
+		return "", "", false
+	}
+	return strings.TrimSpace(o[:i]), strings.TrimSpace(o[i+1:]), true
+}
+
+// resolve makes a relative asset path absolute against the models directory.
+// Empty stays empty so callers can test for "unset".
+func resolve(base, p string) string {
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(base, p)
+}
+
+// parseOptions reads the backend "key:value" option slice. Unknown keys are
+// ignored rather than rejected, so a config written for a newer backend still
+// loads on an older one.
+func parseOptions(opts []string, modelPath string) loadOptions {
+	o := loadOptions{gpu: -1}
+	for _, oo := range opts {
+		key, value, ok := splitOption(oo)
+		if !ok {
+			continue
+		}
+		switch key {
+		case "vad_model":
+			o.vadModel = resolve(modelPath, value)
+		case "pnc_model":
+			o.pncModel = resolve(modelPath, value)
+		case "diar_model":
+			o.diarModel = resolve(modelPath, value)
+		case "itn_dir":
+			o.itnDir = resolve(modelPath, value)
+		case "language_code":
+			o.languageCode = value
+		case "codec_model":
+			o.codecModel = resolve(modelPath, value)
+		case "tokenizer_dir":
+			o.tokenizerDir = resolve(modelPath, value)
+		case "tn_dir":
+			o.tnDir = resolve(modelPath, value)
+		case "source_language":
+			o.sourceLanguage = value
+		case "target_language":
+			o.targetLanguage = value
+		case "gpu":
+			if n, err := strconv.ParseInt(value, 10, 32); err == nil {
+				o.gpu = int32(n)
+			}
+		}
+	}
+	return o
+}
