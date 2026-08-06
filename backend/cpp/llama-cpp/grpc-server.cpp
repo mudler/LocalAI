@@ -3073,7 +3073,9 @@ public:
             : MTMD_HELPER_GEN_AUDIO_OUTTYPE_WAV;
 
         task.params.stream    = stream;
-        task.params.n_predict = -1;
+        // -1 keeps upstream's 512-frame default. The model does not always emit
+        // its codec EOS, so a short input can otherwise generate the full cap.
+        task.params.n_predict = opts.max_frames > 0 ? opts.max_frames : -1;
         task.params.sampling  = params_base.sampling;
         task.params.sampling.penalty_repeat = 1.05f;
         task.params.sampling.penalty_last_n = -1;

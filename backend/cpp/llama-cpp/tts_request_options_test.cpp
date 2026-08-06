@@ -26,6 +26,7 @@ static void test_accepts_a_minimal_valid_request() {
     check(opts.language == "en", "language passes through");
     check(opts.top_k == 0, "top_k defaults to the unset sentinel");
     check(opts.top_p == 0.0f, "top_p defaults to the unset sentinel");
+    check(opts.max_frames == 0, "max_frames defaults to the unset sentinel");
 }
 
 static void test_rejects_empty_text() {
@@ -133,6 +134,53 @@ static void test_accepts_sampling_param_boundaries() {
     check(zero_top_k.ok, "top_k of 0 is accepted");
 }
 
+static void test_parses_max_frames() {
+    // The consumer maps a positive value onto n_predict and leaves upstream's
+    // 512-frame default in place when it is unset, so the sentinel matters as
+    // much as the parsed value.
+    const auto opts = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", "120"}});
+
+    check(opts.ok, "max_frames is accepted");
+    check(opts.max_frames == 120, "max_frames is parsed");
+
+    const auto absent = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"top_k", "40"}});
+    check(absent.ok, "a request without max_frames is accepted");
+    check(absent.max_frames == 0, "absent max_frames leaves the unset sentinel");
+
+    const auto zero = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", "0"}});
+    check(zero.ok, "max_frames of 0 is accepted");
+    check(zero.max_frames == 0, "max_frames of 0 means unset");
+}
+
+static void test_rejects_malformed_max_frames() {
+    const auto negative = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", "-1"}});
+    check(!negative.ok, "negative max_frames is rejected");
+    check(negative.error.find("max_frames") != std::string::npos,
+          "negative max_frames error names the field");
+
+    const auto non_numeric = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", "many"}});
+    check(!non_numeric.ok, "non-numeric max_frames is rejected");
+    check(non_numeric.error.find("max_frames") != std::string::npos,
+          "non-numeric max_frames error names the field");
+
+    const auto trailing = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", "120abc"}});
+    check(!trailing.ok, "max_frames with trailing garbage is rejected");
+
+    const auto empty = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", ""}});
+    check(!empty.ok, "empty max_frames is rejected");
+
+    const auto overflow = llama_grpc::parse_tts_request_options(
+        "Hello world", "/models/voices/ref.wav", "", {{"max_frames", "99999999999"}});
+    check(!overflow.ok, "max_frames beyond int32 range is rejected");
+}
+
 static void test_ignores_unknown_params() {
     // Unknown keys are backend-specific knobs meant for other TTS engines. A
     // request routed here must not fail just because it carries them.
@@ -150,6 +198,8 @@ int main() {
     test_rejects_malformed_sampling_params();
     test_rejects_out_of_range_sampling_params();
     test_accepts_sampling_param_boundaries();
+    test_parses_max_frames();
+    test_rejects_malformed_max_frames();
     test_ignores_unknown_params();
 
     if (failures == 0) {
