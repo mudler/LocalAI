@@ -8880,6 +8880,69 @@
     - filename: qwen3-tts-cpp-1.7b-voicedesign-q4/qwen-tokenizer-12hz-Q4_K_M.gguf
       sha256: cf3788b4d50aaa665fb6e57c170396aae03a3555fea52d2b5d0cda902d658039
       uri: huggingface://Serveurperso/Qwen3-TTS-GGUF/qwen-tokenizer-12hz-Q4_K_M.gguf
+- &qwen3ttsllamacpp_gallery
+  name: qwen3-tts-llamacpp
+  variants:
+    - model: qwen3-tts-llamacpp-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/26254
+  description: |
+    Qwen3-TTS 1.7B Base served by the llama.cpp backend, using upstream's own
+    GGUF conversion. Runs on the full llama-cpp accelerator matrix (CUDA, ROCm,
+    SYCL, Vulkan, Metal). Streaming output and zero-shot voice cloning: set
+    `voice` to a reference clip or a saved Voice Library profile, which is
+    required since the Base checkpoint has no built-in speaker. 24kHz mono,
+    10 languages. Q8_0 backbone (~1.8 GB) plus a Q8_0 projector.
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/12608286?s=200&v=4
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - streaming
+    - qwen3-tts
+    - llama-cpp
+    - gguf
+  last_checked: "2026-08-05"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-llamacpp
+    mmproj: qwen3-tts-llamacpp/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+    parameters:
+      model: qwen3-tts-llamacpp/Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+  files:
+    - filename: qwen3-tts-llamacpp/Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+      sha256: ac7931aeb2e7aad1a6ed6602d353a5679c9d096b18ce8204ac730a8408d572e1
+      uri: huggingface://ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF/Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+    - filename: qwen3-tts-llamacpp/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+      sha256: 6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2
+      uri: huggingface://ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+- !!merge <<: *qwen3ttsllamacpp_gallery
+  name: qwen3-tts-llamacpp-q4
+  variants: []
+  description: |
+    Qwen3-TTS 1.7B Base served by the llama.cpp backend, Q4_K_M backbone
+    (~1.1 GB) plus a Q8_0 projector. Streaming and voice cloning, 24kHz mono,
+    10 languages. A `voice` reference clip is required.
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - tts
+    name: qwen3-tts-llamacpp-q4
+    mmproj: qwen3-tts-llamacpp-q4/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+    parameters:
+      model: qwen3-tts-llamacpp-q4/Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf
+  files:
+    - filename: qwen3-tts-llamacpp-q4/Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf
+      sha256: 8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129
+      uri: huggingface://ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF/Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf
+    - filename: qwen3-tts-llamacpp-q4/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+      sha256: 6fd65188839bcd6ecc91b277ad471e22a0edfada4699a0fe82f1165c18cfcce2
+      uri: huggingface://ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
 - &mossttscpp_gallery
   name: moss-tts-cpp-v1_5-q8_0
   variants:
