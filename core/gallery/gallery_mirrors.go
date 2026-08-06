@@ -2,7 +2,11 @@ package gallery
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -83,6 +87,66 @@ func inCooldown(url string) bool {
 	return true
 }
 
+// galleryCachePath is where the last known good copy of an index lives.
+//
+// Deliberately not inside basePath: getGalleryElements' caller treats every
+// <name>.yaml in the models directory as an installed model config, so a cached
+// index there would be misread as a model. The sibling cache directory follows
+// the precedent in core/services/worker/file_staging.go. The name is a digest
+// of the gallery URL so the model and the backend gallery — often fetched with
+// sibling base paths — cannot overwrite each other.
+//
+// An empty basePath yields no path at all: without a models directory the
+// sibling would be resolved against the process' working directory, which is
+// not somewhere LocalAI should be dropping files.
+func galleryCachePath(basePath, url string) string {
+	if basePath == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(url))
+	return filepath.Join(basePath, "..", "cache", "gallery", hex.EncodeToString(sum[:])+".yaml")
+}
+
+// persistGalleryIndex stores a freshly fetched index for the next time nothing
+// is reachable.
+//
+// Every failure here is logged at debug and otherwise ignored: the copy is an
+// optimisation, and a read-only or full disk must not turn a gallery that was
+// fetched perfectly well into a failed listing.
+func persistGalleryIndex(basePath, url string, body []byte) {
+	path := galleryCachePath(basePath, url)
+	if path == "" {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		xlog.Debug("could not create gallery cache directory", "path", path, "error", err)
+		return
+	}
+	// Write via a temporary file so an interrupted write cannot leave a
+	// truncated index that the next offline start would try to parse.
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".gallery-*.tmp")
+	if err != nil {
+		xlog.Debug("could not stage gallery cache", "path", path, "error", err)
+		return
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(body); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		xlog.Debug("could not write gallery cache", "path", path, "error", err)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		xlog.Debug("could not flush gallery cache", "path", path, "error", err)
+		return
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		os.Remove(tmpName)
+		xlog.Debug("could not install gallery cache", "path", path, "error", err)
+	}
+}
+
 // fetchGalleryIndex returns the raw index bytes and the URL that served them,
 // trying each candidate in order.
 //
@@ -90,6 +154,10 @@ func inCooldown(url string) bool {
 // in which case the cooldown is ignored rather than failing outright, because
 // refusing to serve a gallery we might be able to reach is worse than one slow
 // request.
+//
+// If no candidate answers, the last known good copy on disk is served and its
+// path is returned as the source. Nothing else in the chain helps a machine
+// that has no network at all.
 func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) ([]byte, string, error) {
 	candidates := galleryCandidates(g)
 	if len(candidates) == 0 {
@@ -123,6 +191,10 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) (
 			// A source that answers is usable again immediately; leaving the
 			// record behind would keep a recovered host skipped.
 			galleryFailures.Delete(candidate)
+			// Keyed on the gallery's own URL rather than the candidate that
+			// answered: a mirror serves the same index, so a mirror-served
+			// fetch must refresh the copy an offline run will look for.
+			persistGalleryIndex(basePath, g.URL, body)
 			return body, candidate, nil
 		}
 
@@ -138,7 +210,19 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) (
 			"gallery", g.Name, "url", candidate, "error", err)
 	}
 
-	return nil, "", fmt.Errorf("all %d source(s) for gallery %q failed, last error: %w",
+	// Every source failed. A copy from a previous run is much better than no
+	// gallery at all — this is what lets an offline or airgapped machine still
+	// list what it already knows about.
+	cachePath := galleryCachePath(basePath, g.URL)
+	if cachePath != "" {
+		if body, readErr := os.ReadFile(cachePath); readErr == nil {
+			xlog.Warn("all gallery sources failed, serving the last known good copy",
+				"gallery", g.Name, "path", cachePath, "error", lastErr)
+			return body, cachePath, nil
+		}
+	}
+
+	return nil, "", fmt.Errorf("all %d source(s) for gallery %q failed and no cached copy exists, last error: %w",
 		len(attempt), g.Name, lastErr)
 }
 

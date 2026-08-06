@@ -621,7 +621,9 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 			return models, fmt.Errorf("failed to read gallery elements: %w", err)
 		}
 		if servedBy != gallery.URL {
-			xlog.Info("gallery served by a mirror", "gallery", gallery.Name, "url", servedBy)
+			// A mirror's URL, or the path of the last known good copy on disk
+			// when nothing was reachable at all — either way, not the primary.
+			xlog.Info("gallery served by a fallback source", "gallery", gallery.Name, "source", servedBy)
 		}
 		galleryCache.Set(cacheKey, galleryCacheEntry{
 			yamlEntry:   body,

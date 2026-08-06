@@ -4,6 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -361,5 +364,238 @@ func TestGetGalleryElementsFallsBackToMirror(t *testing.T) {
 	// mirror-served fetch must populate the entry the primary URL would hit.
 	if !galleryCache.Exists(g.Name + "-" + g.URL) {
 		t.Error("mirror-served index was not cached under the gallery's own key")
+	}
+}
+
+func TestSuccessfulFetchIsPersisted(t *testing.T) {
+	resetGalleryFailures()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("- name: cached\n"))
+	}))
+	defer srv.Close()
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := os.ReadFile(galleryCachePath(base, srv.URL))
+	if err != nil {
+		t.Fatalf("no cached copy written: %v", err)
+	}
+	if string(body) != "- name: cached\n" {
+		t.Errorf("cached %q", body)
+	}
+}
+
+// The offline case: nothing is reachable, but a previous run left a copy.
+func TestFallsBackToDiskWhenEverySourceFails(t *testing.T) {
+	resetGalleryFailures()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("- name: cached\n"))
+	}))
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+	srv.Close() // now nothing is reachable
+	resetGalleryFailures()
+
+	body, served, err := fetchGalleryIndex(context.Background(), g, base)
+	if err != nil {
+		t.Fatalf("want the cached copy, got error: %v", err)
+	}
+	if string(body) != "- name: cached\n" {
+		t.Errorf("body = %q", body)
+	}
+	if served != galleryCachePath(base, srv.URL) {
+		t.Errorf("served = %q, want the cache path", served)
+	}
+}
+
+func TestNoCacheAndNoNetworkStillErrors(t *testing.T) {
+	resetGalleryFailures()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	url := srv.URL
+	srv.Close()
+
+	if _, _, err := fetchGalleryIndex(context.Background(),
+		config.Gallery{URL: url, Name: "localai"}, t.TempDir()); err == nil {
+		t.Fatal("want an error when there is neither a source nor a cached copy")
+	}
+}
+
+// The cache must never land in the models directory, where a *.yaml file is
+// interpreted as an installed model config.
+func TestCachePathIsOutsideTheModelsDirectory(t *testing.T) {
+	base := t.TempDir()
+	got := galleryCachePath(base, "https://example/index.yaml")
+	if filepath.Dir(got) == base {
+		t.Errorf("cache path %q is inside the models directory", got)
+	}
+	// Nor anywhere below it: the models directory is walked and listed, and a
+	// cache subdirectory in there is LocalAI's own litter in the user's models.
+	rel, err := filepath.Rel(base, got)
+	if err == nil && !strings.HasPrefix(rel, "..") {
+		t.Errorf("cache path %q is under the models directory", got)
+	}
+}
+
+// The model gallery and the backend gallery are both fetched, often under the
+// same parent directory. Keying the file on the URL is what stops one from
+// being served as the other.
+func TestCachePathDistinguishesGalleries(t *testing.T) {
+	base := t.TempDir()
+	models := galleryCachePath(base, "https://example/index.yaml")
+	backends := galleryCachePath(base, "https://example/backends.yaml")
+	if models == backends {
+		t.Errorf("both galleries cache to %q — one would overwrite the other", models)
+	}
+	if galleryCachePath(base, "https://example/index.yaml") != models {
+		t.Error("the same gallery URL produced two different cache paths")
+	}
+}
+
+// Without a models directory there is no sensible place for the cache, and a
+// relative path would write next to the process' working directory.
+func TestCachePathIsEmptyWithoutAModelsDirectory(t *testing.T) {
+	if got := galleryCachePath("", "https://example/index.yaml"); got != "" {
+		t.Errorf("galleryCachePath with no base = %q, want no cache path at all", got)
+	}
+	// Must not panic or write anywhere either.
+	persistGalleryIndex("", "https://example/index.yaml", []byte("- name: x\n"))
+}
+
+// The cache is an optimisation. A read-only or full disk must not turn a
+// gallery that was fetched perfectly well into a failure.
+func TestCacheWriteFailureDoesNotFailTheFetch(t *testing.T) {
+	resetGalleryFailures()
+
+	srv, _ := countingServer(t, http.StatusOK, "- name: live\n")
+
+	base := t.TempDir()
+	// A regular file where the cache directory needs to be: every write below
+	// it fails, and nothing can repair it at runtime.
+	if err := os.WriteFile(filepath.Join(base, "..", "cache"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	body, served, err := fetchGalleryIndex(context.Background(),
+		config.Gallery{URL: srv.URL, Name: "localai"}, base)
+	if err != nil {
+		t.Fatalf("a cache write failure failed the whole fetch: %v", err)
+	}
+	if served != srv.URL || string(body) != "- name: live\n" {
+		t.Errorf("served = %q body = %q, want the live index", served, body)
+	}
+}
+
+// The cache is keyed on the gallery, not on whichever source answered, so a
+// mirror-served fetch refreshes the copy an offline run will look for.
+func TestMirrorServedFetchIsPersistedUnderTheGalleryURL(t *testing.T) {
+	resetGalleryFailures()
+
+	primary, _ := countingServer(t, http.StatusInternalServerError, "down")
+	mirror, _ := countingServer(t, http.StatusOK, "- name: from-mirror\n")
+
+	base := t.TempDir()
+	g := config.Gallery{URL: primary.URL, Mirrors: []string{mirror.URL}, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := os.ReadFile(galleryCachePath(base, g.URL))
+	if err != nil {
+		t.Fatalf("no copy cached under the gallery's own URL: %v", err)
+	}
+	if string(body) != "- name: from-mirror\n" {
+		t.Errorf("cached %q, want the mirror's index", body)
+	}
+	if _, err := os.ReadFile(galleryCachePath(base, mirror.URL)); err == nil {
+		t.Error("the copy was cached under the mirror's URL, where an offline run will not look for it")
+	}
+}
+
+// A reachable source always wins over the copy on disk, and the copy is
+// refreshed with what it served — otherwise the first fetch a machine ever
+// makes would be the only one it remembers.
+func TestLiveFetchWinsOverTheCachedCopyAndRefreshesIt(t *testing.T) {
+	resetGalleryFailures()
+
+	served := "- name: old\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(served))
+	}))
+	defer srv.Close()
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	served = "- name: new\n"
+	body, from, err := fetchGalleryIndex(context.Background(), g, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "- name: new\n" || from != srv.URL {
+		t.Errorf("body = %q served by %q, want the live index from the source", body, from)
+	}
+	onDisk, err := os.ReadFile(galleryCachePath(base, srv.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(onDisk) != "- name: new\n" {
+		t.Errorf("cached copy = %q, want it refreshed with what the source served", onDisk)
+	}
+}
+
+// A failed fetch must leave the copy alone: writing a failure's empty body over
+// it would destroy the only gallery an offline machine has. The staged write
+// must not litter the cache directory either.
+func TestFailedFetchLeavesTheCachedCopyIntact(t *testing.T) {
+	resetGalleryFailures()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("- name: cached\n"))
+	}))
+	defer srv.Close()
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	cacheDir := filepath.Dir(galleryCachePath(base, g.URL))
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("cache directory holds %d files, want just the index — a staging file was left behind", len(entries))
+	}
+
+	srv.Close()
+	resetGalleryFailures()
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatalf("fallback: %v", err)
+	}
+
+	body, err := os.ReadFile(galleryCachePath(base, g.URL))
+	if err != nil {
+		t.Fatalf("the cached copy is gone after a failed fetch: %v", err)
+	}
+	if string(body) != "- name: cached\n" {
+		t.Errorf("cached copy = %q, want it untouched by a failed fetch", body)
+	}
+	if entries, err = os.ReadDir(cacheDir); err != nil || len(entries) != 1 {
+		t.Errorf("cache directory holds %d files after a failed fetch (err %v), want just the index", len(entries), err)
 	}
 }

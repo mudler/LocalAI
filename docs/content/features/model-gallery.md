@@ -60,7 +60,7 @@ The models in the gallery will be automatically indexed and available for instal
 
 A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.
 
-Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface:`, and `file://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
+Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), and `file://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
 
 ```json
 GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
@@ -73,6 +73,14 @@ Each attempt is bounded by a 120 second timeout, and a source that fails — a c
 {{% /notice %}}
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
+
+## Offline gallery listings
+
+Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index — the primary and every mirror failed, there is no network at all, the host is airgapped — LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery, with or without `mirrors`.
+
+Entries served this way may be stale: the copy is only as fresh as the last time the gallery could be reached, so models added or changed upstream since then will not show up, and an entry may point at a file that has since moved. A listing served from disk is a degraded mode, not a substitute for a reachable gallery.
+
+The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe — the next successful fetch recreates it — and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
 
 ## API Reference
 
