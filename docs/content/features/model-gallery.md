@@ -69,14 +69,16 @@ GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "m
 Each attempt is bounded by a 120 second timeout, and a source that fails — a connection error, a timeout, or an HTTP error status such as 404 or 502 — is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately, and a request you cancel yourself is not counted against it. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
 
 {{% notice warning %}}
-**Mirrors do not cover a `.ref` URL.** If a gallery's `url` ends in `.ref`, that reference file is fetched and resolved to the real index location *before* mirrors are considered, and a failure to fetch it fails the gallery outright. Mirrors are alternates for the index, not for the reference that points at it. If you need mirror coverage, point `url` directly at the index file.
+**Neither mirrors nor the offline cache cover a `.ref` URL.** If a gallery's `url` ends in `.ref`, that reference file is fetched and resolved to the real index location *before* mirrors or the cached copy are consulted, and a failure to fetch it fails the gallery outright. That includes the offline case: a `.ref` gallery fails when the network is gone even if it has been fetched successfully before. Mirrors are alternates for the index, not for the reference that points at it. If you want mirror coverage or offline listings, point `url` directly at the index file.
 {{% /notice %}}
 
 The key is optional: a gallery without `mirrors` behaves exactly as before.
 
 ## Offline gallery listings
 
-Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index — the primary and every mirror failed, there is no network at all, the host is airgapped — LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery, with or without `mirrors`.
+Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index — the primary and every mirror failed, there is no network at all, the host is airgapped — LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery whose `url` points directly at an index file, with or without `mirrors` — but not to a `.ref` URL, which is resolved before the cache is consulted (see the warning above).
+
+Only a response that actually parses as a gallery index is stored. A captive portal, a proxy or a CDN can answer an index request with HTTP 200 and an HTML error page; caching that would replace a working offline copy with something no listing can read. An empty index is rejected for the same reason, so the previous copy survives.
 
 Entries served this way may be stale: the copy is only as fresh as the last time the gallery could be reached, so models added or changed upstream since then will not show up, and an entry may point at a file that has since moved. A listing served from disk is a degraded mode, not a substitute for a reachable gallery.
 

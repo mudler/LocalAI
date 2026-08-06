@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/xlog"
+	"gopkg.in/yaml.v3"
 )
 
 // galleryFetchTimeout bounds a single candidate attempt. GitHub's raw endpoint
@@ -96,15 +97,44 @@ func inCooldown(url string) bool {
 // of the gallery URL so the model and the backend gallery — often fetched with
 // sibling base paths — cannot overwrite each other.
 //
-// An empty basePath yields no path at all: without a models directory the
-// sibling would be resolved against the process' working directory, which is
-// not somewhere LocalAI should be dropping files.
+// A non-absolute basePath yields no path at all: "", "." and "models" all
+// resolve the sibling against the process' working directory, which is not
+// somewhere LocalAI should be dropping files. Only an absolute models
+// directory names a location we can reason about.
 func galleryCachePath(basePath, url string) string {
-	if basePath == "" {
+	if !filepath.IsAbs(basePath) {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(url))
 	return filepath.Join(basePath, "..", "cache", "gallery", hex.EncodeToString(sum[:])+".yaml")
+}
+
+// isUsableGalleryIndex reports whether body is worth keeping as the last known
+// good copy.
+//
+// HTTP 200 does not mean "index": a captive portal, a corporate proxy or a CDN
+// error page all answer 200 with HTML, and the fetch path has no other reason
+// to look at the bytes — the parse only happens later, in getGalleryElements.
+// Persisting on status alone therefore lets an interception page overwrite a
+// good copy, and the next offline start — the one case this cache exists for —
+// would serve that page instead of the gallery it already had.
+//
+// An empty document is rejected for the same reason. It parses fine, so a
+// probe that only checked the parse would let a source that answers with a
+// blank body replace a populated index with one that lists nothing; from the
+// user's side an empty gallery and an unparseable one are the same outage. A
+// genuinely empty index is worth nothing offline anyway, so there is no case
+// where keeping it beats keeping what came before.
+//
+// The shape check is deliberately shallow — a top-level YAML sequence — because
+// this is a guard against "not an index at all", not a schema validator.
+// getGalleryElements still does the real typed unmarshal.
+func isUsableGalleryIndex(body []byte) bool {
+	var probe []any
+	if err := yaml.Unmarshal(body, &probe); err != nil {
+		return false
+	}
+	return len(probe) > 0
 }
 
 // persistGalleryIndex stores a freshly fetched index for the next time nothing
@@ -116,6 +146,11 @@ func galleryCachePath(basePath, url string) string {
 func persistGalleryIndex(basePath, url string, body []byte) {
 	path := galleryCachePath(basePath, url)
 	if path == "" {
+		return
+	}
+	if !isUsableGalleryIndex(body) {
+		xlog.Debug("refusing to cache a response that is not a gallery index",
+			"url", url, "bytes", len(body))
 		return
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -222,18 +257,10 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) (
 		}
 	}
 
-	return nil, "", fmt.Errorf("all %d source(s) for gallery %q failed and no cached copy exists, last error: %w",
-		len(attempt), g.Name, lastErr)
-}
-
-// resetGalleryFailures and expireGalleryFailure exist so tests can drive the
-// cooldown without sleeping.
-func resetGalleryFailures() {
-	for _, k := range galleryFailures.Keys() {
-		galleryFailures.Delete(k)
-	}
-}
-
-func expireGalleryFailure(url string, at time.Time) {
-	galleryFailures.Set(url, at)
+	// Report what was configured and what was skipped, not just what we dialled:
+	// "all 1 source(s) failed" on a gallery with three mirrors reads as a
+	// misconfiguration and sends the operator looking for the missing mirrors,
+	// when the truth is that two of them are in cooldown.
+	return nil, "", fmt.Errorf("all %d source(s) for gallery %q failed (%d configured, %d skipped as recently failed) and no cached copy exists, last error: %w",
+		len(attempt), g.Name, len(candidates), len(candidates)-len(attempt), lastErr)
 }

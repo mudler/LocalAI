@@ -12,7 +12,49 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"gopkg.in/yaml.v3"
 )
+
+// TestMain gives this package its own temporary root so the gallery index cache
+// cannot escape it.
+//
+// The cache is a sibling of the models directory (<models>/../cache/gallery),
+// which is right in production but leaks under test: the many specs here that
+// build a models directory with os.MkdirTemp("", …) get one directly under the
+// system temp directory, so the sibling resolves to /tmp/cache — a path no
+// test framework cleans up, left behind after every run. Pointing TMPDIR at a
+// directory we remove ourselves contains the sibling without having to rewrite
+// every call site, and covers any added later.
+func TestMain(m *testing.M) {
+	root, err := os.MkdirTemp("", "localai-gallery-tests-*")
+	if err != nil {
+		panic(err)
+	}
+	// os.TempDir consults TMPDIR on every call, so this applies to temp
+	// directories created from here on, including t.TempDir.
+	if err := os.Setenv("TMPDIR", root); err != nil {
+		panic(err)
+	}
+
+	code := m.Run()
+
+	// Not deferred: os.Exit does not run deferred functions.
+	os.RemoveAll(root)
+	os.Exit(code)
+}
+
+// resetGalleryFailures and expireGalleryFailure exist so tests can drive the
+// cooldown without sleeping. They live here because nothing in the production
+// path ever needs to reach into the failure map.
+func resetGalleryFailures() {
+	for _, k := range galleryFailures.Keys() {
+		galleryFailures.Delete(k)
+	}
+}
+
+func expireGalleryFailure(url string, at time.Time) {
+	galleryFailures.Set(url, at)
+}
 
 // countingServer serves body with status, counting the requests it actually
 // received. The counter is atomic because the handler runs on the server's
@@ -471,6 +513,24 @@ func TestCachePathIsEmptyWithoutAModelsDirectory(t *testing.T) {
 	persistGalleryIndex("", "https://example/index.yaml", []byte("- name: x\n"))
 }
 
+// A relative models directory is the same failure as an empty one: "." and
+// "models" both resolve against whatever directory the process happens to be
+// running in, which is exactly what the guard exists to prevent.
+func TestCachePathRejectsARelativeModelsDirectory(t *testing.T) {
+	for _, base := range []string{".", "models", "./models", "../models"} {
+		if got := galleryCachePath(base, "https://example/index.yaml"); got != "" {
+			t.Errorf("galleryCachePath(%q) = %q, want no cache path — it resolves against the working directory", base, got)
+		}
+		// And nothing may be written next to the working directory either.
+		persistGalleryIndex(base, "https://example/index.yaml", []byte("- name: x\n"))
+	}
+
+	// Sanity: the guard must still let a real absolute models directory through.
+	if got := galleryCachePath(t.TempDir(), "https://example/index.yaml"); got == "" {
+		t.Error("an absolute models directory was rejected too")
+	}
+}
+
 // The cache is an optimisation. A read-only or full disk must not turn a
 // gallery that was fetched perfectly well into a failure.
 func TestCacheWriteFailureDoesNotFailTheFetch(t *testing.T) {
@@ -597,5 +657,163 @@ func TestFailedFetchLeavesTheCachedCopyIntact(t *testing.T) {
 	}
 	if entries, err = os.ReadDir(cacheDir); err != nil || len(entries) != 1 {
 		t.Errorf("cache directory holds %d files after a failed fetch (err %v), want just the index", len(entries), err)
+	}
+}
+
+// A captive portal, a corporate proxy or a CDN error page all answer HTTP 200
+// with HTML. Persisting on status alone lets one of those overwrite the copy an
+// offline start depends on, which is the worst possible time to discover it.
+func TestHTMLResponseWithStatus200DoesNotOverwriteTheCachedCopy(t *testing.T) {
+	resetGalleryFailures()
+
+	served := "- name: cached\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(served))
+	}))
+	defer srv.Close()
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now the same URL answers 200 with an interception page.
+	served = "<html><head><title>Sign in to the network</title></head>\n<body>Please authenticate</body></html>\n"
+	body, from, err := fetchGalleryIndex(context.Background(), g, base)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	// The live body is still handed back — rejecting it here would hide the
+	// failure from the caller that actually parses it.
+	if from != srv.URL || string(body) != served {
+		t.Errorf("body = %q served by %q, want the live response", body, from)
+	}
+
+	onDisk, err := os.ReadFile(galleryCachePath(base, g.URL))
+	if err != nil {
+		t.Fatalf("the cached copy is gone: %v", err)
+	}
+	if string(onDisk) != "- name: cached\n" {
+		t.Errorf("cached copy = %q, want the good index — a 200 HTML page overwrote it", onDisk)
+	}
+}
+
+// The point of the probe is what happens next: once the network is gone, the
+// offline path must still find a copy it can parse.
+func TestUnparseableBodyLeavesTheOfflineFallbackIntact(t *testing.T) {
+	resetGalleryFailures()
+
+	served := "- name: cached\n  description: the good index\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(served))
+	}))
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	// A proxy starts answering 200 with something that is not YAML at all.
+	served = "\t<html>\n\t  <body>502 Bad Gateway</body>\n</html>\n"
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	srv.Close() // and now the machine is offline
+	resetGalleryFailures()
+
+	body, from, err := fetchGalleryIndex(context.Background(), g, base)
+	if err != nil {
+		t.Fatalf("offline fallback: %v", err)
+	}
+	if from != galleryCachePath(base, g.URL) {
+		t.Errorf("served by %q, want the cached copy", from)
+	}
+
+	// Readable by the offline path means parseable, not merely present.
+	var models []GalleryModel
+	if err := yaml.Unmarshal(body, &models); err != nil {
+		t.Fatalf("the offline copy no longer parses as a gallery index: %v", err)
+	}
+	if len(models) != 1 || models[0].Name != "cached" {
+		t.Fatalf("offline copy = %+v, want the good index", models)
+	}
+}
+
+// An empty document parses fine but is not an index. Replacing a populated copy
+// with one that lists nothing is the same outage as replacing it with garbage,
+// and an empty index is worth nothing offline, so the older copy wins.
+func TestEmptyIndexDoesNotOverwriteTheCachedCopy(t *testing.T) {
+	resetGalleryFailures()
+
+	served := "- name: cached\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(served))
+	}))
+	defer srv.Close()
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, empty := range []string{"", "[]\n", "---\n"} {
+		served = empty
+		if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+			t.Fatalf("fetch with body %q: %v", empty, err)
+		}
+		onDisk, err := os.ReadFile(galleryCachePath(base, g.URL))
+		if err != nil {
+			t.Fatalf("the cached copy is gone after an empty body %q: %v", empty, err)
+		}
+		if string(onDisk) != "- name: cached\n" {
+			t.Errorf("cached copy = %q after an empty body %q, want the populated index", onDisk, empty)
+		}
+	}
+}
+
+// A machine with nothing cached and an interception page in front of it has no
+// gallery: the junk must not be written, so the next offline start still has
+// nothing rather than something unparseable.
+func TestUnparseableFirstFetchCachesNothing(t *testing.T) {
+	resetGalleryFailures()
+
+	srv, _ := countingServer(t, http.StatusOK, "<html><body>hello</body></html>")
+
+	base := t.TempDir()
+	g := config.Gallery{URL: srv.URL, Name: "localai"}
+	if _, _, err := fetchGalleryIndex(context.Background(), g, base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(galleryCachePath(base, g.URL)); err == nil {
+		t.Error("an HTML page was written as the last known good gallery index")
+	}
+}
+
+// "all 1 source(s) failed" on a three-mirror gallery reads as a
+// misconfiguration; the operator needs to see that the rest were skipped.
+func TestAllSourcesFailedErrorReportsConfiguredAndSkipped(t *testing.T) {
+	resetGalleryFailures()
+
+	down, _ := countingServer(t, http.StatusInternalServerError, "down")
+	g := config.Gallery{
+		URL:     down.URL,
+		Name:    "localai",
+		Mirrors: []string{down.URL + "/a", down.URL + "/b"},
+	}
+
+	// Two of the three are already in cooldown, so only one is dialled.
+	expireGalleryFailure(down.URL+"/a", time.Now())
+	expireGalleryFailure(down.URL+"/b", time.Now())
+
+	_, _, err := fetchGalleryIndex(context.Background(), g, t.TempDir())
+	if err == nil {
+		t.Fatal("want an error when nothing can serve the index")
+	}
+	if !strings.Contains(err.Error(), "3 configured") || !strings.Contains(err.Error(), "2 skipped") {
+		t.Errorf("error %q does not say how many sources were configured and skipped", err)
 	}
 }
