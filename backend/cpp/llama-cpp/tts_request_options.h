@@ -25,6 +25,12 @@ struct tts_request_options {
     // the value is strictly positive.
     int32_t top_k = 0;
     float   top_p = 0.0f;
+
+    // Upper bound on generated audio frames, exposed because the model does not
+    // always emit its codec EOS and will otherwise run to the 512-frame default,
+    // which is roughly 41 s at the 12.5 Hz frame rate. 0 means unset, leaving
+    // that default in place.
+    int32_t max_frames = 0;
 };
 
 namespace detail {
@@ -123,6 +129,16 @@ inline tts_request_options parse_tts_request_options(
         // too, since that comparison is false as well.
         if (!(opts.top_p >= 0.0f && opts.top_p <= 1.0f)) {
             return detail::reject("top_p must be between 0.0 and 1.0, got \"" + top_p_it->second + "\"");
+        }
+    }
+
+    const auto max_frames_it = params.find("max_frames");
+    if (max_frames_it != params.end()) {
+        if (!detail::parse_whole_int32(max_frames_it->second, opts.max_frames)) {
+            return detail::reject("max_frames must be an integer, got \"" + max_frames_it->second + "\"");
+        }
+        if (opts.max_frames < 0) {
+            return detail::reject("max_frames must be >= 0, got \"" + max_frames_it->second + "\"");
         }
     }
 
