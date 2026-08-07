@@ -58,4 +58,11 @@ test.describe('Navigation', () => {
     await expect(rail.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
     await expect(rail.locator('a.nav-item[href="/app/face"]')).toBeVisible()
   })
+
+  test('old cluster routes redirect to /app/cluster', async ({ page }) => {
+    await page.goto('/app/p2p')
+    await expect(page).toHaveURL(/\/app\/cluster$/)
+    await page.goto('/app/nodes')
+    await expect(page).toHaveURL(/\/app\/cluster$/)
+  })
 })

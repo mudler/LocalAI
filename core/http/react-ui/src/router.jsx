@@ -54,7 +54,7 @@ const Backends = page('backends', () => import('./pages/Backends'))
 const Activity = page('activity', () => import('./pages/Activity'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
-const P2P = page('p2p', () => import('./pages/P2P'))
+const Cluster = page('cluster', () => import('./pages/Cluster'))
 const Agents = page('agents', () => import('./pages/Agents'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
 const AgentChat = page(null, () => import('./pages/AgentChat'))
@@ -79,7 +79,6 @@ const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
 const VoiceLibrary = page('voice-library', () => import('./pages/VoiceLibrary'))
 const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
-const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NodeDetail = page(null, () => import('./pages/NodeDetail'))
@@ -171,8 +170,9 @@ const appChildren = [
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
-      { path: 'p2p', element: <Admin><P2P /></Admin> },
-      { path: 'nodes', element: <Admin><Nodes /></Admin> },
+      { path: 'cluster', element: <Admin><Cluster /></Admin> },
+      { path: 'p2p', element: <Navigate to="/app/cluster" replace /> },
+      { path: 'nodes', element: <Navigate to="/app/cluster" replace /> },
       { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
       { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },

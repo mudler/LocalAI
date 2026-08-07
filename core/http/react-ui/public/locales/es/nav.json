@@ -55,6 +55,7 @@
     "nodes": "Nodos",
     "scheduling": "Planificación",
     "swarm": "Swarm",
+    "cluster": "Clúster",
     "system": "Sistema",
     "settings": "Configuración",
     "api": "API",

@@ -75,9 +75,8 @@ export const operateConsole = {
     {
       titleKey: 'operate.cluster',
       items: [
-        { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed', signal: 'nodes' },
+        { path: '/app/cluster', icon: 'fas fa-network-wired', labelKey: 'items.cluster', adminOnly: true },
         { path: '/app/scheduling', icon: 'fas fa-calendar-alt', labelKey: 'items.scheduling', adminOnly: true, feature: 'distributed' },
-        { path: '/app/p2p', icon: 'fas fa-circle-nodes', labelKey: 'items.swarm', adminOnly: true },
       ],
     },
     {
