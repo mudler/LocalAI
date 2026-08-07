@@ -124,6 +124,16 @@ var _ = Describe("GetBackendCapability", func() {
 	})
 })
 
+var _ = Describe("mlx-audio capabilities", func() {
+	It("advertises voice RPCs without local text generation", func() {
+		capability := GetBackendCapability("mlx-audio")
+		Expect(capability).NotTo(BeNil())
+		Expect(capability.GRPCMethods).To(ConsistOf(MethodVAD, MethodAudioTranscription, MethodTTS))
+		Expect(capability.PossibleUsecases).To(ConsistOf(UsecaseVAD, UsecaseTranscript, UsecaseTTS))
+		Expect(capability.GRPCMethods).NotTo(ContainElements(MethodPredict, MethodPredictStream))
+	})
+})
+
 // nemo-speech-cpp fronts four model families from one server, and its
 // PossibleUsecases is their union. The entry has to stay in step with what
 // docs/content/features/nemo-speech-cpp.md tells operators to put in

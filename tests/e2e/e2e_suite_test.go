@@ -537,10 +537,11 @@ var _ = BeforeSuite(func() {
 					"model": "cloud-proxy-translate-openai.bin",
 				},
 				"proxy": map[string]any{
-					"mode":         "translate",
-					"provider":     "openai",
-					"upstream_url": cpOpenAIUpstream.URL() + "/v1/chat/completions",
-					"api_key_env":  "CLOUD_PROXY_E2E_OPENAI_KEY",
+					"mode":           "translate",
+					"provider":       "openai",
+					"upstream_url":   cpOpenAIUpstream.URL() + "/v1/chat/completions",
+					"upstream_model": "fake-remote-model",
+					"api_key_env":    "CLOUD_PROXY_E2E_OPENAI_KEY",
 				},
 				// Wire the in-process pattern detector so the streaming PII
 				// filter has something to redact in translate mode. The NER
@@ -583,6 +584,22 @@ var _ = BeforeSuite(func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
 		}
+
+		// This composition is deliberately translate-mode. Realtime initiates
+		// Predict internally and therefore has no raw client HTTP request for a
+		// passthrough backend to forward.
+		realtimeCloudProxy := map[string]any{
+			"name": "realtime-cloud-proxy-pipeline",
+			"pipeline": map[string]any{
+				"vad":           "mock-vad",
+				"transcription": "mock-stt",
+				"llm":           "cp-translate-openai",
+				"tts":           "mock-tts",
+			},
+		}
+		data, err := yaml.Marshal(realtimeCloudProxy)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-cloud-proxy-pipeline.yaml"), data, 0644)).To(Succeed())
 	}
 
 	// Live PII NER tier. When PII_NER_MODEL_GGUF points at a downloaded

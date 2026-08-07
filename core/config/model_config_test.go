@@ -439,6 +439,31 @@ parameters:
 		Expect(k.HasUsecases(FLAG_CHAT)).To(BeFalse())
 		Expect(k.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
 	})
+	It("routes MLX-Audio models only by their explicit configured role", func() {
+		cases := []struct {
+			role     string
+			usecase  ModelConfigUsecase
+			rejected []ModelConfigUsecase
+		}{
+			{role: "vad", usecase: FLAG_VAD, rejected: []ModelConfigUsecase{FLAG_TRANSCRIPT, FLAG_TTS, FLAG_CHAT}},
+			{role: "asr", usecase: FLAG_TRANSCRIPT, rejected: []ModelConfigUsecase{FLAG_VAD, FLAG_TTS, FLAG_CHAT}},
+			{role: "tts", usecase: FLAG_TTS, rejected: []ModelConfigUsecase{FLAG_VAD, FLAG_TRANSCRIPT, FLAG_CHAT}},
+		}
+		for _, tc := range cases {
+			model := ModelConfig{Backend: "mlx-audio"}
+			model.Options = []string{"role: " + tc.role}
+			Expect(model.HasUsecases(tc.usecase)).To(BeTrue(), tc.role)
+			for _, usecase := range tc.rejected {
+				Expect(model.HasUsecases(usecase)).To(BeFalse(), tc.role)
+			}
+		}
+
+		withoutRole := ModelConfig{Backend: "mlx-audio"}
+		Expect(withoutRole.HasUsecases(FLAG_VAD)).To(BeFalse())
+		Expect(withoutRole.HasUsecases(FLAG_TRANSCRIPT)).To(BeFalse())
+		Expect(withoutRole.HasUsecases(FLAG_TTS)).To(BeFalse())
+		Expect(withoutRole.HasUsecases(FLAG_CHAT)).To(BeFalse())
+	})
 	It("Test Validate with invalid MCP config", func() {
 		tmp, err := os.CreateTemp("", "config.yaml")
 		Expect(err).To(BeNil())

@@ -1792,7 +1792,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{
-		"whisper", "piper", "kokoro",
+		"whisper", "piper", "kokoro", "mlx-audio",
 		"diffusers", "stablediffusion", "stablediffusion-ggml",
 		"rerankers", "silero-vad", "rfdetr", "insightface", "speaker-recognition",
 		"transformers-musicgen", "ace-step", "acestep-cpp",
@@ -1861,7 +1861,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		}
 	}
 	if (u & FLAG_TRANSCRIPT) == FLAG_TRANSCRIPT {
-		if c.Backend != "whisper" {
+		if c.Backend != "whisper" && !(c.Backend == "mlx-audio" && hasOptionValue(c.Options, "role", "asr")) {
 			return false
 		}
 		// whisper models with vad_only option are VAD, not transcription
@@ -1871,7 +1871,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
 		ttsBackends := []string{"piper", "transformers-musicgen", "kokoro"}
-		if !slices.Contains(ttsBackends, c.Backend) {
+		if !slices.Contains(ttsBackends, c.Backend) && !(c.Backend == "mlx-audio" && hasOptionValue(c.Options, "role", "tts")) {
 			return false
 		}
 	}
@@ -1933,7 +1933,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_VAD) == FLAG_VAD {
-		if c.Backend != "silero-vad" && c.Backend != "sherpa-onnx" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) {
+		if c.Backend != "silero-vad" && c.Backend != "sherpa-onnx" && !(c.Backend == "whisper" && slices.Contains(c.Options, "vad_only")) && !(c.Backend == "mlx-audio" && hasOptionValue(c.Options, "role", "vad")) {
 			return false
 		}
 	}
@@ -1986,6 +1986,16 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	return true
+}
+
+func hasOptionValue(options []string, key, expected string) bool {
+	for _, option := range options {
+		name, value, found := strings.Cut(option, ":")
+		if found && strings.TrimSpace(name) == key && strings.EqualFold(strings.TrimSpace(value), expected) {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildCogitoOptions generates cogito options from the model configuration

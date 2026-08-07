@@ -341,10 +341,10 @@ var BackendCapabilities = map[string]BackendCapability{
 		Description:      "MLX vision-language models with multimodal input",
 	},
 	"mlx-audio": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodTTS},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseTTS},
-		DefaultUsecases:  []string{UsecaseChat},
-		Description:      "MLX audio models — text generation and TTS",
+		GRPCMethods:      []GRPCMethod{MethodVAD, MethodAudioTranscription, MethodTTS},
+		PossibleUsecases: []string{UsecaseVAD, UsecaseTranscript, UsecaseTTS},
+		DefaultUsecases:  []string{UsecaseTTS},
+		Description:      "MLX-Audio voice models — explicit-role VAD, transcription, or TTS",
 	},
 
 	// --- Image/video generation backends ---

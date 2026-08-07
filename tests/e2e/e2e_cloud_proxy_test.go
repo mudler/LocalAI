@@ -29,6 +29,8 @@ var _ = Describe("Cloud-proxy backend E2E", func() {
 		// each spec that needs a custom one.
 		cpOpenAIUpstream.SetScript(defaultOpenAIScript)
 		cpAnthropicUpstream.SetScript(defaultAnthropicScript)
+		cpOpenAIUpstream.Reset()
+		cpAnthropicUpstream.Reset()
 	})
 
 	Context("Passthrough mode — OpenAI shape", func() {

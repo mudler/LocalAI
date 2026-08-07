@@ -26,6 +26,16 @@ func (r *upstreamRecorder) Hits() int {
 	return int(atomic.LoadInt32(&r.RequestHits))
 }
 
+func (r *upstreamRecorder) reset() {
+	r.mu.Lock()
+	r.Method = ""
+	r.Path = ""
+	r.Header = nil
+	r.Body = nil
+	r.mu.Unlock()
+	atomic.StoreInt32(&r.RequestHits, 0)
+}
+
 func (r *upstreamRecorder) snapshot() (method, path string, hdr http.Header, body []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -79,6 +89,8 @@ func (f *fakeOpenAIUpstreamServer) serve(w http.ResponseWriter, r *http.Request)
 
 func (f *fakeOpenAIUpstreamServer) URL() string { return f.srv.URL }
 func (f *fakeOpenAIUpstreamServer) Close()      { f.srv.Close() }
+func (f *fakeOpenAIUpstreamServer) Reset()      { f.recorder.reset() }
+func (f *fakeOpenAIUpstreamServer) Hits() int   { return f.recorder.Hits() }
 
 func (f *fakeOpenAIUpstreamServer) SetScript(script func(req []byte) (status int, body string, contentType string)) {
 	f.mu.Lock()
@@ -140,6 +152,8 @@ func (f *fakeAnthropicUpstreamServer) serve(w http.ResponseWriter, r *http.Reque
 
 func (f *fakeAnthropicUpstreamServer) URL() string { return f.srv.URL }
 func (f *fakeAnthropicUpstreamServer) Close()      { f.srv.Close() }
+func (f *fakeAnthropicUpstreamServer) Reset()      { f.recorder.reset() }
+func (f *fakeAnthropicUpstreamServer) Hits() int   { return f.recorder.Hits() }
 
 func (f *fakeAnthropicUpstreamServer) SetScript(script func(req []byte) (status int, body string, contentType string)) {
 	f.mu.Lock()

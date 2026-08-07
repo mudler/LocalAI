@@ -265,6 +265,76 @@ var _ = Describe("Realtime WebSocket API", Label("Realtime"), func() {
 		})
 	})
 
+	Context("Cloud-proxy composition", func() {
+		It("routes an internally initiated audio turn through translate mode", func() {
+			if cloudProxyPath == "" {
+				Skip("cloud-proxy backend binary not built (make build-cloud-proxy-backend)")
+			}
+			cpOpenAIUpstream.Reset()
+			cpOpenAIUpstream.SetScript(func([]byte) (int, string, string) {
+				return http.StatusOK, `{"id":"chatcmpl-realtime","choices":[{"index":0,"message":{"role":"assistant","content":"hello from fake openai"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":5,"total_tokens":8}}`, "application/json"
+			})
+
+			conn := connectWS("realtime-cloud-proxy-pipeline")
+			defer conn.Close()
+			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
+			sendClientEvent(conn, disableVADEvent())
+			drainUntil(conn, "session.updated", 10*time.Second)
+
+			sendClientEvent(conn, map[string]any{
+				"type":  "input_audio_buffer.append",
+				"audio": generatePCMBase64(440, 24000, 250),
+			})
+			sendClientEvent(conn, map[string]any{"type": "input_audio_buffer.commit"})
+
+			seen := map[string]bool{}
+			var outputTranscript strings.Builder
+			var audioBytes int
+			var responseDone bool
+			deadline := time.Now().Add(60 * time.Second)
+			for time.Now().Before(deadline) && !responseDone {
+				event := readServerEvent(conn, time.Until(deadline))
+				eventType, _ := event["type"].(string)
+				seen[eventType] = true
+				switch eventType {
+				case "response.output_audio_transcript.delta":
+					if delta, ok := event["delta"].(string); ok {
+						outputTranscript.WriteString(delta)
+					}
+				case "response.output_audio.delta":
+					if delta, ok := event["delta"].(string); ok {
+						decoded, err := base64.StdEncoding.DecodeString(delta)
+						Expect(err).ToNot(HaveOccurred())
+						audioBytes += len(decoded)
+					}
+				case "response.done":
+					response, ok := event["response"].(map[string]any)
+					Expect(ok).To(BeTrue())
+					Expect(response["status"]).To(Equal("completed"))
+					responseDone = true
+				}
+			}
+			Expect(responseDone).To(BeTrue(), "timed out waiting for response.done")
+			Expect(seen).To(HaveKey("input_audio_buffer.committed"))
+			Expect(seen).To(HaveKey("conversation.item.input_audio_transcription.completed"))
+			Expect(seen).To(HaveKey("response.output_audio_transcript.done"))
+			Expect(seen).To(HaveKey("response.output_audio.done"))
+			Expect(outputTranscript.String()).To(ContainSubstring("hello from fake openai"))
+			Expect(audioBytes).To(BeNumerically(">", 0), "the remote reply must reach mock TTS")
+
+			Expect(cpOpenAIUpstream.Hits()).To(Equal(1))
+			method, path, headers, body := cpOpenAIUpstream.Snapshot()
+			Expect(method).To(Equal(http.MethodPost))
+			Expect(path).To(Equal("/v1/chat/completions"))
+			Expect(headers.Get("Content-Type")).To(ContainSubstring("application/json"))
+			Expect(headers.Get("Authorization")).To(Equal("Bearer sk-e2e-openai"))
+			var request map[string]any
+			Expect(json.Unmarshal(body, &request)).To(Succeed())
+			Expect(request["model"]).To(Equal("fake-remote-model"))
+			Expect(request["messages"]).ToNot(BeEmpty())
+		})
+	})
+
 	Context("Text conversation item", func() {
 		It("should create a text item and trigger a response", func() {
 			conn := connectWS(pipelineModel())

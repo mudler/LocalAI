@@ -1,7 +1,2 @@
-grpcio==1.71.0
-protobuf
-certifi
-setuptools
-mlx-audio
-soundfile
-numpy
+# LocalAI gRPC serving dependency. The MLX-Audio closure is in requirements-mps.txt.
+grpcio==1.78.0

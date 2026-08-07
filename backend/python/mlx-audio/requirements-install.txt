@@ -1,0 +1,3 @@
+# Locked build inputs for the sole source dependency, webrtcvad.
+setuptools==80.10.2
+wheel==0.47.0
