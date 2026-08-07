@@ -387,6 +387,21 @@ class MLXAudioRuntimeTests(unittest.TestCase):
             }],
         )
 
+    def test_unary_tts_closes_results_and_clears_cache(self):
+        results = ClosingResults(
+            [SimpleNamespace(audio=[0.25, -0.25], sample_rate=24000)]
+        )
+        self.models["tts"].results = results
+        self.load("tts")
+        cache_clears = self.cache_clears
+
+        self.runtime.synthesize(
+            "hello", "Ryan", "English", str(self.root / "unary-cleanup.wav")
+        )
+
+        self.assertTrue(results.closed)
+        self.assertEqual(self.cache_clears, cache_clears + 1)
+
     def test_tts_generation_parameters_are_bounded(self):
         options = tts_generation_options(
             {

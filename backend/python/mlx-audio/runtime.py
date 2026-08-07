@@ -394,6 +394,8 @@ class MLXAudioRuntime:
             speaker = normalize_voice(voice, normalized_language)
             generation_options = self._tts_options(params)
             output = Path(destination)
+            results = None
+            audio_segments = []
             try:
                 output.parent.mkdir(parents=True, exist_ok=True)
                 results = self.model.generate_custom_voice(
@@ -402,7 +404,6 @@ class MLXAudioRuntime:
                     language=normalized_language,
                     **generation_options,
                 )
-                audio_segments = []
                 sample_rate = 0
                 for segment in results:
                     if cancelled is not None and cancelled():
@@ -431,6 +432,15 @@ class MLXAudioRuntime:
                 except FileNotFoundError:
                     pass
                 raise BackendFailure("INTERNAL", "MLX-Audio TTS generation failed") from err
+            finally:
+                close = getattr(results, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
+                audio_segments.clear()
+                self._clear_cache()
             # LocalAI owns the successful staged file and removes it after reading.
             return str(output)
 
