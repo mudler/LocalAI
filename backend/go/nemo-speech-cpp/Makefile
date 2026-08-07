@@ -83,8 +83,10 @@ endif
 # NEMO_SPEECH_DEPENDENCY_PREFIX defaults to <src>/.deps upstream, and the ITN
 # stack goes under its itn/ subdirectory. ITN_MARKER is a real output of that
 # script (it prints exactly this file on success), so it can drive a make rule.
-ITN_LIB_DIR=sources/NeMo-Speech.cpp/.deps/itn/lib
+ITN_PREFIX=sources/NeMo-Speech.cpp/.deps/itn
+ITN_LIB_DIR=$(ITN_PREFIX)/lib
 ITN_MARKER=$(ITN_LIB_DIR)/libsparrowhawk.so
+ITN_FST_HEADER=$(ITN_PREFIX)/include/fst/fst.h
 
 ITN_CC?=gcc-12
 ITN_CXX?=g++-12
@@ -150,7 +152,7 @@ else
 endif
 CMAKE_ARGS+=-DNEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED)
 
-.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn
+.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn patch-itn-headers
 
 all: nemo-speech-cpp-grpc package
 
@@ -213,6 +215,54 @@ $(ITN_MARKER): | sources/NeMo-Speech.cpp
 		exit 1; }
 	cd sources/NeMo-Speech.cpp && CC=$(ITN_CC) CXX=$(ITN_CXX) PROTOC=$(ITN_PROTOC) \
 		JOBS=$(JOBS) scripts/build_itn_deps.sh
+	@$(MAKE) --no-print-directory patch-itn-headers
+
+# OpenFST 1.8.3's FstImpl copy-assignment operator assigns a raw SymbolTable*
+# (what SymbolTable::Copy() returns) straight to a std::unique_ptr member:
+#
+#     isymbols_ = impl.isymbols_ ? impl.isymbols_->Copy() : nullptr;
+#
+# std::unique_ptr has no operator= taking a raw pointer in any C++ standard, so
+# that line is ill-formed everywhere. It survived because nothing instantiates
+# FstImpl::operator=, and gcc <= 13 only checks a template member's body when it
+# is instantiated. gcc 14 resolves non-dependent operator expressions at template
+# definition time, so it rejects the line in every translation unit that so much
+# as includes <fst/fst.h>, with no instantiation involved. Verified: gcc 14.2
+# fails on a file whose entire content is '#include <fst/fst.h>'.
+#
+# That is why this only shows up now. build_itn_deps.sh builds OpenFST with
+# gcc-12 (its templates ICE on newer gcc at -O2) and upstream's own images build
+# the runtime with gcc-13, so neither compiler ever sees it. LocalAI's
+# backend/Dockerfile.golang installs gcc-14 and makes it the default via
+# update-alternatives, and fst_normalizer.cpp is the one translation unit here
+# that includes OpenFST, so it is the one that breaks.
+#
+# The fix is the same spelling FstImpl::SetInputSymbols already uses 80 lines
+# further down, and matches the copy constructor's deep-copy intent exactly. It
+# is applied to the installed prefix rather than to the OpenFST checkout because
+# the prefix is the only copy the cmake build compiles against; libfst.so is
+# already linked by this point and cannot contain the function, since no
+# compiler could ever have emitted it. Only these two lines are affected: gcc 14
+# reports exactly two errors over the whole OpenFST include closure, both here.
+#
+# Guarded on both sides so a pinned-version bump cannot silently no-op it: the
+# first check fails if neither the broken nor the fixed spelling is present, the
+# last fails if the broken one survives.
+patch-itn-headers:
+	@test -f $(ITN_FST_HEADER) || { \
+		echo "ERROR: $(ITN_FST_HEADER) missing; the ITN prefix is not installed." >&2; \
+		exit 1; }
+	@grep -q 'isymbols_ = impl.isymbols_' $(ITN_FST_HEADER) || \
+	 grep -q 'isymbols_.reset(impl.isymbols_' $(ITN_FST_HEADER) || { \
+		echo "ERROR: FstImpl::operator= in $(ITN_FST_HEADER) matches neither the" >&2; \
+		echo "       known-broken nor the patched form. OpenFST changed upstream;" >&2; \
+		echo "       re-check whether this patch is still needed before removing it." >&2; \
+		exit 1; }
+	sed -i -E 's|^([[:space:]]*)([io]symbols_) = (impl\.[io]symbols_ \? impl\.[io]symbols_->Copy\(\) : nullptr);$$|\1\2.reset(\3);|' $(ITN_FST_HEADER)
+	@if grep -q 'symbols_ = impl.[io]symbols_' $(ITN_FST_HEADER); then \
+		echo "ERROR: the FstImpl::operator= patch did not apply to $(ITN_FST_HEADER)." >&2; \
+		exit 1; \
+	fi
 
 itn: $(ITN_MARKER)
 
