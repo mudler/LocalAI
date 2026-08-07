@@ -61,7 +61,10 @@ parameters:
 name: mlx-tts
 backend: mlx-audio
 known_usecases: [tts]
-options: [role:tts]
+options:
+  - role:tts
+  - streaming_interval:0.16
+  - max_tokens:192
 parameters:
   model: Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit
 ```
@@ -94,6 +97,9 @@ pipeline:
   transcription: mlx-asr
   llm: remote-voice-llm
   tts: mlx-tts
+  # Keep the qualified remote model from spending the spoken-response budget
+  # on hidden reasoning before it emits text.
+  reasoning_effort: none
   streaming:
     llm: true
     tts: true
@@ -104,15 +110,11 @@ Bind LocalAI to loopback for this topology and connect the native client to `ws:
 
 Start this private runtime with `--load-to-memory=mlx-vad,mlx-asr,mlx-tts,remote-voice-llm`. LocalAI loads that list sequentially, which removes the first-turn MLX load delay without the pipeline warm-up's concurrent VAD, ASR, and TTS loads. The three streaming switches let synthesis start at the first completed clause and forward each MLX-Audio PCM chunk immediately.
 
-The private MLX-Audio TTS profile uses the qualified bounded Qwen generation defaults (`max_tokens: 1200`, temperature `0.7`, top-k `50`, top-p `1.0`, repetition penalty `1.05`) and its 0.32-second generator interval. The interval provides cancellation checkpoints during generation; the unary TTS RPC still returns the completed audio file. Requests may lower the token ceiling or override the sampling values through `params`; values outside the backend's bounds are rejected.
+The private MLX-Audio TTS profile keeps the qualified Qwen sampling defaults (temperature `0.7`, top-k `50`, top-p `1.0`, repetition penalty `1.05`) but selects a 192-token ceiling and 0.16-second generator interval. The ceiling bounds one clause to about 15.36 seconds of generated speech; Realtime clause chunking handles longer replies. The interval provides cancellation checkpoints during generation; the unary TTS RPC still returns the completed audio file. Requests may lower the token ceiling or override the sampling values through `params`; values outside the backend's bounds are rejected.
 
-For measured latency experiments, `streaming_interval` can be set in the TTS model's `options` or request `params`. The backend accepts only the MLX-Audio intervals tested for this profile: `0.16`, `0.32`, and `0.64` seconds. The default remains `0.32`; the `0.16` candidate emits roughly twice as many chunks and should be selected only after completion overhead and cancellation behavior pass on the target Mac:
+In translate mode, `cloud-proxy` forwards LocalAI's validated `reasoning_effort` metadata to an OpenAI-compatible upstream and maps `disable_thinking: true` to `reasoning_effort: none`. Leave both settings unset for upstreams that do not accept the field. The private profile above uses `none` because the qualified remote model otherwise spends part of a short voice-response budget on hidden reasoning before producing speakable text.
 
-```yaml
-options:
-  - role:tts
-  - streaming_interval:0.16
-```
+`streaming_interval` can be set in the TTS model's `options` or request `params`. The backend accepts only the MLX-Audio intervals tested for this profile: `0.16`, `0.32`, and `0.64` seconds. The backend default remains `0.32`; this private profile selects `0.16` after real completion-overhead, duration-parity, and cancellation gates passed on the target Mac. The shorter interval emits roughly twice as many chunks.
 
 ### Streaming the pipeline
 

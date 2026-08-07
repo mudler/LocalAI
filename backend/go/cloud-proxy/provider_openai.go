@@ -36,6 +36,7 @@ type openAIRequest struct {
 	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
 	Tools            json.RawMessage `json:"tools,omitempty"`
 	ToolChoice       json.RawMessage `json:"tool_choice,omitempty"`
+	ReasoningEffort  string          `json:"reasoning_effort,omitempty"`
 }
 
 type openAIMessage struct {
@@ -101,11 +102,12 @@ type openAIUsage struct {
 // /completions-style calls still work in translate mode.
 func buildOpenAIRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream bool) ([]byte, error) {
 	req := openAIRequest{
-		Model:      modelName(cfg, opts),
-		Stream:     stream,
-		Stop:       opts.GetStopPrompts(),
-		Tools:      parseRawJSON(opts.GetTools()),
-		ToolChoice: parseRawJSON(opts.GetToolChoice()),
+		Model:           modelName(cfg, opts),
+		Stream:          stream,
+		Stop:            opts.GetStopPrompts(),
+		Tools:           parseRawJSON(opts.GetTools()),
+		ToolChoice:      parseRawJSON(opts.GetToolChoice()),
+		ReasoningEffort: openAIReasoningEffort(opts.GetMetadata()),
 	}
 	// Do not forward temperature/top_p. Newer OpenAI reasoning models reject
 	// temperature as deprecated, and clients typically send only default
@@ -145,6 +147,18 @@ func buildOpenAIRequest(opts *pb.PredictOptions, cfg *proxyConfig, stream bool) 
 	}
 
 	return json.Marshal(req)
+}
+
+func openAIReasoningEffort(metadata map[string]string) string {
+	effort := strings.ToLower(strings.TrimSpace(metadata["reasoning_effort"]))
+	switch effort {
+	case "none", "minimal", "low", "medium", "high":
+		return effort
+	}
+	if strings.EqualFold(strings.TrimSpace(metadata["enable_thinking"]), "false") {
+		return "none"
+	}
+	return ""
 }
 
 // modelName picks the upstream model: upstream_model from the proxy

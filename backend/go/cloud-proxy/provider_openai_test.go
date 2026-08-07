@@ -9,10 +9,49 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
+
+var _ = Describe("OpenAI reasoning effort translation", func() {
+	decodeRequest := func(metadata map[string]string) (openAIRequest, map[string]json.RawMessage) {
+		body, err := buildOpenAIRequest(&pb.PredictOptions{
+			Metadata: metadata,
+		}, &proxyConfig{upstreamModel: "gpt-5"}, true)
+		Expect(err).NotTo(HaveOccurred())
+
+		var request openAIRequest
+		Expect(json.Unmarshal(body, &request)).To(Succeed())
+		var raw map[string]json.RawMessage
+		Expect(json.Unmarshal(body, &raw)).To(Succeed())
+		return request, raw
+	}
+
+	It("forwards the Realtime none effort to OpenAI", func() {
+		request, raw := decodeRequest(map[string]string{"reasoning_effort": "none"})
+		Expect(request.ReasoningEffort).To(Equal("none"))
+		Expect(raw).To(HaveKeyWithValue("reasoning_effort", MatchJSON(`"none"`)))
+	})
+
+	It("maps the Realtime disable-thinking metadata to none", func() {
+		request, _ := decodeRequest(map[string]string{"enable_thinking": "false"})
+		Expect(request.ReasoningEffort).To(Equal("none"))
+	})
+
+	It("omits reasoning_effort when Realtime did not set it", func() {
+		request, raw := decodeRequest(nil)
+		Expect(request.ReasoningEffort).To(BeEmpty())
+		Expect(raw).ToNot(HaveKey("reasoning_effort"))
+	})
+
+	It("omits unsupported reasoning effort metadata", func() {
+		request, raw := decodeRequest(map[string]string{"reasoning_effort": "unexpected"})
+		Expect(request.ReasoningEffort).To(BeEmpty())
+		Expect(raw).ToNot(HaveKey("reasoning_effort"))
+	})
+})
 
 // fakeOpenAIUpstream returns an httptest.Server that decodes the
 // inbound request as an openAIRequest, calls handler with it, and
