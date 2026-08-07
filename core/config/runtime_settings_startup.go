@@ -98,4 +98,9 @@ func (o *ApplicationConfig) ApplyRuntimeSettingsAtStartup(settings *RuntimeSetti
 			xsysinfo.SetDefaultVRAMBudget(b)
 		}
 	}
+	if settings.ArtifactDownloadConcurrency != nil {
+		if configurable, ok := o.ModelArtifactMaterializer.(interface{ SetDownloadConcurrency(int) }); ok {
+			configurable.SetDownloadConcurrency(o.ArtifactDownloadConcurrency)
+		}
+	}
 }

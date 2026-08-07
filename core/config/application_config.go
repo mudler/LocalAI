@@ -35,6 +35,7 @@ type ApplicationConfig struct {
 	// network interfaces (e.g. eth0), filtering out docker0/veth noise.
 	WebRTCICEInterfaces                 []string
 	UploadLimitMB, Threads, ContextSize int
+	ArtifactDownloadConcurrency         int
 	F16                                 bool
 	Debug                               bool
 	EnableTracing                       bool
@@ -58,12 +59,12 @@ type ApplicationConfig struct {
 	// gzip is skipped. 0 keeps middleware.DefaultCompressionMinLength.
 	HTTPCompressionMinLength int
 	PreloadJSONModels        string
-	PreloadModelsFromPath         string
-	CORSAllowOrigins              string
-	ApiKeys                       []string
-	P2PToken                      string
-	P2PNetworkID                  string
-	Federated                     bool
+	PreloadModelsFromPath    string
+	CORSAllowOrigins         string
+	ApiKeys                  []string
+	P2PToken                 string
+	P2PNetworkID             string
+	Federated                bool
 
 	// ExternalBaseURL is the externally visible base URL of this instance
 	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is
@@ -276,11 +277,12 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// force-enables it). It's a small in-memory ring buffer; the Settings
 		// toggle can still turn it off (a persisted false wins - see
 		// loadRuntimeSettingsFromFile).
-		EnableBackendLogging:     true,
-		AgentJobRetentionDays:    30,               // Default: 30 days
-		LRUEvictionMaxRetries:    30,               // Default: 30 retries
-		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
-		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
+		EnableBackendLogging:        true,
+		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
+		AgentJobRetentionDays:       30,               // Default: 30 days
+		LRUEvictionMaxRetries:       30,               // Default: 30 retries
+		LRUEvictionRetryInterval:    1 * time.Second,  // Default: 1 second
+		ModelLoadFailureCooldown:    10 * time.Second, // Default: 10s base cooldown after a failed load
 		// WatchDogInterval is intentionally left at the zero value here.
 		// The startup loader applies a persisted runtime_settings.json value
 		// only when the interval is still 0 (its "not set by env var"
@@ -682,6 +684,15 @@ func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption 
 		if materializer != nil {
 			o.ModelArtifactMaterializer = materializer
 		}
+	}
+}
+
+func WithArtifactDownloadConcurrency(concurrency int) AppOption {
+	return func(o *ApplicationConfig) {
+		if concurrency < 1 {
+			concurrency = modelartifacts.DefaultDownloadConcurrency
+		}
+		o.ArtifactDownloadConcurrency = concurrency
 	}
 }
 
@@ -1188,6 +1199,11 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	if settings.VRAMBudget != nil {
 		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
 			xsysinfo.SetDefaultVRAMBudget(b)
+		}
+	}
+	if settings.ArtifactDownloadConcurrency != nil {
+		if configurable, ok := o.ModelArtifactMaterializer.(interface{ SetDownloadConcurrency(int) }); ok {
+			configurable.SetDownloadConcurrency(o.ArtifactDownloadConcurrency)
 		}
 	}
 	// Note: ApiKeys need env-merge handling (MergeAPIKeys) - done by the

@@ -11,6 +11,13 @@ test.describe('Settings - Backend Logging', () => {
     await expect(page.locator('text=Enable Backend Logging')).toBeVisible()
   })
 
+  test('artifact download concurrency is configurable', async ({ page }) => {
+    const input = page.getByLabel('Artifact Download Concurrency')
+    await expect(input).toBeVisible()
+    await input.fill('4')
+    await expect(input).toHaveValue('4')
+  })
+
   test('backend logging toggle can be toggled', async ({ page }) => {
     // Find the checkbox associated with backend logging
     const section = page.locator('div', { has: page.locator('text=Enable Backend Logging') })
