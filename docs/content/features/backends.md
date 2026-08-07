@@ -79,7 +79,7 @@ they provide. Add a `verification` policy to the gallery configuration, then
 enable strict integrity mode:
 
 ```bash
-export LOCALAI_BACKEND_GALLERIES='[{"name":"localai","url":"github:mudler/LocalAI/backend/index.yaml@master","verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"}}]'
+export LOCALAI_BACKEND_GALLERIES='[{"name":"localai","url":"https://index.localai.io/backends","mirrors":["github:mudler/LocalAI/backend/index.yaml@master"],"verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"}}]'
 export LOCALAI_REQUIRE_BACKEND_INTEGRITY=1
 local-ai run
 ```

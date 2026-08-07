@@ -198,7 +198,7 @@ Two properties this relies on:
 
 The same reasoning applies to master pushes, and the volume is larger there: on 2026-07-30, **12 of the 23 queued `image.yml` runs** were commits like "add 1 new model to gallery" or a docs fix, each rebuilding all 18 container images.
 
-`image.yml` now has a `changes` job that decides once whether the push can affect any image; the other 11 jobs carry `needs: changes` plus an `if:` on its output. Verified against the shipped `Dockerfile`: the final stage copies only `entrypoint.sh`, `healthcheck.sh` and the `local-ai` binary, there is no `go:embed` of `gallery/` or `docs/`, and the gallery is fetched at runtime from `github:mudler/LocalAI/gallery/index.yaml@master`. A gallery-only commit therefore produces byte-identical images, and the gallery change reaches users through GitHub immediately whether or not an image is rebuilt.
+`image.yml` now has a `changes` job that decides once whether the push can affect any image; the other 11 jobs carry `needs: changes` plus an `if:` on its output. Verified against the shipped `Dockerfile`: the final stage copies only `entrypoint.sh`, `healthcheck.sh` and the `local-ai` binary, there is no `go:embed` of `gallery/` or `docs/`, and the gallery is fetched at runtime from `https://index.localai.io/models` (a caching mirror of `gallery/index.yaml` on master, with `github:mudler/LocalAI/gallery/index.yaml@master` as the fallback mirror). A gallery-only commit therefore produces byte-identical images, and the gallery change reaches users over the network immediately whether or not an image is rebuilt.
 
 Two properties to preserve if you touch it:
 

@@ -100,13 +100,13 @@ To use additional repositories you need to start `local-ai` with the `GALLERIES`
 GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 ```
 
-For example, to enable the default `localai` repository, you can start `local-ai` with:
+For example, to spell out the default `localai` repository, you can start `local-ai` with:
 
 ```
-GALLERIES=[{"name":"localai", "url":"github:mudler/localai/gallery/index.yaml"}]
+GALLERIES=[{"name":"localai", "url":"https://index.localai.io/models", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
 ```
 
-where `github:mudler/localai/gallery/index.yaml` will be expanded automatically to `https://raw.githubusercontent.com/mudler/LocalAI/main/index.yaml`.
+`https://index.localai.io/models` is a caching mirror of the same index file, and the `github:` entry is the fallback used whenever it cannot be reached. `github:mudler/LocalAI/gallery/index.yaml@master` is expanded automatically to `https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/index.yaml`.
 
 Note: the url are expanded automatically for `github` and `huggingface`, however `https://` and `http://` prefix works as well.
 
