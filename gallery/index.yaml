@@ -1,4 +1,66 @@
 ---
+- name: "minimax-h3_ggufs"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+  description: |
+    # MiniMax H3
+
+    Repackaged model files for ComfyUI.
+
+    Original model repository: https://huggingface.co/MiniMaxAI/MiniMax-H3
+
+    Place the files in the following folders:
+
+    ```
+    📂 ComfyUI/
+    ├── 📂 models/
+    │   ├── 📂 diffusion_models/
+    │   │   ├── minimax_h3_fl2va_bf16.safetensors
+    │   │   ├── minimax_h3_fl2va_int8_convrot.safetensors
+    │   │   ├── minimax_h3_fl2va_pruned_bf16.safetensors
+    │   │   ├── minimax_h3_fl2va_pruned_int8_convrot.safetensors
+    │   │   ├── minimax_h3_fl2va_pruned_fp8_scaled.safetensors
+    │   │   ├── minimax_h3_ref2va_bf16.safetensors
+    │   │   ├── minimax_h3_ref2va_int8_convrot.safetensors
+    │   │   ├── minimax_h3_ref2va_pruned_bf16.safetensors
+    │   │   ├── minimax_h3_ref2va_pruned_int8_convrot.safetensors
+    │   │   └── minimax_h3_ref2va_pruned_fp8_scaled.safetensors
+    │   ├── 📂 text_encoders/
+    │   │   ├── qwen3vl_32b_minimax_h3_bf16.safetensors
+    │   │   ├── qwen3vl_32b_minimax_h3_int8_convrot.safetensors
+    │   │   └── qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors
+    │   ├── 📂 vae/
+    │   │   ├── minimax_h3_audio_vae
+
+    ...
+  license: "unknown"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/MiniMax-H3-FL2VA-Q4_K_M/MiniMax-H3-FL2VA-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 40
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniMax-H3-FL2VA-Q4_K_M/MiniMax-H3-FL2VA-Q4_K_M.gguf
+      sha256: 5e8fa6e960d5fbd547390ceec63fcead275435d8f3bd2466a8a2cbd8c2e361e3
+      uri: https://huggingface.co/realrebelai/MiniMax-H3_GGUFs/resolve/main/MiniMax-H3-FL2VA-Q4_K_M.gguf
 - &qwen3-5-9b-defiant-fable
   name: "qwen3.5-9b-defiant-fable-mtp"
   variants:
