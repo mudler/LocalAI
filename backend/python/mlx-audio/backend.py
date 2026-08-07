@@ -4,6 +4,7 @@
 import argparse
 import asyncio
 from concurrent import futures
+import json
 import os
 import signal
 import sys
@@ -39,7 +40,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def Health(self, request, context):
         return backend_pb2.Reply(message=b"OK")
 
-    async def LoadModel(self, request, context):
+    def LoadModel(self, request, context):
         try:
             role = self.runtime.load(request.Model, request.Options, model_root=request.ModelPath)
         except BackendFailure as failure:
@@ -47,7 +48,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Result(success=False, message=failure.message)
         return backend_pb2.Result(success=True, message=f"MLX-Audio {role} model loaded")
 
-    async def Free(self, request, context):
+    def Free(self, request, context):
         self.runtime.unload()
         return backend_pb2.Result(success=True, message="MLX-Audio model unloaded")
 
@@ -84,6 +85,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return backend_pb2.Result(success=False, message=failure.message)
         return backend_pb2.Result(success=True, message=f"TTS audio written to {destination}")
 
+    def TTSStream(self, request, context):
+        stream = None
+        try:
+            if request_cancelled(context):
+                raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+            stream = self.runtime.synthesize_stream(
+                request.text,
+                request.voice,
+                request.language,
+                params=request.params,
+                cancelled=lambda: request_cancelled(context),
+            )
+            iterator = iter(stream)
+            try:
+                first_pcm = next(iterator)
+            except StopIteration as err:
+                raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio") from err
+            if request_cancelled(context):
+                raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+            yield backend_pb2.Reply(
+                message=json.dumps({"sample_rate": 24000}).encode("utf-8")
+            )
+            yield backend_pb2.Reply(audio=first_pcm)
+            while True:
+                if request_cancelled(context):
+                    raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+                try:
+                    pcm = next(iterator)
+                except StopIteration:
+                    break
+                if request_cancelled(context):
+                    raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+                if not pcm or len(pcm) % 2:
+                    raise BackendFailure("INTERNAL", "MLX-Audio TTS returned invalid PCM audio")
+                yield backend_pb2.Reply(audio=pcm)
+        except BackendFailure as failure:
+            self._fail(context, failure)
+            return
+        finally:
+            close = getattr(stream, "close", None)
+            if callable(close):
+                close()
+
 
 async def serve(address):
     options = [
@@ -103,8 +147,8 @@ async def serve(address):
     print(f"MLX-Audio backend listening on {address}", file=sys.stderr)
 
     async def shutdown():
-        servicer.runtime.unload()
         await server.stop(5)
+        servicer.runtime.unload()
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

@@ -128,7 +128,7 @@ var _ = Describe("mlx-audio capabilities", func() {
 	It("advertises voice RPCs without local text generation", func() {
 		capability := GetBackendCapability("mlx-audio")
 		Expect(capability).NotTo(BeNil())
-		Expect(capability.GRPCMethods).To(ConsistOf(MethodVAD, MethodAudioTranscription, MethodTTS))
+		Expect(capability.GRPCMethods).To(ConsistOf(MethodVAD, MethodAudioTranscription, MethodTTS, MethodTTSStream))
 		Expect(capability.PossibleUsecases).To(ConsistOf(UsecaseVAD, UsecaseTranscript, UsecaseTTS))
 		Expect(capability.GRPCMethods).NotTo(ContainElements(MethodPredict, MethodPredictStream))
 	})

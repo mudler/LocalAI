@@ -10,12 +10,14 @@ import os
 from pathlib import Path
 import struct
 import tempfile
+import threading
 import wave
 
 
 ALLOWED_ROLES = frozenset({"vad", "asr", "tts"})
 FORBIDDEN_DISTRIBUTIONS = frozenset({"torch", "torchaudio"})
 VAD_SAMPLE_RATE = 16000
+TTS_SAMPLE_RATE = 24000
 TTS_DEFAULTS = {
     "temperature": 0.7,
     "max_tokens": 1200,
@@ -126,6 +128,12 @@ def _production_writer(path, audio_segments, sample_rate):
     write(path, audio, sample_rate, format="wav")
 
 
+def _production_seed(seed):
+    import mlx.core as mx
+
+    mx.random.seed(seed)
+
+
 def _write_vad_wav(path, audio):
     pcm = bytearray()
     for sample in audio:
@@ -183,9 +191,10 @@ def normalize_voice(voice, language):
     return selected
 
 
-def tts_generation_options(params=None):
+def tts_generation_options(params=None, configured=None):
     options = dict(TTS_DEFAULTS)
-    values = params or {}
+    values = dict(configured or {})
+    values.update(params or {})
     parsers = {
         "temperature": float,
         "max_tokens": int,
@@ -210,7 +219,38 @@ def tts_generation_options(params=None):
         raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS top_p must be in (0, 1]")
     if options["repetition_penalty"] <= 0:
         raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS repetition_penalty must be positive")
+    diagnostic_seed = values.get("diagnostic_seed", values.get("seed"))
+    if diagnostic_seed is not None:
+        try:
+            options["seed"] = int(diagnostic_seed)
+        except (TypeError, ValueError) as err:
+            raise BackendFailure("INVALID_ARGUMENT", "invalid MLX-Audio TTS parameter: diagnostic_seed") from err
     return options
+
+
+def pcm16le_from_tts_segment(segment):
+    """Materialize a generated segment as one nonempty mono PCM16LE frame."""
+    try:
+        import numpy as np
+
+        sample_rate = int(getattr(segment, "sample_rate", 0))
+        if sample_rate != TTS_SAMPLE_RATE:
+            raise BackendFailure("INTERNAL", "MLX-Audio TTS returned an unsupported sample rate")
+        audio = getattr(segment, "audio", None)
+        if audio is None:
+            raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
+        samples = np.array(audio, copy=True).reshape(-1)
+        if samples.size == 0 or not np.isfinite(samples).all():
+            raise BackendFailure("INTERNAL", "MLX-Audio TTS returned invalid audio")
+        pcm = (np.clip(samples, -1.0, 1.0) * 32767.0).astype(np.dtype("<i2"), copy=True)
+        data = pcm.tobytes()
+    except BackendFailure:
+        raise
+    except Exception as err:
+        raise BackendFailure("INTERNAL", "MLX-Audio TTS returned malformed audio") from err
+    if not data or len(data) % 2:
+        raise BackendFailure("INTERNAL", "MLX-Audio TTS returned invalid PCM audio")
+    return data
 
 
 def request_cancelled(context):
@@ -225,32 +265,45 @@ def request_cancelled(context):
 
 
 class MLXAudioRuntime:
-    def __init__(self, loader_provider=None, writer=None, temp_dir=None, cache_clear=None):
+    def __init__(
+        self,
+        loader_provider=None,
+        writer=None,
+        temp_dir=None,
+        cache_clear=None,
+        seed_setter=None,
+    ):
         self._loader_provider = loader_provider or _production_loader
         self._writer = writer or _production_writer
         self._temp_dir = temp_dir
         self._cache_clear = cache_clear
+        self._seed_setter = seed_setter or _production_seed
         self.model = None
         self.model_path = None
         self.role = None
+        self._state_lock = threading.Lock()
+        self._tts_config = {}
 
     def load(self, model_path, options, distributions=None, model_root=None):
-        ensure_torch_free(distributions)
-        role = configured_role(options)
-        local_path = _local_snapshot_path(model_path, model_root)
-        try:
-            model = self._loader_provider(role)(local_path, strict=True)
-        except BackendFailure:
-            raise
-        except Exception as err:
-            raise BackendFailure("INTERNAL", f"failed to load mlx-audio {role} model") from err
-        if model is None:
-            raise BackendFailure("INTERNAL", f"mlx-audio {role} loader returned no model")
-        self.unload()
-        self.model = model
-        self.model_path = local_path
-        self.role = role
-        return role
+        with self._state_lock:
+            ensure_torch_free(distributions)
+            role = configured_role(options)
+            local_path = _local_snapshot_path(model_path, model_root)
+            tts_config = tts_generation_options(configured=parse_options(options)) if role == "tts" else {}
+            try:
+                model = self._loader_provider(role)(local_path, strict=True)
+            except BackendFailure:
+                raise
+            except Exception as err:
+                raise BackendFailure("INTERNAL", f"failed to load mlx-audio {role} model") from err
+            if model is None:
+                raise BackendFailure("INTERNAL", f"mlx-audio {role} loader returned no model")
+            self._unload_locked()
+            self.model = model
+            self.model_path = local_path
+            self.role = role
+            self._tts_config = tts_config
+            return role
 
     def _require_role(self, role):
         if self.model is None:
@@ -258,27 +311,38 @@ class MLXAudioRuntime:
         if self.role != role:
             raise BackendFailure("FAILED_PRECONDITION", f"loaded mlx-audio role is {self.role}, not {role}")
 
+    def _tts_options(self, params):
+        options = tts_generation_options(params, configured=self._tts_config)
+        seed = options.pop("seed", None)
+        if seed is not None:
+            try:
+                self._seed_setter(seed)
+            except Exception as err:
+                raise BackendFailure("INTERNAL", "failed to seed MLX-Audio TTS generation") from err
+        return options
+
     def vad(self, audio):
-        self._require_role("vad")
-        if not audio:
-            raise BackendFailure("INVALID_ARGUMENT", "VAD audio is empty")
-        path = None
-        try:
-            handle = tempfile.NamedTemporaryFile(suffix=".wav", dir=self._temp_dir, delete=False)
-            path = handle.name
-            handle.close()
-            _write_vad_wav(path, audio)
-            raw_segments = self.model.get_speech_timestamps(path, return_seconds=True)
-        except BackendFailure:
-            raise
-        except Exception as err:
-            raise BackendFailure("INTERNAL", "MLX-Audio VAD inference failed") from err
-        finally:
-            if path is not None:
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
+        with self._state_lock:
+            self._require_role("vad")
+            if not audio:
+                raise BackendFailure("INVALID_ARGUMENT", "VAD audio is empty")
+            path = None
+            try:
+                handle = tempfile.NamedTemporaryFile(suffix=".wav", dir=self._temp_dir, delete=False)
+                path = handle.name
+                handle.close()
+                _write_vad_wav(path, audio)
+                raw_segments = self.model.get_speech_timestamps(path, return_seconds=True)
+            except BackendFailure:
+                raise
+            except Exception as err:
+                raise BackendFailure("INTERNAL", "MLX-Audio VAD inference failed") from err
+            finally:
+                if path is not None:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
 
         if raw_segments is None:
             return []
@@ -297,75 +361,121 @@ class MLXAudioRuntime:
         return segments
 
     def transcribe(self, audio_path, language):
-        self._require_role("asr")
-        path = Path(audio_path)
-        if not audio_path or not path.is_file():
-            raise BackendFailure("INVALID_ARGUMENT", "transcription audio path must name a readable file")
-        normalized_language = normalize_language(language)
-        try:
-            result = self.model.generate(str(path), language=normalized_language)
-        except Exception as err:
-            raise BackendFailure("INTERNAL", "MLX-Audio transcription failed") from err
-        text = getattr(result, "text", None)
-        if not isinstance(text, str) or not text.strip():
-            raise BackendFailure("INTERNAL", "MLX-Audio transcription returned empty text")
-        return text.strip(), normalized_language
+        with self._state_lock:
+            self._require_role("asr")
+            path = Path(audio_path)
+            if not audio_path or not path.is_file():
+                raise BackendFailure("INVALID_ARGUMENT", "transcription audio path must name a readable file")
+            normalized_language = normalize_language(language)
+            try:
+                result = self.model.generate(str(path), language=normalized_language)
+            except Exception as err:
+                raise BackendFailure("INTERNAL", "MLX-Audio transcription failed") from err
+            text = getattr(result, "text", None)
+            if not isinstance(text, str) or not text.strip():
+                raise BackendFailure("INTERNAL", "MLX-Audio transcription returned empty text")
+            return text.strip(), normalized_language
 
     def synthesize(self, text, voice, language, destination, params=None, cancelled=None):
-        self._require_role("tts")
-        if not isinstance(text, str) or not text.strip():
-            raise BackendFailure("INVALID_ARGUMENT", "TTS text is empty")
-        if not destination:
-            raise BackendFailure("INVALID_ARGUMENT", "TTS destination path is required")
-        normalized_language = normalize_language(language)
-        speaker = normalize_voice(voice, normalized_language)
-        generation_options = tts_generation_options(params)
-        output = Path(destination)
-        try:
-            output.parent.mkdir(parents=True, exist_ok=True)
-            results = self.model.generate_custom_voice(
-                text=text,
-                speaker=speaker,
-                language=normalized_language,
-                **generation_options,
-            )
-            audio_segments = []
-            sample_rate = 0
-            for segment in results:
-                if cancelled is not None and cancelled():
-                    raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
-                audio = getattr(segment, "audio", None)
-                segment_rate = getattr(segment, "sample_rate", 0)
-                if audio is None or not segment_rate:
+        with self._state_lock:
+            self._require_role("tts")
+            if not isinstance(text, str) or not text.strip():
+                raise BackendFailure("INVALID_ARGUMENT", "TTS text is empty")
+            if not destination:
+                raise BackendFailure("INVALID_ARGUMENT", "TTS destination path is required")
+            normalized_language = normalize_language(language)
+            speaker = normalize_voice(voice, normalized_language)
+            generation_options = self._tts_options(params)
+            output = Path(destination)
+            try:
+                output.parent.mkdir(parents=True, exist_ok=True)
+                results = self.model.generate_custom_voice(
+                    text=text,
+                    speaker=speaker,
+                    language=normalized_language,
+                    **generation_options,
+                )
+                audio_segments = []
+                sample_rate = 0
+                for segment in results:
+                    if cancelled is not None and cancelled():
+                        raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+                    audio = getattr(segment, "audio", None)
+                    segment_rate = getattr(segment, "sample_rate", 0)
+                    if audio is None or not segment_rate:
+                        raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
+                    if sample_rate and int(segment_rate) != sample_rate:
+                        raise BackendFailure("INTERNAL", "MLX-Audio TTS returned inconsistent sample rates")
+                    sample_rate = int(segment_rate)
+                    audio_segments.append(audio)
+                if not audio_segments:
                     raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
-                if sample_rate and int(segment_rate) != sample_rate:
-                    raise BackendFailure("INTERNAL", "MLX-Audio TTS returned inconsistent sample rates")
-                sample_rate = int(segment_rate)
-                audio_segments.append(audio)
-            if not audio_segments:
-                raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
-            self._writer(str(output), audio_segments, sample_rate)
-            _validate_wav(str(output))
-        except BackendFailure:
-            try:
-                output.unlink()
-            except FileNotFoundError:
-                pass
-            raise
-        except Exception as err:
-            try:
-                output.unlink()
-            except FileNotFoundError:
-                pass
-            raise BackendFailure("INTERNAL", "MLX-Audio TTS generation failed") from err
-        # LocalAI owns the successful staged file and removes it after reading.
-        return str(output)
+                self._writer(str(output), audio_segments, sample_rate)
+                _validate_wav(str(output))
+            except BackendFailure:
+                try:
+                    output.unlink()
+                except FileNotFoundError:
+                    pass
+                raise
+            except Exception as err:
+                try:
+                    output.unlink()
+                except FileNotFoundError:
+                    pass
+                raise BackendFailure("INTERNAL", "MLX-Audio TTS generation failed") from err
+            # LocalAI owns the successful staged file and removes it after reading.
+            return str(output)
 
-    def unload(self):
-        self.model = None
-        self.model_path = None
-        self.role = None
-        gc.collect()
+    def synthesize_stream(self, text, voice, language, params=None, cancelled=None):
+        """Yield validated PCM16LE chunks without staging a WAV file."""
+        results = None
+        with self._state_lock:
+            self._require_role("tts")
+            if not isinstance(text, str) or not text.strip():
+                raise BackendFailure("INVALID_ARGUMENT", "TTS text is empty")
+            normalized_language = normalize_language(language)
+            speaker = normalize_voice(voice, normalized_language)
+            generation_options = self._tts_options(params)
+            try:
+                results = self.model.generate_custom_voice(
+                    text=text,
+                    speaker=speaker,
+                    language=normalized_language,
+                    **generation_options,
+                )
+                emitted = False
+                iterator = iter(results)
+                while True:
+                    if cancelled is not None and cancelled():
+                        raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+                    try:
+                        segment = next(iterator)
+                    except StopIteration:
+                        break
+                    if cancelled is not None and cancelled():
+                        raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+                    pcm = pcm16le_from_tts_segment(segment)
+                    if cancelled is not None and cancelled():
+                        raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
+                    emitted = True
+                    yield pcm
+                if not emitted:
+                    raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
+            except BackendFailure:
+                raise
+            except Exception as err:
+                raise BackendFailure("INTERNAL", "MLX-Audio TTS generation failed") from err
+            finally:
+                close = getattr(results, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
+                self._clear_cache()
+
+    def _clear_cache(self):
         try:
             if self._cache_clear is not None:
                 self._cache_clear()
@@ -376,6 +486,17 @@ class MLXAudioRuntime:
                 elif hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
                     mx.metal.clear_cache()
         except Exception:
-            # Cache eviction is best-effort during shutdown; model references have
-            # already been dropped and unload must remain idempotent.
+            # Cache eviction is best-effort during shutdown and stream cleanup.
             pass
+
+    def unload(self):
+        with self._state_lock:
+            self._unload_locked()
+
+    def _unload_locked(self):
+        self.model = None
+        self.model_path = None
+        self.role = None
+        self._tts_config = {}
+        gc.collect()
+        self._clear_cache()

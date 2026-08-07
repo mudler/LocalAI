@@ -88,15 +88,21 @@ tts:
   voice: Ryan
 pipeline:
   # Avoid loading all three large MLX stages concurrently on constrained Macs.
-  # This moves each stage's cold start to the first turn.
+  # Preload the named role models sequentially at process startup as shown below.
   disable_warmup: true
   vad: mlx-vad
   transcription: mlx-asr
   llm: remote-voice-llm
   tts: mlx-tts
+  streaming:
+    llm: true
+    tts: true
+    clause_chunking: true
 ```
 
 Bind LocalAI to loopback for this topology and connect the native client to `ws://127.0.0.1:8080/v1/realtime?model=private-apple-voice`. This profile is Darwin/arm64-specific; installing the backend or downloading the three model snapshots is a separate, networked operation.
+
+Start this private runtime with `--load-to-memory=mlx-vad,mlx-asr,mlx-tts,remote-voice-llm`. LocalAI loads that list sequentially, which removes the first-turn MLX load delay without the pipeline warm-up's concurrent VAD, ASR, and TTS loads. The three streaming switches let synthesis start at the first completed clause and forward each MLX-Audio PCM chunk immediately.
 
 The private MLX-Audio TTS profile uses the qualified bounded Qwen generation defaults (`max_tokens: 1200`, temperature `0.7`, top-k `50`, top-p `1.0`, repetition penalty `1.05`) and its 0.32-second generator interval. The interval provides cancellation checkpoints during generation; the unary TTS RPC still returns the completed audio file. Requests may lower the token ceiling or override the sampling values through `params`; values outside the backend's bounds are rejected.
 

@@ -43,6 +43,69 @@ var _ = Describe("emitSpeech", func() {
 		Expect(audio).To(Equal([]byte{1, 2, 3, 4, 5, 6}))
 	})
 
+	It("emits the first PCM delta before TTS generation completes", func() {
+		firstChunk := make(chan struct{})
+		release := make(chan struct{})
+		m := &fakeModel{
+			ttsStreamChunks: [][]byte{{1, 2}, {3, 4}},
+			ttsStreamRate:   24000,
+			ttsStreamAfter: func(index int) {
+				if index == 0 {
+					close(firstChunk)
+					<-release
+				}
+			},
+		}
+		t := &fakeTransport{}
+		done := make(chan error, 1)
+		go func() {
+			_, err := emitSpeech(context.Background(), t, streamingSession(m), "resp1", "item1", "Hello there.")
+			done <- err
+		}()
+
+		Eventually(firstChunk).Should(BeClosed())
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
+		Consistently(done, "50ms").ShouldNot(Receive())
+		close(release)
+		Expect(<-done).ToNot(HaveOccurred())
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(2))
+	})
+
+	It("does not emit a streaming delta after the response context is cancelled", func() {
+		m := &fakeModel{
+			ttsStreamChunks: [][]byte{{1, 2}},
+			ttsStreamRate:   24000,
+		}
+		t := &fakeTransport{}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := emitSpeech(ctx, t, streamingSession(m), "resp1", "item1", "Hello there.")
+
+		Expect(err).To(MatchError(context.Canceled))
+		Expect(t.audio).To(BeEmpty())
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(0))
+	})
+
+	It("stops before the next delta when cancellation lands between chunks", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		m := &fakeModel{
+			ttsStreamChunks: [][]byte{{1, 2}, {3, 4}},
+			ttsStreamRate:   24000,
+			ttsStreamAfter: func(index int) {
+				if index == 0 {
+					cancel()
+				}
+			},
+		}
+		t := &fakeTransport{}
+
+		_, err := emitSpeech(ctx, t, streamingSession(m), "resp1", "item1", "Hello there.")
+
+		Expect(err).To(MatchError(context.Canceled))
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(1))
+	})
+
 	It("sends a single output_audio.delta in unary mode", func() {
 		// A minimal real WAV file for the unary TTS path to read + parse.
 		f, err := os.CreateTemp("", "emit-*.wav")

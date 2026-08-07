@@ -37,6 +37,9 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 	// PCM directly (it resamples internally); WebSocket gets base64 PCM at the
 	// session output rate via a JSON delta event.
 	sendChunk := func(pcm []byte, sampleRate int) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if len(pcm) == 0 {
 			return nil
 		}
@@ -53,6 +56,9 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 			wsPCM = sound.Int16toBytesLE(resampled)
 		}
 		wsAudio = append(wsAudio, wsPCM...)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return t.SendEvent(types.ResponseOutputAudioDeltaEvent{
 			ServerEventBase: types.ServerEventBase{},
 			ResponseID:      responseID,

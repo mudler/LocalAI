@@ -73,6 +73,7 @@ type fakeModel struct {
 	ttsStreamChunks [][]byte
 	ttsStreamRate   int
 	ttsStreamErr    error
+	ttsStreamAfter  func(int)
 
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
@@ -218,9 +219,12 @@ func (m *fakeModel) TTSStream(_ context.Context, _, _, _ string, onAudio func(pc
 	if m.ttsStreamErr != nil {
 		return m.ttsStreamErr
 	}
-	for _, c := range m.ttsStreamChunks {
+	for i, c := range m.ttsStreamChunks {
 		if err := onAudio(c, m.ttsStreamRate); err != nil {
 			return err
+		}
+		if m.ttsStreamAfter != nil {
+			m.ttsStreamAfter(i)
 		}
 	}
 	return nil

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -194,9 +195,19 @@ func ModelTTSStream(
 		startTime = time.Now()
 	}
 
-	var sampleRate uint32 = 16000 // default
+	var sampleRate uint32
 	headerSent := false
+	audioSeen := false
 	var callbackErr error
+	streamCtx, cancelStream := context.WithCancel(ctx)
+	defer cancelStream()
+	failCallback := func(err error) {
+		if callbackErr != nil {
+			return
+		}
+		callbackErr = err
+		cancelStream()
+	}
 
 	// Collect up to 30s of audio for tracing
 	var snippetPCM []byte
@@ -206,15 +217,42 @@ func ModelTTSStream(
 	// Streaming TTS writes to the HTTP response, not a file, so dst is empty.
 	ttsRequest := newTTSRequest(text, modelPath, voice, "", language, instructions, params, modelConfig.Model)
 
-	err = ttsModel.TTSStream(ctx, ttsRequest, func(reply *proto.Reply) {
-		// First message contains sample rate info
-		if !headerSent && len(reply.Message) > 0 {
-			var info map[string]any
-			if json.Unmarshal(reply.Message, &info) == nil {
-				if sr, ok := info["sample_rate"].(float64); ok {
-					sampleRate = uint32(sr)
+	err = ttsModel.TTSStream(streamCtx, ttsRequest, func(reply *proto.Reply) {
+		if callbackErr != nil {
+			return
+		}
+		// Backends use one of two established first-reply forms: JSON sample-rate
+		// metadata (LocalAI builds the WAV header), or a complete 44-byte
+		// streaming WAV header in Audio. Validate either form so raw PCM cannot
+		// be mistaken for a header and malformed metadata never falls back to a
+		// guessed rate.
+		if !headerSent {
+			if len(reply.Message) == 0 {
+				parsedRate, headerErr := streamingWAVSampleRate(reply.Audio)
+				if headerErr != nil {
+					failCallback(headerErr)
+					return
 				}
+				if writeErr := audioCallback(reply.Audio); writeErr != nil {
+					failCallback(writeErr)
+					return
+				}
+				sampleRate = parsedRate
+				headerSent = true
+				return
 			}
+			if len(reply.Audio) != 0 {
+				failCallback(errors.New("streaming TTS metadata reply must not also contain audio"))
+				return
+			}
+			var info struct {
+				SampleRate uint32 `json:"sample_rate"`
+			}
+			if unmarshalErr := json.Unmarshal(reply.Message, &info); unmarshalErr != nil || info.SampleRate == 0 {
+				failCallback(errors.New("streaming TTS returned invalid sample-rate metadata"))
+				return
+			}
+			sampleRate = info.SampleRate
 			// Send WAV header with placeholder size (0xFFFFFFFF for streaming)
 			header := laudio.WAVHeader{
 				ChunkID:       [4]byte{'R', 'I', 'F', 'F'},
@@ -234,22 +272,33 @@ func ModelTTSStream(
 
 			var buf bytes.Buffer
 			if writeErr := binary.Write(&buf, binary.LittleEndian, header); writeErr != nil {
-				callbackErr = writeErr
+				failCallback(writeErr)
 				return
 			}
 
 			if writeErr := audioCallback(buf.Bytes()); writeErr != nil {
-				callbackErr = writeErr
+				failCallback(writeErr)
 				return
 			}
 			headerSent = true
+			return
+		}
+		if len(reply.Message) != 0 {
+			failCallback(errors.New("streaming TTS returned unexpected metadata after audio framing began"))
+			return
 		}
 
 		// Stream audio chunks
 		if len(reply.Audio) > 0 {
-			if writeErr := audioCallback(reply.Audio); writeErr != nil {
-				callbackErr = writeErr
+			if len(reply.Audio)%2 != 0 {
+				failCallback(errors.New("streaming TTS returned an odd-length PCM16 chunk"))
+				return
 			}
+			if writeErr := audioCallback(reply.Audio); writeErr != nil {
+				failCallback(writeErr)
+				return
+			}
+			audioSeen = true
 			// Accumulate PCM for tracing snippet
 			totalPCMBytes += len(reply.Audio)
 			if appConfig.EnableTracing && !snippetCapped {
@@ -272,6 +321,12 @@ func ModelTTSStream(
 	resultErr := err
 	if callbackErr != nil {
 		resultErr = callbackErr
+	} else if err != nil {
+		resultErr = err
+	} else if !headerSent {
+		resultErr = errors.New("streaming TTS returned no sample-rate metadata")
+	} else if !audioSeen {
+		resultErr = errors.New("streaming TTS returned no audio")
 	}
 
 	if appConfig.EnableTracing {
@@ -303,8 +358,22 @@ func ModelTTSStream(
 		})
 	}
 
-	if callbackErr != nil {
-		return callbackErr
+	return resultErr
+}
+
+func streamingWAVSampleRate(header []byte) (uint32, error) {
+	if len(header) != 44 || string(header[0:4]) != "RIFF" || string(header[8:12]) != "WAVE" ||
+		string(header[12:16]) != "fmt " || string(header[36:40]) != "data" {
+		return 0, errors.New("streaming TTS first reply must contain sample-rate metadata or a valid WAV header")
 	}
-	return err
+	if binary.LittleEndian.Uint16(header[20:22]) != 1 ||
+		binary.LittleEndian.Uint16(header[22:24]) == 0 ||
+		binary.LittleEndian.Uint16(header[34:36]) != 16 {
+		return 0, errors.New("streaming TTS WAV header must describe PCM16 audio")
+	}
+	sampleRate := binary.LittleEndian.Uint32(header[24:28])
+	if sampleRate == 0 {
+		return 0, errors.New("streaming TTS WAV header has an invalid sample rate")
+	}
+	return sampleRate, nil
 }

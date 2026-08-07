@@ -341,7 +341,7 @@ var BackendCapabilities = map[string]BackendCapability{
 		Description:      "MLX vision-language models with multimodal input",
 	},
 	"mlx-audio": {
-		GRPCMethods:      []GRPCMethod{MethodVAD, MethodAudioTranscription, MethodTTS},
+		GRPCMethods:      []GRPCMethod{MethodVAD, MethodAudioTranscription, MethodTTS, MethodTTSStream},
 		PossibleUsecases: []string{UsecaseVAD, UsecaseTranscript, UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
 		Description:      "MLX-Audio voice models — explicit-role VAD, transcription, or TTS",
