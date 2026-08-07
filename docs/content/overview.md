@@ -17,7 +17,7 @@ LocalAI is a composable AI stack for running models locally: a small core that s
 
 ## Why LocalAI?
 
-In today's AI landscape, privacy, control, and flexibility are paramount. LocalAI addresses these needs by:
+LocalAI is built for privacy, control and flexibility:
 
 - **Privacy First**: Your data never leaves your machine
 - **Complete Control**: Run models on your terms, with your hardware
@@ -84,7 +84,7 @@ LocalAI is a community-driven project. You can:
 
 ## Next Steps
 
-Ready to dive in? Here are some recommended next steps:
+Recommended next steps:
 
 1. **[Install LocalAI](/installation/)** - Start with [Docker installation](/installation/docker/) (recommended) or choose another method
 2. **[Quickstart guide]({{% relref "getting-started/quickstart" %}})** - Get up and running in minutes
