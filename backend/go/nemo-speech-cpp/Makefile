@@ -92,6 +92,29 @@ else ifeq ($(BUILD_TYPE),metal)
 	CMAKE_ARGS+=-DGGML_METAL=ON
 endif
 
+# ggml-patches/ is a CUDA series. Every kernel it adds lives under
+# src/ggml-cuda/; the only files it touches outside that directory are enum and
+# name-table entries in include/ggml.h and src/ggml.c plus, in ggml-cpu, a
+# supports_op returning false and an abort case for the CUDA-only op. Upstream
+# agrees: its metal-* and vulkan-* CMake presets inherit the cpu-* ones, which
+# set NEMO_SPEECH_GGML_PATCHED=OFF, and every use of a patch-only symbol in the
+# ASR sources sits behind NEMO_SPEECH_FUSED_RELPOS_ATTN /
+# NEMO_SPEECH_FASTCONFORMER_CUDA_FUSIONS (both force-OFF without GGML_CUDA) or
+# behind NEMO_SPEECH_GGML_PATCHED itself, which guards a Q8_PLANAR flag write
+# that a non-CUDA buffer already throws before reaching.
+#
+# So on macOS the series buys nothing, and it cannot be applied there anyway:
+# upstream's scripts/apply-ggml-patches.sh uses mapfile, a bash 4 builtin, and
+# macOS ships bash 3.2 as the only bash on the runner's PATH. Skip the patch
+# step and tell cmake the linked ggml is stock, which is exactly upstream's own
+# Metal configuration. Linux keeps applying the series unchanged.
+ifeq ($(shell uname -s),Darwin)
+	GGML_PATCHED?=OFF
+else
+	GGML_PATCHED?=ON
+endif
+CMAKE_ARGS+=-DNEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED)
+
 .PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn
 
 all: nemo-speech-cpp-grpc package
@@ -114,8 +137,17 @@ sources/NeMo-Speech.cpp:
 # applied" by comparing the full-series tree hash rather than a timestamp. That
 # makes it safe to run unconditionally, so there is no sentinel file to go stale
 # or to wedge the build when deleted.
+#
+# Both branches keep the order-only clone prerequisite: it is the only thing
+# that pulls sources/ in on a WITH_NORM=OFF tree, where the library rule has no
+# other prerequisite left.
+ifeq ($(GGML_PATCHED),ON)
 patch-ggml: | sources/NeMo-Speech.cpp
 	cd sources/NeMo-Speech.cpp && bash scripts/apply-ggml-patches.sh
+else
+patch-ggml: | sources/NeMo-Speech.cpp
+	@echo "[ggml-patch] skipped: NEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED), the series is CUDA-only"
+endif
 
 # The Sparrowhawk/OpenFST text-normalization stack, as a target in its own right
 # keyed on a file the build script actually produces.
