@@ -44,6 +44,41 @@ ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
 endif
 
+# NEMO_SPEECH_TTS_WITH_JA=ON compiles Open JTalk's bundled MeCab, and
+# mecab/src/dictionary.cpp derives a comparator from std::binary_function, which
+# C++17 removed. libstdc++ still ships it as deprecated-but-present under
+# -std=gnu++17, so Linux never notices; libc++ compiles it out and the build dies
+# with "no template named 'binary_function' in namespace 'std'". Upstream's own
+# CMakeLists already carries the equivalent workaround for MSVC's STL
+# (_HAS_AUTO_PTR_ETC plus /FIfunctional) but has no libc++ branch, because
+# NEMO_SPEECH_TTS_WITH_JA defaults OFF upstream and only LocalAI turns it on.
+#
+# libc++ gates the two templates on _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION,
+# and has done since LLVM 16, which is older than any clang Xcode still ships.
+# The name matters: the older _LIBCPP_ENABLE_CXX17_REMOVED_BINDERS covers
+# bind1st/bind2nd/ptr_fun/mem_fun and NOT unary_function/binary_function, and the
+# umbrella _LIBCPP_ENABLE_CXX17_REMOVED_FEATURES no longer exists at all. A wrong
+# name is silently accepted by the preprocessor and fixes nothing.
+#
+# Applied through CMAKE_CXX_FLAGS rather than to the one target because the
+# tokenizer CMakeLists is upstream's and this tree is a pinned checkout, not a
+# patched one. Project-wide is also the safer scope: the macro decides whether
+# libc++'s internal __binary_function alias resolves to std::binary_function or
+# to __binary_function_keep_layout_base, which is a base class of std::less and
+# friends, so defining it for a subset of translation units would give those
+# class templates two spellings in one binary. Both bases are empty and, at
+# C++17, carry identical members, so the project-wide define changes no layout
+# and no ABI. On Linux the macro is not a name libstdc++ knows, so the branch is
+# unreachable there and would be inert even if it were taken.
+ifeq ($(shell uname -s),Darwin)
+	CXX_COMPAT_FLAGS?=-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
+else
+	CXX_COMPAT_FLAGS?=
+endif
+ifneq ($(strip $(CXX_COMPAT_FLAGS)),)
+	CMAKE_ARGS+=-DCMAKE_CXX_FLAGS=$(CXX_COMPAT_FLAGS)
+endif
+
 # scripts/build_itn_deps.sh installs the Sparrowhawk/OpenFST runtime here.
 # NEMO_SPEECH_DEPENDENCY_PREFIX defaults to <src>/.deps upstream, and the ITN
 # stack goes under its itn/ subdirectory. ITN_MARKER is a real output of that
