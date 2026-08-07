@@ -124,6 +124,39 @@ var _ = Describe("GetBackendCapability", func() {
 	})
 })
 
+// nemo-speech-cpp fronts four model families from one server, and its
+// PossibleUsecases is their union. The entry has to stay in step with what
+// docs/content/features/nemo-speech-cpp.md tells operators to put in
+// known_usecases: nothing validates known_usecases against PossibleUsecases, so
+// a flag the docs recommend and the map omits fails silently, and the place it
+// surfaces is the gallery. GET /api/backends/usecases is derived from this list
+// and greys out the filters missing from it, so a recommended-but-unlisted flag
+// hides the very models it was recommended for.
+var _ = Describe("nemo-speech-cpp capabilities", func() {
+	It("advertises every usecase its four families serve", func() {
+		capability := GetBackendCapability("nemo-speech-cpp")
+		Expect(capability).NotTo(BeNil())
+		Expect(capability.PossibleUsecases).To(ContainElements(
+			UsecaseTranscript, UsecaseDiarization, UsecaseTTS,
+			UsecaseCompletion, UsecaseChat))
+	})
+
+	// Chat is the translation family's usecase, and it needs both Predict RPCs:
+	// /v1/chat/completions streams through PredictStream and answers
+	// non-streaming requests through Predict.
+	It("backs the chat usecase with the RPCs chat actually drives", func() {
+		capability := GetBackendCapability("nemo-speech-cpp")
+		Expect(capability.GRPCMethods).To(ContainElements(MethodPredict, MethodPredictStream))
+	})
+
+	// Defaults stay conservative: a bare `backend: nemo-speech-cpp` with no
+	// known_usecases is overwhelmingly an ASR model, and every other family is
+	// expected to pin its own flags.
+	It("still defaults to transcript alone", func() {
+		Expect(DefaultUsecasesForBackendCap("nemo-speech-cpp")).To(Equal([]string{UsecaseTranscript}))
+	})
+})
+
 // audio-cpp advertises voice cloning from the backend itself and ships
 // audio-cpp-chatterbox, whose family serves cloning and NOT plain TTS, so a
 // reference clip is the only way to use it. Without a capability entry

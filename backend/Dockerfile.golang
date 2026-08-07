@@ -248,6 +248,134 @@ RUN <<EOT bash
     fi
 EOT
 
+# nemo-speech-cpp builds NVIDIA NeMo-Speech.cpp with text normalization enabled,
+# which compiles the Sparrowhawk/OpenFST WFST stack from source via
+# scripts/build_itn_deps.sh. That step needs gcc-12 specifically: OpenFST's
+# template-heavy translation units ICE on gcc-13 and gcc-14 at -O2, so upstream
+# pins gcc-12 for it while the runtime itself builds with the image default.
+# No update-alternatives here, so the default compiler is untouched; the backend
+# Makefile reaches gcc-12 by name for that one step.
+#
+# The rest is what build_itn_deps.sh and the WITH_NORM cmake block expect:
+# protobuf (headers plus protoc, which must come from the same apt set so the
+# generated stubs match the headers they compile against) and re2 for
+# Sparrowhawk, and autotools because OpenFST and Sparrowhawk ship autoconf
+# builds. ninja is not in the common apt list because this is the only Go
+# backend that configures with -G Ninja, and that list is a layer shared by
+# every backend image in the matrix.
+#
+# No libabsl-dev, despite upstream's Dockerfile installing it: upstream builds
+# against protobuf 25, which splits its runtime across libabsl_*, whereas every
+# base image in this matrix carries protobuf 3.21 (noble) or 3.12 (jammy), which
+# has no absl dependency. The cmake block's file(GLOB ... /usr/lib/libabsl_*.so)
+# would not match on Ubuntu anyway, since multiarch puts those under
+# /usr/lib/<triplet>/.
+#
+# Placed down here with the other per-backend gates rather than next to the
+# shared apt layer: Docker re-keys every layer below an inserted one, so adding
+# a step above the Vulkan SDK, CUDA, Go and protoc layers would force all of
+# them to re-execute once for every Go backend image, not just this one.
+# Nothing between there and here needs any of these packages (the Vulkan and
+# opus blocks install their own ninja and pkg-config, and the protoc download is
+# a release binary that needs neither libprotobuf-dev nor protoc from apt), and
+# nothing here needs anything those layers provide.
+#
+# The second half of this block backfills cmake. NeMo-Speech.cpp opens with
+# cmake_minimum_required(VERSION 3.26), which every noble base in the matrix
+# satisfies (24.04 ships 3.28) but the JetPack r36.4.0 row does not: that image
+# is jammy, whose apt cmake is 3.22, so configure aborts before it reads a
+# single one of our -D flags. This is the only Go backend that needs more than
+# jammy's cmake; parakeet-cpp and moss-transcribe-cpp share the same JetPack
+# base and both declare cmake_minimum_required(VERSION 3.18).
+#
+# Taken from Kitware's own release tarball rather than from their APT repo or
+# from pip. The tarball is a pinned URL with a published checksum, so the build
+# is reproducible and an upstream release cannot change what lands here; the
+# APT repo serves a moving 'latest', which today would be CMake 4.x, and 4.x
+# drops compatibility with cmake_minimum_required below 3.5 and so would break
+# vendored third_party subprojects that still declare one. pip would drag a
+# Python toolchain into a backend that otherwise has none. The binaries need
+# only glibc 2.17 and carry no libstdc++ DT_NEEDED, so jammy's 2.35 is far
+# above the floor. doc/, man/, ccmake and cmake-gui are left in the tarball;
+# this is a builder stage and the final image is FROM scratch, but there is no
+# reason to page 50 MB of Qt GUI and docs through the CI cache.
+#
+# Conditional on the installed cmake being too old rather than unconditional,
+# so the rows that already build green (noble cpu, vulkan, cublas and hipblas)
+# keep configuring with exactly the cmake they configure with today.
+#
+# The version test compares through two temp files and a grep on the exit
+# status rather than the obvious "$(sort -V ... | head -n1)". BuildKit delivers
+# a RUN heredoc through an outer shell with an unquoted delimiter, so the outer
+# shell expands the body before bash ever sees it: a $(...) here runs once, too
+# early, in a container where the files it reads do not exist yet, and its empty
+# output is then pasted into the script. Same reason there are no shell
+# variables below. ${BACKEND} and ${TARGETARCH} are fine because they are build
+# args, which BuildKit exports into that outer shell's environment.
+#
+# The symlink goes in /usr/local/bin, which precedes /usr/bin on PATH, so it
+# shadows apt's cmake. That is deliberate and, unlike the protoc shadowing that
+# broke Sparrowhawk earlier in this PR, it is inert: protoc has to agree with
+# the libprotobuf headers it generates against, whereas cmake is a standalone
+# build driver with no ABI relationship to anything in the image, and it locates
+# its own Modules/ tree by resolving the symlink back to /opt, so a 3.31 binary
+# can never read 3.22's modules. Scope is the ${BACKEND} gate: no other Go
+# backend image gets /opt/cmake or the symlink. Inside this image the only
+# other cmake consumers, the base apt layer and the Vulkan SDK build, both run
+# in layers above this one and have already finished.
+RUN <<EOT bash
+    if [ "${BACKEND}" = "nemo-speech-cpp" ]; then
+        set -e
+        apt-get update
+        apt-get install -y --no-install-recommends \
+            gcc-12 g++-12 \
+            ninja-build \
+            libprotobuf-dev protobuf-compiler \
+            libre2-dev \
+            autoconf automake libtool pkg-config
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+
+        echo 3.26.0 > /tmp/cmake-required
+        cmake --version 2>/dev/null | head -n1 | cut -d' ' -f3 > /tmp/cmake-present
+        if [ ! -s /tmp/cmake-present ]; then
+            echo 0.0.0 > /tmp/cmake-present
+        fi
+        if sort -V /tmp/cmake-required /tmp/cmake-present | head -n1 | grep -qxF 3.26.0; then
+            echo "==> cmake is new enough for NeMo-Speech.cpp:"
+            cmake --version | head -n1
+        else
+            echo "==> cmake is below the 3.26 NeMo-Speech.cpp requires; installing 3.31.12. Found:"
+            cat /tmp/cmake-present
+            mkdir -p /opt/cmake
+            if [ "${TARGETARCH}" = "arm64" ]; then
+                curl -fsSL -o /tmp/cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-linux-aarch64.tar.gz
+                echo "83f8fd91d2038a56556e1400390fcfe42f79602940c494f6c6f1cdae7f9e7f40  /tmp/cmake.tar.gz" | sha256sum -c -
+                tar -xzf /tmp/cmake.tar.gz -C /opt/cmake --strip-components=1 \
+                    cmake-3.31.12-linux-aarch64/bin/cmake \
+                    cmake-3.31.12-linux-aarch64/bin/cpack \
+                    cmake-3.31.12-linux-aarch64/bin/ctest \
+                    cmake-3.31.12-linux-aarch64/share
+            else
+                curl -fsSL -o /tmp/cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-linux-x86_64.tar.gz
+                echo "0dc2e9a6860f06bf10bd8fadc03e35d9eeb4df46e33763a7e480e987758f385c  /tmp/cmake.tar.gz" | sha256sum -c -
+                tar -xzf /tmp/cmake.tar.gz -C /opt/cmake --strip-components=1 \
+                    cmake-3.31.12-linux-x86_64/bin/cmake \
+                    cmake-3.31.12-linux-x86_64/bin/cpack \
+                    cmake-3.31.12-linux-x86_64/bin/ctest \
+                    cmake-3.31.12-linux-x86_64/share
+            fi
+            rm -f /tmp/cmake.tar.gz
+            ln -sf /opt/cmake/bin/cmake /usr/local/bin/cmake
+            ln -sf /opt/cmake/bin/cpack /usr/local/bin/cpack
+            ln -sf /opt/cmake/bin/ctest /usr/local/bin/ctest
+            hash -r
+            cmake --version
+        fi
+        rm -f /tmp/cmake-required /tmp/cmake-present
+    fi
+EOT
+
 RUN git config --global --add safe.directory /LocalAI
 
 # Prebuild the native engine from a layer that depends on this backend's own

@@ -1,0 +1,22 @@
+# Fetched upstream sources
+sources/
+
+# CMake build directories
+build*/
+
+# Packaging output
+package/
+
+# Compiled backend binary. The second name is what a bare `go build ./...` from
+# this directory produces (it names the binary after the directory), as opposed
+# to the -o name the Makefile asks for.
+nemo-speech-cpp-grpc
+/nemo-speech-cpp
+
+# Shared libraries staged in-tree by the Makefile (cp from sources/). The
+# SOVERSION suffix means the payload is libnemo_speech_*.so.1, hence both globs.
+*.so
+*.so.*
+*.dylib
+
+compile_commands.json

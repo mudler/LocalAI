@@ -865,6 +865,19 @@ include:
     cuda-minor-version: "8"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-12-nemo-speech-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "8"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-12-moss-transcribe-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -1916,6 +1929,19 @@ include:
     cuda-minor-version: "0"
     platforms: 'linux/amd64'
     tag-latest: 'auto'
+    tag-suffix: '-gpu-nvidia-cuda-13-nemo-speech-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
     tag-suffix: '-gpu-nvidia-cuda-13-moss-transcribe-cpp'
     runs-on: 'ubuntu-latest'
     base-image: "ubuntu:24.04"
@@ -1961,6 +1987,24 @@ include:
     ubuntu-version: '2404'
     runs-on: 'ubuntu-24.04-arm'
     backend: "parakeet-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+  # The CUDA-13 counterpart to the JetPack r36.4.0 row in the nemo-speech-cpp
+  # block below. A Jetson whose CUDA 13 runtime is present reports the
+  # nvidia-l4t-cuda-13 capability, and pointing that key at the JetPack image
+  # would hand it a ggml linked against CUDA 12 whose libcudart.so.12 is not
+  # there to dlopen. Same base and runner as the parakeet-cpp row above.
+  - build-type: 'cublas'
+    cuda-major-version: "13"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-cuda-13-arm64-nemo-speech-cpp'
+    base-image: "ubuntu:24.04"
+    ubuntu-version: '2404'
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "nemo-speech-cpp"
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
   - build-type: 'cublas'
@@ -4183,6 +4227,86 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  # nemo-speech-cpp
+  #
+  # No hipblas and no sycl rows, unlike the parakeet-cpp block above: upstream
+  # NeMo-Speech.cpp builds ggml with CUDA, Vulkan or Metal only, so a ROCm or
+  # SYCL image would be a CPU build wearing a GPU tag.
+  #
+  # cpu and vulkan are per-arch pairs sharing one tag-suffix, so
+  # backend-merge-jobs assembles a multi-arch manifest from the two digests.
+  # The arm64 legs are not redundant with the Jetson image below: an ARM server
+  # with no NVIDIA GPU reports the "default" capability and would otherwise pull
+  # an amd64-only manifest.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-nemo-speech-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-nemo-speech-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-nemo-speech-cpp'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-nemo-speech-cpp'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'cublas'
+    cuda-major-version: "12"
+    cuda-minor-version: "0"
+    platforms: 'linux/arm64'
+    skip-drivers: 'false'
+    tag-latest: 'auto'
+    tag-suffix: '-nvidia-l4t-arm64-nemo-speech-cpp'
+    base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+    runs-on: 'ubuntu-24.04-arm'
+    backend: "nemo-speech-cpp"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2204'
   # moss-transcribe-cpp
   - build-type: ''
     cuda-major-version: ""
@@ -6224,6 +6348,10 @@ includeDarwin:
     lang: "go"
   - backend: "moss-transcribe-cpp"
     tag-suffix: "-metal-darwin-arm64-moss-transcribe-cpp"
+    build-type: "metal"
+    lang: "go"
+  - backend: "nemo-speech-cpp"
+    tag-suffix: "-metal-darwin-arm64-nemo-speech-cpp"
     build-type: "metal"
     lang: "go"
   - backend: "ced"

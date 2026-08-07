@@ -774,6 +774,33 @@ clip. See the
 [audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the full option list,
 including the `load.` and `session.` namespaces and the supertonic packaging caveat.
 
+### NeMo-Speech.cpp (MagpieTTS)
+
+[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) is NVIDIA's C++/ggml runtime
+for the Nemotron Speech models. Its `magpietts` family synthesizes speech through a
+NanoCodec decoder, and the same installed backend also covers transcription, diarization
+and translation.
+
+```yaml
+name: magpie-tts
+backend: nemo-speech-cpp
+parameters:
+  model: magpie-tts/magpietts.gguf
+known_usecases:
+  - FLAG_TTS
+options:
+  - codec_model:magpie-tts/nanocodec.gguf
+  - tokenizer_dir:magpie-tts/extracted
+  - gpu:0
+```
+
+The codec and the tokenizer directory are both required. Both are discovered from the
+model's own directory when left unset: a sibling file whose name contains `nanocodec` and
+a sibling directory named `extracted`. MagpieTTS conditions on a speaker rather than on a
+prose style, so `voice` selects a speaker index or a voice name and `instructions` has no
+equivalent. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}})
+page for the full option list and the conversion steps.
+
 ## Response format
 
 To provide some compatibility with OpenAI API regarding `response_format`, ffmpeg must be installed (or a docker image including ffmpeg used) to leverage converting the generated wav file before the api provide its response.
