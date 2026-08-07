@@ -18,6 +18,7 @@ ALLOWED_ROLES = frozenset({"vad", "asr", "tts"})
 FORBIDDEN_DISTRIBUTIONS = frozenset({"torch", "torchaudio"})
 VAD_SAMPLE_RATE = 16000
 TTS_SAMPLE_RATE = 24000
+TTS_STREAMING_INTERVALS = frozenset({0.16, 0.32, 0.64})
 TTS_DEFAULTS = {
     "temperature": 0.7,
     "max_tokens": 1200,
@@ -201,6 +202,7 @@ def tts_generation_options(params=None, configured=None):
         "top_k": int,
         "top_p": float,
         "repetition_penalty": float,
+        "streaming_interval": float,
     }
     for name, parser in parsers.items():
         if name not in values:
@@ -219,6 +221,11 @@ def tts_generation_options(params=None, configured=None):
         raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS top_p must be in (0, 1]")
     if options["repetition_penalty"] <= 0:
         raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS repetition_penalty must be positive")
+    if options["streaming_interval"] not in TTS_STREAMING_INTERVALS:
+        raise BackendFailure(
+            "INVALID_ARGUMENT",
+            "MLX-Audio TTS streaming_interval must be 0.16, 0.32, or 0.64 seconds",
+        )
     diagnostic_seed = values.get("diagnostic_seed", values.get("seed"))
     if diagnostic_seed is not None:
         try:

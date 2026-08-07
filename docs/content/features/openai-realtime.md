@@ -106,6 +106,14 @@ Start this private runtime with `--load-to-memory=mlx-vad,mlx-asr,mlx-tts,remote
 
 The private MLX-Audio TTS profile uses the qualified bounded Qwen generation defaults (`max_tokens: 1200`, temperature `0.7`, top-k `50`, top-p `1.0`, repetition penalty `1.05`) and its 0.32-second generator interval. The interval provides cancellation checkpoints during generation; the unary TTS RPC still returns the completed audio file. Requests may lower the token ceiling or override the sampling values through `params`; values outside the backend's bounds are rejected.
 
+For measured latency experiments, `streaming_interval` can be set in the TTS model's `options` or request `params`. The backend accepts only the MLX-Audio intervals tested for this profile: `0.16`, `0.32`, and `0.64` seconds. The default remains `0.32`; the `0.16` candidate emits roughly twice as many chunks and should be selected only after completion overhead and cancellation behavior pass on the target Mac:
+
+```yaml
+options:
+  - role:tts
+  - streaming_interval:0.16
+```
+
 ### Streaming the pipeline
 
 By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:

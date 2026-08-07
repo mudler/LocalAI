@@ -388,12 +388,25 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         )
 
     def test_tts_generation_parameters_are_bounded(self):
-        options = tts_generation_options({"temperature": "0.5", "max_tokens": "600"})
+        options = tts_generation_options(
+            {
+                "temperature": "0.5",
+                "max_tokens": "600",
+                "streaming_interval": "0.16",
+            }
+        )
         self.assertEqual(options["temperature"], 0.5)
         self.assertEqual(options["max_tokens"], 600)
         self.assertTrue(options["stream"])
-        self.assertEqual(options["streaming_interval"], 0.32)
-        for values in ({"max_tokens": "1201"}, {"top_p": "0"}, {"top_k": "bad"}):
+        self.assertEqual(options["streaming_interval"], 0.16)
+        for values in (
+            {"max_tokens": "1201"},
+            {"top_p": "0"},
+            {"top_k": "bad"},
+            {"streaming_interval": "0.08"},
+            {"streaming_interval": "0.2"},
+            {"streaming_interval": "bad"},
+        ):
             self.assert_failure("INVALID_ARGUMENT", lambda values=values: tts_generation_options(values))
 
     def test_stream_pcm_is_little_endian_pcm16_with_clipping(self):
@@ -543,7 +556,12 @@ class MLXAudioRuntimeTests(unittest.TestCase):
     def test_tts_load_options_bound_generation_and_add_diagnostic_seed(self):
         self.runtime.load(
             str(self.snapshot),
-            ["role:tts", "max_tokens:256", "diagnostic_seed:17"],
+            [
+                "role:tts",
+                "max_tokens:256",
+                "diagnostic_seed:17",
+                "streaming_interval:0.16",
+            ],
             distributions=[],
         )
         destination = self.root / "configured.wav"
@@ -553,6 +571,7 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         )
 
         self.assertEqual(self.models["tts"].calls[-1]["max_tokens"], 192)
+        self.assertEqual(self.models["tts"].calls[-1]["streaming_interval"], 0.16)
         self.assertNotIn("seed", self.models["tts"].calls[-1])
         self.assertEqual(self.seeds, [17])
 
