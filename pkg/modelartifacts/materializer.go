@@ -20,6 +20,7 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
@@ -326,9 +327,7 @@ func (m *Manager) acquireLock(ctx context.Context, locker Locker, lockPath strin
 			return ctx.Err()
 		case <-time.After(interval):
 		}
-		if interval < maxLockRetryInterval {
-			interval = min(interval*2, maxLockRetryInterval)
-		}
+		interval = backoff.Exponential(interval, maxLockRetryInterval, 1)
 	}
 }
 

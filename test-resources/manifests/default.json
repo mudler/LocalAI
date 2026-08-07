@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "target": "default",
+  "images": [
+    {
+      "reference": "docker.io/library/postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20",
+      "sha256": "f4e8a437601f09ad619c6a8df831cd71c24c5c2276652e6ce89c042185759ed9"
+    }
+  ]
+}

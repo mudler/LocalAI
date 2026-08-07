@@ -20,20 +20,15 @@ inputs:
   github-hosted-mirror:
     description: 'archive/security mirror URL for github-hosted runners (empty = upstream)'
     required: false
-    default: 'http://azure.archive.ubuntu.com'
+    default: 'https://archive.ubuntu.com'
   github-hosted-ports-mirror:
     description: 'ports.ubuntu.com mirror URL for github-hosted runners (empty = upstream)'
     required: false
-    default: 'http://azure.ports.ubuntu.com'
+    default: 'https://ports.ubuntu.com'
   self-hosted-mirror:
     description: 'archive/security mirror URL for self-hosted runners (empty = upstream)'
     required: false
-    # HTTP, not HTTPS: the bare ubuntu:24.04 builder image doesn't ship
-    # ca-certificates, so the very first apt-get update over TLS would
-    # fail with "No system certificates available" before it can install
-    # anything. apt validates package integrity via GPG signatures, so
-    # plain HTTP is safe for the archive itself.
-    default: 'http://mirrors.edge.kernel.org'
+    default: 'https://mirrors.edge.kernel.org'
   self-hosted-ports-mirror:
     description: 'ports.ubuntu.com mirror URL for self-hosted runners (empty = upstream)'
     required: false
@@ -41,7 +36,7 @@ inputs:
     # main /ubuntu/ archive — so arm64 builds 404 there. Leave ports
     # upstream by default. The original DDoS was on archive.ubuntu.com
     # so ports.ubuntu.com remains the path of least surprise.
-    default: ''
+    default: 'https://ports.ubuntu.com'
 
 outputs:
   effective-mirror:

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"testing"
+	"time"
 
 	process "github.com/mudler/go-processmanager"
 	gogrpc "google.golang.org/grpc"
@@ -15,6 +17,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// TestWorkerFixtureProcess turns the current test binary into a portable
+// long-running child for the process-stop assertions below. Using the test
+// binary avoids assuming Unix utilities live at paths such as /bin/sleep,
+// which is not true in Nix environments.
+func TestWorkerFixtureProcess(t *testing.T) {
+	if os.Getenv("LOCALAI_WORKER_FIXTURE_PROCESS") != "1" {
+		return
+	}
+	for {
+		time.Sleep(time.Hour)
+	}
+}
 
 // pidAlive probes the OS directly for a process ID. The supervisor's own
 // liveness helpers all go through go-processmanager's pidfile, which Stop
@@ -82,10 +97,13 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 		// actually dead afterwards, not merely that Stop() returned. It
 		// outlives every timeout below, so if it is gone at the end it is
 		// because the supervisor signalled it.
+		executable, err := os.Executable()
+		Expect(err).ToNot(HaveOccurred())
 		proc = process.New(
 			process.WithTemporaryStateDir(),
-			process.WithName("/bin/sleep"),
-			process.WithArgs("300"),
+			process.WithName(executable),
+			process.WithArgs("-test.run=^TestWorkerFixtureProcess$"),
+			process.WithEnvironment(append(os.Environ(), "LOCALAI_WORKER_FIXTURE_PROCESS=1")...),
 		)
 		Expect(proc.Run()).To(Succeed())
 
@@ -94,7 +112,8 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 		Expect(pidAlive(procPID)).To(BeTrue(), "the fixture process must be running before the stop")
 
 		s = &backendSupervisor{
-			cfg: &Config{},
+			cfg:                &Config{},
+			backendFreeTimeout: 20 * time.Millisecond,
 			processes: map[string]*backendProcess{
 				"wedged-model#0": {
 					proc:        proc,

@@ -35,6 +35,16 @@
 
 set -eux
 
+# Some callers use this script without apt-mirror.sh. Ensure those first-stage
+# downloads also trust the proxy without masking the normal system CA bundle.
+proxy_ca=/run/secrets/build_proxy_ca
+if [ -s "$proxy_ca" ]; then
+    cat "$proxy_ca" >>/etc/ssl/certs/ca-certificates.crt
+    cat > /etc/apt/apt.conf.d/99localai-build-proxy-ca <<EOF
+Acquire::https::CaInfo "$proxy_ca";
+EOF
+fi
+
 # --- 0. apt mirror rewrite (no-op when APT_MIRROR / APT_PORTS_MIRROR unset) ---
 if [ -x /usr/local/sbin/apt-mirror ]; then
     APT_MIRROR="${APT_MIRROR:-}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR:-}" \
