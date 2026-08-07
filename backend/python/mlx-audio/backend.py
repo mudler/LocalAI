@@ -18,7 +18,7 @@ import backend_pb2_grpc
 import grpc
 
 from grpc_auth import get_auth_interceptors
-from runtime import BackendFailure, MLXAudioRuntime
+from runtime import BackendFailure, MLXAudioRuntime, request_cancelled
 
 
 MAX_WORKERS = int(os.environ.get("PYTHON_GRPC_MAX_WORKERS", "1"))
@@ -41,7 +41,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     async def LoadModel(self, request, context):
         try:
-            role = self.runtime.load(request.Model, request.Options)
+            role = self.runtime.load(request.Model, request.Options, model_root=request.ModelPath)
         except BackendFailure as failure:
             self._fail(context, failure)
             return backend_pb2.Result(success=False, message=failure.message)
@@ -76,6 +76,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 request.voice,
                 request.language,
                 request.dst,
+                params=request.params,
+                cancelled=lambda: request_cancelled(context),
             )
         except BackendFailure as failure:
             self._fail(context, failure)

@@ -176,8 +176,15 @@ func parseRawJSON(s string) json.RawMessage {
 // doOpenAIRequest builds + sends the upstream request. Returns the
 // raw response on success; caller handles status / body.
 func (c *CloudProxy) doOpenAIRequest(ctx context.Context, cfg *proxyConfig, body []byte) (*http.Response, error) {
+	var cancel context.CancelFunc
+	if cfg.requestTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, cfg.requestTimeout)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.upstreamURL, bytes.NewReader(body))
 	if err != nil {
+		if cancel != nil {
+			cancel()
+		}
 		return nil, fmt.Errorf("cloud-proxy: build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -187,9 +194,26 @@ func (c *CloudProxy) doOpenAIRequest(ctx context.Context, cfg *proxyConfig, body
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
+		if cancel != nil {
+			cancel()
+		}
 		return nil, fmt.Errorf("cloud-proxy: upstream request: %w", err)
 	}
+	if cancel != nil {
+		resp.Body = &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}
+	}
 	return resp, nil
+}
+
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnClose) Close() error {
+	err := b.ReadCloser.Close()
+	b.cancel()
+	return err
 }
 
 // predictOpenAIRich is the non-streaming translate path. Returns a
@@ -263,20 +287,29 @@ func (c *CloudProxy) predictOpenAIStreamRich(ctx context.Context, cfg *proxyConf
 
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
+	var sawMalformed, sawValid bool
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
 		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if payload == "" || payload == "[DONE]" {
+		if payload == "" {
+			continue
+		}
+		if payload == "[DONE]" {
+			if sawMalformed && !sawValid {
+				return errors.New("cloud-proxy: upstream returned malformed SSE")
+			}
 			return nil
 		}
 		var chunk openAIStreamChunk
 		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+			sawMalformed = true
 			xlog.Debug("cloud-proxy: skip malformed SSE chunk", "error", err)
 			continue
 		}
+		sawValid = true
 		// Usage frames may arrive separately from content frames when
 		// stream_options.include_usage is set; emit a usage-only Reply
 		// in that case so the consumer sees the totals.
@@ -312,5 +345,11 @@ func (c *CloudProxy) predictOpenAIStreamRich(ctx context.Context, cfg *proxyConf
 			}
 		}
 	}
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	if sawMalformed && !sawValid {
+		return errors.New("cloud-proxy: upstream returned malformed SSE")
+	}
+	return nil
 }

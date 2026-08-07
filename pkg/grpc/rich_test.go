@@ -39,6 +39,25 @@ func (r *richBackend) PredictStreamRich(opts *pb.PredictOptions, out chan<- *pb.
 
 var _ AIModelRich = (*richBackend)(nil)
 
+type contextRichBackend struct {
+	richBackend
+	contextSeen chan context.Context
+}
+
+func (r *contextRichBackend) PredictRichContext(ctx context.Context, _ *pb.PredictOptions) (*pb.Reply, error) {
+	r.contextSeen <- ctx
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (r *contextRichBackend) PredictStreamRichContext(ctx context.Context, _ *pb.PredictOptions, _ chan<- *pb.Reply) error {
+	r.contextSeen <- ctx
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+var _ AIModelRichWithContext = (*contextRichBackend)(nil)
+
 var _ = Describe("AIModelRich dispatch", func() {
 	It("server.Predict routes through PredictRich when implemented", func() {
 		addr := "test://rich-predict"
@@ -100,6 +119,37 @@ var _ = Describe("AIModelRich dispatch", func() {
 		Expect(collected[1].GetChatDeltas()).To(HaveLen(1))
 		Expect(collected[1].GetChatDeltas()[0].GetToolCalls()).To(HaveLen(1))
 		Expect(collected[2].GetTokens()).To(BeEquivalentTo(9))
+	})
+
+	It("propagates unary cancellation through AIModelRichWithContext", func() {
+		addr := "test://rich-context-predict"
+		backend := &contextRichBackend{contextSeen: make(chan context.Context, 1)}
+		Provide(addr, backend)
+		client := NewClient(addr, true, nil, false)
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() {
+			_, err := client.Predict(ctx, &pb.PredictOptions{})
+			done <- err
+		}()
+		<-backend.contextSeen
+		cancel()
+		Expect(<-done).To(MatchError(context.Canceled))
+	})
+
+	It("propagates streaming cancellation through AIModelRichWithContext", func() {
+		addr := "test://rich-context-stream"
+		backend := &contextRichBackend{contextSeen: make(chan context.Context, 1)}
+		Provide(addr, backend)
+		client := NewClient(addr, true, nil, false)
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() {
+			done <- client.PredictStream(ctx, &pb.PredictOptions{}, func(*pb.Reply) {})
+		}()
+		<-backend.contextSeen
+		cancel()
+		Expect(<-done).To(MatchError(context.Canceled))
 	})
 
 	It("falls back to legacy Predict when AIModelRich is not implemented", func() {

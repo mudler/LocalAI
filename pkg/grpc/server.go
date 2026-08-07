@@ -128,6 +128,9 @@ func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply,
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+	if rich, ok := s.llm.(AIModelRichWithContext); ok {
+		return rich.PredictRichContext(ctx, in)
+	}
 	if rich, ok := s.llm.(AIModelRich); ok {
 		return rich.PredictRich(in)
 	}
@@ -493,6 +496,21 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
+	}
+
+	if rich, ok := s.llm.(AIModelRichWithContext); ok {
+		replyChan := make(chan *pb.Reply)
+		done := make(chan bool)
+		go func() {
+			for reply := range replyChan {
+				_ = stream.Send(reply)
+			}
+			done <- true
+		}()
+		err := rich.PredictStreamRichContext(stream.Context(), in, replyChan)
+		close(replyChan)
+		<-done
+		return err
 	}
 
 	if rich, ok := s.llm.(AIModelRich); ok {

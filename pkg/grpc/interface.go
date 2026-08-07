@@ -96,3 +96,12 @@ type AIModelRich interface {
 	PredictRich(*pb.PredictOptions) (*pb.Reply, error)
 	PredictStreamRich(*pb.PredictOptions, chan<- *pb.Reply) error
 }
+
+// AIModelRichWithContext is the cancellation-aware form of AIModelRich. The
+// server prefers it when implemented while retaining AIModelRich for existing
+// backends. Remote backends should implement this interface so a disconnected
+// or cancelled caller also cancels the upstream request.
+type AIModelRichWithContext interface {
+	PredictRichContext(context.Context, *pb.PredictOptions) (*pb.Reply, error)
+	PredictStreamRichContext(context.Context, *pb.PredictOptions, chan<- *pb.Reply) error
+}

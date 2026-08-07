@@ -33,9 +33,9 @@ Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen
 
 ### Pinned MLX-Audio voice stages with a remote LLM
 
-On Apple Silicon, the `mlx-audio` backend can serve VAD, transcription, or TTS. Each model config must declare exactly one role in `options`; LocalAI does not infer a role from the model directory name. The backend accepts local snapshot directories only.
+On Apple Silicon, the `mlx-audio` backend can serve VAD, transcription, or TTS. Each model config must declare exactly one role in `options`; LocalAI does not infer a role from the model directory name. The backend accepts local snapshot directories below LocalAI's configured models path only.
 
-The following private-runtime profile was qualified with `mlx-audio==0.4.7`. Replace the example snapshot root with local, revision-pinned snapshots:
+The following private-runtime profile was qualified with `mlx-audio==0.4.7`. Place the revision-pinned snapshots below the configured models path and use paths relative to that root:
 
 ```yaml
 # mlx-vad.yaml — mlx-community/silero-vad
@@ -45,7 +45,7 @@ backend: mlx-audio
 known_usecases: [vad]
 options: [role:vad]
 parameters:
-  model: /absolute/path/to/models/silero-vad
+  model: silero-vad
 ---
 # mlx-asr.yaml — mlx-community/whisper-large-v3-turbo-asr-fp16
 # revision: 624c19c9af5603fa73b83bce14d4aeea96156d18
@@ -54,7 +54,7 @@ backend: mlx-audio
 known_usecases: [transcript]
 options: [role:asr]
 parameters:
-  model: /absolute/path/to/models/whisper-large-v3-turbo-asr-fp16
+  model: whisper-large-v3-turbo-asr-fp16
 ---
 # mlx-tts.yaml — mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit
 # revision: 049ef77fe8816b536193c0c25f9a214d17921282
@@ -63,7 +63,7 @@ backend: mlx-audio
 known_usecases: [tts]
 options: [role:tts]
 parameters:
-  model: /absolute/path/to/models/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit
+  model: Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit
 ```
 
 Keep the LLM remote by configuring a `cloud-proxy` model in **translate** mode. Realtime starts the LLM call inside LocalAI, so passthrough mode has no original client HTTP request to forward. Store the credential at the LocalAI process boundary, never in this file or in the native client:
@@ -77,6 +77,7 @@ proxy:
   upstream_url: https://provider.example/v1/chat/completions
   upstream_model: provider-model-id
   api_key_env: VOICE_LLM_API_KEY
+  request_timeout_seconds: 120
 ```
 
 Wire those four models into the Realtime pipeline and choose one of the qualified custom voices:
@@ -86,6 +87,9 @@ name: private-apple-voice
 tts:
   voice: Ryan
 pipeline:
+  # Avoid loading all three large MLX stages concurrently on constrained Macs.
+  # This moves each stage's cold start to the first turn.
+  disable_warmup: true
   vad: mlx-vad
   transcription: mlx-asr
   llm: remote-voice-llm
@@ -93,6 +97,8 @@ pipeline:
 ```
 
 Bind LocalAI to loopback for this topology and connect the native client to `ws://127.0.0.1:8080/v1/realtime?model=private-apple-voice`. This profile is Darwin/arm64-specific; installing the backend or downloading the three model snapshots is a separate, networked operation.
+
+The private MLX-Audio TTS profile uses the qualified bounded Qwen generation defaults (`max_tokens: 1200`, temperature `0.7`, top-k `50`, top-p `1.0`, repetition penalty `1.05`) and its 0.32-second generator interval. The interval provides cancellation checkpoints during generation; the unary TTS RPC still returns the completed audio file. Requests may lower the token ceiling or override the sampling values through `params`; values outside the backend's bounds are rejected.
 
 ### Streaming the pipeline
 

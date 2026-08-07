@@ -100,6 +100,7 @@ type fakeModel struct {
 	predictChunkDeltas [][]*proto.ChatDelta
 	predictResp        backend.LLMResponse
 	predictErr         error
+	predictResultErr   error
 
 	// ClassifyTurn scripting: classifyScores is returned as the option
 	// distribution (in option order); classifyErr fails the call.
@@ -205,7 +206,7 @@ func (m *fakeModel) Predict(_ context.Context, msgs schema.Messages, _, _, _ []s
 			}
 			cb(tok, usage)
 		}
-		return m.predictResp, nil
+		return m.predictResp, m.predictResultErr
 	}, nil
 }
 

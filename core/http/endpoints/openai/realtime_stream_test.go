@@ -323,4 +323,34 @@ var _ = Describe("triggerResponse", func() {
 			}
 		}
 	})
+
+	DescribeTable("maps cancelled inference to a cancelled terminal without an error event",
+		func(setupErr, resultErr error) {
+			m := &fakeModel{
+				cfg:              &config.ModelConfig{},
+				predictErr:       setupErr,
+				predictResultErr: resultErr,
+			}
+			session := &Session{
+				ModelInterface:   m,
+				ModelConfig:      &config.ModelConfig{},
+				OutputModalities: []types.Modality{types.ModalityText},
+			}
+			t := &fakeTransport{}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			triggerResponse(ctx, session, &Conversation{}, t, nil)
+
+			Expect(t.countEvents(types.ServerEventTypeError)).To(Equal(0))
+			Expect(t.countEvents(types.ServerEventTypeResponseDone)).To(Equal(1))
+			for _, event := range t.events {
+				if done, ok := event.(types.ResponseDoneEvent); ok {
+					Expect(done.Response.Status).To(Equal(types.ResponseStatusCancelled))
+				}
+			}
+		},
+		Entry("before the deferred predictor is returned", context.Canceled, nil),
+		Entry("while the deferred predictor is running", nil, context.Canceled),
+	)
 })

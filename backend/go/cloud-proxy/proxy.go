@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/xlog"
 
@@ -42,13 +43,14 @@ type CloudProxy struct {
 }
 
 type proxyConfig struct {
-	upstreamURL   string
-	mode          string
-	provider      string
-	upstreamModel string
-	localModel    string // ModelOptions.Model — fallback when upstream_model is unset
-	apiKey        string // resolved at Load time
-	cachePrompt   bool   // inject Anthropic prompt-cache breakpoints (translate+anthropic)
+	upstreamURL    string
+	mode           string
+	provider       string
+	upstreamModel  string
+	localModel     string // ModelOptions.Model — fallback when upstream_model is unset
+	apiKey         string // resolved at Load time
+	cachePrompt    bool   // inject Anthropic prompt-cache breakpoints (translate+anthropic)
+	requestTimeout time.Duration
 }
 
 func NewCloudProxy() *CloudProxy {
@@ -94,6 +96,9 @@ func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
 	default:
 		return fmt.Errorf("cloud-proxy: unknown mode %q", mode)
 	}
+	if po.GetRequestTimeoutSeconds() < 0 {
+		return errors.New("cloud-proxy: request_timeout_seconds must not be negative")
+	}
 
 	key, err := resolveAPIKey(po.GetApiKeyEnv(), po.GetApiKeyFile())
 	if err != nil {
@@ -101,13 +106,14 @@ func (c *CloudProxy) Load(opts *pb.ModelOptions) error {
 	}
 
 	c.cfg.Store(&proxyConfig{
-		upstreamURL:   po.GetUpstreamUrl(),
-		mode:          mode,
-		provider:      po.GetProvider(),
-		upstreamModel: po.GetUpstreamModel(),
-		localModel:    opts.GetModel(),
-		apiKey:        key,
-		cachePrompt:   po.GetCachePrompt(),
+		upstreamURL:    po.GetUpstreamUrl(),
+		mode:           mode,
+		provider:       po.GetProvider(),
+		upstreamModel:  po.GetUpstreamModel(),
+		localModel:     opts.GetModel(),
+		apiKey:         key,
+		cachePrompt:    po.GetCachePrompt(),
+		requestTimeout: time.Duration(po.GetRequestTimeoutSeconds()) * time.Second,
 	})
 	xlog.Info("cloud-proxy: ready",
 		"upstream", po.GetUpstreamUrl(),
@@ -146,6 +152,10 @@ func resolveAPIKey(envName, filePath string) (string, error) {
 // tool calls survive the round-trip. Passthrough mode rejects
 // PredictRich — callers must use Forward.
 func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err error) {
+	return c.PredictRichContext(context.Background(), opts)
+}
+
+func (c *CloudProxy) PredictRichContext(ctx context.Context, opts *pb.PredictOptions) (reply *pb.Reply, err error) {
 	cfg := c.cfg.Load()
 	if cfg == nil {
 		return nil, grpcerrors.ModelNotLoaded("cloud-proxy")
@@ -159,7 +169,6 @@ func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err 
 			xlog.Warn("cloud-proxy: predict failed", "provider", cfg.provider, "error", err)
 		}
 	}()
-	ctx := context.Background()
 	switch cfg.provider {
 	case providerOpenAI:
 		return c.predictOpenAIRich(ctx, cfg, opts)
@@ -176,6 +185,10 @@ func (c *CloudProxy) PredictRich(opts *pb.PredictOptions) (reply *pb.Reply, err 
 // is bypassed when AIModelRich is implemented, so the channel is
 // closed by the gRPC server pump.
 func (c *CloudProxy) PredictStreamRich(opts *pb.PredictOptions, results chan<- *pb.Reply) (err error) {
+	return c.PredictStreamRichContext(context.Background(), opts, results)
+}
+
+func (c *CloudProxy) PredictStreamRichContext(ctx context.Context, opts *pb.PredictOptions, results chan<- *pb.Reply) (err error) {
 	cfg := c.cfg.Load()
 	if cfg == nil {
 		return grpcerrors.ModelNotLoaded("cloud-proxy")
@@ -189,7 +202,6 @@ func (c *CloudProxy) PredictStreamRich(opts *pb.PredictOptions, results chan<- *
 			xlog.Warn("cloud-proxy: predict-stream failed", "provider", cfg.provider, "error", err)
 		}
 	}()
-	ctx := context.Background()
 	switch cfg.provider {
 	case providerOpenAI:
 		return c.predictOpenAIStreamRich(ctx, cfg, opts, results)

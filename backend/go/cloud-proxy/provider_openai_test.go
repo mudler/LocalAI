@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -168,4 +169,43 @@ func TestPredict_RejectedInPassthroughMode(t *testing.T) {
 	_, err = cp.Predict(&pb.PredictOptions{})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("only valid in translate"))
+}
+
+func TestPredict_OpenAI_RequestTimeout(t *testing.T) {
+	g := NewWithT(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-time.After(2 * time.Second):
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"late"}}]}`))
+		}
+	}))
+	defer srv.Close()
+	cp := NewCloudProxy()
+	err := cp.Load(&pb.ModelOptions{Proxy: &pb.ProxyOptions{
+		UpstreamUrl:           srv.URL,
+		Mode:                  modeTranslate,
+		Provider:              providerOpenAI,
+		RequestTimeoutSeconds: 1,
+	}})
+	g.Expect(err).NotTo(HaveOccurred())
+	started := time.Now()
+	_, err = cp.Predict(&pb.PredictOptions{Prompt: "hi"})
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(time.Since(started)).To(BeNumerically("<", 1800*time.Millisecond))
+	g.Expect(err.Error()).To(ContainSubstring("context deadline exceeded"))
+}
+
+func TestPredictStream_OpenAI_RejectsEntirelyMalformedSSE(t *testing.T) {
+	g := NewWithT(t)
+	srv, _ := fakeOpenAIUpstream(t, func(_ openAIRequest) (int, string, string) {
+		return http.StatusOK, "data: {not-json}\\n\\ndata: [DONE]\\n\\n", "text/event-stream"
+	})
+	defer srv.Close()
+	cp := newTranslateCloudProxy(t, srv.URL)
+	results := make(chan string, 1)
+	err := cp.PredictStream(&pb.PredictOptions{Prompt: "hi"}, results)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("malformed SSE"))
 }

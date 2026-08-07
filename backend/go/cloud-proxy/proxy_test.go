@@ -182,6 +182,13 @@ func TestLoad_ValidatesConfig(t *testing.T) {
 	}})
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("unset"))
+
+	err = cp.Load(&pb.ModelOptions{Proxy: &pb.ProxyOptions{
+		UpstreamUrl:           "https://example.com",
+		RequestTimeoutSeconds: -1,
+	}})
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("must not be negative"))
 }
 
 func TestForward_RejectsWithoutLoad(t *testing.T) {

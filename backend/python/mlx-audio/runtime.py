@@ -16,6 +16,15 @@ import wave
 ALLOWED_ROLES = frozenset({"vad", "asr", "tts"})
 FORBIDDEN_DISTRIBUTIONS = frozenset({"torch", "torchaudio"})
 VAD_SAMPLE_RATE = 16000
+TTS_DEFAULTS = {
+    "temperature": 0.7,
+    "max_tokens": 1200,
+    "top_k": 50,
+    "top_p": 1.0,
+    "repetition_penalty": 1.05,
+    "stream": True,
+    "streaming_interval": 0.32,
+}
 
 
 class BackendFailure(Exception):
@@ -65,14 +74,35 @@ def ensure_torch_free(distributions=None):
         )
 
 
-def _local_snapshot_path(model_path):
+def _local_snapshot_path(model_path, model_root=None):
     path = Path(model_path)
-    if not path.is_absolute():
-        raise BackendFailure("INVALID_ARGUMENT", "mlx-audio model must be an absolute local snapshot path")
+    root = None
+    if model_root:
+        try:
+            root = Path(model_root).resolve(strict=True)
+        except OSError as err:
+            raise BackendFailure("NOT_FOUND", "mlx-audio model root does not exist") from err
+        if not root.is_dir():
+            raise BackendFailure("INVALID_ARGUMENT", "mlx-audio model root must be a directory")
+        if not path.is_absolute():
+            path = root / path
+    elif not path.is_absolute():
+        raise BackendFailure(
+            "INVALID_ARGUMENT",
+            "mlx-audio model must be absolute when the controller does not provide a model root",
+        )
     try:
         resolved = path.resolve(strict=True)
     except OSError as err:
         raise BackendFailure("NOT_FOUND", "mlx-audio model snapshot does not exist") from err
+    if root is not None:
+        try:
+            resolved.relative_to(root)
+        except ValueError as err:
+            raise BackendFailure(
+                "INVALID_ARGUMENT",
+                "mlx-audio model snapshot escapes the configured model root",
+            ) from err
     if not resolved.is_dir():
         raise BackendFailure("INVALID_ARGUMENT", "mlx-audio model snapshot must be a directory")
     return str(resolved)
@@ -153,6 +183,47 @@ def normalize_voice(voice, language):
     return selected
 
 
+def tts_generation_options(params=None):
+    options = dict(TTS_DEFAULTS)
+    values = params or {}
+    parsers = {
+        "temperature": float,
+        "max_tokens": int,
+        "top_k": int,
+        "top_p": float,
+        "repetition_penalty": float,
+    }
+    for name, parser in parsers.items():
+        if name not in values:
+            continue
+        try:
+            options[name] = parser(values[name])
+        except (TypeError, ValueError) as err:
+            raise BackendFailure("INVALID_ARGUMENT", f"invalid MLX-Audio TTS parameter: {name}") from err
+    if not 0 < options["temperature"] <= 2:
+        raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS temperature must be in (0, 2]")
+    if not 1 <= options["max_tokens"] <= TTS_DEFAULTS["max_tokens"]:
+        raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS max_tokens must be from 1 through 1200")
+    if options["top_k"] < 1:
+        raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS top_k must be positive")
+    if not 0 < options["top_p"] <= 1:
+        raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS top_p must be in (0, 1]")
+    if options["repetition_penalty"] <= 0:
+        raise BackendFailure("INVALID_ARGUMENT", "MLX-Audio TTS repetition_penalty must be positive")
+    return options
+
+
+def request_cancelled(context):
+    """Support both grpc.aio and synchronous migration-thread contexts."""
+    cancelled = getattr(context, "cancelled", None)
+    if callable(cancelled):
+        return bool(cancelled())
+    is_active = getattr(context, "is_active", None)
+    if callable(is_active):
+        return not bool(is_active())
+    return False
+
+
 class MLXAudioRuntime:
     def __init__(self, loader_provider=None, writer=None, temp_dir=None, cache_clear=None):
         self._loader_provider = loader_provider or _production_loader
@@ -163,10 +234,10 @@ class MLXAudioRuntime:
         self.model_path = None
         self.role = None
 
-    def load(self, model_path, options, distributions=None):
+    def load(self, model_path, options, distributions=None, model_root=None):
         ensure_torch_free(distributions)
         role = configured_role(options)
-        local_path = _local_snapshot_path(model_path)
+        local_path = _local_snapshot_path(model_path, model_root)
         try:
             model = self._loader_provider(role)(local_path, strict=True)
         except BackendFailure:
@@ -240,7 +311,7 @@ class MLXAudioRuntime:
             raise BackendFailure("INTERNAL", "MLX-Audio transcription returned empty text")
         return text.strip(), normalized_language
 
-    def synthesize(self, text, voice, language, destination):
+    def synthesize(self, text, voice, language, destination, params=None, cancelled=None):
         self._require_role("tts")
         if not isinstance(text, str) or not text.strip():
             raise BackendFailure("INVALID_ARGUMENT", "TTS text is empty")
@@ -248,19 +319,21 @@ class MLXAudioRuntime:
             raise BackendFailure("INVALID_ARGUMENT", "TTS destination path is required")
         normalized_language = normalize_language(language)
         speaker = normalize_voice(voice, normalized_language)
+        generation_options = tts_generation_options(params)
         output = Path(destination)
         try:
             output.parent.mkdir(parents=True, exist_ok=True)
-            results = list(self.model.generate_custom_voice(
+            results = self.model.generate_custom_voice(
                 text=text,
                 speaker=speaker,
                 language=normalized_language,
-            ))
-            if not results:
-                raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
+                **generation_options,
+            )
             audio_segments = []
             sample_rate = 0
             for segment in results:
+                if cancelled is not None and cancelled():
+                    raise BackendFailure("CANCELLED", "MLX-Audio TTS request was cancelled")
                 audio = getattr(segment, "audio", None)
                 segment_rate = getattr(segment, "sample_rate", 0)
                 if audio is None or not segment_rate:
@@ -269,6 +342,8 @@ class MLXAudioRuntime:
                     raise BackendFailure("INTERNAL", "MLX-Audio TTS returned inconsistent sample rates")
                 sample_rate = int(segment_rate)
                 audio_segments.append(audio)
+            if not audio_segments:
+                raise BackendFailure("INTERNAL", "MLX-Audio TTS returned empty audio")
             self._writer(str(output), audio_segments, sample_rate)
             _validate_wav(str(output))
         except BackendFailure:

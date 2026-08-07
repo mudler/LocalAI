@@ -13,7 +13,14 @@ import wave
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from runtime import BackendFailure, MLXAudioRuntime, configured_role, ensure_torch_free
+from runtime import (
+    BackendFailure,
+    MLXAudioRuntime,
+    configured_role,
+    ensure_torch_free,
+    request_cancelled,
+    tts_generation_options,
+)
 from check_dependencies import verify_serving_environment
 
 
@@ -104,7 +111,11 @@ class MLXAudioRuntimeTests(unittest.TestCase):
             "backend_pb2_grpc.py": "class BackendServicer:\n    pass\n",
             "grpc.py": "class StatusCode:\n    INTERNAL = 'internal'\n",
             "grpc_auth.py": "def get_auth_interceptors(**kwargs):\n    return []\n",
-            "runtime.py": "class BackendFailure(Exception):\n    pass\nclass MLXAudioRuntime:\n    pass\n",
+            "runtime.py": (
+                "class BackendFailure(Exception):\n    pass\n"
+                "class MLXAudioRuntime:\n    pass\n"
+                "def request_cancelled(context):\n    return False\n"
+            ),
         }
         for name, contents in stubs.items():
             (isolated / name).write_text(contents, encoding="utf-8")
@@ -148,6 +159,42 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(self.load("vad"), "vad")
         self.assertEqual(self.loaded, [("vad", str(self.snapshot.resolve()), True)])
+
+    def test_model_root_resolves_relative_snapshots_and_rejects_escape(self):
+        nested = self.root / "models" / "snapshot"
+        nested.mkdir(parents=True)
+        self.assertEqual(
+            self.runtime.load(
+                "snapshot",
+                ["role:vad"],
+                distributions=[],
+                model_root=str(nested.parent),
+            ),
+            "vad",
+        )
+        self.assertEqual(self.loaded[-1], ("vad", str(nested.resolve()), True))
+        self.assert_failure(
+            "INVALID_ARGUMENT",
+            lambda: self.runtime.load(
+                str(self.snapshot),
+                ["role:vad"],
+                distributions=[],
+                model_root=str(nested.parent),
+            ),
+        )
+
+        external = self.root / "external"
+        external.mkdir()
+        (nested.parent / "linked").symlink_to(external, target_is_directory=True)
+        self.assert_failure(
+            "INVALID_ARGUMENT",
+            lambda: self.runtime.load(
+                "linked",
+                ["role:vad"],
+                distributions=[],
+                model_root=str(nested.parent),
+            ),
+        )
 
     def test_loader_failures_are_typed(self):
         def failing_provider(role):
@@ -225,8 +272,55 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         self.assertTrue(destination.is_file())
         self.assertEqual(
             self.models["tts"].calls,
-            [{"text": "hello", "speaker": "Ryan", "language": "English"}],
+            [{
+                "text": "hello",
+                "speaker": "Ryan",
+                "language": "English",
+                "temperature": 0.7,
+                "max_tokens": 1200,
+                "top_k": 50,
+                "top_p": 1.0,
+                "repetition_penalty": 1.05,
+                "stream": True,
+                "streaming_interval": 0.32,
+            }],
         )
+
+    def test_tts_generation_parameters_are_bounded(self):
+        options = tts_generation_options({"temperature": "0.5", "max_tokens": "600"})
+        self.assertEqual(options["temperature"], 0.5)
+        self.assertEqual(options["max_tokens"], 600)
+        self.assertTrue(options["stream"])
+        self.assertEqual(options["streaming_interval"], 0.32)
+        for values in ({"max_tokens": "1201"}, {"top_p": "0"}, {"top_k": "bad"}):
+            self.assert_failure("INVALID_ARGUMENT", lambda values=values: tts_generation_options(values))
+
+    def test_cancellation_supports_aio_and_sync_grpc_contexts(self):
+        self.assertTrue(request_cancelled(SimpleNamespace(cancelled=lambda: True)))
+        self.assertFalse(request_cancelled(SimpleNamespace(cancelled=lambda: False)))
+        self.assertTrue(request_cancelled(SimpleNamespace(is_active=lambda: False)))
+        self.assertFalse(request_cancelled(SimpleNamespace(is_active=lambda: True)))
+        self.assertFalse(request_cancelled(SimpleNamespace()))
+
+    def test_tts_cancellation_removes_partial_output(self):
+        self.models["tts"].results = [
+            SimpleNamespace(audio=[0.25], sample_rate=24000),
+            SimpleNamespace(audio=[-0.25], sample_rate=24000),
+        ]
+        self.load("tts")
+        destination = self.root / "cancelled.wav"
+        checks = iter((False, True))
+        self.assert_failure(
+            "CANCELLED",
+            lambda: self.runtime.synthesize(
+                "hello",
+                "Ryan",
+                "English",
+                str(destination),
+                cancelled=lambda: next(checks),
+            ),
+        )
+        self.assertFalse(destination.exists())
 
     def test_tts_concatenates_public_api_segments(self):
         self.models["tts"].results = [

@@ -2444,6 +2444,10 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 	predFunc, err := session.ModelInterface.Predict(ctx, conversationHistory, images, nil, nil, nil, tools, toolChoice, nil, nil, nil)
 	if err != nil {
+		if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+			r.outcome = outcomeCancelled
+			return
+		}
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "") // item.Assistant.ID is unknown here
 		r.outcome = outcomeFailed
 		return
@@ -2451,6 +2455,10 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 	pred, err := predFunc()
 	if err != nil {
+		if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+			r.outcome = outcomeCancelled
+			return
+		}
 		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", "")
 		r.outcome = outcomeFailed
 		return
