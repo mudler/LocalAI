@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=0757cac231ecd571a83c4fd2f50805c9251fc225
+VLLM_CPP_VERSION?=f91a5917a462243d0a46c8f7f8a886d610f83661
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
