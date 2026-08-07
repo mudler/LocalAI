@@ -148,13 +148,15 @@ The `runtime_settings.json` file follows this structure:
   "federated": false,
   "galleries": [
     {
-      "url": "github:mudler/LocalAI/gallery/index.yaml@master",
+      "url": "https://index.localai.io/models",
+      "mirrors": ["github:mudler/LocalAI/gallery/index.yaml@master"],
       "name": "localai"
     }
   ],
   "backend_galleries": [
     {
-      "url": "github:mudler/LocalAI/backend/index.yaml@master",
+      "url": "https://index.localai.io/backends",
+      "mirrors": ["github:mudler/LocalAI/backend/index.yaml@master"],
       "name": "localai"
     }
   ],
