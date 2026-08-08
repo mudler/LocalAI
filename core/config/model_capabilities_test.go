@@ -35,12 +35,57 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.VisionSupported()).To(BeTrue())
 		})
 
+		It("is false for a TTS model whose mmproj is a speaker encoder", func() {
+			// Qwen3-TTS on llama-cpp ships an mmproj that holds the speaker
+			// encoder and code predictor, not a vision tower.
+			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TTS), Backend: "llama-cpp"}
+			cfg.MMProj = "mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf"
+			Expect(cfg.VisionSupported()).To(BeFalse())
+		})
+
+		It("is false for a TTS model whose backend reported a media marker", func() {
+			// llama.cpp builds an mtmd context for the speaker-encoder projector
+			// and reports its marker on the first chat probe, which would
+			// otherwise resurrect vision after the model has been used once.
+			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TTS), Backend: "llama-cpp"}
+			cfg.MMProj = "mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf"
+			cfg.MediaMarker = "<__media__>"
+			Expect(cfg.VisionSupported()).To(BeFalse())
+		})
+
+		It("is still true for a TTS model that also declares vision", func() {
+			// An omni model can legitimately be both. The explicit bit wins.
+			cfg := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TTS | FLAG_VISION), Backend: "llama-cpp"}
+			cfg.MMProj = "mmproj.gguf"
+			Expect(cfg.VisionSupported()).To(BeTrue())
+		})
+
 		It("does not fall for the GuessUsecases FLAG_VISION false positive", func() {
 			// A chat model with a chat template would make HasUsecases(FLAG_VISION)
 			// return true via the guess heuristic; VisionSupported must not.
 			cfg := &ModelConfig{Backend: "llama.cpp"}
 			cfg.TemplateConfig.Chat = "{{.Input}}"
 			Expect(cfg.VisionSupported()).To(BeFalse())
+		})
+
+		It("survives the loader re-syncing known_usecases from the rewritten list", func() {
+			// syncKnownUsecasesFromString rewrites KnownUsecaseStrings from
+			// HasUsecases, and the loader calls it more than once per file. If a
+			// guessed "vision" leaks into that list, the next pass parses it back
+			// into KnownUsecases as an explicit bit and the mmproj exemption above
+			// is bypassed. Reproduces the gallery entry qwen3-tts-llamacpp-q4.
+			cfg := &ModelConfig{Backend: "llama-cpp"}
+			cfg.KnownUsecaseStrings = []string{"tts"}
+			cfg.MMProj = "qwen3-tts-llamacpp-q4/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf"
+			cfg.TemplateConfig.UseTokenizerTemplate = true
+
+			cfg.syncKnownUsecasesFromString()
+			cfg.syncKnownUsecasesFromString()
+
+			Expect(cfg.KnownUsecaseStrings).NotTo(ContainElement("FLAG_VISION"))
+			Expect(cfg.VisionSupported()).To(BeFalse())
+			Expect(cfg.Capabilities()).NotTo(ContainElement(UsecaseVision))
+			Expect(cfg.InputModalities()).NotTo(ContainElement(ModalityImage))
 		})
 	})
 

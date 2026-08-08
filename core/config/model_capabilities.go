@@ -54,13 +54,19 @@ func (c *ModelConfig) VisionSupported() bool {
 	if c.KnownUsecases != nil && (*c.KnownUsecases&FLAG_VISION) == FLAG_VISION {
 		return true
 	}
-	if c.MMProj != "" {
+	// A TTS model's mmproj holds a speaker encoder and code predictor, not a
+	// vision tower, and llama.cpp builds an mtmd context (and so reports a media
+	// marker on the first chat probe) for it all the same. Neither signal proves
+	// image input on a declared-TTS model. Callers that genuinely are both
+	// declare FLAG_VISION, checked above.
+	declaredTTS := c.KnownUsecases != nil && (*c.KnownUsecases&FLAG_TTS) == FLAG_TTS
+	if c.MMProj != "" && !declaredTTS {
 		return true
 	}
 	if c.TemplateConfig.Multimodal != "" {
 		return true
 	}
-	if c.MediaMarker != "" {
+	if c.MediaMarker != "" && !declaredTTS {
 		return true
 	}
 	return false
