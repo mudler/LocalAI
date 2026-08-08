@@ -22,7 +22,14 @@ set -e
 # it; ordinary local and test builds retain their base-image trust unchanged.
 proxy_ca=/run/secrets/build_proxy_ca
 if [ -s "$proxy_ca" ]; then
-    cat "$proxy_ca" >>/etc/ssl/certs/ca-certificates.crt
+    # Keep the generated CA in the distribution-managed local certificate
+    # directory. Installing or upgrading ca-certificates later in this layer
+    # regenerates the bundle, so appending directly to it would be lost.
+    mkdir -p /usr/local/share/ca-certificates
+    cp "$proxy_ca" /usr/local/share/ca-certificates/localai-build-proxy.crt
+    if command -v update-ca-certificates >/dev/null 2>&1; then
+        update-ca-certificates
+    fi
     cat > /etc/apt/apt.conf.d/99localai-build-proxy-ca <<EOF
 Acquire::https::CaInfo "$proxy_ca";
 EOF

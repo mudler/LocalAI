@@ -37,6 +37,14 @@ if test -f "$output/summary.json"; then
   } >>"$GITHUB_STEP_SUMMARY"
 fi
 
+# A matrix cancellation can interrupt checkout or a BuildKit request at any
+# point. Preserve whatever inventory exists, but do not replace the canceled
+# conclusion with a misleading proxy-enforcement failure.
+if test "${LOCALAI_BUILD_JOB_STATUS:-}" = cancelled; then
+  echo 'Build was cancelled; skipping network inventory enforcement'
+  exit 0
+fi
+
 if ! test -s "$output/events.jsonl"; then
   echo 'Build proxy produced no network inventory' >&2
   exit 1

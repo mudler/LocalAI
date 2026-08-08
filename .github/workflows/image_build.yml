@@ -269,11 +269,13 @@ jobs:
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Stop build network proxy
-        if: always()
+        if: ${{ always() && env.LOCALAI_BUILD_PROXY_OUTPUT != '' }}
+        env:
+          LOCALAI_BUILD_JOB_STATUS: ${{ job.status }}
         run: .github/scripts/stop-build-proxy.sh
 
       - name: Upload build network inventory
-        if: always()
+        if: ${{ always() && env.LOCALAI_BUILD_PROXY_OUTPUT != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: build-network-localai-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}-${{ inputs.platform-tag || 'single' }}
