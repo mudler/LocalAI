@@ -19,6 +19,23 @@ FORBIDDEN_DISTRIBUTIONS = frozenset({"torch", "torchaudio"})
 VAD_SAMPLE_RATE = 16000
 TTS_SAMPLE_RATE = 24000
 TTS_STREAMING_INTERVALS = frozenset({0.16, 0.32, 0.64})
+SUPPORTED_LANGUAGES = {
+    "en": "English",
+    "en-us": "English",
+    "en-gb": "English",
+    "english": "English",
+    "ko": "Korean",
+    "ko-kr": "Korean",
+    "korean": "Korean",
+    "ja": "Japanese",
+    "ja-jp": "Japanese",
+    "japanese": "Japanese",
+}
+TTS_VOICES = {
+    "ryan": "Ryan",
+    "sohee": "Sohee",
+    "ono_anna": "Ono_Anna",
+}
 TTS_DEFAULTS = {
     "temperature": 0.7,
     "max_tokens": 1200,
@@ -172,23 +189,25 @@ def _validate_wav(path):
 
 def normalize_language(language):
     value = (language or "English").strip().lower().replace("_", "-")
-    if value in {"en", "en-us", "en-gb", "english"}:
-        return "English"
-    if value in {"ko", "ko-kr", "korean"}:
-        return "Korean"
-    raise BackendFailure("INVALID_ARGUMENT", "mlx-audio supports only English and Korean in this profile")
+    selected = SUPPORTED_LANGUAGES.get(value)
+    if selected is None:
+        raise BackendFailure(
+            "INVALID_ARGUMENT",
+            "mlx-audio language must be English, Korean, or Japanese",
+        )
+    return selected
 
 
-def normalize_voice(voice, language):
+def normalize_voice(voice, _language):
     value = (voice or "").strip()
     if not value:
         return "Ryan"
-    aliases = {"ryan": "Ryan", "sohee": "Sohee"}
-    selected = aliases.get(value.lower())
+    selected = TTS_VOICES.get(value.lower())
     if selected is None:
-        raise BackendFailure("INVALID_ARGUMENT", "mlx-audio voice must be Ryan or Sohee")
-    if selected == "Sohee" and language != "Korean":
-        raise BackendFailure("INVALID_ARGUMENT", "Sohee is configured only for Korean synthesis")
+        raise BackendFailure(
+            "INVALID_ARGUMENT",
+            "mlx-audio voice must be Ryan, Sohee, or Ono_Anna",
+        )
     return selected
 
 

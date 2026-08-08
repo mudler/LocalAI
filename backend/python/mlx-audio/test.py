@@ -21,6 +21,8 @@ from runtime import (
     MLXAudioRuntime,
     configured_role,
     ensure_torch_free,
+    normalize_language,
+    normalize_voice,
     pcm16le_from_tts_segment,
     request_cancelled,
     tts_generation_options,
@@ -363,6 +365,35 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         self.models["asr"].generate = fail_transcription
         self.assert_failure("INTERNAL", lambda: self.runtime.transcribe(str(source), "English"))
 
+    def test_exposed_voices_accept_english_korean_and_japanese(self):
+        self.load("tts")
+        languages = {
+            "en-US": "English",
+            "ko-KR": "Korean",
+            "ja-JP": "Japanese",
+        }
+        voices = {
+            "ryan": "Ryan",
+            "SOHEE": "Sohee",
+            "ono_anna": "Ono_Anna",
+        }
+
+        for language, normalized_language in languages.items():
+            self.assertEqual(normalize_language(language), normalized_language)
+            for voice, normalized_voice in voices.items():
+                self.assertEqual(
+                    normalize_voice(voice, normalized_language),
+                    normalized_voice,
+                )
+                destination = self.root / f"{normalized_voice}-{normalized_language}.wav"
+                self.runtime.synthesize("hello", voice, language, str(destination))
+                self.assertTrue(destination.is_file())
+                self.assertEqual(self.models["tts"].calls[-1]["speaker"], normalized_voice)
+                self.assertEqual(self.models["tts"].calls[-1]["language"], normalized_language)
+
+        self.assert_failure("INVALID_ARGUMENT", lambda: normalize_language("French"))
+        self.assert_failure("INVALID_ARGUMENT", lambda: normalize_voice("Vivian", "English"))
+
     def test_tts_uses_custom_voice_api_and_validates_output(self):
         self.load("tts")
         destination = self.root / "speech.wav"
@@ -699,7 +730,7 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         self.load("tts")
         self.assert_failure(
             "INVALID_ARGUMENT",
-            lambda: self.runtime.synthesize("hello", "Sohee", "English", str(self.root / "x.wav")),
+            lambda: self.runtime.synthesize("hello", "Vivian", "English", str(self.root / "x.wav")),
         )
         self.assert_failure(
             "INVALID_ARGUMENT",

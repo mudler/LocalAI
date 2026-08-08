@@ -106,6 +106,15 @@ pipeline:
     clause_chunking: true
 ```
 
+This pinned MLX-Audio profile exposes `Ryan`, `Sohee`, and `Ono_Anna`. Each
+voice can synthesize English (`en`), Korean (`ko`), or Japanese (`ja`), although
+the upstream model recommends the native pairings—Ryan/English, Sohee/Korean,
+and Ono_Anna/Japanese—for the best quality. Voice and language matching is
+case-insensitive; unsupported voices and languages fail with an invalid-argument
+backend error instead of being inferred or silently substituted. In Realtime,
+the input transcription language is also passed to TTS, so set both the voice
+and transcription language in the Talk session settings before connecting.
+
 Bind LocalAI to loopback for this topology and connect the native client to `ws://127.0.0.1:8080/v1/realtime?model=private-apple-voice`. This profile is Darwin/arm64-specific; installing the backend or downloading the three model snapshots is a separate, networked operation.
 
 Start this private runtime with `--load-to-memory=mlx-vad,mlx-asr,mlx-tts,remote-voice-llm`. LocalAI loads that list sequentially, which removes the first-turn MLX load delay without the pipeline warm-up's concurrent VAD, ASR, and TTS loads. The three streaming switches let synthesis start at the first completed clause and forward each MLX-Audio PCM chunk immediately.
