@@ -129,3 +129,7 @@ formal-verification/out/
 # root, which is what a contributor testing a build does. Nothing under here is
 # source: it is the instance's own models, outputs, traces and identity.
 /data/
+
+# Private local runtime configuration and task evidence.
+/.config/
+/.ephemeral/
