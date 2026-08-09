@@ -1056,6 +1056,9 @@ var _ = Describe("HostResolveEnv engine preference wiring", func() {
 		if runtime.GOOS == "darwin" {
 			Skip("darwin reports metal or darwin-x86 before the VRAM floor is consulted")
 		}
+		if runtime.GOOS == "windows" {
+			Skip("windows reports its own capability before the VRAM floor is consulted")
+		}
 		Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
 		// A capability run file on the machine would override detection.
 		Expect(os.Setenv(capabilityRunFileEnv, filepath.Join(GinkgoT().TempDir(), "absent"))).To(Succeed())
