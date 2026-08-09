@@ -99,29 +99,31 @@ ifeq ($(UNAME_S),Darwin)
 	# Apple Clang diagnoses a pair of constant-folded array bounds in the Metal
 	# build as a GNU extension. Disable that diagnostic for both Objective-C and
 	# C++ because vllm.cpp appends target-local -Werror after these global flags.
-	#
-	# -Wno-return-type-c-linkage is the same class of Apple-Clang-only -Werror.
-	# src/capi/vllm_c.cpp opens one `extern "C" {` for the whole ABI surface, so
-	# the file-local helpers inside it inherit C linkage; one of them (the video
-	# slice's OrEmpty) returns std::string, which Apple Clang flags and GCC and
-	# upstream Clang do not. The helper is never called across the boundary, so
-	# the warning describes no real hazard here - but it is a genuine upstream
-	# wart, and the fix belongs in vllm.cpp (hoist the helper above the extern
-	# "C" block); drop this flag once a pin carrying that fix lands.
-	CMAKE_ARGS+="-DCMAKE_CXX_FLAGS=-Wno-gnu-folding-constant -Wno-return-type-c-linkage"
+	CMAKE_ARGS+=-DCMAKE_CXX_FLAGS=-Wno-gnu-folding-constant
 	CMAKE_ARGS+=-DCMAKE_OBJC_FLAGS=-Wno-gnu-folding-constant
 	CMAKE_ARGS+=-DCMAKE_OBJCXX_FLAGS=-Wno-gnu-folding-constant
 else
 	LIB=libvllm.so
 endif
 
-sources/vllm.cpp:
+# patches/ carries fixes the pinned engine SHA does not have yet. `git apply`
+# is deliberately unguarded: a patch that no longer applies must FAIL the clone
+# loudly, because the alternative is a pin that silently ships without a fix it
+# is documented to carry. Each patch header says which pin retires it.
+VLLM_CPP_PATCHES=$(wildcard patches/*.patch)
+
+sources/vllm.cpp: $(VLLM_CPP_PATCHES)
+	rm -rf sources/vllm.cpp
 	mkdir -p sources/vllm.cpp
 	cd sources/vllm.cpp && \
 	git init && \
 	git remote add origin $(VLLM_CPP_REPO) && \
 	git fetch --depth 1 origin $(VLLM_CPP_VERSION) && \
-	git checkout FETCH_HEAD
+	git checkout FETCH_HEAD && \
+	for p in $(VLLM_CPP_PATCHES); do \
+		echo "==> applying $$p"; \
+		git apply ../../$$p || exit 1; \
+	done
 
 ifeq ($(MLX_ENABLED),1)
 # A stamp FILE, not a phony target: a phony prerequisite is always "newer" than

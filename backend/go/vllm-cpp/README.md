@@ -32,6 +32,12 @@ ABI v16) through purego:
   LocalAI's Go-side grammar-constrained tool calling; JSON-schema / regex /
   choice constraints are also exposed by the ABI.
 
+`patches/` carries fixes the pinned engine SHA does not have yet, applied to
+the clone the same way `longcat-video` patches its upstream. `git apply` is
+unguarded on purpose: a patch that stops applying must fail the clone loudly
+rather than leave a pin silently missing a fix it is documented to carry. Each
+patch header says what retires it.
+
 The struct mirrors in `govllmcpp.go` are hand-written against one ABI version,
 and the engine refuses to load against any other. Moving `VLLM_CPP_VERSION` in
 the Makefile therefore means updating `abiVersion` plus the mirrors (and their
