@@ -8497,6 +8497,101 @@
             - vae/**
     parameters:
       model: meituan-longcat/LongCat-Video-Avatar-1.5
+- name: minimax-h3-fl2va-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly from a text prompt, so a clip comes back as an MP4
+    with a real soundtrack rather than a silent render: ask for speech in the
+    prompt and the model lip-syncs it.
+
+    This is the Q4_K_M quantisation of the FL2VA partition, which serves
+    text-to-video (t2va) and first/last-frame conditioning (fl2va). Reference
+    conditioning (ref2va) is a different checkpoint and is refused by this one.
+
+    Roughly 40 GB of weights across five files, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768
+    at 124 frames and 24 fps, about 5.2 seconds. Generation is slow — measured
+    at roughly 176 s per denoise step at that canvas on a 20-SM device, so the
+    50-step default is a multi-hour job. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-08-09"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community GGUF strips the release metadata and the FL2VA and Ref2VA
+      # DiTs are byte-structurally identical, so the partition must be declared.
+      # This is the FL2VA checkpoint: t2va and fl2va, never ref2va.
+      - video_partition:fl2va
+      - video_device:cuda
+      # Q4_K_M streams up as bf16; keep-quant is for the NVFP4 arm.
+      - video_dequant_bf16:true
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
+  files:
+    - filename: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
+      sha256: 5e8fa6e960d5fbd547390ceec63fcead275435d8f3bd2466a8a2cbd8c2e361e3
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/MiniMax-H3-FL2VA-Q4_K_M.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
+      uri: huggingface://lilcheaty/MiniMax-H3-NVFP4/vae/minimax_h3_video_vae_fp16.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them, so
+    # they ship with the weights rather than being optional extras.
+    - filename: minimax-h3/video_vae_config.json
+      sha256: 3edd2cdd1ebc823c868be55ef917e1b3b8a398fde4d3150dae44a3bf05d9f627
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
 - name: vllm-omni-qwen3-omni-30b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

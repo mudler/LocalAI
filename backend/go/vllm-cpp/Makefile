@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=0757cac231ecd571a83c4fd2f50805c9251fc225
+VLLM_CPP_VERSION?=f921062ba4fbf3341b02d2ac826bb3d84cc91a64
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
@@ -165,7 +165,7 @@ $(LIB): sources/vllm.cpp $(MLX_STAMP)
 	cmake --build . --config Release -j$(JOBS) --target vllm_shared
 	cp -fL build/$(LIB) ./$(LIB)
 
-vllm-cpp: main.go govllmcpp.go backend.go options.go $(LIB)
+vllm-cpp: main.go govllmcpp.go backend.go chat.go options.go video.go $(LIB)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o vllm-cpp ./
 
 package: vllm-cpp
