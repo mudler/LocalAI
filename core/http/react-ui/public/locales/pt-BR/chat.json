@@ -1,0 +1,131 @@
+{
+  "activity": {
+    "thought": "Pensamento",
+    "tool": "Ferramenta",
+    "result": "Resultado",
+    "toolResult": "Resultado de {{name}}",
+    "thinking": "Pensando..."
+  },
+  "header": {
+    "manageModeTooltip": "Este chat pode instalar modelos, editar configurações e gerenciar backends conversando com o LocalAI.",
+    "modelInfo": "Informações do modelo",
+    "chatSettings": "Configurações do chat",
+    "modelInfoTitle": "Informações do Modelo: {{model}}",
+    "editConfig": "Editar configuração",
+    "close": "Fechar"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "Arquivo do modelo",
+    "contextSize": "Tamanho do contexto",
+    "threads": "Threads",
+    "mcp": "MCP",
+    "configured": "Configurado",
+    "chatTemplate": "Modelo de conversa",
+    "yes": "Sim",
+    "gpuLayers": "Camadas GPU"
+  },
+  "context": {
+    "label": "Contexto: {{percent}}%",
+    "labelWithTokens": "Contexto: {{percent}}% ({{tokens}} tokens)"
+  },
+  "settings": {
+    "title": "Configurações do Chat",
+    "manageMode": "Modo de gerenciamento",
+    "manageModeDesc": "Permita que este chat instale modelos, alterne backends e edite configurações conversando com o LocalAI.",
+    "systemPrompt": "Instrução do sistema",
+    "systemPromptPlaceholder": "Você é um assistente útil...",
+    "temperature": "Temperatura",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Tamanho do contexto",
+    "contextSizePlaceholder": "2048",
+    "clearHistory": "Limpar histórico do chat"
+  },
+  "empty": {
+    "manageTitle": "Gerencie o LocalAI conversando",
+    "manageText": "Peça para instalar modelos, alternar backends, editar configurações ou verificar o status. O assistente resumirá as ações e aguardará sua confirmação antes de alterar qualquer coisa.",
+    "startTitle": "Inicie uma conversa",
+    "readyText": "Pronto para conversar com {{model}}",
+    "selectModelText": "Selecione um modelo acima para começar",
+    "suggestionsManage": [
+      "O que está instalado?",
+      "Instalar um modelo de chat",
+      "Mostrar o status do sistema",
+      "Atualizar um backend"
+    ],
+    "suggestionsChat": [
+      "Explique como isto funciona",
+      "Ajude-me a escrever código",
+      "Resumir um documento",
+      "Gerar ideias"
+    ],
+    "recent": "Recente",
+    "noMessages": "Nenhuma mensagem ainda",
+    "hintEnter": "Enter para enviar",
+    "hintShiftEnter": "Shift+Enter para nova linha",
+    "hintAttach": "Anexar arquivos"
+  },
+  "errors": {
+    "viewTraces": "Ver rastreamentos para detalhes"
+  },
+  "actions": {
+    "copy": "Copiar",
+    "edit": "Editar",
+    "editMessage": "Editar mensagem",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "regenerate": "Regenerar",
+    "branch": "Ramificar daqui",
+    "jumpToLatest": "Ir para a mais recente"
+  },
+  "streaming": {
+    "transferring": "Transferindo modelo...",
+    "transferringTo": "Transferindo o modelo para {{node}}..."
+  },
+  "tokens": {
+    "perSec": "{{count}} tok/s",
+    "peak": "Pico: {{count}} tok/s",
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+  },
+  "input": {
+    "placeholder": "Mensagem...",
+    "attachFile": "Anexar arquivo",
+    "send": "Enviar mensagem",
+    "stopGenerating": "Parar a geração",
+    "canvasTitle": "Canvas — extrai blocos de código e mídia para um painel lateral para visualização, cópia e download",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Abrir painel do canvas"
+  },
+  "deleteAllDialog": {
+    "title": "Excluir Todos os Chats",
+    "message": "Excluir todos os chats? Esta ação não pode ser desfeita.",
+    "confirm": "Excluir todos"
+  },
+  "toasts": {
+    "selectModel": "Selecione um modelo",
+    "copied": "Copiado para a área de transferência",
+    "copyFailed": "Não foi possível copiar para a área de transferência",
+    "chatCopied": "Chat copiado para a área de transferência",
+    "forked": "Novo chat criado"
+  },
+  "menu": {
+    "trigger": "Chats",
+    "triggerTitle": "Conversas (Ctrl/Cmd+K)",
+    "search": "Buscar conversas...",
+    "clearSearch": "Limpar busca",
+    "noMatch": "Nenhuma conversa corresponde à sua busca",
+    "noConversations": "Nenhuma conversa ainda",
+    "rename": "Renomear",
+    "duplicate": "Duplicar chat",
+    "copyChat": "Copiar chat",
+    "exportMarkdown": "Exportar como Markdown",
+    "deleteChat": "Excluir chat",
+    "newChat": "Novo chat",
+    "clearAll": "Limpar tudo",
+    "deleteAllTitle": "Excluir todas as conversas"
+  },
+  "message": {
+    "you": "Você"
+  }
+}

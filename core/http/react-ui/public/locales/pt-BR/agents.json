@@ -1,0 +1,55 @@
+{
+  "title": "Agentes",
+  "subtitle": "Gerenciar agentes de IA autônomos",
+  "actions": {
+    "agentHub": "Central de Agentes",
+    "import": "Importar",
+    "createAgent": "Criar Agente",
+    "edit": "Editar",
+    "chat": "Conversar",
+    "export": "Exportar",
+    "delete": "Excluir",
+    "pause": "Pausar",
+    "resume": "Retomar"
+  },
+  "table": {
+    "name": "Nome",
+    "status": "Status",
+    "events": "Eventos",
+    "actions": "Ações",
+    "eventsTooltip": "{{count}} eventos - Clique para ver"
+  },
+  "search": {
+    "placeholder": "Buscar agentes...",
+    "summary_one": "{{shown}} de {{total}} agente",
+    "summary_other": "{{shown}} de {{total}} agentes"
+  },
+  "empty": {
+    "noConfigured": "Nenhum agente configurado",
+    "noConfiguredText": "Crie um agente para começar com fluxos de trabalho autônomos de IA.",
+    "browseHub": "Não sabe por onde começar? Explore a <1>Central de Agentes</1> para encontrar configurações de agentes prontas que você pode importar.",
+    "noMatching": "Nenhum agente correspondente",
+    "noMatchingText": "Nenhum agente corresponde a \"{{query}}\""
+  },
+  "sections": {
+    "yourAgents": "Seus Agentes",
+    "otherUsersAgents": "Agentes de Outros Usuários"
+  },
+  "deleteDialog": {
+    "title": "Excluir Agente",
+    "message": "Excluir o agente \"{{name}}\"? Esta ação não pode ser desfeita.",
+    "confirm": "Excluir"
+  },
+  "toasts": {
+    "loadFailed": "Falha ao carregar agentes: {{message}}",
+    "deleted": "Agente \"{{name}}\" excluído",
+    "deleteFailed": "Falha ao excluir agente: {{message}}",
+    "paused": "Agente \"{{name}}\" pausado",
+    "resumed": "Agente \"{{name}}\" retomado",
+    "pauseFailed": "Falha ao pausar agente: {{message}}",
+    "resumeFailed": "Falha ao retomar agente: {{message}}",
+    "exported": "Agente \"{{name}}\" exportado",
+    "exportFailed": "Falha ao exportar agente: {{message}}",
+    "parseFailed": "Falha ao analisar o arquivo do agente: {{message}}"
+  }
+}
