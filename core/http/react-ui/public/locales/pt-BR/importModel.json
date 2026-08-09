@@ -1,0 +1,143 @@
+{
+  "title": "Importar Novo Modelo",
+  "subtitle": {
+    "simple": "Importe um modelo de uma URI — a detecção automática escolhe o backend.",
+    "powerYaml": "Escreva a configuração YAML completa do modelo.",
+    "powerPrefs": "Preferências de importação refinadas."
+  },
+  "actions": {
+    "import": "Importar Modelo",
+    "importing": "Importando...",
+    "create": "Criar",
+    "saving": "Salvando...",
+    "browseHF": "Explorar modelos no HF",
+    "addCustom": "Adicionar Personalizado",
+    "copy": "Copiar"
+  },
+  "form": {
+    "modelUri": "URI do modelo",
+    "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF ou https://exemplo.com/modelo.gguf",
+    "uriHint": "Digite a URI ou o caminho do arquivo do modelo que deseja importar",
+    "supportedFormats": "Formatos de URI Suportados",
+    "options": "Opções",
+    "preferences": "Preferências (Opcional)",
+    "commonPreferences": "Preferências Comuns",
+    "customPreferences": "Preferências Personalizadas",
+    "customKeyValueHint": "Adicione pares de chave-valor personalizados para configuração avançada.",
+    "preferenceKey": "Chave da preferência da linha {{index}}",
+    "preferenceValue": "Valor da preferência da linha {{index}}",
+    "removePref": "Remover esta preferência",
+    "key": "Chave",
+    "value": "Valor",
+    "backend": "Backend",
+    "backendAuto": "Detecção automática (com base na URI)",
+    "backendLoading": "Carregando backends…",
+    "backendSearch": "Buscar backends...",
+    "backendHint": "Force um backend específico. Deixe vazio para detectar automaticamente pela URI. Itens marcados como \"seleção manual\" não são detectáveis automaticamente — escolha-os você mesmo se souber o que o modelo precisa.",
+    "backendErrorHint": "Não foi possível carregar a lista de backends — apenas detecção automática.",
+    "backendNotInstalled": "Este backend ainda não está instalado. Enviar a importação fará o download dele primeiro.",
+    "modelName": "Nome do Modelo",
+    "modelNamePlaceholder": "Deixe vazio para usar o nome do arquivo",
+    "modelNameHint": "Nome personalizado para o modelo. Se vazio, o nome do arquivo será usado.",
+    "description": "Descrição",
+    "descriptionPlaceholder": "Deixe vazio para usar a descrição padrão",
+    "descriptionHint": "Descrição personalizada para o modelo.",
+    "quantizations": "Quantizações",
+    "quantizationsPlaceholder": "q4_k_m,q4_k_s,q3_k_m (separados por vírgula)",
+    "quantizationsHint": "Quantizações preferidas (separadas por vírgula). Deixe vazio para o padrão (q4_k_m).",
+    "mmprojQuantizations": "Quantizações MMProj",
+    "mmprojQuantizationsPlaceholder": "fp16,fp32 (separados por vírgula)",
+    "mmprojQuantizationsHint": "Quantizações MMProj preferidas. Deixe vazio para o padrão (fp16).",
+    "embeddings": "Embeddings",
+    "embeddingsHint": "Habilite o suporte a embeddings para este modelo.",
+    "modelType": "Tipo do Modelo",
+    "modelTypePlaceholder": "AutoModelForCausalLM (para o backend transformers)",
+    "modelTypeHint": "Tipo de modelo para o backend transformers. Exemplos: AutoModelForCausalLM, SentenceTransformer, Mamba.",
+    "pipelineType": "Tipo de Pipeline",
+    "pipelineTypeHint": "Tipo de pipeline para o backend diffusers.",
+    "schedulerType": "Tipo de Scheduler",
+    "schedulerTypePlaceholder": "k_dpmpp_2m (opcional)",
+    "schedulerTypeHint": "Tipo de scheduler para o backend diffusers. Exemplos: k_dpmpp_2m, euler_a, ddim.",
+    "enableParameters": "Parâmetros Habilitados",
+    "enableParametersPlaceholder": "negative_prompt,num_inference_steps (separados por vírgula)",
+    "enableParametersHint": "Parâmetros habilitados para o backend diffusers (separados por vírgula).",
+    "cuda": "CUDA",
+    "cudaHint": "Habilite o suporte a CUDA para aceleração por GPU.",
+    "yamlEditor": "Editor de Configuração YAML",
+    "manualPick": "seleção manual",
+    "manualPickTooltip": "A detecção automática não roteará para este backend. Escolha-o aqui se você souber que é o que deseja."
+  },
+  "modality": {
+    "text": "LLM de texto",
+    "asr": "Reconhecimento de fala",
+    "tts": "Texto para fala",
+    "image": "Imagem / Vídeo",
+    "video": "Geração de vídeo",
+    "embeddings": "Embeddings",
+    "reranker": "Rerankers",
+    "detection": "Detecção de objetos",
+    "vad": "Detecção de atividade de voz",
+    "other": "Outro"
+  },
+  "powerTabs": {
+    "ariaLabel": "Aba do modo avançado",
+    "preferences": "Preferências",
+    "yaml": "YAML"
+  },
+  "switchDialog": {
+    "title": "Manter suas preferências personalizadas?",
+    "body": "Alternar para o modo Simples oculta as preferências além de backend, nome e descrição. Elas ainda serão enviadas quando você importar.",
+    "cancel": "Cancelar",
+    "discard": "Descartar e alternar",
+    "keep": "Manter e alternar"
+  },
+  "estimate": {
+    "title": "Requisitos estimados",
+    "download": "Download: {{size}}",
+    "vram": "VRAM: {{vram}}"
+  },
+  "toasts": {
+    "noUri": "Digite uma URI de modelo",
+    "noYaml": "Digite a configuração YAML",
+    "started": "Importação iniciada! Acompanhando o progresso...",
+    "startedWithMeta": "Importação iniciada! Acompanhando o progresso... ({{meta}})",
+    "imported": "Modelo importado com sucesso!",
+    "importedYaml": "Configuração do modelo importada com sucesso!",
+    "importFailed": "Falha na importação: {{message}}",
+    "startImportFailed": "Falha ao iniciar a importação: {{message}}",
+    "backendsLoadFailed": "Não foi possível carregar a lista de backends — usando apenas detecção automática",
+    "modalityClearedBackend": "Seleção de backend limpa — ela não estava no grupo {{label}}.",
+    "copied": "Copiado para a área de transferência"
+  },
+  "uriFormats": {
+    "huggingface": {
+      "title": "HuggingFace",
+      "standard": "Formato HuggingFace padrão",
+      "short": "Formato HuggingFace curto",
+      "fullUrl": "URL HuggingFace completa"
+    },
+    "http": {
+      "title": "URLs HTTP/HTTPS",
+      "direct": "Download direto de qualquer URL HTTPS"
+    },
+    "local": {
+      "title": "Arquivos Locais",
+      "filePath": "Caminho de arquivo local (absoluto)",
+      "directYaml": "Arquivo YAML de configuração local direto"
+    },
+    "oci": {
+      "title": "Registro OCI",
+      "registry": "Registro de contêineres OCI",
+      "tarball": "Arquivo tarball OCI local"
+    },
+    "ollama": {
+      "title": "Ollama",
+      "model": "Formato de modelo do Ollama"
+    },
+    "yaml": {
+      "title": "Arquivos de Configuração YAML",
+      "remote": "Arquivo de configuração YAML remoto",
+      "local": "Arquivo de configuração YAML local"
+    }
+  }
+}

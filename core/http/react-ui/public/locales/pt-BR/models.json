@@ -1,0 +1,187 @@
+{
+  "title": "Descobrir",
+  "subtitle": "Explore e instale modelos de IA da galeria",
+  "models": "Modelos",
+  "recommended": {
+    "title": "Recomendados para o seu hardware",
+    "cpuNote": "Nenhuma GPU detectada - modelos pequenos que permanecem responsivos na CPU.",
+    "gpuNote": "Dimensionados para caber na sua VRAM disponível com espaço para o contexto.",
+    "install": "Instalar",
+    "installing": "Instalando",
+    "installStarted": "Instalando {{model}}…",
+    "installFailed": "Falha na instalação: {{message}}",
+    "dismiss": "Dispensar recomendações",
+    "summary": "{{n}} modelos sugeridos",
+    "bestFit": "Melhor ajuste",
+    "alternative": "Também serve"
+  },
+  "stats": {
+    "available": "Disponíveis",
+    "installed": "Instalados"
+  },
+  "actions": {
+    "addModel": "Adicionar Modelo",
+    "importModel": "Importar Modelo",
+    "install": "Instalar",
+    "reinstall": "Reinstalar",
+    "delete": "Excluir"
+  },
+  "filters": {
+    "all": "Todos",
+    "llm": "Chat",
+    "image": "Imagem",
+    "video": "Vídeo",
+    "threed": "3D",
+    "multimodal": "Multimodal",
+    "vision": "Visão",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarização",
+    "soundClassification": "Classificação de Som",
+    "soundGen": "Som",
+    "audioTransform": "FX de Áudio",
+    "realtimeAudio": "Áudio em Tempo Real",
+    "embedding": "Embeddings",
+    "rerank": "Rerank",
+    "detection": "Detecção",
+    "vad": "VAD",
+    "ner": "NER",
+    "fitsGpu": "Cabe na GPU",
+    "collapseVariants": "Uma linha por modelo",
+    "allBackends": "Todos os Backends",
+    "searchBackends": "Buscar backends...",
+    "contextSize": "Contexto:",
+    "useCaseLabel": "Filtrar por caso de uso",
+    "unavailableForBackend": "Não disponível para o backend selecionado",
+    "someSelected": "{{count}} selecionados",
+    "refineLabel": "Refinar"
+  },
+  "search": {
+    "placeholder": "Buscar modelos...",
+    "clearFilters": "Limpar filtros"
+  },
+  "table": {
+    "modelName": "Nome do Modelo",
+    "description": "Descrição",
+    "backend": "Backend",
+    "sizeVram": "Tamanho / VRAM",
+    "status": "Status",
+    "actions": "Ações",
+    "size": "Tamanho: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Cabe",
+    "mayNotFit": "Pode não caber",
+    "trustRemoteCode": "Confiar em Código Remoto",
+    "installing": "Instalando",
+    "installingPct": "Instalando · {{percent}}%",
+    "installed": "Instalado",
+    "notInstalled": "Não Instalado"
+  },
+  "detail": {
+    "description": "Descrição",
+    "gallery": "Galeria",
+    "backend": "Backend",
+    "size": "Tamanho",
+    "vram": "VRAM",
+    "license": "Licença",
+    "tags": "Tags",
+    "links": "Links",
+    "warning": "Aviso",
+    "files": "Arquivos",
+    "fitsGpu": "Cabe na GPU",
+    "mayNotFitGpu": "Pode não caber na GPU",
+    "requiresTrustRemoteCode": "Requer Confiança em Código Remoto",
+    "fileCount_one": "{{count}} arquivo",
+    "fileCount_other": "{{count}} arquivos",
+    "filename": "Nome do arquivo",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "Todos os modelos",
+    "vramAt": "VRAM em {{context}}",
+    "headroom": "Margem de sobra"
+  },
+  "empty": {
+    "title": "Nenhum modelo encontrado",
+    "withFilters": "Nenhum modelo corresponde à sua busca ou filtros atuais.",
+    "collapsedVariantsHint": "Construções alternativas que outra entrada já oferece estão ocultas. Desative \"Uma linha por modelo\" para incluí-las.",
+    "noFilters": "A galeria de modelos está vazia."
+  },
+  "deleteDialog": {
+    "title": "Excluir Modelo",
+    "message": "Excluir o modelo {{model}}?",
+    "confirm": "Excluir {{model}}",
+    "deletingToast": "Excluindo {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Falha ao carregar modelos: {{message}}",
+    "installFailed": "Falha na instalação: {{message}}",
+    "deleteFailed": "Falha ao excluir: {{message}}"
+  },
+  "selector": {
+    "loading": "Carregando modelos...",
+    "selectModel": "Selecionar modelo...",
+    "searchPlaceholder": "Buscar modelos...",
+    "noModels": "Nenhum modelo disponível"
+  },
+  "variants": {
+    "title": "Variantes",
+    "chooseVariant": "Escolha uma variante",
+    "auto": "Automática",
+    "autoSelected": "Selecionada automaticamente",
+    "base": "Construção base",
+    "doesNotFit": "Não cabe",
+    "unknownSize": "Tamanho desconhecido",
+    "unknownBackend": "Backend desconhecido",
+    "loading": "Carregando variantes...",
+    "installVariant": "Instalar {{variant}}",
+    "quantizationTitle": "Formato dos pesos",
+    "unknownQuantization": "Formato desconhecido",
+    "showDetails": "Mostrar detalhes completos de {{variant}}",
+    "hideDetails": "Ocultar detalhes completos de {{variant}}",
+    "detailsLoading": "Carregando detalhes...",
+    "detailsUnavailable": "Os detalhes de {{variant}} não puderam ser carregados.",
+    "features": {
+      "dflash": "Mais rápido: DFlash",
+      "mtp": "Mais rápido: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Ordenar modelos",
+    "downloadingPct": "baixando {{percent}}%",
+    "tooLarge": "{{size}} · muito grande",
+    "fitsSize": "{{size}} · cabe",
+    "previousPage": "Página anterior",
+    "nextPage": "Próxima página",
+    "showingCount": "{{shown}} de {{total}}",
+    "sizing": "medindo…"
+  },
+  "groups": {
+    "text": "Texto e raciocínio",
+    "vision": "Visão",
+    "audio": "Fala e áudio",
+    "visual": "Imagem e vídeo",
+    "other": "Todo o resto"
+  },
+  "chart": {
+    "title": "VRAM por tamanho de contexto",
+    "available": "{{vram}} disponíveis",
+    "barTitle": "o contexto {{context}} precisa de {{vram}}",
+    "fitsEverywhere": "Executa em qualquer tamanho de contexto neste host.",
+    "fitsNowhere": "Não caberá neste host em nenhum tamanho de contexto.",
+    "fitsUpTo": "Cabe em contextos de até {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Seu host",
+    "heroWithGpu": "{{vram}} de memória GPU, {{count}} modelos na galeria.",
+    "heroNoGpu": "{{count}} modelos na galeria.",
+    "heroHint": "Escolha qualquer item à esquerda para ver seu tamanho, variantes e se ele executará aqui.",
+    "browsing": "Explorando",
+    "pickHint": "Selecione um modelo para ver seus detalhes.",
+    "heroWithRam": "{{ram}} de memória do sistema, {{count}} modelos na galeria.",
+    "byUseCase": "Ou comece por um caso de uso",
+    "pickText": "Chat, raciocínio, embeddings",
+    "pickVision": "Leia imagens e documentos",
+    "pickAudio": "Fala de entrada e saída",
+    "pickVisual": "Gere imagens e vídeos"
+  }
+}
