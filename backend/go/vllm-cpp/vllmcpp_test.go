@@ -16,7 +16,7 @@ func TestVllmCpp(t *testing.T) {
 	RunSpecs(t, "vllm-cpp suite")
 }
 
-// The Go POD mirrors must match the C struct layout of vllm.h (ABI v10)
+// The Go POD mirrors must match the C struct layout of vllm.h (ABI v16)
 // byte-for-byte: these offsets are the C offsets on LP64 (linux/darwin
 // amd64+arm64). A failure here means govllmcpp.go drifted from vllm.h.
 var _ = Describe("C ABI struct mirrors", func() {
@@ -24,7 +24,7 @@ var _ = Describe("C ABI struct mirrors", func() {
 		// VLLM_ABI_VERSION in the vllm.h of VLLM_CPP_VERSION (Makefile).
 		// Moving the pin past this without growing the mirrors below ships a
 		// backend that refuses every load at startup (issue #11379).
-		Expect(abiVersion).To(Equal(10))
+		Expect(abiVersion).To(Equal(16))
 	})
 
 	It("cModelParams matches vllm_model_params", func() {
@@ -43,9 +43,12 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.SchedulingPolicy)).To(Equal(uintptr(64)))
 		Expect(unsafe.Offsetof(p.KVTransferConfig)).To(Equal(uintptr(72)))
 		Expect(unsafe.Offsetof(p.EnableJumpForward)).To(Equal(uintptr(80)))
-		// 88, not 84: the struct is 8-aligned (it holds pointers), so the
-		// trailing int32 is padded out. Go pads identically.
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(88)))
+		Expect(unsafe.Offsetof(p.Device)).To(Equal(uintptr(84)))
+		// 88, not 92: gpu_memory_utilization is a double, so it takes the next
+		// 8-aligned slot after the int32 pair. Go pads identically.
+		Expect(unsafe.Offsetof(p.GPUMemoryUtil)).To(Equal(uintptr(88)))
+		Expect(unsafe.Offsetof(p.KVCacheMemoryBytes)).To(Equal(uintptr(96)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(104)))
 	})
 
 	It("cSamplingParams matches vllm_sampling_params (ABI v8)", func() {

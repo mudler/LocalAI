@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=0757cac231ecd571a83c4fd2f50805c9251fc225
+VLLM_CPP_VERSION?=2b08dd246e04b3f0a4bf1f276170fd28004ced01
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
@@ -106,13 +106,24 @@ else
 	LIB=libvllm.so
 endif
 
-sources/vllm.cpp:
+# patches/ carries fixes the pinned engine SHA does not have yet. `git apply`
+# is deliberately unguarded: a patch that no longer applies must FAIL the clone
+# loudly, because the alternative is a pin that silently ships without a fix it
+# is documented to carry. Each patch header says which pin retires it.
+VLLM_CPP_PATCHES=$(wildcard patches/*.patch)
+
+sources/vllm.cpp: $(VLLM_CPP_PATCHES)
+	rm -rf sources/vllm.cpp
 	mkdir -p sources/vllm.cpp
 	cd sources/vllm.cpp && \
 	git init && \
 	git remote add origin $(VLLM_CPP_REPO) && \
 	git fetch --depth 1 origin $(VLLM_CPP_VERSION) && \
-	git checkout FETCH_HEAD
+	git checkout FETCH_HEAD && \
+	for p in $(VLLM_CPP_PATCHES); do \
+		echo "==> applying $$p"; \
+		git apply ../../$$p || exit 1; \
+	done
 
 ifeq ($(MLX_ENABLED),1)
 # A stamp FILE, not a phony target: a phony prerequisite is always "newer" than
@@ -165,7 +176,7 @@ $(LIB): sources/vllm.cpp $(MLX_STAMP)
 	cmake --build . --config Release -j$(JOBS) --target vllm_shared
 	cp -fL build/$(LIB) ./$(LIB)
 
-vllm-cpp: main.go govllmcpp.go backend.go options.go $(LIB)
+vllm-cpp: main.go govllmcpp.go backend.go chat.go options.go video.go $(LIB)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o vllm-cpp ./
 
 package: vllm-cpp

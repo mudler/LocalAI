@@ -28,7 +28,12 @@ type VllmCpp struct {
 	base.Base
 
 	engine uintptr
-	opts   loadOptions
+	// videoEngine is the MiniMax-H3 handle (ABI v12). It is deliberately a
+	// SECOND handle, not a mode of the first: H3 is a checkpoint set rather
+	// than a model directory, and vllm.cpp has the two loaders refuse each
+	// other's checkpoints. Exactly one of the two is ever non-zero.
+	videoEngine uintptr
+	opts        loadOptions
 }
 
 // Stream registry: the per-request bridge between the C token callback and
@@ -108,6 +113,14 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	}
 
 	v.opts = parseOptions(opts)
+
+	// MiniMax-H3 is a checkpoint SET behind its own engine handle, so the
+	// branch is taken before any text-engine knob is resolved. The two loaders
+	// refuse each other's checkpoints, which is why this is decided from the
+	// config rather than probed.
+	if v.opts.video.engaged() {
+		return v.loadVideo(opts, model)
+	}
 
 	// A DFlash draft is a second checkpoint the engine opens by path, and the
 	// engine never downloads one. Resolve it against LocalAI's models directory
@@ -193,6 +206,10 @@ func (v *VllmCpp) Free() error {
 	if v.engine != 0 {
 		vllmEngineFree(v.engine)
 		v.engine = 0
+	}
+	if v.videoEngine != 0 {
+		vllmVideoEngineFree(v.videoEngine)
+		v.videoEngine = 0
 	}
 	return nil
 }

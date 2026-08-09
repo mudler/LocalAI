@@ -304,6 +304,20 @@ var BackendCapabilities = map[string]BackendCapability{
 		AcceptsImages:    true,
 		Description:      "SGLang — fast LLM inference with structured generation and optional vision",
 	},
+	// vllm-cpp serves two mutually exclusive engine handles from one backend:
+	// a text engine, and MiniMax-H3's video+audio engine when the model config
+	// declares the H3 checkpoint set. Both usecases are possible, and chat is
+	// the default because a config that says nothing is a text model.
+	//
+	// AcceptsImages is the fl2va keyframe (start_image/end_image), the same
+	// reason longcat-video declares it; the text path takes no image input.
+	"vllm-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo},
+		DefaultUsecases:  []string{UsecaseChat},
+		AcceptsImages:    true,
+		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation plus MiniMax-H3 video+audio generation",
+	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},
 		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseImage, UsecaseVideo, UsecaseTTS, UsecaseVision},

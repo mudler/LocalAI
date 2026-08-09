@@ -172,7 +172,7 @@ LocalAI supports various types of backends:
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
-- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/video-generation" %}}))
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/video-generation" %}}), [vllm.cpp / MiniMax-H3]({{%relref "features/video-generation" %}}))
 - **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))

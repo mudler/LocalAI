@@ -62,6 +62,66 @@ type loadOptions struct {
 	// Override for the tokenizer_config.json the chat template is read from
 	// (ABI v9). Empty = <model_dir>/tokenizer_config.json.
 	tokenizerConfigPath string
+	// MiniMax-H3 video+audio generation (ABI v12). Present only when the config
+	// carries at least one of its keys; see videoOptions.engaged.
+	video videoOptions
+}
+
+// videoOptions is the MiniMax-H3 checkpoint SET plus its generation defaults.
+//
+// H3 is not one model directory: the DiT, the text encoder and the two VAEs are
+// separate artifacts, which is why vllm.cpp gives video its own engine handle
+// (vllm_video_engine, ABI v12) rather than another vllm_engine. The DiT is the
+// model config's `parameters.model`; everything else arrives through these
+// options, so one gallery entry can name five files.
+//
+// The geometry/frame defaults exist because H3's trained canvas is nothing like
+// the generic /video defaults: 1344x768 at 124 frames is a ~5.2 s clip, and the
+// frame count must sit on the 17n+5 grid. A request that leaves a field unset
+// gets the model's own default from here instead of a canvas the checkpoint was
+// never trained at.
+type videoOptions struct {
+	encoderPath      string // H3-Encoder GGUF or bf16 shard dir
+	tokenizerPath    string // tokenizer.json, needed with an encoder
+	videoVaePath     string
+	videoVaeConfig   string
+	audioVaePath     string
+	audioVaeConfig   string
+	promptEmbedsPath string // fallback conditioning when there is no encoder
+	// The served checkpoint PARTITION. Community GGUF/NVFP4 files strip the
+	// release metadata and the FL2VA/Ref2VA DiTs are byte-structurally
+	// identical, so the engine refuses every generate until it is DECLARED.
+	// "fl2va" serves t2va + fl2va; "ref2va" serves reference conditioning.
+	partition   string
+	device      int32 // 0 cpu, 1 cuda (the ABI's own encoding, no auto slot)
+	deviceSet   bool
+	dequantBf16 int32
+	fp4Resident int32
+	// Per-model generation defaults, applied when the request leaves the field
+	// at 0.
+	width     int32
+	height    int32
+	numFrames int32
+	steps     int32
+	// Where frames + WAV are written. Empty = a temporary directory beside the
+	// requested output, removed once the mux succeeds. Set it to keep the
+	// frame_%06d.ppm runs around (they are what ref2va's ref_video consumes).
+	workdir string
+	// The ffmpeg binary the composed mux argv is exec'd with. Empty = "ffmpeg"
+	// from PATH. libvllm composes the argv and spawns nothing, by design.
+	ffmpeg string
+	crf    int32
+}
+
+// engaged reports whether this config describes an H3 video engine. Load uses
+// it to choose which of the two mutually exclusive engine handles to open: the
+// checkpoints refuse each other, so guessing is not an option, and every key
+// below is meaningless to the text engine.
+func (v videoOptions) engaged() bool {
+	return v.encoderPath != "" || v.tokenizerPath != "" ||
+		v.videoVaePath != "" || v.videoVaeConfig != "" ||
+		v.audioVaePath != "" || v.audioVaeConfig != "" ||
+		v.promptEmbedsPath != "" || v.partition != ""
 }
 
 func parseOptions(opts *pb.ModelOptions) loadOptions {
@@ -110,8 +170,92 @@ func applyOptionsList(lo *loadOptions, options []string) {
 			if b, err := strconv.ParseBool(strings.TrimSpace(v)); err == nil {
 				lo.enableJumpForward = boolTriState(b)
 			}
+		default:
+			applyVideoOption(&lo.video, strings.TrimSpace(k), v)
 		}
 	}
+}
+
+// applyVideoOption reads one MiniMax-H3 key. Split out of applyOptionsList so
+// the video surface stays legible next to the videoOptions it fills, and so
+// video_test.go can exercise it directly.
+func applyVideoOption(vo *videoOptions, key, value string) bool {
+	v := strings.TrimSpace(value)
+	switch key {
+	case "video_encoder":
+		vo.encoderPath = v
+	case "video_tokenizer":
+		vo.tokenizerPath = v
+	case "video_vae":
+		vo.videoVaePath = v
+	case "video_vae_config":
+		vo.videoVaeConfig = v
+	case "audio_vae":
+		vo.audioVaePath = v
+	case "audio_vae_config":
+		vo.audioVaeConfig = v
+	case "video_prompt_embeds":
+		vo.promptEmbedsPath = v
+	case "video_partition":
+		vo.partition = strings.ToLower(v)
+	case "video_device":
+		switch strings.ToLower(v) {
+		case "cpu":
+			vo.device, vo.deviceSet = videoDeviceCPU, true
+		case "cuda", "gpu":
+			vo.device, vo.deviceSet = videoDeviceCUDA, true
+		default:
+			xlog.Warn("[vllm-cpp] ignoring unknown video_device", "value", v)
+		}
+	case "video_dequant_bf16":
+		if b, err := strconv.ParseBool(v); err == nil {
+			vo.dequantBf16 = boolInt32(b)
+		}
+	case "video_fp4_resident":
+		if b, err := strconv.ParseBool(v); err == nil {
+			vo.fp4Resident = boolInt32(b)
+		}
+	case "video_width":
+		vo.width = parseInt32(v, vo.width)
+	case "video_height":
+		vo.height = parseInt32(v, vo.height)
+	case "video_num_frames":
+		vo.numFrames = parseInt32(v, vo.numFrames)
+	case "video_steps":
+		vo.steps = parseInt32(v, vo.steps)
+	case "video_workdir":
+		vo.workdir = v
+	case "video_crf":
+		vo.crf = parseInt32(v, vo.crf)
+	case "ffmpeg", "ffmpeg_path":
+		vo.ffmpeg = v
+	default:
+		return false
+	}
+	return true
+}
+
+// videoScalarString renders an engine_args scalar so the video keys can share
+// one parser with the "key:value" list. Objects and arrays have no video
+// meaning and are left to the caller's unknown-key path.
+func videoScalarString(v any) (string, bool) {
+	switch t := v.(type) {
+	case string:
+		return t, true
+	case bool:
+		return strconv.FormatBool(t), true
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64), true
+	default:
+		return "", false
+	}
+}
+
+func boolInt32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // applyEngineArgs overlays the `engine_args:` JSON object. A document that does
@@ -160,6 +304,9 @@ func applyEngineArgs(lo *loadOptions, engineArgs string) {
 				lo.enableJumpForward = boolTriState(b)
 			}
 		default:
+			if s, ok := videoScalarString(v); ok && applyVideoOption(&lo.video, k, s) {
+				continue
+			}
 			xlog.Debug("[vllm-cpp] ignoring unknown engine_args key", "key", k)
 		}
 	}
