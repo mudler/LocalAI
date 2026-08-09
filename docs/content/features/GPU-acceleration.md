@@ -17,6 +17,10 @@ For advanced use cases or to override auto-detection, you can use the `LOCALAI_F
 - `nvidia`: Forces backends compiled with CUDA support for NVIDIA GPUs.
 - `amd`: Forces backends compiled with ROCm support for AMD GPUs.
 - `intel`: Forces backends compiled with SYCL/oneAPI support for Intel GPUs.
+- `vulkan`: Forces backends compiled with Vulkan support (e.g. the Windows llama-cpp backend, which auto-detects a Vulkan device and falls back to CPU — see [Windows]({{% relref "getting-started/windows" %}})).
+- `metal`: Forces backends compiled with Metal support (macOS/Apple Silicon).
+- `darwin-x86`: Forces the Intel-macOS build of a backend.
+- `windows`: Forces the native Windows build of a backend (only `llama-cpp` ships a Windows build today).
 
 ## Model configuration
 
@@ -378,6 +382,13 @@ On an integrated Intel GPU, the amount of free graphics memory can only be read 
 ### Requirements
 
 If using nvidia, follow the steps in the [CUDA](#cudanvidia-acceleration) section to configure your docker runtime to allow access to the GPU.
+
+### Native Windows
+
+The Windows binary ships the llama-cpp backend with Vulkan baked in: it
+auto-detects a Vulkan device at runtime and offloads `gpu_layers` to it,
+falling back to CPU when no Vulkan driver is present. No configuration or
+driver passthrough is required — see [Windows]({{% relref "getting-started/windows" %}}).
 
 ### Container images
 

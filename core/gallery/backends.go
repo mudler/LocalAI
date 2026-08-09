@@ -433,8 +433,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		URI:         string(uri),
 	}
 
-	// Record the OCI digest for upgrade detection (non-fatal on failure)
-	if uri.LooksLikeOCI() {
+	// Record the OCI digest for upgrade detection (non-fatal on failure).
+	// ocifile:// URIs are local tarballs streamed straight into the backend
+	// staging dir, not registry references — GetImageDigest cannot resolve
+	// them, so skip the lookup instead of printing a confusing parse error to
+	// builders installing the artifact they just produced.
+	if uri.LooksLikeOCI() && !uri.LooksLikeOCIFile() {
 		digest, digestErr := oci.GetImageDigest(string(uri), "", nil, nil)
 		if digestErr != nil {
 			xlog.Warn("Failed to get OCI image digest for backend", "uri", string(uri), "error", digestErr)

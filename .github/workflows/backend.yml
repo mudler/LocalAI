@@ -34,9 +34,11 @@ jobs:
     outputs:
       matrix-multiarch: ${{ steps.set-matrix.outputs['matrix-multiarch'] }}
       matrix-darwin: ${{ steps.set-matrix.outputs['matrix-darwin'] }}
+      matrix-windows: ${{ steps.set-matrix.outputs['matrix-windows'] }}
       merge-matrix-multiarch: ${{ steps.set-matrix.outputs['merge-matrix-multiarch'] }}
       has-backends-multiarch: ${{ steps.set-matrix.outputs['has-backends-multiarch'] }}
       has-backends-darwin: ${{ steps.set-matrix.outputs['has-backends-darwin'] }}
+      has-backends-windows: ${{ steps.set-matrix.outputs['has-backends-windows'] }}
       has-merges-multiarch: ${{ steps.set-matrix.outputs['has-merges-multiarch'] }}
       # Single-arch backends are sharded across SINGLEARCH_SHARDS matrix jobs to
       # stay under GitHub's 256-jobs-per-matrix limit (see changed-backends.js).
@@ -368,3 +370,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix-darwin) }}
+
+  backend-jobs-windows:
+    needs: generate-matrix
+    if: needs.generate-matrix.outputs.has-backends-windows == 'true'
+    uses: ./.github/workflows/backend_build_windows.yml
+    with:
+      backend: ${{ matrix.backend }}
+      build-type: ${{ matrix.build-type }}
+      go-version: "1.25.x"
+      tag-suffix: ${{ matrix.tag-suffix }}
+      lang: ${{ matrix.lang || 'go' }}
+      runs-on: "windows-latest"
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix-windows) }}

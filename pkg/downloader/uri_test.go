@@ -281,12 +281,15 @@ var _ = Describe("Download Test", func() {
 			mockServer := getMockServer(true)
 			defer mockServer.Close()
 			uri := URI(mockServer.URL)
-			// Create a partial file
+			// Create a partial file. The handle must be released before the
+			// download runs: DownloadFile renames the partial over the target,
+			// and Windows cannot rename a file with an open handle.
 			tmpFilePath := filePath + ".partial"
 			file, err := os.OpenFile(tmpFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = file.Write(mockData[0:10000])
 			Expect(err).ToNot(HaveOccurred())
+			Expect(file.Close()).To(Succeed())
 			err = uri.DownloadFile(filePath, mockDataSha, 1, 1, func(s1, s2, s3 string, f float64) {})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -295,12 +298,15 @@ var _ = Describe("Download Test", func() {
 			mockServer := getMockServer(false)
 			defer mockServer.Close()
 			uri := URI(mockServer.URL)
-			// Create a partial file
+			// Create a partial file. The handle must be released before the
+			// download runs: DownloadFile removes the partial and Windows cannot
+			// delete a file with an open handle.
 			tmpFilePath := filePath + ".partial"
 			file, err := os.OpenFile(tmpFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = file.Write(mockData[0:10000])
 			Expect(err).ToNot(HaveOccurred())
+			Expect(file.Close()).To(Succeed())
 			err = uri.DownloadFile(filePath, mockDataSha, 1, 1, func(s1, s2, s3 string, f float64) {})
 			Expect(err).ToNot(HaveOccurred())
 		})

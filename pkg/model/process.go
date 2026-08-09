@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -254,6 +256,31 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// A Windows host has no shell to execute the run.sh stub the gallery
+	// contract names, so the image also ships run.ps1 and os.StartProcess runs
+	// it through the bundled Windows PowerShell. run.sh stays in the image so
+	// discovery, validation and upgrades stay uniform with the other platforms.
+	processName := filepath.Base(grpcProcess)
+	processArgs := args
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(filepath.Join(workDir, "run.ps1")); err == nil {
+			grpcProcess = filepath.Join(workDir, "run.ps1")
+			// os.StartProcess resolves argv0 against ProcAttr.Dir on Windows, so
+			// a bare "powershell.exe" would be looked up inside the backend's
+			// workDir and every launch would fail with file-not-found. Resolve
+			// the absolute path first (PATH lookup finds System32).
+			processName, err = exec.LookPath("powershell.exe")
+			if err != nil {
+				return nil, fmt.Errorf("could not locate powershell.exe to launch %s: %w", grpcProcess, err)
+			}
+			processArgs = append([]string{
+				"-NoProfile",
+				"-ExecutionPolicy", "Bypass",
+				"-File", grpcProcess,
+			}, args...)
+		}
+	}
+
 	runtime, err := newBackendProcessRuntime()
 	if err != nil {
 		return nil, err
@@ -286,8 +313,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(append(processArgs, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)

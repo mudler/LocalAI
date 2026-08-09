@@ -419,7 +419,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp",
 						}
-						Expect(cudaBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Nvidia, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(cudaBackend.IsCompatibleWith(system.NewCapabilityState(system.Nvidia))).To(BeTrue())
 					})
 
 					It("should be compatible with cuda13 backend on nvidia GPU", func() {
@@ -429,7 +429,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-llama-cpp",
 						}
-						Expect(cuda13Backend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Nvidia, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(cuda13Backend.IsCompatibleWith(system.NewCapabilityState(system.Nvidia))).To(BeTrue())
 					})
 				})
 			})
@@ -460,7 +460,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp",
 						}
-						Expect(rocmBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.AMD, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(rocmBackend.IsCompatibleWith(system.NewCapabilityState(system.AMD))).To(BeTrue())
 					})
 
 					It("should be compatible with hipblas backend on AMD GPU", func() {
@@ -470,7 +470,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-hip-llama-cpp",
 						}
-						Expect(hipBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.AMD, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(hipBackend.IsCompatibleWith(system.NewCapabilityState(system.AMD))).To(BeTrue())
 					})
 				})
 			})
@@ -501,7 +501,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-llama-cpp",
 						}
-						Expect(intelBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Intel, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(intelBackend.IsCompatibleWith(system.NewCapabilityState(system.Intel))).To(BeTrue())
 					})
 
 					It("should be compatible with intel-sycl-f32 backend on Intel GPU", func() {
@@ -511,7 +511,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-llama-cpp",
 						}
-						Expect(intelF32Backend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Intel, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(intelF32Backend.IsCompatibleWith(system.NewCapabilityState(system.Intel))).To(BeTrue())
 					})
 
 					It("should be compatible with intel-transformers backend on Intel GPU", func() {
@@ -521,7 +521,7 @@ var _ = Describe("Gallery Backends", func() {
 							},
 							URI: "quay.io/go-skynet/local-ai-backends:latest-intel-transformers",
 						}
-						Expect(intelTransformersBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Intel, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+						Expect(intelTransformersBackend.IsCompatibleWith(system.NewCapabilityState(system.Intel))).To(BeTrue())
 					})
 				})
 			})
@@ -594,28 +594,28 @@ var _ = Describe("Gallery Backends", func() {
 
 			} else {
 				// Test with NVIDIA system state
-				nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia", VRAM: 1000000000000}
+				nvidiaSystemState := system.NewCapabilityState("nvidia")
 				bestBackend := metaBackend.FindBestBackendFromMeta(nvidiaSystemState, backends)
 				Expect(bestBackend).To(Equal(nvidiaBackend))
 
 				// Test with AMD system state
-				amdSystemState := &system.SystemState{GPUVendor: "amd", VRAM: 1000000000000}
+				amdSystemState := system.NewCapabilityState("amd")
 				bestBackend = metaBackend.FindBestBackendFromMeta(amdSystemState, backends)
 				Expect(bestBackend).To(Equal(amdBackend))
 
 				// Test with default system state (not enough VRAM)
-				defaultSystemState := &system.SystemState{GPUVendor: "amd"}
+				defaultSystemState := system.NewCapabilityState("default")
 				bestBackend = metaBackend.FindBestBackendFromMeta(defaultSystemState, backends)
 				Expect(bestBackend).To(Equal(defaultBackend))
 
 				// Test with default system state
-				defaultSystemState = &system.SystemState{GPUVendor: "default"}
+				defaultSystemState = system.NewCapabilityState("default")
 				bestBackend = metaBackend.FindBestBackendFromMeta(defaultSystemState, backends)
 				Expect(bestBackend).To(Equal(defaultBackend))
 
 				backends = GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend}
 				// Test with unsupported GPU vendor
-				unsupportedSystemState := &system.SystemState{GPUVendor: "unsupported"}
+				unsupportedSystemState := system.NewCapabilityState("unsupported")
 				bestBackend = metaBackend.FindBestBackendFromMeta(unsupportedSystemState, backends)
 				Expect(bestBackend).To(BeNil())
 			}
@@ -664,11 +664,7 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{
-				GPUVendor: "nvidia",
-				VRAM:      1000000000000,
-				Backend:   system.Backend{BackendsPath: tempDir},
-			}
+			nvidiaSystemState := system.NewCapabilityState("nvidia", system.WithBackendPath(tempDir))
 			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true, false)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -744,11 +740,7 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{
-				GPUVendor: "nvidia",
-				VRAM:      1000000000000,
-				Backend:   system.Backend{BackendsPath: tempDir},
-			}
+			nvidiaSystemState := system.NewCapabilityState("nvidia", system.WithBackendPath(tempDir))
 			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true, false)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -828,11 +820,7 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{
-				GPUVendor: "nvidia",
-				VRAM:      1000000000000,
-				Backend:   system.Backend{BackendsPath: tempDir},
-			}
+			nvidiaSystemState := system.NewCapabilityState("nvidia", system.WithBackendPath(tempDir))
 			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true, false)
 			Expect(err).NotTo(HaveOccurred())
 
