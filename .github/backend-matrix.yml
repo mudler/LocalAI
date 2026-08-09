@@ -11,6 +11,8 @@
 #               CUDA / ROCm / SYCL / Vulkan variants).
 #   - macOS  -> the `includeDarwin:` matrix (Apple Silicon / arm64; Metal where
 #               the engine supports it, otherwise a native arm64 CPU build).
+#   - Windows -> the `includeWindows:` matrix (x86_64 / amd64; native builds
+#               under MSYS2, no WSL/Docker — see backend_build_windows.yml).
 #
 # New backends must target EVERY OS they can build for, not just Linux. A backend
 # listed only under `include:` is silently unavailable on macOS even when its code
@@ -24,6 +26,12 @@
 # `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD
 # branch for C/C++ backends, and the inferBackendPathDarwin case in
 # scripts/lib/backend-filter.mjs so the path filter actually builds it).
+#
+# Windows builds are bespoke for now: every entry builds via a per-backend make
+# target + MSYS2 build script (see scripts/build/llama-cpp-windows.sh), the
+# index.yaml `windows:` capability + `windows-<backend>` image entries, a
+# run-windows launcher next to run.sh, and the inferBackendPathWindows case in
+# scripts/lib/backend-filter.mjs.
 
 # Linux matrix (consumed by backend-jobs).
 include:
@@ -6539,4 +6547,12 @@ includeDarwin:
     build-type: "mps"
   - backend: "ds4"
     tag-suffix: "-metal-darwin-arm64-ds4"
+    lang: "go"
+
+# Windows matrix (consumed by backend-jobs-windows).
+# Native windows/amd64 builds under MSYS2 — no WSL, no Docker. Each entry builds
+# via a bespoke make target + scripts/build/<backend>-windows.sh.
+includeWindows:
+  - backend: "llama-cpp"
+    tag-suffix: "-windows-amd64-llama-cpp"
     lang: "go"

@@ -756,6 +756,10 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 		if startPos > 0 && resp.StatusCode != http.StatusPartialContent {
 			_ = resp.Body.Close()
+			// The origin ignored the resume range, so the partial is garbage;
+			// a retry must start clean. Drop the write handle first — Windows
+			// cannot delete a file that is still open (no FILE_SHARE_DELETE).
+			_ = outFile.Close()
 			_ = removePartialFile(tmpFilePath)
 			// The partial has just been discarded, so a further attempt starts
 			// clean and no longer needs the server to honour the range.
@@ -805,6 +809,13 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// after filesystem permissions while the disk was perfectly healthy.
 	tracked := &readErrorRecorder{r: source}
 	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), tracked)
+	// Windows cannot rename or remove a file that still has an open handle:
+	// Go opens files without FILE_SHARE_DELETE, so MoveFileEx / DeleteFile fail
+	// with a sharing violation while outFile is live. The copy is the last use
+	// of the handle, so close it before any of the removal/rename paths below —
+	// the error paths (non-206 resume, user cancel, SHA mismatch) remove the
+	// partial too, and POSIX unlink works on open files while Windows does not.
+	_ = outFile.Close()
 	if err != nil {
 		// Detect cancellation via the context (a cause-cancelled read surfaces
 		// the cause, not context.Canceled). Keep the .partial for resume,
