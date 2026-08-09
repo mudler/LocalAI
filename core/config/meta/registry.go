@@ -816,6 +816,25 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			AutocompleteProvider: "models:token_classify",
 			Order:                201,
 		},
+		"pii.reversible_redactions": {
+			Section:     "pii",
+			Label:       "Reversible Redactions",
+			Description: "Replace masked values with wrapped request-scoped tokens and restore them when the model returns those tokens. Supports streaming responses and never persists the substitution map.",
+			Component:   "toggle",
+			Order:       202,
+		},
+		"pii.reversible_token_prefix": {
+			Section:     "pii",
+			Label:       "Reversible Token Prefix",
+			Description: "Prefix for reversible redaction tokens. Defaults to [REDACTED:.",
+			Order:       203,
+		},
+		"pii.reversible_token_suffix": {
+			Section:     "pii",
+			Label:       "Reversible Token Suffix",
+			Description: "Suffix for reversible redaction tokens. Defaults to ].",
+			Order:       204,
+		},
 
 		// --- PII detection policy (on a token_classify detector model) ---
 		"pii_detection.min_score": {
