@@ -99,7 +99,16 @@ ifeq ($(UNAME_S),Darwin)
 	# Apple Clang diagnoses a pair of constant-folded array bounds in the Metal
 	# build as a GNU extension. Disable that diagnostic for both Objective-C and
 	# C++ because vllm.cpp appends target-local -Werror after these global flags.
-	CMAKE_ARGS+=-DCMAKE_CXX_FLAGS=-Wno-gnu-folding-constant
+	#
+	# -Wno-return-type-c-linkage is the same class of Apple-Clang-only -Werror.
+	# src/capi/vllm_c.cpp opens one `extern "C" {` for the whole ABI surface, so
+	# the file-local helpers inside it inherit C linkage; one of them (the video
+	# slice's OrEmpty) returns std::string, which Apple Clang flags and GCC and
+	# upstream Clang do not. The helper is never called across the boundary, so
+	# the warning describes no real hazard here - but it is a genuine upstream
+	# wart, and the fix belongs in vllm.cpp (hoist the helper above the extern
+	# "C" block); drop this flag once a pin carrying that fix lands.
+	CMAKE_ARGS+="-DCMAKE_CXX_FLAGS=-Wno-gnu-folding-constant -Wno-return-type-c-linkage"
 	CMAKE_ARGS+=-DCMAKE_OBJC_FLAGS=-Wno-gnu-folding-constant
 	CMAKE_ARGS+=-DCMAKE_OBJCXX_FLAGS=-Wno-gnu-folding-constant
 else
