@@ -400,6 +400,8 @@ To preload models on start, use the `PRELOAD_MODELS` environment variable by set
 PRELOAD_MODELS='[{"url": "<MODEL_URL>"}]'
 ```
 
+The value must be a JSON array. Boolean values such as `true` are not valid model preload configurations.
+
 Note: `url` or `id` must be specified. `url` is used to a url to a model gallery configuration, while an `id` is used to refer to models inside repositories. If both are specified, the `id` will be used.
 
 For example:
