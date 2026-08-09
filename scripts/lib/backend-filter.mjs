@@ -129,8 +129,24 @@ export function inferBackendPathDarwin(item) {
   return `backend/${item.lang}/${item.backend}/`;
 }
 
+export function inferBackendPathWindows(item) {
+  // llama-cpp on Windows builds from the C++ sources (via the MSYS2 build
+  // script, scripts/build/llama-cpp-windows.sh), not a backend/go/llama-cpp
+  // tree (which doesn't exist). The Windows job is matrix-driven with lang=go
+  // for runner/toolchain selection, but the source path is C++ — exactly the
+  // Darwin convention.
+  if (item.backend === "llama-cpp") {
+    return `backend/cpp/llama-cpp/`;
+  }
+  if (!item.lang) {
+    return `backend/python/${item.backend}/`;
+  }
+
+  return `backend/${item.lang}/${item.backend}/`;
+}
+
 // Build a deduplicated map of backend name -> path prefix from all matrix entries
-export function getAllBackendPaths(includes, includesDarwin) {
+export function getAllBackendPaths(includes, includesDarwin, includesWindows = []) {
   const paths = new Map();
   for (const item of includes) {
     const p = inferBackendPath(item);
@@ -140,6 +156,12 @@ export function getAllBackendPaths(includes, includesDarwin) {
   }
   for (const item of includesDarwin) {
     const p = inferBackendPathDarwin(item);
+    if (p && !paths.has(item.backend)) {
+      paths.set(item.backend, p);
+    }
+  }
+  for (const item of includesWindows) {
+    const p = inferBackendPathWindows(item);
     if (p && !paths.has(item.backend)) {
       paths.set(item.backend, p);
     }
@@ -172,6 +194,14 @@ const DARWIN_BESPOKE_BUILDERS = new Set([
 ]);
 const isDarwinGenericGo = item =>
   !!item.lang && !DARWIN_BESPOKE_BUILDERS.has(item.backend);
+
+// backend_build_windows.yml builds every Windows entry through
+// `make backends/llama-cpp-windows` -> scripts/build/llama-cpp-windows.sh; there
+// is no generic Go builder for Windows yet. Keep this set in sync with that
+// workflow.
+const WINDOWS_BESPOKE_BUILDERS = new Set(["llama-cpp"]);
+const isWindowsGenericGo = item =>
+  !!item.lang && !WINDOWS_BESPOKE_BUILDERS.has(item.backend);
 
 const isLinuxPython = item => item.dockerfile.endsWith("python");
 
@@ -360,6 +390,7 @@ export const SHARED_BUILD_INPUTS = [
     matches: file => file === BACKEND_PROTO_FILE,
     linux: always,
     darwin: always,
+    windows: always,
   },
   {
     // COPY'd into every Python image (Dockerfile.python) and into every Darwin
@@ -367,6 +398,7 @@ export const SHARED_BUILD_INPUTS = [
     matches: file => file.startsWith("backend/python/common/"),
     linux: isLinuxPython,
     darwin: isDarwinPython,
+    windows: never,
   },
   {
     // Compiled into every Go backend binary (see GO_BACKEND_PKG_PREFIXES).
@@ -377,11 +409,18 @@ export const SHARED_BUILD_INPUTS = [
     // lang=go for runner selection only — their sources are C++ and link no
     // Go, so isDarwinGenericGo is the correct predicate here, exactly as it
     // is for scripts/build/golang-darwin.sh.
+    //
+    // Windows: llama-cpp's launcher is the run.ps1 script (no Go, no compile)
+    // and local-ai.exe is rebuilt from the current checkout in the workflow
+    // itself, so a pkg/ change never invalidates a published Windows backend
+    // image. A future generic Go Windows builder would switch this to
+    // isWindowsGenericGo.
     matches: file =>
       GO_BACKEND_PKG_PREFIXES.some(prefix => file.startsWith(prefix)) &&
       !file.endsWith("_test.go"),
     linux: isLinuxGo,
     darwin: isDarwinGenericGo,
+    windows: never,
   },
   {
     // The reusable build workflows own build-args, packaging and push for
@@ -390,11 +429,19 @@ export const SHARED_BUILD_INPUTS = [
     matches: file => file === ".github/workflows/backend_build.yml",
     linux: always,
     darwin: never,
+    windows: never,
   },
   {
     matches: file => file === ".github/workflows/backend_build_darwin.yml",
     linux: never,
     darwin: always,
+    windows: never,
+  },
+  {
+    matches: file => file === ".github/workflows/backend_build_windows.yml",
+    linux: never,
+    darwin: never,
+    windows: always,
   },
   {
     // Decides which GPU libraries end up inside an image. Every Linux image
@@ -406,31 +453,43 @@ export const SHARED_BUILD_INPUTS = [
     matches: file => file === "scripts/build/package-gpu-libs.sh",
     linux: always,
     darwin: never,
+    windows: never,
   },
   {
     matches: file => file === "scripts/build/python-darwin.sh",
     linux: never,
     darwin: isDarwinPython,
+    windows: never,
   },
   {
     matches: file => file === "scripts/build/golang-darwin.sh",
     linux: never,
     darwin: isDarwinGenericGo,
+    windows: never,
   },
   {
     matches: file => file === "scripts/build/llama-cpp-darwin.sh",
     linux: never,
     darwin: item => item.backend === "llama-cpp",
+    windows: never,
   },
   {
     matches: file => file === "scripts/build/ds4-darwin.sh",
     linux: never,
     darwin: item => item.backend === "ds4",
+    windows: never,
   },
   {
     matches: file => file === "scripts/build/privacy-filter-darwin.sh",
     linux: never,
     darwin: item => item.backend === "privacy-filter",
+    windows: never,
+  },
+  {
+    matches: file => file === "scripts/build/llama-cpp-windows.sh",
+    linux: never,
+    darwin: never,
+    windows: item => item.backend === "llama-cpp",
   },
   {
     // Catch-all, deliberately last and deliberately broad: anything else under
@@ -443,6 +502,7 @@ export const SHARED_BUILD_INPUTS = [
       file.startsWith("scripts/build/") && !file.endsWith("_test.sh"),
     linux: always,
     darwin: always,
+    windows: always,
   },
 ];
 
@@ -478,7 +538,7 @@ export const BACKEND_MATRIX_FILE = ".github/backend-matrix.yml";
 
 // Identity of a matrix entry across revisions. tag-suffix names the image;
 // per-arch legs of the same image are distinguished by platform-tag. Verified
-// unique across all 432 Linux and 57 Darwin entries.
+// unique across all 432 Linux, 57 Darwin and 1 Windows entries.
 export function matrixEntryKey(item) {
   return JSON.stringify([item["tag-suffix"] || "", item["platform-tag"] || ""]);
 }
@@ -515,12 +575,14 @@ function matchedSharedRules(changedFiles) {
   return rules;
 }
 
-// Filter both matrices against a changed-file list. Returns the surviving
-// entries plus the set of backend names considered changed, which drives the
-// per-backend boolean outputs consumed by test-extra.yml.
+// Filter the Linux, Darwin and Windows matrices against a changed-file list.
+// Returns the surviving entries plus the set of backend names considered
+// changed, which drives the per-backend boolean outputs consumed by
+// test-extra.yml.
 export function filterMatrix({
   includes,
   includesDarwin,
+  includesWindows,
   changedFiles,
   previousMatrix,
   protoRevisions,
@@ -553,6 +615,10 @@ export function filterMatrix({
     matrixFileChanged && previousMatrix
       ? changedEntryKeys(includesDarwin, previousMatrix.includeDarwin || [])
       : null;
+  const changedWindowsKeys =
+    matrixFileChanged && previousMatrix
+      ? changedEntryKeys(includesWindows || [], previousMatrix.includeWindows || [])
+      : null;
 
   const filtered = includes.filter(item => {
     const backendPath = inferBackendPath(item);
@@ -572,12 +638,21 @@ export function filterMatrix({
     return sharedRules.some(rule => rule.darwin(item));
   });
 
+  const filteredWindows = (includesWindows || []).filter(item => {
+    const backendPath = inferBackendPathWindows(item);
+    if (changedFiles.some(file => file.startsWith(backendPath))) return true;
+    if (matrixDiffUnavailable) return true;
+    if (changedWindowsKeys && changedWindowsKeys.has(matrixEntryKey(item))) return true;
+    return sharedRules.some(rule => rule.windows(item));
+  });
+
   const changedBackends = new Set();
   for (const item of filtered) changedBackends.add(item.backend);
   for (const item of filteredDarwin) changedBackends.add(item.backend);
-  for (const [backend, pathPrefix] of getAllBackendPaths(includes, includesDarwin)) {
+  for (const item of filteredWindows) changedBackends.add(item.backend);
+  for (const [backend, pathPrefix] of getAllBackendPaths(includes, includesDarwin, includesWindows)) {
     if (backendChanged(backend, pathPrefix, changedFiles)) changedBackends.add(backend);
   }
 
-  return { filtered, filteredDarwin, changedBackends };
+  return { filtered, filteredDarwin, filteredWindows, changedBackends };
 }
