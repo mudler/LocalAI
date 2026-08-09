@@ -510,7 +510,7 @@ var _ = Describe("Gallery", func() {
 					},
 				},
 			}
-			result := FindGalleryElement(modelsWithPath, "bert/embeddings")
+			result := FindGalleryElement(modelsWithPath, "bert"+string(os.PathSeparator)+"embeddings")
 			Expect(result).NotTo(BeNil())
 			Expect(result.GetName()).To(Equal("bert__embeddings"))
 		})
