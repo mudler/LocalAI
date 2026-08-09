@@ -88,6 +88,18 @@ ITN_LIB_DIR=$(ITN_PREFIX)/lib
 ITN_MARKER=$(ITN_LIB_DIR)/libsparrowhawk.so
 ITN_FST_HEADER=$(ITN_PREFIX)/include/fst/fst.h
 
+# SentencePiece became a core ASR dependency in 5be7bfb: RNNT context biasing
+# uses it even when Flashlight and text normalization are disabled. Build the
+# pinned static archive provided by upstream so every platform gets the same
+# dependency instead of relying on an undeclared system package.
+SENTENCEPIECE_PREFIX=sources/NeMo-Speech.cpp/.deps/sentencepiece
+SENTENCEPIECE_MARKER=$(SENTENCEPIECE_PREFIX)/lib/libsentencepiece.a
+
+# Linux's ASR CMake block looks in NEMO_SPEECH_DEPENDENCY_PREFIX directly, but
+# the Apple branch uses generic find_library()/find_path(). Put the same private
+# prefix on CMake's search path so Darwin consumes the archive built above too.
+CMAKE_ARGS+=-DCMAKE_PREFIX_PATH=$(abspath $(SENTENCEPIECE_PREFIX))
+
 ITN_CC?=gcc-12
 ITN_CXX?=g++-12
 
@@ -152,7 +164,7 @@ else
 endif
 CMAKE_ARGS+=-DNEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED)
 
-.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn patch-itn-headers
+.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn sentencepiece patch-itn-headers
 
 all: nemo-speech-cpp-grpc package
 
@@ -266,11 +278,17 @@ patch-itn-headers:
 
 itn: $(ITN_MARKER)
 
+$(SENTENCEPIECE_MARKER): | sources/NeMo-Speech.cpp
+	cd sources/NeMo-Speech.cpp && JOBS=$(JOBS) scripts/build_sentencepiece_static.sh
+
+sentencepiece: $(SENTENCEPIECE_MARKER)
+
 # Only a WITH_NORM=ON build needs the ITN stack, and it must exist before cmake
 # configures, since the WITH_NORM cmake block find_library()s into the prefix
 # with REQUIRED.
+NEMO_RUNTIME_PREREQS=$(SENTENCEPIECE_MARKER)
 ifeq ($(WITH_NORM),ON)
-NEMO_RUNTIME_PREREQS=$(ITN_MARKER)
+NEMO_RUNTIME_PREREQS+=$(ITN_MARKER)
 endif
 
 # Upstream sets CMAKE_LIBRARY_OUTPUT_DIRECTORY to ${CMAKE_BINARY_DIR}/bin, so the
