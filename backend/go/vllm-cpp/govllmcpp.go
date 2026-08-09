@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 16
+const abiVersion = 17
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
