@@ -33,7 +33,10 @@ type ApplicationConfig struct {
 	WebRTCNAT1To1IPs []string
 	// WebRTCICEInterfaces, when set, restricts ICE candidate gathering to these
 	// network interfaces (e.g. eth0), filtering out docker0/veth noise.
-	WebRTCICEInterfaces                 []string
+	WebRTCICEInterfaces []string
+	// WebRTCUDPPort, when positive, is the shared UDP port used by all WebRTC
+	// peer connections. Zero keeps pion's default ephemeral-port behavior.
+	WebRTCUDPPort                       int
 	UploadLimitMB, Threads, ContextSize int
 	ArtifactDownloadConcurrency         int
 	F16                                 bool
@@ -364,6 +367,12 @@ func WithWebRTCNAT1To1IPs(ips ...string) AppOption {
 func WithWebRTCICEInterfaces(interfaces ...string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.WebRTCICEInterfaces = interfaces
+	}
+}
+
+func WithWebRTCUDPPort(port int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.WebRTCUDPPort = port
 	}
 }
 
