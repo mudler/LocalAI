@@ -96,6 +96,55 @@
     - filename: llama-cpp/mmproj/qwen3.5-9b-defiant-fable/mmproj-BF16.gguf
       uri: huggingface://DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/mmproj-BF16.gguf
       sha256: 853698ce7aa6c7ba732478bad280240969ddf7b0fcbf93900046f63903a83383
+- name: "btl-4-compact"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/badtheorylabs/BTL-4
+    - https://huggingface.co/badtheorylabs/BTL-4-Compact
+  description: |
+    BTL-4 Compact is Bad Theory Labs' text-only 35B mixture-of-experts model
+    compressed into a single 9.96 GB IQ2_XXS GGUF. Around 2.1B parameters are
+    active per token, and the model is tuned for agentic work, tool use, coding,
+    and reasoning. The compact build omits the vision tower and disables the
+    source model's MTP layer for compatibility with stock llama.cpp.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3.5
+    - moe
+    - reasoning
+    - coding
+    - agentic
+    - tool-use
+  last_checked: "2026-08-10"
+  overrides:
+    backend: llama-cpp
+    cache_type_k: q8_0
+    cache_type_v: q8_0
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - reasoning_format:deepseek
+    parameters:
+      model: llama-cpp/models/BTL-4-Compact/BTL-4-IQ2_XXS.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/BTL-4-Compact/BTL-4-IQ2_XXS.gguf
+      uri: huggingface://badtheorylabs/BTL-4-Compact/BTL-4-IQ2_XXS.gguf
+      sha256: 6b7c298cf909fc04428ecf360a29dcc578188b1c90aa6ed435159f5a0d351496
 - &nemotron-3-embed-1b
   name: "nemotron-3-embed-1b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
