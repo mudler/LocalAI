@@ -412,6 +412,26 @@ func (bcl *ModelConfigLoader) GetModelsConflictingWith(name string) []string {
 	return conflicts
 }
 
+// GetPinnedModelNames returns the names of every configured, not-disabled
+// model with `pinned: true`. The distributed router and replica reconciler
+// consult this so cluster-wide eviction honours the same pin contract the
+// local watchdog enforces (#11101) — without it, a pinned model becomes
+// eviction-eligible the moment its in-flight count drops to zero.
+func (bcl *ModelConfigLoader) GetPinnedModelNames() []string {
+	bcl.Lock()
+	defer bcl.Unlock()
+	var pinned []string
+	for n, cfg := range bcl.configs {
+		if cfg.IsDisabled() {
+			continue
+		}
+		if cfg.IsPinned() {
+			pinned = append(pinned, n)
+		}
+	}
+	return pinned
+}
+
 // UpdateModelConfig updates an existing model config in the loader.
 // This is useful for updating runtime-detected properties like thinking support.
 func (bcl *ModelConfigLoader) UpdateModelConfig(m string, updater func(*ModelConfig)) {

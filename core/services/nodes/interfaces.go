@@ -46,7 +46,7 @@ type ModelRouter interface {
 	FindIdleNode(ctx context.Context) (*BackendNode, error)
 	FindLeastLoadedNode(ctx context.Context) (*BackendNode, error)
 	FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (*NodeModel, error)
-	FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error)
+	FindLRUModel(ctx context.Context, nodeID string, excludeModels []string) (*NodeModel, error)
 	Get(ctx context.Context, nodeID string) (*BackendNode, error)
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	GetGoverningScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
@@ -82,6 +82,15 @@ type LoadJobStore interface {
 // placement decisions without importing the config package's full surface.
 type ConcurrencyConflictResolver interface {
 	GetModelsConflictingWith(modelName string) []string
+}
+
+// PinnedModelResolver reports which configured models are pinned. Satisfied
+// by *config.ModelConfigLoader. The router's eviction paths and the
+// reconciler's idle scale-down exclude these models so `pinned: true` holds
+// cluster-wide, not just against the per-node watchdog (#11101). Deliberate
+// teardown (admin unload, model delete, node drain) intentionally bypasses it.
+type PinnedModelResolver interface {
+	GetPinnedModelNames() []string
 }
 
 // NodeHealthStore is used by HealthMonitor for node status management.

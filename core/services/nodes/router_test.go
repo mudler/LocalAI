@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -94,6 +95,9 @@ type fakeModelRouter struct {
 	// FindLRUModel returns
 	findLRUModel *NodeModel
 	findLRUErr   error
+	// findLRUExclude records the exclusion list EvictLRU passed, so specs can
+	// assert pinned models were filtered at the query, not post-hoc.
+	findLRUExclude []string
 
 	// NextFreeReplicaIndex returns
 	nextFreeReplicaIdx int
@@ -346,7 +350,11 @@ func (f *fakeModelRouter) FindGlobalLRUModelWithZeroInFlight(_ context.Context) 
 	return f.findGlobalLRUModel, f.findGlobalLRUErr
 }
 
-func (f *fakeModelRouter) FindLRUModel(_ context.Context, _ string) (*NodeModel, error) {
+func (f *fakeModelRouter) FindLRUModel(_ context.Context, _ string, excludeModels []string) (*NodeModel, error) {
+	f.findLRUExclude = excludeModels
+	if f.findLRUModel != nil && slices.Contains(excludeModels, f.findLRUModel.ModelName) {
+		return nil, fmt.Errorf("finding LRU model: record not found")
+	}
 	return f.findLRUModel, f.findLRUErr
 }
 

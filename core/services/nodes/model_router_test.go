@@ -114,7 +114,7 @@ func (f *fakeModelRouterForSmartRouter) FindLeastLoadedNode(_ context.Context) (
 func (f *fakeModelRouterForSmartRouter) FindGlobalLRUModelWithZeroInFlight(_ context.Context) (*NodeModel, error) {
 	return nil, nil
 }
-func (f *fakeModelRouterForSmartRouter) FindLRUModel(_ context.Context, _ string) (*NodeModel, error) {
+func (f *fakeModelRouterForSmartRouter) FindLRUModel(_ context.Context, _ string, _ []string) (*NodeModel, error) {
 	return nil, nil
 }
 func (f *fakeModelRouterForSmartRouter) Get(_ context.Context, nodeID string) (*BackendNode, error) {

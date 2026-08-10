@@ -216,7 +216,7 @@ var _ = Describe("Phase 1: Node Registration", Label("Distributed"), func() {
 			db.Model(&nodes.NodeModel{}).Where("node_id = ? AND model_name = ?", nodeID, "old-model").
 				Update("last_used", time.Now().Add(-10*time.Minute))
 
-			lru, err := registry.FindLRUModel(context.Background(), nodeID)
+			lru, err := registry.FindLRUModel(context.Background(), nodeID, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(lru.ModelName).To(Equal("old-model"))
 		})

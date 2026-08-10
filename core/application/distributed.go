@@ -378,8 +378,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// All dependencies ready — build SmartRouter with all options at once
 	var conflictResolver nodes.ConcurrencyConflictResolver
+	var pinnedResolver nodes.PinnedModelResolver
 	if configLoader != nil {
 		conflictResolver = configLoader
+		pinnedResolver = configLoader
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
@@ -390,6 +392,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		AuthToken:        routerAuthToken,
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
+		PinnedResolver:   pinnedResolver,
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
@@ -452,6 +455,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ProbeStaleAfter:   2 * time.Minute,
 		Pressure:          pressure,
 		PressureThreshold: prefixCfg.PressureScaleThreshold,
+		PinnedResolver:    pinnedResolver,
 	})
 
 	// Create ModelRouterAdapter to wire into ModelLoader

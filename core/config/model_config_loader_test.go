@@ -267,6 +267,40 @@ var _ = Describe("ModelConfigLoader.GetModelsConflictingWith", func() {
 	})
 })
 
+var _ = Describe("ModelConfigLoader.GetPinnedModelNames", func() {
+	var bcl *ModelConfigLoader
+
+	BeforeEach(func() {
+		bcl = NewModelConfigLoader("/tmp/pinned-test-models")
+	})
+
+	insert := func(cfg ModelConfig) {
+		bcl.Lock()
+		bcl.configs[cfg.Name] = cfg
+		bcl.Unlock()
+	}
+
+	boolPtr := func(b bool) *bool { return &b }
+
+	It("returns nil when nothing is pinned", func() {
+		insert(ModelConfig{Name: "a"})
+		insert(ModelConfig{Name: "b", Pinned: boolPtr(false)})
+		Expect(bcl.GetPinnedModelNames()).To(BeNil())
+	})
+
+	It("returns only pinned, enabled models", func() {
+		insert(ModelConfig{Name: "a", Pinned: boolPtr(true)})
+		insert(ModelConfig{Name: "b"})
+		insert(ModelConfig{Name: "c", Pinned: boolPtr(true)})
+		Expect(bcl.GetPinnedModelNames()).To(ConsistOf("a", "c"))
+	})
+
+	It("ignores disabled pinned models", func() {
+		insert(ModelConfig{Name: "a", Pinned: boolPtr(true), Disabled: boolPtr(true)})
+		Expect(bcl.GetPinnedModelNames()).To(BeNil())
+	})
+})
+
 var _ = Describe("ModelConfigLoader alias resolution", func() {
 	var loader *ModelConfigLoader
 

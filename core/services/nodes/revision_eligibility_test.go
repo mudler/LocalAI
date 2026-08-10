@@ -107,7 +107,7 @@ var _ = Describe("revision eligibility consumers", func() {
 		}),
 		Entry("FindLRUModel", func() []string {
 			Expect(db.Model(&NodeModel{}).Where("id IN ?", []string{"empty", "mismatch", "unloading"}).Update("node_id", nodes["current"].ID).Error).To(Succeed())
-			row, err := registry.FindLRUModel(ctx, nodes["current"].ID)
+			row, err := registry.FindLRUModel(ctx, nodes["current"].ID, nil)
 			Expect(err).NotTo(HaveOccurred())
 			return []string{row.ID}
 		}),
