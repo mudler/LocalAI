@@ -223,11 +223,12 @@ func grpcStartupError(process *processManager.Process) error {
 }
 
 func lastNonEmptyLine(path string, maxBytes int64) string {
+	// #nosec G304 -- path comes from the process manager for this backend's stderr file.
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {
