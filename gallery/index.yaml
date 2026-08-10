@@ -31904,6 +31904,82 @@
     - filename: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-8B-Reasoning-2512-f32.gguf
       sha256: 92252621cb957949379ff81ee14b15887d37eade3845a6e937e571b98c2c84c2
       uri: huggingface://unsloth/Ministral-3-8B-Reasoning-2512-GGUF/mmproj-F32.gguf
+- &shieldstral-1-0-3b
+  name: "shieldstral-1.0-3b"
+  variants:
+    - model: shieldstral-1.0-3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mistralai/Shieldstral-1.0-3B
+    - https://huggingface.co/noctrex/Shieldstral-1.0-3B-GGUF
+  description: |
+    Shieldstral 1.0 3B is Mistral AI's compact, policy-adaptive multimodal safety
+    classifier. It evaluates text, images, or combined inputs against a
+    natural-language safety policy and answers yes or no. The model supports
+    twelve languages and a recommended context length of up to 32K tokens.
+    This entry uses the Q4_K_M GGUF quantization and includes the Pixtral vision
+    projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - safety
+    - moderation
+    - classifier
+    - vision
+    - multimodal
+    - multilingual
+    - gpu
+    - cpu
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Shieldstral-1.0-3B/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      context_size: 32768
+      model: llama-cpp/models/Shieldstral-1.0-3B/Shieldstral-1.0-3B-Q4_K_M.gguf
+      temperature: 0
+      max_tokens: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Shieldstral-1.0-3B/Shieldstral-1.0-3B-Q4_K_M.gguf
+      sha256: df76fe59cf4083202fdf693527892774acd435ee8e9023c5a3aaa0c2b35d49ec
+      uri: huggingface://noctrex/Shieldstral-1.0-3B-GGUF/Shieldstral-1.0-3B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Shieldstral-1.0-3B/mmproj-F16.gguf
+      sha256: 765ad52bfeec11a8f58d81ef2738a8a72184770666d990505d69276e788858e1
+      uri: huggingface://noctrex/Shieldstral-1.0-3B-GGUF/mmproj-F16.gguf
+- !!merge <<: *shieldstral-1-0-3b
+  name: "shieldstral-1.0-3b-q8"
+  variants: []
+  description: |
+    Shieldstral 1.0 3B is Mistral AI's compact, policy-adaptive multimodal safety
+    classifier. This higher-quality variant uses the Q8_0 GGUF quantization and
+    includes the Pixtral vision projector.
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Shieldstral-1.0-3B/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      context_size: 32768
+      model: llama-cpp/models/Shieldstral-1.0-3B-q8/Shieldstral-1.0-3B-Q8_0.gguf
+      temperature: 0
+      max_tokens: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Shieldstral-1.0-3B-q8/Shieldstral-1.0-3B-Q8_0.gguf
+      sha256: 35b755bed2d473fb3d88f7d1d7b83203bd9f0c1b8bff42624e6fd9231d89d3c4
+      uri: huggingface://noctrex/Shieldstral-1.0-3B-GGUF/Shieldstral-1.0-3B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Shieldstral-1.0-3B/mmproj-F16.gguf
+      sha256: 765ad52bfeec11a8f58d81ef2738a8a72184770666d990505d69276e788858e1
+      uri: huggingface://noctrex/Shieldstral-1.0-3B-GGUF/mmproj-F16.gguf
 - name: mistralai_ministral-3-3b-instruct-2512-multimodal
   url: github:mudler/LocalAI/gallery/mistral-0.3.yaml@master
   urls:
