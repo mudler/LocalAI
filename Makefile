@@ -6,6 +6,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 LAUNCHER_BINARY_NAME=local-ai-launcher
+LAUNCHER_APP_VERSION?=0.0.0
 
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
@@ -1603,7 +1604,7 @@ site-serve: site
 build-launcher-darwin:
 	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
 	mkdir -p dist
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --app-version $(LAUNCHER_APP_VERSION) --executable $(LAUNCHER_BINARY_NAME)
 	mv cmd/launcher/LocalAI.app dist/LocalAI.app
 	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
 

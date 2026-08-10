@@ -52,7 +52,7 @@ jobs:
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
-        run: make release-launcher-darwin
+        run: make release-launcher-darwin LAUNCHER_APP_VERSION="${GITHUB_REF_NAME#v}"
       - name: Upload DMG to Release
         uses: softprops/action-gh-release@v3
         with:
