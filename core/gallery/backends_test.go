@@ -186,8 +186,8 @@ var _ = Describe("Gallery Backends", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tempDir)
-		os.RemoveAll(fixtureDir)
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		Expect(os.RemoveAll(fixtureDir)).To(Succeed())
 	})
 
 	Describe("InstallBackendFromGallery", func() {
