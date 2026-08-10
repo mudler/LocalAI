@@ -3094,6 +3094,87 @@
     - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
       sha256: 36587fdf27bdfc69caf2637273679a0870ec155162161bde6fd16e8c70bdb757
       uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q8_0.gguf
+- &bigbang-v1
+  name: "bigbang-v1-q4-k-m"
+  variants:
+    - model: bigbang-v1-q6-k
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/endless-frontier/BigBang-v1
+    - https://huggingface.co/bartowski/endless-frontier_BigBang-v1-GGUF
+  description: |
+    BigBang-v1 is an Apache-2.0 multimodal reasoning model fine-tuned from
+    Qwen3.6-35B-A3B for scientific research, coding, long-horizon search, and
+    tool use. It supports image input, a 262K native context window, and
+    built-in multi-token prediction. This entry uses the recommended Q4_K_M
+    GGUF quantization and the F16 vision projector.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    mmproj: llama-cpp/mmproj/endless-frontier_BigBang-v1-GGUF/mmproj-endless-frontier_BigBang-v1-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/models/endless-frontier_BigBang-v1-GGUF/endless-frontier_BigBang-v1-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/endless-frontier_BigBang-v1-GGUF/endless-frontier_BigBang-v1-Q4_K_M.gguf
+      sha256: ecd3826696511dc4f4048af8f654bbc626be90adad4e701db0ec7bc515aea752
+      uri: https://huggingface.co/bartowski/endless-frontier_BigBang-v1-GGUF/resolve/main/endless-frontier_BigBang-v1-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/endless-frontier_BigBang-v1-GGUF/mmproj-endless-frontier_BigBang-v1-f16.gguf
+      sha256: 5a6a19c9ea918c36b0d5b1a12ee6889e11745eaeea4b995abf3ae363f48fb0c0
+      uri: https://huggingface.co/bartowski/endless-frontier_BigBang-v1-GGUF/resolve/main/mmproj-endless-frontier_BigBang-v1-f16.gguf
+- !!merge <<: *bigbang-v1
+  name: "bigbang-v1-q6-k"
+  variants: null
+  description: |
+    BigBang-v1 is an Apache-2.0 multimodal reasoning model fine-tuned from
+    Qwen3.6-35B-A3B for scientific research, coding, long-horizon search, and
+    tool use. It supports image input, a 262K native context window, and
+    built-in multi-token prediction. This entry uses the higher-quality Q6_K
+    GGUF quantization and the F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    mmproj: llama-cpp/mmproj/endless-frontier_BigBang-v1-GGUF/mmproj-endless-frontier_BigBang-v1-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/models/endless-frontier_BigBang-v1-GGUF/endless-frontier_BigBang-v1-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/endless-frontier_BigBang-v1-GGUF/endless-frontier_BigBang-v1-Q6_K.gguf
+      sha256: ca76cc0cec8e757bda582b1cef1c5c79ab84447c5cb43036032b58d2b45271f4
+      uri: https://huggingface.co/bartowski/endless-frontier_BigBang-v1-GGUF/resolve/main/endless-frontier_BigBang-v1-Q6_K.gguf
+    - filename: llama-cpp/mmproj/endless-frontier_BigBang-v1-GGUF/mmproj-endless-frontier_BigBang-v1-f16.gguf
+      sha256: 5a6a19c9ea918c36b0d5b1a12ee6889e11745eaeea4b995abf3ae363f48fb0c0
+      uri: https://huggingface.co/bartowski/endless-frontier_BigBang-v1-GGUF/resolve/main/mmproj-endless-frontier_BigBang-v1-f16.gguf
 - name: "qwopus3.6-27b-coder-compat-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
