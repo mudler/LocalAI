@@ -53,6 +53,12 @@ type SmartRouterOptions struct {
 	// anti-affinity is disabled at the scheduler layer; the per-node
 	// watchdog still enforces the rule on arrival.
 	ConflictResolver ConcurrencyConflictResolver
+	// PinnedResolver, when set, excludes `pinned: true` models from the
+	// automatic eviction paths (EvictLRU, evictLRUAndFreeNode) so the pin
+	// contract holds cluster-wide, mirroring the per-node watchdog (#11101).
+	// nil disables the exclusion. Deliberate teardown (UnloadModel, admin
+	// endpoints, node drain) is unaffected.
+	PinnedResolver PinnedModelResolver
 	// PrefixProvider, when set, enables prefix-cache-aware routing: requests
 	// carrying a prompt prefix chain (distributedhdr.PrefixChain) are biased
 	// toward the node that already holds the longest matching prefix, subject
@@ -161,6 +167,9 @@ type SmartRouter struct {
 	db               *gorm.DB             // for advisory locks during routing
 	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
 	conflictResolver ConcurrencyConflictResolver
+	// pinnedResolver feeds the eviction paths the set of pinned model names
+	// (see SmartRouterOptions.PinnedResolver). nil disables the exclusion.
+	pinnedResolver PinnedModelResolver
 	// prefixProvider is the prefix-cache routing seam (nil disables it; see
 	// SmartRouterOptions.PrefixProvider). prefixConfig holds the global policy
 	// and thresholds.
@@ -244,6 +253,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		db:                  opts.DB,
 		stagingTracker:      NewStagingTracker(),
 		conflictResolver:    opts.ConflictResolver,
+		pinnedResolver:      opts.PinnedResolver,
 		probeCache:          newProbeCache(probeCacheTTL),
 		prefixProvider:      opts.PrefixProvider,
 		prefixConfig:        opts.PrefixConfig,
@@ -1996,10 +2006,20 @@ func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string)
 	return nil
 }
 
+// pinnedModelNames returns the pinned set for eviction exclusion, or nil when
+// no resolver is wired (embedders, tests, deployments without a config loader).
+func (r *SmartRouter) pinnedModelNames() []string {
+	if r.pinnedResolver == nil {
+		return nil
+	}
+	return r.pinnedResolver.GetPinnedModelNames()
+}
+
 // EvictLRU evicts the least-recently-used model from a node to make room.
-// Returns the name of the evicted model, or empty string if nothing could be evicted.
+// Returns the name of the evicted model, or empty string if nothing could be
+// evicted. Pinned models are never candidates (#11101).
 func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, error) {
-	lru, err := r.registry.FindLRUModel(ctx, nodeID)
+	lru, err := r.registry.FindLRUModel(ctx, nodeID, r.pinnedModelNames())
 	if err != nil {
 		return "", fmt.Errorf("finding LRU model on node %s: %w", nodeID, err)
 	}
@@ -2072,6 +2092,12 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 			if len(candidateNodeIDs) > 0 {
 				q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
 			}
+			// Pinned models are protected from automatic eviction (#11101).
+			// Filtered in the query, not after selection, so the next-oldest
+			// unpinned model is chosen instead of the attempt being wasted.
+			if pinned := r.pinnedModelNames(); len(pinned) > 0 {
+				q = q.Where("node_models.model_name NOT IN ?", pinned)
+			}
 			if err := q.
 				Order("node_models.last_used ASC").
 				First(&lru).Error; err != nil {
@@ -2101,9 +2127,10 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 			return node, nil
 		}
 
-		// gorm.ErrRecordNotFound means all models have in-flight requests
+		// gorm.ErrRecordNotFound means every candidate is either mid-request
+		// or excluded as pinned
 		if attempt == 0 {
-			xlog.Info("All models have in-flight requests, waiting for capacity")
+			xlog.Info("No evictable model (all busy or pinned), waiting for capacity")
 		}
 		select {
 		case <-ctx.Done():

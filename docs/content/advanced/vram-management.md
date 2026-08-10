@@ -214,6 +214,14 @@ choosing where to load a new model, it prefers nodes that don't already host a
 same-group model, falling back to eviction only if every candidate has a
 conflict.
 
+`pinned: true` also holds cluster-wide: the distributed scheduler's LRU
+eviction (used to free capacity for a new model) and the replica reconciler's
+idle scale-down both exclude pinned models, matching what the per-node
+watchdog already guarantees. Deliberate teardown - an admin unload, deleting
+the model, draining a node - still applies to pinned models. Note that if
+every idle model on the cluster is pinned, a new model's load waits for
+capacity instead of evicting one.
+
 `concurrency_groups` composes with `NodeSelector` (which decides *which
 nodes* a model is eligible for) - the two filters apply in sequence. Use
 `NodeSelector` to target hardware classes; use `concurrency_groups` to keep

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -155,6 +156,9 @@ type ReplicaReconciler struct {
 	// what a backend inside a request cannot do.
 	inFlightIdleMu sync.Mutex
 	inFlightIdle   map[string]int
+	// pinnedResolver exempts pinned models from idle scale-down (see
+	// ReplicaReconcilerOptions.PinnedResolver). nil disables the exemption.
+	pinnedResolver PinnedModelResolver
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -192,6 +196,12 @@ type ReplicaReconcilerOptions struct {
 	// PressureThreshold is the forced-disturb count within PressureWindow that
 	// triggers a scale-up. Default prefixcache.DefaultConfig().PressureScaleThreshold (1).
 	PressureThreshold int
+	// PinnedResolver, when set, exempts `pinned: true` models from idle
+	// scale-down so the pin contract holds cluster-wide (#11101). nil
+	// disables the exemption. Dead-row reaping is unaffected: it removes
+	// registry rows for processes that are already gone, which is state
+	// correction, not eviction.
+	PinnedResolver PinnedModelResolver
 }
 
 // NewReplicaReconciler creates a new ReplicaReconciler.
@@ -235,6 +245,7 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 		probeStaleAfter:   probeStaleAfter,
 		pressure:          opts.Pressure,
 		pressureThreshold: pressureThreshold,
+		pinnedResolver:    opts.PinnedResolver,
 	}
 }
 
@@ -1083,9 +1094,16 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 	return scheduled > 0
 }
 
-// scaleDownIdle removes idle replicas above the floor.
+// scaleDownIdle removes idle replicas above the floor. Pinned models are
+// exempt entirely: `pinned: true` promises the operator the model stays
+// resident, and trimming to a floor of one still means every request beyond
+// the survivor's capacity pays a cold reload (#11101).
 func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedulingConfig, current, floor int) {
 	if rc.unloader == nil {
+		return
+	}
+	if rc.pinnedResolver != nil && slices.Contains(rc.pinnedResolver.GetPinnedModelNames(), cfg.ModelName) {
+		xlog.Debug("Reconciler: skipping idle scale-down for pinned model", "model", cfg.ModelName)
 		return
 	}
 

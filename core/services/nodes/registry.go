@@ -2000,10 +2000,13 @@ func (r *NodeRegistry) FindNodeForModel(ctx context.Context, modelName string) (
 }
 
 // FindLRUModel returns the least-recently-used model on a node.
-func (r *NodeRegistry) FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error) {
+func (r *NodeRegistry) FindLRUModel(ctx context.Context, nodeID string, excludeModels []string) (*NodeModel, error) {
 	var nm NodeModel
-	err := currentModelRevision(r.db.WithContext(ctx)).Where("node_models.node_id = ? AND node_models.state = ? AND node_models.in_flight = 0", nodeID, "loaded").
-		Order("last_used ASC").First(&nm).Error
+	q := currentModelRevision(r.db.WithContext(ctx)).Where("node_models.node_id = ? AND node_models.state = ? AND node_models.in_flight = 0", nodeID, "loaded")
+	if len(excludeModels) > 0 {
+		q = q.Where("node_models.model_name NOT IN ?", excludeModels)
+	}
+	err := q.Order("last_used ASC").First(&nm).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding LRU model on node %s: %w", nodeID, err)
 	}
