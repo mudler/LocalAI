@@ -928,6 +928,235 @@
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+- &qwen3-6-35b-a3b-genesis-hermes-v7
+  name: "qwen3.6-35b-a3b-genesis-hermes-v7"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: qwen3.6-35b-a3b-genesis-hermes-v7-apex-compact
+    - model: qwen3.6-35b-a3b-genesis-hermes-v7-mtp-apex
+    - model: qwen3.6-35b-a3b-genesis-hermes-v7-mtp-apex-compact
+    - model: qwen3.6-35b-a3b-genesis-hermes-v7-q8-k-p
+  urls:
+    - https://huggingface.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive
+    - https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes V7 is LuffyTheFox's Apache-2.0 multimodal,
+    agentic derivative of HauhauCS's uncensored Qwen3.6-35B-A3B model. It
+    combines Genesis tensor calibration with Hermes function-calling data while
+    retaining the 35B mixture-of-experts architecture, roughly 3B active
+    parameters per token, and the native 262K-token context window.
+
+    This entry's own payload uses the model card's recommended APEX GGUF and the
+    shared F16 multimodal projector. Automatic variant selection may instead
+    choose Compact APEX, an MTP-enabled APEX build, or Q8_K_P based on serving
+    features and available memory. The model card recommends Jinja chat
+    templates and at least a 128K context for its thinking behavior.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+  last_checked: "2026-08-10"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
+      sha256: 995c2a82e1aaca7947075891ead093e38d1e7dc5c0b54e4debd1d01058229ff9
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
+  name: "qwen3.6-35b-a3b-genesis-hermes-v7-apex-compact"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes V7 in the smaller APEX Compact GGUF format,
+    with the shared F16 multimodal projector. This build preserves the model's
+    multimodal, reasoning, coding, and agentic capabilities for hosts with less
+    memory than the recommended full APEX build.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
+      sha256: 41826ae69333ab4f3577d53c0a8b427b306c63c88c6200b4eada32dda28d26b9
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
+  name: "qwen3.6-35b-a3b-genesis-hermes-v7-mtp-apex"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes V7 in the full APEX GGUF format with native
+    multi-token prediction enabled for speculative decoding, plus the shared
+    F16 multimodal projector.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
+      sha256: 63a3cd730a4f1e7f5b909c89550de32e5a27b33c697c62aed9da60a7bd4643ae
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
+  name: "qwen3.6-35b-a3b-genesis-hermes-v7-mtp-apex-compact"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes V7 in the smaller APEX Compact GGUF format
+    with native multi-token prediction enabled for speculative decoding, plus
+    the shared F16 multimodal projector.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
+      sha256: 11edd0da4f28f587c0eb72ae2e417dfb0d02733360303045e21c9ba3aae8d114
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
+  name: "qwen3.6-35b-a3b-genesis-hermes-v7-q8-k-p"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes V7 in the high-quality Q8_K_P GGUF format,
+    with the shared F16 multimodal projector. This is the largest non-MTP build
+    in the published V7 set.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
+      sha256: b37a4225ba1eebaaac35b69dfeb78d1955d06fcb9f41fd334a4837cbdaff21c1
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
+      uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
