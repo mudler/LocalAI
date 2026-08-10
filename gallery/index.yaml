@@ -3661,6 +3661,89 @@
     - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-MTP-GGUF/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
       sha256: d088e57e8c35ff62c2a420cb888dad3fd53c8db3ed9ead4286bd383224f81b50
       uri: https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF/resolve/main/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+- &grug-12b
+  name: "grug-12b"
+  variants:
+    - model: grug-12b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/kai-os/Grug-12B
+    - https://huggingface.co/bartowski/kai-os_Grug-12B-GGUF
+  description: |
+    Grug 12B is kai-os's compact-reasoning fine-tune of Gemma 4 12B IT. It
+    targets shorter, denser reasoning traces while preserving constraints,
+    branching decisions, edge cases, and final-answer checks. This entry uses
+    Bartowski's Q4_K_M quantization and includes the multimodal projector for
+    Gemma 4 image inputs.
+
+    The model is experimental and its reported evaluation is a small local
+    math proxy rather than a broad benchmark. Review the upstream model card's
+    dataset provenance and `other` license before commercial or sensitive use.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+    - gpu
+    - cpu
+  icon: https://huggingface.co/kai-os/Grug-12B/resolve/main/logo.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/kai-os_Grug-12B-Q4_K_M/mmproj-kai-os_Grug-12B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/kai-os_Grug-12B-Q4_K_M/kai-os_Grug-12B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/kai-os_Grug-12B-Q4_K_M/kai-os_Grug-12B-Q4_K_M.gguf
+      sha256: 5110bdafeb92e68ccef3dc07858341b4ba9a831df753d667708080d415e5364d
+      uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/kai-os_Grug-12B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/kai-os_Grug-12B-Q4_K_M/mmproj-kai-os_Grug-12B-f16.gguf
+      sha256: 0d59c7571a593b8d11c8104ed90250656efec0abbed9b4a737e7247eae149378
+      uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/mmproj-kai-os_Grug-12B-f16.gguf
+- !!merge <<: *grug-12b
+  name: "grug-12b-q8"
+  variants: []
+  description: |
+    Grug 12B is kai-os's compact-reasoning fine-tune of Gemma 4 12B IT. This
+    high-quality variant uses Bartowski's Q8_0 quantization and includes the
+    multimodal projector for Gemma 4 image inputs.
+
+    The model is experimental and its reported evaluation is a small local
+    math proxy rather than a broad benchmark. Review the upstream model card's
+    dataset provenance and `other` license before commercial or sensitive use.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/kai-os_Grug-12B-Q8_0/mmproj-kai-os_Grug-12B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/kai-os_Grug-12B-Q8_0/kai-os_Grug-12B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/kai-os_Grug-12B-Q8_0/kai-os_Grug-12B-Q8_0.gguf
+      sha256: 654e42ce66ff74b617fe1f3b7d5e939ffc22de333dd4f47e65441c1d8c385659
+      uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/kai-os_Grug-12B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/kai-os_Grug-12B-Q8_0/mmproj-kai-os_Grug-12B-f16.gguf
+      sha256: 0d59c7571a593b8d11c8104ed90250656efec0abbed9b4a737e7247eae149378
+      uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/mmproj-kai-os_Grug-12B-f16.gguf
 - name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
