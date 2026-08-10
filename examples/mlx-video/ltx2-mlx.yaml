@@ -1,0 +1,8 @@
+name: ltx2-mlx
+backend: mlx-video
+parameters:
+  model: prince-canuma/LTX-2.3-distilled-mlx
+usecases:
+  - video
+options:
+  - pipeline:distilled
