@@ -154,6 +154,7 @@ var _ = Describe("Gallery Backends", func() {
 		ml          *model.ModelLoader
 		systemState *system.SystemState
 		testImage   string
+		fixtureDir  string
 	)
 
 	BeforeEach(func() {
@@ -161,9 +162,10 @@ var _ = Describe("Gallery Backends", func() {
 		tempDir, err = os.MkdirTemp("", "gallery-test-*")
 		Expect(err).NotTo(HaveOccurred())
 
-		imagePath := filepath.Join(tempDir, "backend-image.tar")
-		writeBackendImageFixture(imagePath)
-		testImage = "ocifile://" + imagePath
+		fixtureDir, err = os.MkdirTemp("", "backend-fixture-*")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(fixtureDir, "run.sh"), []byte("#!/bin/sh\necho test backend\n"), 0o755)).To(Succeed())
+		testImage = fixtureDir
 
 		galleryPath := filepath.Join(tempDir, "backend-gallery.yaml")
 		galleryData, err := yaml.Marshal(GalleryBackends{
@@ -185,6 +187,7 @@ var _ = Describe("Gallery Backends", func() {
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
+		os.RemoveAll(fixtureDir)
 	})
 
 	Describe("InstallBackendFromGallery", func() {
@@ -198,6 +201,18 @@ var _ = Describe("Gallery Backends", func() {
 			err := InstallBackendFromGallery(context.TODO(), galleries, systemState, ml, "test-backend", nil, true, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
+		})
+
+		It("should install a local OCI backend image", func() {
+			imagePath := filepath.Join(tempDir, "backend-image.tar")
+			writeBackendImageFixture(imagePath)
+			backend := &GalleryBackend{
+				Metadata: Metadata{Name: "oci-test-backend"},
+				URI:      "ocifile://" + imagePath,
+			}
+
+			Expect(InstallBackend(context.TODO(), systemState, ml, backend, nil, false)).To(Succeed())
+			Expect(filepath.Join(tempDir, "oci-test-backend", "run.sh")).To(BeARegularFile())
 		})
 
 		It("removes files from a previous install that are absent in the new artifact", func() {
