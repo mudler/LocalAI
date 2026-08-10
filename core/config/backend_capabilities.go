@@ -382,6 +382,13 @@ var BackendCapabilities = map[string]BackendCapability{
 		AcceptsAudios:    true,
 		Description:      "LongCat-Video — text, image, and audio-conditioned avatar video generation on NVIDIA CUDA",
 	},
+	"mlx-video": {
+		GRPCMethods:      []GRPCMethod{MethodGenerateVideo},
+		PossibleUsecases: []string{UsecaseVideo},
+		DefaultUsecases:  []string{UsecaseVideo},
+		AcceptsImages:    true,
+		Description:      "MLX-Video — LTX-2 and Wan video generation on Apple Silicon",
+	},
 	"stablediffusion": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateImage},
 		PossibleUsecases: []string{UsecaseImage},
