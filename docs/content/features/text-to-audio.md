@@ -130,6 +130,7 @@ When a saved profile is selected, LocalAI supplies both its private WAV and exac
 | --- | --- |
 | `chatterbox`, `faster-qwen3-tts`, `fish-speech`, `moss-tts-cpp`, `neutts`, `omnivoice-cpp`, `pocket-tts`, `voxcpm` | Reference-audio cloning models served by these dedicated backends. |
 | `qwen-tts`, `qwen3-tts-cpp`, `vllm-omni` | Base or VoiceClone variants. CustomVoice and VoiceDesign variants are not raw reference-audio models. |
+| `llama-cpp` | Models that declare `known_usecases: [tts]`, which the Qwen3-TTS gallery entries (`qwen3-tts-llamacpp`, `qwen3-tts-llamacpp-q4`) do. A reference clip is required, since the Base checkpoints have no built-in speaker. Ordinary GGUF chat and vision models served by this backend are excluded. |
 | `vibevoice-cpp` | 1.5B reference-WAV variants. The realtime 0.5B preset-prompt model is excluded. |
 | `coqui` | XTTS and YourTTS variants. |
 | `crispasr` | F5-TTS variants. ASR, Piper, Orpheus, and other CrispASR model families are excluded. |
@@ -170,7 +171,7 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 }' > output.wav
 ```
 
-Note: Streaming TTS is currently supported by the `voxcpm` backend. Other backends will fall back to non-streaming mode if streaming is not supported.
+Note: Streaming TTS is implemented by the `audio-cpp`, `crispasr`, `llama-cpp`, `magpie-tts-cpp`, `moss-tts-cpp`, `omnivoice-cpp`, `qwen3-tts-cpp`, `sherpa-onnx`, `supertonic`, `vibevoice-cpp` and `voxcpm` backends. Other backends will fall back to non-streaming mode if streaming is not supported.
 
 ## Backends
 
@@ -534,6 +535,59 @@ tts:
   voice_cloning: true
   audio_path: voices/default-reference.wav  # optional fallback
 ```
+
+#### llama.cpp gallery variants
+
+llama.cpp gained native Qwen3-TTS support in [ggml-org/llama.cpp#26254](https://github.com/ggml-org/llama.cpp/pull/26254), so the `llama-cpp` backend can serve it on the same accelerator matrix it already uses for text generation: CUDA, ROCm, SYCL, Vulkan and Metal.
+
+Install `qwen3-tts-llamacpp` (Q8_0 backbone) or `qwen3-tts-llamacpp-q4` (Q4_K_M backbone) from the Model gallery, or run `local-ai models install qwen3-tts-llamacpp-q4`.
+
+These models load two files: the backbone GGUF and a multimodal projector holding the speaker encoder and code predictor. A hand-written configuration must point at both:
+
+```yaml
+name: qwen3-tts-llamacpp
+backend: llama-cpp
+known_usecases:
+  - tts
+mmproj: qwen3-tts-llamacpp/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+parameters:
+  model: qwen3-tts-llamacpp/Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf
+```
+
+`known_usecases: [tts]` is not optional here. It is how LocalAI tells a Qwen3-TTS checkpoint apart from the text and vision GGUFs the same backend serves: without it the model is treated as a chat model, its projector is read as a vision tower, and Voice Library profiles are refused.
+
+Importing such a repo through the Models page or `local-ai models import` writes that declaration for you. The importer reads the projector's header and recognises the speech-synthesis pipeline, so `ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF` imports as a TTS model rather than as a chat model with a vision projector.
+
+The upstream checkpoints are Base variants with no built-in speaker, so `voice` is **required** on every request. Pass either a path to a reference clip or a saved Voice Library profile. A request without one is rejected rather than served in an arbitrary voice:
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "model": "qwen3-tts-llamacpp",
+  "input": "Hello world, this is a test.",
+  "voice": "voices/my-reference.wav"
+}' > output.wav
+```
+
+Output is always 24 kHz mono 16-bit WAV. Streaming works on this backend, so `"stream": true` returns audio chunk by chunk as it is generated.
+
+Set `language` to an ISO 639-1 code to pin the output language. The supported codes are `zh`, `en`, `de`, `it`, `pt`, `es`, `ja`, `ko`, `fr` and `ru`.
+
+Three optional knobs travel in `params`: `top_k` and `top_p` adjust sampling, and `max_frames` caps how much audio a single request may generate. The model runs at 12.5 frames per second, so one frame is 0.08 seconds and the maximum duration in seconds is `max_frames / 12.5`. Leave it unset for the engine default of 512 frames, which is 40.96 seconds.
+
+`max_frames` exists because generation occasionally fails to stop on its own. The model normally ends an utterance by emitting its end-of-speech token, but once in a while it does not, and the request then runs to the cap and returns far more audio than the text called for. It is uncommon, and it happens more on short inputs than on long ones. If you are synthesising predictable text and want a hard bound, allow roughly 8 frames per word: about 100 frames (8 seconds) for a short sentence, about 300 frames (24 seconds) for a paragraph.
+
+```bash
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+  "model": "qwen3-tts-llamacpp",
+  "input": "Hello world, this is a test.",
+  "voice": "voices/my-reference.wav",
+  "params": {"max_frames": "100"}
+}' > output.wav
+```
+
+This backend accepts but ignores `instructions`, `speed` and `sample_rate`. The Base checkpoints have no expressive-style or rate control, and the output rate is fixed at 24 kHz.
+
+Note that `qwen3-tts-cpp` (qwentts.cpp) remains available and is unaffected. It is a separate, independently maintained path to the same family of weights, not something this replaces.
 
 #### Usage
 

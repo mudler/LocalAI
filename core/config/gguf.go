@@ -26,6 +26,27 @@ func reservedNonChatModel(cfg *ModelConfig) bool {
 		(*cfg.KnownUsecases&(FLAG_SCORE|FLAG_TOKEN_CLASSIFY)) != 0
 }
 
+// genAudioEncoderKey is the mmproj metadata flag llama.cpp's mtmd writes for a
+// projector carrying the speech-synthesis pipeline (ggml-org/llama.cpp#26254).
+const genAudioEncoderKey = "clip.has_gen_audio_encoder"
+
+// HasGenAudioProjector reports whether a parsed mmproj GGUF holds a gen-audio
+// pipeline (Qwen3-TTS) rather than a vision tower. This is the same flag
+// mtmd_helper_gen_audio itself checks before building the pipeline, so it is
+// the engine's own answer rather than a filename heuristic: an mmproj is
+// otherwise indistinguishable from a vision projector by name alone, and every
+// TTS repo names it mmproj-*.gguf exactly like a vision one.
+func HasGenAudioProjector(f *gguf.GGUFFile) bool {
+	if f == nil {
+		return false
+	}
+	kv, ok := f.Header.MetadataKV.Get(genAudioEncoderKey)
+	if !ok || kv.ValueType != gguf.GGUFMetadataValueTypeBool {
+		return false
+	}
+	return kv.ValueBool()
+}
+
 func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	// Explicit opt-in: a negative context_size (canonically -1) means "use the
 	// model's full trained context (n_ctx_train) from GGUF metadata". Unlike the

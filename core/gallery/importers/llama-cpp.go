@@ -308,6 +308,12 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		maybeApplyMTPDefaults(&modelConfig, details, &cfg)
 	}
 
+	// llama.cpp serves Qwen3-TTS through the same GGUF + mmproj shape as a
+	// vision model, so without this the TTS repos import as chat models with a
+	// vision projector: wrong usecase, wrong modality, and no route to the
+	// Voice Library.
+	maybeApplyTTSUsecase(&modelConfig, &cfg)
+
 	data, err := yaml.Marshal(modelConfig)
 	if err != nil {
 		return gallery.ModelConfig{}, err
@@ -423,6 +429,61 @@ func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg
 		return
 	}
 	config.ApplyMTPDefaults(modelConfig, n)
+}
+
+// maybeApplyTTSUsecase probes the selected mmproj GGUF header and, when it
+// carries llama.cpp's gen-audio pipeline instead of a vision tower, imports
+// the model as TTS rather than chat.
+//
+// A probe is the only honest signal here. A Qwen3-TTS repo has exactly the
+// shape of a vision repo, one backbone GGUF plus one mmproj-*.gguf, so neither
+// the filename nor the repo name distinguishes them; clip.has_gen_audio_encoder
+// is the key llama.cpp's own mtmd_helper_gen_audio gates the pipeline on.
+//
+// Failures are non-fatal, as in maybeApplyMTPDefaults: a network blip leaves
+// the chat default in place rather than breaking the import.
+func maybeApplyTTSUsecase(modelConfig *config.ModelConfig, cfg *gallery.ModelConfig) {
+	probeURL := pickMMProjProbeURL(modelConfig.MMProj, cfg)
+	if probeURL == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Debug("[tts-importer] panic while probing mmproj GGUF header", "uri", probeURL, "recover", r)
+		}
+	}()
+
+	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL)
+	if err != nil {
+		xlog.Debug("[tts-importer] failed to read remote mmproj header for gen-audio detection", "uri", probeURL, "error", err)
+		return
+	}
+
+	if !config.HasGenAudioProjector(f) {
+		return
+	}
+
+	modelConfig.KnownUsecaseStrings = []string{config.UsecaseTTS}
+	xlog.Info("[tts-importer] gen-audio projector detected; importing as a TTS model", "name", modelConfig.Name)
+}
+
+// pickMMProjProbeURL returns an HTTP(S) URL for the mmproj the import selected,
+// or "" when none was selected or its URI cannot be range-fetched (local path,
+// OCI/Ollama artifact).
+func pickMMProjProbeURL(mmproj string, cfg *gallery.ModelConfig) string {
+	if mmproj == "" || cfg == nil {
+		return ""
+	}
+	for _, f := range cfg.Files {
+		if f.Filename == mmproj {
+			return resolveHTTPProbe(f.URI)
+		}
+	}
+	return ""
 }
 
 // pickMTPProbeURL returns an HTTP(S) URL pointing at the main (non-mmproj)

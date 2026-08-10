@@ -1886,6 +1886,20 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		}
 	}
 
+	if (u & FLAG_VISION) == FLAG_VISION {
+		// Without a branch here the function falls through to true, which paints
+		// vision onto every chat model. That is not just a cosmetic wrong answer:
+		// syncKnownUsecasesFromString rewrites KnownUsecaseStrings from
+		// HasUsecases, so a guessed FLAG_VISION is written back and the next sync
+		// parses it into KnownUsecases as if the operator had declared it,
+		// defeating the explicit-signal checks in VisionSupported. Defer to the
+		// same explicit signals here; VisionSupported never calls back into
+		// HasUsecases, so this does not recurse.
+		if !c.VisionSupported() {
+			return false
+		}
+	}
+
 	if (u & FLAG_DETECTION) == FLAG_DETECTION {
 		detectionBackends := []string{"rfdetr", "sam3-cpp", "insightface"}
 		if !slices.Contains(detectionBackends, c.Backend) {
