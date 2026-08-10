@@ -42,7 +42,7 @@ var _ = Describe("webRTC ICE settings", func() {
 		})
 
 		It("binds the configured UDP port exclusively for reuse", func() {
-			probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+			probe, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 			Expect(err).NotTo(HaveOccurred())
 			port := probe.LocalAddr().(*net.UDPAddr).Port
 			Expect(probe.Close()).To(Succeed())
@@ -50,7 +50,7 @@ var _ = Describe("webRTC ICE settings", func() {
 			engine, err := webRTCSettingEngine(&config.ApplicationConfig{WebRTCUDPPort: port})
 			Expect(err).NotTo(HaveOccurred())
 
-			duplicate, bindErr := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: port})
+			duplicate, bindErr := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: port})
 			if duplicate != nil {
 				Expect(duplicate.Close()).To(Succeed())
 			}
@@ -59,7 +59,7 @@ var _ = Describe("webRTC ICE settings", func() {
 		})
 
 		It("returns a bind error when the configured UDP port is occupied", func() {
-			occupied, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+			occupied, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(occupied.Close)
 
