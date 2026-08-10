@@ -2,6 +2,7 @@ package openai
 
 import (
 	"net"
+	"runtime"
 
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/onsi/ginkgo/v2"
@@ -46,7 +47,7 @@ var _ = Describe("webRTC ICE settings", func() {
 			port := probe.LocalAddr().(*net.UDPAddr).Port
 			Expect(probe.Close()).To(Succeed())
 
-			_, err = webRTCSettingEngine(&config.ApplicationConfig{WebRTCUDPPort: port})
+			engine, err := webRTCSettingEngine(&config.ApplicationConfig{WebRTCUDPPort: port})
 			Expect(err).NotTo(HaveOccurred())
 
 			duplicate, bindErr := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: port})
@@ -54,6 +55,7 @@ var _ = Describe("webRTC ICE settings", func() {
 				Expect(duplicate.Close()).To(Succeed())
 			}
 			Expect(bindErr).To(HaveOccurred())
+			runtime.KeepAlive(engine)
 		})
 
 		It("returns a bind error when the configured UDP port is occupied", func() {
