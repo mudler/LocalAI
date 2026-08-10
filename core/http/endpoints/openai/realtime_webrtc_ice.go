@@ -1,6 +1,9 @@
 package openai
 
 import (
+	"fmt"
+	"net"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/xlog"
 	"github.com/pion/webrtc/v4"
@@ -14,10 +17,10 @@ import (
 // connection often establishes on a good pair and then drops once ICE consent
 // checks fail on the unreachable ones. The two opt-in knobs below let an
 // operator advertise only the reachable address.
-func webRTCSettingEngine(cfg *config.ApplicationConfig) webrtc.SettingEngine {
+func webRTCSettingEngine(cfg *config.ApplicationConfig) (webrtc.SettingEngine, error) {
 	s := webrtc.SettingEngine{}
 	if cfg == nil {
-		return s
+		return s, nil
 	}
 	if len(cfg.WebRTCNAT1To1IPs) > 0 {
 		s.SetNAT1To1IPs(cfg.WebRTCNAT1To1IPs, webrtc.ICECandidateTypeHost)
@@ -27,7 +30,14 @@ func webRTCSettingEngine(cfg *config.ApplicationConfig) webrtc.SettingEngine {
 		s.SetInterfaceFilter(filter)
 		xlog.Debug("realtime webrtc: restricting ICE interfaces", "interfaces", cfg.WebRTCICEInterfaces)
 	}
-	return s
+	if cfg.WebRTCUDPPort > 0 {
+		conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: cfg.WebRTCUDPPort})
+		if err != nil {
+			return s, fmt.Errorf("bind WebRTC UDP port %d: %w", cfg.WebRTCUDPPort, err)
+		}
+		s.SetICEUDPMux(webrtc.NewICEUDPMux(nil, conn))
+	}
+	return s, nil
 }
 
 // iceInterfaceFilter returns an interface allow-list predicate for pion, or nil
