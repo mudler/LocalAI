@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 )
 
@@ -514,6 +515,28 @@ var _ = Describe("gallery/index.yaml variant invariants", Ordered, func() {
 	It("gives every variant build a single parent", func() {
 		v := checkSingleVariantClaim(entries)
 		Expect(v).To(BeEmpty(), formatViolations(v))
+	})
+})
+
+var _ = Describe("gallery/index.yaml Higgs Audio entry", func() {
+	It("installs the validated Q8 model through audio-cpp for TTS", func() {
+		entries, err := loadGalleryIndex()
+		Expect(err).ToNot(HaveOccurred())
+
+		models := make([]*gallery.GalleryModel, 0, len(entries))
+		for i := range entries {
+			models = append(models, &entries[i])
+		}
+		entry := gallery.FindGalleryElement(models, "audio-cpp-higgs-audio-v3")
+		Expect(entry).ToNot(BeNil())
+		Expect(entry.Overrides).To(HaveKeyWithValue("backend", "audio-cpp"))
+		Expect(entry.GetKnownUsecases()).ToNot(BeNil())
+		Expect(*entry.GetKnownUsecases() & config.FLAG_TTS).To(Equal(config.FLAG_TTS))
+		Expect(entry.AdditionalFiles).To(ConsistOf(gallery.File{
+			Filename: "audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf",
+			SHA256:   "b857344af06b1b2497f4f8c1d0f0c134d0eeaf9c089c0d28ae6e58084d90f901",
+			URI:      "huggingface://audio-cpp/audio.cpp-gguf/Higgs-Audio-v3-TTS-4B-GGUF/higgs-audio-v3-tts-4b-q8_0.gguf",
+		}))
 	})
 })
 
