@@ -7,7 +7,6 @@ import PageHeader from '../components/PageHeader'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
-import SimplePowerSwitch from '../components/SimplePowerSwitch'
 import ModalityChips from '../components/ModalityChips'
 
 // Fallback list used when /backends/known fails — keeps the form usable
@@ -39,7 +38,7 @@ function buildBackendOptions(list, modalityFilter, t) {
   const keys = Array.from(groups.keys()).sort()
   const out = []
   for (const key of keys) {
-    const label = MODALITY_KEYS.includes(key) ? t(`modality.${key}`) : (key ? t('modality.other') : t('modality.other'))
+    const label = MODALITY_KEYS.includes(key) ? t(`modality.${key}`) : t('modality.other')
     out.push({ value: `__header_${key}`, label, isHeader: true })
     const sorted = groups.get(key).slice().sort((a, b) => a.name.localeCompare(b.name))
     for (const b of sorted) {
@@ -54,48 +53,43 @@ function buildBackendOptions(list, modalityFilter, t) {
   return out
 }
 
-// URI_FORMATS describes the example list rendered in the format guide.
-// Title + description strings are i18n keys, resolved at render time.
+// URI_FORMATS drives the format reference. On a wide viewport it is a column
+// beside the form rather than a disclosure: what a first-time admin needs to
+// know is exactly which of these schemes to paste, and the answer used to be
+// collapsed by default. Title + description strings are i18n keys.
 const URI_FORMATS = [
   {
-    icon: 'fab fa-hubspot', color: 'var(--color-accent)', titleKey: 'uriFormats.huggingface.title',
+    titleKey: 'uriFormats.huggingface.title',
     examples: [
-      { prefix: 'huggingface://', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', descKey: 'uriFormats.huggingface.standard' },
-      { prefix: 'hf://', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', descKey: 'uriFormats.huggingface.short' },
-      { prefix: 'https://huggingface.co/', suffix: 'TheBloke/Llama-2-7B-Chat-GGUF', descKey: 'uriFormats.huggingface.fullUrl' },
+      { prefix: 'huggingface://', suffix: 'owner/repo' },
+      { prefix: 'hf://', suffix: 'owner/repo' },
+      { prefix: 'https://huggingface.co/', suffix: 'owner/repo' },
     ],
   },
   {
-    icon: 'fas fa-globe', color: 'var(--color-primary)', titleKey: 'uriFormats.http.title',
+    titleKey: 'uriFormats.http.title',
     examples: [
-      { prefix: 'https://', suffix: 'example.com/model.gguf', descKey: 'uriFormats.http.direct' },
+      { prefix: 'https://', suffix: 'example.com/model.gguf' },
     ],
   },
   {
-    icon: 'fas fa-file', color: 'var(--color-warning)', titleKey: 'uriFormats.local.title',
+    titleKey: 'uriFormats.local.title',
     examples: [
-      { prefix: 'file://', suffix: '/path/to/model.gguf', descKey: 'uriFormats.local.filePath' },
-      { prefix: '', suffix: '/path/to/model.yaml', descKey: 'uriFormats.local.directYaml' },
+      { prefix: 'file://', suffix: '/models/model.gguf' },
+      { prefix: '', suffix: '/models/config.yaml' },
     ],
   },
   {
-    icon: 'fas fa-box', color: 'var(--color-data-8)', titleKey: 'uriFormats.oci.title',
+    titleKey: 'uriFormats.oci.title',
     examples: [
-      { prefix: 'oci://', suffix: 'registry.example.com/model:tag', descKey: 'uriFormats.oci.registry' },
-      { prefix: 'ocifile://', suffix: '/path/to/image.tar', descKey: 'uriFormats.oci.tarball' },
+      { prefix: 'oci://', suffix: 'registry.example.com/model:tag' },
+      { prefix: 'ocifile://', suffix: '/path/to/image.tar' },
     ],
   },
   {
-    icon: 'fas fa-cube', color: 'var(--color-data-1)', titleKey: 'uriFormats.ollama.title',
+    titleKey: 'uriFormats.ollama.title',
     examples: [
-      { prefix: 'ollama://', suffix: 'llama2:7b', descKey: 'uriFormats.ollama.model' },
-    ],
-  },
-  {
-    icon: 'fas fa-code', color: 'var(--color-data-7)', titleKey: 'uriFormats.yaml.title',
-    examples: [
-      { prefix: '', suffix: 'https://example.com/model.yaml', descKey: 'uriFormats.yaml.remote' },
-      { prefix: 'file://', suffix: '/path/to/config.yaml', descKey: 'uriFormats.yaml.local' },
+      { prefix: 'ollama://', suffix: 'llama2:7b' },
     ],
   },
 ]
@@ -112,163 +106,36 @@ const DEFAULT_PREFS = {
   pipeline_type: '', scheduler_type: '', enable_parameters: '', cuda: false,
 }
 
-// Preference keys considered "advanced" — anything the Simple-mode Options
-// disclosure does NOT expose. `hasCustomPrefs` uses this list to decide
-// whether switching Power -> Simple should warn the user.
-const ADVANCED_PREF_KEYS = [
-  'quantizations', 'mmproj_quantizations', 'embeddings', 'type',
-  'pipeline_type', 'scheduler_type', 'enable_parameters', 'cuda',
-]
-
-
-// hasCustomPrefs returns true when the user has set any preference beyond
-// backend/name/description, added a custom key-value pref with a non-empty
-// key, or edited the YAML away from its default. That triggers the switch
-// warning so Simple mode never silently hides state.
-function hasCustomPrefs(prefs, customPrefs, yamlContent) {
-  for (const key of ADVANCED_PREF_KEYS) {
-    const v = prefs[key]
-    if (typeof v === 'boolean' ? v : (typeof v === 'string' ? v.trim() !== '' : v != null && v !== '')) {
-      return true
-    }
-  }
-  if (Array.isArray(customPrefs) && customPrefs.some(cp => (cp.key || '').trim() !== '')) {
-    return true
-  }
-  if (typeof yamlContent === 'string' && yamlContent !== DEFAULT_YAML) {
-    return true
-  }
-  return false
-}
-
-// PowerTabs renders the in-page Preferences/YAML tab strip. Kept inline
-// (not a separate component) — the strip is tiny and lives inside the
-// Power-mode card so extracting it would just add indirection.
-function PowerTabs({ value, onChange }) {
-  const { t } = useTranslation('importModel')
-  return (
-    <div
-      className="segmented mb-md"
-      role="tablist"
-      aria-label={t('powerTabs.ariaLabel')}
-      data-testid="power-tabs"
-    >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === 'preferences'}
-        className={`segmented__item${value === 'preferences' ? ' is-active' : ''}`}
-        onClick={() => onChange('preferences')}
-        data-testid="power-tab-preferences"
-      >
-        <i className="fas fa-sliders" aria-hidden="true" />
-        {t('powerTabs.preferences')}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === 'yaml'}
-        className={`segmented__item${value === 'yaml' ? ' is-active' : ''}`}
-        onClick={() => onChange('yaml')}
-        data-testid="power-tab-yaml"
-      >
-        <i className="fas fa-code" aria-hidden="true" />
-        {t('powerTabs.yaml')}
-      </button>
-    </div>
-  )
-}
-
-// SwitchModeDialog — 3-button confirmation that fires when switching from
-// Power -> Simple with custom prefs. Not using ConfirmDialog because that
-// component is 2-button (confirm/cancel); the UX here needs Keep / Discard
-// / Cancel with distinct semantics.
-function SwitchModeDialog({ onKeep, onDiscard, onCancel }) {
-  const { t } = useTranslation('importModel')
-  const keepRef = useRef(null)
-  useEffect(() => {
-    keepRef.current?.focus()
-    const handleKey = (e) => { if (e.key === 'Escape') onCancel?.() }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onCancel])
-
-  return (
-    <div
-      className="confirm-dialog-backdrop"
-      onClick={onCancel}
-      data-testid="switch-mode-dialog"
-    >
-      <div
-        className="confirm-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="switch-mode-title"
-        aria-describedby="switch-mode-body"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="confirm-dialog-header">
-          <span id="switch-mode-title" className="confirm-dialog-title">{t('switchDialog.title')}</span>
-        </div>
-        <div id="switch-mode-body" className="confirm-dialog-body">
-          {t('switchDialog.body')}
-        </div>
-        <div className="confirm-dialog-actions">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onCancel}
-            data-testid="switch-mode-cancel"
-          >
-            {t('switchDialog.cancel')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-danger btn-sm"
-            onClick={onDiscard}
-            data-testid="switch-mode-discard"
-          >
-            {t('switchDialog.discard')}
-          </button>
-          <button
-            ref={keepRef}
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={onKeep}
-            data-testid="switch-mode-keep"
-          >
-            {t('switchDialog.keep')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+// Below this width the format reference cannot hold its own column, so it
+// becomes a disclosure under the field instead. Matches --bp-tablet minus the
+// sidebar; kept in JS because the two renderings differ structurally, not just
+// visually, and a media query cannot swap a column for a disclosure.
+const SPLIT_MIN_WIDTH = 1024
 
 export default function ImportModel() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('importModel')
 
-  // Mode + tab state. Persisted to localStorage so reloads keep the user
-  // on the same surface they last picked. `showOptions` is Simple-mode
-  // local state — no need to persist (it's a one-click expansion).
-  const [mode, setMode] = useState(() => {
-    try { return localStorage.getItem('import-form-mode') || 'simple' } catch { return 'simple' }
+  // Which kind of input the user is giving: a source to resolve, or a YAML
+  // document to write. These are genuinely different inputs, unlike the
+  // Simple/Power modes they replace, which were the same form at two
+  // different lengths.
+  const [tab, setTab] = useState(() => {
+    try { return localStorage.getItem('import-form-tab') === 'yaml' ? 'yaml' : 'source' } catch { return 'source' }
   })
-  const [powerTab, setPowerTab] = useState(() => {
-    try { return localStorage.getItem('import-form-power-tab') || 'preferences' } catch { return 'preferences' }
+  const [showOptions, setShowOptions] = useState(() => {
+    try { return localStorage.getItem('import-form-options') === 'open' } catch { return false }
   })
-  const [showOptions, setShowOptions] = useState(false)
-  // null | { onKeep, onDiscard, onCancel } — when non-null the dialog renders.
-  const [switchDialog, setSwitchDialog] = useState(null)
 
   const [importUri, setImportUri] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showGuide, setShowGuide] = useState(false)
   const [yamlContent, setYamlContent] = useState(DEFAULT_YAML)
   const [estimate, setEstimate] = useState(null)
-  const [jobProgress, setJobProgress] = useState(null)
+  // Full poll payload for the running job, not just its message: the endpoint
+  // already reports progress, phase and byte counts, and the page used to
+  // render only `message`.
+  const [job, setJob] = useState(null)
 
   const [prefs, setPrefs] = useState(DEFAULT_PREFS)
   const [customPrefs, setCustomPrefs] = useState([])
@@ -286,6 +153,13 @@ export default function ImportModel() {
   const [backendsLoading, setBackendsLoading] = useState(true)
   const [backendsError, setBackendsError] = useState(false)
 
+  // Wide enough for the reference to sit beside the form. Tracked in state
+  // rather than read at render so a resize re-renders the page.
+  const [isSplit, setIsSplit] = useState(() => (
+    typeof window === 'undefined' ? true : window.innerWidth >= SPLIT_MIN_WIDTH
+  ))
+  const [showFormats, setShowFormats] = useState(false)
+
   const pollRef = useRef(null)
 
   useEffect(() => {
@@ -293,12 +167,18 @@ export default function ImportModel() {
   }, [])
 
   useEffect(() => {
-    try { localStorage.setItem('import-form-mode', mode) } catch { /* ignore quota / privacy mode */ }
-  }, [mode])
+    const onResize = () => setIsSplit(window.innerWidth >= SPLIT_MIN_WIDTH)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
-    try { localStorage.setItem('import-form-power-tab', powerTab) } catch { /* ignore */ }
-  }, [powerTab])
+    try { localStorage.setItem('import-form-tab', tab) } catch { /* ignore quota / privacy mode */ }
+  }, [tab])
+
+  useEffect(() => {
+    try { localStorage.setItem('import-form-options', showOptions ? 'open' : 'closed') } catch { /* ignore */ }
+  }, [showOptions])
 
   useEffect(() => {
     let cancelled = false
@@ -352,62 +232,45 @@ export default function ImportModel() {
     setCustomPrefs(p => p.map((item, idx) => idx === i ? { ...item, [field]: value } : item))
   }
 
-  // requestModeSwitch — routed through the SimplePowerSwitch onChange. When
-  // going Power -> Simple we gate on custom prefs so the user never loses
-  // hidden state silently.
-  const requestModeSwitch = useCallback((next) => {
-    if (next === mode) return
-    if (mode === 'power' && next === 'simple' && hasCustomPrefs(prefs, customPrefs, yamlContent)) {
-      setSwitchDialog({
-        onKeep: () => { setSwitchDialog(null); setMode('simple') },
-        onDiscard: () => {
-          setSwitchDialog(null)
-          setPrefs(DEFAULT_PREFS)
-          setCustomPrefs([])
-          setYamlContent(DEFAULT_YAML)
-          setMode('simple')
-        },
-        onCancel: () => setSwitchDialog(null),
-      })
-      return
-    }
-    setMode(next)
-  }, [mode, prefs, customPrefs, yamlContent])
-
   const startJobPolling = useCallback((jobId) => {
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
       try {
         const data = await modelsApi.getJobStatus(jobId)
-        if (data.processed || data.progress) {
-          setJobProgress(data.message || data.progress || 'Processing...')
-        }
         if (data.completed) {
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
-          setJobProgress(null)
+          setJob(null)
           addToast(t('toasts.imported'), 'success')
           navigate('/app/manage')
-        } else if (data.error || (data.message && data.message.startsWith('error:'))) {
+          return
+        }
+        if (data.error || (data.message && data.message.startsWith('error:'))) {
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
-          setJobProgress(null)
+          setJob(null)
           let msg = 'Unknown error'
           if (typeof data.error === 'string') msg = data.error
           else if (data.error?.message) msg = data.error.message
           else if (data.message) msg = data.message
           if (msg.startsWith('error: ')) msg = msg.substring(7)
           addToast(t('toasts.importFailed', { message: msg }), 'error')
+          return
         }
+        // Keep the whole status. /api/operations carries the same job (the
+        // import endpoint registers it in the opcache) but drops it the moment
+        // it finishes, which is indistinguishable from a cancel — so terminal
+        // detection stays on this endpoint and only the rendering gets richer.
+        setJob(data)
       } catch (err) {
         console.error('Error polling job status:', err)
       }
     }, 1000)
   }, [addToast, navigate, t])
 
-  const handleSimpleImport = useCallback(async (overrideBackend) => {
+  const handleImport = useCallback(async (overrideBackend) => {
     if (!importUri.trim()) { addToast(t('toasts.noUri'), 'error'); return }
     setIsSubmitting(true)
     setEstimate(null)
@@ -443,13 +306,7 @@ export default function ImportModel() {
       const jobId = result.uuid || result.ID
       if (!jobId) throw new Error('No job ID returned from server')
 
-      const parts = []
-      if (hasSize) parts.push(`${t('estimate.download', { size: result.estimated_size_display })}`)
-      if (hasVram) parts.push(`${t('estimate.vram', { vram: result.estimated_vram_display })}`)
-      const msg = parts.length
-        ? t('toasts.startedWithMeta', { meta: parts.join(' \u00b7 ') })
-        : t('toasts.started')
-      addToast(msg, 'success')
+      addToast(t('toasts.started'), 'success')
       // Clear any prior ambiguity alert once the server accepts the import.
       setAmbiguity(null)
       startJobPolling(jobId)
@@ -475,9 +332,9 @@ export default function ImportModel() {
     setAmbiguity(null)
     // Resubmit immediately so the user only has to click the chip once.
     // Pass the picked backend as an override — setPrefs is async so
-    // handleSimpleImport would otherwise see the stale prefs.backend.
-    handleSimpleImport(backend)
-  }, [handleSimpleImport])
+    // handleImport would otherwise see the stale prefs.backend.
+    handleImport(backend)
+  }, [handleImport])
 
   // Clear stale ambiguity alerts when the URI changes (fresh attempt) or
   // the user picks a backend manually — in both cases the alert's context
@@ -490,8 +347,7 @@ export default function ImportModel() {
   // Auto-activate the matching modality chip whenever an ambiguity alert
   // fires. The server already told us which modality it detected, so the
   // dropdown should scope itself even if the user dismisses the alert and
-  // browses manually. Leaving `modalityFilter` as-is on dismiss / pick /
-  // URI change matches the spec.
+  // browses manually.
   useEffect(() => {
     if (ambiguity && ambiguity.modality) {
       setModalityFilter(ambiguity.modality)
@@ -513,7 +369,7 @@ export default function ImportModel() {
     }
   }, [backends, prefs.backend, addToast, t])
 
-  const handleAdvancedImport = async () => {
+  const handleYamlCreate = async () => {
     if (!yamlContent.trim()) { addToast(t('toasts.noYaml'), 'error'); return }
     setIsSubmitting(true)
     try {
@@ -527,239 +383,155 @@ export default function ImportModel() {
     }
   }
 
-  const isSimple = mode === 'simple'
-  const isPowerYaml = mode === 'power' && powerTab === 'yaml'
+  const isYaml = tab === 'yaml'
 
-  const subtitle = isSimple
-    ? t('subtitle.simple')
-    : (powerTab === 'yaml' ? t('subtitle.powerYaml') : t('subtitle.powerPrefs'))
+  // The format reference. Rendered as a sibling column when there is room and
+  // as a disclosure when there is not, so nothing is amputated on a narrow
+  // window — only re-housed.
+  const renderFormats = () => (
+    <div className="import-formats" data-testid="import-formats">
+      <p className="import-formats__head">{t('form.supportedFormats')}</p>
+      <ul className="import-formats__list">
+        {URI_FORMATS.map((fmt) => (
+          <li key={fmt.titleKey} className="import-formats__row">
+            <span className="import-formats__kind">{t(fmt.titleKey)}</span>
+            {fmt.examples.map((ex, j) => (
+              <span key={j} className="import-formats__uri">
+                {ex.prefix && <b>{ex.prefix}</b>}
+                <em>{ex.suffix}</em>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+      <p className="import-formats__foot">
+        <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer">
+          {t('actions.browseHF')} <i className="fas fa-external-link-alt" aria-hidden="true" />
+        </a>
+      </p>
+    </div>
+  )
 
-  // The Ambiguity alert + URI input live at the top of both Simple and
-  // Power/Preferences modes. Extracted so both branches stay readable.
-  const renderUriAndAmbiguity = () => (
-    <>
-      {ambiguity && (
-        <AmbiguityAlert
-          modality={ambiguity.modality}
-          candidates={ambiguity.candidates}
-          knownBackends={backends}
-          onPick={pickAmbiguityCandidate}
-          onDismiss={() => setAmbiguity(null)}
+  const renderOptions = () => (
+    <div id="import-options-panel" data-testid="import-options-panel" className="import-options__grid">
+      <div className="import-field import-field--wide">
+        <span className="form-label">{t('form.backend')}</span>
+        <p className="form-hint-sm import-field__lead">{t('form.backendHint')}</p>
+        <ModalityChips
+          value={modalityFilter}
+          onChange={handleModalityChange}
+          disabled={isSubmitting || backendsLoading}
         />
+        <SearchableSelect
+          value={prefs.backend}
+          onChange={(v) => updatePref('backend', v)}
+          options={backendOptions}
+          allOption={t('form.backendAuto')}
+          placeholder={backendsLoading ? t('form.backendLoading') : t('form.backendAuto')}
+          searchPlaceholder={t('form.backendSearch')}
+          disabled={isSubmitting || backendsLoading}
+        />
+        {backendsError && (
+          <p className="form-hint-sm text-warning">{t('form.backendErrorHint')}</p>
+        )}
+        {(() => {
+          if (!prefs.backend) return null
+          const selected = backends.find(b => b.name === prefs.backend)
+          if (!selected || selected.installed) return null
+          return (
+            <p data-testid="auto-install-note" className="form-hint-sm hstack hstack--xs">
+              <i className="fas fa-download" aria-hidden="true" />
+              {t('form.backendNotInstalled')}
+            </p>
+          )
+        })()}
+      </div>
+
+      <div className="import-field">
+        <label className="form-label" htmlFor="import-name">{t('form.modelName')}</label>
+        <input className="input" id="import-name" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder={t('form.modelNamePlaceholder')} disabled={isSubmitting} />
+        <p className="form-hint-sm">{t('form.modelNameHint')}</p>
+      </div>
+
+      {showQuantizations && (
+        <div className="import-field">
+          <label className="form-label" htmlFor="import-quantizations">{t('form.quantizations')}</label>
+          <input className="input" id="import-quantizations" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder={t('form.quantizationsPlaceholder')} disabled={isSubmitting} />
+          <p className="form-hint-sm">{t('form.quantizationsHint')}</p>
+        </div>
       )}
 
-      <div className="form-group">
-        <div className="hstack hstack--between mb-xs">
-          <label className="form-label mb-0">
-            {t('form.modelUri')}
-          </label>
-          <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer"
-            className="btn btn-secondary pill-sm">
-            {t('actions.browseHF')} <i className="fas fa-external-link-alt ml-xs" aria-hidden="true" />
-          </a>
+      {showMmprojQuantizations && (
+        <div className="import-field">
+          <label className="form-label" htmlFor="import-mmproj">{t('form.mmprojQuantizations')}</label>
+          <input className="input" id="import-mmproj" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder={t('form.mmprojQuantizationsPlaceholder')} disabled={isSubmitting} />
+          <p className="form-hint-sm">{t('form.mmprojQuantizationsHint')}</p>
         </div>
-        <input
-          className="input"
-          type="text"
-          value={importUri}
-          onChange={(e) => setImportUri(e.target.value)}
-          placeholder={t('form.uriPlaceholder')}
-          disabled={isSubmitting}
-        />
-        <p className="form-hint-sm">{t('form.uriHint')}</p>
+      )}
 
-        <button
-          type="button"
-          onClick={() => setShowGuide(!showGuide)}
-          className="im-disclosure mt-sm"
-        >
-          <i className={`fas ${showGuide ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
-          <i className="fas fa-info-circle" aria-hidden="true" />
-          {t('form.supportedFormats')}
-        </button>
-        {showGuide && (
-          <div className="im-well mt-sm">
-            {URI_FORMATS.map((fmt, i) => (
-              <div key={i} className={i < URI_FORMATS.length - 1 ? 'mb-md' : undefined}>
-                <h4 className="im-fmt__title">
-                  <i className={fmt.icon} aria-hidden="true" style={{ color: fmt.color }} />
-                  {t(fmt.titleKey)}
-                </h4>
-                <div className="im-fmt__body">
-                  {fmt.examples.map((ex, j) => (
-                    <div key={j} className="mb-xs">
-                      <code className="text-success">{ex.prefix}</code>
-                      <span className="text-secondary">{ex.suffix}</span>
-                      <p className="text-muted">{t(ex.descKey)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+      {showModelType && (
+        <div className="import-field">
+          <label className="form-label" htmlFor="import-type">{t('form.modelType')}</label>
+          <input className="input" id="import-type" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder={t('form.modelTypePlaceholder')} disabled={isSubmitting} />
+          <p className="form-hint-sm">{t('form.modelTypeHint')}</p>
+        </div>
+      )}
+
+      {prefs.backend === 'diffusers' && (
+        <>
+          <div className="import-field">
+            <label className="form-label" htmlFor="import-pipeline">{t('form.pipelineType')}</label>
+            <input className="input" id="import-pipeline" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
+            <p className="form-hint-sm">{t('form.pipelineTypeHint')}</p>
           </div>
-        )}
-      </div>
-    </>
-  )
+          <div className="import-field">
+            <label className="form-label" htmlFor="import-scheduler">{t('form.schedulerType')}</label>
+            <input className="input" id="import-scheduler" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder={t('form.schedulerTypePlaceholder')} disabled={isSubmitting} />
+            <p className="form-hint-sm">{t('form.schedulerTypeHint')}</p>
+          </div>
+          <div className="import-field">
+            <label className="form-label" htmlFor="import-enable-params">{t('form.enableParameters')}</label>
+            <input className="input" id="import-enable-params" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder={t('form.enableParametersPlaceholder')} disabled={isSubmitting} />
+            <p className="form-hint-sm">{t('form.enableParametersHint')}</p>
+          </div>
+        </>
+      )}
 
-  // Backend dropdown + auto-install note — shared between Simple/Options
-  // and Power/Preferences.
-  const renderBackendField = () => (
-    <div className="form-group mb-0">
-      <label className="form-label">{t('form.backend')}</label>
-      <SearchableSelect
-        value={prefs.backend}
-        onChange={(v) => updatePref('backend', v)}
-        options={backendOptions}
-        allOption={t('form.backendAuto')}
-        placeholder={backendsLoading ? t('form.backendLoading') : t('form.backendAuto')}
-        searchPlaceholder={t('form.backendSearch')}
-        disabled={isSubmitting || backendsLoading}
-      />
-      <p className="form-hint-sm">
-        {t('form.backendHint')}
-        {backendsError && (
-          <span className="text-warning ml-xs">
-            {t('form.backendErrorHint')}
-          </span>
-        )}
-      </p>
-      {(() => {
-        if (!prefs.backend) return null
-        const selected = backends.find(b => b.name === prefs.backend)
-        if (!selected || selected.installed) return null
-        return (
-          <p
-            data-testid="auto-install-note"
-            className="form-hint-sm hstack hstack--xs"
-          >
-            <i className="fas fa-download" aria-hidden="true" />
-            {t('form.backendNotInstalled')}
-          </p>
-        )
-      })()}
-    </div>
-  )
-
-  const renderNameField = () => (
-    <div className="form-group mb-0">
-      <label className="form-label">{t('form.modelName')}</label>
-      <input className="input" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder={t('form.modelNamePlaceholder')} disabled={isSubmitting} />
-      <p className="form-hint-sm">{t('form.modelNameHint')}</p>
-    </div>
-  )
-
-  const renderDescriptionField = () => (
-    <div className="form-group mb-0">
-      <label className="form-label">{t('form.description')}</label>
-      <textarea className="textarea" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder={t('form.descriptionPlaceholder')} disabled={isSubmitting} />
-      <p className="form-hint-sm">{t('form.descriptionHint')}</p>
-    </div>
-  )
-
-  // Full preferences panel — identical to the previous Simple-mode panel.
-  const renderFullPreferences = () => (
-    <div className="mt-lg">
-      <div className="im-pref-name mb-sm">
-        <i className="fas fa-cog icon-before" aria-hidden="true" />{t('form.preferences')}
+      <div className="import-field import-field--wide">
+        <label className="form-label" htmlFor="import-description">{t('form.description')}</label>
+        <textarea className="textarea" id="import-description" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder={t('form.descriptionPlaceholder')} disabled={isSubmitting} />
+        <p className="form-hint-sm">{t('form.descriptionHint')}</p>
       </div>
 
-      <ModalityChips
-        value={modalityFilter}
-        onChange={handleModalityChange}
-        disabled={isSubmitting || backendsLoading}
-      />
-
-      <div className="im-well">
-        <h3 className="hstack text-sm fw-semibold text-secondary mb-md">
-          <i className="fas fa-sliders text-primary" aria-hidden="true" />
-          {t('form.commonPreferences')}
-        </h3>
-
-        <div className="im-well--grid">
-          {renderBackendField()}
-          {renderNameField()}
-          {renderDescriptionField()}
-
-          {showQuantizations && (
-            <div className="form-group mb-0">
-              <label className="form-label">{t('form.quantizations')}</label>
-              <input className="input" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder={t('form.quantizationsPlaceholder')} disabled={isSubmitting} />
-              <p className="form-hint-sm">{t('form.quantizationsHint')}</p>
-            </div>
-          )}
-
-          {showMmprojQuantizations && (
-            <div className="form-group mb-0">
-              <label className="form-label">{t('form.mmprojQuantizations')}</label>
-              <input className="input" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder={t('form.mmprojQuantizationsPlaceholder')} disabled={isSubmitting} />
-              <p className="form-hint-sm">{t('form.mmprojQuantizationsHint')}</p>
-            </div>
-          )}
-
-          <div>
-            <label className="im-pref-label">
-              <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
-              <span className="im-pref-name">
-                {t('form.embeddings')}
-              </span>
+      <div className="import-field import-field--wide">
+        <label className="import-check">
+          <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
+          <span>{t('form.embeddings')}</span>
+        </label>
+        <p className="form-hint-sm import-check__hint">{t('form.embeddingsHint')}</p>
+        {prefs.backend === 'diffusers' && (
+          <>
+            <label className="import-check">
+              <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
+              <span>{t('form.cuda')}</span>
             </label>
-            <p className="form-hint-sm im-indent">{t('form.embeddingsHint')}</p>
-          </div>
-
-          {showModelType && (
-            <div className="form-group mb-0">
-              <label className="form-label">{t('form.modelType')}</label>
-              <input className="input" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder={t('form.modelTypePlaceholder')} disabled={isSubmitting} />
-              <p className="form-hint-sm">{t('form.modelTypeHint')}</p>
-            </div>
-          )}
-
-          {prefs.backend === 'diffusers' && (
-            <>
-              <div className="form-group mb-0">
-                <label className="form-label">{t('form.pipelineType')}</label>
-                <input className="input" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
-                <p className="form-hint-sm">{t('form.pipelineTypeHint')}</p>
-              </div>
-              <div className="form-group mb-0">
-                <label className="form-label">{t('form.schedulerType')}</label>
-                <input className="input" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder={t('form.schedulerTypePlaceholder')} disabled={isSubmitting} />
-                <p className="form-hint-sm">{t('form.schedulerTypeHint')}</p>
-              </div>
-              <div className="form-group mb-0">
-                <label className="form-label">{t('form.enableParameters')}</label>
-                <input className="input" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder={t('form.enableParametersPlaceholder')} disabled={isSubmitting} />
-                <p className="form-hint-sm">{t('form.enableParametersHint')}</p>
-              </div>
-              <div>
-                <label className="im-pref-label">
-                  <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
-                  <span className="im-pref-name">
-                    {t('form.cuda')}
-                  </span>
-                </label>
-                <p className="form-hint-sm im-indent">{t('form.cudaHint')}</p>
-              </div>
-            </>
-          )}
-        </div>
+            <p className="form-hint-sm import-check__hint">{t('form.cudaHint')}</p>
+          </>
+        )}
       </div>
 
-      {/* Custom Preferences */}
-      <div className="mt-md">
-        <div className="hstack hstack--between mb-sm">
-          <span className="im-pref-name">
-            <i className="fas fa-plus-circle icon-before" aria-hidden="true" />{t('form.customPreferences')}
-          </span>
-          <button className="btn btn-secondary text-xs" onClick={addCustomPref} disabled={isSubmitting}>
+      <div className="import-field import-field--wide">
+        <div className="hstack hstack--between">
+          <span className="form-label">{t('form.customPreferences')}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={addCustomPref} disabled={isSubmitting}>
             <i className="fas fa-plus" aria-hidden="true" /> {t('actions.addCustom')}
           </button>
         </div>
+        <p className="form-hint-sm import-field__lead">{t('form.customKeyValueHint')}</p>
         {customPrefs.map((cp, i) => (
-          <div key={i} className="hstack mb-xs">
+          <div key={i} className="import-custom-row">
             <input
-              className="input flex-1"
+              className="input"
               type="text"
               value={cp.key}
               onChange={e => updateCustomPref(i, 'key', e.target.value)}
@@ -767,9 +539,8 @@ export default function ImportModel() {
               aria-label={t('form.preferenceKey', { index: i + 1 })}
               disabled={isSubmitting}
             />
-            <span className="text-secondary">:</span>
             <input
-              className="input flex-1"
+              className="input"
               type="text"
               value={cp.value}
               onChange={e => updateCustomPref(i, 'value', e.target.value)}
@@ -778,7 +549,8 @@ export default function ImportModel() {
               disabled={isSubmitting}
             />
             <button
-              className="btn btn-secondary text-error"
+              type="button"
+              className="btn btn-secondary btn-sm text-error"
               onClick={() => removeCustomPref(i)}
               disabled={isSubmitting}
               aria-label={t('form.removePref')}
@@ -787,149 +559,216 @@ export default function ImportModel() {
             </button>
           </div>
         ))}
-        <p className="form-hint-sm">{t('form.customKeyValueHint')}</p>
       </div>
     </div>
   )
 
+  // Everything the poller already returns and the old status card threw away.
+  const progressPct = Number.isFinite(job?.progress) ? Math.round(job.progress) : null
+  const jobName = job?.file_name || job?.gallery_element_name || ''
+  const jobBytes = job?.downloaded_size && job?.file_size
+    ? `${job.downloaded_size} / ${job.file_size}`
+    : ''
+
   return (
-    <div className="page page--narrow">
+    <div className="page page--medium import-page">
       <PageHeader
         title={t('title')}
-        supporting={subtitle}
+        supporting={isYaml ? t('subtitle.yaml') : t('subtitle.source')}
         actions={
-          <div className="hstack">
-            <SimplePowerSwitch value={mode} onChange={requestModeSwitch} disabled={isSubmitting} />
-            {isPowerYaml ? (
-              <button className="btn btn-primary fas fa-save fa-upload" onClick={handleAdvancedImport} disabled={isSubmitting}>
-                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-plus" aria-hidden="true" /> {t('actions.create')}</>}
-              </button>
-            ) : (
-              <button onClick={() => handleSimpleImport()} disabled={isSubmitting || !importUri.trim()}>
-                {isSubmitting ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</> : <><i className="fas fa-file-import" aria-hidden="true" /> {t('actions.import')}</>}
-              </button>
-            )}
+          <div className="segmented mb-0" role="tablist" aria-label={t('tabs.ariaLabel')} data-testid="import-tabs">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isYaml}
+              className={`segmented__item${!isYaml ? ' is-active' : ''}`}
+              onClick={() => setTab('source')}
+              data-testid="import-tab-source"
+            >
+              <i className="fas fa-link" aria-hidden="true" />
+              {t('tabs.source')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isYaml}
+              className={`segmented__item${isYaml ? ' is-active' : ''}`}
+              onClick={() => setTab('yaml')}
+              data-testid="import-tab-yaml"
+            >
+              <i className="fas fa-code" aria-hidden="true" />
+              {t('tabs.yaml')}
+            </button>
           </div>
         }
       />
 
-      {/* Estimate banner */}
-      {!isPowerYaml && estimate && (
-        <div className="card pad-md mb-md" style={{ borderColor: 'var(--color-primary)' }}>
-          <div className="hstack text-base">
-            <i className="fas fa-memory text-primary" aria-hidden="true" />
-            <strong>{t('estimate.title')}</strong>
-            {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
-              <span><i className="fas fa-download text-primary icon-before" aria-hidden="true" />{t('estimate.download', { size: estimate.sizeDisplay })}</span>
-            )}
-            {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
-              <span><i className="fas fa-microchip text-primary icon-before" aria-hidden="true" />{t('estimate.vram', { vram: estimate.vramDisplay })}</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Job progress */}
-      {jobProgress && (
-        <div className="card pad-md mb-md">
-          <div className="hstack text-base">
-            <LoadingSpinner size="sm" />
-            <span>{jobProgress}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Simple mode */}
-      {isSimple && (
-        <div className="card pad-lg">
-          {/* Wrapping the Simple-mode content in a <form> gives us Enter-to-
-              submit for free: focus in the URI input triggers onSubmit without
-              a keyDown handler. The Import button in the page header submits
-              by calling handleSimpleImport directly (type="button") — it lives
-              outside this form, so the form owns keyboard submit only. */}
+      {!isYaml && (
+        <div className={`import-split${isSplit ? '' : ' import-split--stacked'}`}>
           <form
-            data-testid="simple-form"
-            onSubmit={(e) => { e.preventDefault(); handleSimpleImport() }}
+            className="import-main"
+            data-testid="import-form"
+            onSubmit={(e) => { e.preventDefault(); handleImport() }}
           >
-            {renderUriAndAmbiguity()}
-
-            <div className="mt-md">
-              <button
-                type="button"
-                onClick={() => setShowOptions(v => !v)}
-                data-testid="simple-options-toggle"
-                aria-expanded={showOptions}
-                aria-controls="simple-options-panel"
-                className="im-disclosure p-0"
-              >
-                <i className={`fas ${showOptions ? 'fa-chevron-down' : 'fa-chevron-right'}`} aria-hidden="true" />
-                <i className="fas fa-sliders" aria-hidden="true" />
-                {t('form.options')}
-              </button>
-
-              {showOptions && (
-                <div
-                  id="simple-options-panel"
-                  data-testid="simple-options-panel"
-                  className="im-well im-well--grid mt-sm"
+            {/* The source field is the page. It is monospace because it holds
+                something you paste rather than something you compose, and it
+                carries its own commit button — the action used to live in the
+                page header, outside the form, with a hidden submit button
+                standing in so Enter still worked. */}
+            <div className="import-source">
+              <label className="form-label" htmlFor="import-source-input">{t('form.modelUri')}</label>
+              <div className="import-source__bar">
+                <input
+                  id="import-source-input"
+                  data-testid="import-source-input"
+                  className="import-source__input"
+                  type="text"
+                  value={importUri}
+                  onChange={(e) => setImportUri(e.target.value)}
+                  placeholder={t('form.uriPlaceholder')}
+                  disabled={isSubmitting}
+                  spellCheck="false"
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary import-source__btn"
+                  data-testid="import-submit"
+                  disabled={isSubmitting || !importUri.trim()}
                 >
-                  <ModalityChips
-                    value={modalityFilter}
-                    onChange={handleModalityChange}
-                    disabled={isSubmitting || backendsLoading}
-                  />
-                  {renderBackendField()}
-                  {renderNameField()}
-                  {renderDescriptionField()}
-                </div>
-              )}
-            </div>
-            {/* Hidden submit button — required because the visible Import
-                button lives outside this <form> in the page header. Browsers
-                only trigger implicit Enter submit when the form contains at
-                least one submit-capable element; this keeps the behaviour
-                consistent even if the form ever holds a single text input. */}
-            <button type="submit" aria-hidden="true" tabIndex={-1} className="hidden" />
-          </form>
-        </div>
-      )}
-
-      {/* Power mode */}
-      {mode === 'power' && (
-        <div className="card" style={{ padding: isPowerYaml ? 0 : 'var(--spacing-lg)', overflow: 'hidden' }}>
-          {!isPowerYaml && (
-            <>
-              <PowerTabs value={powerTab} onChange={setPowerTab} />
-              {renderUriAndAmbiguity()}
-              {renderFullPreferences()}
-            </>
-          )}
-          {isPowerYaml && (
-            <>
-              <div className="pad-md">
-                <PowerTabs value={powerTab} onChange={setPowerTab} />
-              </div>
-              <div className="im-yaml-head">
-                <h2 className="hstack text-lg fw-semibold">
-                  <i className="fas fa-code text-data-3" aria-hidden="true" />
-                  {t('form.yamlEditor')}
-                </h2>
-                <button className="btn btn-secondary text-xs" onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}>
-                  <i className="fas fa-copy" aria-hidden="true" /> {t('actions.copy')}
+                  {isSubmitting
+                    ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</>
+                    : <><i className="fas fa-file-import" aria-hidden="true" /> {t('actions.import')}</>}
                 </button>
               </div>
-              <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 400px)" />
-            </>
-          )}
+              <p className="form-hint-sm">{t('form.uriHint')}</p>
+
+              {!isSplit && (
+                <>
+                  <button
+                    type="button"
+                    className="import-disclosure"
+                    data-testid="import-formats-toggle"
+                    aria-expanded={showFormats}
+                    aria-controls="import-formats-panel"
+                    onClick={() => setShowFormats(v => !v)}
+                  >
+                    <i className={`fas fa-chevron-${showFormats ? 'down' : 'right'}`} aria-hidden="true" />
+                    {t('form.supportedFormats')}
+                  </button>
+                  {showFormats && <div id="import-formats-panel">{renderFormats()}</div>}
+                </>
+              )}
+            </div>
+
+            {ambiguity && (
+              <AmbiguityAlert
+                modality={ambiguity.modality}
+                candidates={ambiguity.candidates}
+                knownBackends={backends}
+                onPick={pickAmbiguityCandidate}
+                onDismiss={() => setAmbiguity(null)}
+              />
+            )}
+
+            {/* Size and VRAM answer for the field above them. They used to be a
+                banner pinned above the page header, furthest from the control
+                that produced them. */}
+            {estimate && (
+              <div className="import-estimate" data-testid="import-estimate">
+                {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
+                  <span className="import-estimate__cell">
+                    <span className="import-estimate__k">{t('estimate.downloadLabel')}</span>
+                    <span className="import-estimate__v">{estimate.sizeDisplay}</span>
+                  </span>
+                )}
+                {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
+                  <span className="import-estimate__cell">
+                    <span className="import-estimate__k">{t('estimate.vramLabel')}</span>
+                    <span className="import-estimate__v">{estimate.vramDisplay}</span>
+                  </span>
+                )}
+              </div>
+            )}
+
+            {job && (
+              <div className="import-progress" data-testid="import-progress">
+                <div className="import-progress__row">
+                  <span className="import-progress__name">{jobName || t('progress.working')}</span>
+                  {progressPct !== null && (
+                    <span className="import-progress__pct">{progressPct}%</span>
+                  )}
+                </div>
+                {progressPct !== null && (
+                  <div
+                    className="import-progress__track"
+                    role="progressbar"
+                    aria-valuenow={progressPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={t('progress.label')}
+                  >
+                    {/* Runtime percentage — the one width a stylesheet cannot know. */}
+                    <span className="import-progress__fill" style={{ width: `${progressPct}%` }} />
+                  </div>
+                )}
+                <div className="import-progress__row">
+                  <span className="import-progress__meta">
+                    {job.phase || job.message || t('progress.working')}
+                    {jobBytes && ` · ${jobBytes}`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="import-options">
+              <button
+                type="button"
+                className="import-disclosure"
+                data-testid="import-options-toggle"
+                aria-expanded={showOptions}
+                aria-controls="import-options-panel"
+                onClick={() => setShowOptions(v => !v)}
+              >
+                <i className={`fas fa-chevron-${showOptions ? 'down' : 'right'}`} aria-hidden="true" />
+                {t('form.options')}
+                {!showOptions && <span className="import-options__summary">{t('form.optionsSummary')}</span>}
+              </button>
+              {showOptions && renderOptions()}
+            </div>
+          </form>
+
+          {isSplit && <aside className="import-aside">{renderFormats()}</aside>}
         </div>
       )}
 
-      {switchDialog && (
-        <SwitchModeDialog
-          onKeep={switchDialog.onKeep}
-          onDiscard={switchDialog.onDiscard}
-          onCancel={switchDialog.onCancel}
-        />
+      {isYaml && (
+        <div className="import-yaml" data-testid="import-yaml">
+          <div className="import-yaml__head">
+            <span className="form-label mb-0">{t('form.yamlEditor')}</span>
+            <div className="hstack">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}
+              >
+                <i className="fas fa-copy" aria-hidden="true" /> {t('actions.copy')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                data-testid="import-create"
+                onClick={handleYamlCreate}
+                disabled={isSubmitting}
+              >
+                {isSubmitting
+                  ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</>
+                  : <><i className="fas fa-plus" aria-hidden="true" /> {t('actions.create')}</>}
+              </button>
+            </div>
+          </div>
+          <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 320px)" />
+        </div>
       )}
     </div>
   )

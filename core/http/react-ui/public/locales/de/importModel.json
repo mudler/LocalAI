@@ -1,28 +1,30 @@
 {
-  "title": "Neues Modell importieren",
+  "title": "Modell importieren",
   "subtitle": {
-    "simple": "Modell von einer URI importieren — Auto-Erkennung wählt das Backend.",
-    "powerYaml": "Vollständige Modell-YAML-Konfiguration schreiben.",
-    "powerPrefs": "Detaillierte Importeinstellungen."
+    "source": "Füge eine Hugging-Face-Referenz, eine URL oder einen Pfad auf diesem Host ein.",
+    "yaml": "Schreibe die Modellkonfiguration von Hand. Es wird nichts automatisch erkannt."
+  },
+  "tabs": {
+    "ariaLabel": "Art des Imports",
+    "source": "Aus einer Quelle",
+    "yaml": "YAML schreiben"
   },
   "actions": {
-    "import": "Modell importieren",
-    "importing": "Importieren...",
+    "import": "Importieren",
+    "importing": "Importiere…",
     "create": "Erstellen",
     "saving": "Speichern...",
-    "browseHF": "Modelle auf HF durchsuchen",
-    "addCustom": "Benutzerdefiniert hinzufügen",
+    "browseHF": "Modelle auf Hugging Face durchsuchen",
+    "addCustom": "Eigenen Eintrag hinzufügen",
     "copy": "Kopieren"
   },
   "form": {
-    "modelUri": "Modell-URI",
+    "modelUri": "Quelle",
     "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF oder https://example.com/model.gguf",
-    "uriHint": "Geben Sie die URI oder den Pfad der zu importierenden Modelldatei ein",
-    "supportedFormats": "Unterstützte URI-Formate",
-    "options": "Optionen",
-    "preferences": "Einstellungen (optional)",
-    "commonPreferences": "Allgemeine Einstellungen",
-    "customPreferences": "Benutzerdefinierte Einstellungen",
+    "uriHint": "Drücke Enter zum Importieren. LocalAI wählt das Backend anhand der Quelle, sofern du keines auswählst.",
+    "supportedFormats": "Was du einfügen kannst",
+    "options": "Import-Optionen",
+    "customPreferences": "Eigene Einstellungen",
     "customKeyValueHint": "Fügen Sie benutzerdefinierte Schlüssel-Wert-Paare für erweiterte Konfiguration hinzu.",
     "preferenceKey": "Einstellungsschlüssel für Zeile {{index}}",
     "preferenceValue": "Einstellungswert für Zeile {{index}}",
@@ -33,10 +35,10 @@
     "backendAuto": "Auto-Erkennung (basierend auf URI)",
     "backendLoading": "Backends werden geladen…",
     "backendSearch": "Backends suchen...",
-    "backendHint": "Erzwingen Sie ein bestimmtes Backend. Leer lassen für Auto-Erkennung von der URI. Mit \"manuelle Auswahl\" markierte Einträge sind nicht auto-erkennbar — wählen Sie sie selbst, wenn Sie wissen, was das Modell benötigt.",
-    "backendErrorHint": "Backend-Liste konnte nicht geladen werden — nur Auto-Erkennung.",
+    "backendHint": "Grenze die Liste danach ein, was das Modell tut, und wähle dann eines aus. Bei automatischer Erkennung entscheidet LocalAI. Einträge mit „manuelle Auswahl“ werden nie automatisch erkannt.",
+    "backendErrorHint": "Backend-Liste konnte nicht geladen werden. Nur automatische Erkennung.",
     "backendNotInstalled": "Dieses Backend ist noch nicht installiert. Beim Senden des Imports wird es zuerst heruntergeladen.",
-    "modelName": "Modellname",
+    "modelName": "Name",
     "modelNamePlaceholder": "Leer lassen, um den Dateinamen zu verwenden",
     "modelNameHint": "Benutzerdefinierter Name für das Modell. Wenn leer, wird der Dateiname verwendet.",
     "description": "Beschreibung",
@@ -58,14 +60,17 @@
     "schedulerType": "Scheduler-Typ",
     "schedulerTypePlaceholder": "k_dpmpp_2m (optional)",
     "schedulerTypeHint": "Scheduler-Typ für diffusers-Backend. Beispiele: k_dpmpp_2m, euler_a, ddim.",
-    "enableParameters": "Aktivierte Parameter",
+    "enableParameters": "Parameter aktivieren",
     "enableParametersPlaceholder": "negative_prompt,num_inference_steps (kommasepariert)",
     "enableParametersHint": "Aktivierte Parameter für diffusers-Backend (kommasepariert).",
     "cuda": "CUDA",
     "cudaHint": "CUDA-Unterstützung für GPU-Beschleunigung aktivieren.",
-    "yamlEditor": "YAML-Konfigurationseditor",
+    "yamlEditor": "Modellkonfiguration",
     "manualPick": "manuelle Auswahl",
-    "manualPickTooltip": "Auto-Erkennung leitet nicht zu diesem Backend. Wählen Sie es hier, wenn Sie wissen, dass Sie das wollen."
+    "manualPickTooltip": "Auto-Erkennung leitet nicht zu diesem Backend. Wählen Sie es hier, wenn Sie wissen, dass Sie das wollen.",
+    "optionsSummary": "Backend, Name, Beschreibung, Quantisierungen…",
+    "modalityAny": "Alle",
+    "modalityFilter": "Backends nach Modalität filtern"
   },
   "modality": {
     "text": "Text-LLM",
@@ -79,28 +84,18 @@
     "vad": "Sprachaktivitätserkennung",
     "other": "Sonstige"
   },
-  "powerTabs": {
-    "ariaLabel": "Erweiterter Modus-Tab",
-    "preferences": "Einstellungen",
-    "yaml": "YAML"
-  },
-  "switchDialog": {
-    "title": "Benutzerdefinierte Einstellungen behalten?",
-    "body": "Beim Wechsel in den Einfach-Modus werden Einstellungen außerhalb von Backend, Name und Beschreibung ausgeblendet. Sie werden beim Import dennoch gesendet.",
-    "cancel": "Abbrechen",
-    "discard": "Verwerfen & wechseln",
-    "keep": "Behalten & wechseln"
-  },
   "estimate": {
-    "title": "Geschätzte Anforderungen",
-    "download": "Download: {{size}}",
-    "vram": "VRAM: {{vram}}"
+    "downloadLabel": "Download",
+    "vramLabel": "VRAM beim Laden"
+  },
+  "progress": {
+    "label": "Import-Fortschritt",
+    "working": "Arbeite…"
   },
   "toasts": {
     "noUri": "Bitte eine Modell-URI eingeben",
     "noYaml": "Bitte YAML-Konfiguration eingeben",
-    "started": "Import gestartet! Fortschritt wird verfolgt...",
-    "startedWithMeta": "Import gestartet! Fortschritt wird verfolgt... ({{meta}})",
+    "started": "Import gestartet. Der Fortschritt wird unten angezeigt.",
     "imported": "Modell erfolgreich importiert!",
     "importedYaml": "Modellkonfiguration erfolgreich importiert!",
     "importFailed": "Import fehlgeschlagen: {{message}}",
@@ -111,33 +106,19 @@
   },
   "uriFormats": {
     "huggingface": {
-      "title": "HuggingFace",
-      "standard": "Standard HuggingFace-Format",
-      "short": "Kurzes HuggingFace-Format",
-      "fullUrl": "Vollständige HuggingFace-URL"
+      "title": "Hugging Face"
     },
     "http": {
-      "title": "HTTP/HTTPS-URLs",
-      "direct": "Direkter Download von einer beliebigen HTTPS-URL"
+      "title": "Direkte URL"
     },
     "local": {
-      "title": "Lokale Dateien",
-      "filePath": "Lokaler Dateipfad (absolut)",
-      "directYaml": "Direkte lokale YAML-Konfigurationsdatei"
+      "title": "Auf diesem Host"
     },
     "oci": {
-      "title": "OCI-Registry",
-      "registry": "OCI-Container-Registry",
-      "tarball": "Lokale OCI-Tarball-Datei"
+      "title": "OCI-Registry"
     },
     "ollama": {
-      "title": "Ollama",
-      "model": "Ollama-Modellformat"
-    },
-    "yaml": {
-      "title": "YAML-Konfigurationsdateien",
-      "remote": "Remote-YAML-Konfigurationsdatei",
-      "local": "Lokale YAML-Konfigurationsdatei"
+      "title": "Ollama"
     }
   }
 }

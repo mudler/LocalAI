@@ -64,21 +64,31 @@ Visit [models.localai.io](https://models.localai.io) to browse all available mod
 
 ## Method 1.5: Import Models via WebUI
 
-The WebUI provides a powerful model import interface that supports both simple and advanced configuration:
+The WebUI import page takes either a source to resolve or a configuration to
+write. Both live on the same page, behind the two tabs in its header.
 
-### Simple Import Mode
+### From a source
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
 2. Click "Import Model"
-3. Enter the model URI (e.g., `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
-4. Optionally configure preferences:
-   - Backend selection
-   - Model name
-   - Description
-   - Quantizations
-   - Embeddings support
-   - Custom preferences
-5. Click "Import Model" to start the import process
+3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
+4. Press Enter, or click **Import**
+
+The **What you can paste** panel beside the field lists every accepted scheme:
+`huggingface://`, `hf://`, a full Hugging Face URL, any direct `https://` URL,
+`file://` and absolute paths on the host, `oci://`, `ocifile://`, and
+`ollama://`.
+
+Expanding **Import options** reveals everything you can override before the
+import runs: backend, name, description, quantizations, MMProj quantizations,
+model type, embeddings support, the diffusers-specific fields, and arbitrary
+custom key-value preferences. The backend list can be narrowed by modality
+first. Fields that the selected backend cannot use are hidden, and anything you
+typed into them is kept in case you switch back.
+
+Leaving the backend on auto-detect lets LocalAI choose from the source. If more
+than one installed backend can serve the detected modality, the page says so
+and offers the candidates inline — picking one resubmits the import.
 
 Repositories under `mlx-community` are imported with the native MLX backend.
 LocalAI uses Hugging Face's pipeline metadata to select `mlx-vlm` for
@@ -86,21 +96,15 @@ vision-language models and `mlx-audio` for text-to-speech models; other MLX
 repositories use `mlx`. An explicit backend selection in the import form always
 overrides this automatic routing.
 
-### Advanced Import Mode
+Once the import starts, the page reports the current phase, the bytes
+transferred and a progress bar until the model is ready.
 
-For full control over model configuration:
+### Writing YAML
 
-1. In the WebUI, click "Import Model"
-2. Toggle to "Advanced Mode"
-3. Edit the YAML configuration directly in the code editor
-4. Use the "Validate" button to check your configuration
-5. Click "Create" or "Update" to save
-
-The advanced editor includes:
-- Syntax highlighting
-- YAML validation
-- Format and copy tools
-- Full configuration options
+For full control over model configuration, switch to the **Write YAML** tab and
+edit the configuration directly, then click **Create**. The editor provides
+syntax highlighting and a copy button, and accepts the same configuration keys
+documented under [Advanced]({{% relref "advanced" %}}).
 
 This is especially useful for:
 - Custom model configurations
