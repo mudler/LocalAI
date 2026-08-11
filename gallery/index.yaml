@@ -5521,6 +5521,86 @@
     - filename: llama-cpp/mmproj/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/mmproj-F32.gguf
       sha256: fdc443e974cad1f61c45af1cfd5580855855ddce0d6c14cc500a5714c486ac1d
       uri: https://huggingface.co/DavidAU/Qwen3.6-27B-Heretic-Uncensored-FINETUNE-NEO-CODE-Di-IMatrix-MAX-GGUF/resolve/main/mmproj-F32.gguf
+- &xyz-aquila-mini
+  name: xyz-aquila-mini
+  variants:
+    - model: xyz-aquila-mini-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XYZAILab/XYZ-Aquila-mini
+    - https://huggingface.co/bartowski/XYZAILab_XYZ-Aquila-mini-GGUF
+  description: |
+    XYZ-Aquila-mini is an Apache-2.0, open-weight thinking model based on
+    Qwen3.6-35B-A3B. It is tuned for agentic deep search, long-horizon planning,
+    bilingual web research, evidence aggregation, source verification, and
+    recovery from failed tool interactions. This entry uses the Q4_K_M GGUF;
+    the Q6_K variant offers higher fidelity on hosts with more memory.
+
+    The checkpoint supports Qwen-compatible reasoning and tool-call formats.
+    Search, scraping, and Python execution are supplied by the agent harness,
+    not by the model weights themselves.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - tools
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/XYZAILab_XYZ-Aquila-mini-GGUF/mmproj-XYZAILab_XYZ-Aquila-mini-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/XYZAILab_XYZ-Aquila-mini-GGUF/XYZAILab_XYZ-Aquila-mini-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/XYZAILab_XYZ-Aquila-mini-GGUF/XYZAILab_XYZ-Aquila-mini-Q4_K_M.gguf
+      sha256: c96ee35332dc5f24a618d5d43ed79382e9a914a0ccb0b638b2a21dbebf8bc2f7
+      uri: https://huggingface.co/bartowski/XYZAILab_XYZ-Aquila-mini-GGUF/resolve/main/XYZAILab_XYZ-Aquila-mini-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/XYZAILab_XYZ-Aquila-mini-GGUF/mmproj-XYZAILab_XYZ-Aquila-mini-f16.gguf
+      sha256: b80c0f20a6ca880c154c08ef8c8055a8dd07ce85f2a2732434e91b68c4d5fdd8
+      uri: https://huggingface.co/bartowski/XYZAILab_XYZ-Aquila-mini-GGUF/resolve/main/mmproj-XYZAILab_XYZ-Aquila-mini-f16.gguf
+- !!merge <<: *xyz-aquila-mini
+  name: xyz-aquila-mini-q6
+  variants: []
+  description: |
+    Higher-fidelity Q6_K variant of XYZ-Aquila-mini, an Apache-2.0 Qwen3.6
+    MoE thinking model tuned for agentic deep search and tool use.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/XYZAILab_XYZ-Aquila-mini-GGUF/mmproj-XYZAILab_XYZ-Aquila-mini-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/XYZAILab_XYZ-Aquila-mini-GGUF/XYZAILab_XYZ-Aquila-mini-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/XYZAILab_XYZ-Aquila-mini-GGUF/XYZAILab_XYZ-Aquila-mini-Q6_K.gguf
+      sha256: c66485a0c0d49bb5394271e06d47dd913c95d9f01a2847820cbb174cab8a25e9
+      uri: https://huggingface.co/bartowski/XYZAILab_XYZ-Aquila-mini-GGUF/resolve/main/XYZAILab_XYZ-Aquila-mini-Q6_K.gguf
+    - filename: llama-cpp/mmproj/XYZAILab_XYZ-Aquila-mini-GGUF/mmproj-XYZAILab_XYZ-Aquila-mini-f16.gguf
+      sha256: b80c0f20a6ca880c154c08ef8c8055a8dd07ce85f2a2732434e91b68c4d5fdd8
+      uri: https://huggingface.co/bartowski/XYZAILab_XYZ-Aquila-mini-GGUF/resolve/main/mmproj-XYZAILab_XYZ-Aquila-mini-f16.gguf
 - name: qwen3.5-9b-deepseek-v4-flash
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
