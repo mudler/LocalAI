@@ -50269,7 +50269,7 @@
       model: audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf
   files:
     - filename: audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf
-      sha256: b857344af06b1b2497f4f8c1d0f0c134d0eeaf9c089c0d28ae6e58084d90f901
+      sha256: 79746822045b5bf8f9ab2bda87b16cd3f8ea3d9e319cbcf887a87aa1b537a74a
       uri: huggingface://audio-cpp/audio.cpp-gguf/Higgs-Audio-v3-TTS-4B-GGUF/higgs-audio-v3-tts-4b-q8_0.gguf
 - name: audio-cpp-chatterbox
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
