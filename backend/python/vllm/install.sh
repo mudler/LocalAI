@@ -122,11 +122,11 @@ if [ "$(uname -s)" = "Darwin" ]; then
     VLLM_METAL_VERSION="v0.3.0.dev20260726174827"
 
     # The coupled vLLM source version is whatever this vllm-metal release builds
-    # against -- it declares it in its own installer as `vllm_v=`. Derive it from
+    # against. Derive it from
     # the PINNED tag rather than hardcoding a second value that could drift. The
     # tag is immutable, so this stays reproducible across rebuilds.
     VLLM_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/vllm-project/vllm-metal/${VLLM_METAL_VERSION}/install.sh" \
-        | grep -oE 'vllm_v="[0-9]+\.[0-9]+\.[0-9]+"' | head -n1 | cut -d'"' -f2)
+        | "$backend_dir/../../../scripts/lib/extract-vllm-metal-version.sh")
     if [ -z "${VLLM_VERSION}" ]; then
         echo "ERROR: could not derive the vLLM version from vllm-metal ${VLLM_METAL_VERSION}" >&2
         exit 1
