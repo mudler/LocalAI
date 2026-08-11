@@ -271,12 +271,18 @@ func referenceVoiceCloning() *VoiceCloningCapability {
 // Use NormalizeBackendName() for names with dots (e.g., "llama.cpp").
 var BackendCapabilities = map[string]BackendCapability{
 	// --- LLM / text generation backends ---
+	// llama.cpp also serves Qwen3-TTS, so TTS is in the union below. It is NOT
+	// in DefaultUsecases: a bare GGUF served by llama.cpp is a chat model, and
+	// the TTS models declare known_usecases: [tts]. VoiceCloning is likewise
+	// narrowed per model in VoiceCloningForModel, since the vast majority of
+	// llama-cpp models in the gallery are text LLMs that clone nothing.
 	"llama-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore},
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore, MethodTTS, MethodTTSStream},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore, UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true, // requires mmproj
-		Description:      "llama.cpp GGUF models — LLM inference with optional vision via mmproj",
+		VoiceCloning:     referenceVoiceCloning(),
+		Description:      "llama.cpp GGUF models: LLM inference with optional vision via mmproj, and Qwen3-TTS speech with reference-audio cloning",
 	},
 	// privacy-filter is the standalone GGML engine (backend/cpp/privacy-filter,
 	// wrapping privacy-filter.cpp) for the openai-privacy-filter PII/NER token
@@ -1021,6 +1027,20 @@ func VoiceCloningForModel(cfg *ModelConfig) *VoiceCloningCapability {
 		supported = strings.Contains(identity, "xtts") || strings.Contains(identity, "your_tts")
 	case "crispasr":
 		supported = strings.Contains(identity, "f5-tts") || strings.Contains(identity, "f5_tts")
+	case "llama-cpp":
+		// llama.cpp is overwhelmingly a text-LLM backend that happens to also
+		// serve Qwen3-TTS, so the permissive default below would advertise
+		// reference-audio cloning on every GGUF chat model in the gallery.
+		// Narrow on the declared usecase rather than the model name: the TTS
+		// checkpoints are the only llama-cpp models that carry
+		// known_usecases: [tts], name matching would have to guess at
+		// third-party GGUF repacks, and "base" (the substring the Qwen and
+		// vLLM cases key on) is a routine word in text-model names.
+		//
+		// Deliberately reads the declared bit instead of HasUsecases, which
+		// falls through to GuessUsecases and would hand the decision to a
+		// heuristic that never had a llama.cpp TTS model in mind.
+		supported = cfg.KnownUsecases != nil && (*cfg.KnownUsecases&FLAG_TTS) == FLAG_TTS
 	default:
 		supported = true
 	}

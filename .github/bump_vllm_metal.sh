@@ -3,7 +3,7 @@
 # darwin (Apple Silicon) install path. The macOS/Metal build
 # (backend/python/vllm/install.sh, Darwin branch) installs vllm-metal, which is
 # version-locked to a specific vLLM source release. install.sh derives that vLLM
-# version at build time from vllm-metal's own installer (`vllm_v=`) at the pinned
+# version at build time from vllm-metal's own installer at the pinned
 # tag, so there is only ONE value to bump here -- mirroring bump_vllm_wheel.sh,
 # which bumps the Linux cu130 wheel pin.
 #
@@ -32,10 +32,10 @@ LATEST_TAG=$(gh_curl -H "Accept: application/vnd.github+json" \
 # The coupled vLLM source version lives in vllm-metal's installer at that tag.
 NEW_VLLM_VERSION=$(gh_curl \
     "https://raw.githubusercontent.com/$REPO/$LATEST_TAG/install.sh" \
-    | grep -oE 'vllm_v="[0-9]+\.[0-9]+\.[0-9]+"' | head -1 | cut -d'"' -f2)
+    | "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/extract-vllm-metal-version.sh")
 
 if [ -z "$LATEST_TAG" ] || [ -z "$NEW_VLLM_VERSION" ]; then
-    echo "Could not resolve vllm-metal tag ($LATEST_TAG) or its vllm_v ($NEW_VLLM_VERSION)." >&2
+    echo "Could not resolve vllm-metal tag ($LATEST_TAG) or its vLLM version ($NEW_VLLM_VERSION)." >&2
     exit 1
 fi
 

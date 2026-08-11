@@ -323,6 +323,23 @@ container, set `LOCALAI_WEBRTC_NAT_1TO1_IPS` to the host's LAN IP. This is the
 most reliable fix for WebRTC connections that establish and then drop.
 {{% /notice %}}
 
+#### Fixed WebRTC UDP port
+
+By default, each WebRTC peer connection uses an ephemeral UDP port. To route
+all realtime WebRTC ICE traffic through one shared port, start LocalAI with
+`--web-rtc-udp-port 3478` or set `LOCALAI_WEBRTC_UDP_PORT=3478`.
+
+When running in a container, publish the same port with the UDP protocol:
+
+```bash
+docker run -p 8080:8080 -p 3478:3478/udp \
+  -e LOCALAI_WEBRTC_UDP_PORT=3478 localai/localai:latest
+```
+
+Allow the selected UDP port through the host and network firewalls. If LocalAI
+cannot bind it, WebRTC signaling requests return an HTTP 500 error describing
+the bind failure.
+
 ## Protocol
 
 The API follows the OpenAI Realtime API protocol for handling sessions, audio buffers, and conversation items.

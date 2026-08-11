@@ -5,9 +5,6 @@
 </h1>
 
 <p align="center">
-<a href="https://github.com/go-skynet/LocalAI/stargazers" target="blank">
-<img src="https://img.shields.io/github/stars/go-skynet/LocalAI?style=for-the-badge" alt="LocalAI stars"/>
-</a>
 <a href='https://github.com/go-skynet/LocalAI/releases'>
 <img src='https://img.shields.io/github/release/go-skynet/LocalAI?&label=Latest&style=for-the-badge'>
 </a>

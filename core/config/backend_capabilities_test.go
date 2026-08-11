@@ -280,6 +280,78 @@ var _ = Describe("VoiceCloningForModel", func() {
 	)
 })
 
+// llama.cpp serves Qwen3-TTS as well as the text LLMs it is known for, so the
+// backend has to advertise TTS. That advertisement is what makes narrowing
+// mandatory: the per-backend switch in VoiceCloningForModel ends in a
+// permissive default, so an unnarrowed llama-cpp entry would offer
+// reference-audio cloning on every GGUF chat model in the gallery.
+var _ = Describe("llama-cpp TTS capabilities", func() {
+	It("advertises the TTS RPCs and usecase", func() {
+		capability := GetBackendCapability("llama-cpp")
+		Expect(capability).NotTo(BeNil())
+		Expect(capability.GRPCMethods).To(ContainElements(MethodTTS, MethodTTSStream))
+		Expect(capability.PossibleUsecases).To(ContainElement(UsecaseTTS))
+	})
+
+	// The gallery filter and the model importer both read DefaultUsecases, and a
+	// bare GGUF served by llama.cpp is a chat model, not a TTS model.
+	It("keeps chat as its only default usecase", func() {
+		Expect(GetBackendCapability("llama-cpp").DefaultUsecases).To(Equal([]string{UsecaseChat}))
+	})
+
+	ttsModel := func(backend string) ModelConfig {
+		cfg := ModelConfig{Name: "qwen3-tts-llamacpp", Backend: backend}
+		cfg.KnownUsecaseStrings = []string{"tts"}
+		cfg.syncKnownUsecasesFromString()
+		return cfg
+	}
+
+	It("resolves voice cloning for a model that declares the TTS usecase", func() {
+		cfg := ttsModel("llama-cpp")
+		cloning := VoiceCloningForModel(&cfg)
+		Expect(cloning).NotTo(BeNil())
+		Expect(cloning.AcceptedAudioFormats).To(ContainElement("audio/wav"))
+	})
+
+	// The spec that constrains the fix. Every one of these is an ordinary
+	// llama.cpp text model, and none of them may be offered in the Voice
+	// Library or accept a localai://voice-profiles/... reference.
+	DescribeTable("never resolves voice cloning for an ordinary llama.cpp model",
+		func(cfg ModelConfig) {
+			Expect(VoiceCloningForModel(&cfg)).To(BeNil())
+		},
+		Entry("plain chat model", ModelConfig{Name: "qwen3-8b", Backend: "llama-cpp"}),
+		Entry("auto-detected GGUF with no backend pinned", ModelConfig{Name: "mistral-7b"}),
+		Entry("a vision model with an mmproj", ModelConfig{Name: "gemma-3-12b", Backend: "llama-cpp", LLMConfig: LLMConfig{MMProj: "mmproj-gemma-3-12b.gguf"}}),
+		Entry("a chat model whose name happens to say base", ModelConfig{Name: "llama-3.1-8b-base", Backend: "llama-cpp"}),
+		Entry("a pinned hardware variant", ModelConfig{Name: "qwen3-8b", Backend: "cuda12-llama-cpp"}),
+	)
+
+	// A declared-TTS model must keep its contract through the pinned gallery
+	// variants an operator can put in `backend:`, the same way vibevoice-cpp
+	// and crispasr do.
+	DescribeTable("resolves through pinned gallery variants",
+		func(backend string) {
+			cfg := ttsModel(backend)
+			Expect(VoiceCloningForModel(&cfg)).NotTo(BeNil())
+		},
+		Entry("cuda12", "cuda12-llama-cpp"),
+		Entry("vulkan", "vulkan-llama-cpp"),
+		Entry("metal darwin arm64", "metal-darwin-arm64-llama-cpp"),
+		Entry("development channel", "llama-cpp-development"),
+	)
+
+	// tts.voice_cloning is the documented escape hatch for a custom build. It
+	// only ever reaches the operator once the backend carries the contract at
+	// all, which is precisely what the unregistered entry prevented.
+	It("still honours an explicit opt-out on a declared-TTS model", func() {
+		cfg := ttsModel("llama-cpp")
+		disabled := false
+		cfg.TTSConfig.VoiceCloning = &disabled
+		Expect(VoiceCloningForModel(&cfg)).To(BeNil())
+	})
+})
+
 var _ = Describe("IsValidUsecaseForBackend", func() {
 	It("accepts a backend's declared usecases", func() {
 		Expect(IsValidUsecaseForBackend("piper", "tts")).To(BeTrue())

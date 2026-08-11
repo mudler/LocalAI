@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	processManager "github.com/mudler/go-processmanager"
 	"github.com/mudler/xlog"
 	"github.com/phayes/freeport"
 	"google.golang.org/protobuf/proto"
@@ -161,8 +163,9 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 
 	if !ready {
 		xlog.Debug("GRPC Service NOT ready")
+		startupErr := grpcStartupError(client.Process())
 		stopLoadProcess(client, modelID)
-		return nil, fmt.Errorf("grpc service not ready")
+		return nil, startupErr
 	}
 
 	// Clone before setting the per-load fields: o.gRPCOptions is shared by
@@ -192,6 +195,58 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 	}
 
 	return client, nil
+}
+
+const startupStderrTailBytes = 4096
+
+func grpcStartupError(process *processManager.Process) error {
+	if process == nil {
+		return errors.New("grpc service not ready")
+	}
+
+	select {
+	case <-process.Done():
+	default:
+		return errors.New("grpc service not ready")
+	}
+
+	exitCode, err := process.ExitCode()
+	if err != nil {
+		return errors.New("grpc service not ready: backend process exited before becoming ready")
+	}
+
+	diagnostic := lastNonEmptyLine(process.StderrPath(), startupStderrTailBytes)
+	if diagnostic == "" {
+		return fmt.Errorf("grpc service not ready: backend process exited with code %s", strings.TrimSpace(exitCode))
+	}
+	return fmt.Errorf("grpc service not ready: backend process exited with code %s: %s", strings.TrimSpace(exitCode), diagnostic)
+}
+
+func lastNonEmptyLine(path string, maxBytes int64) string {
+	// #nosec G304 -- path comes from the process manager for this backend's stderr file.
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+
+	info, err := f.Stat()
+	if err != nil {
+		return ""
+	}
+	start := max(info.Size()-maxBytes, 0)
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return ""
+	}
+	contents, err := io.ReadAll(f)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(contents)), "\n")
+	if len(lines) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(lines[len(lines)-1])
 }
 
 // stopLoadProcess tears down a backend process whose load did not complete.

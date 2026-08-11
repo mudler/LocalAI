@@ -122,3 +122,52 @@ var _ = Describe("MTP auto-defaults", func() {
 		})
 	})
 })
+
+// The mmproj of a Qwen3-TTS GGUF repo is named exactly like a vision
+// projector, so the gen-audio flag llama.cpp's own mtmd gates its speech
+// pipeline on is the only thing that tells the two apart.
+var _ = Describe("HasGenAudioProjector", func() {
+	mmproj := func(key string, valueType gguf.GGUFMetadataValueType, value any) *gguf.GGUFFile {
+		return &gguf.GGUFFile{
+			Header: gguf.GGUFHeader{
+				MetadataKV: gguf.GGUFMetadataKVs{
+					{Key: "general.architecture", ValueType: gguf.GGUFMetadataValueTypeString, Value: "clip"},
+					{Key: key, ValueType: valueType, Value: value},
+				},
+			},
+		}
+	}
+
+	It("detects the gen-audio projector Qwen3-TTS ships", func() {
+		f := mmproj("clip.has_gen_audio_encoder", gguf.GGUFMetadataValueTypeBool, true)
+		Expect(HasGenAudioProjector(f)).To(BeTrue())
+	})
+
+	It("is false for a vision projector", func() {
+		f := mmproj("clip.has_vision_encoder", gguf.GGUFMetadataValueTypeBool, true)
+		Expect(HasGenAudioProjector(f)).To(BeFalse())
+	})
+
+	// A speaker encoder alone is reference-audio INPUT. The gen-audio decoder
+	// is what makes the model emit speech, and Qwen3-TTS carries both.
+	It("is false for a projector that only encodes speaker audio", func() {
+		f := mmproj("clip.has_audio_encoder", gguf.GGUFMetadataValueTypeBool, true)
+		Expect(HasGenAudioProjector(f)).To(BeFalse())
+	})
+
+	It("is false when the flag is present but off", func() {
+		f := mmproj("clip.has_gen_audio_encoder", gguf.GGUFMetadataValueTypeBool, false)
+		Expect(HasGenAudioProjector(f)).To(BeFalse())
+	})
+
+	// ValueBool panics on a type mismatch, and this runs against arbitrary
+	// user-supplied repos.
+	It("is false, not a panic, when the flag carries the wrong type", func() {
+		f := mmproj("clip.has_gen_audio_encoder", gguf.GGUFMetadataValueTypeString, "true")
+		Expect(HasGenAudioProjector(f)).To(BeFalse())
+	})
+
+	It("is false for a nil file", func() {
+		Expect(HasGenAudioProjector(nil)).To(BeFalse())
+	})
+})

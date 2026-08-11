@@ -170,12 +170,12 @@ export default function AgentTaskDetails() {
           title={task.name || 'Task Details'}
           supporting={task.description || undefined}
           actions={
-            <div className="hstack btn btn-primary btn-sm fas fa-edit btn-secondary fa-arrow-left">
-              <button onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
-                <i className="fas fa-pen" aria-hidden="true" /> Edit
-              </button>
-              <button onClick={() => navigate('/app/agent-jobs')}>
+            <div className="hstack">
+              <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
                 <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
+                <i className="fas fa-pen" aria-hidden="true" /> Edit
               </button>
             </div>
           }
@@ -311,7 +311,7 @@ export default function AgentTaskDetails() {
       <PageHeader
         title={isNew ? 'Create Task' : 'Edit Task'}
         actions={
-          <button className="btn btn-secondary btn-sm fas fa-arrow-left" onClick={() => navigate('/app/agent-jobs')}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
             <i className="fas fa-arrow-left" aria-hidden="true" /> Back
           </button>
         }

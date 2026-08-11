@@ -11,6 +11,8 @@
     - https://github.com/ggerganov/llama.cpp
   tags:
     - text-to-text
+    - text-to-speech
+    - TTS
     - LLM
     - CPU
     - GPU
