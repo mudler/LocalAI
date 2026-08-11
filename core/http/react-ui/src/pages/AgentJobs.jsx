@@ -275,7 +275,7 @@ export default function AgentJobs() {
         title="Agent Jobs"
         supporting="Manage agent tasks and automated workflows"
         actions={
-          <button className="btn btn-primary fas fa-plus" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
+          <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
             <i className="fas fa-plus" aria-hidden="true" /> New Task
           </button>
         }

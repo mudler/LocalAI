@@ -164,15 +164,15 @@ export default function AgentJobDetails() {
         title="Job Details"
         supporting="Live status and reasoning traces"
         actions={
-          <div className="hstack btn btn-danger fas fa-stop btn-secondary fa-arrow-left">
+          <div className="hstack">
+            <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
+              <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+            </button>
             {(job.status === 'running' || job.status === 'pending') && (
-              <button onClick={handleCancel}>
+              <button className="btn btn-danger" onClick={handleCancel}>
                 <i className="fas fa-ban" aria-hidden="true" /> Cancel
               </button>
             )}
-            <button onClick={() => navigate('/app/agent-jobs')}>
-              <i className="fas fa-arrow-left" aria-hidden="true" /> Back
-            </button>
           </div>
         }
       />
