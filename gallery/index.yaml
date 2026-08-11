@@ -4407,6 +4407,80 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &gemma-4-31b-scotoma-2
+  name: "gemma-4-31b-scotoma-2-q4"
+  variants:
+    - model: gemma-4-31b-scotoma-2-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ReadyArt/gemma-4-31B-it-scotoma-2
+    - https://huggingface.co/ReadyArt/gemma-4-31B-it-scotoma-2-GGUF
+  description: |
+    Gemma 4 31B Scotoma 2 is a multimodal Gemma 4 31B instruction-tuned model from ReadyArt. It applies a bounded refusal edit and preference training intended to reduce repetitive prose patterns while retaining the base model's text and image capabilities. This entry uses the 18.7 GB Q4_K_M GGUF and the matching Q8_0 vision projector.
+
+    License: Apache 2.0 | Base model: Google Gemma 4 31B IT
+  license: "apache-2.0"
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - gemma
+    - gemma4
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31B-it-scotoma-2-GGUF/mmproj-gemma-4-31B-scotoma-2-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31B-it-scotoma-2-GGUF/gemma-4-31B-scotoma-2-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31B-it-scotoma-2-GGUF/gemma-4-31B-scotoma-2-Q4_K_M.gguf
+      sha256: 3d2d373d499662cfc5703adcd46b527054267fd750d1e55b11c3d2861b5e7330
+      uri: huggingface://ReadyArt/gemma-4-31B-it-scotoma-2-GGUF/gemma-4-31B-scotoma-2-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-31B-it-scotoma-2-GGUF/mmproj-gemma-4-31B-scotoma-2-Q8_0.gguf
+      sha256: a65401a0143d4a9883a4bca7e0c780b7140fc98142aaa26790da1ee46aa163dd
+      uri: huggingface://ReadyArt/gemma-4-31B-it-scotoma-2-GGUF/mmproj-gemma-4-31B-scotoma-2-Q8_0.gguf
+- !!merge <<: *gemma-4-31b-scotoma-2
+  name: "gemma-4-31b-scotoma-2-q8"
+  variants: []
+  description: |
+    Gemma 4 31B Scotoma 2 is a multimodal Gemma 4 31B instruction-tuned model from ReadyArt. It applies a bounded refusal edit and preference training intended to reduce repetitive prose patterns while retaining the base model's text and image capabilities. This higher-fidelity entry uses the 32.6 GB Q8_0 GGUF and the matching Q8_0 vision projector.
+
+    License: Apache 2.0 | Base model: Google Gemma 4 31B IT
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31B-it-scotoma-2-GGUF/mmproj-gemma-4-31B-scotoma-2-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31B-it-scotoma-2-GGUF/gemma-4-31B-scotoma-2-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31B-it-scotoma-2-GGUF/gemma-4-31B-scotoma-2-Q8_0.gguf
+      sha256: 79d9125f9769d95ceaa5e77cca72e9af99f4c9effb5bbe78999e9f3afe5e8d45
+      uri: huggingface://ReadyArt/gemma-4-31B-it-scotoma-2-GGUF/gemma-4-31B-scotoma-2-Q8_0.gguf
+    - filename: llama-cpp/mmproj/gemma-4-31B-it-scotoma-2-GGUF/mmproj-gemma-4-31B-scotoma-2-Q8_0.gguf
+      sha256: a65401a0143d4a9883a4bca7e0c780b7140fc98142aaa26790da1ee46aa163dd
+      uri: huggingface://ReadyArt/gemma-4-31B-it-scotoma-2-GGUF/mmproj-gemma-4-31B-scotoma-2-Q8_0.gguf
 - name: "gemma-4-26b-a4b-it-qat"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
