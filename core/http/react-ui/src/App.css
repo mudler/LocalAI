@@ -11336,39 +11336,301 @@ button.collapsible-header:focus-visible {
 
 /* ===========================================================================
    Import model
-   The URI-format reference, the preferences panel and its disclosure buttons.
-   `hintStyle` was a shared style object; it is .form-hint-sm now.
+
+   The page is one form, not two modes. Its shape is a work column plus a
+   format reference: the reference answers the only question a first-time
+   admin has ("what do I paste?"), and it used to sit behind a disclosure that
+   was closed by default. Below --bp-tablet the column cannot hold, so the
+   component swaps it for a disclosure rather than dropping it.
+
+   No wells and no nested cards here. Fields group by proximity and a label,
+   the way the rest of the restyled app does.
    =========================================================================== */
 .form-hint-sm { margin-top: var(--spacing-xs); font-size: var(--text-xs); color: var(--color-text-muted); }
-.im-well {
-  padding: var(--spacing-md);
-  background: var(--color-bg-primary);
+
+.import-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: var(--spacing-2xl);
+  align-items: start;
+}
+.import-split--stacked { grid-template-columns: minmax(0, 1fr); }
+.import-main { min-width: 0; }
+.import-aside { min-width: 0; }
+
+/* --- the source field ---------------------------------------------------- */
+
+/* The one control on the page that 90% of visits touch, so it is the largest
+   one and it carries its own commit button. The focus ring lives on the bar
+   rather than the input because the button shares the frame. */
+.import-source__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-sm);
+  align-items: stretch;
+  background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
+  padding: 4px 4px 4px 0;
+  transition: border-color var(--duration-normal) var(--ease-spring),
+              box-shadow var(--duration-normal) var(--ease-spring);
 }
-.im-well--grid { display: grid; gap: var(--spacing-md); }
-.im-disclosure {
+.import-source__bar:focus-within {
+  border-color: var(--color-border-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+.import-source__input {
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--color-text-primary);
+  /* A source is something you paste or type verbatim, not prose. Same rule the
+     lanes use for model ids and backend names. */
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+.import-source__input::placeholder { color: var(--color-text-disabled); }
+.import-source__input:disabled { color: var(--color-text-disabled); }
+.import-source__btn { min-height: 38px; padding-inline: var(--spacing-lg); }
+
+/* --- disclosures --------------------------------------------------------- */
+.import-disclosure {
   background: none;
-  border: none;
+  border: 0;
+  padding: 0;
+  margin-top: var(--spacing-md);
   color: var(--color-text-secondary);
   cursor: pointer;
+  font: inherit;
   font-size: var(--text-sm);
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  font: inherit;
+  gap: var(--spacing-sm);
 }
-.im-fmt__title { font-size: var(--text-sm); font-weight: var(--font-weight-semibold); margin-bottom: var(--spacing-xs); display: flex; align-items: center; gap: var(--spacing-xs); }
-.im-fmt__body { padding-left: 20px; font-size: var(--text-xs); font-family: var(--font-mono); }
-.im-pref-label { display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; }
-.im-pref-name { font-size: var(--text-base); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); }
-.im-indent { margin-left: 28px; }
-.im-yaml-head {
-  padding: var(--spacing-md);
+.import-disclosure:hover { color: var(--color-text-primary); }
+.import-options__summary {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-options {
+  margin-top: var(--spacing-lg);
   border-top: 1px solid var(--color-border-default);
-  border-bottom: 1px solid var(--color-border-default);
+  padding-top: var(--spacing-xs);
 }
-.pill-sm { font-size: var(--text-xs); padding: 3px 8px; }
+
+/* Two columns of fields at this width, which is the whole reason the page
+   moved off the narrow archetype: nine preferences in one column is 1,900px
+   of scroll. Wide fields (backend, description, custom prefs) span both. */
+.import-options__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-lg) var(--spacing-xl);
+  margin-top: var(--spacing-lg);
+}
+.import-field { min-width: 0; }
+.import-field--wide { grid-column: 1 / -1; }
+/* A hint that introduces a control rather than trailing it. */
+.import-field__lead { margin-top: 0; margin-bottom: var(--spacing-sm); }
+
+.import-check {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+}
+.import-check__hint { margin-left: 26px; }
+
+.import-custom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+/* --- modality chips ------------------------------------------------------ */
+.modality-chips {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-sm);
+}
+.modality-chip {
+  flex-shrink: 0;
+  padding: 3px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default);
+}
+.modality-chip:hover:not(:disabled) { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+.modality-chip.is-active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+.modality-chip:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* --- estimate ------------------------------------------------------------ */
+
+/* A result of the field above, not a page banner. The rule on the leading
+   edge attaches it to what produced it. */
+.import-estimate {
+  display: flex;
+  gap: var(--spacing-xl);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 2px solid var(--color-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.import-estimate__cell { display: flex; flex-direction: column; gap: 1px; }
+.import-estimate__k {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+.import-estimate__v {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- in-flight import ---------------------------------------------------- */
+
+/* The poller already reports progress, phase and byte counts; the page used
+   to render only `message`. Same visual grammar as the Activity cards. */
+.import-progress {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.import-progress__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+.import-progress__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.import-progress__pct {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
+}
+.import-progress__track {
+  height: 3px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.import-progress__fill {
+  display: block;
+  height: 100%;
+  background: var(--color-success);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-default);
+}
+.import-progress__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* --- format reference ---------------------------------------------------- */
+.import-aside .import-formats {
+  border-left: 1px solid var(--color-border-default);
+  padding-left: var(--spacing-lg);
+}
+.import-formats__head {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+.import-formats__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.import-formats__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.import-formats__kind {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+.import-formats__uri {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+/* The scheme is the part you have to get right; the rest is a placeholder. */
+.import-formats__uri b { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+.import-formats__uri em { font-style: normal; color: var(--color-text-tertiary); }
+.import-formats__foot { margin: var(--spacing-md) 0 0; font-size: var(--text-sm); }
+
+/* --- YAML surface -------------------------------------------------------- */
+.import-yaml__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-default);
+  margin-bottom: var(--spacing-md);
+}
+
+@media (max-width: 640px) {
+  .import-options__grid { grid-template-columns: minmax(0, 1fr); }
+  .import-source__bar { grid-template-columns: minmax(0, 1fr); }
+  .import-custom-row { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* ===========================================================================
    Node detail
