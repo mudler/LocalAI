@@ -17,6 +17,7 @@ assert_version() {
 }
 
 assert_version "0.23.0" 'vllm_v="0.23.0"'
+assert_version "0.26.0" '  local vllm_v="0.26.0"'
 assert_version "0.26.0" 'VLLM_VERSION="0.26.0"'
 assert_version "0.26.1" '  VLLM_VERSION = "0.26.1" # comment'
 
