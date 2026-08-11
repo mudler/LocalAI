@@ -24,6 +24,9 @@ var (
 	parseRemoteGGUF                            = func(ctx context.Context, url string) (*gguf.GGUFFile, error) {
 		return gguf.ParseGGUFFileRemote(ctx, url, gguf.SkipLargeMetadata())
 	}
+	parseRemoteGenAudioGGUF = func(ctx context.Context, url string) (*gguf.GGUFFile, error) {
+		return gguf.ParseGGUFFileRemote(ctx, url)
+	}
 )
 
 // SetMTPProbeForTest replaces the remote GGUF header reader and returns a
@@ -32,6 +35,14 @@ func SetMTPProbeForTest(probe func(context.Context, string) (*gguf.GGUFFile, err
 	previous := parseRemoteGGUF
 	parseRemoteGGUF = probe
 	return func() { parseRemoteGGUF = previous }
+}
+
+// SetGenAudioProbeForTest replaces the remote projector header reader and
+// returns a restore function. It must only be called during serial suite setup.
+func SetGenAudioProbeForTest(probe func(context.Context, string) (*gguf.GGUFFile, error)) func() {
+	previous := parseRemoteGenAudioGGUF
+	parseRemoteGenAudioGGUF = probe
+	return func() { parseRemoteGenAudioGGUF = previous }
 }
 
 type LlamaCPPImporter struct{}
@@ -465,7 +476,7 @@ func maybeApplyTTSUsecase(modelConfig *config.ModelConfig, cfg *gallery.ModelCon
 		}
 	}()
 
-	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL)
+	f, err := parseRemoteGenAudioGGUF(ctx, probeURL)
 	if err != nil {
 		xlog.Debug("[tts-importer] failed to read remote mmproj header for gen-audio detection", "uri", probeURL, "error", err)
 		return

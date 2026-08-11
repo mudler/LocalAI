@@ -65,7 +65,11 @@ var _ = BeforeSuite(func() {
 	restoreMTP := importers.SetMTPProbeForTest(func(context.Context, string) (*gguf.GGUFFile, error) {
 		return nil, errors.New("remote GGUF probing disabled in fixture-backed importer tests")
 	})
+	restoreGenAudio := importers.SetGenAudioProbeForTest(func(context.Context, string) (*gguf.GGUFFile, error) {
+		return nil, errors.New("remote GGUF probing disabled in fixture-backed importer tests")
+	})
 	DeferCleanup(func() {
+		restoreGenAudio()
 		restoreMTP()
 		restoreMetadata()
 	})
