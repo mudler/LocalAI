@@ -1280,6 +1280,28 @@ The scheduling algorithm supports **prefix-cache-aware** routing: bias each requ
 
 When the load guard must route away from a warm replica, the frontend emits a forced-disturb event. These events and the reset sent after a successful pressure-triggered scale-up are broadcast over NATS, so the rolling autoscale threshold is cluster-wide rather than per frontend. The Prometheus counter `localai_prefix_cache_forced_disturb_total{model="..."}` records events at their originating frontend; sum it across frontend replicas to inspect cluster pressure without counting the NATS copies.
 
+Backends can report exact KV-cache residency on the `prefixcache.residency`
+NATS subject. The JSON event contract is:
+
+```json
+{
+  "operation": "store",
+  "model": "model-name",
+  "node_id": "worker-id",
+  "replica": 0,
+  "chain": [1203053429005847826, 15485907386658061715]
+}
+```
+
+`operation` is `store`, `remove`, or `clear`. `store` adds the announced
+shallow-to-deep chain for one model replica, `remove` removes only that exact
+announced chain, and `clear` removes all reported residency for that model
+replica (and may omit `chain`). Producers must generate the chain with exactly
+the same windowing and hashing algorithm as the router; hashes from a different
+chain algorithm are not compatible and will never match requests correctly.
+Reported events populate the exact-residency provider, but the guessed provider
+remains the routing default until a backend producer is available.
+
 Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, are tracked under the routing roadmap epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
 
 - **Reported/precise KV-event mode** ([#10064](https://github.com/mudler/LocalAI/issues/10064)): subscribe to actual backend KV-cache events for exact residency instead of inferring it from routing history.

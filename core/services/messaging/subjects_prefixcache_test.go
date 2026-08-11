@@ -12,6 +12,15 @@ var _ = Describe("PrefixCache subjects", func() {
 		Expect(messaging.SubjectPrefixCacheObserve).To(Equal("prefixcache.observe"))
 		Expect(messaging.SubjectPrefixCacheInvalidate).To(Equal("prefixcache.invalidate"))
 		Expect(messaging.SubjectPrefixCachePressure).To(Equal("prefixcache.pressure"))
+		Expect(messaging.SubjectPrefixCacheResidency).To(Equal("prefixcache.residency"))
+	})
+
+	It("defines the reported residency event operations", func() {
+		Expect([]messaging.PrefixCacheOperation{
+			messaging.PrefixCacheStore,
+			messaging.PrefixCacheRemove,
+			messaging.PrefixCacheClear,
+		}).To(Equal([]messaging.PrefixCacheOperation{"store", "remove", "clear"}))
 	})
 
 	It("carries a replica index on the observe event", func() {
