@@ -194,10 +194,10 @@ JSON` : ''
   return (
     <main className="voice-library-page">
       <PageHeader
-        title={<><i className="fas fa-wave-square btn btn-primary fa-plus" aria-hidden="true" /> {t('voiceLibrary.title')}</>}
+        title={<><i className="fas fa-wave-square" aria-hidden="true" /> {t('voiceLibrary.title')}</>}
         supporting={t('voiceLibrary.subtitle')}
         actions={(
-          <Link to="/app/voice-library/new">
+          <Link className="btn btn-primary" to="/app/voice-library/new">
             <i className="fas fa-plus" aria-hidden="true" /> {t('voiceLibrary.actions.create')}
           </Link>
         )}
