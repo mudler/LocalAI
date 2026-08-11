@@ -807,6 +807,26 @@ one installed backend covers TTS (`supertonic`, `vibevoice`, `voxcpm2`, `fish_au
 `irodori_tts`, `moss_tts_local`, `moss_tts_nano`) and voice design (`qwen3_tts`, `irodori_tts`), alongside ASR, VAD,
 diarization and separation.
 
+Higgs Audio v3 is available directly from the model gallery as
+`audio-cpp-higgs-audio-v3`. It uses the Q8_0 GGUF validated by audio.cpp and supports
+expressive multilingual TTS and zero-shot voice cloning. For cloning, pass the path to a
+server-local WAV file in the OpenAI `voice` field. Use only reference audio for which you
+have the necessary rights and consent, and review the model's research and non-commercial
+license before deployment.
+
+```bash
+local-ai models install audio-cpp-higgs-audio-v3
+
+curl http://localhost:8080/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "audio-cpp-higgs-audio-v3",
+    "input": "Welcome to LocalAI.",
+    "voice": "/models/voices/reference.wav"
+  }' \
+  --output higgs.wav
+```
+
 ```yaml
 name: supertonic
 backend: audio-cpp

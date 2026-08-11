@@ -49821,6 +49821,48 @@
     - filename: audio-cpp/supertonic-3-orig.gguf
       sha256: af814486a0bc9513fb36afabd9b1155ad14fb2c36a107ac6ffe62ea9adafb662
       uri: huggingface://audio-cpp/audio.cpp-gguf/Supertonic-3-GGUF/supertonic-3-orig.gguf
+- name: audio-cpp-higgs-audio-v3
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/bosonai/higgs-tts-3-4b
+    - https://huggingface.co/audio-cpp/audio.cpp-gguf
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    Higgs Audio v3 TTS 4B (audio.cpp, Q8_0) - expressive conversational
+    speech in more than 100 languages, with zero-shot voice cloning and inline
+    control over emotion, style, prosody, pauses and sound effects.
+
+    Supply a server-local WAV path in the OpenAI `voice` field to clone a
+    speaker, and use only audio for which you have the necessary rights and
+    consent. The Q8_0 GGUF is the recommended quality and speed balance and is
+    recorded as passing upstream's audio.cpp validation.
+
+    The Boson Higgs TTS 3 Research and Non-Commercial License permits research
+    and non-commercial use. Its creator-use grant and commercial-use terms
+    carry additional conditions; review the model license before deployment.
+  license: other
+  tags:
+    - audio-cpp
+    - higgs-audio
+    - multilingual
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - gguf
+    - ggml
+    - quantized
+  last_checked: "2026-08-11"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+    name: audio-cpp-higgs-audio-v3
+    parameters:
+      model: audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf
+  files:
+    - filename: audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf
+      sha256: b857344af06b1b2497f4f8c1d0f0c134d0eeaf9c089c0d28ae6e58084d90f901
+      uri: huggingface://audio-cpp/audio.cpp-gguf/Higgs-Audio-v3-TTS-4B-GGUF/higgs-audio-v3-tts-4b-q8_0.gguf
 - name: audio-cpp-chatterbox
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
