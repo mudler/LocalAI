@@ -41,7 +41,7 @@ export default function Home() {
   const [mcpAvailable, setMcpAvailable] = useState(false)
   const [mcpServerList, setMcpServerList] = useState([])
   const [mcpServersLoading, setMcpServersLoading] = useState(false)
-  const [mcpServerCache, setMcpServerCache] = useState({})
+  const [mcpServerListError, setMcpServerListError] = useState('')
   const [mcpSelectedServers, setMcpSelectedServers] = useState([])
   const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
   const [assistantAvailable, setAssistantAvailable] = useState(false)
@@ -174,22 +174,21 @@ export default function Home() {
 
   const fetchMcpServers = useCallback(async () => {
     if (!selectedModel) return
-    if (mcpServerCache[selectedModel]) {
-      setMcpServerList(mcpServerCache[selectedModel])
-      return
-    }
     setMcpServersLoading(true)
+    setMcpServerListError('')
     try {
       const data = await mcpApi.listServers(selectedModel)
       const servers = data?.servers || []
       setMcpServerList(servers)
-      setMcpServerCache(prev => ({ ...prev, [selectedModel]: servers }))
-    } catch (_e) {
+      const unavailable = new Set(servers.filter(server => server.error).map(server => server.name))
+      setMcpSelectedServers(prev => prev.filter(name => !unavailable.has(name)))
+    } catch (e) {
       setMcpServerList([])
+      setMcpServerListError(e.body?.message || e.message || 'Failed to discover MCP servers')
     } finally {
       setMcpServersLoading(false)
     }
-  }, [selectedModel, mcpServerCache])
+  }, [selectedModel])
 
   const toggleMcpServer = useCallback((serverName) => {
     setMcpSelectedServers(prev =>
@@ -350,10 +349,11 @@ export default function Home() {
                   serverMCPAvailable={mcpAvailable}
                   mcpServerList={mcpServerList}
                   mcpServersLoading={mcpServersLoading}
+                  serverListError={mcpServerListError}
                   selectedServers={mcpSelectedServers}
                   onToggleServer={toggleMcpServer}
                   onSelectAllServers={() => {
-                    const allNames = mcpServerList.map(s => s.name)
+                    const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
                     const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
                     setMcpSelectedServers(allSelected ? [] : allNames)
                   }}
