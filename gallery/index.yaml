@@ -1,4 +1,65 @@
 ---
+- &twil-lm3
+  name: "twil-lm3-q4"
+  variants:
+    - model: twil-lm3-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+    - https://huggingface.co/webAI-Official/TwIL-LM3
+  description: |
+    TwIL-LM3 is a 3B SmolLM3-based reasoning model specialized for formal
+    logic, entailment, semantic parsing, and Lean formalization. This default
+    entry uses the publisher's recommended Q4_K_M GGUF and supports a 65K-token
+    context window. A higher-quality Q8_0 build is available as a variant.
+  license: "webai-non-commercial-license-ver.-1.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - formal-logic
+    - coding
+  last_checked: "2026-08-12"
+  overrides:
+    backend: llama-cpp
+    context_size: 65536
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/twil-lm3/TwIL-LM3-Q4_K_M.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/twil-lm3/TwIL-LM3-Q4_K_M.gguf
+      uri: huggingface://webAI-Official/TwIL-LM3/TwIL-LM3-Q4_K_M.gguf
+      sha256: e4eb515cceeae304ca4d5bc77447e7635143888afe2a6b37aac45c942dc36f54
+- !!merge <<: *twil-lm3
+  name: "twil-lm3-q8"
+  variants: []
+  description: |
+    TwIL-LM3 in the publisher's near-lossless Q8_0 GGUF format for
+    quality-sensitive use on hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    context_size: 65536
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/twil-lm3/TwIL-LM3-Q8_0.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/twil-lm3/TwIL-LM3-Q8_0.gguf
+      uri: huggingface://webAI-Official/TwIL-LM3/TwIL-LM3-Q8_0.gguf
+      sha256: b6fc209a2b12c6d6d2316d3c3a563276adb7a7f76144c81f12eb2e600b465594
 - &nemotron-3-5-lightning-30b-a3b
   name: "nemotron-3.5-lightning-30b-a3b-q4"
   variants:
