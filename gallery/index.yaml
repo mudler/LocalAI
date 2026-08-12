@@ -7147,6 +7147,82 @@
     - filename: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
       sha256: 50887b60c77ee5c95bc3657814ae993abcab7b2d71868b9af1e84d6badd09a57
       uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/Qwen3.5-35B-A3B-APEX-Quality.gguf
+- &fara1-5-4b
+  name: fara1.5-4b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: fara1.5-4b-q8
+  urls:
+    - https://huggingface.co/microsoft/Fara1.5-4B
+    - https://huggingface.co/bartowski/Fara1.5-4B-GGUF
+  description: |
+    Fara1.5-4B is Microsoft's 4B-parameter multimodal computer-use agent for web browsers, fine-tuned from Qwen3.5-4B. It accepts screenshots and text, emits structured browser actions, supports a 262K-token context, and should be deployed with appropriate sandboxing and user-confirmation controls. This entry uses the recommended Q4_K_M GGUF quantization.
+  license: mit
+  tags:
+    - fara
+    - qwen
+    - qwen3.5
+    - 4b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - computer-use
+    - gpu
+    - cpu
+  last_checked: "2026-08-12"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Fara1.5-4B-GGUF/mmproj-Fara1.5-4B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Fara1.5-4B-GGUF/Fara1.5-4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Fara1.5-4B-GGUF/Fara1.5-4B-Q4_K_M.gguf
+      sha256: aedd3e6ed7071eb0941a9d86de0f35c16f76eedb9e15dbefa2b4a4e5e7838e51
+      uri: huggingface://bartowski/Fara1.5-4B-GGUF/Fara1.5-4B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Fara1.5-4B-GGUF/mmproj-Fara1.5-4B-f16.gguf
+      sha256: 373320845fb5539dd55a66d3faafcd8f123e83a7318334d557a04d604f5ef84d
+      uri: huggingface://bartowski/Fara1.5-4B-GGUF/mmproj-Fara1.5-4B-f16.gguf
+- !!merge <<: *fara1-5-4b
+  name: fara1.5-4b-q8
+  variants: []
+  description: |
+    Fara1.5-4B is Microsoft's 4B-parameter multimodal computer-use agent for web browsers, fine-tuned from Qwen3.5-4B. It accepts screenshots and text, emits structured browser actions, supports a 262K-token context, and should be deployed with appropriate sandboxing and user-confirmation controls. This entry uses the higher-quality Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Fara1.5-4B-GGUF/mmproj-Fara1.5-4B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Fara1.5-4B-GGUF/Fara1.5-4B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Fara1.5-4B-GGUF/Fara1.5-4B-Q8_0.gguf
+      sha256: 943b76f8ff6893c465de5c841e5116941fe87c8863dbb759d386697faa723880
+      uri: huggingface://bartowski/Fara1.5-4B-GGUF/Fara1.5-4B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Fara1.5-4B-GGUF/mmproj-Fara1.5-4B-f16.gguf
+      sha256: 373320845fb5539dd55a66d3faafcd8f123e83a7318334d557a04d604f5ef84d
+      uri: huggingface://bartowski/Fara1.5-4B-GGUF/mmproj-Fara1.5-4B-f16.gguf
 - &fara1-5-9b
   name: fara1.5-9b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
