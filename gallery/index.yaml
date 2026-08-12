@@ -1,4 +1,107 @@
 ---
+- &nemotron-3-5-lightning-30b-a3b
+  name: "nemotron-3.5-lightning-30b-a3b-q4"
+  variants:
+    - model: nemotron-3.5-lightning-30b-a3b-nvfp4
+    - model: nemotron-3.5-lightning-30b-a3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16
+    - https://huggingface.co/ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF
+  description: |
+    NVIDIA Nemotron 3.5 Lightning is a text-only hybrid Mamba-2, attention, and
+    mixture-of-experts model with 30B total parameters and 3B active parameters.
+    It targets reasoning, coding, tool use, multilingual chat, and long-context
+    agent workflows, with a context window of up to one million tokens.
+
+    This entry uses the official Q4_K_M GGUF. Automatic variant selection can
+    choose the smaller NVFP4 build or the higher-quality Q8_0 build when it fits.
+  license: "openmdw-1.1"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - agent
+    - tools
+    - multilingual
+    - long-context
+  last_checked: "2026-08-12"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_K_M.gguf
+      uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_K_M.gguf
+      sha256: 6110e2e2e6cd324e6ee69ddced5a6b34fad6c94ca9827222a1e420fb92e3c90b
+- !!merge <<: *nemotron-3-5-lightning-30b-a3b
+  name: "nemotron-3.5-lightning-30b-a3b-nvfp4"
+  variants: []
+  description: |
+    NVIDIA Nemotron 3.5 Lightning 30B-A3B in the official NVFP4 GGUF format.
+    This is the smallest linked build and retains the model's reasoning, coding,
+    tool-use, multilingual, and long-context capabilities.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
+      temperature: 1.0
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
+      uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
+      sha256: 7827805ae9f2d20cc71e46bf05d9cb045e222d3fa0429363c324bbf6d3cab959
+- !!merge <<: *nemotron-3-5-lightning-30b-a3b
+  name: "nemotron-3.5-lightning-30b-a3b-q8"
+  variants: []
+  description: |
+    NVIDIA Nemotron 3.5 Lightning 30B-A3B in the official high-quality Q8_0
+    GGUF format for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
+      temperature: 1.0
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
+      uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
+      sha256: 8544826247d087745baf4e7540f6911608a61caba7a16702314946af5e4235ae
 - &muse-glimmer-30b
   name: "muse-glimmer-30b"
   variants:
