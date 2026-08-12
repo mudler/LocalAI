@@ -443,6 +443,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)
+	// Remote GGUF probes can transfer substantial metadata. Keep successful
+	// results across restarts so the startup warmer does not repeat that work.
+	vram.ConfigurePersistentCache(filepath.Join(options.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)
 
 	// Fill those caches ahead of the first visitor. An estimate for an entry
 	// nobody has asked about yet costs a remote probe of its weight files, and

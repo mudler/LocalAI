@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/xlog"
 
@@ -457,6 +458,9 @@ func triggerGalleryRefresh(galleries []config.Gallery, systemState *system.Syste
 			galleryGeneration.Add(1)
 		}
 		availableModelsMu.Unlock()
+		if changed {
+			vram.InvalidatePersistentCache()
+		}
 	}()
 }
 
