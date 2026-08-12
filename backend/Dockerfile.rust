@@ -16,7 +16,7 @@ ARG TARGETVARIANT
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \

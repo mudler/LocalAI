@@ -23,7 +23,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # hwdata ships /usr/share/hwdata/pci.ids. Without it, the ghw library we use
 # for hardware detection cannot resolve PCI vendor IDs and fails to enumerate
 # GPUs at all, so the image reports "No GPU detected" (see issue #10941).
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -278,7 +278,7 @@ ARG APT_PORTS_MIRROR
 RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
