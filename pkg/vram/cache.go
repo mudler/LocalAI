@@ -376,7 +376,7 @@ func writePersistentJSON(path string, value any, ttl time.Duration) {
 		return
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 	if _, err = tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		return
