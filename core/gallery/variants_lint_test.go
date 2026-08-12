@@ -534,7 +534,7 @@ var _ = Describe("gallery/index.yaml Higgs Audio entry", func() {
 		Expect(*entry.GetKnownUsecases() & config.FLAG_TTS).To(Equal(config.FLAG_TTS))
 		Expect(entry.AdditionalFiles).To(ConsistOf(gallery.File{
 			Filename: "audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf",
-			SHA256:   "b857344af06b1b2497f4f8c1d0f0c134d0eeaf9c089c0d28ae6e58084d90f901",
+			SHA256:   "79746822045b5bf8f9ab2bda87b16cd3f8ea3d9e319cbcf887a87aa1b537a74a",
 			URI:      "huggingface://audio-cpp/audio.cpp-gguf/Higgs-Audio-v3-TTS-4B-GGUF/higgs-audio-v3-tts-4b-q8_0.gguf",
 		}))
 	})
