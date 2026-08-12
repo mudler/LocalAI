@@ -590,6 +590,11 @@ var _ = Describe("gallery/index.yaml deepseek-v4-flash resolution", Ordered, fun
 		Expect(entryInstallsSomething(*resolved)).To(BeTrue(),
 			"resolved entry %q (variant %q) carries no payload, so InstallModelFromGallery would refuse it",
 			resolved.Name, selected.Model)
+		Expect(resolved.AdditionalFiles).To(ContainElement(gallery.File{
+			Filename: "ds4flash.gguf",
+			SHA256:   "31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c",
+			URI:      "huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf",
+		}), "the base fallback must download the GGUF referenced by parameters.model")
 	})
 
 	// Pinning reaches each target directly, which is what actually proves all

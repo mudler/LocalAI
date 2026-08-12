@@ -2735,8 +2735,8 @@
       use_tokenizer_template: true
   files:
     - filename: ds4flash.gguf
-      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-GGUF
-      sha256: 48de403f8dad31556d81d71892fec929a2f1a57ea3aa3fe1f120b0678c620936
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf
+      sha256: 31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c
 - name: "qwopus3.6-35b-a3b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
