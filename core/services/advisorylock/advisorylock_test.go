@@ -205,6 +205,54 @@ var _ = Describe("AdvisoryLock", func() {
 			<-released
 		})
 
+		It("waits out a short server-side statement_timeout instead of failing with 57014", func() {
+			const lockKey int64 = 705
+
+			// Same shape as the lock_timeout case above, but for the *other*
+			// server-side bound that aborts the very same blocking
+			// pg_advisory_lock() statement. Production roles routinely carry
+			// statement_timeout=60s; a cold model load holds the lock far longer,
+			// so every concurrent caller died with SQLSTATE 57014 ("canceling
+			// statement due to statement timeout") rather than waiting its turn.
+			Expect(db.Exec("ALTER DATABASE testdb SET statement_timeout = '300ms'").Error).ToNot(HaveOccurred())
+			sqlDB, err := db.DB()
+			Expect(err).ToNot(HaveOccurred())
+			// Drop pooled connections so subsequent ones reconnect and inherit
+			// the new database-level statement_timeout default.
+			sqlDB.SetMaxIdleConns(0)
+
+			holding := make(chan struct{})
+			released := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				herr := WithLockCtx(context.Background(), db, lockKey, func() error {
+					close(holding)
+					// Hold well past the 300ms server statement_timeout.
+					time.Sleep(1 * time.Second)
+					return nil
+				})
+				Expect(herr).ToNot(HaveOccurred())
+				close(released)
+			}()
+
+			<-holding // ensure the holder owns the lock before we contend
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			executed := false
+			start := time.Now()
+			werr := WithLockCtx(ctx, db, lockKey, func() error {
+				executed = true
+				return nil
+			})
+			Expect(werr).ToNot(HaveOccurred(),
+				"waiter should wait out the in-progress hold, not fail with statement_timeout (57014)")
+			Expect(executed).To(BeTrue())
+			Expect(time.Since(start)).To(BeNumerically(">=", 400*time.Millisecond),
+				"waiter should have actually waited for the holder to release")
+			<-released
+		})
+
 		It("bounds a deadline-less waiter with the backstop instead of waiting forever", func() {
 			const lockKey int64 = 704
 
