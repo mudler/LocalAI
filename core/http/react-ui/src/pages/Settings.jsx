@@ -482,7 +482,7 @@ export default function Settings() {
               <i className="fas fa-images text-accent" /> Galleries
             </h3>
             <div className="card">
-              <SettingRow label="Autoload Galleries" description="Automatically load model galleries on startup">
+              <SettingRow label="Load and pre-warm galleries on boot" description="Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts">
                 <Toggle checked={settings.autoload_galleries} onChange={(v) => update('autoload_galleries', v)} />
               </SettingRow>
               <SettingRow label="Autoload Backend Galleries" description="Automatically load backend galleries on startup">

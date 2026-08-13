@@ -32,6 +32,20 @@ test.describe('Settings - Backend Logging', () => {
     }
   })
 
+  test('gallery startup loading and pre-warming can be toggled together', async ({ page }) => {
+    const row = page.locator('.form-row', { hasText: 'Load and pre-warm galleries on boot' })
+    await expect(row).toBeVisible()
+
+    const checkbox = row.locator('input[type="checkbox"]')
+    const wasChecked = await checkbox.isChecked()
+    await checkbox.locator('..').click()
+    if (wasChecked) {
+      await expect(checkbox).not.toBeChecked()
+    } else {
+      await expect(checkbox).toBeChecked()
+    }
+  })
+
   test('backend logging toggle can be toggled', async ({ page }) => {
     // Find the checkbox associated with backend logging
     const section = page.locator('div', { has: page.locator('text=Enable Backend Logging') })
