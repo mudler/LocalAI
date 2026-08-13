@@ -369,10 +369,10 @@ var BackendCapabilities = map[string]BackendCapability{
 
 	// --- Image/video generation backends ---
 	"diffusers": {
-		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage, MethodGenerateVideo},
-		PossibleUsecases: []string{UsecaseImage, UsecaseVideo},
+		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage, MethodGenerateVideo, MethodSoundGeneration},
+		PossibleUsecases: []string{UsecaseImage, UsecaseVideo, UsecaseSoundGeneration},
 		DefaultUsecases:  []string{UsecaseImage},
-		Description:      "HuggingFace diffusers — Stable Diffusion, Flux, video generation",
+		Description:      "HuggingFace diffusers — image, video, and sound generation",
 	},
 	"longcat-video": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateVideo},

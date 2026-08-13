@@ -57,6 +57,12 @@ var _ = Describe("BackendCapabilities", func() {
 })
 
 var _ = Describe("GetBackendCapability", func() {
+	It("advertises diffusers sound generation", func() {
+		capability := GetBackendCapability("diffusers")
+		Expect(capability.GRPCMethods).To(ContainElement(MethodSoundGeneration))
+		Expect(capability.PossibleUsecases).To(ContainElement(UsecaseSoundGeneration))
+	})
+
 	It("returns the capability for a known backend", func() {
 		cap := GetBackendCapability("llama-cpp")
 		Expect(cap).NotTo(BeNil())

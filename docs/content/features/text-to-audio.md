@@ -302,6 +302,31 @@ The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound gen
 
 Error responses: `400` for a missing or invalid model or request parameters, and `500` for a backend error during sound generation.
 
+### AudioLDM 2
+
+[AudioLDM 2](https://github.com/haoheliu/AudioLDM2) generates sound effects,
+music, and speech from a text description. Install the gallery model:
+
+```bash
+local-ai models install audioldm2
+```
+
+Generate a WAV file through the sound-generation endpoint:
+
+```bash
+curl http://localhost:8080/v1/sound-generation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "audioldm2",
+    "text": "Waves breaking on a rocky beach during a distant thunderstorm",
+    "duration_seconds": 10
+  }' --output storm.wav
+```
+
+AudioLDM 2 uses the `AudioLDM2Pipeline` from the diffusers backend. The
+`duration_seconds` field maps to the pipeline's `audio_length_in_s` option, and
+`prompt_influence` maps to `guidance_scale`.
+
 #### Configuration
 
 You can configure ACE-Step models with various options:
