@@ -488,6 +488,9 @@ export default function Settings() {
               <SettingRow label="Autoload Backend Galleries" description="Automatically load backend galleries on startup">
                 <Toggle checked={settings.autoload_backend_galleries} onChange={(v) => update('autoload_backend_galleries', v)} />
               </SettingRow>
+              <SettingRow label="Persist remote VRAM estimates" description="Reuse successful remote model metadata probes across restarts; disabled when gallery autoload is off">
+                <Toggle checked={settings.vram_persistent_cache} onChange={(v) => update('vram_persistent_cache', v)} />
+              </SettingRow>
               <div className="mt-sm">
                 <label className="form-label">Model Galleries (JSON)</label>
                 <textarea

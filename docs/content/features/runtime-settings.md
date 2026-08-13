@@ -164,6 +164,7 @@ The `runtime_settings.json` file follows this structure:
   ],
   "autoload_galleries": true,
   "autoload_backend_galleries": true,
+  "vram_persistent_cache": true,
   "api_keys": []
 }
 ```

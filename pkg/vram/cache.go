@@ -18,6 +18,7 @@ const persistentCacheEntryLimit = 4096
 const persistentCacheVersion = 1
 
 var defaultPersistentGuard = &persistentGenerationGuard{}
+var defaultCacheMu sync.RWMutex
 
 // galleryGenFunc returns the current gallery generation counter.
 // When set, cache entries are invalidated when the generation changes.
@@ -40,6 +41,8 @@ func currentGeneration() uint64 {
 // ConfigurePersistentCache replaces the process-wide estimator caches with
 // instances that reuse successful remote probes across server restarts.
 func ConfigurePersistentCache(dir string, ttl time.Duration) {
+	defaultCacheMu.Lock()
+	defer defaultCacheMu.Unlock()
 	removeAbandonedPersistentTemps(dir)
 	prunePersistentEntries(dir, ttl, persistentCacheEntryLimit)
 	guard := &persistentGenerationGuard{dir: dir}
@@ -48,10 +51,22 @@ func ConfigurePersistentCache(dir string, ttl time.Duration) {
 	defaultCachedGGUFReader = newCachedGGUFReaderWithGuard(defaultGGUFReader{}, dir, ttl, guard)
 }
 
+// DisablePersistentCache keeps process-local caching but stops disk reads and writes.
+func DisablePersistentCache() {
+	defaultCacheMu.Lock()
+	defer defaultCacheMu.Unlock()
+	defaultPersistentGuard = &persistentGenerationGuard{}
+	defaultCachedSizeResolver = newCachedSizeResolver(defaultSizeResolver{}, "", 0)
+	defaultCachedGGUFReader = newCachedGGUFReader(defaultGGUFReader{}, "", 0)
+}
+
 // InvalidatePersistentCache removes remote probe results after the gallery
 // changes, including when no estimate is requested before the next restart.
 func InvalidatePersistentCache() {
-	defaultPersistentGuard.invalidate(currentGeneration())
+	defaultCacheMu.RLock()
+	guard := defaultPersistentGuard
+	defaultCacheMu.RUnlock()
+	guard.invalidate(currentGeneration())
 }
 
 func removeAbandonedPersistentTemps(dir string) {
@@ -392,12 +407,16 @@ func writePersistentJSON(path string, value any, ttl time.Duration) {
 // DefaultCachedSizeResolver returns a cached SizeResolver using the default implementation.
 // Entries are invalidated when the gallery generation changes.
 func DefaultCachedSizeResolver() SizeResolver {
+	defaultCacheMu.RLock()
+	defer defaultCacheMu.RUnlock()
 	return defaultCachedSizeResolver
 }
 
 // DefaultCachedGGUFReader returns a cached GGUFMetadataReader using the default implementation.
 // Entries are invalidated when the gallery generation changes.
 func DefaultCachedGGUFReader() GGUFMetadataReader {
+	defaultCacheMu.RLock()
+	defer defaultCacheMu.RUnlock()
 	return defaultCachedGGUFReader
 }
 

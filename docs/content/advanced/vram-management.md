@@ -466,6 +466,10 @@ rather than filling in its own numbers while you watch. The on-disk cache is
 reused after a restart, so frequent restarts do not download the same metadata
 again. Local model files are always inspected directly. The cache keeps at most
 4,096 entries and removes the oldest entries when it reaches that limit.
+Disable **Persist remote VRAM estimates** under **Settings > Galleries**, or set
+`LOCALAI_VRAM_PERSISTENT_CACHE=false`, to keep estimates in memory only. Setting
+`LOCALAI_AUTOLOAD_GALLERIES=false` also disables the startup warmer and the
+persistent cache.
 
 The same warm-up also describes each entry's **variants** - the alternative
 builds of the same weights that the picker offers - because that costs the same
