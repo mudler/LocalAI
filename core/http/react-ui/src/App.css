@@ -4747,10 +4747,14 @@ button.collapsible-header:focus-visible {
   animation: dropdownIn 120ms ease-out;
 }
 .chat-mcp-dropdown-loading,
-.chat-mcp-dropdown-empty {
+.chat-mcp-dropdown-empty,
+.chat-mcp-dropdown-error {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+}
+.chat-mcp-dropdown-error {
+  color: var(--color-error);
 }
 .chat-mcp-dropdown-header {
   display: flex;
@@ -4788,6 +4792,9 @@ button.collapsible-header:focus-visible {
 .chat-mcp-server-item:hover {
   background: var(--color-bg-hover);
 }
+.chat-mcp-server-item--error {
+  cursor: not-allowed;
+}
 .chat-mcp-server-item input[type="checkbox"] {
   flex-shrink: 0;
 }
@@ -4805,9 +4812,32 @@ button.collapsible-header:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.chat-mcp-server-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.chat-mcp-server-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chat-mcp-server-status--connected {
+  background: var(--color-success);
+}
+.chat-mcp-server-status--error {
+  background: var(--color-error);
+}
 .chat-mcp-server-tools {
   font-size: 0.7rem;
   color: var(--color-text-tertiary);
+}
+.chat-mcp-server-error {
+  font-size: 0.7rem;
+  color: var(--color-error);
+  overflow-wrap: anywhere;
 }
 
 /* Client MCP status indicators */

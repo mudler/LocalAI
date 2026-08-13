@@ -752,6 +752,24 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       72,
 		},
 
+		// --- MCP ---
+		"mcp.remote": {
+			Section:     "mcp",
+			Label:       "Remote MCP Servers",
+			Description: "YAML or JSON string containing an mcpServers map of named remote Streamable HTTP endpoints. Each entry requires url; token optionally enables Bearer authentication.",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       130,
+		},
+		"mcp.stdio": {
+			Section:     "mcp",
+			Label:       "MCP STDIO Servers",
+			Description: "YAML or JSON string containing an mcpServers map of named local commands. Each entry requires command and may include args and env.",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       131,
+		},
+
 		// --- TTS ---
 		"tts.voice_cloning": {
 			Section:     "tts",

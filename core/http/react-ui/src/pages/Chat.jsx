@@ -332,7 +332,7 @@ export default function Chat() {
   const [mcpAvailable, setMcpAvailable] = useState(false)
   const [mcpServerList, setMcpServerList] = useState([])
   const [mcpServersLoading, setMcpServersLoading] = useState(false)
-  const [mcpServerCache, setMcpServerCache] = useState({})
+  const [mcpServerListError, setMcpServerListError] = useState('')
   const [mcpPromptList, setMcpPromptList] = useState([])
   const [mcpPromptsLoading, setMcpPromptsLoading] = useState(false)
   const [mcpPromptArgsDialog, setMcpPromptArgsDialog] = useState(null)
@@ -425,22 +425,30 @@ export default function Chat() {
   const fetchMcpServers = useCallback(async () => {
     const model = activeChat?.model
     if (!model) return
-    if (mcpServerCache[model]) {
-      setMcpServerList(mcpServerCache[model])
-      return
-    }
     setMcpServersLoading(true)
+    setMcpServerListError('')
     try {
       const data = await mcpApi.listServers(model)
       const servers = data?.servers || []
       setMcpServerList(servers)
-      setMcpServerCache(prev => ({ ...prev, [model]: servers }))
-    } catch (_e) {
+
+      // A previously selected server may become unavailable between requests.
+      // Remove it from request metadata while leaving it visible with its error.
+      if (activeChat) {
+        const unavailable = new Set(servers.filter(server => server.error).map(server => server.name))
+        const current = activeChat.mcpServers || []
+        const availableSelection = current.filter(name => !unavailable.has(name))
+        if (availableSelection.length !== current.length) {
+          updateChatSettings(activeChat.id, { mcpServers: availableSelection })
+        }
+      }
+    } catch (e) {
       setMcpServerList([])
+      setMcpServerListError(e.body?.message || e.message || 'Failed to discover MCP servers')
     } finally {
       setMcpServersLoading(false)
     }
-  }, [activeChat?.model, mcpServerCache])
+  }, [activeChat, updateChatSettings])
 
   const toggleMcpServer = useCallback((serverName) => {
     if (!activeChat) return
@@ -1465,10 +1473,11 @@ export default function Chat() {
                 serverMCPAvailable={mcpAvailable}
                 mcpServerList={mcpServerList}
                 mcpServersLoading={mcpServersLoading}
+                serverListError={mcpServerListError}
                 selectedServers={activeChat.mcpServers || []}
                 onToggleServer={toggleMcpServer}
                 onSelectAllServers={() => {
-                  const allNames = mcpServerList.map(s => s.name)
+                  const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
                   const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
                   updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
                 }}

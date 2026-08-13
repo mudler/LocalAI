@@ -6,6 +6,7 @@ export default function UnifiedMCPDropdown({
   serverMCPAvailable = false,
   mcpServerList = [],
   mcpServersLoading = false,
+  serverListError = '',
   selectedServers = [],
   onToggleServer,
   onSelectAllServers,
@@ -103,6 +104,7 @@ export default function UnifiedMCPDropdown({
   }, [onClientRemoved])
 
   const totalBadge = (selectedServers?.length || 0) + (clientMCPActiveIds?.length || 0) + (selectedResources?.length || 0)
+  const selectableServers = mcpServerList.filter(server => !server.error)
 
   const tabs = []
   if (serverMCPAvailable) tabs.push({ key: 'servers', label: 'Servers' })
@@ -143,26 +145,38 @@ export default function UnifiedMCPDropdown({
           {activeTab === 'servers' && serverMCPAvailable && (
             mcpServersLoading ? (
               <div className="chat-mcp-dropdown-loading"><i className="fas fa-spinner fa-spin" /> Loading servers...</div>
+            ) : serverListError ? (
+              <div className="chat-mcp-dropdown-error" role="alert">Failed to discover MCP servers: {serverListError}</div>
             ) : mcpServerList.length === 0 ? (
               <div className="chat-mcp-dropdown-empty">No MCP servers configured</div>
             ) : (
               <>
                 <div className="chat-mcp-dropdown-header">
                   <span>MCP Servers</span>
-                  <button type="button" className="chat-mcp-select-all" onClick={onSelectAllServers}>
-                    {mcpServerList.every(s => selectedServers.includes(s.name)) ? 'Deselect all' : 'Select all'}
-                  </button>
+                  {selectableServers.length > 0 && (
+                    <button type="button" className="chat-mcp-select-all" onClick={onSelectAllServers}>
+                      {selectableServers.every(s => selectedServers.includes(s.name)) ? 'Deselect all' : 'Select all'}
+                    </button>
+                  )}
                 </div>
                 {mcpServerList.map(server => (
-                  <label key={server.name} className="chat-mcp-server-item">
+                  <label key={server.name} className={`chat-mcp-server-item${server.error ? ' chat-mcp-server-item--error' : ''}`}>
                     <input
                       type="checkbox"
                       checked={selectedServers.includes(server.name)}
                       onChange={() => onToggleServer(server.name)}
+                      disabled={!!server.error}
                     />
                     <div className="chat-mcp-server-info">
-                      <span className="chat-mcp-server-name">{server.name}</span>
-                      <span className="chat-mcp-server-tools">{server.tools?.length || 0} tools</span>
+                      <span className="chat-mcp-server-name-row">
+                        <span className={`chat-mcp-server-status chat-mcp-server-status--${server.error ? 'error' : 'connected'}`} />
+                        <span className="chat-mcp-server-name">{server.name}</span>
+                      </span>
+                      {server.error ? (
+                        <span className="chat-mcp-server-error" title={server.error}>{server.error}</span>
+                      ) : (
+                        <span className="chat-mcp-server-tools">{server.tools?.length || 0} tools</span>
+                      )}
                     </div>
                   </label>
                 ))}
