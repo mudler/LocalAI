@@ -1,4 +1,81 @@
 ---
+- name: "qwen3.8-2.4t-a95b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF
+  description: |
+    # Qwen3.8-2.4T-A95B
+
+    [](https://chat.qwen.ai/?models=qwen3.8-max)
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with vLLM, SGLang, TokenSpeed, etc.
+
+    > [!Tip]
+    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
+    >
+    > In particular, **Qwen3.8-Max** is the official version based on Qwen3.8-2.4T-A95B with more features, such as vision input & non-thinking support, 1M context length by default, official built-in tools, etc.
+    > For more information, please refer to the Qwen3.8-Max Overview.
+
+    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00001-of-00010.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00001-of-00010.gguf
+      sha256: b7770552b2ac24e7334c917bc92e90e218e87cfe29484db65e62e8ef2a60334d
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00001-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00002-of-00010.gguf
+      sha256: 2765517f833c736338d3ab34354e1c10eb8d79e62325f998285b435e5cf03dcd
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00002-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00003-of-00010.gguf
+      sha256: 43dc39847b3b958080aa93ecccf20fece35c953ce74d62508c8474f256d5beda
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00003-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00004-of-00010.gguf
+      sha256: 24710e6aca650cb3ed13c723dc9a02831e7f84e698e9e553f9aac9eb8e122e20
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00004-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00005-of-00010.gguf
+      sha256: fb6b3e15cc45195f63587d038771ce3990891f96fc2b9f6a024f004c17b2541a
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00005-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00006-of-00010.gguf
+      sha256: c1339e0cc566ae9b15da059e54d5b3c3ff4618b108e739f586d04f55f7de7927
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00006-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00007-of-00010.gguf
+      sha256: 40003ae09858a1503a37537859d07b6fbb04331fa6f601eacf1bf475148e7dc5
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00007-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00008-of-00010.gguf
+      sha256: bcab99291940f3432a03bf93cb98a2556771611e9c126420d2cbbaf63030837d
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00008-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00009-of-00010.gguf
+      sha256: d1a70e92fadddde2d2e40aa756718ee7f8a28eab83b3a5cae97f6b5abe579552
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00009-of-00010.gguf
+    - filename: llama-cpp/models/Qwen3.8-2.4T-A95B-UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00010-of-00010.gguf
+      sha256: 29778abef7a7808ea28854074b0e7c20ec4c9eb7069d9287a02e2815eea6d7f6
+      uri: https://huggingface.co/unsloth/Qwen3.8-2.4T-A95B-GGUF/resolve/main/UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00010-of-00010.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
