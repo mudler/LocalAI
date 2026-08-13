@@ -4,6 +4,9 @@ A test script to test the gRPC service and dynamic loader
 import unittest
 import subprocess
 import time
+import os
+import tempfile
+import wave
 from unittest.mock import patch, MagicMock
 
 # Import dynamic loader for testing (these don't need gRPC)
@@ -373,3 +376,64 @@ class TestGenerateImageOptionsKwargsMerge(unittest.TestCase):
         finally:
             os.unlink(src_file.name)
             os.unlink(dst_file.name)
+
+
+class TestWritePcmWav(unittest.TestCase):
+    def test_writes_clipped_float_samples_as_mono_pcm(self):
+        from audio_utils import write_pcm_wav
+
+        destination = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        destination.close()
+
+        try:
+            write_pcm_wav(destination.name, [0.0, 0.5, -0.5, 2.0], 16000)
+
+            with wave.open(destination.name, "rb") as generated:
+                self.assertEqual(generated.getframerate(), 16000)
+                self.assertEqual(generated.getnchannels(), 1)
+                self.assertEqual(generated.getsampwidth(), 2)
+                self.assertEqual(generated.getnframes(), 4)
+                self.assertEqual(
+                    generated.readframes(4),
+                    b"\x00\x00\x00@\x00\xc0\xff\x7f",
+                )
+        finally:
+            os.unlink(destination.name)
+
+
+@unittest.skipUnless(GRPC_AVAILABLE, "gRPC modules not available")
+class TestSoundGeneration(unittest.TestCase):
+    def test_maps_request_options_and_writes_pipeline_audio(self):
+        from backend import BackendServicer
+
+        service = BackendServicer.__new__(BackendServicer)
+        service.options = {"num_inference_steps": 200.0}
+        service.pipe = MagicMock()
+        service.pipe.return_value.audios = [[0.0, 0.5, -0.5]]
+        service.pipe.vae.config.sampling_rate = 16000
+
+        destination = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        destination.close()
+
+        try:
+            request = backend_pb2.SoundGenerationRequest(
+                text="ocean waves",
+                dst=destination.name,
+                duration=2.5,
+                temperature=0,
+            )
+
+            result = service.SoundGeneration(request, context=None)
+
+            self.assertTrue(result.success, result.message)
+            service.pipe.assert_called_once_with(
+                num_inference_steps=200,
+                prompt="ocean waves",
+                audio_length_in_s=2.5,
+                guidance_scale=0,
+            )
+            with wave.open(destination.name, "rb") as generated:
+                self.assertEqual(generated.getframerate(), 16000)
+                self.assertEqual(generated.getnframes(), 3)
+        finally:
+            os.unlink(destination.name)
