@@ -13108,6 +13108,60 @@
     - filename: mmproj-LFM2-VL-1.6B-F16.gguf
       sha256: b637bfa6060be2bc7503ec23ba48b407843d08c2ca83f52be206ea8563ccbae2
       uri: huggingface://LiquidAI/LFM2-VL-1.6B-GGUF/mmproj-LFM2-VL-1.6B-F16.gguf
+- &lfm2-5-vl-1-6b
+  name: lfm2.5-vl-1.6b
+  url: github:mudler/LocalAI/gallery/lfm.yaml@master
+  variants:
+    - model: lfm2.5-vl-1.6b-q8
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B
+    - https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF
+  description: |
+    LFM2.5-VL-1.6B is Liquid AI's compact vision-language model for edge deployment. It improves instruction following, multilingual vision understanding, OCR, high-resolution images, and multi-image input over LFM2-VL-1.6B. This default entry uses the official Q4_K_M GGUF with the F16 vision projector.
+
+    License: LFM Open License 1.0.
+  license: lfm1.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/61b8e2ba285851687028d395/EsTgVtnM2IqVRKgPdfqcB.png
+  tags:
+    - lfm2.5
+    - liquid
+    - multimodal
+    - vision
+    - vlm
+    - multilingual
+    - gguf
+    - edge
+    - chat
+  last_checked: "2026-08-13"
+  overrides:
+    mmproj: mmproj-LFM2.5-VL-1.6b-F16.gguf
+    parameters:
+      model: LFM2.5-VL-1.6B-Q4_K_M.gguf
+  files:
+    - filename: LFM2.5-VL-1.6B-Q4_K_M.gguf
+      sha256: aefc3c97c9eb30d9c0dd6af4c38250f5f5106b57c8cf92de7914c7d0a9c94da2
+      uri: huggingface://LiquidAI/LFM2.5-VL-1.6B-GGUF/LFM2.5-VL-1.6B-Q4_K_M.gguf
+    - filename: mmproj-LFM2.5-VL-1.6b-F16.gguf
+      sha256: 2cddba98b98390c011c606c416de2e63dcfdd3b21452bf71ad6aab59fa52d2ee
+      uri: huggingface://LiquidAI/LFM2.5-VL-1.6B-GGUF/mmproj-LFM2.5-VL-1.6b-F16.gguf
+- !!merge <<: *lfm2-5-vl-1-6b
+  name: lfm2.5-vl-1.6b-q8
+  variants: []
+  description: |
+    LFM2.5-VL-1.6B in the higher-fidelity Q8_0 GGUF format with the F16 vision projector.
+
+    License: LFM Open License 1.0.
+  overrides:
+    mmproj: mmproj-LFM2.5-VL-1.6b-F16.gguf
+    parameters:
+      model: LFM2.5-VL-1.6B-Q8_0.gguf
+  files:
+    - filename: LFM2.5-VL-1.6B-Q8_0.gguf
+      sha256: a34bd1506a298d7ff07902e69baeac48c7c20bb85162e61218b743dc10be7c67
+      uri: huggingface://LiquidAI/LFM2.5-VL-1.6B-GGUF/LFM2.5-VL-1.6B-Q8_0.gguf
+    - filename: mmproj-LFM2.5-VL-1.6b-F16.gguf
+      sha256: 2cddba98b98390c011c606c416de2e63dcfdd3b21452bf71ad6aab59fa52d2ee
+      uri: huggingface://LiquidAI/LFM2.5-VL-1.6B-GGUF/mmproj-LFM2.5-VL-1.6b-F16.gguf
 - name: lfm2-1.2b
   urls:
     - https://huggingface.co/LiquidAI/LFM2-1.2B
