@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
+from audio_utils import write_pcm_wav
 
 
 # Import dynamic loader for pipeline discovery
@@ -882,6 +883,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         image.save(request.dst, format="PNG")
 
         return backend_pb2.Result(message="Media generated", success=True)
+
+    def SoundGeneration(self, request, context):
+        if not request.dst:
+            return backend_pb2.Result(success=False, message="request.dst is required")
+
+        prompt = request.text or request.caption
+        if not prompt:
+            return backend_pb2.Result(success=False, message="request.text is required")
+
+        try:
+            generation_options = dict(self.options)
+            if "num_inference_steps" in generation_options:
+                generation_options["num_inference_steps"] = int(
+                    generation_options["num_inference_steps"]
+                )
+            generation_options["prompt"] = prompt
+            if request.HasField("duration"):
+                generation_options["audio_length_in_s"] = request.duration
+            if request.HasField("temperature"):
+                generation_options["guidance_scale"] = request.temperature
+
+            generated = self.pipe(**generation_options)
+            if not hasattr(generated, "audios") or len(generated.audios) == 0:
+                return backend_pb2.Result(
+                    success=False,
+                    message="The diffusers pipeline returned no audio",
+                )
+
+            samples = generated.audios[0]
+            if hasattr(samples, "reshape"):
+                samples = samples.reshape(-1)
+            if hasattr(samples, "tolist"):
+                samples = samples.tolist()
+
+            sampling_rate = getattr(
+                getattr(getattr(self.pipe, "vae", None), "config", None),
+                "sampling_rate",
+                16000,
+            )
+            write_pcm_wav(request.dst, samples, sampling_rate)
+            return backend_pb2.Result(success=True, message="Sound generated successfully")
+        except Exception as err:
+            return backend_pb2.Result(success=False, message=f"SoundGeneration error: {err}")
 
     def UpscaleImage(self, request, context):
         try:
