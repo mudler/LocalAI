@@ -9544,6 +9544,510 @@
             - vae/**
     parameters:
       model: meituan-longcat/LongCat-Video-Avatar-1.5
+- name: qwen3.6-27b-nvfp4-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.6-27B in NVFP4, served by vllm.cpp: LocalAI's own C++ port of vLLM, with
+    no Python at inference time. This is the reference text-generation checkpoint
+    the engine is gated on, token-for-token identical to vLLM's own greedy output
+    over the 235-prompt correctness battery, and measured at or above vLLM's
+    throughput at every concurrency from 1 to 32.
+
+    The weights are PINNED to revision 890bdef7. That pin is load-bearing, not
+    housekeeping: the same repository name was later re-quantized to FP8 W8A8
+    throughout, so an unpinned copy of this entry serves entirely different
+    weights with no error and none of the measured behaviour above.
+
+    Needs a Blackwell-class NVIDIA GPU (NVFP4 has no kernel on older
+    architectures) and roughly 25 GB of weights plus KV cache. Tool calling and
+    the thinking split are parsed inside the engine.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3.6
+    - nvfp4
+    - vllm-cpp
+    - tool-calling
+    - reasoning
+    - gpu
+    - cuda
+    - blackwell
+  size: 25GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    # Tool calls and the <think> split are parsed by the engine's own streaming
+    # parsers, so LocalAI's Go-side grammar path stays out of the way.
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      # The 256-block default holds only 8192 tokens; size the cache to the
+      # context this entry advertises across the sequences it admits.
+      block_size: 32
+      num_blocks: 4096
+      max_num_seqs: 8
+      # Both auto-detect correctly from this chat template. Named anyway so the
+      # entry keeps working if the template is ever revised upstream.
+      tool_parser: hermes
+      reasoning_parser: think_auto
+    parameters:
+      model: unsloth/Qwen3.6-27B-NVFP4
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: unsloth/Qwen3.6-27B-NVFP4
+          revision: 890bdef7a42feba6d83b6e17a03315c694112f2a
+- name: qwen3.6-27b-nvfp4-mtp-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.6-27B NVFP4 on vllm.cpp with MTP speculative decoding enabled.
+
+    MTP (Multi-Token Prediction) drafts from a head that ships inside the target
+    checkpoint's own mtp.* tensors, so there is no second model to download and
+    no extra weights to manage. The verifier accepts roughly 85% of drafted
+    tokens on prose and 92% on code, worth about 1.5x to 1.6x the decode
+    throughput of the same weights with speculation off, and it holds that lead
+    at concurrency 2, 4 and 8.
+
+    Same weights and same revision pin as qwen3.6-27b-nvfp4-vllm-cpp; install
+    that entry instead if you would rather not spend the extra memory. The
+    speculative state (a doubled recurrent-state slot plus the draft cache and
+    head) costs roughly 3.6 GB on top of the base footprint.
+
+    MTP here is depth 1 by construction: the engine refuses
+    num_speculative_tokens above 1 for this method.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3.6
+    - nvfp4
+    - vllm-cpp
+    - speculative-decoding
+    - mtp
+    - tool-calling
+    - gpu
+    - cuda
+    - blackwell
+  size: 25GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      num_blocks: 4096
+      max_num_seqs: 8
+      tool_parser: hermes
+      reasoning_parser: think_auto
+      speculative_config:
+        method: mtp
+        num_speculative_tokens: 1
+    parameters:
+      model: unsloth/Qwen3.6-27B-NVFP4
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: unsloth/Qwen3.6-27B-NVFP4
+          revision: 890bdef7a42feba6d83b6e17a03315c694112f2a
+- name: qwen3.6-27b-nvfp4-dflash-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+    - https://huggingface.co/z-lab/Qwen3.6-27B-DFlash
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.6-27B NVFP4 on vllm.cpp with DFlash block-diffusion speculative
+    decoding: the fastest configuration of this model the engine ships.
+
+    Where MTP drafts one token at a time, DFlash drafts a whole 16-token block in
+    a single non-autoregressive pass from a separate 3.5 GB drafter, then the
+    target verifies the block in one step. At concurrency 1 that measures 2.9x
+    the throughput of the same weights with speculation off, and at or above
+    vLLM's own DFlash-on decode.
+
+    Both checkpoints are installed for you: the target as a revision-pinned
+    snapshot, the drafter into models/Qwen3.6-27B-DFlash, which is where the
+    backend looks when speculative_config.model names it. The drafter shares the
+    target's embed_tokens and lm_head, so the two are not independently
+    swappable.
+
+    Needs a Blackwell-class NVIDIA GPU and roughly 28 GB of weights in total.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3.6
+    - nvfp4
+    - vllm-cpp
+    - speculative-decoding
+    - dflash
+    - tool-calling
+    - gpu
+    - cuda
+    - blackwell
+  size: 28GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      num_blocks: 4096
+      max_num_seqs: 8
+      tool_parser: hermes
+      reasoning_parser: think_auto
+      speculative_config:
+        method: dflash
+        # Resolved against LocalAI's models directory by the last path segment,
+        # which is where the files: block below puts the drafter. The engine
+        # itself never downloads a draft.
+        model: z-lab/Qwen3.6-27B-DFlash
+        # Must equal the drafter's own block_size; it is what a DFlash pass
+        # proposes, not a tunable depth.
+        num_speculative_tokens: 16
+    parameters:
+      model: unsloth/Qwen3.6-27B-NVFP4
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: unsloth/Qwen3.6-27B-NVFP4
+          revision: 890bdef7a42feba6d83b6e17a03315c694112f2a
+  files:
+    - filename: Qwen3.6-27B-DFlash/config.json
+      sha256: fcdec9ee2da902d24e69ba3fc666e50a0aa723147689ffc900f425db0381bc54
+      uri: huggingface://z-lab/Qwen3.6-27B-DFlash/config.json
+    - filename: Qwen3.6-27B-DFlash/model.safetensors
+      sha256: e0c050b34798d32728a164d2c3f1681746ff85c11945701b0205b654e2f1fdbe
+      uri: huggingface://z-lab/Qwen3.6-27B-DFlash/model.safetensors
+- name: qwen3.6-35b-a3b-nvfp4-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.6-35B-A3B in NVFP4, served by vllm.cpp. A 35B mixture-of-experts model
+    with roughly 3B parameters active per token, so it reads like a much larger
+    model while costing about as much per token as a small one.
+
+    This is the engine's gated MoE checkpoint: token-for-token identical to vLLM
+    over the 315-prompt battery on both the synchronous and asynchronous paths,
+    at 0.92x to 0.97x vLLM's throughput from concurrency 1 to 32.
+
+    The architecture is a gated-delta-net hybrid, so automatic prefix caching is
+    off by default here where it would be on for a dense model. That is the
+    engine's own default and this entry does not override it.
+
+    Needs a Blackwell-class NVIDIA GPU and roughly 23 GB of weights plus KV cache.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3.6
+    - moe
+    - nvfp4
+    - vllm-cpp
+    - tool-calling
+    - reasoning
+    - gpu
+    - cuda
+    - blackwell
+  size: 23GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      num_blocks: 4096
+      max_num_seqs: 8
+      tool_parser: hermes
+      reasoning_parser: think_auto
+    parameters:
+      model: nvidia/Qwen3.6-35B-A3B-NVFP4
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: nvidia/Qwen3.6-35B-A3B-NVFP4
+- name: qwen3.6-35b-a3b-nvfp4-mtp-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.6-35B-A3B NVFP4 on vllm.cpp with MTP speculative decoding enabled.
+
+    The draft head ships inside the checkpoint's own mtp.* tensors, so there is
+    no second model to download. On this model the speculative path is
+    token-exact against speculation-off on both the synchronous and asynchronous
+    schedulers.
+
+    Same weights as qwen3.6-35b-a3b-nvfp4-vllm-cpp; install that entry instead if
+    you would rather not spend the extra memory on speculative state. MTP is
+    depth 1 by construction on this engine.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3.6
+    - moe
+    - nvfp4
+    - vllm-cpp
+    - speculative-decoding
+    - mtp
+    - tool-calling
+    - gpu
+    - cuda
+    - blackwell
+  size: 23GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      num_blocks: 4096
+      max_num_seqs: 8
+      tool_parser: hermes
+      reasoning_parser: think_auto
+      speculative_config:
+        method: mtp
+        num_speculative_tokens: 1
+    parameters:
+      model: nvidia/Qwen3.6-35B-A3B-NVFP4
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: nvidia/Qwen3.6-35B-A3B-NVFP4
+- name: qwen3-coder-30b-a3b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3-Coder-30B-A3B on vllm.cpp: a coding and agentic-tool-use model, 30B
+    total parameters with about 3B active per token, gated token-exact against
+    vLLM on this engine.
+
+    The tool-call parser is named explicitly rather than auto-detected, and that
+    matters here. Qwen3-Coder's tool dialect is byte-identical on the wire to
+    another family's, so template sniffing cannot separate the two and would fall
+    back to the wrong parser. With qwen3_coder named, tool calls arrive as real
+    tool_calls on the OpenAI response.
+
+    This is the bf16 checkpoint, roughly 57 GB of weights, which is what the
+    engine was gated on. Being bf16 rather than NVFP4 it does not need Blackwell
+    on its own account, but LocalAI's CUDA images for this backend are currently
+    built for Blackwell-family GPUs only, so on an older card use the CPU build.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3
+    - coder
+    - code
+    - moe
+    - vllm-cpp
+    - tool-calling
+    - gpu
+    - cuda
+  size: 57GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      num_blocks: 2048
+      max_num_seqs: 4
+      # Required, not a preference: this dialect is not distinguishable from
+      # step3p5's by chat-template sniffing, so auto-detection picks wrong.
+      tool_parser: qwen3_coder
+    parameters:
+      model: Qwen/Qwen3-Coder-30B-A3B-Instruct
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-Coder-30B-A3B-Instruct
+- name: qwen3-4b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-4B
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3-4B on vllm.cpp, in bf16. The small end of the engine's gated dense
+    family, which reaches parity with vLLM on every axis at concurrency 1.
+
+    bf16 rather than NVFP4 on purpose: this is the entry that runs where the
+    flagship NVFP4 checkpoints cannot, including Apple Silicon via Metal, Vulkan
+    and plain CPU. Roughly 8 GB of weights, plus about 4.5 GB of KV cache at the
+    context configured here.
+
+    Tool calling and the thinking split are parsed inside the engine.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3
+    - vllm-cpp
+    - tool-calling
+    - reasoning
+    - cpu
+    - gpu
+  size: 8GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      # One full context of KV (32768 tokens), which is 4.5 GB on this model's
+      # 144 KiB/token. Deliberately modest: this is the entry that has to fit
+      # alongside other work on a small box. Raise it if you have the memory.
+      num_blocks: 1024
+      max_num_seqs: 8
+      tool_parser: hermes
+      reasoning_parser: think_auto
+    parameters:
+      model: Qwen/Qwen3-4B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-4B
+- name: qwen3-0.6b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-0.6B
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3-0.6B on vllm.cpp, in bf16. Roughly 1.4 GB of weights, which makes it
+    the cheapest way to confirm a vllm-cpp install actually serves before
+    committing disk and memory to one of the large checkpoints.
+
+    It runs anywhere the backend does, CPU included, and it is a real chat model
+    rather than a stub, so tool calling and the thinking split can be exercised
+    on it too.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  tags:
+    - llm
+    - qwen
+    - qwen3
+    - vllm-cpp
+    - tool-calling
+    - reasoning
+    - cpu
+    - gpu
+  size: 1.4GB
+  last_checked: "2026-08-13"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 32768
+    engine_args:
+      block_size: 32
+      num_blocks: 1024
+      max_num_seqs: 8
+      tool_parser: hermes
+      reasoning_parser: think_auto
+    parameters:
+      model: Qwen/Qwen3-0.6B
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-0.6B
 - name: minimax-h3-fl2va-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
