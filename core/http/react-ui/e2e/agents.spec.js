@@ -13,6 +13,16 @@ test.describe('Agents page', () => {
     await expect(page.getByRole('button', { name: 'Create Agent' }).first()).toBeVisible()
   })
 
+  test('keeps Import Agent visible when agents exist', async ({ page }) => {
+    await page.route('**/api/agents', route => route.fulfill({
+      json: { agents: ['existing-agent'], statuses: { 'existing-agent': true } },
+    }))
+    await page.reload()
+
+    await expect(page.getByText('existing-agent', { exact: true })).toBeVisible()
+    await expect(page.locator('.header-actions label', { hasText: 'Import Agent' })).toBeVisible()
+  })
+
   test('Create Agent navigates to the agent creation form', async ({ page }) => {
     const create = page.getByRole('button', { name: 'Create Agent' }).last()
     await create.scrollIntoViewIfNeeded()
