@@ -10,8 +10,13 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-      - IMAGE_TYPE=core
-      - BASE_IMAGE=ubuntu:24.04
+        IMAGE_TYPE: core
+        BASE_IMAGE: ubuntu:24.04
+        BUILD_TYPE: cublas
+        CUDA_MAJOR_VERSION: "13"
+        GO_TAGS: auth
+        # Equivalent to DOCKER_MAKEFLAGS=-j24 when using `make docker`.
+        MAKEFLAGS: -j24
     ports:
       - 8080:8080
     env_file:
