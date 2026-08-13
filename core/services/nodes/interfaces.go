@@ -39,6 +39,18 @@ type ModelRouter interface {
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
 	LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error)
+	LoadJobStore
+}
+
+// LoadJobStore is the durable cold-load job record SmartRouter uses to
+// de-duplicate concurrent loaders across replicas without holding the per-model
+// advisory lock for the whole load. See ModelLoadJob.
+type LoadJobStore interface {
+	ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error)
+	GetLoadJob(ctx context.Context, trackingKey string) (*ModelLoadJob, error)
+	UpdateLoadJob(ctx context.Context, trackingKey string, u LoadJobUpdate) error
+	FailLoadJob(ctx context.Context, trackingKey, msg string) error
+	DeleteLoadJob(ctx context.Context, trackingKey string) error
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that

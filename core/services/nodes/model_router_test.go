@@ -14,6 +14,7 @@ import (
 // --- fakeModelRouterForSmartRouter implements ModelRouter ---
 
 type fakeModelRouterForSmartRouter struct {
+	fakeLoadJobStore
 	mu              sync.Mutex
 	node            *BackendNode
 	nodeModel       *NodeModel
