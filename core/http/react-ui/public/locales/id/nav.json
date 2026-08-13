@@ -52,6 +52,7 @@
     "users": "Pengguna",
     "middleware": "Middleware",
     "backends": "Backend",
+    "voiceLibrary": "Pustaka Suara",
     "traces": "Trace",
     "nodes": "Node",
     "scheduling": "Penjadwalan",
