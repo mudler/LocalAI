@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -153,6 +154,18 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		append(voiceMw, requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VoiceIdentifyRequest) }))...)
 	// Forget does not load a voice model — it only needs the registry.
 	router.POST("/v1/voice/forget", localai.VoiceForgetEndpoint(app.VoiceRegistry()))
+
+	// Progress of an in-flight cold load. Standard auth only: it explains a 503
+	// the caller just received, so gating it behind admin (or a per-modality
+	// feature) would hide the explanation from exactly the client that needs it.
+	// Resolved per request, not at registration: distributed services are wired
+	// during startup and a snapshot taken here could be nil forever.
+	router.GET("/api/models/:id/load-status", localai.ModelLoadStatusEndpoint(func() nodes.LoadJobStore {
+		if d := app.Distributed(); d != nil && d.Registry != nil {
+			return d.Registry
+		}
+		return nil
+	}))
 
 	voiceProfiles := app.VoiceProfileStore()
 	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
@@ -309,6 +322,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"config_patch":        "/api/models/config-json/:name",
 				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
 				"vram_estimate":       "/api/models/vram-estimate",
+				"model_load_status":   "/api/models/:id/load-status",
 				"tts":                 "/tts",
 				"voice_profiles":      "/api/voice-profiles",
 				"transcription":       "/v1/audio/transcriptions",
@@ -344,6 +358,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"import":       "/models/import",
 					"reload":       "/models/reload",
 					"list_aliases": "/api/aliases",
+					"load_status":  "/api/models/:id/load-status",
 				},
 				"ai_functions": map[string]string{
 					"tts":            "/tts",
