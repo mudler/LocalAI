@@ -59,7 +59,9 @@ backend/rust/*/target
 backend-images
 local-backends
 local-ai
+.claude
 .crush
+.tools
 protoc
 tests
 
