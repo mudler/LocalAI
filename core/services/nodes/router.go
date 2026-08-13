@@ -105,6 +105,11 @@ type SmartRouterOptions struct {
 	// arriving, so a peer trickling bytes forever cannot pin the advisory lock
 	// indefinitely. Zero selects modelLoadAbsoluteMax (24h).
 	ModelLoadAbsoluteMax time.Duration
+	// ModelLoadWait bounds how long a REQUEST waits for a cold load that is
+	// already running before it is answered with live progress. It bounds the
+	// caller, never the load: the job keeps running either way. Zero selects
+	// config.DefaultModelLoadWait; config.ModelLoadWaitUnbounded waits forever.
+	ModelLoadWait time.Duration
 }
 
 // modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
@@ -187,6 +192,9 @@ type SmartRouter struct {
 	// hard countdown into a progress-extended hold (see load_deadline.go).
 	stagingStallWindow   time.Duration
 	modelLoadAbsoluteMax time.Duration
+	// modelLoadWait bounds the REQUEST's wait for a running cold load, not the
+	// load itself (see SmartRouterOptions.ModelLoadWait).
+	modelLoadWait time.Duration
 	// loadWaiters is one broadcast channel per model being cold-loaded, closed
 	// when the job reaches a terminal state. Same-model waiters all want the
 	// identical outcome, so they share one wait instead of queueing. See
@@ -244,6 +252,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		// ceiling, so nothing to normalize here.
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
+		modelLoadWait:        opts.ModelLoadWait,
 		loadWaiters:          map[string]chan struct{}{},
 	}
 }

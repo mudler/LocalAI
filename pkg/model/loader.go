@@ -469,7 +469,10 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 		modelFile := filepath.Join(ml.ModelPath, modelFileName)
 		model, err := loader(modelID, modelName, modelFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to route model with internal loader: %s", err)
+			// %w, not %s: the router reports a still-loading model as a typed
+			// error that the HTTP layer turns into 503 plus live progress, and
+			// that only survives an unbroken chain.
+			return nil, fmt.Errorf("failed to route model with internal loader: %w", err)
 		}
 		if model == nil {
 			return nil, fmt.Errorf("loader didn't return a model")

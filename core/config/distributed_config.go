@@ -82,6 +82,16 @@ type DistributedConfig struct {
 	// pipeline init, which for a multi-tens-of-GB diffusion/video checkpoint on
 	// unified memory can far exceed the 5m default.
 	ModelLoadTimeout time.Duration // gRPC deadline for remote LoadModel (default 5m)
+	// ModelLoadWait bounds how long an inference request waits for a model that
+	// is being cold-loaded before it is answered with 503 plus live progress. A
+	// held HTTP request cannot survive real infrastructure — an ingress or LB
+	// idle timeout kills a 20-minute request regardless of what LocalAI does —
+	// so the wait is bounded by default.
+	//
+	// Zero means unset (DefaultModelLoadWait applies); ModelLoadWaitUnbounded
+	// records the operator asking for unbounded waiting with
+	// LOCALAI_MODEL_LOAD_WAIT=0.
+	ModelLoadWait time.Duration
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
@@ -315,6 +325,18 @@ func WithModelLoadTimeout(d time.Duration) AppOption {
 	}
 }
 
+// WithModelLoadWait sets how long a request waits for a cold-loading model. A
+// zero d records the operator asking for unbounded waiting: "set the knob to
+// zero" cannot sensibly mean "use the default".
+func WithModelLoadWait(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if d == 0 {
+			d = ModelLoadWaitUnbounded
+		}
+		o.Distributed.ModelLoadWait = d
+	}
+}
+
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
@@ -379,6 +401,7 @@ const (
 	FlagBackendInstallTimeout = "backend-install-timeout"
 	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
 	FlagModelLoadTimeout      = "model-load-timeout"
+	FlagModelLoadWait         = "model-load-wait"
 	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
 	// the warning the check emits while disabled, so the operator reading a
 	// log line knows exactly which knob produced it.
@@ -397,7 +420,18 @@ const (
 	DefaultBackendInstallTimeout = 15 * time.Minute
 	DefaultBackendUpgradeTimeout = 15 * time.Minute
 	DefaultModelLoadTimeout      = 5 * time.Minute
+	// DefaultModelLoadWait is how long a request waits for a cold-loading model
+	// before it is answered with 503 and live progress. Chosen to sit under the
+	// idle timeout of typical ingress/LB defaults, so the answer comes from
+	// LocalAI (with progress the client can act on) rather than from a proxy
+	// dropping the connection.
+	DefaultModelLoadWait = 60 * time.Second
 )
+
+// ModelLoadWaitUnbounded records LOCALAI_MODEL_LOAD_WAIT=0 — "wait as long as
+// it takes" — which a plain zero cannot express, since zero also means "unset,
+// use the default". Only deployments with no proxy in front should use it.
+const ModelLoadWaitUnbounded = -1 * time.Second
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
 const DefaultMaxUploadSize int64 = 50 << 30

@@ -75,6 +75,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
+| *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -110,6 +111,48 @@ That base is the hold's *starting* budget, not its maximum. Because the derived 
 While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all — on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard — so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
 
 An absolute cap of 24h ends the hold even if progress keeps arriving, so a degenerate peer trickling a few bytes at a time cannot pin the lock forever. No configuration is needed for either value; both are sized well above any legitimate transfer.
+
+### Requests for a model that is still loading
+
+A cold load in distributed mode is a long-running background job: install the backend, stage multi-GB model files to the worker, then load the checkpoint. Staging a 35.7 GB GGUF onto a fresh worker takes roughly twenty minutes on a fast LAN — far longer than any HTTP request can be held open.
+
+So the load does **not** run on the request. The first request for an unloaded model claims a durable **model load job** — that claim takes milliseconds and is the only part that holds the per-model advisory lock — and the job then runs in the background on the frontend replica that claimed it. Every other request for the same model, on any replica, attaches to that job as a waiter:
+
+- It is **served the moment the model is ready**, with no client-side retry. A model already 90% staged usually needs no second request.
+- It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
+- If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
+- If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
+
+When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the request is answered with `503`, a `Retry-After` header, and a body that says exactly where the load is:
+
+```json
+{
+  "error": {
+    "message": "model Qwen3.6-27B-MTP-GGUF is staging on node nvidia-thor (41%, ETA ~11m)",
+    "type": "model_loading",
+    "code": "model_loading"
+  },
+  "loading": {
+    "model": "Qwen3.6-27B-MTP-GGUF",
+    "state": "staging",
+    "node": "nvidia-thor",
+    "progress": 41.2,
+    "bytes_sent": 14730000000,
+    "total_bytes": 35776484480,
+    "file_index": 1,
+    "total_files": 2,
+    "eta_seconds": 660
+  }
+}
+```
+
+The `error` envelope keeps OpenAI clients working unchanged; `loading` is additive, so a client that understands it renders progress instead of an error. `eta_seconds` is derived from the job's own observed transfer rate and is **omitted rather than guessed** until enough bytes have moved for that rate to mean anything — a confidently wrong ETA on a twenty-minute wait is worse than none. `state` is one of `pending` (choosing a node), `installing`, `staging` (transferring files) or `loading` (the worker is reading the checkpoint).
+
+The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
+
+{{% notice note %}}
+A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
+{{% /notice %}}
 
 ### NATS JWT authentication (recommended for production)
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/xlog"
 )
 
@@ -24,6 +25,18 @@ const maxColdLoadRounds = 3
 // staging run pinned it for ~20 minutes and every concurrent request died at
 // the role's 60s statement_timeout with SQLSTATE 57014.
 func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*RouteResult, error) {
+	// A held HTTP request cannot survive real infrastructure: an ingress or LB
+	// idle timeout kills a twenty-minute request regardless of what LocalAI
+	// does. So the wait is bounded, and expiry produces a structured answer
+	// carrying live progress rather than letting the connection die anonymously.
+	budget := r.loadWaitBudget()
+	waitCtx := ctx
+	if budget > 0 {
+		var cancelWait context.CancelFunc
+		waitCtx, cancelWait = context.WithTimeout(ctx, budget)
+		defer cancelWait()
+	}
+
 	for range maxColdLoadRounds {
 		// Register interest BEFORE claiming, so a job that finishes immediately
 		// cannot close the channel before this waiter exists.
@@ -60,7 +73,12 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 				"model", att.trackingKey, "state", job.State, "node", job.NodeName, "owner", job.OwnerReplica)
 		}
 
-		if err := r.waitForLoadJob(ctx, att.trackingKey, waiter); err != nil {
+		if err := r.waitForLoadJob(waitCtx, att.trackingKey, waiter); err != nil {
+			// The caller's own context is still live, so it was the wait budget
+			// that ran out, not the client giving up: answer with progress.
+			if ctx.Err() == nil && waitCtx.Err() != nil {
+				return nil, r.loadingAnswer(ctx, att.trackingKey, budget)
+			}
 			return nil, err
 		}
 
@@ -71,6 +89,38 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 		}
 	}
 	return nil, fmt.Errorf("loading model %s: the load finished but the model is not available", att.trackingKey)
+}
+
+// loadWaitBudget resolves the configured wait into a duration, where 0 means
+// "no timer — wait as long as the load takes".
+func (r *SmartRouter) loadWaitBudget() time.Duration {
+	switch {
+	case r.modelLoadWait < 0: // LOCALAI_MODEL_LOAD_WAIT=0
+		return 0
+	case r.modelLoadWait == 0: // unset
+		return config.DefaultModelLoadWait
+	default:
+		return r.modelLoadWait
+	}
+}
+
+// loadingAnswer builds the 503 payload for a caller whose wait budget expired,
+// reading the job row for live progress. A job that finished in the meantime
+// leaves nothing to report, so the caller is told to retry against a plain
+// deadline instead.
+func (r *SmartRouter) loadingAnswer(ctx context.Context, trackingKey string, budget time.Duration) error {
+	// The wait context is spent; read on a fresh, short-lived one.
+	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	job, err := r.registry.GetLoadJob(readCtx, trackingKey)
+	if err != nil || job == nil {
+		return fmt.Errorf("timed out waiting for model %s to load", trackingKey)
+	}
+	if job.State == LoadJobStateFailed {
+		return fmt.Errorf("loading model %s: %s", trackingKey, job.LastError)
+	}
+	return newModelLoadingError(job, budget)
 }
 
 // startLoadJob runs the claimed cold load in the background, detached from the
