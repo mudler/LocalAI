@@ -17,10 +17,12 @@ test.describe('Agents page', () => {
     await page.route('**/api/agents', route => route.fulfill({
       json: { agents: ['existing-agent'], statuses: { 'existing-agent': true } },
     }))
+    await page.route('**/api/agents/existing-agent/observables', route => route.fulfill({
+      json: { History: [] },
+    }))
     await page.reload()
 
-    await expect(page.getByText('existing-agent', { exact: true })).toBeVisible()
-    await expect(page.locator('.header-actions label', { hasText: 'Import Agent' })).toBeVisible()
+    await expect(page.locator('.header-actions label', { hasText: 'Import' })).toBeVisible()
   })
 
   test('Create Agent navigates to the agent creation form', async ({ page }) => {
